@@ -1,0 +1,9 @@
+.DS_Store
+*.db
+*.db-shm
+*.db-wal
+__pycache__
+venv
+*.egg-info
+.yarn
+node_modules
