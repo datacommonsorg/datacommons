@@ -1,6 +1,6 @@
 import unittest
 from pathlib import Path
-from datacommons.tools.mcf.mcf import parse_mcf, MCFParseError, Node, PropertyValue
+from datacommons.tools.mcf.mcf import parse_mcf, MCFParseError, McfNode, PropertyValue
 
 class TestMCF(unittest.TestCase):
     def test_basic_mcf_parse(self):

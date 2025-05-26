@@ -1,64 +1,70 @@
+from typing import Any, Dict, List, Union, Optional
+from pydantic import BaseModel, Field, RootModel
 import json
-from typing import List
-from datacommons.tools.mcf.mcf import PropertyValue, Node
 
-def mcf_node_to_jsonld(node: Node, compact = False) -> dict:
-    # Build literal properties
-    props = {
-        key: [{"@type": pv.type, "@value": f"{pv.namespace}:{pv.value}" if pv.type == "reference" else pv.value} for pv in values]
-        for key, values in node.properties.items()
-    }
-    
-    # Assemble node
-    node_dict = {"@id": node.node_id}
-    # Split properties into literal properties and outbound edges
-    properties = {}
-    outbound_edges = {}
-    
-    for key, values in node.properties.items():
-        for pv in values:
-            if pv.type == "reference":
-                if key not in outbound_edges:
-                    outbound_edges[key] = []
-                outbound_edges[key].append({"@id": f"{pv.namespace}:{pv.value}"})
-            else:
-                if key not in properties:
-                    properties[key] = []
-                properties[key].append({
-                    "@type": pv.type,
-                    "@value": pv.get_value()
-                })
-    
-    node_dict["properties"] = properties
-    node_dict["outbound"] = outbound_edges
 
-    # If compact mode requested, simplify the property values
-    if compact:
-      properties = {}
-      outbound_edges = {}
-      
-      for key, values in node.properties.items():
-        for pv in values:
-          if pv.type == "reference":
-            if key not in outbound_edges:
-              outbound_edges[key] = []
-            outbound_edges[key].append(f"{pv.namespace}:{pv.value}")
-          else:
-            if key not in properties:
-              properties[key] = []
-            properties[key].append(pv.get_value())
-      
-      node_dict["properties"] = properties
-      node_dict["outbound"] = outbound_edges
-    return node_dict
+class Context(RootModel):
+  """
+  Represents a JSON-LD context.
+  Can be a dict mapping prefixes or terms to IRIs or definitions.
+  """
+  root: Union[Dict[str, Any], List[Any]]
 
-def build_jsonld_document(nodes: List[Node], compact = False) -> dict:
-    context = {
-        "@version": 1.1,
-        "@vocab": "https://schema.org/",
-        "ex": "http://example.org/vocab/",
-        "properties": {"@id": "ex:properties", "@nest": "@nest"},
-        "outbound": {"@id": "ex:outbound", "@nest": "@nest"}
-    }
-    graph = [mcf_node_to_jsonld(n, compact) for n in nodes]
-    return {"@context": context, "@graph": graph}
+  def dict(self, *args, **kwargs) -> Any:
+    # Return the raw context structure
+    return self.root
+
+
+class JsonLdNode(BaseModel):
+  """
+  Represents an individual node in a JSON-LD graph.
+  Fields other than @id and @type are allowed and stored dynamically.
+  """
+  id: Optional[str] = Field(None, alias="@id")
+  type: Optional[Union[str, List[str]]] = Field(None, alias="@type")
+
+  class Config:
+    allow_population_by_field_name = True
+    extra = 'allow'  # Allow arbitrary properties
+
+  def dict(self, *args, **kwargs) -> Dict[str, Any]:
+    # Serialize with JSON-LD keywords
+    data = super().dict(*args, by_alias=True, **kwargs)
+    return data
+
+
+class JsonLdDocument(BaseModel):
+  """
+  Represents a full JSON-LD document with @context and @graph.
+  """
+  context: Context = Field(..., alias="@context")
+  graph: List[JsonLdNode] = Field(default_factory=list, alias="@graph")
+
+  class Config:
+    allow_population_by_field_name = True
+    extra = 'forbid'
+
+  def to_json(self, **kwargs) -> str:
+    """Serialize the document to a JSON string."""
+    return json.dumps(self.dict(by_alias=True), **kwargs)
+
+  @classmethod
+  def from_json(cls, data: Union[str, Dict[str, Any]]) -> "JsonLdDocument":
+    """Parse a document from a JSON string or dict."""
+    if isinstance(data, str):
+      parsed = json.loads(data)
+    else:
+      parsed = data
+    return cls.parse_obj(parsed)
+
+  @classmethod
+  def load(cls, path: str, **kwargs) -> "JsonLdDocument":
+    """Load a JSON-LD document from a file."""
+    with open(path, 'r', encoding='utf-8') as f:
+      data = json.load(f)
+    return cls.from_json(data)
+
+  def save(self, path: str, **kwargs) -> None:
+    """Save the JSON-LD document to a file."""
+    with open(path, 'w', encoding='utf-8') as f:
+      json.dump(self.dict(by_alias=True), f, **kwargs)

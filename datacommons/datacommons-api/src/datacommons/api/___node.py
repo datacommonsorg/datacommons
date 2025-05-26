@@ -6,7 +6,8 @@ from flask_restx import Resource, fields, Namespace, reqparse
 from datacommons.api.app import api
 from datacommons.db.service import get_nodes_with_edges
 from typing import Dict, List, Union, TypedDict, Optional
-from datacommons.db.models import Node, Edge
+from datacommons.db.models import NodeModel, EdgeModel
+from datacommons.tools.jsonld.jsonld import JsonLdDocument
 
 # API namespaces
 nodes_ns = Namespace('nodes', description='Nodes operations')
@@ -29,28 +30,41 @@ edge_model = api.model('Edge', {
 
 # Node model for Swagger
 node_model = api.model('GraphNode', {
-    '@id': fields.String(required=True, description='The node identifier'),
-    'name': fields.String(required=False, description='Human-readable name of the node'),
-    'types': fields.List(fields.String, required=False, description='List of node types'),
-    'outgoing': fields.Wildcard(fields.Raw, description='Allows any other arbitrary properties'),
-    #'outgoing_edges': fields.List(fields.Nested(edge_model), description='List of outgoing edges')
-
+    '@id': fields.String(required=True, description='The node identifier', example='local:Person'),
+    'name': fields.String(required=False, description='Human-readable name of the node', example='John Doe'),
+    'types': fields.List(fields.String, required=False, description='List of node types', example=['local:Person']),
+    'outgoing': fields.Wildcard(fields.Raw, description='Allows any other arbitrary properties', example={})
 })
 
 # Response model for the API
-node_response_model = api.model('GraphResponse', {
-    '@context': fields.Raw(required=True, description='JSON-LD context information'),
+jsonld_document_model = api.model('GraphResponse', {
+    '@context': fields.Raw(required=True, description='JSON-LD context information', example={
+        '@vocab': 'http://localhost:5000/schema/local/',
+        'local': 'http://localhost:5000/schema/local/',
+        'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
+        'rdfs': 'http://www.w3.org/2000/01/rdf-schema#',
+        'xsd': 'http://www.w3.org/2001/XMLSchema#',
+        'outgoing': '@nest'
+    }),
     '@graph': fields.List(fields.Nested(node_model), description='List of graph nodes')
 })
 
+create_node_response_model = api.model('CreateNodeResponse', {
+    'success': fields.Boolean(required=True, description='Whether the node was created successfully')
+})
+
 # Constants
-NAMESPACES = {
-    'dc': 'https://datacommons.org/',
-    'schema': 'https://schema.org/',
-    'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
-    'rdfs': 'http://www.w3.org/2000/01/rdf-schema#',
-    'xsd': 'http://www.w3.org/2001/XMLSchema#'
+BASE_NAMESPACES = {
+  'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
+  'rdfs': 'http://www.w3.org/2000/01/rdf-schema#',
+  'xsd': 'http://www.w3.org/2001/XMLSchema#'
 }
+NAMESPACES = {
+  'dc': 'https://datacommons.org/',
+  'schema': 'https://schema.org/',
+}
+LOCAL_NAMESPACE_NAME = "local"
+LOCAL_NAMESPACE_URL = f"http://localhost:5000/schema/{LOCAL_NAMESPACE_NAME}/"
 
 def get_namespaced_id(object_id: str) -> str:
     """
@@ -90,7 +104,7 @@ class TransformedNode(TypedDict):
     types: Optional[List[str]]
     # Dynamic properties will be added based on predicates
 
-def transform_node_to_api_format(node: Node) -> Dict[str, Union[str, List[str], Dict[str, str]]]:
+def transform_node_to_api_format(node: NodeModel) -> Dict[str, Union[str, List[str], Dict[str, str]]]:
     """
     Transform a SQLAlchemy Node with its edges into the API format.
     Outgoing edges are flattened into properties where the predicate becomes the property name
@@ -140,7 +154,7 @@ def transform_node_to_api_format(node: Node) -> Dict[str, Union[str, List[str], 
 @nodes_ns.route('/')
 class NodesAPI(Resource):
     @nodes_ns.doc('get_nodes')
-    @nodes_ns.marshal_with(node_response_model)
+    @nodes_ns.marshal_with(jsonld_document_model)
     def get(self):
         """Get the entire graph"""
         # Get query parameters
@@ -157,9 +171,28 @@ class NodesAPI(Resource):
         
         return {
             '@context': {
-                # '@vocab': 'https://schema.org/',
-                NAMESPACES['dc']: NAMESPACES['dc'],
-                NAMESPACES['schema']: NAMESPACES['schema']
+                '@vocab': LOCAL_NAMESPACE_URL,
+                LOCAL_NAMESPACE_NAME: LOCAL_NAMESPACE_URL,
+                **BASE_NAMESPACES,
+                'outgoing': "@nest"
             },
             '@graph': transformed_nodes
+        }
+    
+    @nodes_ns.doc('post_nodes')
+    @nodes_ns.expect(jsonld_document_model)
+    @nodes_ns.marshal_with(create_node_response_model)
+    def post(self):
+        """Create a new node"""
+        # Parse JSON-LD request body
+        data = request.json
+        print(data)
+
+        jsonld_doc = JsonLdDocument.from_json(data)
+
+        print(jsonld_doc)
+
+        # Validate request body
+        return {
+            "success": True
         }

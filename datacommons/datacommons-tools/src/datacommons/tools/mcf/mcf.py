@@ -59,7 +59,7 @@ class PropertyValue:
       return cls(type='reference', value=value, namespace='dc')
 
 @dataclass
-class Node:
+class McfNode:
   node_id: str
   properties: Dict[str, List[PropertyValue]] = None
 
@@ -74,7 +74,7 @@ class Node:
     self.properties[key] = property_values
 
 
-def parse_mcf(content: Union[str, Path]) -> List[Node]:
+def parse_mcf(content: Union[str, Path]) -> List[McfNode]:
   """Parse MCF content and return list of Node objects
   
   Args:
@@ -113,7 +113,7 @@ def parse_mcf(content: Union[str, Path]) -> List[Node]:
   return nodes
 
 
-def parse_node_block(block: str) -> Node:
+def parse_node_block(block: str) -> McfNode:
   """Parse a node block and return a Node object"""
   # Parse lines in block
   all_lines = block.strip().split('\n')
@@ -142,7 +142,7 @@ def parse_node_block(block: str) -> Node:
         raise MCFParseError("Node ID cannot be empty")
       if node is not None:
         raise MCFParseError("Multiple Node declarations in single block")
-      node = Node(value)
+      node = McfNode(value)
       continue
     
     # Ensure we have a current node
