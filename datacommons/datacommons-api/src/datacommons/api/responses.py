@@ -6,3 +6,4 @@ class UpdateResponse(BaseModel):
   """
   success: bool
   message: str
+

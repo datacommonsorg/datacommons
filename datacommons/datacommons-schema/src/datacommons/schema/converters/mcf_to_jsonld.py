@@ -1,10 +1,11 @@
 import json
 from typing import List
-from datacommons.tools.mcf.mcf import PropertyValue, McfNode
+from datacommons.schema.models.mcf import McfNode
+from datacommons.schema.models.jsonld import GraphNode, JSONLDDocument
 
-def mcf_node_to_jsonld(node: McfNode, compact = False) -> dict:
+def mcf_node_to_jsonld(node: McfNode, compact = False) -> GraphNode:
   # Assemble node
-  node_dict = {"@id": node.node_id}
+  graph_node = GraphNode(id=node.node_id)
   # Split properties into literal properties and outbound edges
   properties = {}
   outbound_edges = {}
@@ -23,8 +24,8 @@ def mcf_node_to_jsonld(node: McfNode, compact = False) -> dict:
           "@value": pv.get_value()
         })
   
-  node_dict["properties"] = properties
-  node_dict["outbound"] = outbound_edges
+  graph_node.properties = properties
+  graph_node.outbound = outbound_edges
 
   # If compact mode requested, simplify the property values
   if compact:
@@ -42,11 +43,11 @@ def mcf_node_to_jsonld(node: McfNode, compact = False) -> dict:
             properties[key] = []
           properties[key].append(pv.get_value())
     
-    node_dict["properties"] = properties
-    node_dict["outbound"] = outbound_edges
-  return node_dict
+    graph_node.properties = properties
+    graph_node.outbound = outbound_edges
+  return graph_node
 
-def build_jsonld_document(nodes: List[McfNode], compact = False) -> dict:
+def mcf_nodes_to_jsonld(nodes: List[McfNode], compact = False) -> JSONLDDocument:
   context = {
     "@version": 1.1,
     "@vocab": "https://schema.org/",
@@ -54,5 +55,8 @@ def build_jsonld_document(nodes: List[McfNode], compact = False) -> dict:
     "properties": {"@id": "ex:properties", "@nest": "@nest"},
     "outbound": {"@id": "ex:outbound", "@nest": "@nest"}
   }
-  graph = [mcf_node_to_jsonld(n, compact) for n in nodes]
-  return {"@context": context, "@graph": graph}
+  graph_nodes = [mcf_node_to_jsonld(n, compact) for n in nodes]
+  return JSONLDDocument(**{
+    "@context": context,
+    "@graph": graph_nodes
+  })

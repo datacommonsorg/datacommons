@@ -1,6 +1,6 @@
 import click
-from datacommons.tools.mcf.mcf import parse_mcf
-from datacommons.tools.jsonld.jsonld import build_jsonld_document
+from datacommons.schema.parsers.mcf_parser import parse_mcf_string
+from datacommons.schema.converters.mcf_to_jsonld import mcf_nodes_to_jsonld
 
 @click.group()
 def cli():
@@ -20,22 +20,21 @@ def mcf2jsonld(mcf_file, namespace, outfile, compact=False):
   # Read MCF file
   with open(mcf_file, 'r') as f:
     mcf_content = f.read()
-
   # Convert nodes to JSONLD
-  mcf_nodes = parse_mcf(mcf_content)
-  jsonld = build_jsonld_document(mcf_nodes, compact=compact)
+  mcf_nodes = parse_mcf_string(mcf_content)
+  jsonld = mcf_nodes_to_jsonld(mcf_nodes, compact=compact)
   
   # Add namespace if provided
   if namespace:
     try:
       ns_prefix, ns_url = namespace.split(':', 1)
-      jsonld["@context"][ns_prefix] = ns_url
+      jsonld.context[ns_prefix] = ns_url
     except ValueError:
       click.echo(f"Error: Invalid namespace format. Expected format: prefix:url", err=True)
       sys.exit(1)
 
   # Convert to formatted JSON string
-  output = json.dumps(jsonld, indent=2)
+  output = jsonld.model_dump_json(indent=2)
 
   # Write to file or stdout
   if outfile:

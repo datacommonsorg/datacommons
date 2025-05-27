@@ -7,7 +7,7 @@ from datacommons.api.app import api
 from datacommons.db.service import get_nodes_with_edges
 from typing import Dict, List, Union, TypedDict, Optional
 from datacommons.db.models import NodeModel, EdgeModel
-from datacommons.tools.jsonld.jsonld import JsonLdDocument
+from datacommons.schema.models.jsonld import JsonLdDocument
 
 # API namespaces
 nodes_ns = Namespace('nodes', description='Nodes operations')

@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "datacommons-tools"
+name = "datacommons-schema"
 dynamic = ["version"]
-description = 'Data Commons Tools'
+description = 'Data Commons Schema'
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -24,6 +24,7 @@ classifiers = [
 dependencies = [
   "click",
   "pydantic",
+  "pytest"
 ]
 
 [project.urls]
@@ -33,7 +34,7 @@ Source = "https://github.com/datacommonsorg/datacommons"
 
 [project.scripts]
 # this makes a console script called `your-project`
-datacommons-tools = "datacommons.tools.tools_cli:cli"
+datacommons-schema = "datacommons.schema.schema_cli:cli"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/datacommons"]
@@ -42,5 +43,5 @@ packages = ["src/datacommons"]
 allow-direct-references = true
 
 [tool.hatch.version]
-path = "src/datacommons/tools/__init__.py"
+path = "src/datacommons/schema/__init__.py"
 
