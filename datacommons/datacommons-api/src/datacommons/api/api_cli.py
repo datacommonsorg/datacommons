@@ -3,7 +3,10 @@ import uvicorn
 from .app import app
 from datacommons.db.spanner import initialize_db
 from .config import get_config
+from .logging import setup_logging, get_logger
 
+setup_logging()
+logger = get_logger(__name__)
 
 @click.command()
 @click.option("--host", default="127.0.0.1", help="Host to bind to.")
@@ -11,16 +14,17 @@ from .config import get_config
 @click.option("--reload", is_flag=True, help="Enable auto-reload.")
 def main(host: str, port: int, reload: bool):
   """Start the FastAPI app with Uvicorn."""
-  #   # Initialize the database
+  logger.info("Starting Data Commons...")
   config = get_config()
 
   # Initialize the database
-  print("Initializing database...")
+  logger.info("Initializing database...")
   initialize_db(
       config.SPANNER_PROJECT_ID,
       config.SPANNER_INSTANCE_ID,
       config.SPANNER_DATABASE_NAME
   )
+  logger.info("Starting API server...")
   uvicorn.run(
     app,
     host=host,

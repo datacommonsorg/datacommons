@@ -29,8 +29,8 @@ class EdgeModel(Base):
     predicate = sa.Column(String(1024), primary_key=True)
     object_id = sa.Column(String(1024), primary_key=True)
     object_value = sa.Column(Text(), nullable=True)
-    object_hash = sa.Column(String(64), primary_key=True)
-    provenance = sa.Column(String(1024), primary_key=True)
+    object_hash = sa.Column(String(64), primary_key=True, nullable=True)
+    provenance = sa.Column(String(1024), primary_key=True, nullable=True)
     # Use deferred to avoid loading the node data into memory
     object_value_tokenlist = deferred(sa.Column(Text(), nullable=True)) #  TOKENLIST is a Spanner type, but represented as String in SQLAlchemy
 

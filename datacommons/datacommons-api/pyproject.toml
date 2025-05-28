@@ -22,15 +22,12 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-  # "flask",
-  # "flask-restx",
-  # "flask-jwt-extended",
   "fastapi>=0.95.0",
   "uvicorn[standard]>=0.22.0",
   "sqlalchemy>=2.0.0",
   "pydantic>=2.0.0",
   "datacommons-db @ {root:uri}/../datacommons-db",
-  "datacommons-tools @ {root:uri}/../datacommons-tools",
+  "datacommons-schema @ {root:uri}/../datacommons-schema",
 ]
 
 [project.urls]
@@ -55,5 +52,5 @@ path = "src/datacommons/api/__init__.py"
 [tool.hatch.envs.default]
 post-install-commands = [
   "pip install -e ../datacommons-db",
-  "pip install -e ../datacommons-tools",
+  "pip install -e ../datacommons-schema",
 ]

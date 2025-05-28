@@ -36,5 +36,5 @@ config = {
 
 def get_config() -> Config:
     """Get the appropriate configuration object based on environment."""
-    env = os.getenv('APP_ENV', 'default')  # Using APP_ENV instead of FLASK_ENV
+    env = os.getenv('APP_ENV', 'default')
     return config[env]()  # Instantiate the config class

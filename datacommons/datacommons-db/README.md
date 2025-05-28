@@ -1,11 +1,11 @@
 # Data Commons Database Module
 
-This module provides the database layer for the Data Commons project, implementing a graph database using Google Cloud Spanner and SQLAlchemy. It handles the storage and retrieval of nodes, edges, and observations in a graph structure.
+This module provides the database models for the Data Commons project, implementing a graph database using Google Cloud Spanner and SQLAlchemy. It defines the core data models for nodes, edges, and observations in a graph structure.
 
 ## Features
 
-- Graph database implementation using Google Cloud Spanner
 - SQLAlchemy ORM models for nodes, edges, and observations
+- Graph database implementation using Google Cloud Spanner
 - JSON-LD document support for data import/export
 - Efficient querying with proper indexing
 - Relationship management between nodes and edges
@@ -13,21 +13,21 @@ This module provides the database layer for the Data Commons project, implementi
 
 ## Data Model
 
-### Node Model
+### NodeModel
 - Primary key: `subject_id` (String)
 - Properties:
   - `name` (Text)
   - `types` (Array of Strings)
 - Relationships:
-  - `outgoing_edges`: One-to-many relationship with Edge model
+  - `outgoing_edges`: One-to-many relationship with EdgeModel
 
-### Edge Model
+### EdgeModel
 - Composite primary key: (`subject_id`, `predicate`, `object_id`, `object_hash`, `provenance`)
 - Properties:
   - `object_value` (Text)
   - `object_value_tokenlist` (Text, full-text search)
 - Relationships:
-  - `source_node`: Many-to-one relationship with Node model
+  - `source_node`: Many-to-one relationship with NodeModel
 - Indexes:
   - `EdgeByObjectValue`: Index on `object_value` for efficient lookups
 
@@ -46,29 +46,23 @@ This module provides the database layer for the Data Commons project, implementi
 ### Basic Setup
 
 ```python
-from datacommons.db.spanner import get_spanner_session
-from datacommons.db.service import GraphService
+from sqlalchemy import create_engine
+from datacommons.db.models import NodeModel, EdgeModel, Observation
 
-# Initialize database session
-db = get_spanner_session(project_id, instance_id, database_name)
+# Initialize database connection
+engine = create_engine('spanner:///projects/your-project/instances/your-instance/databases/your-database')
 
-# Create service instance
-graph_service = GraphService(db)
+# Create tables
+Base.metadata.create_all(engine)
 
-# Query nodes
-nodes = graph_service.get_graph_nodes(limit=100, type_filter="Person")
+# Create a session
+from sqlalchemy.orm import sessionmaker
+Session = sessionmaker(bind=engine)
+session = Session()
 
-# Insert nodes from JSON-LD
-graph_service.insert_graph_nodes(jsonld_document)
+# Example: Query nodes
+nodes = session.query(NodeModel).filter(NodeModel.types.contains(['Person'])).limit(100).all()
 ```
-
-### JSON-LD Support
-
-The module includes built-in support for JSON-LD format:
-- Automatic namespace handling
-- Conversion between database models and JSON-LD format
-- Support for provenance tracking
-- Nested property handling
 
 ## Namespaces
 
@@ -90,7 +84,6 @@ The module supports several predefined namespaces:
 
 - SQLAlchemy
 - Google Cloud Spanner
-- Pydantic (for JSON-LD schema validation)
 
 ## Contributing
 
