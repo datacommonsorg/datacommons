@@ -4,7 +4,7 @@ import logging
 from sqlalchemy import text
 from sqlalchemy.orm import joinedload, Session
 from datacommons.db.models import NodeModel, EdgeModel
-from datacommons.schema.models.jsonld import GraphNode, JSONLDDocument, EdgeValue
+from datacommons.schema.models.jsonld import GraphNode, JSONLDDocument, GraphNodePropertyValue
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -116,9 +116,9 @@ def extract_edges_from_node(graph_node: GraphNode) -> List[EdgeModel]:
     edge_values = edge_values if isinstance(edge_values, list) else [edge_values]
     
     for edge_value in edge_values:
-      # If the edge value is a dictionary, parse it as an EdgeValue
+      # If the edge value is a dictionary, parse it as a GraphNodePropertyValue
       if isinstance(edge_value, dict):
-        edge_graph_node = EdgeValue.model_validate(edge_value)
+        edge_graph_node = GraphNodePropertyValue.model_validate(edge_value)
         edge = create_edge_model(
           subject_id=graph_node.id,
           predicate=predicate,
@@ -140,7 +140,7 @@ def node_model_to_graph_node(node: NodeModel) -> GraphNode:
   Transform a SQLAlchemy Node into a JSON-LD GraphNode.
   
   Outgoing edges are transformed into properties where the predicate becomes the property name
-  and the value is wrapped in an EdgeValue object that includes provenance.
+  and the value is wrapped in a GraphNodePropertyValue object that includes provenance.
   
   Args:
     node: The SQLAlchemy Node instance to transform

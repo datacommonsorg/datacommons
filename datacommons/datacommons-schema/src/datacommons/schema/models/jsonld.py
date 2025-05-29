@@ -2,7 +2,7 @@ from typing import Dict, List, Any, Union, Optional, Annotated
 from pydantic import BaseModel, Field, ConfigDict
 
 # Define the possible types for arbitrary fields
-class EdgeValue(BaseModel):
+class GraphNodePropertyValue(BaseModel):
   """Represents a value with provenance in a GraphNode edge"""
   id: Optional[str] = Field(None, alias='@id')
   value: Optional[str] = Field(None, alias='@value')
@@ -29,18 +29,20 @@ class GraphNode(BaseModel):
     # Process arbitrary fields to ensure they match our expected types
     processed_data = {}
     for key, value in data.items():
+      # Process named fields
       if key in ['@id', '@type']:
         processed_data[key] = value
+      # Process arbitrary property fields
       else:
         processed_data[key] = self._process_field_value(value)
     super().__init__(**processed_data)
 
-  def _process_field_value(self, value: Any) -> Union[EdgeValue, List[EdgeValue]]:
+  def _process_field_value(self, value: Any) -> Union[GraphNodePropertyValue, List[GraphNodePropertyValue]]:
     """Process field values to ensure they match our expected types."""
 
-    # If the value is a dict and has @value, @provenance, or @id, return an EdgeValue
+    # If the value is a dict and has @value, @provenance, or @id, return a GraphNodePropertyValue
     if isinstance(value, dict):
-      return EdgeValue(**value)
+      return GraphNodePropertyValue(**value)
     elif isinstance(value, list):
       return [self._process_field_value(item) for item in value]
     return value
