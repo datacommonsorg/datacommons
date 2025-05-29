@@ -1,4 +1,5 @@
 import click
+import sys
 from datacommons.schema.parsers.mcf_parser import parse_mcf_string
 from datacommons.schema.converters.mcf_to_jsonld import mcf_nodes_to_jsonld
 
@@ -14,9 +15,6 @@ def cli():
 @click.option('--compact', '-c', is_flag=True, help='Compact JSONLD output')
 def mcf2jsonld(mcf_file, namespace, outfile, compact=False):
   """Convert MCF file to JSONLD format"""
-  import sys
-  import json
-  
   # Read MCF file
   with open(mcf_file, 'r') as f:
     mcf_content = f.read()

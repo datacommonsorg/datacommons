@@ -1,13 +1,5 @@
 import os
 
-PROJECT_ID = "datcom-website-dev"
-INSTANCE_ID = "dan-dc2-dc-spanner"
-DATABASE_NAME = "dc-spanner-db"
-
-#PROJECT_ID = "datcom-store"
-#INSTANCE_ID = "dc-kg-test"
-#DATABASE_NAME = "dc_graph_6"
-
 class Config:
     """Base configuration."""
     # Database settings

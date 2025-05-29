@@ -37,7 +37,7 @@ Source = "https://github.com/datacommonsorg/datacommons"
 
 [project.scripts]
 # this makes a console script called `your-project`
-datacommons-api = "datacommons.api.api_cli:main"
+datacommons-api = "datacommons.api.app_cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/datacommons"]

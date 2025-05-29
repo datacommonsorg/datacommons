@@ -1,18 +1,27 @@
+# Standard library imports
 from typing import List, Optional
 import logging
 
+# Third-party imports
 from sqlalchemy import text
 from sqlalchemy.orm import joinedload, Session
-from datacommons.db.models import NodeModel, EdgeModel
-from datacommons.schema.models.jsonld import GraphNode, JSONLDDocument, GraphNodePropertyValue
+
+# Local application imports
+from datacommons.db.models.node import NodeModel
+from datacommons.db.models.edge import EdgeModel
+from datacommons.schema.models.jsonld import (
+    GraphNode,
+    JSONLDDocument,
+    GraphNodePropertyValue
+)
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 
-class DataCommonsValidationError(Exception):
+class GraphServiceError(Exception):
   """
-  Custom exception for validation errors in DataCommons operations.
+  Custom exception for errors in GraphService operations.
   """
   pass
 
@@ -88,11 +97,10 @@ def create_edge_model(
     # If the edge value is a string, use the subject id as the object id
     edge.object_id = subject_id
   if not object_id and not object_value:
-    raise DataCommonsValidationError(
+    raise GraphServiceError(
       f"Missing object_id or object_value for edge {subject_id} {predicate}"
     )
   return edge
-
 
 
 def extract_edges_from_node(graph_node: GraphNode) -> List[EdgeModel]:
@@ -181,7 +189,7 @@ def node_model_to_graph_node(node: NodeModel) -> GraphNode:
   
   return GraphNode(**graph_node_properties)
 
-class DbService:
+class GraphService:
   """
   Service for managing graph database operations.
   
@@ -197,7 +205,7 @@ class DbService:
       session: SQLAlchemy session for database operations
     """
     self.session = session
-    logger.info("Initialized DbService with new session")
+    logger.info("Initialized GraphService with new session")
   
   def get_graph_nodes(self, limit: int = 100, type_filter: Optional[str] = None) -> JSONLDDocument:
     """
@@ -277,11 +285,8 @@ class DbService:
     
     logger.info(f"Inserting {len(nodes)} nodes and {len(edges)} edges")
     
-    # Insert nodes first
+    # Add all nodes and edges to the session
     self.session.add_all(nodes)
-    self.session.flush()  # Flush to get node IDs
-    
-    # Then insert edges
     self.session.add_all(edges)
     
     # Commit the transaction

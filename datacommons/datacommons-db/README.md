@@ -47,7 +47,8 @@ This module provides the database models for the Data Commons project, implement
 
 ```python
 from sqlalchemy import create_engine
-from datacommons.db.models import NodeModel, EdgeModel, Observation
+from datacommons.db.models.node import NodeModel
+from datacommons.db.models.edge import EdgeModel
 
 # Initialize database connection
 engine = create_engine('spanner:///projects/your-project/instances/your-instance/databases/your-database')

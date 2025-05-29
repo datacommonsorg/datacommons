@@ -1,9 +1,9 @@
 import click
 import uvicorn
 from .app import app
-from datacommons.db.spanner import initialize_db
-from .config import get_config
-from .logging import setup_logging, get_logger
+from datacommons.db.session import initialize_db
+from .core.config import get_config
+from .core.logging import setup_logging, get_logger
 
 setup_logging()
 logger = get_logger(__name__)
