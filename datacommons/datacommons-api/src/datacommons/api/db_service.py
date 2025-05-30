@@ -7,8 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import joinedload, Session
 
 # Local application imports
-from datacommons.db.models.node import NodeModel
-from datacommons.db.models.edge import EdgeModel
+from datacommons.db.models import NodeModel, EdgeModel
 from datacommons.schema.models.jsonld import (
     GraphNode,
     JSONLDDocument,
@@ -19,9 +18,9 @@ from datacommons.schema.models.jsonld import (
 logger = logging.getLogger(__name__)
 
 
-class GraphServiceError(Exception):
+class DataCommonsValidationError(Exception):
   """
-  Custom exception for errors in GraphService operations.
+  Custom exception for validation errors in DataCommons operations.
   """
   pass
 
@@ -97,10 +96,11 @@ def create_edge_model(
     # If the edge value is a string, use the subject id as the object id
     edge.object_id = subject_id
   if not object_id and not object_value:
-    raise GraphServiceError(
+    raise DataCommonsValidationError(
       f"Missing object_id or object_value for edge {subject_id} {predicate}"
     )
   return edge
+
 
 
 def extract_edges_from_node(graph_node: GraphNode) -> List[EdgeModel]:
@@ -189,7 +189,7 @@ def node_model_to_graph_node(node: NodeModel) -> GraphNode:
   
   return GraphNode(**graph_node_properties)
 
-class GraphService:
+class DbService:
   """
   Service for managing graph database operations.
   
@@ -205,9 +205,9 @@ class GraphService:
       session: SQLAlchemy session for database operations
     """
     self.session = session
-    logger.info("Initialized GraphService with new session")
+    logger.info("Initialized DbService with new session")
   
-  def get_graph_nodes(self, limit: int = 100, type_filter: Optional[List[str]] = None) -> JSONLDDocument:
+  def get_graph_nodes(self, limit: int = 100, type_filter: Optional[str] = None) -> JSONLDDocument:
     """
     Get nodes with their outgoing edges, and transform them into JSON-LD format.
     
@@ -232,7 +232,7 @@ class GraphService:
       graph=graph_nodes
     )
 
-  def _get_nodes_with_outgoing_edges(self, limit: int = 100, type_filter: Optional[List[str]] = None) -> List[NodeModel]:
+  def _get_nodes_with_outgoing_edges(self, limit: int = 100, type_filter: Optional[str] = None) -> List[NodeModel]:
     """
     Get nodes with their outgoing edges.
     
@@ -246,14 +246,7 @@ class GraphService:
     query = self.session.query(NodeModel)
     
     if type_filter:
-      logger.info(f"Filtering nodes by types: {type_filter}")
-      query = query.filter(text(
-        "EXISTS ("
-        "  SELECT 1 "
-        "    FROM UNNEST(types) AS t "
-        "   WHERE t IN UNNEST(:type_filter)"
-        ")"
-      )).params(type_filter=type_filter)
+      query = query.filter(text(":v IN UNNEST(types)")).params(v=type_filter)
     
     # Load outgoing edges
     query = query.options(

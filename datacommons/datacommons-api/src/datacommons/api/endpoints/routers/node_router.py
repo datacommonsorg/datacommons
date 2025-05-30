@@ -1,5 +1,6 @@
 import traceback
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
+from typing import List
 from datacommons.schema.models.jsonld import JSONLDDocument
 from datacommons.api.services.graph_service import GraphService
 from datacommons.api.core.logging import get_logger
@@ -14,14 +15,14 @@ router = APIRouter()
 @router.get("/nodes/", response_model=JSONLDDocument, response_model_exclude_none=True)
 def get_nodes(
   limit: int = 100,
-  type: str = None,
+  type_filter: List[str] = Query(None, alias="type", description="Zero or more types"),
   graph_service: GraphService = Depends(with_graph_service)
 ) -> JSONLDDocument:
   """
   Get nodes with their edges
   """
   # Get nodes with their edges
-  response_document = graph_service.get_graph_nodes(limit=limit, type_filter=type)
+  response_document = graph_service.get_graph_nodes(limit=limit, type_filter=type_filter)
   return response_document
 
 @router.post("/nodes/", response_model=UpdateResponse, response_model_exclude_none=True)

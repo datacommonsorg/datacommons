@@ -1,0 +1,69 @@
+{
+  "@context": {
+    "rdf":   "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+    "rdfs":  "http://www.w3.org/2000/01/rdf-schema#",
+    "xsd":   "http://www.w3.org/2001/XMLSchema#",
+    "local": "http://localhost:5000/schema/local/"
+  },
+  "@graph": [
+    {
+      "@id": "local:Li",
+      "@type": "local:Person",
+      "local:name": "Li",
+      "local:friendOf": [
+        {
+          "@id": "local:Sally"
+        }
+      ]
+    },
+    {
+      "@id": "local:Sally",
+      "@type": "local:Person",
+      "local:name": "Sally",
+      "local:friendOf": [
+        {
+          "@id": "local:Li"
+        },
+        {
+          "@id": "local:Maria"
+        },
+        {
+          "@id": "local:John"
+        }
+      ]
+    },
+    {
+      "@id": "local:Maria",
+      "@type": "local:Person",
+      "local:name": "Maria",
+      "local:friendOf": [
+        {
+          "@id": "local:Sally"
+        },
+        {
+          "@id": "local:Natalie"
+        }
+      ]
+    },
+    {
+      "@id": "local:John",
+      "@type": "local:Person",
+      "local:name": "John",
+      "local:friendOf": [
+        {
+          "@id": "local:Sally"
+        }
+      ]
+    },
+    {
+      "@id": "local:Natalie",
+      "@type": "local:Person",
+      "local:name": "Natalie",
+      "local:friendOf": [
+        {
+          "@id": "local:Maria"
+        }
+      ]
+    }
+  ]
+}

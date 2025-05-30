@@ -12,7 +12,7 @@ def with_graph_service() -> Generator[GraphService, None, None]:
     GraphService: A GraphService instance
   """
   config = get_config()
-  db = get_session(config.SPANNER_PROJECT_ID, config.SPANNER_INSTANCE_ID, config.SPANNER_DATABASE_NAME)
+  db = get_session(config.GCP_PROJECT_ID, config.GCP_SPANNER_INSTANCE_ID, config.GCP_SPANNER_DATABASE_NAME)
   graph_service = GraphService(db)
   try:
     yield graph_service
