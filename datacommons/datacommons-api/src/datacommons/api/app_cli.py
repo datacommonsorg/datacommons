@@ -19,9 +19,6 @@ def main(host: str, port: int, reload: bool):
 
   # Initialize the database
   logger.info("Initializing database...")
-  if not config.GCP_PROJECT_ID or not config.GCP_SPANNER_INSTANCE_ID or not config.GCP_SPANNER_DATABASE_NAME:
-    logger.error("Environment variables GCP_PROJECT_ID, GCP_SPANNER_INSTANCE_ID, and GCP_SPANNER_DATABASE_NAME must be set")
-    return
   initialize_db(
       config.GCP_PROJECT_ID,
       config.GCP_SPANNER_INSTANCE_ID,

@@ -35,7 +35,7 @@ class TestMCF(unittest.TestCase):
     prop: value1
     """
     with self.assertRaises(MCFParseError):
-      parse_mcf_string(mcf)
+      list(parse_mcf_string(mcf))
 
   def test_single_node_per_block(self):
     mcf = """
@@ -58,6 +58,14 @@ class TestMCF(unittest.TestCase):
     self.assertEqual(nodes[0].properties["prop"][0].get_value(), "dc:value1")
     self.assertEqual(nodes[0].properties["prop"][1].get_value(), "dc:value2")
     self.assertEqual(nodes[0].properties["prop"][2].get_value(), "dc:value3")
+
+  def test_node_with_illegal_quotes(self):
+    mcf = """
+    Node: Example
+    prop: "unclosed string
+    """
+    with self.assertRaises(MCFParseError):
+      list(parse_mcf_string(mcf))
 
   def test_property_value_types(self):
     mcf = """

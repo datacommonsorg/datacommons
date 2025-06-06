@@ -17,7 +17,7 @@ Before you begin, ensure you have the following installed:
 - [Python](https://www.python.org/downloads/) 3.11 or higher
 - [Hatch](https://hatch.pypa.io/latest/) (Python project manager)
 - A Google Cloud Platform (GCP) project with Cloud Spanner enabled
-- A Cloud Spanner instance and database for storing the knowledge graph
+- A Cloud Spanner instance and database (using Google Standard SQL) for storing the knowledge graph
 
 ### Installing Hatch
 
@@ -54,6 +54,17 @@ cd datacommons/datacommons-api
 hatch env create
 ```
 
+#### Enter the Hatch Shell
+
+Activate the project's environment to run local commands. All subsequent commands should be run inside this shell.
+
+```bash
+hatch shell
+```
+
+To exit the shell, type `exit` or press `ctrl+d`
+
+
 #### Configure GCP Spanner Environment Variables
 
 Before starting the server, you need to set up your GCP Spanner environment variables. These are required for the application to connect to your Spanner database. The application will initialize a new database from scratch using these settings:
@@ -71,7 +82,6 @@ Replace the values with your actual GCP project and Spanner instance details. Yo
 From the datacommons/datacommons-api directory, activate our hatch environment and run the `datacommons-api` command to start a local development server.
 
 ```bash
-hatch shell
 datacommons-api
 ```
 
@@ -164,7 +174,7 @@ In a separate terminal from where you started the Data Commons API, upload the s
 
 #### Upload the schema:
 
-From the repository's root `datacommons` directory, run:
+From the repository's root directory, run:
 
 ```bash
 curl -X POST "http://localhost:5000/nodes/" -H "Content-Type: application/json" -d @examples/person-schema.jsonld

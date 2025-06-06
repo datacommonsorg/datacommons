@@ -3,6 +3,7 @@ from typing import List, Optional
 import logging
 
 # Third-party imports
+from datacommons.api.core.constants import DEFAULT_NODE_FETCH_LIMIT
 from sqlalchemy import text
 from sqlalchemy.orm import joinedload, Session
 
@@ -78,7 +79,8 @@ def create_edge_model(
     value_data: The edge value
       - A string literal
       - A GraphNode
-    provenance: Optional provenance information
+    provenance: The ID of a node that is the provenance of the edge
+      TODO: Add an example of a provenance node
     
   Returns:
     An EdgeModel instance
@@ -207,7 +209,7 @@ class GraphService:
     self.session = session
     logger.info("Initialized GraphService with new session")
   
-  def get_graph_nodes(self, limit: int = 100, type_filter: Optional[List[str]] = None) -> JSONLDDocument:
+  def get_graph_nodes(self, limit: int = DEFAULT_NODE_FETCH_LIMIT, type_filter: Optional[List[str]] = None) -> JSONLDDocument:
     """
     Get nodes with their outgoing edges, and transform them into JSON-LD format.
     
@@ -232,7 +234,7 @@ class GraphService:
       graph=graph_nodes
     )
 
-  def _get_nodes_with_outgoing_edges(self, limit: int = 100, type_filter: Optional[List[str]] = None) -> List[NodeModel]:
+  def _get_nodes_with_outgoing_edges(self, limit: int = DEFAULT_NODE_FETCH_LIMIT, type_filter: Optional[List[str]] = None) -> List[NodeModel]:
     """
     Get nodes with their outgoing edges.
     
@@ -267,6 +269,8 @@ class GraphService:
   def insert_graph_nodes(self, jsonld: JSONLDDocument) -> None:
     """
     Insert nodes and edges from a JSON-LD document into the database.
+
+    Raises an exception if the node already exists.
     
     This method processes the JSON-LD document, creating NodeModel and EdgeModel
     instances for each node and its edges. It handles both literal values and

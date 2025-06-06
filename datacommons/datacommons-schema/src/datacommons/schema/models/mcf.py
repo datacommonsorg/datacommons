@@ -80,4 +80,6 @@ class McfNode(BaseModel): # Changed from dataclass to BaseModel
     """Add a property with its values to the node"""
     # Convert string values to PropertyValue objects
     property_values = [PropertyValue.from_string(v) for v in values]
-    self.properties[key] = property_values
+    if key not in self.properties:
+      self.properties[key] = []
+    self.properties[key].extend(property_values)

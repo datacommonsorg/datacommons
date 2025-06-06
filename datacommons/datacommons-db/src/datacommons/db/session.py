@@ -4,6 +4,10 @@ from datacommons.db.models.base import Base
 
 import logging
 
+logger = logging.getLogger(__name__)
+
+REQUIRED_TABLES = ['Edge', 'Node', 'Observation']
+
 def get_engine(project_id: str, instance_id: str, database_name: str) -> Engine:
   """Create and return a SQLAlchemy engine for Cloud Spanner.
   
@@ -48,11 +52,16 @@ def initialize_db(project_id: str, instance_id: str, database_name: str):
   inspector = inspect(engine)
   existing_tables = inspector.get_table_names()
 
+  # Check if all required tables exist
+  missing_tables = [table for table in REQUIRED_TABLES if table not in existing_tables]
+  if missing_tables:
+    logger.warning(f"Missing required tables in database {database_name}: {missing_tables}")
+
   # Only create tables if database is completely empty
-  if not existing_tables:
+  if not existing_tables or missing_tables:
     # Import all models so they are properly initialized with the call to Base.metadata.create_all
     from datacommons.db.models.node import NodeModel
     from datacommons.db.models.edge import EdgeModel
     from datacommons.db.models.observation import ObservationModel
-    logging.info(f"Creating tables in database {database_name}")
+    logging.info(f"Creating tables {REQUIRED_TABLES} in database {database_name}")
     Base.metadata.create_all(engine)

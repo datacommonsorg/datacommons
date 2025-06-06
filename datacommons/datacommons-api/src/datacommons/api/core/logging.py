@@ -1,3 +1,24 @@
+"""
+Provides logging utilities for consistent formatting across the codebase.
+Primary features:
+- Custom formatter that adds ANSI colors to log levels
+- Timezone-aware timestamps with local offset
+- Standardized log format: "LEVEL [logger.name] [YYYY-MM-DD HH:MM:SS±ZZZZ] message"
+
+
+Usage:
+
+```python
+from datacommons.api.core.logging import get_logger
+
+logger = get_logger(__name__)
+
+logger.info("Hello, world!")
+# Output: "INFO [datacommons.api.core.logging] [2021-01-01 12:00:00+0000] Hello, world!"
+```
+
+"""
+
 import logging
 import sys
 from datetime import datetime

@@ -1,4 +1,5 @@
 import traceback
+from datacommons.api.core.constants import DEFAULT_NODE_FETCH_LIMIT
 from fastapi import APIRouter, Depends, Query
 from typing import List
 from datacommons.schema.models.jsonld import JSONLDDocument
@@ -14,7 +15,7 @@ router = APIRouter()
 # JSON-LD endpoint
 @router.get("/nodes/", response_model=JSONLDDocument, response_model_exclude_none=True)
 def get_nodes(
-  limit: int = 100,
+  limit: int = DEFAULT_NODE_FETCH_LIMIT,
   type_filter: List[str] = Query(None, alias="type", description="Zero or more types"),
   graph_service: GraphService = Depends(with_graph_service)
 ) -> JSONLDDocument:

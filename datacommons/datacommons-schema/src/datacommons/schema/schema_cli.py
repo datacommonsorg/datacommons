@@ -5,14 +5,14 @@ from datacommons.schema.converters.mcf_to_jsonld import mcf_nodes_to_jsonld
 
 @click.group()
 def cli():
-  """Data Commons Tools CLI"""
+  """Data Commons Schema Parsing CLI"""
   pass
 
 @cli.command()
 @click.argument('mcf_file', type=click.Path(exists=True))
 @click.option('--namespace', '-n', help='Namespace to inject into JSONLD output (e.g. "schema:https://schema.org/")')
 @click.option('--outfile', '-o', type=click.Path(), help='Output file path (defaults to stdout)')
-@click.option('--compact', '-c', is_flag=True, help='Compact JSONLD output')
+@click.option('--compact', '-c', is_flag=True, help='Output compact JSON-LD format without type information, using only literal values or object references')
 def mcf2jsonld(mcf_file, namespace, outfile, compact=False):
   """Convert MCF file to JSONLD format"""
   # Read MCF file

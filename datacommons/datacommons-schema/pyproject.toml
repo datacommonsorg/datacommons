@@ -33,7 +33,6 @@ Issues = "https://github.com/datacommonsorg/datacommons/issues"
 Source = "https://github.com/datacommonsorg/datacommons"
 
 [project.scripts]
-# this makes a console script called `your-project`
 datacommons-schema = "datacommons.schema.schema_cli:cli"
 
 [tool.hatch.build.targets.wheel]

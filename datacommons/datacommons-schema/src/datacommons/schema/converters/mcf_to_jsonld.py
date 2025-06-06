@@ -5,7 +5,9 @@ from datacommons.schema.models.jsonld import GraphNode, JSONLDDocument
 
 def mcf_node_to_jsonld(node: McfNode, compact = False) -> GraphNode:
   # Assemble node
-  graph_node = GraphNode(id=node.node_id)
+  graph_node = GraphNode(**{
+    "@id": node.node_id
+  })
   # Split properties into literal properties and outbound edges
   properties = {}
   outbound_edges = {}

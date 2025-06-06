@@ -63,7 +63,7 @@ def _process_mcf_block(lines: List[str]) -> McfNode | None:
     return None
   
   node = None
-  for index, line  in enumerate(lines):
+  for index, line in enumerate(lines):
     line = line.strip()
     if not line:
       continue
@@ -105,7 +105,26 @@ def _process_mcf_block(lines: List[str]) -> McfNode | None:
   return node
 
 def _split_preserving_quotes(text: str) -> List[str]:
-  """Split text on commas while preserving quoted strings."""
+  """
+  Splits a string on commas while preserving substrings enclosed in double quotes.
+
+  This function correctly handles quoted sections, ensuring that commas within
+  quotes do not result in a split. It also removes the quotes from the final
+  output and performs basic error checking for mismatched quotes.
+
+  Example:
+    "a, b, c" → ["a", "b", "c"]
+    "a, \"b, c\", d" → ["a", "b, c", "d"]
+
+  Args:
+    text: The string to be split.
+
+  Returns:
+    A list of strings, split by commas, with quotes removed.
+
+  Raises:
+    MCFParseError: If the input string contains unclosed or misplaced quotes.
+  """
   values = []
   current_value = ''
   in_quotes = False
@@ -126,4 +145,9 @@ def _split_preserving_quotes(text: str) -> List[str]:
     
   # Filter out empty values
   values = [v for v in values if v]
+
+  # Check that all quoted values are properly closed
+  for value in values:
+    if value.startswith('"') and not value.endswith('"'):
+      raise MCFParseError(f"Unclosed quote in value: {value}")
   return values
