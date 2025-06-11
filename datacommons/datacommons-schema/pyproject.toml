@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "datacommons-schema"
+dynamic = ["version"]
+description = 'Data Commons Schema'
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+keywords = []
+authors = [
+  { name = "Dan Noble", email = "dwnoble@google.com" },
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+  "click",
+  "pydantic",
+  "pytest"
+]
+
+[project.urls]
+Documentation = "https://github.com/datacommonsorg/datacommons#readme"
+Issues = "https://github.com/datacommonsorg/datacommons/issues"
+Source = "https://github.com/datacommonsorg/datacommons"
+
+[project.scripts]
+datacommons-schema = "datacommons.schema.schema_cli:cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/datacommons"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.version]
+path = "src/datacommons/schema/__init__.py"
+

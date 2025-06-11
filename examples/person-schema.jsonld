@@ -1,0 +1,32 @@
+{
+  "@context": {
+    "rdf":   "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+    "rdfs":  "http://www.w3.org/2000/01/rdf-schema#",
+    "xsd":   "http://www.w3.org/2001/XMLSchema#",
+    "local": "http://localhost:5000/schema/local/"
+  },
+  "@graph": [
+    {
+      "@id": "local:Person",
+      "@type": "rdfs:Class",
+      "rdfs:label":   "Person",
+      "rdfs:comment": "A human being."
+    },
+    {
+      "@id": "local:name",
+      "@type": "rdf:Property",
+      "rdfs:label":       "name",
+      "rdfs:comment":     "The person's name.",
+      "rdfs:domain":      { "@id": "local:Person" },
+      "rdfs:range":       { "@id": "xsd:string" }
+    },
+    {
+      "@id": "local:friendOf",
+      "@type": "rdf:Property",
+      "rdfs:label":       "friend of",
+      "rdfs:comment":     "Links one person to another person they know.",
+      "rdfs:domain":      { "@id": "local:Person" },
+      "rdfs:range":       { "@id": "local:Person" }
+    }
+  ]
+}
