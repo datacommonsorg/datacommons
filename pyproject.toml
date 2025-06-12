@@ -48,3 +48,8 @@ post-install-commands = [
   "pre-commit install"
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# For any file in a "tests" directory or ending in "_test.py",
+# ignore the S101 (assert) and a few other common test-only rules.
+"**/tests/*" = ["S101", "PLR2004"]
+"*_test.py" = ["S101", "PLR2004"]

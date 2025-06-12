@@ -6,4 +6,5 @@ repos:
         name: hatch-ruff
         language: system
         entry: hatch fmt
+        types: [python]
         verbose: true
