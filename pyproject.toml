@@ -1,0 +1,48 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "datacommons"
+dynamic = ["version"]
+description = 'Data Commons is an open source semantic graph database for modeling, querying, and analyzing interconnected data.'
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+keywords = []
+authors = []
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+  "datacommons-api @ {root:uri}/datacommons/datacommons-api",
+]
+
+[project.urls]
+Documentation = "https://github.com/datacommonsorg/datacommons#readme"
+Issues = "https://github.com/datacommonsorg/datacommons/issues"
+Source = "https://github.com/datacommonsorg/datacommons"
+
+[tool.hatch.build.targets.wheel]
+packages = ["datacommons/datacommons-root"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.version]
+path = "datacommons/datacommons-root/__init__.py"
+
+
+# Install dependencies in editable mode for local development
+[tool.hatch.envs.default]
+post-install-commands = [
+  "pip install -e ./datacommons/datacommons-api",
+  "pip install -e ./datacommons/datacommons-db",
+  "pip install -e ./datacommons/datacommons-schema",
+]
+

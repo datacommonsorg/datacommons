@@ -47,10 +47,9 @@ The repository contains three main components:
 - `datacommons-db`: The database layer for storing and querying data
 - `datacommons-schema`: Schema management and validation tools
 
-#### Create a Hatch environment in the datacommons/datacommons-api directory:
+#### Create a Hatch environment
 
 ```bash
-cd datacommons/datacommons-api
 hatch env create
 ```
 
@@ -79,7 +78,7 @@ Replace the values with your actual GCP project and Spanner instance details. Yo
 
 #### Start Data Commons:
 
-From the datacommons/datacommons-api directory, activate our hatch environment and run the `datacommons-api` command to start a local development server.
+Activate our hatch environment and run the `datacommons-api` command to start a local development server.
 
 ```bash
 datacommons-api
