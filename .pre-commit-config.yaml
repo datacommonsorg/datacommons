@@ -6,5 +6,4 @@ repos:
         name: hatch-ruff
         language: system
         entry: hatch fmt
-        pass_filenames: false
         verbose: true
