@@ -21,6 +21,7 @@ classifiers = [
 ]
 dependencies = [
   "datacommons-api @ {root:uri}/datacommons/datacommons-api",
+  "pre-commit"
 ]
 
 [project.urls]
