@@ -45,5 +45,6 @@ post-install-commands = [
   "pip install -e ./datacommons/datacommons-api",
   "pip install -e ./datacommons/datacommons-db",
   "pip install -e ./datacommons/datacommons-schema",
+  "pre-commit install"
 ]
 
