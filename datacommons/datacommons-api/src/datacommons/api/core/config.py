@@ -4,6 +4,13 @@ from datacommons.api.core.logging import get_logger
 
 logger = get_logger(__name__)
 
+# Required environment variables
+REQUIRED_ENV_VARS = [
+  'GCP_PROJECT_ID',
+  'GCP_SPANNER_INSTANCE_ID',
+  'GCP_SPANNER_DATABASE_NAME'
+]
+
 class Config:
   """Base configuration."""
   # Database settings
@@ -29,9 +36,10 @@ config = {
 def validate_config_or_exit(config: Config) -> None:
   """Ensure the configuration is valid"""
   # Ensure GCP Spanner is configured
-  if not config.GCP_PROJECT_ID or not config.GCP_SPANNER_INSTANCE_ID or not config.GCP_SPANNER_DATABASE_NAME:
-    logger.error("Environment variables GCP_PROJECT_ID, GCP_SPANNER_INSTANCE_ID, and GCP_SPANNER_DATABASE_NAME must be set")
-    sys.exit(1)
+  for var in REQUIRED_ENV_VARS:
+    if not getattr(config, var):
+      logger.error(f"Environment variable {var} must be set")
+      sys.exit(1)
 
 def get_config() -> Config:
   """Get the appropriate configuration object based on environment."""
