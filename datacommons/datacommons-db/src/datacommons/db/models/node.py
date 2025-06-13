@@ -16,23 +16,28 @@
 import sqlalchemy as sa
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import ARRAY, String, Text
-from .base import Base
+
+from datacommons.db.models.base import Base
+
 
 class NodeModel(Base):
-  """
-  Represents a node in the graph.
-  """
-  __tablename__ = 'Node'
-  subject_id = sa.Column(String(1024), primary_key=True, autoincrement=False)
-  name = sa.Column(Text(), nullable=True)
-  types = sa.Column(ARRAY(String(1024)), nullable=True)
+    """
+    Represents a node in the graph.
+    """
 
-  # Define both outgoing and incoming relationships
-  outgoing_edges = relationship("EdgeModel", 
-                                foreign_keys="EdgeModel.subject_id", 
-                                back_populates="source_node",
-                                lazy='joined',
-                                cascade="all, delete-orphan")
+    __tablename__ = "Node"
+    subject_id = sa.Column(String(1024), primary_key=True, autoincrement=False)
+    name = sa.Column(Text(), nullable=True)
+    types = sa.Column(ARRAY(String(1024)), nullable=True)
 
-  def __repr__(self):
-    return f"<NodeModel(subject_id='{self.subject_id}', name='{self.name}', types={self.types})>"
+    # Define both outgoing and incoming relationships
+    outgoing_edges = relationship(
+        "EdgeModel",
+        foreign_keys="EdgeModel.subject_id",
+        back_populates="source_node",
+        lazy="joined",
+        cascade="all, delete-orphan",
+    )
+
+    def __repr__(self):
+        return f"<NodeModel(subject_id='{self.subject_id}', name='{self.name}', types={self.types})>"

@@ -36,7 +36,7 @@ packages = ["datacommons/datacommons-root"]
 allow-direct-references = true
 
 [tool.hatch.version]
-path = "datacommons/datacommons-root/__init__.py"
+path = "datacommons/datacommons-root/src/datacommons/__init__.py"
 
 
 # Install dependencies in editable mode for local development
