@@ -1,4 +1,3 @@
-# Formats code with ruff via `hatch fmt`
 repos:
   - repo: local
     hooks:
@@ -8,3 +7,8 @@ repos:
         entry: hatch fmt
         types: [python]
         verbose: true
+      - id: run-tests
+        name: Run Tests
+        entry: hatch test
+        language: system
+        pass_filenames: false
