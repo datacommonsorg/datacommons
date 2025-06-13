@@ -3,16 +3,14 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "datacommons-schema"
+name = "datacommons"
 dynamic = ["version"]
-description = 'Data Commons Schema'
+description = 'Data Commons is an open source semantic graph database for modeling, querying, and analyzing interconnected data.'
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 keywords = []
-authors = [
-  { name = "Dan Noble", email = "dwnoble@google.com" },
-]
+authors = []
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python",
@@ -22,9 +20,8 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-  "click",
-  "pydantic",
-  "pytest"
+  "datacommons-api @ {root:uri}/datacommons/datacommons-api",
+  "pre-commit"
 ]
 
 [project.urls]
@@ -32,17 +29,24 @@ Documentation = "https://github.com/datacommonsorg/datacommons#readme"
 Issues = "https://github.com/datacommonsorg/datacommons/issues"
 Source = "https://github.com/datacommonsorg/datacommons"
 
-[project.scripts]
-datacommons-schema = "datacommons.schema.schema_cli:cli"
-
 [tool.hatch.build.targets.wheel]
-packages = ["src/datacommons"]
+packages = ["datacommons/datacommons-root"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
 
 [tool.hatch.version]
-path = "src/datacommons/schema/__init__.py"
+path = "datacommons/datacommons-root/__init__.py"
+
+
+# Install dependencies in editable mode for local development
+[tool.hatch.envs.default]
+post-install-commands = [
+  "pip install -e ./datacommons/datacommons-api",
+  "pip install -e ./datacommons/datacommons-db",
+  "pip install -e ./datacommons/datacommons-schema",
+  "pre-commit install"
+]
 
 [tool.ruff.lint.per-file-ignores]
 # For any file in a "tests" directory or ending in "_test.py",

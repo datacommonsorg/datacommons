@@ -1,0 +1,10 @@
+# Formats code with ruff via `hatch fmt`
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-format-hatch-settings
+        name: hatch-ruff
+        language: system
+        entry: hatch fmt
+        types: [python]
+        verbose: true
