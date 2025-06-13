@@ -1,5 +1,7 @@
 # Data Commons
 
+[![CI](https://github.com/datacommonsorg/datacommons/actions/workflows/ci.yaml/badge.svg)](https://github.com/datacommonsorg/datacommons/actions/workflows/ci.yaml)
+
 > **Note**: This is an experimental project. For running your own custom Data Commons instance, see [datacommonsorg/website](https://github.com/datacommonsorg/website). For accessing the public Data Commons knowledge graph, please visit [datacommons.org](https://github.com/datacommonsorg/website).
 
 Data Commons is an open source semantic graph database for modeling, querying, and analyzing interconnected data. It implements [RDF](https://www.w3.org/RDF/), [RDFS](https://www.w3.org/TR/rdf-schema/), [OWL](https://www.w3.org/OWL/), and [SHACL](https://www.w3.org/TR/shacl/) standards, with schemas defined in [JSON-LD](https://json-ld.org/) for domain-specific data modeling.

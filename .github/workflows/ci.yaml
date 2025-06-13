@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    # All steps will run for each Python version inside this container
+    container:
+      image: python:${{ matrix.python-version }}-slim
+
+    steps:
+      # Check out the code onto the runner host,
+      # but it's automatically available inside the container.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            pip-${{ runner.os }}-${{ matrix.python-version }}-
+
+      - name: Install Hatch
+        run: pip install --no-cache-dir hatch
+
+      - name: Cache Hatch environments
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/hatch
+          key: hatch-env-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            hatch-env-${{ runner.os }}-${{ matrix.python-version }}-
+
+      - name: Run tests
+        run: |
+          # Enable parallel test execution
+          hatch test --parallel
+        env:
+          # Add environment variables to speed up test execution
+          PYTHONHASHSEED: 0
+          PYTHONUNBUFFERED: 1
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.python-version }}
+          path: |
+            .coverage
+            htmlcov/
+          if-no-files-found: error
