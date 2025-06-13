@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, ci-testing]
   pull_request:
-    branches: [main]
+    branches: [main, ci-testing]
 
 jobs:
   test:
@@ -50,3 +50,13 @@ jobs:
           # Add environment variables to speed up test execution
           PYTHONHASHSEED: 0
           PYTHONUNBUFFERED: 1
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.python-version }}
+          path: |
+            .coverage
+            htmlcov/
+          if-no-files-found: error
