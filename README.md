@@ -53,6 +53,16 @@ The repository contains three main components:
 hatch env create
 ```
 
+#### Run Tests
+
+Run the test suite to verify your setup:
+
+```bash
+hatch test
+```
+
+Tests are also run automatically before pushing changes.
+
 #### Enter the Hatch Shell
 
 Activate the project's environment to run local commands. All subsequent commands should be run inside this shell.

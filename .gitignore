@@ -8,3 +8,4 @@ venv
 .yarn
 node_modules
 .ruff_cache
+.coverage

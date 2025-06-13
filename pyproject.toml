@@ -45,8 +45,12 @@ post-install-commands = [
   "pip install -e ./datacommons/datacommons-api",
   "pip install -e ./datacommons/datacommons-db",
   "pip install -e ./datacommons/datacommons-schema",
-  "pre-commit install"
+  "pre-commit install",
+  "pre-commit install --hook-type pre-push"
 ]
+
+[tool.hatch.envs.hatch-test]
+default-args = []
 
 [tool.ruff.lint.per-file-ignores]
 # For any file in a "tests" directory or ending in "_test.py",
