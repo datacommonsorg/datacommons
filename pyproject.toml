@@ -31,21 +31,21 @@ Issues = "https://github.com/datacommonsorg/datacommons/issues"
 Source = "https://github.com/datacommonsorg/datacommons"
 
 [tool.hatch.build.targets.wheel]
-packages = ["datacommons/datacommons-root"]
+packages = ["packages/datacommons-root"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
 
 [tool.hatch.version]
-path = "datacommons/datacommons-root/src/datacommons/__init__.py"
+path = "packages/datacommons-root/src/datacommons/__init__.py"
 
 
 # Install dependencies in editable mode for local development
 [tool.hatch.envs.default]
 post-install-commands = [
-  "pip install -e ./datacommons/datacommons-api",
-  "pip install -e ./datacommons/datacommons-db",
-  "pip install -e ./datacommons/datacommons-schema",
+  "pip install -e ./packages/datacommons-api",
+  "pip install -e ./packages/datacommons-db",
+  "pip install -e ./packages/datacommons-schema",
   "pre-commit install",
   "pre-commit install --hook-type pre-push"
 ]
