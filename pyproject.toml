@@ -20,8 +20,9 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-  "datacommons-api @ {root:uri}/packages/datacommons-api",
-  "pre-commit"
+  "datacommons-api @ {root:uri}/datacommons/datacommons-api",
+  "pre-commit",
+  "pytest-cov>=4.1.0"
 ]
 
 [project.urls]
@@ -51,6 +52,25 @@ post-install-commands = [
 
 [tool.hatch.envs.hatch-test]
 default-args = []
+
+[tool.pytest.ini_options]
+addopts = "--cov=datacommons --cov-report=term --cov-report=html"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["datacommons"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "pass",
+    "@abstractmethod",
+]
 
 [tool.ruff.lint.per-file-ignores]
 # For any file in a "tests" directory or ending in "_test.py",
