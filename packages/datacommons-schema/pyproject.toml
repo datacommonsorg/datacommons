@@ -1,18 +1,12 @@
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
 [project]
 name = "datacommons-schema"
 dynamic = ["version"]
 description = 'Data Commons Schema'
+license = "Apache-2.0"
 readme = "README.md"
-requires-python = ">=3.11"
-license = "MIT"
+requires-python = ">=3.12,<3.13"
 keywords = []
-authors = [
-  { name = "Dan Noble", email = "dwnoble@google.com" },
-]
+authors = []
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python",
@@ -33,19 +27,11 @@ Issues = "https://github.com/datacommonsorg/datacommons/issues"
 Source = "https://github.com/datacommonsorg/datacommons"
 
 [project.scripts]
-datacommons-schema = "datacommons.schema.schema_cli:cli"
+datacommons-schema = "datacommons_schema.schema_cli:cli"
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/datacommons"]
+[build-system]
+requires = ["uv", "setuptools"]
+build-backend = "setuptools.build_meta"
 
-[tool.hatch.metadata]
-allow-direct-references = true
-
-[tool.hatch.version]
-path = "src/datacommons/schema/__init__.py"
-
-[tool.ruff.lint.per-file-ignores]
-# For any file in a "tests" directory or ending in "_test.py",
-# ignore the S101 (assert) and a few other common test-only rules.
-"**/tests/*" = ["S101", "PLR2004"]
-"*_test.py" = ["S101", "PLR2004"]
+[tool.setuptools.dynamic]
+version = {attr = "datacommons_schema.version.__version__"}

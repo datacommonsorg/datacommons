@@ -60,8 +60,8 @@ The module defines data models for:
 ### Python API
 
 ```python
-from datacommons.schema.parsers.mcf_parser import parse_mcf_string
-from datacommons.schema.converters.mcf_to_jsonld import mcf_nodes_to_jsonld
+from datacommons_schema.parsers.mcf_parser import parse_mcf_string
+from datacommons_schema.converters.mcf_to_jsonld import mcf_nodes_to_jsonld
 
 # Parse MCF content
 mcf_nodes = parse_mcf_string(mcf_content)
