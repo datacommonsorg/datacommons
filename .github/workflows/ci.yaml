@@ -23,11 +23,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-
       - name: Install uv
         run: pip install uv
 
@@ -35,12 +30,10 @@ jobs:
         run: uv sync
 
       - name: Check formatting with Ruff
-        working-directory: packages/datacommons-mcp
         run: uv run ruff format --check
 
       # TODO(dwnoble): Fix formatting issues in datacommons-schema and uncomment these
       #- name: Lint with Ruff
-      #  working-directory: packages/datacommons-mcp
       #  run: uv run ruff check
 
       - name: Run tests
