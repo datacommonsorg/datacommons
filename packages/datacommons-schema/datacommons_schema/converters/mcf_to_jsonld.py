@@ -58,7 +58,9 @@ def mcf_node_to_jsonld(node: McfNode, *, compact: bool = False) -> GraphNode:
     return graph_node
 
 
-def mcf_nodes_to_jsonld(nodes: list[McfNode], *, compact: bool = False) -> JSONLDDocument:
+def mcf_nodes_to_jsonld(
+    nodes: list[McfNode], *, compact: bool = False
+) -> JSONLDDocument:
     context = {
         "@version": 1.1,
         "@vocab": "https://schema.org/",

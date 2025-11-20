@@ -32,7 +32,9 @@ router = APIRouter()
 @router.get("/nodes/", response_model=JSONLDDocument, response_model_exclude_none=True)
 def get_nodes(
     limit: int = DEFAULT_NODE_FETCH_LIMIT,
-    type_filter: Annotated[list[str] | None, Query(alias="type", description="Zero or more types")] = None,
+    type_filter: Annotated[
+        list[str] | None, Query(alias="type", description="Zero or more types")
+    ] = None,
     graph_service: Annotated[GraphService, Depends(with_graph_service)] = None,
 ) -> JSONLDDocument:
     """
@@ -44,12 +46,15 @@ def get_nodes(
 
 @router.post("/nodes/", response_model=UpdateResponse, response_model_exclude_none=True)
 def insert_nodes(
-    jsonld: JSONLDDocument, graph_service: Annotated[GraphService, Depends(with_graph_service)] = None
+    jsonld: JSONLDDocument,
+    graph_service: Annotated[GraphService, Depends(with_graph_service)] = None,
 ) -> UpdateResponse:
     """Insert a JSON-LD document into the database"""
     try:
         graph_service.insert_graph_nodes(jsonld)
-        return UpdateResponse(success=True, message="Inserted %d nodes successfully" % len(jsonld.graph))
+        return UpdateResponse(
+            success=True, message="Inserted %d nodes successfully" % len(jsonld.graph)
+        )
     except Exception as e:
         logger.exception("Error inserting nodes")
         return UpdateResponse(success=False, message=str(e))

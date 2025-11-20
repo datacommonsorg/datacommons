@@ -13,8 +13,14 @@ def cli():
 
 @cli.command()
 @click.argument("mcf_file", type=click.Path(exists=True))
-@click.option("--namespace", "-n", help='Namespace to inject into JSONLD output (e.g. "schema:https://schema.org/")')
-@click.option("--outfile", "-o", type=click.Path(), help="Output file path (defaults to stdout)")
+@click.option(
+    "--namespace",
+    "-n",
+    help='Namespace to inject into JSONLD output (e.g. "schema:https://schema.org/")',
+)
+@click.option(
+    "--outfile", "-o", type=click.Path(), help="Output file path (defaults to stdout)"
+)
 @click.option(
     "--compact",
     "-c",
@@ -36,7 +42,9 @@ def mcf2jsonld(mcf_file, namespace, outfile, *, compact: bool = False):
             ns_prefix, ns_url = namespace.split(":", 1)
             jsonld.context[ns_prefix] = ns_url
         except ValueError:
-            click.echo("Error: Invalid namespace format. Expected format: prefix:url", err=True)
+            click.echo(
+                "Error: Invalid namespace format. Expected format: prefix:url", err=True
+            )
             sys.exit(1)
 
     # Convert to formatted JSON string

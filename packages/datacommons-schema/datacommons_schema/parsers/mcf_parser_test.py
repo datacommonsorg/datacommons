@@ -17,7 +17,11 @@ import unittest
 
 import pytest
 
-from datacommons_schema.parsers.mcf_parser import MCFParseError, parse_mcf, parse_mcf_string
+from datacommons_schema.parsers.mcf_parser import (
+    MCFParseError,
+    parse_mcf,
+    parse_mcf_string,
+)
 
 
 # Test cases for loading mcf

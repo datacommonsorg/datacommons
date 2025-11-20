@@ -26,7 +26,9 @@ class EdgeModel(Base):
     """
 
     __tablename__ = "Edge"
-    subject_id = sa.Column(String(1024), sa.ForeignKey("Node.subject_id"), primary_key=True)
+    subject_id = sa.Column(
+        String(1024), sa.ForeignKey("Node.subject_id"), primary_key=True
+    )
     predicate = sa.Column(String(1024), primary_key=True)
     object_id = sa.Column(String(1024), primary_key=True)
     object_value = sa.Column(Text(), nullable=True)
@@ -38,7 +40,9 @@ class EdgeModel(Base):
     )  #  TOKENLIST is a Spanner type, but represented as String in SQLAlchemy
 
     # Define relationships to both source and target nodes
-    source_node = relationship("NodeModel", foreign_keys=[subject_id], back_populates="outgoing_edges")
+    source_node = relationship(
+        "NodeModel", foreign_keys=[subject_id], back_populates="outgoing_edges"
+    )
 
     # Indexes
     __table_args__ = (
@@ -47,6 +51,4 @@ class EdgeModel(Base):
     )
 
     def __repr__(self):
-        return (
-            f"<EdgeModel(subject_id='{self.subject_id}', predicate='{self.predicate}', object_id='{self.object_id}')>"
-        )
+        return f"<EdgeModel(subject_id='{self.subject_id}', predicate='{self.predicate}', object_id='{self.object_id}')>"

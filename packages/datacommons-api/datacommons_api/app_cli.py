@@ -35,7 +35,11 @@ def main(host: str, port: int, *, reload: bool = False):
 
     # Initialize the database
     logger.info("Initializing database...")
-    initialize_db(config.GCP_PROJECT_ID, config.GCP_SPANNER_INSTANCE_ID, config.GCP_SPANNER_DATABASE_NAME)
+    initialize_db(
+        config.GCP_PROJECT_ID,
+        config.GCP_SPANNER_INSTANCE_ID,
+        config.GCP_SPANNER_DATABASE_NAME,
+    )
     logger.info("Starting API server...")
     uvicorn.run(
         app,

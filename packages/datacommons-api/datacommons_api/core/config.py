@@ -20,7 +20,11 @@ from datacommons_api.core.logging import get_logger
 logger = get_logger(__name__)
 
 # Required environment variables
-REQUIRED_ENV_VARS = ["GCP_PROJECT_ID", "GCP_SPANNER_INSTANCE_ID", "GCP_SPANNER_DATABASE_NAME"]
+REQUIRED_ENV_VARS = [
+    "GCP_PROJECT_ID",
+    "GCP_SPANNER_INSTANCE_ID",
+    "GCP_SPANNER_DATABASE_NAME",
+]
 
 
 class Config:
@@ -45,7 +49,11 @@ class ProductionConfig(Config):
 
 
 # Configuration dictionary
-config = {"development": DevelopmentConfig, "production": ProductionConfig, "default": DevelopmentConfig}
+config = {
+    "development": DevelopmentConfig,
+    "production": ProductionConfig,
+    "default": DevelopmentConfig,
+}
 
 
 def validate_config_or_exit(config: Config) -> None:

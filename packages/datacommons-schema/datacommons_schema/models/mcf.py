@@ -41,7 +41,11 @@ class PropertyValue(BaseModel):  # Changed from dataclass to BaseModel
             # Note: Pydantic's default number parsing might already handle this,
             # but keeping original logic for explicit control.
             if isinstance(self.value, int | float):
-                return float(self.value) if isinstance(self.value, float) or "." in str(self.value) else int(self.value)
+                return (
+                    float(self.value)
+                    if isinstance(self.value, float) or "." in str(self.value)
+                    else int(self.value)
+                )
             return float(self.value) if "." in str(self.value) else int(self.value)
         if self.type == "reference":
             return f"{self.namespace}:{self.value}" if self.namespace else self.value

@@ -24,7 +24,11 @@ from datacommons_db.models.edge import EdgeModel
 
 # Local application imports
 from datacommons_db.models.node import NodeModel
-from datacommons_schema.models.jsonld import GraphNode, GraphNodePropertyValue, JSONLDDocument
+from datacommons_schema.models.jsonld import (
+    GraphNode,
+    GraphNodePropertyValue,
+    JSONLDDocument,
+)
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -218,7 +222,9 @@ class GraphService:
         logger.info("Initialized GraphService with new session")
 
     def get_graph_nodes(
-        self, limit: int = DEFAULT_NODE_FETCH_LIMIT, type_filter: list[str] | None = None
+        self,
+        limit: int = DEFAULT_NODE_FETCH_LIMIT,
+        type_filter: list[str] | None = None,
     ) -> JSONLDDocument:
         """
         Get nodes with their outgoing edges, and transform them into JSON-LD format.
@@ -230,18 +236,28 @@ class GraphService:
         Returns:
           A JSONLDDocument containing the transformed nodes
         """
-        logger.info("Fetching graph nodes (limit=%d, type_filter=%s)", limit, type_filter)
-        node_models = self._get_nodes_with_outgoing_edges(limit=limit, type_filter=type_filter)
+        logger.info(
+            "Fetching graph nodes (limit=%d, type_filter=%s)", limit, type_filter
+        )
+        node_models = self._get_nodes_with_outgoing_edges(
+            limit=limit, type_filter=type_filter
+        )
         graph_nodes = [node_model_to_graph_node(n) for n in node_models]
         logger.info("Transformed %d nodes to JSON-LD format", len(graph_nodes))
 
         return JSONLDDocument(
-            context={"@vocab": LOCAL_NAMESPACE_URL, LOCAL_NAMESPACE_NAME: LOCAL_NAMESPACE_URL, **BASE_NAMESPACES},
+            context={
+                "@vocab": LOCAL_NAMESPACE_URL,
+                LOCAL_NAMESPACE_NAME: LOCAL_NAMESPACE_URL,
+                **BASE_NAMESPACES,
+            },
             graph=graph_nodes,
         )
 
     def _get_nodes_with_outgoing_edges(
-        self, limit: int = DEFAULT_NODE_FETCH_LIMIT, type_filter: list[str] | None = None
+        self,
+        limit: int = DEFAULT_NODE_FETCH_LIMIT,
+        type_filter: list[str] | None = None,
     ) -> list[NodeModel]:
         """
         Get nodes with their outgoing edges.
@@ -258,7 +274,13 @@ class GraphService:
         if type_filter:
             logger.info("Filtering nodes by types: %s", type_filter)
             query = query.filter(
-                text("EXISTS (" "  SELECT 1 " "    FROM UNNEST(types) AS t " "   WHERE t IN UNNEST(:type_filter)" ")")
+                text(
+                    "EXISTS ("
+                    "  SELECT 1 "
+                    "    FROM UNNEST(types) AS t "
+                    "   WHERE t IN UNNEST(:type_filter)"
+                    ")"
+                )
             ).params(type_filter=type_filter)
 
         # Load outgoing edges

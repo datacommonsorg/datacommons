@@ -26,7 +26,11 @@ class NodeRepository:
         self.session = session
 
     def get_node(self, subject_id: str) -> NodeModel:
-        return self.session.query(NodeModel).filter(NodeModel.subject_id == subject_id).first()
+        return (
+            self.session.query(NodeModel)
+            .filter(NodeModel.subject_id == subject_id)
+            .first()
+        )
 
     def create_node(self, node: NodeModel) -> NodeModel:
         self.session.add(node)

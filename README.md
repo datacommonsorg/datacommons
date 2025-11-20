@@ -17,17 +17,9 @@ This guide covers setting up a local Data Commons, defining schemas in JSON-LD, 
 Before you begin, ensure you have the following installed:
 
 - [Python](https://www.python.org/downloads/) 3.11 or higher
-- [Hatch](https://hatch.pypa.io/latest/) (Python project manager)
+- [uv](https://docs.astral.sh/uv/getting-started/installation/) (Python project manager)
 - A Google Cloud Platform (GCP) project with Cloud Spanner enabled
 - A Cloud Spanner instance and database (using Google Standard SQL) for storing the knowledge graph
-
-### Installing Hatch
-
-You can install Hatch using pip:
-
-```bash
-pip install hatch
-```
 
 ## Setting Up Data Commons
 
@@ -49,10 +41,10 @@ The repository contains three main components:
 - `datacommons-db`: The database layer for storing and querying data
 - `datacommons-schema`: Schema management and validation tools
 
-#### Create a Hatch environment
+#### Create a virtual environment with uv
 
 ```bash
-hatch env create
+uv sync
 ```
 
 #### Run Tests
@@ -60,21 +52,10 @@ hatch env create
 Run the test suite to verify your setup:
 
 ```bash
-hatch test
+uv run pytest
 ```
 
 Tests are also run automatically before pushing changes.
-
-#### Enter the Hatch Shell
-
-Activate the project's environment to run local commands. All subsequent commands should be run inside this shell.
-
-```bash
-hatch shell
-```
-
-To exit the shell, type `exit` or press `ctrl+d`
-
 
 #### Configure GCP Spanner Environment Variables
 
@@ -90,10 +71,10 @@ Replace the values with your actual GCP project and Spanner instance details. Yo
 
 #### Start Data Commons:
 
-Activate our hatch environment and run the `datacommons-api` command to start a local development server.
+Run the `datacommons-api` command using `uv` to start a local development server.
 
 ```bash
-datacommons-api
+uv run datacommons-api
 ```
 
 This will start the Data Commons API server on port 5000, ready to receive your schema and data.

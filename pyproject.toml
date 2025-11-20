@@ -40,10 +40,6 @@ datacommons-schema = { workspace = true }
 [tool.uv.workspace]
 members = ["packages/*"]
 
-[tool.pytest.ini_options]
-addopts = "--cov=datacommons --cov-report=term --cov-report=html"
-testpaths = ["tests"]
-
 [tool.coverage.run]
 source = ["datacommons"]
 branch = true

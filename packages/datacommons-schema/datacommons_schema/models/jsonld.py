@@ -30,10 +30,17 @@ class GraphNodePropertyValue(BaseModel):
 
 class GraphNode(BaseModel):
     id: str = Field(..., alias="@id", description="Unique identifier for this node")
-    type: str | list[str] | None = Field(None, alias="@type", description="RDF type(s) of this node")
+    type: str | list[str] | None = Field(
+        None, alias="@type", description="RDF type(s) of this node"
+    )
 
     # Allow arbitrary fields with our custom types
-    model_config = ConfigDict(populate_by_name=False, extra="allow", arbitrary_types_allowed=True, exclude_none=True)
+    model_config = ConfigDict(
+        populate_by_name=False,
+        extra="allow",
+        arbitrary_types_allowed=True,
+        exclude_none=True,
+    )
 
     def __init__(self, **data):
         # Process arbitrary fields to ensure they match our expected types
@@ -47,7 +54,9 @@ class GraphNode(BaseModel):
                 processed_data[key] = self._process_field_value(value)
         super().__init__(**processed_data)
 
-    def _process_field_value(self, value: Any) -> GraphNodePropertyValue | list[GraphNodePropertyValue]:
+    def _process_field_value(
+        self, value: Any
+    ) -> GraphNodePropertyValue | list[GraphNodePropertyValue]:
         """Process field values to ensure they match our expected types."""
 
         # If the value is a dict and has @value, @provenance, or @id, return a GraphNodePropertyValue
@@ -70,12 +79,20 @@ class GraphNode(BaseModel):
                 {"value": "Alice Smith", "provenance": "https://example.org/source2"},
             ],
             "home": {
-                "value": {"@id": "place:geoId/06", "@type": ["State"], "name": "California"},
+                "value": {
+                    "@id": "place:geoId/06",
+                    "@type": ["State"],
+                    "name": "California",
+                },
                 "provenance": "https://example.org/source1",
             },
             "friends": [
                 {
-                    "value": {"@id": "http://example.org/person/bob", "@type": "Person", "name": "Bob"},
+                    "value": {
+                        "@id": "http://example.org/person/bob",
+                        "@type": "Person",
+                        "name": "Bob",
+                    },
                     "provenance": "https://example.org/source1",
                 }
             ],

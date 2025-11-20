@@ -71,9 +71,13 @@ def initialize_db(project_id: str, instance_id: str, database_name: str):
     existing_tables = inspector.get_table_names()
 
     # Check if all required tables exist
-    missing_tables = [table for table in REQUIRED_TABLES if table not in existing_tables]
+    missing_tables = [
+        table for table in REQUIRED_TABLES if table not in existing_tables
+    ]
     if missing_tables:
-        logger.warning("Missing required tables in database %s: %s", database_name, missing_tables)
+        logger.warning(
+            "Missing required tables in database %s: %s", database_name, missing_tables
+        )
 
     # Only create tables if database is completely empty
     if not existing_tables or missing_tables:
