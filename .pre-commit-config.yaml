@@ -9,7 +9,7 @@ repos:
         stages: [pre-push]
       - id: format-code
         name: Format code
-        entry: uv run ruff format --check
+        entry: uv run ruff format
         language: system
-        pass_filenames: false
-        stages: [pre-push]
+        pass_filenames: true
+        types: [python]
