@@ -21,12 +21,6 @@ from datacommons_api.core.logging import get_logger, setup_logging
 from datacommons_db.session import initialize_db
 
 
-
-
-
-
-
-
 setup_logging()
 logger = get_logger(__name__)
 
