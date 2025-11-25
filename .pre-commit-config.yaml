@@ -1,17 +1,16 @@
 repos:
   - repo: local
     hooks:
-      # Formats code with ruff via `hatch fmt`
-      - id: ruff-format-hatch-settings
-        name: hatch-ruff
-        language: system
-        entry: hatch fmt
-        types: [python]
-        verbose: true
-      # Runs tests before git pushing
       - id: run-tests
-        name: Run Tests
-        entry: hatch test
+        name: Run tests
+        entry: uv run pytest
         language: system
         pass_filenames: false
+        stages: [pre-push]
+      - id: ruff-format
+        name: ruff-format
+        entry: uv run ruff format
+        language: system
+        types: [python]
+        args: []
         stages: [pre-push]

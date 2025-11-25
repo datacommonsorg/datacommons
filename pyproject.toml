@@ -1,27 +1,29 @@
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
 [project]
-name = "datacommons"
-dynamic = ["version"]
-description = 'Data Commons is an open source semantic graph database for modeling, querying, and analyzing interconnected data.'
+name = "datacommons-platform"
+version = "0.0.1"
+description = 'The Data Commons Platform is an open source semantic graph database for modeling, querying, and analyzing interconnected data.'
 readme = "README.md"
 requires-python = ">=3.11"
-license = "MIT"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 keywords = []
 authors = []
 classifiers = [
-  "Development Status :: 4 - Beta",
+  "Development Status :: 3 - Alpha",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-  "datacommons-api @ {root:uri}/datacommons/datacommons-api",
+  "datacommons-api",
   "pre-commit",
+  "ruff>=0.12.5",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest>=8.4.1",
   "pytest-cov>=4.1.0"
 ]
 
@@ -30,32 +32,13 @@ Documentation = "https://github.com/datacommonsorg/datacommons#readme"
 Issues = "https://github.com/datacommonsorg/datacommons/issues"
 Source = "https://github.com/datacommonsorg/datacommons"
 
-[tool.hatch.build.targets.wheel]
-packages = ["packages/datacommons-root"]
+[tool.uv.sources]
+datacommons-api = { workspace = true }
+datacommons-db = { workspace = true }
+datacommons-schema = { workspace = true }
 
-[tool.hatch.metadata]
-allow-direct-references = true
-
-[tool.hatch.version]
-path = "packages/datacommons-root/src/datacommons/__init__.py"
-
-
-# Install dependencies in editable mode for local development
-[tool.hatch.envs.default]
-post-install-commands = [
-  "pip install -e ./packages/datacommons-api",
-  "pip install -e ./packages/datacommons-db",
-  "pip install -e ./packages/datacommons-schema",
-  "pre-commit install",
-  "pre-commit install --hook-type pre-push"
-]
-
-[tool.hatch.envs.hatch-test]
-default-args = []
-
-[tool.pytest.ini_options]
-addopts = "--cov=datacommons --cov-report=term --cov-report=html"
-testpaths = ["tests"]
+[tool.uv.workspace]
+members = ["packages/*"]
 
 [tool.coverage.run]
 source = ["datacommons"]
@@ -72,8 +55,56 @@ exclude_lines = [
     "@abstractmethod",
 ]
 
+[tool.ruff.lint]
+# Visit https://docs.astral.sh/ruff/rules/ for detailed rule descriptions.
+extend-select = [
+  "ERA",  # removes commented-out code from Python files.
+  "FAST", # linting FastAPI specifics
+  "YTT",  # Flake8 checks for misuse of `sys.version` or `sys.version_info`
+  "ANN",  # Flake8 Type Annotation Checks
+  "S",    # Automated security testing with bandit and flake8.
+  "BLE",  # A flake8 extension that checks for blind except: statements
+  "FBT",  # A flake8 plugin to detect boolean traps.
+  "B",    # flake8-bugbear finds likely bugs and design problems.
+  "A",    # flake8-builtins detects shadowed python builtins
+  "COM",  # flake8 lint for trailing commas.
+  "C4",   # flake8 plugin to help write better list/set/dict comprehensions
+  "ISC",  # flake8 plugin to encourage correct string literal concatenation
+  "LOG",  # flake8 plugin checks for issues with standard library logging module
+  "G",    # flake8 plugin to encourage better formatting of built-in logging strings
+  "PIE",  # flake8 misc lints
+  "PT",   # flake8 plugin checks common pitfalls with pytest-based tests
+  "RET",  # encourages good return practices
+  "SIM",  # flake8-simplify checks common simplification patterns
+  "TID",  # flake8-tidy-imports encourages tidier imports
+  "TD",   # flake8-todos lints TODOs throughout the project for consistency
+  "TC",   # flake8 plugin for managing type-checking imports & forward references
+  "ARG",  # flake8-unused-arguments warns on unused function arguments
+  "PTH",  # flake8-use-pathlib encourages pathlib over os.path
+  "I",    # isort sorts Python imports
+  "N",    # check PEP-8 naming conventions
+  "PERF", # Pylint extension with performance anti-patterns
+  "E",    # pycodestyle errors
+  "W",    # pycodestyle warnings
+  "F",    # pyflakes analyzes and detects various errors
+  "PL",   # pylint
+  "Q",    # defaults to double quotes
+  "UP", # Encourage syntax supported by newer python versions
+  # "CPY", # check for copyright headers # uncomment once graduated from preview
+]
+extend-ignore = [
+  "TD003",  # missing-todo-link: Missing issue link for this TODO
+  "PLC",    # pylint conventions
+  "PLR",    # pylint refactor
+  "COM812", # missing-trailing-comma may conflict with formatter
+  "E501",   # line-too-long
+]
+
 [tool.ruff.lint.per-file-ignores]
-# For any file in a "tests" directory or ending in "_test.py",
-# ignore the S101 (assert) and a few other common test-only rules.
-"**/tests/*" = ["S101", "PLR2004"]
-"*_test.py" = ["S101", "PLR2004"]
+"packages/*/tests/**/*.py" = [
+    "S101",   # Allow using `assert` in pytests
+    "ANN001", # Ignore missing type annotations in test files
+    "ANN201", # Ignore missing return types in public test functions
+    "ANN202", # Ignore missing return types in private test functions
+    "PLR2004"
+]
