@@ -19,7 +19,9 @@ dependencies = [
   "click",
   "pydantic",
   "pytest",
-  "pyshacl"
+  "pyshacl",
+  "rdflib",
+
 ]
 
 [project.urls]
@@ -31,7 +33,7 @@ Source = "https://github.com/datacommonsorg/datacommons"
 datacommons-schema = "datacommons_schema.schema_cli:cli"
 
 [build-system]
-requires = ["uv", "setuptools"]
+requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.dynamic]
