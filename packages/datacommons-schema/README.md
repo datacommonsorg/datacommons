@@ -76,7 +76,7 @@ Knowledge graph implementation using `rdflib.Graph` in memory.
         - *Note*: Validation often requires checking if a referenced Class exists. If we are adding a new Class *and* an instance of it simultaneously, the validator must verify them together.
     3. If valid, merge temporary graph into main `_graph`.
 
-### 3. `SchemaValidationService` (The Validator)
+### 2. `SchemaValidationService` (The Validator)
 Responsible for the core logic of checking RDF/RDFS/XSD constraints.
 
 **Capabilities:**
