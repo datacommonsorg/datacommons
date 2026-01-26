@@ -4,7 +4,7 @@ dynamic = ["version"]
 description = 'Data Commons Schema'
 license = "Apache-2.0"
 readme = "README.md"
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.11"
 keywords = []
 authors = []
 classifiers = [
@@ -33,7 +33,7 @@ Source = "https://github.com/datacommonsorg/datacommons"
 datacommons-schema = "datacommons_schema.schema_cli:cli"
 
 [build-system]
-requires = ["setuptools"]
+requires = ["uv", "setuptools"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.dynamic]

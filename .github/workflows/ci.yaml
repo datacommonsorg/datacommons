@@ -13,21 +13,17 @@ jobs:
       matrix:
         python-version: ["3.11", "3.12"]
 
-    # All steps will run for each Python version inside this container
-    container:
-      image: python:${{ matrix.python-version }}-slim
-
     steps:
-      # Check out the code onto the runner host,
-      # but it's automatically available inside the container.
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: Install uv
-        run: pip install uv
+      - name: Install uv and set the Python version
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --locked
 
       - name: Check formatting with Ruff
         run: uv run ruff format --check

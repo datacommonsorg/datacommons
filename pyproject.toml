@@ -3,7 +3,7 @@ name = "datacommons-platform"
 version = "0.0.1"
 description = 'The Data Commons Platform is an open source semantic graph database for modeling, querying, and analyzing interconnected data.'
 readme = "README.md"
-requires-python = ">=3.11,<3.13"
+requires-python = ">=3.11"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 keywords = []
