@@ -174,4 +174,4 @@ def test_add_invalid_data_range_violation():
     
     with pytest.raises(ValueError) as excinfo:
         kg.add(dog_node)
-    assert "Literal value must be datatype <http://example.org/Person>" in str(excinfo.value)
+    assert "Object must be a resource of type <http://example.org/Person>, but a literal was found" in str(excinfo.value)
