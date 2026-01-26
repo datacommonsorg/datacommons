@@ -224,13 +224,13 @@ jsonld = mcf_nodes_to_jsonld(mcf_nodes, compact=True)
 
 ```bash
 # Convert with default settings
-datacommons mcf2jsonld data.mcf
+datacommons-schema mcf2jsonld data.mcf
 
 # Convert with custom namespace and output file
-datacommons mcf2jsonld data.mcf -n "dc:https://datacommons.org/" -o output.jsonld
+datacommons-schema mcf2jsonld data.mcf -n "dc:https://datacommons.org/" -o output.jsonld
 
 # Generate compact output
-datacommons mcf2jsonld data.mcf -c
+datacommons-schema mcf2jsonld data.mcf -c
 ```
 
 ## Dependencies
