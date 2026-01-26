@@ -370,11 +370,21 @@ class SchemaValidationService:
                 
                 # Case A: Literal
                 if isinstance(o, Literal):
-                    # For strict XSD validation, you might compare o.datatype
-                    if o.datatype != required_range and required_range != XSD.string:
+                    # If the range is a class URI, a literal is invalid.
+                    if not (str(required_range).startswith(str(XSD)) or required_range == RDFS.Literal):
                         errors.append(ValidationError(
                             subject=str(s), predicate=str(p), object=str(o),
-                            message=f"Literal value must be datatype <{required_range}>",
+                            message=f"Object must be a resource of type <{required_range}>, but a literal was found.",
+                            rule_type="Range Violation"
+                        ))
+                        continue
+
+                    # An untyped literal is compatible with xsd:string. Otherwise, datatypes must match.
+                    effective_datatype = o.datatype or XSD.string
+                    if effective_datatype != required_range:
+                        errors.append(ValidationError(
+                            subject=str(s), predicate=str(p), object=str(o),
+                            message=f"Literal has datatype <{effective_datatype}> but range requires <{required_range}>.",
                             rule_type="Range Violation"
                         ))
 
