@@ -77,17 +77,17 @@ class SchemaValidationService:
         True
     """
 
-    def __init__(self, schema_input: Union[str, Dict[str, Any]]):
+    def __init__(self, graph: Graph):
         """
         Initializes the validator by parsing the schema and extracting validation rules.
 
         Args:
-            schema_input (Union[str, Dict[str, Any]]): The schema definition. Can be a 
-                raw JSON-LD string or a pre-parsed dictionary.
+            graph (Graph): The schema definition.
 
         Example:
 
-        >>> schema_input = """
+        >>> graph = Graph()
+        >>> graph.parse(data="""
         {
             "@context": {
                 "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
@@ -104,36 +104,14 @@ class SchemaValidationService:
                 }
             ]
         }
-        """
-        >>> validator = SchemaValidator(schema_input)
+        """, format="json-ld")
+        >>> validator = SchemaValidator(graph)
 
         Raises:
-            json.JSONDecodeError: If the input string is not valid JSON.
             rdflib.plugin.PluginException: If the input format is not recognized as JSON-LD.
         """
-        self.schema_graph = self._load_graph(schema_input)
+        self.schema_graph = graph
         self.rules = self._extract_rules()
-
-    def _load_graph(self, jsonld_input: Union[str, Dict[str, Any], Graph]) -> Graph:
-        """
-        Parses raw JSON-LD input into an rdflib Graph.
-
-        This helper handles both dictionary and string inputs, ensuring consistent 
-        graph instantiation regardless of the source format.
-
-        Args:
-            jsonld_input (Union[str, Dict[str, Any]]): The JSON-LD content.
-
-        Returns:
-            rdflib.Graph: An in-memory RDF graph containing the parsed triples.
-        """
-        if isinstance(jsonld_input, Graph):
-            return jsonld_input
-            
-        g = Graph()
-        data = json.dumps(jsonld_input) if isinstance(jsonld_input, dict) else jsonld_input
-        g.parse(data=data, format="json-ld")
-        return g
 
     def _extract_rules(self) -> SchemaDefinition:
         """
@@ -322,7 +300,7 @@ class SchemaValidationService:
             errors=errors
         )
 
-    def validate(self, data_input: Union[str, Dict[str, Any], Graph], context_graph: Optional[Graph] = None) -> ValidationReport:
+    def validate(self, data_graph: Graph, context_graph: Optional[Graph] = None) -> ValidationReport:
         """
         Validates a data file against the loaded schema rules.
 
@@ -343,7 +321,6 @@ class SchemaValidationService:
             ValidationReport: A detailed Pydantic report containing the overall validity status,
             error counts, and a list of specific `ValidationError` objects for any violations found.
         """
-        data_graph = self._load_graph(data_input)
         errors = []
 
         def has_type(resource, type_uri):

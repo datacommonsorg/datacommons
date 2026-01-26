@@ -1,7 +1,8 @@
 import pytest
-from rdflib import URIRef, XSD
+from rdflib import URIRef, XSD, Graph
 from pydantic import BaseModel
 from typing import List
+import json
 
 from datacommons_schema.services.schema_validation_service import SchemaValidationService
 
@@ -19,6 +20,11 @@ class SchemaReport(BaseModel):
 # ==========================================
 # FIXTURES
 # ==========================================
+
+def load_graph(schema: dict) -> Graph:
+    graph = Graph()
+    graph.parse(data=json.dumps(schema), format="json-ld")
+    return graph
 
 @pytest.fixture
 def sample_schema_dict() -> dict:
@@ -61,12 +67,15 @@ def sample_schema_dict() -> dict:
 @pytest.fixture
 def schema_service(sample_schema_dict: dict) -> SchemaValidationService:
     """Initializes the service with the valid sample schema."""
-    return SchemaValidationService(sample_schema_dict)
+    graph = Graph()
+    graph.parse(data=json.dumps(sample_schema_dict), format="json-ld")
+    return SchemaValidationService(graph)
 
 @pytest.fixture
-def valid_data_packet() -> dict:
+def valid_data_packet() -> Graph:
     """Data that perfectly conforms to sample_schema_dict."""
-    return {
+    graph = Graph()
+    graph.parse(data=json.dumps({
         "@context": {
             "ex": "http://example.org/",
             "xsd": "http://www.w3.org/2001/XMLSchema#"
@@ -79,7 +88,8 @@ def valid_data_packet() -> dict:
             "@id": "ex:Google",
             "@type": "ex:Organization"
         }
-    }
+    }), format="json-ld")
+    return graph
 
 # ==========================================
 # TESTS
@@ -119,7 +129,8 @@ def test_schema_integrity_invalid():
             {"@id": "ex:hasPet", "@type": "rdf:Propertyzzz", "rdfs:domain": {"@id": "ex:GhostClass"}}
         ]
     }
-    service = SchemaValidationService(bad_schema)
+    graph = load_graph(bad_schema)
+    service = SchemaValidationService(graph)
     report = service.validate_schema_integrity()
 
     assert report.is_valid is False
@@ -144,7 +155,8 @@ def test_schema_integrity_invalid_xsd():
             }
         ]
     }
-    service = SchemaValidationService(bad_schema)
+    graph = load_graph(bad_schema)
+    service = SchemaValidationService(graph)
     report = service.validate_schema_integrity()
     
     assert report.is_valid is False
@@ -164,7 +176,8 @@ def test_validate_undefined_property(schema_service):
         "@id": "ex:Bob",
         "ex:favoriteColor": "Blue" # Not in schema
     }
-    report = schema_service.validate(data)
+    graph = load_graph(data)
+    report = schema_service.validate(graph)
     
     assert report.is_valid is False
     assert report.errors[0].rule_type == "Undefined Property"
@@ -178,7 +191,8 @@ def test_validate_domain_violation(schema_service):
         "@type": "ex:Organization", # Schema says 'age' belongs to 'Person'
         "ex:age": 100
     }
-    report = schema_service.validate(data)
+    graph = load_graph(data)
+    report = schema_service.validate(graph)
     
     assert report.is_valid is False
     error = report.errors[0]
@@ -193,7 +207,8 @@ def test_validate_range_violation_literal(schema_service):
         "@type": "ex:Person",
         "ex:age": "Thirty" # Should be integer
     }
-    report = schema_service.validate(data)
+    graph = load_graph(data)
+    report = schema_service.validate(graph)
     
     assert report.is_valid is False
     assert report.errors[0].rule_type == "Range Violation"
@@ -210,7 +225,8 @@ def test_validate_range_violation_class(schema_service):
             "@type": "ex:Person" # Schema says worksFor range is Organization
         }
     }
-    report = schema_service.validate(data)
+    graph = load_graph(data)
+    report = schema_service.validate(graph)
     
     assert report.is_valid is False
     assert report.errors[0].rule_type == "Range Violation"
