@@ -16,18 +16,15 @@ class KnowledgeGraph:
         # Bind the default prefix to the namespace
         self._graph.bind(self.default_prefix, self.namespace)
 
-    def validate(self, nodes: Union[Dict, List[Dict]]) -> ValidationReport:
-        # 1. Parse new nodes into a temp graph
-        temp_graph = self._load_graph(nodes)
-        
-        # 2. extract existing rules to serve as context
+    def validate(self, new_graph: Graph) -> ValidationReport:
+        # 1. Extract existing rules to serve as context
         # Note: In a real high-perf scenario, we would cache the 'rules' 
         # instead of re-extracting them from self._graph every time.
         main_validator = SchemaValidationService(self._graph)
         
-        # 3. Check Schema Integrity of NEW nodes
+        # 2. Check Schema Integrity of NEW nodes
         # Use existing classes as context so we don't flag references to existing classes as "Undefined"
-        temp_validator = SchemaValidationService(temp_graph)
+        temp_validator = SchemaValidationService(new_graph)
         schema_report = temp_validator.validate_schema_integrity(context_classes=main_validator.rules.classes)
         
         if not schema_report.is_valid:
@@ -47,18 +44,18 @@ class KnowledgeGraph:
                 errors=schem_errors
             )
         
-        # 4. Check Data Validation
-        # Validates 'temp_graph' against 'self._graph' rules and context
-        return main_validator.validate(temp_graph, context_graph=self._graph)
+        # 3. Check Data Validation
+        # Validates 'new_graph' against 'self._graph' rules and context
+        return main_validator.validate(new_graph, context_graph=self._graph)
 
     def add(self, nodes: Union[Dict, List[Dict]]) -> None:
-        report = self.validate(nodes)
+        temp_graph = self._load_graph(nodes)
+        report = self.validate(temp_graph)
         if not report.is_valid:
             error_msgs = "\n".join([f"{e.subject}: {e.message}" for e in report.errors])
             raise ValueError(f"Cannot add invalid nodes:\n{error_msgs}")
         
         # If valid, merge
-        temp_graph = self._load_graph(nodes)
         self._graph += temp_graph
 
     def _load_graph(self, jsonld_input: Union[Dict, List[Dict], str]) -> Graph:
