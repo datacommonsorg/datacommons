@@ -18,7 +18,10 @@ classifiers = [
 dependencies = [
   "click",
   "pydantic",
-  "pytest"
+  "pytest",
+  "pyshacl",
+  "rdflib",
+
 ]
 
 [project.urls]
