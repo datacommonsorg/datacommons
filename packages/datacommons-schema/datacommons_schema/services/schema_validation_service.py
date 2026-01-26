@@ -390,8 +390,15 @@ class SchemaValidationService:
 
                 # Case B: Resource (URI)
                 elif isinstance(o, URIRef):
+                    # If the range expects a literal, a resource is invalid.
+                    if str(required_range).startswith(str(XSD)) or required_range == RDFS.Literal:
+                        errors.append(ValidationError(
+                            subject=str(s), predicate=str(p), object=str(o),
+                            message=f"Object must be a literal with datatype <{required_range}>, but a resource was found.",
+                            rule_type="Range Violation"
+                        ))
                     # Query: Does Object 'o' have type 'required_range'?
-                    if not has_type(o, required_range):
+                    elif not has_type(o, required_range):
                         errors.append(ValidationError(
                             subject=str(s), predicate=str(p), object=str(o),
                             message=f"Object must be of type <{required_range}>",
