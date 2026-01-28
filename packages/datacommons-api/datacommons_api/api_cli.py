@@ -52,7 +52,7 @@ def start(host: str, port: int, reload: bool, gcp_project_id: str, gcp_spanner_i
     initialize_db(
         config.GCP_PROJECT_ID,
         config.GCP_SPANNER_INSTANCE_ID,
-        gcp_spanner_database_name or config.GCP_SPANNER_DATABASE_NAME,
+        config.GCP_SPANNER_DATABASE_NAME,
     )
     logger.info("Starting API server...")
     uvicorn.run(
