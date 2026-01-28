@@ -17,13 +17,13 @@ The `mcf2jsonld` command converts MCF files to JSON-LD format, with support for 
 
 ```bash
 # Basic usage
-datacommons mcf2jsonld input.mcf
+datacommons schema mcf2jsonld input.mcf
 
 # With custom namespace
-datacommons mcf2jsonld input.mcf --namespace "schema:https://schema.org/"
+datacommons schema mcf2jsonld input.mcf --namespace "schema:https://schema.org/"
 
 # Output to file with compact format
-datacommons mcf2jsonld input.mcf -o output.jsonld -c
+datacommons schema mcf2jsonld input.mcf -o output.jsonld -c
 ```
 
 #### Options
