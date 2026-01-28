@@ -17,6 +17,7 @@ classifiers = [
 ]
 dependencies = [
   "datacommons-api",
+  "datacommons-cli",
   "pre-commit",
   "ruff>=0.12.5",
 ]
@@ -36,6 +37,7 @@ Source = "https://github.com/datacommonsorg/datacommons"
 datacommons-api = { workspace = true }
 datacommons-db = { workspace = true }
 datacommons-schema = { workspace = true }
+datacommons-cli = { workspace = true }
 
 [tool.uv.workspace]
 members = ["packages/*"]

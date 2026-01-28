@@ -56,6 +56,9 @@ config = {
 }
 
 
+# Default configuration
+app_config = config[os.getenv("APP_ENV", "default")]()
+
 def validate_config_or_exit(config: Config) -> None:
     """Ensure the configuration is valid"""
     # Ensure GCP Spanner is configured
@@ -65,9 +68,34 @@ def validate_config_or_exit(config: Config) -> None:
             sys.exit(1)
 
 
-def get_config() -> Config:
-    """Get the appropriate configuration object based on environment."""
-    env = os.getenv("APP_ENV", "default")
-    app_config = config[env]()
+def initialize_config(
+    gcp_project_id: str = "",
+    gcp_spanner_instance_id: str = "",
+    gcp_spanner_database_name: str = "",
+) -> Config:
+    """
+    Initialize the configuration object based on environment or command line arguments.
+
+    Args:
+        gcp_project_id: Optional GCP project id.
+        gcp_spanner_instance_id: Optional GCP Spanner instance id.
+        gcp_spanner_database_name: Optional GCP Spanner database name.
+
+    Returns:
+        Config: The configuration object.
+    """
+    app_config.GCP_PROJECT_ID = gcp_project_id or app_config.GCP_PROJECT_ID
+    app_config.GCP_SPANNER_INSTANCE_ID = gcp_spanner_instance_id or app_config.GCP_SPANNER_INSTANCE_ID
+    app_config.GCP_SPANNER_DATABASE_NAME = gcp_spanner_database_name or app_config.GCP_SPANNER_DATABASE_NAME
     validate_config_or_exit(app_config)
+    return app_config
+
+
+def get_config() -> Config:
+    """
+    Get the configuration object.
+
+    Returns:
+        Config: The configuration object.
+    """
     return app_config

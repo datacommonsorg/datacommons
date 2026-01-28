@@ -29,7 +29,7 @@ This section will guide you through setting up Data Commons locally and defining
 
 To get started, you'll need to check out the Data Commons repository and set up your local environment.
 
-#### Check out the repository:
+#### Clone the repository:
 
 ```bash
 git clone https://github.org/datacommonsorg/datacommons
@@ -39,6 +39,7 @@ cd datacommons
 The repository contains three main components:
 - `datacommons-api`: The REST API server for interacting with Data Commons
 - `datacommons-db`: The database layer for storing and querying data
+- `datacommons-cli`: Command-line interface for interacting with Data Commons
 - `datacommons-schema`: Schema management and validation tools
 
 #### Create a virtual environment with uv
@@ -71,13 +72,22 @@ Replace the values with your actual GCP project and Spanner instance details. Yo
 
 #### Start Data Commons:
 
-Run the `datacommons-api` command using `uv` to start a local development server.
+Run the `datacommons` command using `uv` to start a local development server.
 
 ```bash
-uv run datacommons-api
+uv run datacommons api start
 ```
 
 This will start the Data Commons API server on port 5000, ready to receive your schema and data.
+
+Alternatively, you can set the spanner configuration using command line arguments, which will take precedence over environment variables:
+
+```bash
+uv run datacommons api start \
+  --gcp-project-id="your-gcp-project-id" \
+  --gcp-spanner-instance-id="your-spanner-instance-id" \
+  --gcp-spanner-database-name="your-spanner-database-name"
+```
 
 ### 2. Define Your Schema
 
@@ -316,4 +326,19 @@ You should see the:
     }
   ]
 }
+```
+
+### Schema Tools
+
+Use the `datacommons schema` command to convert between MCF and JSON-LD formats.
+
+```bash
+# Convert with default settings
+uv run datacommons schema mcf2jsonld data.mcf
+
+# Convert with custom namespace and output file
+uv run datacommons schema mcf2jsonld data.mcf -n "dc:https://datacommons.org/" -o output.jsonld
+
+# Generate compact output
+uv run datacommons schema mcf2jsonld data.mcf -c
 ```
