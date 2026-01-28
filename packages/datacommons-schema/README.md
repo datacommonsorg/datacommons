@@ -220,25 +220,6 @@ mcf_nodes = parse_mcf_string(mcf_content)
 jsonld = mcf_nodes_to_jsonld(mcf_nodes, compact=True)
 ```
 
-### Command Line
-
-```bash
-# Convert with default settings
-datacommons-schema mcf2jsonld data.mcf
-
-# Convert with custom namespace and output file
-datacommons-schema mcf2jsonld data.mcf -n "dc:https://datacommons.org/" -o output.jsonld
-
-# Generate compact output
-datacommons-schema mcf2jsonld data.mcf -c
-```
-
-## Dependencies
-
-- Click (for CLI interface)
-- Pydantic (for data validation)
-- JSON-LD processing libraries
-
 ## Contributing
 
 When contributing to this module:

@@ -21,7 +21,6 @@ dependencies = [
   "pytest",
   "pyshacl",
   "rdflib",
-
 ]
 
 [project.urls]
@@ -29,8 +28,6 @@ Documentation = "https://github.com/datacommonsorg/datacommons#readme"
 Issues = "https://github.com/datacommonsorg/datacommons/issues"
 Source = "https://github.com/datacommonsorg/datacommons"
 
-[project.scripts]
-datacommons-schema = "datacommons_schema.schema_cli:cli"
 
 [build-system]
 requires = ["uv", "setuptools"]
