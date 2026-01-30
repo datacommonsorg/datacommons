@@ -1,7 +1,7 @@
 # Deploying Data Commons Platform Artifacts
 
 > **Internal Process Only**
-> This document describes the deployment process for deploying the Data Commons Platform docker artifacts to Google's managed Artifact Registry. These instructions are not intended for general users or external deployments.
+> This document describes the process for deploying the Data Commons Platform docker artifacts to Google's managed Artifact Registry. These instructions are not intended for general users or external deployments.
 
 ## Prerequisites
 
