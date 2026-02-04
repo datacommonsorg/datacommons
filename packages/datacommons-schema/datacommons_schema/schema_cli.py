@@ -7,11 +7,11 @@ from datacommons_schema.parsers.mcf_parser import parse_mcf_string
 
 
 @click.group()
-def cli():
+def schema():
     """Data Commons Schema Parsing CLI"""
 
 
-@cli.command()
+@schema.command()
 @click.argument("mcf_file", type=click.Path(exists=True))
 @click.option(
     "--namespace",
