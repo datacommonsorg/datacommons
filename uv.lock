@@ -297,7 +297,6 @@ name = "datacommons-platform"
 version = "0.0.1"
 source = { virtual = "." }
 dependencies = [
-    { name = "datacommons-api" },
     { name = "datacommons-cli" },
     { name = "pre-commit" },
     { name = "ruff" },
@@ -311,7 +310,6 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "datacommons-api", editable = "packages/datacommons-api" },
     { name = "datacommons-cli", editable = "packages/datacommons-cli" },
     { name = "pre-commit" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8.4.1" },
