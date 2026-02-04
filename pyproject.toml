@@ -16,7 +16,6 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-  "datacommons-api",
   "datacommons-cli",
   "pre-commit",
   "ruff>=0.12.5",

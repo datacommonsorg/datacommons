@@ -4,7 +4,6 @@ dynamic = ["version"]
 description = 'Data Commons API'
 license = "Apache-2.0"
 readme = "README.md"
-
 requires-python = ">=3.11"
 keywords = []
 authors = []
