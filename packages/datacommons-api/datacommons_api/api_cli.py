@@ -25,7 +25,7 @@ logger = get_logger(__name__)
 
 @click.group()
 def api():
-    """Datacommons API CLI suite"""
+    """Data Commons API CLI suite"""
     pass
 
 @api.command()

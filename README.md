@@ -36,7 +36,7 @@ git clone https://github.org/datacommonsorg/datacommons
 cd datacommons
 ```
 
-The repository contains three main components:
+The repository contains four main components:
 - `datacommons-api`: The REST API server for interacting with Data Commons
 - `datacommons-db`: The database layer for storing and querying data
 - `datacommons-cli`: Command-line interface for interacting with Data Commons
