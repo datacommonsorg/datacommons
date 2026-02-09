@@ -3,7 +3,7 @@ repos:
     hooks:
       - id: run-tests
         name: Run tests
-        entry: uv run pytest
+        entry: uv run --extra test pytest
         language: system
         pass_filenames: false
         stages: [pre-push]

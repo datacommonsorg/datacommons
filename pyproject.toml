@@ -18,13 +18,15 @@ classifiers = [
 dependencies = [
   "datacommons-cli",
   "pre-commit",
-  "ruff>=0.12.5",
 ]
 
 [project.optional-dependencies]
 test = [
   "pytest>=8.4.1",
   "pytest-cov>=4.1.0"
+]
+lint = [
+  "ruff>=0.12.5",
 ]
 
 [project.urls]
