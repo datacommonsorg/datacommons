@@ -111,3 +111,8 @@ extend-ignore = [
     "ANN202", # Ignore missing return types in private test functions
     "PLR2004"
 ]
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+default = true
