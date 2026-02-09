@@ -16,15 +16,17 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-  "datacommons-api",
+  "datacommons-cli",
   "pre-commit",
-  "ruff>=0.12.5",
 ]
 
 [project.optional-dependencies]
 test = [
   "pytest>=8.4.1",
   "pytest-cov>=4.1.0"
+]
+lint = [
+  "ruff>=0.12.5",
 ]
 
 [project.urls]
@@ -36,6 +38,7 @@ Source = "https://github.com/datacommonsorg/datacommons"
 datacommons-api = { workspace = true }
 datacommons-db = { workspace = true }
 datacommons-schema = { workspace = true }
+datacommons-cli = { workspace = true }
 
 [tool.uv.workspace]
 members = ["packages/*"]
@@ -108,3 +111,7 @@ extend-ignore = [
     "ANN202", # Ignore missing return types in private test functions
     "PLR2004"
 ]
+
+# Explicitly define PyPI as the default index
+[[tool.uv.index]]
+url = "https://pypi.org/simple"
