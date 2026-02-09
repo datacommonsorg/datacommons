@@ -112,6 +112,7 @@ extend-ignore = [
     "PLR2004"
 ]
 
+# Explicitly define PyPI as the default index
 [[tool.uv.index]]
 name = "pypi"
 url = "https://pypi.org/simple"
