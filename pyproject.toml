@@ -114,6 +114,4 @@ extend-ignore = [
 
 # Explicitly define PyPI as the default index
 [[tool.uv.index]]
-name = "pypi"
 url = "https://pypi.org/simple"
-default = true
