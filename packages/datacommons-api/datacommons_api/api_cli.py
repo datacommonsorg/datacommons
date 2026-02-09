@@ -23,10 +23,12 @@ from datacommons_db.session import initialize_db
 setup_logging()
 logger = get_logger(__name__)
 
+
 @click.group()
 def api():
     """Data Commons API CLI suite"""
     pass
+
 
 @api.command()
 @click.option("--host", default="127.0.0.1", help="Host to bind to.")
@@ -34,8 +36,17 @@ def api():
 @click.option("--reload", is_flag=True, help="Enable auto-reload.")
 @click.option("--gcp-project-id", default="", help="GCP project id.")
 @click.option("--gcp-spanner-instance-id", default="", help="GCP Spanner instance id.")
-@click.option("--gcp-spanner-database-name", default="", help="GCP Spanner database name.")
-def start(host: str, port: int, reload: bool, gcp_project_id: str, gcp_spanner_instance_id: str, gcp_spanner_database_name: str):
+@click.option(
+    "--gcp-spanner-database-name", default="", help="GCP Spanner database name."
+)
+def start(
+    host: str,
+    port: int,
+    reload: bool,
+    gcp_project_id: str,
+    gcp_spanner_instance_id: str,
+    gcp_spanner_database_name: str,
+):
     """Start the FastAPI app with Uvicorn."""
     logger.info("Starting Data Commons...")
     config = initialize_config(

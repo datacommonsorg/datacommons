@@ -21,10 +21,12 @@ from datacommons_schema.schema_cli import schema as schema_cli
 setup_logging()
 logger = get_logger(__name__)
 
+
 @click.group()
 def cli():
     """Datacommons CLI suite"""
     pass
+
 
 # Add schema CLI commands to the main CLI
 cli.add_command(api_cli)

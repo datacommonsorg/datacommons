@@ -59,6 +59,7 @@ config = {
 # Default configuration
 app_config = config[os.getenv("APP_ENV", "default")]()
 
+
 def validate_config_or_exit(config: Config) -> None:
     """Ensure the configuration is valid"""
     # Ensure GCP Spanner is configured
@@ -85,8 +86,12 @@ def initialize_config(
         Config: The configuration object.
     """
     app_config.GCP_PROJECT_ID = gcp_project_id or app_config.GCP_PROJECT_ID
-    app_config.GCP_SPANNER_INSTANCE_ID = gcp_spanner_instance_id or app_config.GCP_SPANNER_INSTANCE_ID
-    app_config.GCP_SPANNER_DATABASE_NAME = gcp_spanner_database_name or app_config.GCP_SPANNER_DATABASE_NAME
+    app_config.GCP_SPANNER_INSTANCE_ID = (
+        gcp_spanner_instance_id or app_config.GCP_SPANNER_INSTANCE_ID
+    )
+    app_config.GCP_SPANNER_DATABASE_NAME = (
+        gcp_spanner_database_name or app_config.GCP_SPANNER_DATABASE_NAME
+    )
     validate_config_or_exit(app_config)
     return app_config
 
