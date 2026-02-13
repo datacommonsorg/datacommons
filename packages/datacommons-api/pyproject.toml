@@ -7,6 +7,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 keywords = []
 authors = []
+urls = {Homepage = "https://github.com/datacommonsorg/datacommons"}
 dependencies = [
   "fastapi>=0.95.0",
   "uvicorn[standard]>=0.22.0",
@@ -16,7 +17,11 @@ dependencies = [
   "datacommons-db",
   "datacommons-schema",
 ]
-urls = {Homepage = "https://github.com/datacommonsorg/datacommons"}
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
 
 [build-system]
 requires = ["uv", "setuptools"]
@@ -27,3 +32,5 @@ include-package-data = true
 
 [tool.setuptools.dynamic]
 version = {attr = "datacommons_api.version.__version__"}
+
+

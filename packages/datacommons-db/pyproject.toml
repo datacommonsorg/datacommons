@@ -21,6 +21,11 @@ dependencies = [
   "setuptools<=80.0.0", # Pin version to <=80 to avoid https://stackoverflow.com/questions/76043689/pkg-resources-is-deprecated-as-an-api
 ]
 
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
+
 [project.urls]
 Documentation = "https://github.com/datacommonsorg/datacommons#readme"
 Issues = "https://github.com/datacommonsorg/datacommons/issues"
