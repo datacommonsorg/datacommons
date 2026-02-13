@@ -14,7 +14,7 @@
 
 # models.py
 import sqlalchemy as sa
-from sqlalchemy.types import String
+from sqlalchemy.types import Boolean, String
 
 from datacommons_db.models.base import Base
 
@@ -28,13 +28,20 @@ class ObservationModel(Base):
 
     variable_measured = sa.Column(String(1024), nullable=False, primary_key=True)
     observation_about = sa.Column(String(1024), nullable=False, primary_key=True)
-    import_name = sa.Column(String(1024), nullable=False, primary_key=True)
+    facet_id = sa.Column(String(1024), nullable=False, primary_key=True)
+    
+    # Store the org.datacommons.Observations map<string, string> natively as JSON
+    # This allows direct querying into the keys (dates) and values within Spanner
+    observations = sa.Column(sa.JSON, nullable=False)
+    
+    import_name = sa.Column(String(1024), nullable=False)
     observation_period = sa.Column(String(1024), nullable=True)
     measurement_method = sa.Column(String(1024), nullable=True)
     unit = sa.Column(String(1024), nullable=True)
     scaling_factor = sa.Column(String(1024), nullable=True)
-    observations = sa.Column(sa.LargeBinary, nullable=False)
+    is_dc_aggregate = sa.Column(Boolean, nullable=True)
     provenance_url = sa.Column(String(1024), nullable=False)
 
     def __repr__(self):
-        return f"<ObservationModel(variable_measured='{self.variable_measured}', observation_about='{self.observation_about}', import_name='{self.import_name}')>"
+        return f"<ObservationModel(variable_measured='{self.variable_measured}', observation_about='{self.observation_about}', facet_id='{self.facet_id}')>"
+

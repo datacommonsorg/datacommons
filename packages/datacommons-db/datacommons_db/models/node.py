@@ -15,19 +15,22 @@
 # models.py
 import sqlalchemy as sa
 from sqlalchemy.orm import relationship
-from sqlalchemy.types import ARRAY, String, Text
+from sqlalchemy.types import ARRAY, LargeBinary, String, Text
 
 from datacommons_db.models.base import Base
 
 
 class NodeModel(Base):
     """
-    Represents a node in the graph.
+    Represents a node in the graph
+    Supports Spanner native types.
     """
 
     __tablename__ = "Node"
     subject_id = sa.Column(String(1024), primary_key=True, autoincrement=False)
-    name = sa.Column(Text(), nullable=True)
+    value = sa.Column(Text(), nullable=True) # STRING(MAX)
+    bytes = sa.Column(LargeBinary(), nullable=True) # BYTES(MAX)
+    name = sa.Column(Text(), nullable=True) # STRING(MAX)
     types = sa.Column(ARRAY(String(1024)), nullable=True)
 
     # Define both outgoing and incoming relationships

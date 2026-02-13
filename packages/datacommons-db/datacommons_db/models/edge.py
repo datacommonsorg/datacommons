@@ -14,8 +14,8 @@
 
 # models.py
 import sqlalchemy as sa
-from sqlalchemy.orm import deferred, relationship
-from sqlalchemy.types import String, Text
+from sqlalchemy.orm import relationship
+from sqlalchemy.types import String
 
 from datacommons_db.models.base import Base
 
@@ -31,24 +31,27 @@ class EdgeModel(Base):
     )
     predicate = sa.Column(String(1024), primary_key=True)
     object_id = sa.Column(String(1024), primary_key=True)
-    object_value = sa.Column(Text(), nullable=True)
-    object_hash = sa.Column(String(64), primary_key=True, nullable=True)
-    provenance = sa.Column(String(1024), primary_key=True, nullable=True)
-    # Use deferred to avoid loading the node data into memory
-    object_value_tokenlist = deferred(
-        sa.Column(Text(), nullable=True)
-    )  #  TOKENLIST is a Spanner type, but represented as String in SQLAlchemy
+    provenance = sa.Column(String(1024), primary_key=True)
 
     # Define relationships to both source and target nodes
     source_node = relationship(
         "NodeModel", foreign_keys=[subject_id], back_populates="outgoing_edges"
     )
 
-    # Indexes
+    # Indexes and constraints
     __table_args__ = (
-        # Index for object_value lookups
-        sa.Index("EdgeByObjectValue", "object_value"),
+        sa.ForeignKeyConstraint(["object_id"], ["Node.subject_id"], name="FKObject"),
+        sa.ForeignKeyConstraint(
+            ["predicate"], ["Node.subject_id"], name="FKPredicate"
+        ),
+        sa.ForeignKeyConstraint(
+            ["provenance"], ["Node.subject_id"], name="FKProvenance"
+        ),
+        {
+            "spanner_interleave_in": "Node",
+            "spanner_interleave_on_delete": "NO ACTION",
+        },
     )
 
     def __repr__(self):
-        return f"<EdgeModel(subject_id='{self.subject_id}', predicate='{self.predicate}', object_id='{self.object_id}')>"
+        return f"<EdgeModel(subject_id='{self.subject_id}', predicate='{self.predicate}', object_id='{self.object_id}', provenance='{self.provenance}')>"
