@@ -115,7 +115,6 @@ def create_edge_model(
     subject_id: str,
     predicate: str,
     object_id: str | None = None,
-    object_value: str | None = None,
     provenance: str | None = None,
 ) -> EdgeModel:
     """
@@ -124,15 +123,17 @@ def create_edge_model(
     Args:
       subject_id: The ID of the source node
       predicate: The edge predicate
-      value_data: The edge value
-        - A string literal
-        - A GraphNode
+      object_id: The ID of the generic or literal destination node
       provenance: The ID of a node that is the provenance of the edge
         TODO: Add an example of a provenance node
 
     Returns:
       An EdgeModel instance
     """
+    if not object_id:
+        message = f"Missing object_id for edge {subject_id} {predicate}"
+        raise GraphServiceError(message)
+
     # Handle lists of values by creating multiple edges
     edge = EdgeModel(
         object_id=object_id,
@@ -141,28 +142,20 @@ def create_edge_model(
     )
     if provenance:
         edge.provenance = provenance
-    if object_value:
-        edge.object_value = object_value
-    if object_value and not object_id:
-        # If the edge value is a string, use the subject id as the object id
-        edge.object_id = subject_id
-    if not object_id and not object_value:
-        message = f"Missing object_id or object_value for edge {subject_id} {predicate}"
-        raise GraphServiceError(message)
     return edge
 
 
-def extract_edges_from_node(graph_node: GraphNode) -> list[EdgeModel]:
+def extract_edges_from_node(graph_node: GraphNode) -> list[EdgeModel | NodeModel]:
     """
-    Extract EdgeModel instances from a GraphNode's properties.
+    Extract EdgeModel and literal NodeModel instances from a GraphNode's properties.
 
     Args:
       graph_node: The GraphNode to extract edges from
 
     Returns:
-      A list of EdgeModel instances
+      A list of EdgeModel and literal NodeModel instances
     """
-    edges = []
+    models = []
 
     for predicate, edge_values in graph_node.model_dump().items():
         # Skip node metadata
@@ -180,17 +173,23 @@ def extract_edges_from_node(graph_node: GraphNode) -> list[EdgeModel]:
                     subject_id=graph_node.id,
                     predicate=predicate,
                     object_id=edge_graph_node.id,
-                    object_value=edge_graph_node.value,
                 )
+                models.append(edge)
             else:
+                str_val = str(edge_value)
+                literal_id = generate_literal_id(str_val)
                 edge = create_edge_model(
                     subject_id=graph_node.id,
                     predicate=predicate,
-                    object_id=graph_node.id,  # For literal values, use the node id as the object id
-                    object_value=edge_value,
+                    object_id=literal_id,
                 )
-            edges.append(edge)
-    return edges
+                literal_node = NodeModel(
+                    subject_id=literal_id,
+                    value=str_val
+                )
+                models.append(edge)
+                models.append(literal_node)
+    return models
 
 
 def node_model_to_graph_node(node: NodeModel) -> GraphNode:
