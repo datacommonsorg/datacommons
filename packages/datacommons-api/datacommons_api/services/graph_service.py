@@ -13,7 +13,10 @@
 # limitations under the License.
 
 # Standard library imports
+import hashlib
 import logging
+
+from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session, joinedload
@@ -48,12 +51,28 @@ BASE_NAMESPACES = {
 }
 
 NAMESPACES = {
-    "dc": "https://datacommons.org/",
+    "dc": "https://datacommons.org/browser/",
     "schema": "https://schema.org/",
 }
 
 LOCAL_NAMESPACE_NAME = "local"
 LOCAL_NAMESPACE_URL = f"http://localhost:5000/schema/{LOCAL_NAMESPACE_NAME}/"
+
+OBSERVATION_TYPES = {"StatVarObservation", "schema:Observation"}
+
+
+def generate_literal_id(value: str) -> str:
+    """
+    Generate a deterministic ID for a literal string value.
+
+    Args:
+      value: The literal string value
+
+    Returns:
+      A deterministic ID string format dcid:l/<md5_hash_of_string>
+    """
+    hash_obj = hashlib.md5(value.encode("utf-8"))
+    return f"dcid:l/{hash_obj.hexdigest()}"
 
 
 def create_node_model(graph_node: GraphNode) -> NodeModel:
@@ -71,8 +90,23 @@ def create_node_model(graph_node: GraphNode) -> NodeModel:
         types = [types]
     types = [t for t in types if t is not None]
 
+    # Helper to extract a string value from a generic property
+    def extract_string_value(prop: Any) -> str | None:
+        if not prop:
+            return None
+        if isinstance(prop, list) and prop:
+            prop = prop[0]
+        if hasattr(prop, "value") and prop.value is not None:
+            return str(prop.value)
+        return None
+
+    name_val = extract_string_value(getattr(graph_node, "name", None))
+    value_val = extract_string_value(getattr(graph_node, "value", None))
+
     return NodeModel(
         subject_id=graph_node.id,
+        name=name_val,
+        value=value_val,
         types=types,
     )
 
