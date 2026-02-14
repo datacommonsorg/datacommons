@@ -16,6 +16,7 @@ dependencies = [
   "click>=8.1.7",
   "datacommons-db",
   "datacommons-schema",
+  "sqlalchemy-spanner>=1.17.2",
 ]
 
 [dependency-groups]

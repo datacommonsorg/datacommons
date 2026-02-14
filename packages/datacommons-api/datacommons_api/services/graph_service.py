@@ -21,11 +21,8 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.orm import Session, joinedload
 
-# Third-party imports
 from datacommons_api.core.constants import DEFAULT_NODE_FETCH_LIMIT
 from datacommons_db.models.edge import EdgeModel
-
-# Local application imports
 from datacommons_db.models.node import NodeModel
 from datacommons_schema.models.jsonld import (
     GraphNode,

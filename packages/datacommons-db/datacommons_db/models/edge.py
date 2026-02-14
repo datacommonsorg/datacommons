@@ -18,6 +18,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.types import String
 
 from datacommons_db.models.base import Base
+from datacommons_db.models.node import NodeModel
 
 
 class EdgeModel(Base):
@@ -55,3 +56,6 @@ class EdgeModel(Base):
 
     def __repr__(self):
         return f"<EdgeModel(subject_id='{self.subject_id}', predicate='{self.predicate}', object_id='{self.object_id}', provenance='{self.provenance}')>"
+
+# Explicitly state that EdgeModel depends on NodeModel for creation order (important for Spanner interleaving)
+EdgeModel.__table__.add_is_dependent_on(NodeModel.__table__)
