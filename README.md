@@ -53,7 +53,7 @@ uv sync
 Run the test suite to verify your setup:
 
 ```bash
-uv run --extra test pytest
+uv run pytest
 ```
 
 Tests are also run automatically before pushing changes.

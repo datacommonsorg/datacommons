@@ -17,6 +17,7 @@ dependencies = [
   "datacommons-db",
   "datacommons-schema",
   "sqlalchemy-spanner>=1.17.2",
+  "python-dotenv>=1.2.1",
 ]
 
 [dependency-groups]

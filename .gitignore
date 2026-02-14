@@ -10,3 +10,5 @@ node_modules
 .ruff_cache
 .coverage
 htmlcov/
+
+.env
