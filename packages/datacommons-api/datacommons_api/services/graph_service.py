@@ -212,14 +212,15 @@ def node_model_to_graph_node(node: NodeModel) -> GraphNode:
             edge_groups[edge.predicate] = []
 
         property_value = {}
-        # If the edge has a literal value, add it to the property value
-        if edge.object_value:
-            property_value["@value"] = edge.object_value
-        # If the edge has an object id, add it to the property value
+        
+        # Check if the target node is a literal node (has a value)
+        # We use the relationship `target_node` which is eagerly loaded
+        if edge.target_node and edge.target_node.value is not None:
+             property_value["@value"] = edge.target_node.value
+        # If it's a reference to another node, use the object_id
         else:
             property_value["@id"] = edge.object_id
 
-        # If the edge has provenance, add it to the property value
         if edge.provenance:
             property_value["@provenance"] = edge.provenance
 
@@ -313,8 +314,10 @@ class GraphService:
                 )
             ).params(type_filter=type_filter)
 
-        # Load outgoing edges
-        query = query.options(joinedload(NodeModel.outgoing_edges)).limit(limit)
+        # Eagerly load outgoing edges AND their target nodes to avoid N+1 queries
+        query = query.options(
+            joinedload(NodeModel.outgoing_edges).joinedload(EdgeModel.target_node)
+        ).limit(limit)
 
         nodes = query.all()
         logger.debug("Retrieved %d nodes with outgoing edges", len(nodes))

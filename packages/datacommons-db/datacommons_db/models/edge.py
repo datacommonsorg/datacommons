@@ -39,6 +39,11 @@ class EdgeModel(Base):
         "NodeModel", foreign_keys=[subject_id], back_populates="outgoing_edges"
     )
 
+    # Relationship to the target node (for joinedload optimizations)
+    target_node = relationship(
+        "NodeModel", foreign_keys=[object_id]
+    )
+
     # Indexes and constraints
     __table_args__ = (
         sa.ForeignKeyConstraint(["object_id"], ["Node.subject_id"], name="FKObject"),
