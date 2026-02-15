@@ -362,22 +362,24 @@ class GraphService:
 
             # Extract and create edge models
             node_edges = extract_edges_from_node(graph_node, default_provenance=default_provenance)
-            edges.extend(node_edges)
+            for item in node_edges:
+                if isinstance(item, NodeModel):
+                    nodes.append(item)
+                    explicit_subject_ids.add(item.subject_id)
+                else:
+                    edges.append(item)
 
         # Collect all referenced IDs in edges that MUST exist as Nodes
         referenced_ids = set()
         for item in edges:
-            if isinstance(item, NodeModel):
-                 explicit_subject_ids.add(item.subject_id)
-            elif isinstance(item, EdgeModel):
-                if item.subject_id:
-                    referenced_ids.add(item.subject_id)
-                if item.predicate:
-                    referenced_ids.add(item.predicate)
-                if item.object_id:
-                    referenced_ids.add(item.object_id)
-                if item.provenance:
-                    referenced_ids.add(item.provenance)
+            if item.subject_id:
+                referenced_ids.add(item.subject_id)
+            if item.predicate:
+                referenced_ids.add(item.predicate)
+            if item.object_id:
+                referenced_ids.add(item.object_id)
+            if item.provenance:
+                referenced_ids.add(item.provenance)
         
         # Identify potentials that are not in the explicit list
         # (References that rely on existing DB nodes or need implicit creation)
@@ -405,11 +407,17 @@ class GraphService:
 
         try:
             # Add all nodes first and flush to ensure they exist for FK constraints
-            self.session.add_all(nodes)
+            # Use merge to handle duplicates (upsert)
+            for node in nodes:
+                self.session.merge(node)
             self.session.flush()
             
             # Then add edges
-            self.session.add_all(edges)
+            # For edges, we might also want merge if they are exact duplicates? 
+            # But edges have composite PK. If exact duplicate, merge handles it.
+            # If different provenance, it's a new row.
+            for edge in edges:
+                 self.session.merge(edge)
             
             # Commit the transaction
             self.session.commit()
