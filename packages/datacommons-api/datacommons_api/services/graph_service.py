@@ -18,7 +18,7 @@ import logging
 
 from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import text, exc
 from sqlalchemy.orm import Session, joinedload
 
 from datacommons_api.core.constants import DEFAULT_NODE_FETCH_LIMIT
@@ -136,18 +136,21 @@ def create_edge_model(
         object_id=object_id,
         predicate=predicate,
         subject_id=subject_id,
+        provenance=provenance or "",  # Default to empty string for PK compatibility
     )
-    if provenance:
-        edge.provenance = provenance
     return edge
 
 
-def extract_edges_from_node(graph_node: GraphNode) -> list[EdgeModel | NodeModel]:
+def extract_edges_from_node(
+    graph_node: GraphNode,
+    default_provenance: str | None = None
+) -> list[EdgeModel | NodeModel]:
     """
     Extract EdgeModel and literal NodeModel instances from a GraphNode's properties.
 
     Args:
       graph_node: The GraphNode to extract edges from
+      default_provenance: Optional global provenance to apply if not specified in edge
 
     Returns:
       A list of EdgeModel and literal NodeModel instances
@@ -166,10 +169,14 @@ def extract_edges_from_node(graph_node: GraphNode) -> list[EdgeModel | NodeModel
             # If the edge value is a dictionary, parse it as a GraphNodePropertyValue
             if isinstance(edge_value, dict):
                 edge_graph_node = GraphNodePropertyValue.model_validate(edge_value)
+                # Use explicit provenance if available, otherwise default
+                prov = getattr(edge_graph_node, "provenance", None) or default_provenance
+                
                 edge = create_edge_model(
                     subject_id=graph_node.id,
                     predicate=predicate,
                     object_id=edge_graph_node.id,
+                    provenance=prov,
                 )
                 models.append(edge)
             else:
@@ -179,6 +186,7 @@ def extract_edges_from_node(graph_node: GraphNode) -> list[EdgeModel | NodeModel
                     subject_id=graph_node.id,
                     predicate=predicate,
                     object_id=literal_id,
+                    provenance=default_provenance,
                 )
                 literal_node = NodeModel(
                     subject_id=literal_id,
@@ -323,7 +331,7 @@ class GraphService:
         logger.debug("Retrieved %d nodes with outgoing edges", len(nodes))
         return nodes
 
-    def insert_graph_nodes(self, jsonld: JSONLDDocument) -> None:
+    def insert_graph_nodes(self, jsonld: JSONLDDocument, default_provenance: str | None = None) -> None:
         """
         Insert nodes and edges from a JSON-LD document into the database.
 
@@ -335,28 +343,102 @@ class GraphService:
 
         Args:
           jsonld: The JSON-LD document containing nodes and edges to insert
+          default_provenance: Optional global provenance for edges
         """
         nodes: list[NodeModel] = []
         edges: list[EdgeModel] = []
 
         logger.info("Inserting %d nodes from JSON-LD document", len(jsonld.graph))
 
+        # Track explicit subject IDs to avoid duplicating checks
+        explicit_subject_ids = set()
+
         # Process each node in the graph
         for graph_node in jsonld.graph:
             # Create node model
             node_model = create_node_model(graph_node)
             nodes.append(node_model)
+            explicit_subject_ids.add(node_model.subject_id)
 
             # Extract and create edge models
-            node_edges = extract_edges_from_node(graph_node)
+            node_edges = extract_edges_from_node(graph_node, default_provenance=default_provenance)
             edges.extend(node_edges)
+
+        # Collect all referenced IDs in edges that MUST exist as Nodes
+        referenced_ids = set()
+        for item in edges:
+            if isinstance(item, NodeModel):
+                 explicit_subject_ids.add(item.subject_id)
+            elif isinstance(item, EdgeModel):
+                if item.subject_id:
+                    referenced_ids.add(item.subject_id)
+                if item.predicate:
+                    referenced_ids.add(item.predicate)
+                if item.object_id:
+                    referenced_ids.add(item.object_id)
+                if item.provenance:
+                    referenced_ids.add(item.provenance)
+        
+        # Identify potentials that are not in the explicit list
+        # (References that rely on existing DB nodes or need implicit creation)
+        potential_missing_ids = referenced_ids - explicit_subject_ids
+        
+        if potential_missing_ids:
+            # Check which of these already exist in the DB
+            existing_nodes = self.session.query(NodeModel.subject_id).filter(
+                NodeModel.subject_id.in_(potential_missing_ids)
+            ).all()
+            existing_ids = {n.subject_id for n in existing_nodes}
+            
+            # The truly missing ones need to be created implicitly
+            missing_ids = potential_missing_ids - existing_ids
+            
+        if missing_ids:
+                logger.info("Implicitly creating %d nodes to satisfy FK constraints: %s", len(missing_ids), missing_ids)
+                for missing_id in missing_ids:
+                    # Create a minimal NodeModel
+                    # We can't know the type or name, just the ID is known.
+                    implicit_node = NodeModel(subject_id=missing_id)
+                    nodes.append(implicit_node)
 
         logger.info("Inserting %d nodes and %d edges", len(nodes), len(edges))
 
-        # Add all nodes and edges to the session
-        self.session.add_all(nodes)
-        self.session.add_all(edges)
-
-        # Commit the transaction
-        self.session.commit()
-        logger.info("Successfully committed all nodes and edges to database")
+        try:
+            # Add all nodes first and flush to ensure they exist for FK constraints
+            self.session.add_all(nodes)
+            self.session.flush()
+            
+            # Then add edges
+            self.session.add_all(edges)
+            
+            # Commit the transaction
+            self.session.commit()
+            logger.info("Successfully committed all nodes and edges to database")
+            
+        except exc.IntegrityError as e:
+            self.session.rollback()
+            msg = str(e)
+            details = repr(e.orig) if hasattr(e, 'orig') and e.orig else str(e)
+            
+            # Try to extract helpful info
+            if "Foreign key constraint" in msg or "ForeignKey" in msg:
+                error_type = "IntegrityError: Missing referenced node"
+            elif "Unique constraint" in msg or "Duplicate entry" in msg or "AlreadyExists" in msg:
+                 error_type = "IntegrityError: Duplicate node or edge"
+            else:
+                error_type = "Database IntegrityError"
+            
+            readable_msg = f"{error_type}. Details: {details}"
+            
+            # Add SQL context if available
+            if hasattr(e, 'statement') and e.statement:
+                readable_msg += f"\nSQL: {e.statement}"
+            if hasattr(e, 'params') and e.params:
+                readable_msg += f"\nParams: {e.params}"
+            
+            logger.error(readable_msg)
+            raise GraphServiceError(readable_msg) from e
+        except Exception as e:
+            self.session.rollback()
+            logger.exception("Error inserting graph nodes")
+            raise GraphServiceError(f"Error inserting graph nodes: {str(e)}") from e

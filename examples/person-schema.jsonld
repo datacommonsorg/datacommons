@@ -27,6 +27,12 @@
       "rdfs:comment":     "Links one person to another person they know.",
       "rdfs:domain":      { "@id": "local:Person" },
       "rdfs:range":       { "@id": "local:Person" }
+    },
+    {
+      "@id": "local:demo-data",
+      "@type": "local:Provenance",
+      "rdfs:label": "Demo Data",
+      "rdfs:comment": "Provenance for demo data."
     }
   ]
 }

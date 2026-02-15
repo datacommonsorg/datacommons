@@ -68,26 +68,26 @@ export GCP_SPANNER_INSTANCE_ID="your-spanner-instance-id"
 export GCP_SPANNER_DATABASE_NAME="your-spanner-database-name"
 ```
 
-Replace the values with your actual GCP project and Spanner instance details. You can find these in your Google Cloud Console under the Spanner section. Make sure you have the necessary permissions to create and modify databases in your Spanner instance.
+Replace the values with your actual GCP project and Spanner instance details or put them in a `.env` file in the root of the repository. You can find these in your Google Cloud Console under the Spanner section. Make sure you have the necessary permissions to create and modify databases in your Spanner instance.
 
 #### Start Data Commons:
 
-Run the `datacommons` command using `uv` to start a local development server.
+Launch Data Commons API server on port 5000, ready to receive your schema and data. CLI arguments override .env settings.
 
 ```bash
+# Standard start
 uv run datacommons api start
-```
 
-This will start the Data Commons API server on port 5000, ready to receive your schema and data.
+# Development mode (with auto-reload)
+uv run datacommons api start --reload
 
-Alternatively, you can set the spanner configuration using command line arguments, which will take precedence over environment variables:
-
-```bash
+# Override Spanner credentials config via CLI
 uv run datacommons api start \
   --gcp-project-id="your-gcp-project-id" \
   --gcp-spanner-instance-id="your-spanner-instance-id" \
   --gcp-spanner-database-name="your-spanner-database-name"
 ```
+
 
 ### 2. Define Your Schema
 
@@ -180,12 +180,22 @@ From the repository's root directory, run:
 
 ```bash
 curl -X POST "http://localhost:5000/nodes/" -H "Content-Type: application/json" -d @examples/person-schema.jsonld
+
+# With default provenance
+curl -X POST "http://localhost:5000/nodes/?provenance=local:demo-data" \
+  -H "Content-Type: application/json" \
+  -d @examples/person-schema.jsonld
 ```
 
 #### Upload the people data:
 
 ```bash
 curl -X POST "http://localhost:5000/nodes/" -H "Content-Type: application/json" -d @examples/people.jsonld
+
+# With default provenance
+curl -X POST "http://localhost:5000/nodes/?provenance=local:demo-data" \
+  -H "Content-Type: application/json" \
+  -d @examples/people.jsonld
 ```
 
 #### Verify imported data

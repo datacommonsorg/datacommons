@@ -47,11 +47,12 @@ def get_nodes(
 @router.post("/nodes/", response_model=UpdateResponse, response_model_exclude_none=True)
 def insert_nodes(
     jsonld: JSONLDDocument,
+    provenance: Annotated[str | None, Query(description="Global provenance for all inserted nodes")] = None,
     graph_service: Annotated[GraphService, Depends(with_graph_service)] = None,
 ) -> UpdateResponse:
     """Insert a JSON-LD document into the database"""
     try:
-        graph_service.insert_graph_nodes(jsonld)
+        graph_service.insert_graph_nodes(jsonld, default_provenance=provenance)
         return UpdateResponse(
             success=True, message="Inserted %d nodes successfully" % len(jsonld.graph)
         )

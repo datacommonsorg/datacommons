@@ -7,6 +7,12 @@
   },
   "@graph": [
     {
+        "@id": "local:demo-data",
+        "@type": "local:Provenance",
+        "rdfs:label": "Demo Data",
+        "rdfs:comment": "Provenance for demo data."
+      },
+      {
       "@id": "local:Li",
       "@type": "local:Person",
       "local:name": "Li",
