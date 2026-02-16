@@ -1,46 +1,58 @@
 #!/bin/bash
 set -e
 
-# Ensure we are in the script's directory (resilient execution)
-cd "$(dirname "$0")"
+# Ensure we are in the deploy root (parent of scripts/)
+cd "$(dirname "$0")/.."
 
 # =============================================================================
 # 1. SETUP & CONFIGURATION
 # =============================================================================
 ENV_NAME=${1:-dev}
-ENV_FILE="env.${ENV_NAME}"
+ENV_FILE="envs/${ENV_NAME}/env"
 
 if [ ! -f "$ENV_FILE" ]; then
     echo "❌ Error: Configuration file '$ENV_FILE' not found!"
     exit 1
 fi
 
-# Load variables
+echo "📂 Loading configuration for: $ENV_NAME"
+# Load environment variables
 set -a
-source "$ENV_FILE"
+source "$ENV_DIR/env"
 set +a
 
-# Define file names
-# Define file names
-TEMPLATE_FILE="service.yaml.template"
-GENERATED_FILE="service.generated.yaml"
+# Define Template Paths
+TEMPLATE_FILE="templates/services.yaml.template"
+NGINX_FILE="templates/nginx.conf"
+MIXER_FLAGS_FILE="$ENV_DIR/mixer_flags.yaml"
+GENERATED_FILE="services.generated.yaml"
+# =============================================================================
+# 2. PREPARE INJECTIONS (Base64 Encoding)
+# =============================================================================
 
-# =============================================================================
-# 2. PREPARE NGINX CONFIG (The Injection Step)
-# =============================================================================
-echo "📄 Encoding nginx.conf..."
-if [ ! -f "nginx.conf" ]; then
-    echo "❌ Error: nginx.conf not found!"
+# A. NGINX CONFIG
+echo "📄 Encoding Nginx Config..."
+if [ ! -f "$NGINX_FILE" ]; then
+    echo "❌ Error: $NGINX_FILE not found!"
     exit 1
 fi
-
-# Detect OS for correct Base64 flags (Mac vs Linux)
 if [[ "$OSTYPE" == "darwin"* ]]; then
-    # macOS
-    export NGINX_CONFIG_B64=$(base64 -i nginx.conf)
+    export NGINX_CONFIG_B64=$(base64 -i "$NGINX_FILE")
 else
-    # Linux (Cloud Build / CI / Ubuntu)
-    export NGINX_CONFIG_B64=$(base64 -w 0 nginx.conf)
+    export NGINX_CONFIG_B64=$(base64 -w 0 "$NGINX_FILE")
+fi
+
+# B. MIXER FEATURE FLAGS
+echo "🚩 Encoding Feature Flags..."
+if [ ! -f "$MIXER_FLAGS_FILE" ]; then
+    echo "⚠️  Warning: $MIXER_FLAGS_FILE not found. Using empty flags."
+    export MIXER_FEATURE_FLAGS_B64=""
+else
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        export MIXER_FEATURE_FLAGS_B64=$(base64 -i "$MIXER_FLAGS_FILE")
+    else
+        export MIXER_FEATURE_FLAGS_B64=$(base64 -w 0 "$MIXER_FLAGS_FILE")
+    fi
 fi
 
 # =============================================================================

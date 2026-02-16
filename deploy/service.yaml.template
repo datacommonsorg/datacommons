@@ -100,12 +100,33 @@ spec:
         args:
           - "-c"
           - |
+            # ---------------------------------------------------------
+            # 1. DECODE FEATURE FLAGS
+            # ---------------------------------------------------------
+            # We decode the env var into a real file at /tmp/feature_flags.yaml
+            echo "Injecting Feature Flags..."
+            echo "$MIXER_FEATURE_FLAGS_B64" | base64 -d > /tmp/feature_flags.yaml
+            # ---------------------------------------------------------
+            # 2. GENERATE SPANNER INFO (New)
+            # ---------------------------------------------------------
+            # We construct the Spanner config YAML string dynamically using provided env vars
+            echo "Generating Spanner Config..."
+            SPANNER_INFO=$(printf "project: %s\ninstance: %s\ndatabase: %s" \
+              "${GCP_PROJECT_ID}" \
+              "${GCP_SPANNER_INSTANCE_ID}" \
+              "${GCP_SPANNER_DATABASE_NAME}")
+            # ---------------------------------------------------------
+            # 3. START MIXER
+            # ---------------------------------------------------------
             echo "Starting Mixer (Background) + Envoy (Foreground)..."
+            # NOTE: For local/dev testing of features or graph info, you can add:
+            #   --spanner_graph_info='$(cat deploy/storage/spanner_graph_info.yaml)' \
             /workspace/bin/mixer \
               --use_bigquery=false \
               --use_base_bigtable=false \
               --use_sqlite=false \
-              --
+              --feature_flags_path=/tmp/feature_flags.yaml \
+              --spanner_graph_info="$SPANNER_INFO" \
               --embeddings_server_url=http://localhost:6060 \
               --remote_mixer_domain=${REMOTE_MIXER_DOMAIN} \
               --port=8084 &
@@ -116,6 +137,14 @@ spec:
               secretKeyRef:
                 name: ${MIXER_API_KEY_SECRET_NAME} # Reference the Secret Name
                 key: latest
+          - name: MIXER_FEATURE_FLAGS_B64
+            value: "${MIXER_FEATURE_FLAGS_B64}"
+          - name: GCP_PROJECT_ID
+            value: "${GCP_PROJECT_ID}"
+          - name: GCP_SPANNER_INSTANCE_ID
+            value: "${GCP_SPANNER_INSTANCE_ID}"
+          - name: GCP_SPANNER_DATABASE_NAME
+            value: "${GCP_SPANNER_DATABASE_NAME}"
         volumeMounts:
           - name: shared-data
             mountPath: /datacommons
