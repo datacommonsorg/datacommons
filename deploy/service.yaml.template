@@ -104,8 +104,8 @@ spec:
             /workspace/bin/mixer \
               --use_bigquery=false \
               --use_base_bigtable=false \
-              --sqlite_path=/datacommons/datacommons.db \
-              --use_sqlite=true \
+              --use_sqlite=false \
+              --
               --embeddings_server_url=http://localhost:6060 \
               --remote_mixer_domain=${REMOTE_MIXER_DOMAIN} \
               --port=8084 &

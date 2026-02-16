@@ -22,8 +22,8 @@ set +a
 
 # Define file names
 # Define file names
-TEMPLATE_FILE="services.yaml.template"
-GENERATED_FILE="services.generated.yaml"
+TEMPLATE_FILE="service.yaml.template"
+GENERATED_FILE="service.generated.yaml"
 
 # =============================================================================
 # 2. PREPARE NGINX CONFIG (The Injection Step)
