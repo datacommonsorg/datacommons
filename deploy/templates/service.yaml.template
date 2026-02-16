@@ -73,7 +73,7 @@ spec:
       # 2. LEGACY WEB APP (Port 3000)
       # =======================================================================
       - name: web-app
-       dependsOn:
+        dependsOn:
           - nl-server
         volumeMounts:
           - name: shared-data
