@@ -8,8 +8,13 @@ export GCP_REGION="us-central1"
 # Infrastructure Config
 # ==========================================
 export GCP_PROJECT_ID="datcom-website-dev"
+
+# Bucket for static embeddings
+export GCS_DATA_BUCKET="gs://customdc-data/dc-dev"
+
 export GCP_SPANNER_INSTANCE_ID="dan-dc2-dc-spanner"
 export GCP_SPANNER_DATABASE_NAME="dcp-db-dev"
+
 export REMOTE_MIXER_DOMAIN="https://autopush.api.datacommons.org"
 
 # ==========================================
@@ -19,7 +24,7 @@ export REMOTE_MIXER_DOMAIN="https://autopush.api.datacommons.org"
 export LEGACY_WEBSITE_TAG="a277e64"          
 export LEGACY_MIXER_TAG="3564830"            
 export LEGACY_NL_TAG="a277e64"              
-export LEGACY_MCP_TAG="autopush-1.1.7.dev2"
+export MCP_TAG="autopush-1.1.7.dev2"
 export INCREMENTAL_TAG="latest"
 
 # ==========================================

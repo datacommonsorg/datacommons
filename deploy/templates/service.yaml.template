@@ -20,34 +20,50 @@ spec:
           emptyDir:
             medium: Memory
             sizeLimit: 2Gi
-        - name: nginx-conf-vol
-          secret:
-            secretName: ${NGINX_SECRET_NAME} # e.g. "nginx-config-dev"
-            items:
-              - key: latest
-                path: nginx.conf
+
+      # =======================================================================
+      # INIT CONTAINER: DOWNLOAD EMBEDDINGS ONLY
+      # =======================================================================
+      initContainers:
+      - name: embeddings-loader
+        image: google/cloud-sdk:slim
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            echo "📥 Downloading Custom Embeddings from ${GCS_DATA_BUCKET}..."
+            
+            # Create destination directory
+            mkdir -p /datacommons/nl
+            
+            # Download ONLY the 'nl' folder (Embeddings + Catalog)
+            gsutil -m cp -r "${GCS_DATA_BUCKET}/nl/*" /datacommons/nl/
+            
+            echo "✅ Embeddings download complete."
+            ls -R /datacommons/nl
+        env:
+          - name: GCS_DATA_BUCKET
+            value: "${GCS_DATA_BUCKET}"
+        volumeMounts:
+          - name: shared-data
+            mountPath: /datacommons
 
       containers:
       # =======================================================================
       # 1. MAIN ROUTER (Ingress 8080)
       # =======================================================================
       - name: router
-        image: nginx:alpine # Standard public image
+        image: nginx:alpine
         ports:
           - containerPort: 8080
         env:
-          # The massive base64 string is injected here
           - name: NGINX_CONFIG_B64
             value: "${NGINX_CONFIG_B64}"
         
-        # Override command to decode config -> write file -> start nginx
         command: ["/bin/sh", "-c"]
         args:
           - |
             echo "Injecting Nginx Config..."
             echo "$NGINX_CONFIG_B64" | base64 -d > /etc/nginx/nginx.conf
-            
-            # Start Nginx in foreground
             echo "Starting Nginx..."
             exec nginx -g 'daemon off;'
         dependsOn:
@@ -70,7 +86,8 @@ spec:
           - |
             echo "Starting Web App on PORT 3000..."
             export FLASK_ENV=custom
-            export ENABLE_MCP=true
+            export ENV_PREFIX=Compose
+            export ENABLE_MODEL=true
             exec gunicorn --log-level info --preload --bind 0.0.0.0:3000 -w 4 web_app:app
         env:
           - name: MAPS_API_KEY
@@ -80,6 +97,10 @@ spec:
                 key: latest
           - name: OUTPUT_DIR
             value: "/datacommons"
+          - name: WEBSITE_MIXER_API_ROOT
+            value: "http://localhost:8081"
+          - name: ENABLE_MCP
+            value: "true"
         volumeMounts:
           - name: shared-data
             mountPath: /datacommons
@@ -100,27 +121,20 @@ spec:
         args:
           - "-c"
           - |
-            # ---------------------------------------------------------
             # 1. DECODE FEATURE FLAGS
-            # ---------------------------------------------------------
-            # We decode the env var into a real file at /tmp/feature_flags.yaml
             echo "Injecting Feature Flags..."
+            # UPDATED: Now uses MIXER_FEATURE_FLAGS_B64
             echo "$MIXER_FEATURE_FLAGS_B64" | base64 -d > /tmp/feature_flags.yaml
-            # ---------------------------------------------------------
-            # 2. GENERATE SPANNER INFO (New)
-            # ---------------------------------------------------------
-            # We construct the Spanner config YAML string dynamically using provided env vars
+
+            # 2. CONSTRUCT SPANNER CONFIG
             echo "Generating Spanner Config..."
             SPANNER_INFO=$(printf "project: %s\ninstance: %s\ndatabase: %s" \
               "${GCP_PROJECT_ID}" \
               "${GCP_SPANNER_INSTANCE_ID}" \
               "${GCP_SPANNER_DATABASE_NAME}")
-            # ---------------------------------------------------------
+
             # 3. START MIXER
-            # ---------------------------------------------------------
-            echo "Starting Mixer (Background) + Envoy (Foreground)..."
-            # NOTE: For local/dev testing of features or graph info, you can add:
-            #   --spanner_graph_info='$(cat deploy/storage/spanner_graph_info.yaml)' \
+            echo "Starting Mixer..."
             /workspace/bin/mixer \
               --use_bigquery=false \
               --use_base_bigtable=false \
@@ -128,15 +142,19 @@ spec:
               --feature_flags_path=/tmp/feature_flags.yaml \
               --spanner_graph_info="$SPANNER_INFO" \
               --embeddings_server_url=http://localhost:6060 \
+              --resolve_embeddings_indexes=user_all_minilm_mem \
               --remote_mixer_domain=${REMOTE_MIXER_DOMAIN} \
               --port=8084 &
+
+            # 4. START ENVOY
             exec envoy -l warning --config-path /workspace/esp/envoy-config.yaml
         env:
           - name: MIXER_API_KEY
             valueFrom:
               secretKeyRef:
-                name: ${MIXER_API_KEY_SECRET_NAME} # Reference the Secret Name
+                name: ${MIXER_API_KEY_SECRET_NAME}
                 key: latest
+          # UPDATED: Matches the new variable name
           - name: MIXER_FEATURE_FLAGS_B64
             value: "${MIXER_FEATURE_FLAGS_B64}"
           - name: GCP_PROJECT_ID
@@ -183,16 +201,22 @@ spec:
             memory: "2Gi"
 
       # =======================================================================
-      # 5. LEGACY MCP SERVER (Port 8082)
+      # 5. MCP SERVER (Port 8082)
       # =======================================================================
       - name: mcp-server
-        image: gcr.io/datcom-ci/datacommons-mcp-server:${LEGACY_MCP_TAG}
+        image: gcr.io/datcom-ci/datacommons-mcp-server:${MCP_TAG}
         command: ["/bin/bash"]
         args:
           - "-c"
           - |
             echo "Starting MCP Server..."
+            export DC_TYPE=custom
             exec datacommons-mcp serve http --skip-api-key-validation --port 8082
+        env:
+          - name: CUSTOM_DC_URL
+            value: "http://localhost:8080"
+          - name: DC_API_BASE_URL
+            value: "http://127.0.0.1:8081/v2"
         dependsOn:
           - mixer-envoy
         startupProbe:

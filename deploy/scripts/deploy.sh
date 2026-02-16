@@ -8,7 +8,8 @@ cd "$(dirname "$0")/.."
 # 1. SETUP & CONFIGURATION
 # =============================================================================
 ENV_NAME=${1:-dev}
-ENV_FILE="envs/${ENV_NAME}/env"
+ENV_DIR="envs/${ENV_NAME}"
+ENV_FILE="${ENV_DIR}/env"
 
 if [ ! -f "$ENV_FILE" ]; then
     echo "❌ Error: Configuration file '$ENV_FILE' not found!"
@@ -22,10 +23,10 @@ source "$ENV_DIR/env"
 set +a
 
 # Define Template Paths
-TEMPLATE_FILE="templates/services.yaml.template"
+TEMPLATE_FILE="templates/service.yaml.template"
 NGINX_FILE="templates/nginx.conf"
 MIXER_FLAGS_FILE="$ENV_DIR/mixer_flags.yaml"
-GENERATED_FILE="services.generated.yaml"
+GENERATED_FILE="service.generated.yaml"
 # =============================================================================
 # 2. PREPARE INJECTIONS (Base64 Encoding)
 # =============================================================================
