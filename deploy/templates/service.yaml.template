@@ -47,12 +47,13 @@ spec:
       # 1. MAIN ROUTER (Ingress 8080)
       # =======================================================================
       - name: router
+        dependsOn:
+          - web-app
+          - mixer-envoy
+          - incremental
         image: nginx:alpine
         ports:
           - containerPort: 8080
-        env:
-          - name: NGINX_CONFIG_B64
-            value: "${NGINX_CONFIG_B64}"
         command: ["/bin/sh", "-c"]
         args:
           - |
@@ -60,10 +61,9 @@ spec:
             echo "$NGINX_CONFIG_B64" | base64 -d > /etc/nginx/nginx.conf
             echo "Starting Nginx..."
             exec nginx -g 'daemon off;'
-        dependsOn:
-          - web-app
-          - mixer-envoy
-          - incremental
+        env:
+          - name: NGINX_CONFIG_B64
+            value: "${NGINX_CONFIG_B64}"
         resources:
           limits:
             cpu: "500m"
@@ -73,6 +73,11 @@ spec:
       # 2. LEGACY WEB APP (Port 3000)
       # =======================================================================
       - name: web-app
+       dependsOn:
+          - nl-server
+        volumeMounts:
+          - name: shared-data
+            mountPath: /datacommons
         image: gcr.io/datcom-ci/datacommons-website:${LEGACY_WEBSITE_TAG}
         command: ["/bin/bash"]
         args:
@@ -95,9 +100,6 @@ spec:
             value: "http://localhost:8081"
           - name: ENABLE_MCP
             value: "true"
-        volumeMounts:
-          - name: shared-data
-            mountPath: /datacommons
         startupProbe:
           tcpSocket:
             port: 3000
@@ -110,6 +112,11 @@ spec:
       # 3. LEGACY MIXER + ENVOY (Port 8081 for Envoy)
       # =======================================================================
       - name: mixer-envoy
+        dependsOn:
+          - nl-server
+        volumeMounts:
+          - name: shared-data
+            mountPath: /datacommons
         image: gcr.io/datcom-ci/datacommons-mixer:${LEGACY_MIXER_TAG}
         command: ["/bin/bash"]
         args:
@@ -155,9 +162,6 @@ spec:
             value: "${GCP_SPANNER_INSTANCE_ID}"
           - name: GCP_SPANNER_DATABASE_NAME
             value: "${GCP_SPANNER_DATABASE_NAME}"
-        volumeMounts:
-          - name: shared-data
-            mountPath: /datacommons
         startupProbe:
           tcpSocket:
             port: 8081
@@ -170,6 +174,9 @@ spec:
       # 4. LEGACY NL SERVER (Port 6060)
       # =======================================================================
       - name: nl-server
+        volumeMounts:
+          - name: shared-data
+            mountPath: /datacommons
         image: gcr.io/datcom-ci/datacommons-nl:${LEGACY_NL_TAG}
         command: ["/bin/bash"]
         args:
@@ -181,9 +188,6 @@ spec:
             export OUTPUT_DIR=/datacommons
             export USER_DATA_PATH=/datacommons
             exec gunicorn --log-level info --preload --timeout 1000 --bind 0.0.0.0:6060 -w 1 nl_app:app
-        volumeMounts:
-          - name: shared-data
-            mountPath: /datacommons
         startupProbe:
           tcpSocket:
             port: 6060
@@ -196,6 +200,8 @@ spec:
       # 5. MCP SERVER (Port 8082)
       # =======================================================================
       - name: mcp-server
+        dependsOn:
+          - mixer-envoy
         image: gcr.io/datcom-ci/datacommons-mcp-server:${MCP_TAG}
         command: ["/bin/bash"]
         args:
@@ -209,8 +215,6 @@ spec:
             value: "http://localhost:8080"
           - name: DC_API_BASE_URL
             value: "http://127.0.0.1:8081/v2"
-        dependsOn:
-          - mixer-envoy
         startupProbe:
           tcpSocket:
             port: 8082
