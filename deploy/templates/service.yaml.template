@@ -31,13 +31,8 @@ spec:
         args:
           - |
             echo "📥 Downloading Custom Embeddings from ${GCS_DATA_BUCKET}..."
-            
-            # Create destination directory
             mkdir -p /datacommons/nl
-            
-            # Download ONLY the 'nl' folder (Embeddings + Catalog)
             gsutil -m cp -r "${GCS_DATA_BUCKET}/nl/*" /datacommons/nl/
-            
             echo "✅ Embeddings download complete."
             ls -R /datacommons/nl
         env:
@@ -58,7 +53,6 @@ spec:
         env:
           - name: NGINX_CONFIG_B64
             value: "${NGINX_CONFIG_B64}"
-        
         command: ["/bin/sh", "-c"]
         args:
           - |
@@ -123,7 +117,6 @@ spec:
           - |
             # 1. DECODE FEATURE FLAGS
             echo "Injecting Feature Flags..."
-            # UPDATED: Now uses MIXER_FEATURE_FLAGS_B64
             echo "$MIXER_FEATURE_FLAGS_B64" | base64 -d > /tmp/feature_flags.yaml
 
             # 2. CONSTRUCT SPANNER CONFIG
@@ -154,7 +147,6 @@ spec:
               secretKeyRef:
                 name: ${MIXER_API_KEY_SECRET_NAME}
                 key: latest
-          # UPDATED: Matches the new variable name
           - name: MIXER_FEATURE_FLAGS_B64
             value: "${MIXER_FEATURE_FLAGS_B64}"
           - name: GCP_PROJECT_ID
