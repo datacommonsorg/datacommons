@@ -1,7 +1,7 @@
 # ==========================================
 # Service Identity
 # ==========================================
-export SERVICE_NAME="datacommons-platform-dev"
+export SERVICE_NAME="dcp-dev"
 export GCP_REGION="us-central1"
 
 # ==========================================
