@@ -1,0 +1,197 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: ${SERVICE_NAME}
+  labels:
+    cloud.googleapis.com/location: ${GCP_REGION}
+  annotations:
+    run.googleapis.com/launch-stage: BETA
+spec:
+  template:
+    metadata:
+      annotations:
+        run.googleapis.com/execution-environment: gen2
+    spec:
+      # -----------------------------------------------------------------------
+      # SHARED VOLUMES
+      # -----------------------------------------------------------------------
+      volumes:
+        - name: shared-data
+          emptyDir:
+            medium: Memory
+            sizeLimit: 2Gi
+        - name: nginx-conf-vol
+          secret:
+            secretName: ${NGINX_SECRET_NAME} # e.g. "nginx-config-dev"
+            items:
+              - key: latest
+                path: nginx.conf
+
+      containers:
+      # =======================================================================
+      # 1. MAIN ROUTER (Ingress 8080)
+      # =======================================================================
+      - name: router
+        image: nginx:alpine # Standard public image
+        ports:
+          - containerPort: 8080
+        env:
+          # The massive base64 string is injected here
+          - name: NGINX_CONFIG_B64
+            value: "${NGINX_CONFIG_B64}"
+        
+        # Override command to decode config -> write file -> start nginx
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            echo "Injecting Nginx Config..."
+            echo "$NGINX_CONFIG_B64" | base64 -d > /etc/nginx/nginx.conf
+            
+            # Start Nginx in foreground
+            echo "Starting Nginx..."
+            exec nginx -g 'daemon off;'
+        dependsOn:
+          - web-app
+          - mixer-envoy
+          - incremental
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "256Mi"
+
+      # =======================================================================
+      # 2. LEGACY WEB APP (Port 3000)
+      # =======================================================================
+      - name: web-app
+        image: gcr.io/datcom-ci/datacommons-website:${LEGACY_WEBSITE_TAG}
+        command: ["/bin/bash"]
+        args:
+          - "-c"
+          - |
+            echo "Starting Web App on PORT 3000..."
+            export FLASK_ENV=custom
+            export ENABLE_MCP=true
+            exec gunicorn --log-level info --preload --bind 0.0.0.0:3000 -w 4 web_app:app
+        env:
+          - name: MAPS_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: ${MAPS_API_KEY_SECRET_NAME}
+                key: latest
+          - name: OUTPUT_DIR
+            value: "/datacommons"
+        volumeMounts:
+          - name: shared-data
+            mountPath: /datacommons
+        startupProbe:
+          tcpSocket:
+            port: 3000
+        resources:
+          limits:
+            cpu: "1000m"
+            memory: "1Gi"
+
+      # =======================================================================
+      # 3. LEGACY MIXER + ENVOY (Port 8081 for Envoy)
+      # =======================================================================
+      - name: mixer-envoy
+        image: gcr.io/datcom-ci/datacommons-mixer:${LEGACY_MIXER_TAG}
+        command: ["/bin/bash"]
+        args:
+          - "-c"
+          - |
+            echo "Starting Mixer (Background) + Envoy (Foreground)..."
+            /workspace/bin/mixer \
+              --use_bigquery=false \
+              --use_base_bigtable=false \
+              --sqlite_path=/datacommons/datacommons.db \
+              --use_sqlite=true \
+              --embeddings_server_url=http://localhost:6060 \
+              --remote_mixer_domain=${REMOTE_MIXER_DOMAIN} \
+              --port=8084 &
+            exec envoy -l warning --config-path /workspace/esp/envoy-config.yaml
+        env:
+          - name: MIXER_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: ${MIXER_API_KEY_SECRET_NAME} # Reference the Secret Name
+                key: latest
+        volumeMounts:
+          - name: shared-data
+            mountPath: /datacommons
+        startupProbe:
+          tcpSocket:
+            port: 8081
+        resources:
+          limits:
+            cpu: "2000m"
+            memory: "2Gi"
+
+      # =======================================================================
+      # 4. LEGACY NL SERVER (Port 6060)
+      # =======================================================================
+      - name: nl-server
+        image: gcr.io/datcom-ci/datacommons-nl:${LEGACY_NL_TAG}
+        command: ["/bin/bash"]
+        args:
+          - "-c"
+          - |
+            echo "Starting NL Server..."
+            export OMP_NUM_THREADS=1
+            export TOKENIZERS_PARALLELISM=false
+            export OUTPUT_DIR=/datacommons
+            export USER_DATA_PATH=/datacommons
+            exec gunicorn --log-level info --preload --timeout 1000 --bind 0.0.0.0:6060 -w 1 nl_app:app
+        volumeMounts:
+          - name: shared-data
+            mountPath: /datacommons
+        startupProbe:
+          tcpSocket:
+            port: 6060
+        resources:
+          limits:
+            cpu: "1000m"
+            memory: "2Gi"
+
+      # =======================================================================
+      # 5. LEGACY MCP SERVER (Port 8082)
+      # =======================================================================
+      - name: mcp-server
+        image: gcr.io/datcom-ci/datacommons-mcp-server:${LEGACY_MCP_TAG}
+        command: ["/bin/bash"]
+        args:
+          - "-c"
+          - |
+            echo "Starting MCP Server..."
+            exec datacommons-mcp serve http --skip-api-key-validation --port 8082
+        dependsOn:
+          - mixer-envoy
+        startupProbe:
+          tcpSocket:
+            port: 8082
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+
+      # =======================================================================
+      # 6. NEW INCREMENTAL API (Port 5000)
+      # =======================================================================
+      - name: incremental
+        image: gcr.io/datcom-ci/datacommons-platform:${INCREMENTAL_TAG}
+        env:
+          - name: PORT
+            value: "5000"
+          - name: GCP_PROJECT_ID
+            value: "${GCP_PROJECT_ID}"
+          - name: GCP_SPANNER_INSTANCE_ID
+            value: "${GCP_SPANNER_INSTANCE_ID}"
+          - name: GCP_SPANNER_DATABASE_NAME
+            value: "${GCP_SPANNER_DATABASE_NAME}"
+        startupProbe:
+          tcpSocket:
+            port: 5000
+        resources:
+          limits:
+            cpu: "1000m"
+            memory: "512Mi"
