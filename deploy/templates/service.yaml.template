@@ -16,31 +16,14 @@ spec:
       # SHARED VOLUMES
       # -----------------------------------------------------------------------
       volumes:
-        - name: shared-data
-          emptyDir:
-            medium: Memory
-            sizeLimit: 2Gi
-
-      # =======================================================================
-      # INIT CONTAINER: DOWNLOAD EMBEDDINGS ONLY
-      # =======================================================================
-      initContainers:
-      - name: embeddings-loader
-        image: google/cloud-sdk:slim
-        command: ["/bin/bash", "-c"]
-        args:
-          - |
-            echo "📥 Downloading Custom Embeddings from ${GCS_DATA_BUCKET}..."
-            mkdir -p /datacommons/nl
-            gsutil -m cp -r "${GCS_DATA_BUCKET}/nl/*" /datacommons/nl/
-            echo "✅ Embeddings download complete."
-            ls -R /datacommons/nl
-        env:
-          - name: GCS_DATA_BUCKET
-            value: "${GCS_DATA_BUCKET}"
-        volumeMounts:
-          - name: shared-data
-            mountPath: /datacommons
+      - name: embeddings-volume
+        csi:
+          driver: gcsfuse.run.googleapis.com
+          readOnly: true
+          volumeAttributes:
+            bucketName: customdc-data
+            # Strictly mount this sub-folder containing the embeddings.
+            mountOptions: "only-dir=dc-dev/nl"
 
       containers:
       # =======================================================================
@@ -75,9 +58,6 @@ spec:
       - name: web-app
         dependsOn:
           - nl-server
-        volumeMounts:
-          - name: shared-data
-            mountPath: /datacommons
         image: gcr.io/datcom-ci/datacommons-website:${LEGACY_WEBSITE_TAG}
         command: ["/bin/bash"]
         args:
@@ -114,9 +94,6 @@ spec:
       - name: mixer-envoy
         dependsOn:
           - nl-server
-        volumeMounts:
-          - name: shared-data
-            mountPath: /datacommons
         image: gcr.io/datcom-ci/datacommons-mixer:${LEGACY_MIXER_TAG}
         command: ["/bin/bash"]
         args:
@@ -175,8 +152,8 @@ spec:
       # =======================================================================
       - name: nl-server
         volumeMounts:
-          - name: shared-data
-            mountPath: /datacommons
+          - name: embeddings-volume
+            mountPath: /datacommons/nl
         image: gcr.io/datcom-ci/datacommons-nl:${LEGACY_NL_TAG}
         command: ["/bin/bash"]
         args:
