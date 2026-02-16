@@ -11,6 +11,13 @@ spec:
     metadata:
       annotations:
         run.googleapis.com/execution-environment: gen2
+        run.googleapis.com/container-dependencies: |
+          {
+            "router": ["web-app", "mixer-envoy", "incremental"],
+            "mcp-server": ["mixer-envoy"],
+            "mixer-envoy": ["nl-server"],
+            "web-app": ["nl-server"]
+          }
     spec:
       # -----------------------------------------------------------------------
       # SHARED VOLUMES
@@ -30,10 +37,6 @@ spec:
       # 1. MAIN ROUTER (Ingress 8080)
       # =======================================================================
       - name: router
-        dependsOn:
-          - web-app
-          - mixer-envoy
-          - incremental
         image: nginx:alpine
         ports:
           - containerPort: 8080
@@ -56,8 +59,6 @@ spec:
       # 2. LEGACY WEB APP (Port 3000)
       # =======================================================================
       - name: web-app
-        dependsOn:
-          - nl-server
         image: gcr.io/datcom-ci/datacommons-website:${LEGACY_WEBSITE_TAG}
         command: ["/bin/bash"]
         args:
@@ -92,8 +93,6 @@ spec:
       # 3. LEGACY MIXER + ENVOY (Port 8081 for Envoy)
       # =======================================================================
       - name: mixer-envoy
-        dependsOn:
-          - nl-server
         image: gcr.io/datcom-ci/datacommons-mixer:${LEGACY_MIXER_TAG}
         command: ["/bin/bash"]
         args:
@@ -177,8 +176,6 @@ spec:
       # 5. MCP SERVER (Port 8082)
       # =======================================================================
       - name: mcp-server
-        dependsOn:
-          - mixer-envoy
         image: gcr.io/datcom-ci/datacommons-mcp-server:${MCP_TAG}
         command: ["/bin/bash"]
         args:

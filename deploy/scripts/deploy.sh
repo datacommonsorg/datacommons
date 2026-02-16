@@ -7,7 +7,32 @@ cd "$(dirname "$0")/.."
 # =============================================================================
 # 1. SETUP & CONFIGURATION
 # =============================================================================
-ENV_NAME=${1:-dev}
+
+# Default values
+ENV_NAME="dev"
+DRY_RUN="true"
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --no-dry-run)
+      DRY_RUN="false"
+      shift
+      ;;
+    *)
+      ENV_NAME="$1"
+      shift
+      ;;
+  esac
+done
+
+if [[ "$DRY_RUN" == "true" ]]; then
+    echo "⚠️  DRY RUN MODE: No changes will be applied to Cloud Run."
+    echo "    Use '--no-dry-run' to execute the deployment."
+else
+    echo "🚨 PRODUCTION MODE: Changes WILL be applied to Cloud Run."
+fi
+
 ENV_DIR="envs/${ENV_NAME}"
 ENV_FILE="${ENV_DIR}/env"
 
@@ -79,10 +104,26 @@ echo "--------------------------------------------------------"
 echo "📄 REVIEW GENERATED CONFIGURATION"
 echo "--------------------------------------------------------"
 echo "   Service:     $SERVICE_NAME"
+echo "   Cloud Run:   $CLOUD_RUN_SERVICE_NAME"
 echo "   Project:     $GCP_PROJECT_ID"
 echo "   Config File: $GENERATED_FILE"
 echo ""
 echo "👉 You can inspect '$GENERATED_FILE' in another terminal or editor before confirming."
+
+
+if [[ "$DRY_RUN" == "true" ]]; then
+    echo ""
+    echo "🏃 DRY RUN: validating service configuration with Cloud Run..."
+    gcloud run services replace "$GENERATED_FILE" \
+        --region="$GCP_REGION" \
+        --project="$GCP_PROJECT_ID" \
+        --dry-run
+
+    echo "✅ DRY RUN COMPLETE. Configuration appears valid."
+    echo "   Use '--no-dry-run' to actually deploy."
+    rm "$GENERATED_FILE"
+    exit 0
+fi
 
 read -p "❓ Do you want to deploy this configuration? (y/N): " confirm
 if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
