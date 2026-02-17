@@ -50,6 +50,12 @@ spec:
         env:
           - name: NGINX_CONFIG_B64
             value: "${NGINX_CONFIG_B64}"
+        startupProbe:
+          tcpSocket:
+            port: 8080
+          periodSeconds: 2 
+          failureThreshold: 15
+          timeoutSeconds: 1
         resources:
           limits:
             cpu: "500m"
@@ -84,6 +90,9 @@ spec:
         startupProbe:
           tcpSocket:
             port: 3000
+          periodSeconds: 10
+          failureThreshold: 12  # Allow 2 mins
+          timeoutSeconds: 5
         resources:
           limits:
             cpu: "1000m"
@@ -141,6 +150,9 @@ spec:
         startupProbe:
           tcpSocket:
             port: 8081
+          periodSeconds: 10
+          failureThreshold: 30  # Allow 5 mins for startup
+          timeoutSeconds: 5
         resources:
           limits:
             cpu: "2000m"
@@ -163,10 +175,33 @@ spec:
             export TOKENIZERS_PARALLELISM=false
             export OUTPUT_DIR=/datacommons
             export USER_DATA_PATH=/datacommons
-            exec gunicorn --log-level info --preload --timeout 1000 --bind 0.0.0.0:6060 -w 1 nl_app:app
+            
+            echo "🔍 DEBUG: Starting NL Server Debug..."
+            
+            echo "📂 Current Directory:"
+            pwd
+            
+            echo "📄 Listing Files:"
+            ls -F
+            
+            echo "🐍 Checking python path:"
+            which python
+            
+            echo "🦄 Checking gunicorn path:"
+            which gunicorn || echo "❌ Gunicorn NOT found in global PATH"
+            
+            echo "📦 Pip List (Top 10):"
+            pip list | head -n 10
+            
+            echo "🚀 Attempting to start..."
+            # Try running via python module if binary isn't found
+            exec python -m gunicorn --log-level info --preload --timeout 1000 --bind 0.0.0.0:6060 -w 1 nl_app:app
         startupProbe:
           tcpSocket:
             port: 6060
+          periodSeconds: 10
+          failureThreshold: 30
+          timeoutSeconds: 5
         resources:
           limits:
             cpu: "1000m"
