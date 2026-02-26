@@ -26,4 +26,4 @@ EXPOSE 5000
 
 # Set the entrypoint to the CLI
 ENTRYPOINT ["datacommons", "api"]
-CMD ["--host", "0.0.0.0", "--port", "5000"]
+CMD ["start", "--host", "0.0.0.0", "--port", "5000"]
