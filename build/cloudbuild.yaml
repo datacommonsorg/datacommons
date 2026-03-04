@@ -1,12 +1,16 @@
 steps:
   # Build the container image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/datcom-ci/datacommons-platform:latest', '-t', 'gcr.io/datcom-ci/datacommons-platform:$COMMIT_SHA', '-f', 'build/Dockerfile', '.']
-  # Push the container image to Container Registry
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/datcom-ci/datacommons-platform:latest']
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/datcom-ci/datacommons-platform:$COMMIT_SHA']
+    args: 
+      - 'build'
+      - '-t'
+      - 'us-docker.pkg.dev/datcom-ci/gcr.io/datacommons-platform:latest'
+      - '-t'
+      - 'us-docker.pkg.dev/datcom-ci/gcr.io/datacommons-platform:$COMMIT_SHA'
+      - '-f'
+      - 'build/Dockerfile'
+      - '.'
+
 images:
-  - 'gcr.io/datcom-ci/datacommons-platform:latest'
-  - 'gcr.io/datcom-ci/datacommons-platform:$COMMIT_SHA'
+  - 'us-docker.pkg.dev/datcom-ci/gcr.io/datacommons-platform:latest'
+  - 'us-docker.pkg.dev/datcom-ci/gcr.io/datacommons-platform:$COMMIT_SHA'
