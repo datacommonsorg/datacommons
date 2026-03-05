@@ -13,9 +13,11 @@ spec:
         run.googleapis.com/execution-environment: gen2
         run.googleapis.com/container-dependencies: |
           {
-            "router": ["envoy-sidecar"],
+            "router": ["web-app", "envoy-sidecar"],
+            "mcp-server": ["envoy-sidecar"],
             "envoy-sidecar": ["mixer"],
-            "mixer": ["nl-server"]
+            "mixer": ["nl-server"],
+            "web-app": ["nl-server", "envoy-sidecar"]
           }
     spec:
       # -----------------------------------------------------------------------
@@ -63,6 +65,49 @@ spec:
           limits:
             cpu: "500m"
             memory: "256Mi"
+
+      # =======================================================================
+      # 2. LEGACY WEB APP (Port 3000)
+      # =======================================================================
+      - name: web-app
+        image: gcr.io/datcom-ci/datacommons-website:${LEGACY_WEBSITE_TAG}
+        command: ["/bin/bash"]
+        args:
+          - "-c"
+          - |
+            echo "Starting Web App on PORT 3000..."
+            export FLASK_ENV=custom
+            export ENV_PREFIX=Compose
+            export IS_CUSTOM_DC=true
+            export ENABLE_MODEL=true
+            exec gunicorn --log-level info --preload --bind 0.0.0.0:3000 -w 4 web_app:app
+        env:
+          - name: DC_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: ${MIXER_API_KEY_SECRET_NAME}
+                key: latest
+          - name: MAPS_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: ${MAPS_API_KEY_SECRET_NAME}
+                key: latest
+          - name: OUTPUT_DIR
+            value: "/datacommons"
+          - name: WEBSITE_MIXER_API_ROOT
+            value: "http://localhost:8081"
+          - name: ENABLE_MCP
+            value: "true"
+        startupProbe:
+          tcpSocket:
+            port: 3000
+          periodSeconds: 10
+          failureThreshold: 12  # Allow 2 mins
+          timeoutSeconds: 5
+        resources:
+          limits:
+            cpu: "1000m"
+            memory: "1Gi"
 
       # =======================================================================
       # 3a. MIXER BACKEND (Port 12345) - The "Brain"
@@ -194,3 +239,50 @@ spec:
           limits:
             cpu: "1000m"
             memory: "4Gi"
+
+      # =======================================================================
+      # 5. MCP SERVER (Port 8082)
+      # =======================================================================
+      - name: mcp-server
+        image: gcr.io/datcom-ci/datacommons-mcp-server:${MCP_TAG}
+        command: ["/bin/bash"]
+        args:
+          - "-c"
+          - |
+            echo "Starting MCP Server..."
+            export DC_TYPE=custom
+            exec datacommons-mcp serve http --skip-api-key-validation --port 8082
+        env:
+          - name: CUSTOM_DC_URL
+            value: "http://localhost:8080"
+          - name: DC_API_BASE_URL
+            value: "http://localhost:8081/v2"
+        startupProbe:
+          tcpSocket:
+            port: 8082
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+
+      # =======================================================================
+      # 6. NEW INCREMENTAL API (Port 5000)
+      # =======================================================================
+      - name: incremental
+        image: gcr.io/datcom-ci/datacommons-platform:${INCREMENTAL_TAG}
+        env:
+          - name: PORT
+            value: "5000"
+          - name: GCP_PROJECT_ID
+            value: "${GCP_PROJECT_ID}"
+          - name: GCP_SPANNER_INSTANCE_ID
+            value: "${GCP_SPANNER_INSTANCE_ID}"
+          - name: GCP_SPANNER_DATABASE_NAME
+            value: "${GCP_SPANNER_DATABASE_NAME}"
+        startupProbe:
+          tcpSocket:
+            port: 5000
+        resources:
+          limits:
+            cpu: "1000m"
+            memory: "512Mi"

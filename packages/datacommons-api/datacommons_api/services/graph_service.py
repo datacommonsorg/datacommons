@@ -89,16 +89,17 @@ def create_node_model(graph_node: GraphNode) -> NodeModel:
 
     # Helper to extract a string value from a generic property
     def extract_string_value(prop: Any) -> str | None:
+        print('prop: ', prop)
         if not prop:
             return None
         if isinstance(prop, list) and prop:
             prop = prop[0]
         if hasattr(prop, "value") and prop.value is not None:
             return str(prop.value)
-        return None
+        return prop or ''
 
-    name_val = extract_string_value(getattr(graph_node, "name", None))
-    value_val = extract_string_value(getattr(graph_node, "value", None))
+    name_val = extract_string_value(getattr(graph_node, "name", None)) or ''
+    value_val = extract_string_value(getattr(graph_node, "value", None)) or ''
 
     return NodeModel(
         subject_id=graph_node.id,
@@ -190,7 +191,9 @@ def extract_edges_from_node(
                 )
                 literal_node = NodeModel(
                     subject_id=literal_id,
-                    value=str_val
+                    value=str_val,
+                    types=["literal"],
+                    name=''
                 )
                 models.append(edge)
                 models.append(literal_node)
@@ -400,7 +403,7 @@ class GraphService:
                 for missing_id in missing_ids:
                     # Create a minimal NodeModel
                     # We can't know the type or name, just the ID is known.
-                    implicit_node = NodeModel(subject_id=missing_id)
+                    implicit_node = NodeModel(subject_id=missing_id, value=missing_id, types=["implicit"], name='')
                     nodes.append(implicit_node)
 
         logger.info("Inserting %d nodes and %d edges", len(nodes), len(edges))

@@ -24,7 +24,7 @@ export REMOTE_MIXER_DOMAIN="https://autopush.api.datacommons.org"
 export LEGACY_WEBSITE_TAG="a277e64"          
 export LEGACY_MIXER_TAG="3564830"            
 export LEGACY_NL_TAG="a277e64"              
-export MCP_TAG="autopush-1.1.7.dev2"
+export MCP_TAG="production-v1.1.7"
 export INCREMENTAL_TAG="latest"
 
 # ==========================================

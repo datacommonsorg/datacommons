@@ -50,7 +50,7 @@ set +a
 TEMPLATE_FILE="templates/service.yaml.template"
 NGINX_FILE="templates/nginx.conf"
 MIXER_FLAGS_FILE="$ENV_DIR/mixer_flags.yaml"
-GENERATED_FILE="service.generated.yaml"
+GENERATED_FILE="/tmp/service.generated.yaml"
 
 # =============================================================================
 # 2. HELPER FUNCTIONS
@@ -121,14 +121,12 @@ if [[ "$DRY_RUN" == "true" ]]; then
 
     echo "✅ DRY RUN COMPLETE. Configuration appears valid."
     echo "   Use '--no-dry-run' to actually deploy."
-    rm "$GENERATED_FILE"
     exit 0
 fi
 
 read -p "❓ Do you want to deploy this configuration? (y/N): " confirm
 if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
     echo "❌ Deployment ABORTED."
-    rm "$GENERATED_FILE"
     exit 1
 fi
 
@@ -142,5 +140,4 @@ gcloud run services replace "$GENERATED_FILE" \
     --project="$GCP_PROJECT_ID" \
     --quiet
 
-rm "$GENERATED_FILE"
 echo "✅ SUCCESS!"

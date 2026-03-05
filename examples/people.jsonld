@@ -15,7 +15,7 @@
       {
       "@id": "local:Li",
       "@type": "local:Person",
-      "local:name": "Li",
+      "name": "Li",
       "local:friendOf": [
         {
           "@id": "local:Sally"
@@ -25,7 +25,7 @@
     {
       "@id": "local:Sally",
       "@type": "local:Person",
-      "local:name": "Sally",
+      "name": "Sally",
       "local:friendOf": [
         {
           "@id": "local:Li"
@@ -41,7 +41,7 @@
     {
       "@id": "local:Maria",
       "@type": "local:Person",
-      "local:name": "Maria",
+      "name": "Maria",
       "local:friendOf": [
         {
           "@id": "local:Sally"
@@ -54,7 +54,7 @@
     {
       "@id": "local:John",
       "@type": "local:Person",
-      "local:name": "John",
+      "name": "John",
       "local:friendOf": [
         {
           "@id": "local:Sally"
@@ -64,7 +64,7 @@
     {
       "@id": "local:Natalie",
       "@type": "local:Person",
-      "local:name": "Natalie",
+      "name": "Natalie",
       "local:friendOf": [
         {
           "@id": "local:Maria"

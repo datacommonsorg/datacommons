@@ -28,10 +28,11 @@ class NodeModel(Base):
 
     __tablename__ = "Node"
     subject_id = sa.Column(String(1024), primary_key=True, autoincrement=False)
-    value = sa.Column(Text(), nullable=True) # STRING(MAX)
+    value = sa.Column(Text(), nullable=False, default='') # STRING(MAX)
     bytes = sa.Column(LargeBinary(), nullable=True) # BYTES(MAX)
-    name = sa.Column(Text(), nullable=True) # STRING(MAX)
-    types = sa.Column(ARRAY(String(1024)), nullable=True)
+    name = sa.Column(Text(), nullable=False, default='') # STRING(MAX)
+    types = sa.Column(ARRAY(String(1024)), nullable=False, default=[]) # STRING(MAX)
+    name_tokenlist = sa.Column(LargeBinary(), nullable=True)
 
     # Define both outgoing and incoming relationships
     outgoing_edges = relationship(
