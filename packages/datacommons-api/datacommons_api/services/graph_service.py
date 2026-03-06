@@ -258,8 +258,6 @@ def get_edge_val(e: EdgeModel, col: str) -> str | None:
             return val
         elif col == "object_bytes":
             if len(val_bytes) > OBJECT_VALUE_MAX_LENGTH:
-                import base64
-
                 return base64.b64encode(val_bytes).decode("utf-8")
             return None
     return getattr(e, col)
