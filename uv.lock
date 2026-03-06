@@ -453,6 +453,7 @@ requires-dist = [
 name = "datacommons-db"
 source = { editable = "packages/datacommons-db" }
 dependencies = [
+    { name = "google-cloud-spanner" },
     { name = "setuptools" },
     { name = "sqlalchemy" },
     { name = "sqlalchemy-spanner" },
@@ -460,6 +461,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "google-cloud-spanner" },
     { name = "setuptools", specifier = "<=80.0.0" },
     { name = "sqlalchemy" },
     { name = "sqlalchemy-spanner" },

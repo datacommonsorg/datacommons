@@ -16,9 +16,10 @@ import click
 import uvicorn
 
 from datacommons_api.app import app
-from datacommons_api.core.config import initialize_config
+from datacommons_api.core.config import get_config, initialize_config
 from datacommons_api.core.logging import get_logger, setup_logging
-from datacommons_db.session import initialize_db
+from datacommons_db.session import get_session, initialize_db
+from datacommons_api.services.graph_service import GraphService
 
 setup_logging()
 logger = get_logger(__name__)
@@ -72,3 +73,30 @@ def start(
         port=port,
         reload=reload,
     )
+
+
+@api.command()
+@click.option("--gcp-project-id", help="GCP project id.", required=True)
+@click.option("--gcp-spanner-instance-id", help="GCP Spanner instance id.", required=True)
+@click.option("--gcp-spanner-database-name", help="GCP Spanner database name.", required=True)
+def drop_tables(
+    gcp_project_id: str,
+    gcp_spanner_instance_id: str,
+    gcp_spanner_database_name: str,
+):
+    """Drop Node and Edge tables from the graph database."""
+    logger.info("Dropping Node and Edge tables from the graph database")
+    initialize_config(
+        gcp_project_id=gcp_project_id,
+        gcp_spanner_instance_id=gcp_spanner_instance_id,
+        gcp_spanner_database_name=gcp_spanner_database_name,
+    )
+    config = get_config()
+    db = get_session(
+        config.GCP_PROJECT_ID,
+        config.GCP_SPANNER_INSTANCE_ID,
+        config.GCP_SPANNER_DATABASE_NAME,
+    )
+    graph_service = GraphService(db)
+    graph_service.drop_tables()
+    logger.info("Successfully dropped Node and Edge tables")

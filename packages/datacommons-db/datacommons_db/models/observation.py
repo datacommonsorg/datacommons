@@ -18,13 +18,14 @@ from sqlalchemy.types import String
 
 from datacommons_db.models.base import Base
 
+OBSERVATION_TABLE_NAME = "Observation"
 
 class ObservationModel(Base):
     """
     Represents a statistical observation of a variable.
     """
 
-    __tablename__ = "Observation"
+    __tablename__ = OBSERVATION_TABLE_NAME
 
     variable_measured = sa.Column(String(1024), nullable=False, primary_key=True)
     observation_about = sa.Column(String(1024), nullable=False, primary_key=True)

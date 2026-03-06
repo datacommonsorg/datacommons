@@ -19,13 +19,14 @@ from sqlalchemy.types import ARRAY, String, Text
 
 from datacommons_db.models.base import Base
 
+NODE_TABLE_NAME = "Node"
 
 class NodeModel(Base):
     """
     Represents a node in the graph.
     """
 
-    __tablename__ = "Node"
+    __tablename__ = NODE_TABLE_NAME
     subject_id = sa.Column(String(1024), primary_key=True, autoincrement=False)
     name = sa.Column(Text(), nullable=True)
     types = sa.Column(ARRAY(String(1024)), nullable=True)
