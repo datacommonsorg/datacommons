@@ -295,7 +295,7 @@ def get_node_model_batches(
     current_batch_len = 0
     for node_model in node_models:
         node_len = len(node_model.outgoing_edges) + 1
-        
+
         # If the node itself is larger than the batch_size, add it as its own batch
         if node_len >= batch_size:
             if current_batch:
@@ -314,7 +314,7 @@ def get_node_model_batches(
             node_batches.append(current_batch)
             current_batch = [node_model]
             current_batch_len = node_len
-            
+
     # Add the last batch if it's not empty
     if current_batch:
         node_batches.append(current_batch)
