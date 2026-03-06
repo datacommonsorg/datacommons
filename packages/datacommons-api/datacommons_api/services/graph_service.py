@@ -243,7 +243,7 @@ def get_edge_val(e: EdgeModel, col: str) -> str | None:
         val = getattr(e, "object_value")
         if not val:
             return None
-        val_bytes = val.encode("utf-8")
+        val_bytes = str(val).encode("utf-8")
 
         # A Spanner index key incorporates both the indexed columns AND the Primary Key.
         # Max index key length is 8192 bytes total. The Primary Keys can swallow up to 4096 bytes easily.
