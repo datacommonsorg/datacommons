@@ -77,7 +77,7 @@ def create_node_model(graph_node: GraphNode) -> NodeModel:
     types = graph_node.type
     if not isinstance(types, list):
         types = [types]
-    types_with_namespaces = [t for t in types if t is not None]
+    types = [t for t in types if t is not None]
 
     # Remove all CURIE namespaces before storing the node id
     subject_id = strip_namespace(graph_node.id)
@@ -243,7 +243,7 @@ def get_edge_val(e: EdgeModel, col: str) -> str | None:
         val = getattr(e, "object_value")
         if not val:
             return None
-        val_bytes = val.encode("utf-8")
+        val_bytes = str(val).encode("utf-8")
 
         # A Spanner index key incorporates both the indexed columns AND the Primary Key.
         # Max index key length is 8192 bytes total. The Primary Keys can swallow up to 4096 bytes easily.
