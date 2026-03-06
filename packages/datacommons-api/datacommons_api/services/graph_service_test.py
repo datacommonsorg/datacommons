@@ -4,10 +4,45 @@ from unittest.mock import MagicMock, patch, call
 from sqlalchemy.orm import Session
 from google.cloud import spanner
 from datacommons_api.core.config import Config
-from datacommons_api.services.graph_service import GraphService, GraphServiceError
+from datacommons_api.services.graph_service import (
+    GraphService,
+    GraphServiceError,
+    get_node_model_batches,
+)
 from datacommons_db.models.node import NodeModel
 from datacommons_db.models.edge import EdgeModel
 from datacommons_schema.models.jsonld import JSONLDDocument, GraphNode
+
+
+def test_get_node_model_batches():
+    node1 = NodeModel(subject_id="n1", types=["T1"])
+    node1.outgoing_edges = [EdgeModel(subject_id="n1", predicate="p", object_id=f"o{i}") for i in range(5)]
+    
+    node2 = NodeModel(subject_id="n2", types=["T1"])
+    node2.outgoing_edges = [EdgeModel(subject_id="n2", predicate="p", object_id=f"o{i}") for i in range(5)]
+    
+    node3 = NodeModel(subject_id="n3", types=["T1"])
+    node3.outgoing_edges = [EdgeModel(subject_id="n3", predicate="p", object_id=f"o{i}") for i in range(5)]
+    
+    # 6 items per node
+    # batch size 10 means 10 items max. n1 = 6 items -> batch 0. n2 = 6 items -> batch 1. n3 = 6 items -> batch 2.
+    batches = get_node_model_batches([node1, node2, node3], batch_size=10)
+    assert len(batches) == 3
+    assert batches[0] == [node1]
+    assert batches[1] == [node2]
+    assert batches[2] == [node3]
+    
+    # test a node larger than the batch size (6 items > batch size 5)
+    batches = get_node_model_batches([node1, node2], batch_size=5)
+    assert len(batches) == 2
+    assert batches[0] == [node1]
+    assert batches[1] == [node2]
+    
+    # Test batch size 12. n1 + n2 = 12 items -> batch 0. n3 = 6 items -> batch 1.
+    batches = get_node_model_batches([node1, node2, node3], batch_size=12)
+    assert len(batches) == 2
+    assert batches[0] == [node1, node2]
+    assert batches[1] == [node3]
 
 
 @pytest.fixture
@@ -130,14 +165,6 @@ def test_insert_graph_nodes_error(graph_service, mock_spanner_client):
 
 
 def test_drop_tables(graph_service, mock_session):
-    with patch("builtins.input", return_value="yes"):
-        graph_service.drop_tables()
-        assert mock_session.execute.call_count == 3
-        mock_session.commit.assert_called_once()
-
-    mock_session.reset_mock()
-
-    with patch("builtins.input", return_value="no"):
-        graph_service.drop_tables()
-        assert mock_session.execute.call_count == 0
-        assert mock_session.commit.call_count == 0
+    graph_service.drop_tables()
+    assert mock_session.execute.call_count == 3
+    mock_session.commit.assert_called_once()

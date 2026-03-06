@@ -294,16 +294,27 @@ def get_node_model_batches(
     current_batch: list[NodeModel] = []
     current_batch_len = 0
     for node_model in node_models:
-        # Add node and its edges to the current batch
         node_len = len(node_model.outgoing_edges) + 1
-        if current_batch_len + node_len < batch_size:
+        
+        # If the node itself is larger than the batch_size, add it as its own batch
+        if node_len >= batch_size:
+            if current_batch:
+                node_batches.append(current_batch)
+                current_batch = []
+                current_batch_len = 0
+            node_batches.append([node_model])
+            continue
+
+        # Add node and its edges to the current batch
+        if current_batch_len + node_len <= batch_size:
             current_batch.append(node_model)
             current_batch_len += node_len
         else:
             # If the current batch is full, add it to the list of batches
             node_batches.append(current_batch)
-            current_batch = []
-            current_batch_len = 0
+            current_batch = [node_model]
+            current_batch_len = node_len
+            
     # Add the last batch if it's not empty
     if current_batch:
         node_batches.append(current_batch)
@@ -503,19 +514,14 @@ class GraphService:
         """
         Delete Node and Edge tables from the graph database.
         """
-        logger.info("Dropping Node and Edge tables from the graph database")
-        logger.info("Are you sure you want to continue? (yes/no)")
-        if input() == "yes":
-            logger.info("Dropping index EdgeByObjectValue")
-            query = "DROP INDEX EdgeByObjectValue"
-            self.session.execute(text(query))
-            logger.info("Dropping table %s", EDGE_TABLE_NAME)
-            query = f"DROP TABLE {EDGE_TABLE_NAME}"
-            self.session.execute(text(query))
-            logger.info("Dropping table %s", NODE_TABLE_NAME)
-            query = f"DROP TABLE {NODE_TABLE_NAME}"
-            self.session.execute(text(query))
-            self.session.commit()
-            logger.info("Successfully dropped Node and Edge tables")
-        else:
-            logger.info("Quitting. Did not drop tables")
+        logger.info("Dropping index EdgeByObjectValue")
+        query = "DROP INDEX EdgeByObjectValue"
+        self.session.execute(text(query))
+        logger.info("Dropping table %s", EDGE_TABLE_NAME)
+        query = f"DROP TABLE {EDGE_TABLE_NAME}"
+        self.session.execute(text(query))
+        logger.info("Dropping table %s", NODE_TABLE_NAME)
+        query = f"DROP TABLE {NODE_TABLE_NAME}"
+        self.session.execute(text(query))
+        self.session.commit()
+        logger.info("Successfully dropped Node and Edge tables")

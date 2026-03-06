@@ -83,12 +83,19 @@ def start(
 @click.option(
     "--gcp-spanner-database-name", help="GCP Spanner database name.", required=True
 )
+@click.option(
+    "--yes", is_flag=True, help="Skip confirmation prompt."
+)
 def drop_tables(
     gcp_project_id: str,
     gcp_spanner_instance_id: str,
     gcp_spanner_database_name: str,
+    yes: bool,
 ):
     """Drop Node and Edge tables from the graph database."""
+    if not yes:
+        click.confirm("Are you sure you want to drop the Node and Edge tables?", abort=True)
+
     logger.info("Dropping Node and Edge tables from the graph database")
     initialize_config(
         gcp_project_id=gcp_project_id,
