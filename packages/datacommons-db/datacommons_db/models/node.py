@@ -21,6 +21,7 @@ from datacommons_db.models.base import Base
 
 NODE_TABLE_NAME = "Node"
 
+
 class NodeModel(Base):
     """
     Represents a node in the graph.

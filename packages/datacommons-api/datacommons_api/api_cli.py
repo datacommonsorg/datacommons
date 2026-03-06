@@ -77,8 +77,12 @@ def start(
 
 @api.command()
 @click.option("--gcp-project-id", help="GCP project id.", required=True)
-@click.option("--gcp-spanner-instance-id", help="GCP Spanner instance id.", required=True)
-@click.option("--gcp-spanner-database-name", help="GCP Spanner database name.", required=True)
+@click.option(
+    "--gcp-spanner-instance-id", help="GCP Spanner instance id.", required=True
+)
+@click.option(
+    "--gcp-spanner-database-name", help="GCP Spanner database name.", required=True
+)
 def drop_tables(
     gcp_project_id: str,
     gcp_spanner_instance_id: str,

@@ -23,6 +23,7 @@ from datacommons_db.models.base import Base
 EDGE_TABLE_NAME = "Edge"
 OBJECT_VALUE_MAX_LENGTH = 4096
 
+
 class EdgeModel(Base):
     """
     Represents an edge in the graph.

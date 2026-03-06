@@ -20,6 +20,7 @@ from datacommons_db.models.base import Base
 
 OBSERVATION_TABLE_NAME = "Observation"
 
+
 class ObservationModel(Base):
     """
     Represents a statistical observation of a variable.

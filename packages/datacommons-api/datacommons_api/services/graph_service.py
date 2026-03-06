@@ -37,7 +37,10 @@ logger = logging.getLogger(__name__)
 
 # Silence OpenTelemetry warnings/errors (Spanner client integration triggers these)
 logging.getLogger("opentelemetry.metrics._internal").setLevel(logging.ERROR)
-logging.getLogger("opentelemetry.sdk.metrics._internal.export").setLevel(logging.CRITICAL)
+logging.getLogger("opentelemetry.sdk.metrics._internal.export").setLevel(
+    logging.CRITICAL
+)
+
 
 class GraphServiceError(Exception):
     """
@@ -84,11 +87,13 @@ def create_node_model(graph_node: GraphNode) -> NodeModel:
         types=types,
     )
 
+
 def strip_namespace(id: str) -> str:
     """
     Strip all CURIE namespaces from an id.
     """
     return id.split(":")[-1]
+
 
 def create_edge_model(
     subject_id: str,
@@ -196,10 +201,12 @@ def node_model_to_graph_node(node: NodeModel) -> GraphNode:
             edge_groups[edge.predicate] = []
 
         property_value = {}
-        
+
         if edge.object_bytes:
             # If the edge has bytes, decode them and add them to the property value
-            property_value["@value"] = base64.b64decode(edge.object_bytes).decode("utf-8")
+            property_value["@value"] = base64.b64decode(edge.object_bytes).decode(
+                "utf-8"
+            )
         elif edge.object_value:
             # If the edge has a literal value, add it to the property value
             property_value["@value"] = edge.object_value
@@ -237,22 +244,26 @@ def get_edge_val(e: EdgeModel, col: str) -> str | None:
         if not val:
             return None
         val_bytes = val.encode("utf-8")
-        
+
         # A Spanner index key incorporates both the indexed columns AND the Primary Key.
         # Max index key length is 8192 bytes total. The Primary Keys can swallow up to 4096 bytes easily.
         # So we must restrict object_value to 4096 bytes to guarantee the total key size is < 8192 bytes.
         if col == "object_value":
             if len(val_bytes) > OBJECT_VALUE_MAX_LENGTH:
                 # Slice to exactly OBJECT_VALUE_MAX_LENGTH bytes, dropping fragmented chars gracefully
-                val_truncated = val_bytes[:OBJECT_VALUE_MAX_LENGTH].decode("utf-8", errors="ignore")
+                val_truncated = val_bytes[:OBJECT_VALUE_MAX_LENGTH].decode(
+                    "utf-8", errors="ignore"
+                )
                 return val_truncated
             return val
         elif col == "object_bytes":
             if len(val_bytes) > OBJECT_VALUE_MAX_LENGTH:
                 import base64
+
                 return base64.b64encode(val_bytes).decode("utf-8")
             return None
     return getattr(e, col)
+
 
 def get_node_models(jsonld: JSONLDDocument) -> list[NodeModel]:
     """
@@ -265,7 +276,10 @@ def get_node_models(jsonld: JSONLDDocument) -> list[NodeModel]:
         node_models.append(node_model)
     return node_models
 
-def get_node_model_batches(node_models: list[NodeModel], batch_size: int = 1000) -> list[list[NodeModel]]:
+
+def get_node_model_batches(
+    node_models: list[NodeModel], batch_size: int = 1000
+) -> list[list[NodeModel]]:
     """
     Splits a list of NodeModel instances into batches of nodes and edges.
 
@@ -295,7 +309,10 @@ def get_node_model_batches(node_models: list[NodeModel], batch_size: int = 1000)
         node_batches.append(current_batch)
     return node_batches
 
-def insert_node_models_batch(node_models: list[NodeModel], spanner_batch: database.BatchCheckout):
+
+def insert_node_models_batch(
+    node_models: list[NodeModel], spanner_batch: database.BatchCheckout
+):
     """
     Inserts a batch of NodeModel instances into the database using Spanner API.
 
@@ -308,7 +325,11 @@ def insert_node_models_batch(node_models: list[NodeModel], spanner_batch: databa
     """
     # Get the column names from the NodeModel and EdgeModel
     node_columns = tuple(c.name for c in NodeModel.__table__.columns)
-    edge_columns = tuple(c.name for c in EdgeModel.__table__.columns if c.name != "object_value_tokenlist")
+    edge_columns = tuple(
+        c.name
+        for c in EdgeModel.__table__.columns
+        if c.name != "object_value_tokenlist"
+    )
 
     # Insert nodes into the database
     spanner_batch.insert_or_update(
@@ -334,9 +355,12 @@ def insert_node_models_batch(node_models: list[NodeModel], spanner_batch: databa
         spanner_batch.insert_or_update(
             table=EDGE_TABLE_NAME,
             columns=edge_columns,
-            values=[tuple(get_edge_val(e, col) for col in edge_columns)
-                    for e in node_model.outgoing_edges],
+            values=[
+                tuple(get_edge_val(e, col) for col in edge_columns)
+                for e in node_model.outgoing_edges
+            ],
         )
+
 
 class GraphService:
     """
@@ -432,7 +456,9 @@ class GraphService:
         logger.debug("Retrieved %d nodes with outgoing edges", len(nodes))
         return nodes
 
-    def insert_graph_nodes(self, jsonld: JSONLDDocument, batch_size: int = 1000) -> None:
+    def insert_graph_nodes(
+        self, jsonld: JSONLDDocument, batch_size: int = 1000
+    ) -> None:
         """
         Inserts nodes and edges from a JSON-LD document into the database using Spanner API.
 
@@ -447,8 +473,13 @@ class GraphService:
         node_model_batches = get_node_model_batches(node_models, batch_size)
         total_edges = sum(len(node_model.outgoing_edges) for node_model in node_models)
 
-        logger.info("Inserting %d nodes and %d edges in %d batch(es) to Spanner", len(node_models), total_edges, len(node_model_batches))
-        
+        logger.info(
+            "Inserting %d nodes and %d edges in %d batch(es) to Spanner",
+            len(node_models),
+            total_edges,
+            len(node_model_batches),
+        )
+
         # Insert nodes and edges in batches
         success_count = 0
         try:
@@ -461,8 +492,12 @@ class GraphService:
             logger.error(error_message + ": %s", e)
             traceback.print_exc()
             raise GraphServiceError(error_message)
-        
-        logger.info("Successfully committed %d nodes and %d edges to Spanner", success_count, total_edges)
+
+        logger.info(
+            "Successfully committed %d nodes and %d edges to Spanner",
+            success_count,
+            total_edges,
+        )
 
     def drop_tables(self) -> None:
         """
@@ -484,4 +519,3 @@ class GraphService:
             logger.info("Successfully dropped Node and Edge tables")
         else:
             logger.info("Quitting. Did not drop tables")
-    
