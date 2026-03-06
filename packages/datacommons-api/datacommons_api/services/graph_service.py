@@ -500,9 +500,8 @@ class GraphService:
                 success_count += len(node_model_batch)
         except Exception as e:
             error_message = f"Failed to insert nodes and edges to Spanner after {success_count}/{len(node_models)} nodes inserted"
-            logger.error(error_message + ": %s", e)
-            traceback.print_exc()
-            raise GraphServiceError(error_message)
+            logger.exception(error_message)
+            raise GraphServiceError(error_message) from e
 
         logger.info(
             "Successfully committed %d nodes and %d edges to Spanner",
