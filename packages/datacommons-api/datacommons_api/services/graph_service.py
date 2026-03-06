@@ -77,7 +77,7 @@ def create_node_model(graph_node: GraphNode) -> NodeModel:
     types = graph_node.type
     if not isinstance(types, list):
         types = [types]
-    types_with_namespaces = [t for t in types if t is not None]
+    types = [t for t in types if t is not None]
 
     # Remove all CURIE namespaces before storing the node id
     subject_id = strip_namespace(graph_node.id)
