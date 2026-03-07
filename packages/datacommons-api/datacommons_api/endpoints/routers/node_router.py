@@ -29,7 +29,13 @@ router = APIRouter()
 
 
 # JSON-LD endpoint
-@router.get("/nodes/", response_model=JSONLDDocument, response_model_exclude_none=True)
+@router.get("/nodes", response_model=JSONLDDocument, response_model_exclude_none=True)
+@router.get(
+    "/nodes/",
+    response_model=JSONLDDocument,
+    response_model_exclude_none=True,
+    include_in_schema=False,
+)
 def get_nodes(
     limit: int = DEFAULT_NODE_FETCH_LIMIT,
     type_filter: Annotated[
@@ -44,7 +50,13 @@ def get_nodes(
     return graph_service.get_graph_nodes(limit=limit, type_filter=type_filter)
 
 
-@router.post("/nodes/", response_model=UpdateResponse, response_model_exclude_none=True)
+@router.post("/nodes", response_model=UpdateResponse, response_model_exclude_none=True)
+@router.post(
+    "/nodes/",
+    response_model=UpdateResponse,
+    response_model_exclude_none=True,
+    include_in_schema=False,
+)
 def insert_nodes(
     jsonld: JSONLDDocument,
     graph_service: Annotated[GraphService, Depends(with_graph_service)] = None,
