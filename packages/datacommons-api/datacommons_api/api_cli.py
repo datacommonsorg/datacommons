@@ -91,6 +91,7 @@ def drop_tables(
     yes: bool,
 ):
     """Drop Node and Edge tables from the graph database."""
+    # TODO: Refactor this method to only drop the data from the tables, not the tables themselves.
     if not yes:
         click.confirm(
             "Are you sure you want to drop the Node and Edge tables?", abort=True

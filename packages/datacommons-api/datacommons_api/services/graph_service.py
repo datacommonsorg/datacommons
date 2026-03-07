@@ -228,39 +228,40 @@ def node_model_to_graph_node(node: NodeModel) -> GraphNode:
     return GraphNode(**graph_node_properties)
 
 
-def get_edge_val(e: EdgeModel, col: str) -> str | None:
+def coerce_edge_val_for_db_write(e: EdgeModel, col: str) -> str | None:
     """
-    Helper function to get the value of an edge column, with support for Spanner index key length limits.
-
+    Coerces and truncates edge values to comply with Spanner index limits.
     Args:
-      e: The EdgeModel instance
-      col: The column name
-
+      e: The EdgeModel instance containing raw data.
+      col: The target database column name.
     Returns:
-      The value of the edge column, with support for Spanner index key length limits
+       - For 'object_value': A UTF-8 string truncated to 4096 bytes (safe-decoded).
+        - For 'object_bytes': A Base64-encoded representation of the model's 'object_value'.
+        - For other columns: The raw attribute value from the model.
     """
-    if col in ("object_value", "object_bytes"):
-        val = getattr(e, "object_value")
-        if not val:
-            return None
-        val_bytes = str(val).encode("utf-8")
+    if col not in ("object_value", "object_bytes"):
+        return getattr(e, col)
 
-        # A Spanner index key incorporates both the indexed columns AND the Primary Key.
-        # Max index key length is 8192 bytes total. The Primary Keys can swallow up to 4096 bytes easily.
-        # So we must restrict object_value to 4096 bytes to guarantee the total key size is < 8192 bytes.
-        if col == "object_value":
-            if len(val_bytes) > OBJECT_VALUE_MAX_LENGTH:
-                # Slice to exactly OBJECT_VALUE_MAX_LENGTH bytes, dropping fragmented chars gracefully
-                val_truncated = val_bytes[:OBJECT_VALUE_MAX_LENGTH].decode(
-                    "utf-8", errors="ignore"
-                )
-                return val_truncated
-            return val
-        elif col == "object_bytes":
-            if len(val_bytes) > OBJECT_VALUE_MAX_LENGTH:
-                return base64.b64encode(val_bytes).decode("utf-8")
-            return None
-    return getattr(e, col)
+    val = getattr(e, "object_value")
+    if not val:
+        return None
+    val_bytes = str(val).encode("utf-8")
+
+    # A Spanner index key incorporates both the indexed columns AND the Primary Key.
+    # Max index key length is 8192 bytes total. The Primary Keys can swallow up to 4096 bytes easily.
+    # So we must restrict object_value to 4096 bytes to guarantee the total key size is < 8192 bytes.
+    if col == "object_value":
+        if len(val_bytes) > OBJECT_VALUE_MAX_LENGTH:
+            # Slice to exactly OBJECT_VALUE_MAX_LENGTH bytes, dropping fragmented chars gracefully
+            val_truncated = val_bytes[:OBJECT_VALUE_MAX_LENGTH].decode(
+                "utf-8", errors="ignore"
+            )
+            return val_truncated
+        return val
+    elif col == "object_bytes":
+        if len(val_bytes) > OBJECT_VALUE_MAX_LENGTH:
+            return base64.b64encode(val_bytes).decode("utf-8")
+        return None
 
 
 def get_node_models(jsonld: JSONLDDocument) -> list[NodeModel]:
@@ -365,7 +366,7 @@ def insert_node_models_batch(
             table=EDGE_TABLE_NAME,
             columns=edge_columns,
             values=[
-                tuple(get_edge_val(e, col) for col in edge_columns)
+                tuple(coerce_edge_val_for_db_write(e, col) for col in edge_columns)
                 for e in node_model.outgoing_edges
             ],
         )
@@ -490,6 +491,9 @@ class GraphService:
         )
 
         # Insert nodes and edges in batches
+        # TODO(dwnoble): this insert may fail if a node in an earlier batch references a node in a later batch.
+        # Also may fail if a node references a node that is in a remote knowledge graph
+        # Possible solution: Insert all nodes first, then insert all edges in a second pass.
         success_count = 0
         try:
             for node_model_batch in node_model_batches:
