@@ -253,6 +253,8 @@ def coerce_edge_val_for_db_write(e: EdgeModel, col: str) -> str | None:
     if col == "object_value":
         if len(val_bytes) > OBJECT_VALUE_MAX_LENGTH:
             # Slice to exactly OBJECT_VALUE_MAX_LENGTH bytes, dropping fragmented chars gracefully
+            # TODO: To avoid hash index collisions, we should use a deterministic hash of the object_value
+            # and store that along with the truncated value.
             val_truncated = val_bytes[:OBJECT_VALUE_MAX_LENGTH].decode(
                 "utf-8", errors="ignore"
             )
