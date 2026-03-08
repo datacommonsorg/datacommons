@@ -13,7 +13,7 @@ export GCP_PROJECT_ID="datcom-website-dev"
 export GCS_DATA_BUCKET="gs://customdc-data/dc-dev"
 
 export GCP_SPANNER_INSTANCE_ID="dan-dc2-dc-spanner"
-export GCP_SPANNER_DATABASE_NAME="dcp-db-dev"
+export GCP_SPANNER_DATABASE_NAME="dcp-db-dev2"
 
 export REMOTE_MIXER_DOMAIN="https://autopush.api.datacommons.org"
 
@@ -25,12 +25,11 @@ export LEGACY_WEBSITE_TAG="a277e64"
 export LEGACY_MIXER_TAG="3564830"            
 export LEGACY_NL_TAG="a277e64"              
 export MCP_TAG="production-v1.1.7"
-export INCREMENTAL_TAG="latest"
+export DCP_TAG="latest"
 
 # ==========================================
 # Secrets & Keys
 # ==========================================
 # The NAME of the secret in Google Secret Manager
-export NGINX_SECRET_NAME="nginx-config-dev"
 export MIXER_API_KEY_SECRET_NAME="mixer-api-key"
 export MAPS_API_KEY_SECRET_NAME="maps-api-key"

@@ -1,4 +1,28 @@
 #!/bin/bash
+# ==============================================================================
+# deploy.sh
+#
+# Script to configure and deploy the DataCommons Cloud Run service.
+#
+# Usage:
+#   ./deploy/scripts/deploy.sh [ENV_NAME] [--no-dry-run]
+#
+# Arguments:
+#   ENV_NAME        The environment to deploy to (e.g., 'dev', 'prod').
+#                   Defaults to 'dev'.
+#   --no-dry-run    If specified, applies the deployment to Cloud Run.
+#                   By default, it performs a validation-only dry run.
+#
+# Examples:
+#   # Dry run for 'dev' environment (default)
+#   ./deploy/scripts/deploy.sh
+#
+#   # Dry run for 'prod' environment
+#   ./deploy/scripts/deploy.sh prod
+#
+#   # Actual deployment for 'dev' environment
+#   ./deploy/scripts/deploy.sh dev --no-dry-run
+# ==============================================================================
 set -e
 
 # Ensure we are in the deploy root
