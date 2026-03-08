@@ -19,6 +19,8 @@ from sqlalchemy.types import ARRAY, LargeBinary, String, Text
 
 from datacommons_db.models.base import Base
 
+NODE_TABLE_NAME = "Node"
+
 
 class NodeModel(Base):
     """
@@ -26,7 +28,7 @@ class NodeModel(Base):
     Supports Spanner native types.
     """
 
-    __tablename__ = "Node"
+    __tablename__ = NODE_TABLE_NAME
     subject_id = sa.Column(String(1024), primary_key=True, autoincrement=False)
     value = sa.Column(Text(), nullable=False, default='') # STRING(MAX)
     bytes = sa.Column(LargeBinary(), nullable=True) # BYTES(MAX)

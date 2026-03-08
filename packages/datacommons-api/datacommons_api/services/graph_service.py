@@ -14,16 +14,21 @@
 
 # Standard library imports
 import hashlib
+import base64
 import logging
-
+import traceback
+from google.cloud import spanner
+from google.cloud.spanner_v1 import database
 from typing import Any
 
 from sqlalchemy import text, exc
 from sqlalchemy.orm import Session, joinedload
 
+from datacommons_api.core.config import get_config
 from datacommons_api.core.constants import DEFAULT_NODE_FETCH_LIMIT
-from datacommons_db.models.edge import EdgeModel
-from datacommons_db.models.node import NodeModel
+from datacommons_db.models.edge import EdgeModel, EDGE_TABLE_NAME
+from datacommons_db.models.node import NodeModel, NODE_TABLE_NAME
+from datacommons_db.models.edge import OBJECT_VALUE_MAX_LENGTH
 from datacommons_schema.models.jsonld import (
     GraphNode,
     GraphNodePropertyValue,
@@ -32,6 +37,12 @@ from datacommons_schema.models.jsonld import (
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+# Silence OpenTelemetry warnings/errors (Spanner client integration triggers these)
+logging.getLogger("opentelemetry.metrics._internal").setLevel(logging.ERROR)
+logging.getLogger("opentelemetry.sdk.metrics._internal.export").setLevel(
+    logging.CRITICAL
+)
 
 
 class GraphServiceError(Exception):
@@ -101,12 +112,37 @@ def create_node_model(graph_node: GraphNode) -> NodeModel:
     name_val = extract_string_value(getattr(graph_node, "name", None)) or ''
     value_val = extract_string_value(getattr(graph_node, "value", None)) or ''
 
+    # Helper to extract a string value from a generic property
+    def extract_string_value(prop: Any) -> str | None:
+        print('prop: ', prop)
+        if not prop:
+            return None
+        if isinstance(prop, list) and prop:
+            prop = prop[0]
+        if hasattr(prop, "value") and prop.value is not None:
+            return str(prop.value)
+        return prop or ''
+
+    name_val = extract_string_value(getattr(graph_node, "name", None)) or ''
+    value_val = extract_string_value(getattr(graph_node, "value", None)) or ''
+
+    # Remove all CURIE namespaces before storing the node id
+    subject_id = strip_namespace(graph_node.id)
+    types = [strip_namespace(t) for t in types]
+
     return NodeModel(
         subject_id=graph_node.id,
         name=name_val,
         value=value_val,
         types=types,
     )
+
+
+def strip_namespace(id: str) -> str:
+    """
+    Strip all CURIE namespaces from an id.
+    """
+    return id.split(":")[-1]
 
 
 def create_edge_model(
@@ -139,6 +175,16 @@ def create_edge_model(
         subject_id=subject_id,
         provenance=provenance or "",  # Default to empty string for PK compatibility
     )
+     if provenance:
+        edge.provenance = strip_namespace(provenance)
+    if object_value:
+        edge.object_value = strip_namespace(object_value) if object_id else object_value
+    if object_value and not object_id:
+        # If the edge value is a string, use the subject id as the object id
+        edge.object_id = strip_namespace(subject_id)
+    if not object_id and not object_value:
+        message = f"Missing object_id or object_value for edge {subject_id} {predicate}"
+        raise GraphServiceError(message)
     return edge
 
 
@@ -223,13 +269,22 @@ def node_model_to_graph_node(node: NodeModel) -> GraphNode:
             edge_groups[edge.predicate] = []
 
         property_value = {}
-        
-        # Check if the target node is a literal node (has a value)
+
+        if edge.object_bytes:
+            # If the edge has bytes, decode them and add them to the property value
+            property_value["@value"] = base64.b64decode(edge.object_bytes).decode(
+                "utf-8"
+            )
+        elif edge.object_value:
+            # If the edge has a literal value, add it to the property value
+            property_value["@value"] = edge.object_value
+         # Check if the target node is a literal node (has a value)
         # We use the relationship `target_node` which is eagerly loaded
         if edge.target_node and edge.target_node.value is not None:
              property_value["@value"] = edge.target_node.value
         # If it's a reference to another node, use the object_id
         else:
+            # If the edge has an object id, add it to the property value
             property_value["@id"] = edge.object_id
 
         if edge.provenance:
@@ -243,6 +298,152 @@ def node_model_to_graph_node(node: NodeModel) -> GraphNode:
         graph_node_properties[predicate] = values[0] if len(values) == 1 else values
 
     return GraphNode(**graph_node_properties)
+
+
+def coerce_edge_val_for_db_write(e: EdgeModel, col: str) -> str | None:
+    """
+    Coerces and truncates edge values to comply with Spanner index limits.
+    Args:
+      e: The EdgeModel instance containing raw data.
+      col: The target database column name.
+    Returns:
+       - For 'object_value': A UTF-8 string truncated to 4096 bytes (safe-decoded).
+        - For 'object_bytes': A Base64-encoded representation of the model's 'object_value'.
+        - For other columns: The raw attribute value from the model.
+    """
+    if col not in ("object_value", "object_bytes"):
+        return getattr(e, col)
+
+    val = getattr(e, "object_value")
+    if not val:
+        return None
+    val_bytes = str(val).encode("utf-8")
+
+    # A Spanner index key incorporates both the indexed columns AND the Primary Key.
+    # Max index key length is 8192 bytes total. The Primary Keys can swallow up to 4096 bytes easily.
+    # So we must restrict object_value to 4096 bytes to guarantee the total key size is < 8192 bytes.
+    if col == "object_value":
+        if len(val_bytes) > OBJECT_VALUE_MAX_LENGTH:
+            # Slice to exactly OBJECT_VALUE_MAX_LENGTH bytes, dropping fragmented chars gracefully
+            # TODO: To avoid hash index collisions, we should use a deterministic hash of the object_value
+            # and store that along with the truncated value.
+            val_truncated = val_bytes[:OBJECT_VALUE_MAX_LENGTH].decode(
+                "utf-8", errors="ignore"
+            )
+            return val_truncated
+        return val
+    elif col == "object_bytes":
+        if len(val_bytes) > OBJECT_VALUE_MAX_LENGTH:
+            return base64.b64encode(val_bytes).decode("utf-8")
+        return None
+
+
+def get_node_models(jsonld: JSONLDDocument) -> list[NodeModel]:
+    """
+    Converts a JSON-LD document into a list of NodeModel instances with their outgoing edges loaded.
+    """
+    node_models = []
+    for graph_node in jsonld.graph:
+        node_model = create_node_model(graph_node)
+        node_model.outgoing_edges = extract_edges_from_node(graph_node)
+        node_models.append(node_model)
+    return node_models
+
+
+def get_node_model_batches(
+    node_models: list[NodeModel], batch_size: int = 1000
+) -> list[list[NodeModel]]:
+    """
+    Splits a list of NodeModel instances into batches of nodes and edges.
+
+    Args:
+      node_models: List of NodeModel instances
+      batch_size: Maximum number of nodes and edges per batch
+
+    Returns:
+      List of batches of nodes and edges
+    """
+    node_batches: list[list[NodeModel]] = []
+    current_batch: list[NodeModel] = []
+    current_batch_len = 0
+    for node_model in node_models:
+        node_len = len(node_model.outgoing_edges) + 1
+
+        # If the node itself is larger than the batch_size, add it as its own batch
+        if node_len >= batch_size:
+            if current_batch:
+                node_batches.append(current_batch)
+                current_batch = []
+                current_batch_len = 0
+            node_batches.append([node_model])
+            continue
+
+        # Add node and its edges to the current batch
+        if current_batch_len + node_len <= batch_size:
+            current_batch.append(node_model)
+            current_batch_len += node_len
+        else:
+            # If the current batch is full, add it to the list of batches
+            node_batches.append(current_batch)
+            current_batch = [node_model]
+            current_batch_len = node_len
+
+    # Add the last batch if it's not empty
+    if current_batch:
+        node_batches.append(current_batch)
+    return node_batches
+
+
+def insert_node_models_batch(
+    node_models: list[NodeModel], spanner_batch: database.BatchCheckout
+):
+    """
+    Inserts a batch of NodeModel instances into the database using Spanner API.
+
+    Args:
+      node_models: List of NodeModel instances
+      spanner_batch: Spanner batch to insert into
+
+    Returns:
+      None
+    """
+    # Get the column names from the NodeModel and EdgeModel
+    node_columns = tuple(c.name for c in NodeModel.__table__.columns)
+    edge_columns = tuple(
+        c.name
+        for c in EdgeModel.__table__.columns
+        if c.name != "object_value_tokenlist"
+    )
+
+    # Insert nodes into the database
+    spanner_batch.insert_or_update(
+        table=NODE_TABLE_NAME,
+        columns=node_columns,
+        values=[tuple(getattr(n, col) for col in node_columns) for n in node_models],
+    )
+
+    # Delete existing edges for these nodes using a KeyRange prefix
+    keyset = spanner.KeySet(
+        ranges=[
+            spanner.KeyRange(start_closed=[n.subject_id], end_closed=[n.subject_id])
+            for n in node_models
+        ]
+    )
+    spanner_batch.delete(table=EDGE_TABLE_NAME, keyset=keyset)
+
+    # Insert the new edges
+    for node_model in node_models:
+        # Skip if there are no edges to avoid empty insert errors
+        if not node_model.outgoing_edges:
+            continue
+        spanner_batch.insert_or_update(
+            table=EDGE_TABLE_NAME,
+            columns=edge_columns,
+            values=[
+                tuple(coerce_edge_val_for_db_write(e, col) for col in edge_columns)
+                for e in node_model.outgoing_edges
+            ],
+        )
 
 
 class GraphService:
@@ -261,7 +462,14 @@ class GraphService:
           session: SQLAlchemy session for database operations
         """
         self.session = session
-        logger.info("Initialized GraphService with new session")
+
+        config = get_config()
+        spanner_client = spanner.Client(project=config.GCP_PROJECT_ID)
+        instance = spanner_client.instance(config.GCP_SPANNER_INSTANCE_ID)
+        self.spanner_database = instance.database(config.GCP_SPANNER_DATABASE_NAME)
+
+        # Silence Spanner client INFO logs
+        self.spanner_database.logger.setLevel(logging.WARNING)
 
     def get_graph_nodes(
         self,
@@ -334,122 +542,64 @@ class GraphService:
         logger.debug("Retrieved %d nodes with outgoing edges", len(nodes))
         return nodes
 
-    def insert_graph_nodes(self, jsonld: JSONLDDocument, default_provenance: str | None = None) -> None:
+    def insert_graph_nodes(
+        self, jsonld: JSONLDDocument, default_provenance: str | None = None, batch_size: int = 1000
+    ) -> None:
         """
-        Insert nodes and edges from a JSON-LD document into the database.
+        Inserts nodes and edges from a JSON-LD document into the database using Spanner API.
 
-        Raises an exception if the node already exists.
-
-        This method processes the JSON-LD document, creating NodeModel and EdgeModel
-        instances for each node and its edges. It handles both literal values and
-        references to other nodes, preserving provenance information.
+        Updates the nodes and edges if they already exist.
 
         Args:
           jsonld: The JSON-LD document containing nodes and edges to insert
           default_provenance: Optional global provenance for edges
         """
-        nodes: list[NodeModel] = []
-        edges: list[EdgeModel] = []
 
-        logger.info("Inserting %d nodes from JSON-LD document", len(jsonld.graph))
+        # Convert JSON-LD to NodeModels
+        node_models = get_node_models(jsonld)
+        node_model_batches = get_node_model_batches(node_models, batch_size)
+        total_edges = sum(len(node_model.outgoing_edges) for node_model in node_models)
 
-        # Track explicit subject IDs to avoid duplicating checks
-        explicit_subject_ids = set()
+        logger.info(
+            "Inserting %d nodes and %d edges in %d batch(es) to Spanner",
+            len(node_models),
+            total_edges,
+            len(node_model_batches),
+        )
 
-        # Process each node in the graph
-        for graph_node in jsonld.graph:
-            # Create node model
-            node_model = create_node_model(graph_node)
-            nodes.append(node_model)
-            explicit_subject_ids.add(node_model.subject_id)
-
-            # Extract and create edge models
-            node_edges = extract_edges_from_node(graph_node, default_provenance=default_provenance)
-            for item in node_edges:
-                if isinstance(item, NodeModel):
-                    nodes.append(item)
-                    explicit_subject_ids.add(item.subject_id)
-                else:
-                    edges.append(item)
-
-        # Collect all referenced IDs in edges that MUST exist as Nodes
-        referenced_ids = set()
-        for item in edges:
-            if item.subject_id:
-                referenced_ids.add(item.subject_id)
-            if item.predicate:
-                referenced_ids.add(item.predicate)
-            if item.object_id:
-                referenced_ids.add(item.object_id)
-            if item.provenance:
-                referenced_ids.add(item.provenance)
-        
-        # Identify potentials that are not in the explicit list
-        # (References that rely on existing DB nodes or need implicit creation)
-        potential_missing_ids = referenced_ids - explicit_subject_ids
-        
-        if potential_missing_ids:
-            # Check which of these already exist in the DB
-            existing_nodes = self.session.query(NodeModel.subject_id).filter(
-                NodeModel.subject_id.in_(potential_missing_ids)
-            ).all()
-            existing_ids = {n.subject_id for n in existing_nodes}
-            
-            # The truly missing ones need to be created implicitly
-            missing_ids = potential_missing_ids - existing_ids
-            
-        if missing_ids:
-                logger.info("Implicitly creating %d nodes to satisfy FK constraints: %s", len(missing_ids), missing_ids)
-                for missing_id in missing_ids:
-                    # Create a minimal NodeModel
-                    # We can't know the type or name, just the ID is known.
-                    implicit_node = NodeModel(subject_id=missing_id, value=missing_id, types=["implicit"], name='')
-                    nodes.append(implicit_node)
-
-        logger.info("Inserting %d nodes and %d edges", len(nodes), len(edges))
-
+        # Insert nodes and edges in batches
+        # TODO(dwnoble): this insert may fail if a node in an earlier batch references a node in a later batch.
+        # Also may fail if a node references a node that is in a remote knowledge graph
+        # Possible solution: Insert all nodes first, then insert all edges in a second pass.
+        success_count = 0
         try:
-            # Add all nodes first and flush to ensure they exist for FK constraints
-            # Use merge to handle duplicates (upsert)
-            for node in nodes:
-                self.session.merge(node)
-            self.session.flush()
-            
-            # Then add edges
-            # For edges, we might also want merge if they are exact duplicates? 
-            # But edges have composite PK. If exact duplicate, merge handles it.
-            # If different provenance, it's a new row.
-            for edge in edges:
-                 self.session.merge(edge)
-            
-            # Commit the transaction
-            self.session.commit()
-            logger.info("Successfully committed all nodes and edges to database")
-            
-        except exc.IntegrityError as e:
-            self.session.rollback()
-            msg = str(e)
-            details = repr(e.orig) if hasattr(e, 'orig') and e.orig else str(e)
-            
-            # Try to extract helpful info
-            if "Foreign key constraint" in msg or "ForeignKey" in msg:
-                error_type = "IntegrityError: Missing referenced node"
-            elif "Unique constraint" in msg or "Duplicate entry" in msg or "AlreadyExists" in msg:
-                 error_type = "IntegrityError: Duplicate node or edge"
-            else:
-                error_type = "Database IntegrityError"
-            
-            readable_msg = f"{error_type}. Details: {details}"
-            
-            # Add SQL context if available
-            if hasattr(e, 'statement') and e.statement:
-                readable_msg += f"\nSQL: {e.statement}"
-            if hasattr(e, 'params') and e.params:
-                readable_msg += f"\nParams: {e.params}"
-            
-            logger.error(readable_msg)
-            raise GraphServiceError(readable_msg) from e
+            for node_model_batch in node_model_batches:
+                with self.spanner_database.batch() as spanner_batch:
+                    insert_node_models_batch(node_model_batch, spanner_batch)
+                success_count += len(node_model_batch)
         except Exception as e:
-            self.session.rollback()
-            logger.exception("Error inserting graph nodes")
-            raise GraphServiceError(f"Error inserting graph nodes: {str(e)}") from e
+            error_message = f"Failed to insert nodes and edges to Spanner after {success_count}/{len(node_models)} nodes inserted"
+            logger.exception(error_message)
+            raise GraphServiceError(error_message) from e
+
+        logger.info(
+            "Successfully committed %d nodes and %d edges to Spanner",
+            success_count,
+            total_edges,
+        )
+
+    def drop_tables(self) -> None:
+        """
+        Delete Node and Edge tables from the graph database.
+        """
+        logger.info("Dropping index EdgeByObjectValue")
+        query = "DROP INDEX EdgeByObjectValue"
+        self.session.execute(text(query))
+        logger.info("Dropping table %s", EDGE_TABLE_NAME)
+        query = f"DROP TABLE {EDGE_TABLE_NAME}"
+        self.session.execute(text(query))
+        logger.info("Dropping table %s", NODE_TABLE_NAME)
+        query = f"DROP TABLE {NODE_TABLE_NAME}"
+        self.session.execute(text(query))
+        self.session.commit()
+        logger.info("Successfully dropped Node and Edge tables")

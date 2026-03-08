@@ -69,7 +69,7 @@ def validate_config_or_exit(config: Config) -> None:
     # Ensure GCP Spanner is configured
     for var in REQUIRED_ENV_VARS:
         if not getattr(config, var):
-            logger.error("Environment variable %s must be set", var)
+            logger.error("Config variable %s must be set", var)
             sys.exit(1)
 
 
