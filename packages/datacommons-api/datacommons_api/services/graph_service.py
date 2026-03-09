@@ -78,11 +78,47 @@ VALUE_COLUMN_MAX_SIZE_BYTES = 10 * 1024 * 1024
 
 # --- 1. DATA ABSTRACTION & UTILITIES ---
 
-# TODO: should we convert to namespaced id instead of stripping?
-def strip_namespace(identifier: str) -> str:
-    """Strip all CURIE namespaces from an id."""
-    if not identifier: return identifier
-    return identifier.split(":")[-1]
+# Combine all known namespaces for lookup
+ALL_NAMESPACES = {**BASE_NAMESPACES, **NAMESPACES}
+
+def normalize_graph_id(identifier: str) -> tuple[str, bool]:
+    """
+    Normalizes an ID and detects if it is a remote node.
+    - Converts full URIs to shortform CURIEs (http://schema.org/Person -> schema:Person).
+    - Preserves already-shortform remote IDs (schema:Person -> schema:Person).
+    - Strips prefixes from local nodes.
+    
+    Returns:
+        Tuple of (normalized_id: str, is_remote: bool)
+    """
+    if not identifier:
+        return identifier, False
+        
+    # 1. Check if it's already a known shortform (e.g., "schema:Person")
+    for prefix in ALL_NAMESPACES.keys():
+        if identifier.startswith(f"{prefix}:"):
+            return identifier, True
+            
+    # 2. Check if it's a full URI (e.g., "http://schema.org/Person")
+    for prefix, uri in ALL_NAMESPACES.items():
+        if identifier.startswith(uri):
+            # Convert full URI to shortform!
+            shortform = identifier.replace(uri, f"{prefix}:", 1)
+            return shortform, True
+            
+        # Fallback to allow http:// prefixes for https:// vocabularies
+        if uri.startswith("https://"):
+            http_uri = "http://" + uri[8:]
+            if identifier.startswith(http_uri):
+                shortform = identifier.replace(http_uri, f"{prefix}:", 1)
+                return shortform, True
+            
+    # 3. Check if it's a generated literal ID (do not strip these)
+    if identifier.startswith("l/"):
+        return identifier, False
+        
+    # 4. Otherwise, it is a local node. Strip any local prefixes like "dcid:"
+    return identifier.split(":")[-1], False
 
 def coerce_node_record_value(content: Any) -> dict[str, Any]:
     """
@@ -149,7 +185,8 @@ def create_node_record(graph_node: GraphNode) -> NodeRecord:
     Ensures Go-compatible defaults (empty strings/lists instead of NULLs).
     """
     # Use getattr for resilience against dynamic Pydantic attributes
-    subject_id = strip_namespace(getattr(graph_node, "id", None))
+    # Change subject_id and types to use normalize_graph_id
+    subject_id = normalize_graph_id(getattr(graph_node, "id", None))[0]
     name = getattr(graph_node, "name", "") or ""
     
     raw_type = getattr(graph_node, "type", [])
@@ -165,7 +202,7 @@ def create_node_record(graph_node: GraphNode) -> NodeRecord:
     return NodeRecord(
         subject_id=subject_id,
         name=name,
-        types=[strip_namespace(t) for t in types if t is not None],
+        types=[normalize_graph_id(t)[0] for t in types if t is not None],
         value=content_data["value"],
         bytes=content_data["bytes"]
     )
@@ -177,11 +214,12 @@ def create_edge_record(subject_id: str, predicate: str, object_id: str, provenan
     if not object_id:
         raise GraphServiceError(f"Missing object_id for edge {subject_id} -> {predicate}.")
     
+    # Change subject, predicate, and object to use normalize_graph_id
     return EdgeRecord(
-        subject_id=strip_namespace(subject_id),
-        predicate=strip_namespace(predicate),
-        object_id=strip_namespace(object_id),
-        provenance=strip_namespace(provenance)
+        subject_id=normalize_graph_id(subject_id)[0],
+        predicate=normalize_graph_id(predicate)[0],
+        object_id=normalize_graph_id(object_id)[0],
+        provenance=normalize_graph_id(provenance)[0]
     )
 
 def extract_edges_from_graph_node(graph_node: GraphNode) -> Tuple[List[EdgeRecord], List[NodeRecord]]:
@@ -204,12 +242,26 @@ def extract_edges_from_graph_node(graph_node: GraphNode) -> Tuple[List[EdgeRecor
 
         for val in values:
             if isinstance(val, dict) and "@id" in val:
-                # Standard entity reference
+                raw_target_id = val["@id"]
+                # Use our normalizer to get the shortform ID and check if it's remote
+                target_id, is_remote = normalize_graph_id(raw_target_id)
                 edge_prov = val.get("@provenance", provenance)
+
+                # SYNTHESIZE PROXY NODE
+                if is_remote:
+                    literal_nodes.append(NodeRecord(
+                        subject_id=target_id,
+                        types=["schema:ExternalProxy"], # Tag it so the system knows it's remote
+                        name=val.get("name", ""),       # Cache the label if the JSON-LD provided one!
+                        value=None,
+                        bytes=None
+                    ))
+
+                # Create the edge pointing to the normalized target_id
                 edges.append(create_edge_record(
                     subject_id=subject_id,
                     predicate=predicate,
-                    object_id=val["@id"],
+                    object_id=target_id, # This is now safely "schema:Person"
                     provenance=edge_prov
                 ))
             else:
@@ -256,7 +308,12 @@ def node_record_to_graph_node(record: NodeRecord) -> GraphNode:
         if not target:
             prop_val["@id"] = edge.object_id
         elif "literal" in target.types:
+            # FIX #5: Wrap literal values in "@value"
             prop_val["@value"] = get_value_from_node_record(target)
+        elif "schema:ExternalProxy" in target.types:
+            # It's a remote node! Just return its @id (e.g. "schema:Person")
+            # The JSON-LD context header will automatically expand it for the client.
+            prop_val["@id"] = target.subject_id
         else:
             prop_val["@id"] = target.subject_id
 

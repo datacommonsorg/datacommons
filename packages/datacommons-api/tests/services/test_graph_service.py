@@ -22,7 +22,7 @@ from datacommons_api.core.config import Config
 from datacommons_api.services.graph_service import (
     GraphService,
     GraphServiceError,
-    strip_namespace,
+    normalize_graph_id,
     get_node_record_batches,
     generate_literal_id,
     coerce_node_record_value,
@@ -39,12 +39,24 @@ from datacommons_schema.models.jsonld import JSONLDDocument, GraphNode
 
 # --- 1. UNIT TESTS ---
 
-def test_strip_namespace():
-    assert strip_namespace("dcid:California") == "California"
-    assert strip_namespace("schema:Person") == "Person"
-    assert strip_namespace("name") == "name"
-    assert strip_namespace("") == ""
-    assert strip_namespace(None) is None
+def test_normalize_graph_id():
+    # 1. Known Shortforms (Remote)
+    assert normalize_graph_id("schema:Person") == ("schema:Person", True)
+    assert normalize_graph_id("dc:Place") == ("dc:Place", True)
+
+    # 2. Full URIs -> Shortforms (Remote)
+    assert normalize_graph_id("http://schema.org/Person") == ("schema:Person", True)
+    assert normalize_graph_id("https://schema.org/Person") == ("schema:Person", True)
+    assert normalize_graph_id("https://datacommons.org/browser/Place") == ("dc:Place", True)
+
+    # 3. Generated Literals (Local, do not strip prefix)
+    assert normalize_graph_id("l/123xyz") == ("l/123xyz", False)
+
+    # 4. Standard Local Nodes (Strip prefixes)
+    assert normalize_graph_id("dcid:California") == ("California", False)
+    assert normalize_graph_id("name") == ("name", False)
+    assert normalize_graph_id("") == ("", False)
+    assert normalize_graph_id(None) == (None, False)
 
 # 1.1 Content Abstraction
 def test_coerce_node_record_value_small():
@@ -92,7 +104,7 @@ def test_create_node_record_standard():
     gn = GraphNode(**{"@id": "dcid:California", "@type": ["schema:State"]})
     record = create_node_record(gn)
     assert record.subject_id == "California"
-    assert record.types == ["State"]
+    assert record.types == ["schema:State"]
 
 def test_create_node_record_go_defaults():
     gn = GraphNode(**{"@id": "n1", "@type": "t1"})
@@ -126,8 +138,9 @@ def test_create_edge_record_validation():
 
 def test_create_edge_record_success():
     edge = create_edge_record("dcid:s", "schema:p", "dcid:o", "prov")
+    # 'dcid' gets stripped. 'schema' is a known prefix and gets preserved as a shortform.
     assert edge.subject_id == "s"
-    assert edge.predicate == "p"
+    assert edge.predicate == "schema:p"
     assert edge.object_id == "o"
     assert edge.provenance == "prov"
     assert not hasattr(edge, "object_value")
