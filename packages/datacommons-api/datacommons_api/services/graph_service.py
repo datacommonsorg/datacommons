@@ -148,19 +148,19 @@ def coerce_node_record_value(content: Any) -> dict[str, Any]:
     - Unused column is set to None (SQL NULL) for storage efficiency.
     """
     if content is None:
-        return {"value": None, "bytes": None}
+        return {"value": '', "bytes": b''}
 
     if isinstance(content, bytes):
-        return {"value": None, "bytes": content}
+        return {"value": '', "bytes": content}
 
     # Convert primitives (int, bool, float) to string for literal storage
     str_val = str(content)
     encoded_val = str_val.encode("utf-8")
 
     if len(encoded_val) < VALUE_COLUMN_MAX_SIZE_BYTES:
-        return {"value": str_val, "bytes": None}
+        return {"value": str_val, "bytes": b''}
     
-    return {"value": None, "bytes": encoded_val}
+    return {"value": '', "bytes": encoded_val}
 
 def get_value_from_node_record(record: Any) -> Union[str, None]:
     """
@@ -171,7 +171,7 @@ def get_value_from_node_record(record: Any) -> Union[str, None]:
     Checks the 'bytes' column first as it handles larger/binary content.
     Decodes the bytes to a UTF-8 string before returning.
     """
-    if hasattr(record, "bytes") and record.bytes is not None:
+    if hasattr(record, "bytes") and record.bytes:
         return record.bytes.decode("utf-8", errors="ignore")
     
     return getattr(record, "value", None)
@@ -217,7 +217,7 @@ def create_node_record(graph_node: GraphNode, context: Optional[dict] = None) ->
 
     return NodeRecord(
         subject_id=subject_id,
-        name=name,
+        name=name or '',
         # Pass context to normalizer
         types=[normalize_graph_id(t, context)[0] for t in types if t is not None],
         value=content_data["value"],
@@ -256,7 +256,7 @@ def create_edge_record(
         subject_id=subject_id,
         predicate=predicate,
         object_id=object_id,
-        provenance=provenance
+        provenance=provenance or ''
     )
 
 from typing import Tuple, List
@@ -299,8 +299,7 @@ def extract_edges_from_graph_node(graph_node: GraphNode, context: Optional[dict]
             # Generate a proxy stub for the external provenance URI
             synthesized_nodes.append(NodeRecord(
                 subject_id=fallback_prov,
-                types=["schema:ExternalProxy", "provenance_stub"],
-                name="", value=None, bytes=None
+                types=["schema:ExternalProxy", "provenance_stub"]
             ))
     else:
         # Inject a system default provenance node if completely missing.
@@ -309,7 +308,7 @@ def extract_edges_from_graph_node(graph_node: GraphNode, context: Optional[dict]
         synthesized_nodes.append(NodeRecord(
             subject_id=DEFAULT_PROVENANCE_ID,
             types=["system:DefaultNode"],
-            name="Unknown Provenance", value=None, bytes=None
+            name="Unknown Provenance"
         ))
 
     # Reserved JSON-LD and internal metadata keys to skip during edge extraction
@@ -326,8 +325,7 @@ def extract_edges_from_graph_node(graph_node: GraphNode, context: Optional[dict]
         if pred_is_remote:
             synthesized_nodes.append(NodeRecord(
                 subject_id=predicate,
-                types=["schema:ExternalProxy", "predicate_stub"],
-                name="", value=None, bytes=None
+                types=["schema:ExternalProxy", "predicate_stub"]
             ))
 
         values = value if isinstance(value, list) else [value]
@@ -345,7 +343,6 @@ def extract_edges_from_graph_node(graph_node: GraphNode, context: Optional[dict]
                         subject_id=target_id,
                         types=["schema:ExternalProxy"],
                         name=val.get("name", ""),  # Cache external label if provided
-                        value=None, bytes=None
                     ))
 
                 # Resolve Edge-Level Provenance (Overrides fallback if present)
@@ -356,7 +353,6 @@ def extract_edges_from_graph_node(graph_node: GraphNode, context: Optional[dict]
                         synthesized_nodes.append(NodeRecord(
                             subject_id=edge_prov,
                             types=["schema:ExternalProxy", "provenance_stub"],
-                            name="", value=None, bytes=None
                         ))
                 else:
                     edge_prov = fallback_prov
@@ -489,7 +485,9 @@ def insert_records_batch(records: List[NodeRecord], spanner_batch: Any):
     # (in case literal nodes or incomplete models are missing them)
     node_defaults = {
         "name": "",
-        "types": []
+        "types": [],
+        "value": "",
+        "bytes": b""
     }
 
     # 5. Insert/Update Nodes
@@ -501,6 +499,12 @@ def insert_records_batch(records: List[NodeRecord], spanner_batch: Any):
             # Apply default if the value is explicitly None and requires a fallback
             if val is None and col in node_defaults:
                 val = node_defaults[col]
+            
+            # Write id to value if it's empty and this isn't a literal node
+            if col == "value" and not val and not getattr(n, "bytes", b""):
+                if "literal" not in getattr(n, "types", []):
+                    val = n.subject_id
+            
             row.append(val)
         node_values.append(tuple(row))
 
@@ -554,7 +558,8 @@ class GraphService:
         """
         Processes a JSON-LD document and performs a batched ingestion.
         """
-        all_records = []
+        all_main_nodes = []
+        all_synthetic_nodes = []
         
         # Extract the dynamic context from the incoming payload
         doc_context = getattr(jsonld, "context", {})
@@ -564,12 +569,43 @@ class GraphService:
             node_record = create_node_record(graph_node, context=doc_context)
             edges, synthesized_nodes = extract_edges_from_graph_node(graph_node, context=doc_context)
             
+            # Attach source graph_node for debugging if things go wrong
+            node_record._source_graph_node = graph_node
+            
             node_record.outgoing_edges = edges
-            all_records.append(node_record)
-            all_records.extend(synthesized_nodes)
+            all_main_nodes.append(node_record)
+            all_synthetic_nodes.extend(synthesized_nodes)
 
         if not self.spanner_db:
             raise GraphServiceError("Spanner database client not initialized.")
+
+        # --- Filter existing synthetic nodes ---
+        unique_synthetic = {n.subject_id: n for n in all_synthetic_nodes}
+        existing_synthetic_ids = set()
+        
+        if unique_synthetic:
+            # Spanner KeySet requires a list of lists for keys
+            keyset = spanner.KeySet(keys=[[k] for k in unique_synthetic.keys()])
+            try:
+                with self.spanner_db.snapshot() as snapshot:
+                    results = snapshot.read(
+                        table=NODE_TABLE_NAME, 
+                        columns=["subject_id"], 
+                        keyset=keyset
+                    )
+                    for row in results:
+                        existing_synthetic_ids.add(row[0])
+                logger.info("Found %d already-existing synthetic nodes (skipping overwrite).", len(existing_synthetic_ids))
+            except Exception as e:
+                logger.warning("Failed to check existing synthetic nodes; falling back to overwrite: %s", e)
+                
+        # Filter out synthetic nodes that already exist in Spanner
+        filtered_synthetic_nodes = [n for n in unique_synthetic.values() if n.subject_id not in existing_synthetic_ids]
+        
+        # Combine lists such that main nodes appear LAST.
+        # This guarantees that if a main node shares the same subject_id as a synthetic node,
+        # its data will properly overwrite the proxy during deduplication in `insert_records_batch`.
+        all_records = filtered_synthetic_nodes + all_main_nodes
 
         # Insert nodes and edges in batches
         # TODO(dwnoble): this insert may fail if a node in an earlier batch references a node in a later batch.
@@ -580,9 +616,21 @@ class GraphService:
         logger.info("Inserting %d nodes and %d edges in %d batch(es) to Spanner", len(all_records), total_edges, len(batches))
         
         try:
-            for batch in batches:
-                with self.spanner_db.batch() as spanner_batch:
-                    insert_records_batch(batch, spanner_batch)
+            for i, batch in enumerate(batches):
+                try:
+                    with self.spanner_db.batch() as spanner_batch:
+                        insert_records_batch(batch, spanner_batch)
+                except Exception as batch_error:
+                    logger.error("Error committing batch %d/%d to Spanner.", i + 1, len(batches))
+                    logger.error("Dumping NodeRecords and EdgeRecords from the failed batch for debugging:")
+                    for n in batch:
+                        logger.error("  Node: %s (types: %s)", n.subject_id, n.types)
+                        if hasattr(n, '_source_graph_node') and n._source_graph_node:
+                            logger.error("    Source GraphNode: %s", n._source_graph_node.model_dump_json(exclude_none=True))
+                        for e in getattr(n, "outgoing_edges", []):
+                            logger.error("    Edge: %s [%s] -> %s (prov: %s)", 
+                                         e.subject_id, e.predicate, e.object_id, getattr(e, "provenance", "None"))
+                    raise batch_error
         except Exception as e:
             logger.exception("Failed to insert nodes to Spanner")
             raise GraphServiceError(f"Failed to insert nodes to Spanner: {e}") from e

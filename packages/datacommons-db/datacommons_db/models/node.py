@@ -33,7 +33,7 @@ class NodeRecord(Base):
     # Use String() for STRING(MAX); matches DDL nullability
     name = sa.Column(sa.String(), nullable=False, default='')
     value = sa.Column(sa.String(), nullable=False, default='')
-    bytes = sa.Column(sa.LargeBinary(), nullable=True)
+    bytes = sa.Column(sa.LargeBinary(), nullable=False, default=b'')
     types = sa.Column(ARRAY(sa.String(1024)), nullable=False, default=[])
 
     # Relationships

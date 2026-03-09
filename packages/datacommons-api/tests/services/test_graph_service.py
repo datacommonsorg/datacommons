@@ -76,19 +76,19 @@ def test_coerce_node_record_value_small():
     content = "Hello World"
     result = coerce_node_record_value(content)
     assert result["value"] == "Hello World"
-    assert result["bytes"] is None
+    assert result["bytes"] == b""
 
 def test_coerce_node_record_value_large():
     content = "a" * (11 * 1024 * 1024)  # 11MB
     result = coerce_node_record_value(content)
-    assert result["value"] is None
+    assert result["value"] == ""
     assert result["bytes"] == content.encode("utf-8")
 
 def test_coerce_node_record_value_binary():
     # Example logic using arbitrary bytes
     content = b'\x00\x01'
     result = coerce_node_record_value(content)
-    assert result["value"] is None
+    assert result["value"] == ""
     assert result["bytes"] == content
 
 def test_node_record_value_round_trip():
@@ -129,7 +129,7 @@ def test_create_node_record_content_mapping():
     gn = GraphNode(**{"@id": "n1", "@type": "t1", "value": "Some Data"})
     record = create_node_record(gn)
     assert record.value == "Some Data"
-    assert record.bytes is None
+    assert record.bytes == b""
 
 # 1.4 Ingestion & Edge Logic
 def test_extract_edges_from_graph_node_mixed():
@@ -303,6 +303,7 @@ def test_strict_non_nulls(mock_spanner_batch):
     values = node_call.kwargs['values'][0]
     # Check that placeholders like '' exist where expected and None is avoided in PK/Metadata
     assert '' in values 
+    assert b'' in values
     assert None not in values[0:2]
 
 # --- 3. END-TO-END TESTS ---
