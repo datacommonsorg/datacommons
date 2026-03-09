@@ -13,7 +13,7 @@ export GCP_PROJECT_ID="datcom-website-dev"
 export GCS_DATA_BUCKET="gs://customdc-data/dc-dev"
 
 export GCP_SPANNER_INSTANCE_ID="dan-dc2-dc-spanner"
-export GCP_SPANNER_DATABASE_NAME="dcp-db-dev2"
+export GCP_SPANNER_DATABASE_NAME="dcp-db-dev"
 
 export REMOTE_MIXER_DOMAIN="https://autopush.api.datacommons.org"
 
