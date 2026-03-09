@@ -87,6 +87,8 @@ def strip_namespace(identifier: str) -> str:
 def coerce_node_record_value(content: Any) -> dict[str, Any]:
     """
     Coerces input content into the appropriate storage columns for a NodeRecord.
+
+    Used when converting GraphNodes into NodeRecords.
     
     Logic:
     - If str and < 10MB: store in 'value' (STRING).
@@ -111,6 +113,9 @@ def coerce_node_record_value(content: Any) -> dict[str, Any]:
 def get_value_from_node_record(record: Any) -> Union[str, None]:
     """
     Retrieves the logical value from a NodeRecord, abstracting the storage columns.
+
+    Used on conversion from NodeRecord to GraphNode.
+
     Checks the 'bytes' column first as it handles larger/binary content.
     Decodes the bytes to a UTF-8 string before returning.
     """
@@ -136,7 +141,7 @@ def generate_literal_id(content: Any) -> str:
     m.update(raw_bytes)
     return f"dcid:l/{m.hexdigest()}"
 
-# --- 2. INGESTION LOGIC (TRANSFORMING JSON-LD TO SPANNER) ---
+# --- 2. INGESTION LOGIC (Transforming GraphNodes to DB NodeRecords) ---
 
 def create_node_record(graph_node: GraphNode) -> NodeRecord:
     """
@@ -224,7 +229,7 @@ def extract_edges_from_graph_node(graph_node: GraphNode) -> Tuple[List[EdgeRecor
 
     return (edges, literal_nodes)
 
-# --- 3. EXTRACTION LOGIC (TRANSFORMING SPANNER TO JSON-LD) ---
+# --- 3. EXTRACTION LOGIC (Transforming DB NodeRecords to GraphNodes) ---
 
 def node_record_to_graph_node(record: NodeRecord) -> GraphNode:
     """
@@ -263,7 +268,7 @@ def node_record_to_graph_node(record: NodeRecord) -> GraphNode:
     data.update(properties)
     return GraphNode(**data)
 
-# --- 4. DATABASE & BATCHING OPERATIONS ---
+# --- 4. DATABASE WRITE & BATCHING OPERATIONS ---
 
 def get_node_record_batches(nodes: List[NodeRecord], batch_size: int = 1000) -> List[List[NodeRecord]]:
     """
