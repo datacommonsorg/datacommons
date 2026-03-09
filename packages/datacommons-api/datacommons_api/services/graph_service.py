@@ -108,7 +108,7 @@ def coerce_node_record_value(content: Any) -> dict[str, Any]:
     
     return {"value": None, "bytes": encoded_val}
 
-def get_node_record_value(record: Any) -> Union[str, None]:
+def get_value_from_node_record(record: Any) -> Union[str, None]:
     """
     Retrieves the logical value from a NodeRecord, abstracting the storage columns.
     Checks the 'bytes' column first as it handles larger/binary content.
@@ -237,7 +237,7 @@ def node_record_to_graph_node(record: NodeRecord) -> GraphNode:
     if record.name:
         data["name"] = record.name
 
-    val = get_node_record_value(record)
+    val = get_value_from_node_record(record)
     if val is not None:
         data["value"] = val
 
@@ -249,7 +249,7 @@ def node_record_to_graph_node(record: NodeRecord) -> GraphNode:
         if not target:
             prop_val = {"@id": edge.object_id}
         elif "literal" in target.types:
-            prop_val = get_node_record_value(target)
+            prop_val = get_value_from_node_record(target)
         else:
             prop_val = {"@id": target.subject_id}
 
@@ -331,6 +331,8 @@ class GraphService:
         client = spanner.Client(project=config.GCP_PROJECT_ID)
         instance = client.instance(config.GCP_SPANNER_INSTANCE_ID)
         self.spanner_db = instance.database(config.GCP_SPANNER_DATABASE_NAME)
+        # Silence Spanner client INFO logs
+        self.spanner_db.logger.setLevel(logging.WARNING)
 
     def insert_graph_nodes(self, jsonld: JSONLDDocument):
         """
@@ -352,30 +354,43 @@ class GraphService:
         # Also may fail if a node references a node that is in a remote knowledge graph
         # Possible solution: Insert all nodes first, then insert all edges in a second pass.
         batches = get_node_record_batches(all_records)
-        for batch in batches:
-            subject_ids = [n.subject_id for n in batch]
-            with self.spanner_db.batch() as spanner_batch:
-                # Clear existing edges for the subjects in this batch to allow clean replacement
-                for sid in subject_ids:
-                    spanner_batch.delete(
-                        table="Edge",
-                        keyset=spanner.KeySet(ranges=[spanner.KeyRange(start_closed=[sid], end_closed=[sid])])
-                    )
-                insert_records_batch(batch, spanner_batch)
+        total_edges = sum(len(getattr(n, "outgoing_edges", [])) for n in all_records)
+        logger.info("Inserting %d nodes and %d edges in %d batch(es) to Spanner", len(all_records), total_edges, len(batches))
+        
+        try:
+            for batch in batches:
+                subject_ids = [n.subject_id for n in batch]
+                with self.spanner_db.batch() as spanner_batch:
+                    # Clear existing edges for the subjects in this batch to allow clean replacement
+                    for sid in subject_ids:
+                        spanner_batch.delete(
+                            table="Edge",
+                            keyset=spanner.KeySet(ranges=[spanner.KeyRange(start_closed=[sid], end_closed=[sid])])
+                        )
+                    insert_records_batch(batch, spanner_batch)
+        except Exception as e:
+            logger.exception("Failed to insert nodes to Spanner")
+            raise GraphServiceError(f"Failed to insert nodes to Spanner: {e}") from e
+        
+        logger.info("Successfully committed %d nodes and %d edges to Spanner", len(all_records), total_edges)
 
     def get_graph_nodes(self, limit: int = 10, type_filter: Optional[List[str]] = None) -> JSONLDDocument:
         """
         Fetches a subgraph and transforms it back to JSON-LD.
         """
+        logger.info("Fetching graph nodes (limit=%d, type_filter=%s)", limit, type_filter)
         query = self.session.query(NodeRecord).options(
             joinedload(NodeRecord.outgoing_edges).joinedload(EdgeRecord.target_node)
         )
         
         if type_filter:
+            logger.info("Filtering nodes by types: %s", type_filter)
             query = query.filter(NodeRecord.types.overlap(type_filter))
             
         records = query.limit(limit).all()
+        logger.debug("Retrieved %d nodes with outgoing edges", len(records))
         graph = [node_record_to_graph_node(r) for r in records]
+        logger.info("Transformed %d nodes to JSON-LD format", len(graph))
         return JSONLDDocument(
             context={
                 "@vocab": LOCAL_NAMESPACE_URL,

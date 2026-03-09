@@ -26,7 +26,7 @@ from datacommons_api.services.graph_service import (
     get_node_record_batches,
     generate_literal_id,
     coerce_node_record_value,
-    get_node_record_value,
+    get_value_from_node_record,
     create_node_record,
     create_edge_record,
     extract_edges_from_graph_node,
@@ -69,11 +69,11 @@ def test_coerce_node_record_value_binary():
 def test_node_record_value_round_trip():
     s = "Round Trip Test"
     record = NodeRecord(**coerce_node_record_value(s))
-    assert get_node_record_value(record) == s
+    assert get_value_from_node_record(record) == s
 
-def test_get_node_record_value_decodes_bytes():
+def test_get_value_from_node_record_decodes_bytes():
     record = NodeRecord(subject_id="n1", bytes=b"Decoded String")
-    assert get_node_record_value(record) == "Decoded String"
+    assert get_value_from_node_record(record) == "Decoded String"
 
 # 1.2 ID Generation
 def test_generate_literal_id_determinism():
