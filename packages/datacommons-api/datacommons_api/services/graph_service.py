@@ -120,7 +120,7 @@ def get_value_from_node_record(record: Any) -> Union[str, None]:
     Decodes the bytes to a UTF-8 string before returning.
     """
     if hasattr(record, "bytes") and record.bytes is not None:
-        return record.bytes.decode("utf-8")
+        return record.bytes.decode("utf-8", errors="ignore")
     
     return getattr(record, "value", None)
 
@@ -165,7 +165,7 @@ def create_node_record(graph_node: GraphNode) -> NodeRecord:
     return NodeRecord(
         subject_id=subject_id,
         name=name,
-        types=[strip_namespace(t) for t in types],
+        types=[strip_namespace(t) for t in types if t is not None],
         value=content_data["value"],
         bytes=content_data["bytes"]
     )
@@ -251,12 +251,17 @@ def node_record_to_graph_node(record: NodeRecord) -> GraphNode:
         predicate = edge.predicate
         target = getattr(edge, "target_node", None)
 
+        prop_val = {}
+        
         if not target:
-            prop_val = {"@id": edge.object_id}
+            prop_val["@id"] = edge.object_id
         elif "literal" in target.types:
-            prop_val = get_value_from_node_record(target)
+            prop_val["@value"] = get_value_from_node_record(target)
         else:
-            prop_val = {"@id": target.subject_id}
+            prop_val["@id"] = target.subject_id
+
+        if getattr(edge, "provenance", None):
+            prop_val["@provenance"] = edge.provenance
 
         if predicate in properties:
             if not isinstance(properties[predicate], list):

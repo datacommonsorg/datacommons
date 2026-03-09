@@ -156,7 +156,7 @@ def test_node_record_to_graph_node_collapse():
     source.outgoing_edges = [edge]
     
     gn = node_record_to_graph_node(source)
-    assert gn.model_dump(by_alias=True, exclude_none=True)["name"] == "Value"
+    assert gn.model_dump(by_alias=True, exclude_none=True)["name"] == {"@value": "Value"}
 
 def test_node_record_to_graph_node_preserve():
     target = NodeRecord(subject_id="t1", types=["Entity"])
@@ -307,5 +307,5 @@ def test_jsonld_round_trip(graph_service, mock_session, mock_spanner_batch):
     
     result_json = retrieved.graph[0].model_dump(by_alias=True, exclude_none=True)
     assert result_json["@id"] == "geoId/06"
-    assert result_json["name"] == "California"
+    assert result_json["name"] == {"@value": "California"}
     assert result_json["containedInPlace"] == {"@id": "geoId/USA"}
