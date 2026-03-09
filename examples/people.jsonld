@@ -7,15 +7,9 @@
   },
   "@graph": [
     {
-        "@id": "local:demo-data",
-        "@type": "local:Provenance",
-        "rdfs:label": "Demo Data",
-        "rdfs:comment": "Provenance for demo data."
-      },
-      {
       "@id": "local:Li",
       "@type": "local:Person",
-      "name": "Li",
+      "local:name": "Li",
       "local:friendOf": [
         {
           "@id": "local:Sally"
@@ -25,7 +19,7 @@
     {
       "@id": "local:Sally",
       "@type": "local:Person",
-      "name": "Sally",
+      "local:name": "Sally",
       "local:friendOf": [
         {
           "@id": "local:Li"
@@ -41,7 +35,7 @@
     {
       "@id": "local:Maria",
       "@type": "local:Person",
-      "name": "Maria",
+      "local:name": "Maria",
       "local:friendOf": [
         {
           "@id": "local:Sally"
@@ -54,7 +48,7 @@
     {
       "@id": "local:John",
       "@type": "local:Person",
-      "name": "John",
+      "local:name": "John",
       "local:friendOf": [
         {
           "@id": "local:Sally"
@@ -64,7 +58,7 @@
     {
       "@id": "local:Natalie",
       "@type": "local:Person",
-      "name": "Natalie",
+      "local:name": "Natalie",
       "local:friendOf": [
         {
           "@id": "local:Maria"
