@@ -176,7 +176,7 @@ def create_edge_record(subject_id: str, predicate: str, object_id: str, provenan
         subject_id=strip_namespace(subject_id),
         predicate=strip_namespace(predicate),
         object_id=strip_namespace(object_id),
-        provenance=provenance
+        provenance=strip_namespace(provenance)
     )
 
 def extract_edges_from_graph_node(graph_node: GraphNode) -> Tuple[List[EdgeRecord], List[NodeRecord]]:
@@ -200,11 +200,12 @@ def extract_edges_from_graph_node(graph_node: GraphNode) -> Tuple[List[EdgeRecor
         for val in values:
             if isinstance(val, dict) and "@id" in val:
                 # Standard entity reference
+                edge_prov = val.get("@provenance", provenance)
                 edges.append(create_edge_record(
                     subject_id=subject_id,
                     predicate=predicate,
                     object_id=val["@id"],
-                    provenance=provenance
+                    provenance=edge_prov
                 ))
             else:
                 # Literal value: Spawn a Literal Node + an Edge pointing to it

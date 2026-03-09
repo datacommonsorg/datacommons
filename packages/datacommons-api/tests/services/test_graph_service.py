@@ -132,6 +132,19 @@ def test_create_edge_record_success():
     assert edge.provenance == "prov"
     assert not hasattr(edge, "object_value")
 
+def test_extract_edges_from_graph_node_granular_provenance():
+    # Setup a GraphNode with top-level provenance and an edge with its own granular provenance
+    gn = GraphNode(**{
+        "@id": "n1",
+        "provenance": "prov:top_level_prov",
+        "p1": {"@id": "target_n", "@provenance": "prov:edge_level_prov"}
+    })
+    
+    edges, literal_nodes = extract_edges_from_graph_node(gn)
+    
+    assert len(edges) == 1
+    assert edges[0].provenance == "edge_level_prov", "Expected edge-level provenance to override top-level provenance"
+
 # 1.5 Extraction Logic
 def test_node_record_to_graph_node_collapse():
     lit_id = generate_literal_id("Value")
