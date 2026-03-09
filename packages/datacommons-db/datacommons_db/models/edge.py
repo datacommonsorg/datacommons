@@ -18,12 +18,12 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.types import String
 
 from datacommons_db.models.base import Base
-from datacommons_db.models.node import NodeModel
+from datacommons_db.models.node import NodeRecord
 
 
 EDGE_TABLE_NAME = "Edge"
 
-class EdgeModel(Base):
+class EdgeRecord(Base):
     """
     Represents an edge in the graph.
     """
@@ -36,16 +36,16 @@ class EdgeModel(Base):
     provenance = sa.Column(String(1024), sa.ForeignKey("Node.subject_id"), primary_key=True)
 
     # Define relationships to both source and target nodes
-    source_node = relationship("NodeModel", foreign_keys=[subject_id], back_populates="outgoing_edges", lazy="joined")
-    target_node = relationship("NodeModel", foreign_keys=[object_id], back_populates="incoming_edges", lazy="joined")
+    source_node = relationship("NodeRecord", foreign_keys=[subject_id], back_populates="outgoing_edges", lazy="joined")
+    target_node = relationship("NodeRecord", foreign_keys=[object_id], back_populates="incoming_edges", lazy="joined")
     
-    predicate_node = relationship("NodeModel", foreign_keys=[predicate], lazy="joined")
-    provenance_node = relationship("NodeModel", foreign_keys=[provenance], lazy="joined")
+    predicate_node = relationship("NodeRecord", foreign_keys=[predicate], lazy="joined")
+    provenance_node = relationship("NodeRecord", foreign_keys=[provenance], lazy="joined")
 
     # Indexes and constraints
     __table_args__ = (
-        Index("InEdge", object_id, predicate, subject_id, provenance),
-        Index("EdgeByProvenance", provenance),
+        sa.Index("InEdge", object_id, predicate, subject_id, provenance),
+        sa.Index("EdgeByProvenance", provenance),
         {
             "spanner_interleave_in": "Node",
             "spanner_interleave_on_delete": "NO ACTION",
@@ -53,7 +53,7 @@ class EdgeModel(Base):
     )
 
     def __repr__(self):
-        return f"<EdgeModel(subj='{self.subject_id}', pred='{self.predicate}', obj='{self.object_id}', prov='{self.provenance}')>"
+        return f"<EdgeRecord(subj='{self.subject_id}', pred='{self.predicate}', obj='{self.object_id}', prov='{self.provenance}')>"
 
-# Explicitly state that EdgeModel depends on NodeModel for creation order (important for Spanner interleaving)
-EdgeModel.__table__.add_is_dependent_on(NodeModel.__table__)
+# Explicitly state that EdgeModel depends on NodeRecord for creation order (important for Spanner interleaving)
+EdgeRecord.__table__.add_is_dependent_on(NodeRecord.__table__)

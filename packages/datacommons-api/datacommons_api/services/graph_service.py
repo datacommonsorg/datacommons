@@ -26,9 +26,8 @@ from sqlalchemy.orm import Session, joinedload
 
 from datacommons_api.core.config import get_config
 from datacommons_api.core.constants import DEFAULT_NODE_FETCH_LIMIT
-from datacommons_db.models.edge import EdgeModel, EDGE_TABLE_NAME
-from datacommons_db.models.node import NodeModel, NODE_TABLE_NAME
-from datacommons_db.models.edge import OBJECT_VALUE_MAX_LENGTH
+from datacommons_db.models.edge import EdgeRecord, EDGE_TABLE_NAME
+from datacommons_db.models.node import NodeRecord, NODE_TABLE_NAME
 from datacommons_schema.models.jsonld import (
     GraphNode,
     GraphNodePropertyValue,
@@ -43,6 +42,7 @@ logging.getLogger("opentelemetry.metrics._internal").setLevel(logging.ERROR)
 logging.getLogger("opentelemetry.sdk.metrics._internal.export").setLevel(
     logging.CRITICAL
 )
+
 
 
 class GraphServiceError(Exception):
@@ -69,6 +69,117 @@ LOCAL_NAMESPACE_URL = f"http://localhost:5000/schema/{LOCAL_NAMESPACE_NAME}/"
 OBSERVATION_TYPES = {"StatVarObservation", "schema:Observation"}
 
 
+# Threshold for Spanner STRING columns (10MB)
+# Payloads larger than this or binary payloads are stored in the 'bytes' column.
+VALUE_COLUMN_MAX_SIZE_BYTES = 10 * 1024 * 1024
+
+def coerce_node_record_value(content: Any) -> dict[str, Any]:
+    """
+    Coerces input content into the appropriate storage columns for a NodeRecord.
+    
+    This utility function abstracts the decision of whether to store data in the
+    'value' (STRING) or 'bytes' (BYTES) column based on the data type and size.
+    To optimize Spanner storage, the unused column is explicitly set to None (NULL).
+
+    Args:
+        content: The raw data to be stored (can be str, bytes, int, float, or bool).
+
+    Returns:
+        A dictionary containing the keys 'value' and 'bytes' to be unpacked into
+        a NodeRecord instantiation.
+    """
+    if content is None:
+        return {"value": None, "bytes": None}
+
+    # If content is already bytes, it must go to the bytes column
+    if isinstance(content, bytes):
+        return {"value": None, "bytes": content}
+
+    # Convert primitives (int, bool, float) or strings to string first
+    str_val = str(content)
+    encoded_val = str_val.encode("utf-8")
+
+    # If the string is small enough, store it in the 'value' column
+    if len(encoded_val) < VALUE_COLUMN_MAX_SIZE_BYTES:
+        return {"value": str_val, "bytes": None}
+    
+    # Large strings are stored in the 'bytes' column
+    return {"value": None, "bytes": encoded_val}
+
+def get_node_record_value(record: Any) -> str | bytes | None:
+    """
+    Retrieves the logical value from a NodeRecord, abstracting the storage columns.
+
+    Args:
+        record: An instance of NodeRecord (or any object with 'value' and 'bytes' attributes).
+
+    Returns:
+        The content as a string or bytes if available, otherwise None.
+    """
+    # Check 'bytes' first as it takes precedence for large/binary content
+    if hasattr(record, "bytes") and record.bytes is not None:
+        # Note: We return raw bytes here. If the consumer knows it was a large string,
+        # they are responsible for decoding it to utf-8.
+        return record.bytes
+    
+    return getattr(record, "value", None)
+
+
+def create_node_record(graph_node: GraphNode) -> NodeRecord:
+    """
+    Maps a high-level GraphNode to a physical NodeRecord.
+    
+    This method ensures that all metadata fields are initialized with Go-compatible 
+    defaults (empty strings/lists instead of NULLs) and handles the routing of 
+    node values using the coercion utility.
+
+    Args:
+        graph_node: The Pydantic model representing the JSON-LD node.
+
+    Returns:
+        An un-persisted NodeRecord instance.
+    """
+    # Extract metadata with Go-compatible defaults
+    # TODO: Do I need to add namespace stripping here?
+    subject_id = graph_node.id
+    name = graph_node.name or ""
+    # Ensure types is a list (JSON-LD allows single strings or lists)
+    types = graph_node.type if isinstance(graph_node.type, list) else [graph_node.type] if graph_node.type else []
+
+    # Handle content coercion if the GraphNode represents a literal or has a value property
+    # Note: For literal nodes, the 'value' attribute of GraphNode is typically populated.
+    content_data = coerce_node_record_value(getattr(graph_node, "value", None))
+
+    # TODO: Add provenance data?
+    return NodeRecord(
+        subject_id=subject_id,
+        name=name,
+        types=types,
+        value=content_data["value"],
+        bytes=content_data["bytes"]
+    )
+
+def create_edge_record():
+    pass
+
+def get_node_record_batches():
+    pass
+
+def extract_edges_from_graph_node():
+    pass
+
+def node_record_to_graph_node():
+    pass
+
+def insert_records_batch():
+    pass
+# -----------------------------------------------------------------------------
+# DELETE ME
+# -----------------------------------------------------------------------------
+
+OBJECT_VALUE_MAX_LENGTH = "DELETE ME"
+
+
 def generate_literal_id(value: str) -> str:
     """
     Generate a deterministic ID for a literal string value.
@@ -83,15 +194,15 @@ def generate_literal_id(value: str) -> str:
     return f"dcid:l/{hash_obj.hexdigest()}"
 
 
-def create_node_model(graph_node: GraphNode) -> NodeModel:
+def create_node_model(graph_node: GraphNode) -> NodeRecord:
     """
-    Create a NodeModel instance from a GraphNode.
+    Create a NodeRecord instance from a GraphNode.
 
     Args:
       graph_node: The GraphNode to convert
 
     Returns:
-      A NodeModel instance
+      A NodeRecord instance
     """
     types = graph_node.type
     if not isinstance(types, list):
@@ -130,7 +241,7 @@ def create_node_model(graph_node: GraphNode) -> NodeModel:
     subject_id = strip_namespace(graph_node.id)
     types = [strip_namespace(t) for t in types]
 
-    return NodeModel(
+    return NodeRecord(
         subject_id=graph_node.id,
         name=name_val,
         value=value_val,
@@ -150,9 +261,9 @@ def create_edge_model(
     predicate: str,
     object_id: str | None = None,
     provenance: str | None = None,
-) -> EdgeModel:
+) -> EdgeRecord:
     """
-    Create an EdgeModel instance from edge data.
+    Create an EdgeRecord instance from edge data.
 
     Args:
       subject_id: The ID of the source node
@@ -162,20 +273,20 @@ def create_edge_model(
         TODO: Add an example of a provenance node
 
     Returns:
-      An EdgeModel instance
+      An EdgeRecord instance
     """
     if not object_id:
         message = f"Missing object_id for edge {subject_id} {predicate}"
         raise GraphServiceError(message)
 
     # Handle lists of values by creating multiple edges
-    edge = EdgeModel(
+    edge = EdgeRecord(
         object_id=object_id,
         predicate=predicate,
         subject_id=subject_id,
         provenance=provenance or "",  # Default to empty string for PK compatibility
     )
-     if provenance:
+    if provenance:
         edge.provenance = strip_namespace(provenance)
     if object_value:
         edge.object_value = strip_namespace(object_value) if object_id else object_value
@@ -191,16 +302,16 @@ def create_edge_model(
 def extract_edges_from_node(
     graph_node: GraphNode,
     default_provenance: str | None = None
-) -> list[EdgeModel | NodeModel]:
+) -> list[EdgeRecord | NodeRecord]:
     """
-    Extract EdgeModel and literal NodeModel instances from a GraphNode's properties.
+    Extract EdgeRecord and literal NodeRecord instances from a GraphNode's properties.
 
     Args:
       graph_node: The GraphNode to extract edges from
       default_provenance: Optional global provenance to apply if not specified in edge
 
     Returns:
-      A list of EdgeModel and literal NodeModel instances
+      A list of EdgeRecord and literal NodeRecord instances
     """
     models = []
 
@@ -235,7 +346,7 @@ def extract_edges_from_node(
                     object_id=literal_id,
                     provenance=default_provenance,
                 )
-                literal_node = NodeModel(
+                literal_node = NodeRecord(
                     subject_id=literal_id,
                     value=str_val,
                     types=["literal"],
@@ -246,7 +357,7 @@ def extract_edges_from_node(
     return models
 
 
-def node_model_to_graph_node(node: NodeModel) -> GraphNode:
+def node_model_to_graph_node(node: NodeRecord) -> GraphNode:
     """
     Transform a SQLAlchemy Node into a JSON-LD GraphNode.
 
@@ -300,11 +411,11 @@ def node_model_to_graph_node(node: NodeModel) -> GraphNode:
     return GraphNode(**graph_node_properties)
 
 
-def coerce_edge_val_for_db_write(e: EdgeModel, col: str) -> str | None:
+def coerce_edge_val_for_db_write(e: EdgeRecord, col: str) -> str | None:
     """
     Coerces and truncates edge values to comply with Spanner index limits.
     Args:
-      e: The EdgeModel instance containing raw data.
+      e: The EdgeRecord instance containing raw data.
       col: The target database column name.
     Returns:
        - For 'object_value': A UTF-8 string truncated to 4096 bytes (safe-decoded).
@@ -338,9 +449,9 @@ def coerce_edge_val_for_db_write(e: EdgeModel, col: str) -> str | None:
         return None
 
 
-def get_node_models(jsonld: JSONLDDocument) -> list[NodeModel]:
+def get_node_models(jsonld: JSONLDDocument) -> list[NodeRecord]:
     """
-    Converts a JSON-LD document into a list of NodeModel instances with their outgoing edges loaded.
+    Converts a JSON-LD document into a list of NodeRecord instances with their outgoing edges loaded.
     """
     node_models = []
     for graph_node in jsonld.graph:
@@ -351,20 +462,20 @@ def get_node_models(jsonld: JSONLDDocument) -> list[NodeModel]:
 
 
 def get_node_model_batches(
-    node_models: list[NodeModel], batch_size: int = 1000
-) -> list[list[NodeModel]]:
+    node_models: list[NodeRecord], batch_size: int = 1000
+) -> list[list[NodeRecord]]:
     """
-    Splits a list of NodeModel instances into batches of nodes and edges.
+    Splits a list of NodeRecord instances into batches of nodes and edges.
 
     Args:
-      node_models: List of NodeModel instances
+      node_models: List of NodeRecord instances
       batch_size: Maximum number of nodes and edges per batch
 
     Returns:
       List of batches of nodes and edges
     """
-    node_batches: list[list[NodeModel]] = []
-    current_batch: list[NodeModel] = []
+    node_batches: list[list[NodeRecord]] = []
+    current_batch: list[NodeRecord] = []
     current_batch_len = 0
     for node_model in node_models:
         node_len = len(node_model.outgoing_edges) + 1
@@ -395,23 +506,23 @@ def get_node_model_batches(
 
 
 def insert_node_models_batch(
-    node_models: list[NodeModel], spanner_batch: database.BatchCheckout
+    node_models: list[NodeRecord], spanner_batch: database.BatchCheckout
 ):
     """
-    Inserts a batch of NodeModel instances into the database using Spanner API.
+    Inserts a batch of NodeRecord instances into the database using Spanner API.
 
     Args:
-      node_models: List of NodeModel instances
+      node_models: List of NodeRecord instances
       spanner_batch: Spanner batch to insert into
 
     Returns:
       None
     """
-    # Get the column names from the NodeModel and EdgeModel
-    node_columns = tuple(c.name for c in NodeModel.__table__.columns)
+    # Get the column names from the NodeRecord and EdgeRecord
+    node_columns = tuple(c.name for c in NodeRecord.__table__.columns)
     edge_columns = tuple(
         c.name
-        for c in EdgeModel.__table__.columns
+        for c in EdgeRecord.__table__.columns
         if c.name != "object_value_tokenlist"
     )
 
@@ -508,7 +619,7 @@ class GraphService:
         self,
         limit: int = DEFAULT_NODE_FETCH_LIMIT,
         type_filter: list[str] | None = None,
-    ) -> list[NodeModel]:
+    ) -> list[NodeRecord]:
         """
         Get nodes with their outgoing edges.
 
@@ -517,9 +628,9 @@ class GraphService:
           type_filter: Optional type filter for nodes
 
         Returns:
-          A list of NodeModel instances with their outgoing edges loaded
+          A list of NodeRecord instances with their outgoing edges loaded
         """
-        query = self.session.query(NodeModel)
+        query = self.session.query(NodeRecord)
 
         if type_filter:
             logger.info("Filtering nodes by types: %s", type_filter)
@@ -535,7 +646,7 @@ class GraphService:
 
         # Eagerly load outgoing edges AND their target nodes to avoid N+1 queries
         query = query.options(
-            joinedload(NodeModel.outgoing_edges).joinedload(EdgeModel.target_node)
+            joinedload(NodeRecord.outgoing_edges).joinedload(EdgeRecord.target_node)
         ).limit(limit)
 
         nodes = query.all()
@@ -555,7 +666,7 @@ class GraphService:
           default_provenance: Optional global provenance for edges
         """
 
-        # Convert JSON-LD to NodeModels
+        # Convert JSON-LD to NodeRecords
         node_models = get_node_models(jsonld)
         node_model_batches = get_node_model_batches(node_models, batch_size)
         total_edges = sum(len(node_model.outgoing_edges) for node_model in node_models)

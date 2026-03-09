@@ -21,7 +21,7 @@ from datacommons_db.models.base import Base
 OBSERVATION_TABLE_NAME = "Observation"
 
 
-class ObservationModel(Base):
+class ObservationRecord(Base):
     """
     Represents a statistical observation of a variable.
     """
@@ -48,10 +48,10 @@ class ObservationModel(Base):
     is_dc_aggregate = sa.Column(Boolean)
 
     # RELATIONSHIPS
-    variable_node = relationship("NodeModel", foreign_keys=[variable_measured], lazy="joined")
-    entity_node = relationship("NodeModel", foreign_keys=[observation_about], lazy="joined")
-    facet_node = relationship("NodeModel", foreign_keys=[facet_id], lazy="joined")
+    variable_node = relationship("NodeRecord", foreign_keys=[variable_measured], lazy="joined")
+    entity_node = relationship("NodeRecord", foreign_keys=[observation_about], lazy="joined")
+    facet_node = relationship("NodeRecord", foreign_keys=[facet_id], lazy="joined")
 
     def __repr__(self):
-        return f"<ObservationModel(variable_measured='{self.variable_measured}', observation_about='{self.observation_about}', facet_id='{self.facet_id}')>"
+        return f"<ObservationRecord(variable_measured='{self.variable_measured}', observation_about='{self.observation_about}', facet_id='{self.facet_id}')>"
 

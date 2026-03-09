@@ -15,6 +15,7 @@
 # models.py
 import sqlalchemy as sa
 from sqlalchemy.orm import relationship
+from sqlalchemy.schema import FetchedValue
 from sqlalchemy.types import ARRAY, LargeBinary, String, Text
 
 from datacommons_db.models.base import Base
@@ -22,7 +23,7 @@ from datacommons_db.models.base import Base
 NODE_TABLE_NAME = "Node"
 
 
-class NodeModel(Base):
+class NodeRecord(Base):
     __tablename__ = NODE_TABLE_NAME
 
     # Primary Key
@@ -41,20 +42,20 @@ class NodeModel(Base):
 
     # Relationships
     outgoing_edges = relationship(
-        "EdgeModel",
-        foreign_keys="EdgeModel.subject_id",
+        "EdgeRecord",
+        foreign_keys="EdgeRecord.subject_id",
         back_populates="source_node",
         lazy="selectin", 
         cascade="all, delete-orphan",
     )
 
     incoming_edges = relationship(
-        "EdgeModel",
-        foreign_keys="EdgeModel.object_id", # Crucial: links to the object_id FK
-        back_populates="target_node",        # Points to the matching relationship in EdgeModel
+        "EdgeRecord",
+        foreign_keys="EdgeRecord.object_id", # Crucial: links to the object_id FK
+        back_populates="target_node",        # Points to the matching relationship in EdgeRecord
         lazy="selectin",
         cascade="all, delete-orphan",
     )
 
     def __repr__(self):
-        return f"<NodeModel(subject_id='{self.subject_id}', name='{self.name}')>"
+        return f"<NodeRecord(subject_id='{self.subject_id}', name='{self.name}')>"
