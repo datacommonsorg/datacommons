@@ -141,10 +141,17 @@ def create_node_record(graph_node: GraphNode) -> NodeRecord:
     """
     # Extract metadata with Go-compatible defaults
     # TODO: Do I need to add namespace stripping here?
-    subject_id = graph_node.id
-    name = graph_node.name or ""
-    # Ensure types is a list (JSON-LD allows single strings or lists)
-    types = graph_node.type if isinstance(graph_node.type, list) else [graph_node.type] if graph_node.type else []
+    subject_id = getattr(graph_node, "id", None)
+    name = getattr(graph_node, "name", "") or ""
+    
+    # Extract types and normalize to a list
+    raw_type = getattr(graph_node, "type", [])
+    if isinstance(raw_type, list):
+        types = raw_type
+    elif raw_type:
+        types = [raw_type]
+    else:
+        types = []
 
     # Handle content coercion if the GraphNode represents a literal or has a value property
     # Note: For literal nodes, the 'value' attribute of GraphNode is typically populated.
