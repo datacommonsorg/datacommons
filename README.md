@@ -182,7 +182,7 @@ From the repository's root directory, run:
 curl -X POST "http://localhost:5000/nodes/" -H "Content-Type: application/json" -d @examples/person-schema.jsonld
 
 # With default provenance
-curl -X POST "http://localhost:5000/nodes/?provenance=local:demo-data" \
+curl -X POST "http://localhost:5000/nodes" \
   -H "Content-Type: application/json" \
   -d @examples/person-schema.jsonld
 ```
@@ -190,10 +190,10 @@ curl -X POST "http://localhost:5000/nodes/?provenance=local:demo-data" \
 #### Upload the people data:
 
 ```bash
-curl -X POST "http://localhost:5000/nodes/" -H "Content-Type: application/json" -d @examples/people.jsonld
+curl -X POST "http://localhost:5000/nodes" -H "Content-Type: application/json" -d @examples/people.jsonld
 
 # With default provenance
-curl -X POST "http://localhost:5000/nodes/?provenance=local:demo-data" \
+curl -X POST "http://localhost:5000/nodes" \
   -H "Content-Type: application/json" \
   -d @examples/people.jsonld
 ```
