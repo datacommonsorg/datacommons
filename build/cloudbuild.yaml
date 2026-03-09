@@ -12,22 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# To run this build manually from the datacommons/ project root:
-# gcloud builds submit --config build/cloudbuild.yaml .
-#
-# To override the tag:
-# gcloud builds submit --config build/cloudbuild.yaml --substitutions=_IMAGE_TAG="dcp-dev-01" .
-
-substitutions:
-  _IMAGE_TAG: 'latest'
-
 steps:
   # Build the container image
   - name: 'gcr.io/cloud-builders/docker'
     args: 
       - 'build'
       - '-t'
-      - 'us-docker.pkg.dev/datcom-ci/gcr.io/datacommons-platform:$_IMAGE_TAG'
+      - 'us-docker.pkg.dev/datcom-ci/gcr.io/datacommons-platform:latest'
       - '-t'
       - 'us-docker.pkg.dev/datcom-ci/gcr.io/datacommons-platform:$SHORT_SHA'
       - '-f'
@@ -35,5 +26,5 @@ steps:
       - '.'
 
 images:
-  - 'us-docker.pkg.dev/datcom-ci/gcr.io/datacommons-platform:$_IMAGE_TAG'
+  - 'us-docker.pkg.dev/datcom-ci/gcr.io/datacommons-platform:latest'
   - 'us-docker.pkg.dev/datcom-ci/gcr.io/datacommons-platform:$SHORT_SHA'
