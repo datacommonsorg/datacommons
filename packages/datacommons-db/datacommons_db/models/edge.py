@@ -22,41 +22,30 @@ from datacommons_db.models.node import NodeModel
 
 
 EDGE_TABLE_NAME = "Edge"
-OBJECT_VALUE_MAX_LENGTH = 4096
-
 
 class EdgeModel(Base):
     """
     Represents an edge in the graph.
     """
-
     __tablename__ = EDGE_TABLE_NAME
-    subject_id = sa.Column(
-        String(1024), sa.ForeignKey("Node.subject_id"), primary_key=True
-    )
-    predicate = sa.Column(String(1024), primary_key=True)
-    object_id = sa.Column(String(1024), primary_key=True)
-    provenance = sa.Column(String(1024), primary_key=True)
+
+    # Composite Primary Key
+    subject_id = sa.Column(String(1024), sa.ForeignKey("Node.subject_id"), primary_key=True)
+    predicate = sa.Column(String(1024), sa.ForeignKey("Node.subject_id"), primary_key=True)
+    object_id = sa.Column(String(1024), sa.ForeignKey("Node.subject_id"), primary_key=True)
+    provenance = sa.Column(String(1024), sa.ForeignKey("Node.subject_id"), primary_key=True)
 
     # Define relationships to both source and target nodes
-    source_node = relationship(
-        "NodeModel", foreign_keys=[subject_id], back_populates="outgoing_edges"
-    )
-
-    # Relationship to the target node (for joinedload optimizations)
-    target_node = relationship(
-        "NodeModel", foreign_keys=[object_id]
-    )
+    source_node = relationship("NodeModel", foreign_keys=[subject_id], back_populates="outgoing_edges", lazy="joined")
+    target_node = relationship("NodeModel", foreign_keys=[object_id], back_populates="incoming_edges", lazy="joined")
+    
+    predicate_node = relationship("NodeModel", foreign_keys=[predicate], lazy="joined")
+    provenance_node = relationship("NodeModel", foreign_keys=[provenance], lazy="joined")
 
     # Indexes and constraints
     __table_args__ = (
-        sa.ForeignKeyConstraint(["object_id"], ["Node.subject_id"], name="FKObject"),
-        sa.ForeignKeyConstraint(
-            ["predicate"], ["Node.subject_id"], name="FKPredicate"
-        ),
-        sa.ForeignKeyConstraint(
-            ["provenance"], ["Node.subject_id"], name="FKProvenance"
-        ),
+        Index("InEdge", object_id, predicate, subject_id, provenance),
+        Index("EdgeByProvenance", provenance),
         {
             "spanner_interleave_in": "Node",
             "spanner_interleave_on_delete": "NO ACTION",
@@ -64,7 +53,7 @@ class EdgeModel(Base):
     )
 
     def __repr__(self):
-        return f"<EdgeModel(subject_id='{self.subject_id}', predicate='{self.predicate}', object_id='{self.object_id}', provenance='{self.provenance}')>"
+        return f"<EdgeModel(subj='{self.subject_id}', pred='{self.predicate}', obj='{self.object_id}', prov='{self.provenance}')>"
 
 # Explicitly state that EdgeModel depends on NodeModel for creation order (important for Spanner interleaving)
 EdgeModel.__table__.add_is_dependent_on(NodeModel.__table__)

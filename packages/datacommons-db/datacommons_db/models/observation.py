@@ -28,21 +28,29 @@ class ObservationModel(Base):
 
     __tablename__ = OBSERVATION_TABLE_NAME
 
-    variable_measured = sa.Column(String(1024), nullable=False, primary_key=True)
-    observation_about = sa.Column(String(1024), nullable=False, primary_key=True)
-    facet_id = sa.Column(String(1024), nullable=False, primary_key=True)
+    # Composite Primary Key
+    variable_measured = sa.Column(String(1024), sa.ForeignKey("Node.subject_id"), primary_key=True)
+    observation_about = sa.Column(String(1024), sa.ForeignKey("Node.subject_id"), primary_key=True)
+    facet_id = sa.Column(String(1024), sa.ForeignKey("Node.subject_id"), primary_key=True) # TODO: Is facet_id a DCID?
     
     # Store the org.datacommons.Observations map<string, string> natively as JSON
     # This allows direct querying into the keys (dates) and values within Spanner
-    observations = sa.Column(sa.JSON, nullable=False)
+    observations = sa.Column(sa.LargeBinary, nullable=False)
     
-    import_name = sa.Column(String(1024), nullable=False)
-    observation_period = sa.Column(String(1024), nullable=True)
-    measurement_method = sa.Column(String(1024), nullable=True)
-    unit = sa.Column(String(1024), nullable=True)
-    scaling_factor = sa.Column(String(1024), nullable=True)
-    is_dc_aggregate = sa.Column(Boolean, nullable=True)
+    import_name = sa.Column(String(1024), nullable=False, index=True)
     provenance_url = sa.Column(String(1024), nullable=False)
+
+    # Optional metadata
+    observation_period = sa.Column(String(1024))
+    measurement_method = sa.Column(String(1024))
+    unit = sa.Column(String(1024))
+    scaling_factor = sa.Column(String(1024))
+    is_dc_aggregate = sa.Column(Boolean)
+
+    # RELATIONSHIPS
+    variable_node = relationship("NodeModel", foreign_keys=[variable_measured], lazy="joined")
+    entity_node = relationship("NodeModel", foreign_keys=[observation_about], lazy="joined")
+    facet_node = relationship("NodeModel", foreign_keys=[facet_id], lazy="joined")
 
     def __repr__(self):
         return f"<ObservationModel(variable_measured='{self.variable_measured}', observation_about='{self.observation_about}', facet_id='{self.facet_id}')>"
