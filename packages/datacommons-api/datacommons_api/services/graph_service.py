@@ -50,7 +50,6 @@ logging.getLogger("opentelemetry.sdk.metrics._internal.export").setLevel(
 )
 
 
-
 class GraphServiceError(Exception):
     """
     Custom exception for errors in GraphService operations.
@@ -77,10 +76,6 @@ OBSERVATION_TYPES = {"StatVarObservation", "schema:Observation"}
 # Threshold for Spanner STRING columns (10MB)
 # Payloads larger than this or binary payloads are stored in the 'bytes' column.
 VALUE_COLUMN_MAX_SIZE_BYTES = 10 * 1024 * 1024
-
-class GraphServiceError(Exception):
-    """Custom error for Graph Service operations."""
-    pass
 
 # --- 1. DATA ABSTRACTION & UTILITIES ---
 

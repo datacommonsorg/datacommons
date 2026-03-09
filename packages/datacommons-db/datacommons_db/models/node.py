@@ -36,10 +36,6 @@ class NodeRecord(Base):
     bytes = sa.Column(sa.LargeBinary(), nullable=True)
     types = sa.Column(ARRAY(sa.String(1024)), nullable=False, default=[])
 
-    # This is a generated/hidden column. 
-    # server_default/FetchedValue prevents SQLAlchemy from trying to 'INSERT' it.
-    name_tokenlist = sa.Column(sa.LargeBinary(), server_default=FetchedValue(), system_hidden=True, nullable=True)
-
     # Relationships
     outgoing_edges = relationship(
         "EdgeRecord",
