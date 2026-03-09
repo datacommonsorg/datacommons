@@ -23,24 +23,46 @@ from datacommons_db.models.node import NodeRecord
 
 EDGE_TABLE_NAME = "Edge"
 
+
 class EdgeRecord(Base):
     """
     Represents an edge in the graph.
     """
+
     __tablename__ = EDGE_TABLE_NAME
 
     # Composite Primary Key
-    subject_id = sa.Column(String(1024), sa.ForeignKey("Node.subject_id"), primary_key=True)
-    predicate = sa.Column(String(1024), sa.ForeignKey("Node.subject_id"), primary_key=True)
-    object_id = sa.Column(String(1024), sa.ForeignKey("Node.subject_id"), primary_key=True)
-    provenance = sa.Column(String(1024), sa.ForeignKey("Node.subject_id"), primary_key=True)
+    subject_id = sa.Column(
+        String(1024), sa.ForeignKey("Node.subject_id"), primary_key=True
+    )
+    predicate = sa.Column(
+        String(1024), sa.ForeignKey("Node.subject_id"), primary_key=True
+    )
+    object_id = sa.Column(
+        String(1024), sa.ForeignKey("Node.subject_id"), primary_key=True
+    )
+    provenance = sa.Column(
+        String(1024), sa.ForeignKey("Node.subject_id"), primary_key=True
+    )
 
     # Define relationships to both source and target nodes
-    source_node = relationship("NodeRecord", foreign_keys=[subject_id], back_populates="outgoing_edges", lazy="joined")
-    target_node = relationship("NodeRecord", foreign_keys=[object_id], back_populates="incoming_edges", lazy="joined")
-    
+    source_node = relationship(
+        "NodeRecord",
+        foreign_keys=[subject_id],
+        back_populates="outgoing_edges",
+        lazy="joined",
+    )
+    target_node = relationship(
+        "NodeRecord",
+        foreign_keys=[object_id],
+        back_populates="incoming_edges",
+        lazy="joined",
+    )
+
     predicate_node = relationship("NodeRecord", foreign_keys=[predicate], lazy="joined")
-    provenance_node = relationship("NodeRecord", foreign_keys=[provenance], lazy="joined")
+    provenance_node = relationship(
+        "NodeRecord", foreign_keys=[provenance], lazy="joined"
+    )
 
     # Indexes and constraints
     __table_args__ = (
@@ -54,6 +76,7 @@ class EdgeRecord(Base):
 
     def __repr__(self):
         return f"<EdgeRecord(subj='{self.subject_id}', pred='{self.predicate}', obj='{self.object_id}', prov='{self.provenance}')>"
+
 
 # Explicitly state that EdgeModel depends on NodeRecord for creation order (important for Spanner interleaving)
 EdgeRecord.__table__.add_is_dependent_on(NodeRecord.__table__)
