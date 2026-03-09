@@ -125,11 +125,15 @@ def test_extract_edges_from_graph_node_mixed():
         "p1": {"@id": "target_n"},
         "p2": "literal_val"
     })
-    edges, literal_nodes = extract_edges_from_graph_node(gn)
+    edges, synthesized_nodes = extract_edges_from_graph_node(gn)
     
     assert len(edges) == 2
-    assert len(literal_nodes) == 1
-    assert literal_nodes[0].types == ["literal"]
+    # 1 Literal node + 1 Default Provenance Node
+    assert len(synthesized_nodes) == 2 
+    # The literal node gets appended first in the extraction loop
+    # Wait, the fallback prov is generated before the loop in graph_service.py line 242!
+    assert synthesized_nodes[0].types == ["system:DefaultNode"]
+    assert synthesized_nodes[1].types == ["literal"]
 
 def test_create_edge_record_validation():
     with pytest.raises(GraphServiceError) as excinfo:
@@ -137,13 +141,11 @@ def test_create_edge_record_validation():
     assert "Missing object_id" in str(excinfo.value)
 
 def test_create_edge_record_success():
-    edge = create_edge_record("dcid:s", "schema:p", "dcid:o", "prov")
-    # 'dcid' gets stripped. 'schema' is a known prefix and gets preserved as a shortform.
+    edge = create_edge_record("s", "p", "o", "prov")
     assert edge.subject_id == "s"
-    assert edge.predicate == "schema:p"
+    assert edge.predicate == "p"
     assert edge.object_id == "o"
     assert edge.provenance == "prov"
-    assert not hasattr(edge, "object_value")
 
 def test_extract_edges_from_graph_node_granular_provenance():
     # Setup a GraphNode with top-level provenance and an edge with its own granular provenance
@@ -153,7 +155,7 @@ def test_extract_edges_from_graph_node_granular_provenance():
         "p1": {"@id": "target_n", "@provenance": "prov:edge_level_prov"}
     })
     
-    edges, literal_nodes = extract_edges_from_graph_node(gn)
+    edges, synthesized_nodes = extract_edges_from_graph_node(gn)
     
     assert len(edges) == 1
     assert edges[0].provenance == "edge_level_prov", "Expected edge-level provenance to override top-level provenance"
@@ -322,3 +324,59 @@ def test_jsonld_round_trip(graph_service, mock_session, mock_spanner_batch):
     assert result_json["@id"] == "geoId/06"
     assert result_json["name"] == {"@value": "California"}
     assert result_json["containedInPlace"] == {"@id": "geoId/USA"}
+
+def test_insert_graph_nodes_proxy_synthesis(graph_service, mock_session, mock_spanner_batch):
+    """
+    Tests that when an edge points to a remote/external ID, 
+    a Proxy Node is synthesized and inserted alongside the primary node.
+    """
+    # 1. Provide an input that references an external schema ID
+    original_json = {
+        "@id": "geoId/NewYork",
+        "@type": ["schema:State"],
+        "name": "New York",
+        # Points to a remote schema namespace
+        "containedInPlace": {"@id": "schema:Country"}
+    }
+    original_doc = JSONLDDocument(context={}, graph=[GraphNode(**original_json)])
+
+    # Setup the spanner_db mock explicitly to ensure the batch context works
+    mock_database = MagicMock()
+    mock_database.batch.return_value.__enter__.return_value = mock_spanner_batch
+    graph_service.spanner_db = mock_database
+
+    # 2. Run insertion
+    graph_service.insert_graph_nodes(original_doc)
+
+    # 3. Verify exactly how insert_or_update was called
+    node_calls = [c for c in mock_spanner_batch.insert_or_update.call_args_list if c.kwargs['table'] == 'Node']
+    edge_calls = [c for c in mock_spanner_batch.insert_or_update.call_args_list if c.kwargs['table'] == 'Edge']
+
+    assert len(node_calls) == 1
+    assert len(edge_calls) == 1
+    
+    # 4. Inspect the inserted Node values
+    node_values = node_calls[0].kwargs['values']
+    inserted_node_ids = set()
+    proxy_found = False
+    
+    for row in node_values:
+        subj_id = row[0]
+        types = row[4] # Based on NodeRecord __table__.columns (subject_id, name, value, bytes, types)
+        inserted_node_ids.add(subj_id)
+        
+        # Verify if the proxy node is in the Node insertions
+        if subj_id == "schema:Country":
+            proxy_found = True
+            assert types == ["schema:ExternalProxy"] # Verifying the tag logic!
+            
+    assert "geoId/NewYork" in inserted_node_ids
+    assert proxy_found, "Proxy node for schema:Country was not generated or inserted"
+
+    # 5. Check edge points appropriately
+    edge_values = edge_calls[0].kwargs['values']
+    found_edge = False
+    for row in edge_values:
+        if row[0] == "geoId/NewYork" and row[2] == "schema:Country":
+            found_edge = True
+    assert found_edge, "Edge pointing to proxy node was not correctly formatted"

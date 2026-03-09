@@ -76,6 +76,8 @@ LOCAL_NAMESPACE_URL = f"http://localhost:5000/schema/{LOCAL_NAMESPACE_NAME}/"
 # Payloads larger than this or binary payloads are stored in the 'bytes' column.
 VALUE_COLUMN_MAX_SIZE_BYTES = 10 * 1024 * 1024
 
+DEFAULT_PROVENANCE_ID = "system:unknown_provenance"
+
 # --- 1. DATA ABSTRACTION & UTILITIES ---
 
 # Combine all known namespaces for lookup
@@ -207,79 +209,171 @@ def create_node_record(graph_node: GraphNode) -> NodeRecord:
         bytes=content_data["bytes"]
     )
 
-def create_edge_record(subject_id: str, predicate: str, object_id: str, provenance: str = "") -> EdgeRecord:
+def create_edge_record(
+    subject_id: str, 
+    predicate: str, 
+    object_id: str, 
+    provenance: Optional[str] = None
+) -> EdgeRecord:
     """
-    Factory for EdgeRecords. Edges in this model are pure relational pointers.
+    Creates an EdgeRecord representing a pure relational pointer in the database.
+    
+    IMPORTANT: This is a "dumb" factory. All ID parameters (subject_id, predicate, 
+    object_id, provenance) MUST be fully normalized (e.g., reduced to their CURIE 
+    shortforms) prior to calling this function.
+
+    Args:
+        subject_id: The normalized ID of the source node.
+        predicate: The normalized edge predicate (e.g., 'schema:knows').
+        object_id: The normalized target ID (points to an entity or a synthesized literal).
+        provenance: The normalized ID of the provenance node, if any.
+
+    Returns:
+        An instantiated EdgeRecord.
+
+    Raises:
+        GraphServiceError: If the object_id is missing or empty.
     """
     if not object_id:
         raise GraphServiceError(f"Missing object_id for edge {subject_id} -> {predicate}.")
     
-    # Change subject, predicate, and object to use normalize_graph_id
     return EdgeRecord(
-        subject_id=normalize_graph_id(subject_id)[0],
-        predicate=normalize_graph_id(predicate)[0],
-        object_id=normalize_graph_id(object_id)[0],
-        provenance=normalize_graph_id(provenance)[0]
+        subject_id=subject_id,
+        predicate=predicate,
+        object_id=object_id,
+        provenance=provenance
     )
+
+from typing import Tuple, List
 
 def extract_edges_from_graph_node(graph_node: GraphNode) -> Tuple[List[EdgeRecord], List[NodeRecord]]:
     """
-    Traverses a GraphNode to extract edges and spawn "Literal Nodes".
-    """
-    subject_id = getattr(graph_node, "id", None)
-    provenance = getattr(graph_node, "provenance", "")
-    edges = []
-    literal_nodes = []
+    Traverses a JSON-LD GraphNode to extract its outgoing edges and synthesizes 
+    required auxiliary nodes (Literal Nodes and External Proxy Nodes).
 
+    Architecture Note:
+    To maintain strict relational integrity in Spanner, every ID referenced by an Edge 
+    (subject_id, predicate, object_id, and provenance) MUST exist as a physical row 
+    in the Node table. This method intercepts remote URIs (e.g., 'schema:knows') and 
+    literal values, generating local "stub" proxy nodes to satisfy those Foreign Key 
+    constraints without requiring manual database intervention.
+
+    Args:
+        graph_node: The incoming JSON-LD GraphNode payload.
+
+    Returns:
+        A tuple containing:
+        - A list of parsed, normalized EdgeRecords.
+        - A list of synthesized NodeRecords (Literals, Predicates, and External Proxies) 
+          that must be written to the database alongside the main node.
+    """
+    raw_subject_id = getattr(graph_node, "id", None)
+    subject_id = normalize_graph_id(raw_subject_id)[0] if raw_subject_id else None
+    
+    edges = []
+    synthesized_nodes = []
+
+    # --- 1. Resolve Node-Level (Fallback) Provenance ---
+    # Ensure every edge has a valid provenance ID to satisfy the FKProvenance constraint.
+    raw_fallback_prov = getattr(graph_node, "provenance", None)
+    
+    if raw_fallback_prov:
+        fallback_prov, fallback_is_remote = normalize_graph_id(raw_fallback_prov)
+        if fallback_is_remote:
+            # Generate a proxy stub for the external provenance URI
+            synthesized_nodes.append(NodeRecord(
+                subject_id=fallback_prov,
+                types=["schema:ExternalProxy", "provenance_stub"],
+                name="", value=None, bytes=None
+            ))
+    else:
+        # Inject a system default provenance node if completely missing.
+        # This prevents Spanner from attempting to resolve a NULL or empty string Foreign Key.
+        fallback_prov = DEFAULT_PROVENANCE_ID
+        synthesized_nodes.append(NodeRecord(
+            subject_id=DEFAULT_PROVENANCE_ID,
+            types=["system:DefaultNode"],
+            name="Unknown Provenance", value=None, bytes=None
+        ))
+
+    # Reserved JSON-LD and internal metadata keys to skip during edge extraction
     reserved_keys = {"id", "type", "name", "value", "provenance"}
     properties = graph_node.model_dump(by_alias=True, exclude_none=True)
 
-    for predicate, value in properties.items():
-        if predicate in reserved_keys or predicate.startswith("@"):
+    # --- 2. Extract Edges from Node Properties ---
+    for raw_predicate, value in properties.items():
+        if raw_predicate in reserved_keys or raw_predicate.startswith("@"):
             continue
+            
+        # Normalize the predicate and satisfy the FKPredicate constraint.
+        predicate, pred_is_remote = normalize_graph_id(raw_predicate)
+        if pred_is_remote:
+            synthesized_nodes.append(NodeRecord(
+                subject_id=predicate,
+                types=["schema:ExternalProxy", "predicate_stub"],
+                name="", value=None, bytes=None
+            ))
 
         values = value if isinstance(value, list) else [value]
 
         for val in values:
             if isinstance(val, dict) and "@id" in val:
+                # --- Handle Entity References (Node -> Node) ---
                 raw_target_id = val["@id"]
-                # Use our normalizer to get the shortform ID and check if it's remote
                 target_id, is_remote = normalize_graph_id(raw_target_id)
-                edge_prov = val.get("@provenance", provenance)
-
-                # SYNTHESIZE PROXY NODE
+                
+                # Satisfy the FKObject constraint for external targets
                 if is_remote:
-                    literal_nodes.append(NodeRecord(
+                    # Synthesize a local proxy node for the external entity.
+                    synthesized_nodes.append(NodeRecord(
                         subject_id=target_id,
-                        types=["schema:ExternalProxy"], # Tag it so the system knows it's remote
-                        name=val.get("name", ""),       # Cache the label if the JSON-LD provided one!
-                        value=None,
-                        bytes=None
+                        types=["schema:ExternalProxy"],
+                        name=val.get("name", ""),  # Cache external label if provided
+                        value=None, bytes=None
                     ))
 
-                # Create the edge pointing to the normalized target_id
+                # Resolve Edge-Level Provenance (Overrides fallback if present)
+                raw_edge_prov = val.get("@provenance", None)
+                if raw_edge_prov:
+                    edge_prov, prov_is_remote = normalize_graph_id(raw_edge_prov)
+                    if prov_is_remote:
+                        synthesized_nodes.append(NodeRecord(
+                            subject_id=edge_prov,
+                            types=["schema:ExternalProxy", "provenance_stub"],
+                            name="", value=None, bytes=None
+                        ))
+                else:
+                    edge_prov = fallback_prov
+
+                # Note: All IDs passed to create_edge_record here are fully normalized.
                 edges.append(create_edge_record(
                     subject_id=subject_id,
                     predicate=predicate,
-                    object_id=target_id, # This is now safely "schema:Person"
+                    object_id=target_id, 
                     provenance=edge_prov
                 ))
             else:
-                # Literal value: Spawn a Literal Node + an Edge pointing to it
+                # --- Handle Literal Values (Node -> String/Int/Bool) ---
+                # Literals are converted into dummy nodes to keep edges purely relational.
                 lit_id = generate_literal_id(val)
-                literal_nodes.append(NodeRecord(
+                synthesized_nodes.append(NodeRecord(
                     subject_id=lit_id,
                     types=["literal"],
                     **coerce_node_record_value(val)
                 ))
+                
                 edges.append(create_edge_record(
                     subject_id=subject_id,
                     predicate=predicate,
                     object_id=lit_id,
-                    provenance=provenance
+                    provenance=fallback_prov
                 ))
 
-    return (edges, literal_nodes)
+    # Note: synthesized_nodes may contain many duplicate stubs (e.g., the same 
+    # predicate stub repeated 10 times). The downstream `insert_records_batch` 
+    # function is inherently responsible for deduplicating these prior to Spanner insertion.
+    return (edges, synthesized_nodes)
+
 
 # --- 3. EXTRACTION LOGIC (Transforming DB NodeRecords to GraphNodes) ---
 
@@ -317,8 +411,11 @@ def node_record_to_graph_node(record: NodeRecord) -> GraphNode:
         else:
             prop_val["@id"] = target.subject_id
 
-        if getattr(edge, "provenance", None):
-            prop_val["@provenance"] = edge.provenance
+        # --- NEW: Filter out the dummy provenance ID ---
+        prov = getattr(edge, "provenance", None)
+        if prov and prov != DEFAULT_PROVENANCE_ID:
+            prop_val["@provenance"] = prov
+        # -----------------------------------------------
 
         if predicate in properties:
             if not isinstance(properties[predicate], list):
