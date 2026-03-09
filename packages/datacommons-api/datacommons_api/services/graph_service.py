@@ -294,33 +294,69 @@ def get_node_record_batches(nodes: List[NodeRecord], batch_size: int = 1000) -> 
 def insert_records_batch(records: List[NodeRecord], spanner_batch: Any):
     """
     Low-level execution of Spanner mutations. 
-    Deduplicates nodes and ensures Nodes are inserted before Edges.
+    Deduplicates nodes, deletes old edges, and ensures Nodes are inserted before Edges.
     """
+    # 1. Deduplicate nodes by subject_id
+    # Crucial for literal nodes: Multiple edges might point to the exact same 
+    # literal value, generating duplicate dummy nodes in the same batch.
     unique_nodes = {node.subject_id: node for node in records}
+    
+    # 2. Flatten all edges into a single list for optimized batch insertion
     all_edges = []
     for node in records:
         all_edges.extend(getattr(node, "outgoing_edges", []))
 
-    node_columns = ["subject_id", "name", "types", "value", "bytes"]
-    node_values = [
-        [
-            n.subject_id, 
-            n.name if n.name is not None else '', 
-            n.types if n.types is not None else [], 
-            n.value, 
-            n.bytes
-        ] 
-        for n in unique_nodes.values()
-    ]
-    
+    # 3. Dynamically get column names from the SQLAlchemy models
+    node_columns = tuple(c.name for c in NodeRecord.__table__.columns)
+    edge_columns = tuple(c.name for c in EdgeRecord.__table__.columns)
+
+    # 4. Define Go-compatible fallbacks for non-nullable columns 
+    # (in case literal nodes or incomplete models are missing them)
+    node_defaults = {
+        "name": "",
+        "types": []
+    }
+
+    # 5. Insert/Update Nodes
+    node_values = []
+    for n in unique_nodes.values():
+        row = []
+        for col in node_columns:
+            val = getattr(n, col, None)
+            # Apply default if the value is explicitly None and requires a fallback
+            if val is None and col in node_defaults:
+                val = node_defaults[col]
+            row.append(val)
+        node_values.append(tuple(row))
+
     if node_values:
-        spanner_batch.insert_or_update(table="Node", columns=node_columns, values=node_values)
+        spanner_batch.insert_or_update(
+            table=NODE_TABLE_NAME, 
+            columns=node_columns, 
+            values=node_values
+        )
 
-    edge_columns = ["subject_id", "predicate", "object_id", "provenance"]
-    edge_values = [[e.subject_id, e.predicate, e.object_id, e.provenance] for e in all_edges]
+    # 6. Delete existing edges for these nodes using a single, optimized KeySet
+    # (Restored from the old implementation for performance)
+    keyset = spanner.KeySet(
+        ranges=[
+            spanner.KeyRange(start_closed=[n_id], end_closed=[n_id])
+            for n_id in unique_nodes.keys()
+        ]
+    )
+    spanner_batch.delete(table=EDGE_TABLE_NAME, keyset=keyset)
 
-    if edge_values:
-        spanner_batch.insert_or_update(table="Edge", columns=edge_columns, values=edge_values)
+    # 7. Insert the new edges
+    if all_edges:
+        edge_values = [
+            tuple(getattr(e, col, None) for col in edge_columns) 
+            for e in all_edges
+        ]
+        spanner_batch.insert_or_update(
+            table=EDGE_TABLE_NAME, 
+            columns=edge_columns, 
+            values=edge_values
+        )
 
 # --- 5. GRAPH SERVICE CLASS ---
 
@@ -364,14 +400,7 @@ class GraphService:
         
         try:
             for batch in batches:
-                subject_ids = [n.subject_id for n in batch]
                 with self.spanner_db.batch() as spanner_batch:
-                    # Clear existing edges for the subjects in this batch to allow clean replacement
-                    for sid in subject_ids:
-                        spanner_batch.delete(
-                            table="Edge",
-                            keyset=spanner.KeySet(ranges=[spanner.KeyRange(start_closed=[sid], end_closed=[sid])])
-                        )
                     insert_records_batch(batch, spanner_batch)
         except Exception as e:
             logger.exception("Failed to insert nodes to Spanner")
