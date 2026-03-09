@@ -376,7 +376,14 @@ class GraphService:
             
         records = query.limit(limit).all()
         graph = [node_record_to_graph_node(r) for r in records]
-        return JSONLDDocument(context={}, graph=graph)
+        return JSONLDDocument(
+            context={
+                "@vocab": LOCAL_NAMESPACE_URL,
+                LOCAL_NAMESPACE_NAME: LOCAL_NAMESPACE_URL,
+                **BASE_NAMESPACES,
+            },
+            graph=graph,
+        )
 
     def delete_node(self, subject_id: str):
         """
