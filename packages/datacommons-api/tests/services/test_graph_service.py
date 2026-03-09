@@ -22,6 +22,7 @@ from datacommons_api.core.config import Config
 from datacommons_api.services.graph_service import (
     GraphService,
     GraphServiceError,
+    strip_namespace,
     get_node_record_batches,
     generate_literal_id,
     coerce_node_record_value,
@@ -37,6 +38,13 @@ from datacommons_db.models.edge import EdgeRecord
 from datacommons_schema.models.jsonld import JSONLDDocument, GraphNode
 
 # --- 1. UNIT TESTS ---
+
+def test_strip_namespace():
+    assert strip_namespace("dcid:California") == "California"
+    assert strip_namespace("schema:Person") == "Person"
+    assert strip_namespace("name") == "name"
+    assert strip_namespace("") == ""
+    assert strip_namespace(None) is None
 
 # 1.1 Content Abstraction
 def test_coerce_node_record_value_small():
@@ -76,9 +84,9 @@ def test_generate_literal_id_collision():
 # 1.3 Model Mapping
 def test_create_node_record_standard():
     # Use @ aliases in constructor for GraphNode compatibility
-    gn = GraphNode(**{"@id": "dcid:California", "@type": ["State"]})
+    gn = GraphNode(**{"@id": "dcid:California", "@type": ["schema:State"]})
     record = create_node_record(gn)
-    assert record.subject_id == "dcid:California"
+    assert record.subject_id == "California"
     assert record.types == ["State"]
 
 def test_create_node_record_go_defaults():
@@ -100,14 +108,11 @@ def test_extract_edges_from_graph_node_mixed():
         "p1": {"@id": "target_n"},
         "p2": "literal_val"
     })
-    results = extract_edges_from_graph_node(gn)
-    
-    edges = [r for r in results if isinstance(r, EdgeRecord)]
-    nodes = [r for r in results if isinstance(r, NodeRecord)]
+    edges, literal_nodes = extract_edges_from_graph_node(gn)
     
     assert len(edges) == 2
-    assert len(nodes) == 1
-    assert nodes[0].types == ["literal"]
+    assert len(literal_nodes) == 1
+    assert literal_nodes[0].types == ["literal"]
 
 def test_create_edge_record_validation():
     with pytest.raises(GraphServiceError) as excinfo:
@@ -115,7 +120,7 @@ def test_create_edge_record_validation():
     assert "Missing object_id" in str(excinfo.value)
 
 def test_create_edge_record_success():
-    edge = create_edge_record("s", "p", "o", "prov")
+    edge = create_edge_record("dcid:s", "schema:p", "dcid:o", "prov")
     assert edge.subject_id == "s"
     assert edge.predicate == "p"
     assert edge.object_id == "o"

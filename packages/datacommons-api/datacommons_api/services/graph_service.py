@@ -18,7 +18,7 @@ import base64
 import logging
 import traceback
 
-from typing import Any, Union, List, Optional
+from typing import Any, Union, List, Optional, Tuple
 from sqlalchemy import text
 from sqlalchemy.orm import Session, joinedload
 from google.cloud import spanner
@@ -71,13 +71,18 @@ NAMESPACES = {
 LOCAL_NAMESPACE_NAME = "local"
 LOCAL_NAMESPACE_URL = f"http://localhost:5000/schema/{LOCAL_NAMESPACE_NAME}/"
 
-OBSERVATION_TYPES = {"StatVarObservation", "schema:Observation"}
 
 # Threshold for Spanner STRING columns (10MB)
 # Payloads larger than this or binary payloads are stored in the 'bytes' column.
 VALUE_COLUMN_MAX_SIZE_BYTES = 10 * 1024 * 1024
 
 # --- 1. DATA ABSTRACTION & UTILITIES ---
+
+# TODO: should we convert to namespaced id instead of stripping?
+def strip_namespace(identifier: str) -> str:
+    """Strip all CURIE namespaces from an id."""
+    if not identifier: return identifier
+    return identifier.split(":")[-1]
 
 def coerce_node_record_value(content: Any) -> dict[str, Any]:
     """
@@ -138,7 +143,7 @@ def create_node_record(graph_node: GraphNode) -> NodeRecord:
     Ensures Go-compatible defaults (empty strings/lists instead of NULLs).
     """
     # Use getattr for resilience against dynamic Pydantic attributes
-    subject_id = getattr(graph_node, "id", None)
+    subject_id = strip_namespace(getattr(graph_node, "id", None))
     name = getattr(graph_node, "name", "") or ""
     
     raw_type = getattr(graph_node, "type", [])
@@ -154,7 +159,7 @@ def create_node_record(graph_node: GraphNode) -> NodeRecord:
     return NodeRecord(
         subject_id=subject_id,
         name=name,
-        types=types,
+        types=[strip_namespace(t) for t in types],
         value=content_data["value"],
         bytes=content_data["bytes"]
     )
@@ -167,19 +172,20 @@ def create_edge_record(subject_id: str, predicate: str, object_id: str, provenan
         raise GraphServiceError(f"Missing object_id for edge {subject_id} -> {predicate}.")
     
     return EdgeRecord(
-        subject_id=subject_id,
-        predicate=predicate,
-        object_id=object_id,
+        subject_id=strip_namespace(subject_id),
+        predicate=strip_namespace(predicate),
+        object_id=strip_namespace(object_id),
         provenance=provenance
     )
 
-def extract_edges_from_graph_node(graph_node: GraphNode) -> List[Union[EdgeRecord, NodeRecord]]:
+def extract_edges_from_graph_node(graph_node: GraphNode) -> Tuple[List[EdgeRecord], List[NodeRecord]]:
     """
     Traverses a GraphNode to extract edges and spawn "Literal Nodes".
     """
     subject_id = getattr(graph_node, "id", None)
     provenance = getattr(graph_node, "provenance", "")
-    results = []
+    edges = []
+    literal_nodes = []
 
     reserved_keys = {"id", "type", "name", "value", "provenance"}
     properties = graph_node.model_dump(by_alias=True, exclude_none=True)
@@ -193,7 +199,7 @@ def extract_edges_from_graph_node(graph_node: GraphNode) -> List[Union[EdgeRecor
         for val in values:
             if isinstance(val, dict) and "@id" in val:
                 # Standard entity reference
-                results.append(create_edge_record(
+                edges.append(create_edge_record(
                     subject_id=subject_id,
                     predicate=predicate,
                     object_id=val["@id"],
@@ -202,19 +208,19 @@ def extract_edges_from_graph_node(graph_node: GraphNode) -> List[Union[EdgeRecor
             else:
                 # Literal value: Spawn a Literal Node + an Edge pointing to it
                 lit_id = generate_literal_id(val)
-                results.append(NodeRecord(
+                literal_nodes.append(NodeRecord(
                     subject_id=lit_id,
                     types=["literal"],
                     **coerce_node_record_value(val)
                 ))
-                results.append(create_edge_record(
+                edges.append(create_edge_record(
                     subject_id=subject_id,
                     predicate=predicate,
                     object_id=lit_id,
                     provenance=provenance
                 ))
 
-    return results
+    return (edges, literal_nodes)
 
 # --- 3. EXTRACTION LOGIC (TRANSFORMING SPANNER TO JSON-LD) ---
 
@@ -331,12 +337,18 @@ class GraphService:
         all_records = []
         for graph_node in jsonld.graph:
             node_record = create_node_record(graph_node)
-            node_record.outgoing_edges = extract_edges_from_graph_node(graph_node)
+            edges, literal_nodes = extract_edges_from_graph_node(graph_node)
+            node_record.outgoing_edges = edges
             all_records.append(node_record)
+            all_records.extend(literal_nodes)
 
         if not self.spanner_db:
             raise GraphServiceError("Spanner database client not initialized.")
 
+        # Insert nodes and edges in batches
+        # TODO(dwnoble): this insert may fail if a node in an earlier batch references a node in a later batch.
+        # Also may fail if a node references a node that is in a remote knowledge graph
+        # Possible solution: Insert all nodes first, then insert all edges in a second pass.
         batches = get_node_record_batches(all_records)
         for batch in batches:
             subject_ids = [n.subject_id for n in batch]
