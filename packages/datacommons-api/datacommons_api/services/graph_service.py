@@ -139,7 +139,7 @@ def generate_literal_id(content: Any) -> str:
         
     m = hashlib.md5()
     m.update(raw_bytes)
-    return f"dcid:l/{m.hexdigest()}"
+    return f"l/{m.hexdigest()}"
 
 # --- 2. INGESTION LOGIC (Transforming GraphNodes to DB NodeRecords) ---
 

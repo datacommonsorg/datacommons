@@ -81,7 +81,7 @@ def test_generate_literal_id_determinism():
     id1 = generate_literal_id(val)
     id2 = generate_literal_id(val)
     assert id1 == id2
-    assert id1.startswith("dcid:l/")
+    assert id1.startswith("l/")
 
 def test_generate_literal_id_collision():
     assert generate_literal_id("A") != generate_literal_id("B")
@@ -204,7 +204,7 @@ def graph_service(mock_session, mock_config, mock_spanner_client):
     return GraphService(session=mock_session)
 
 def test_insert_records_batch_deduplication(mock_spanner_batch):
-    lit = NodeRecord(subject_id="dcid:l/shared", types=["literal"], value="USA")
+    lit = NodeRecord(subject_id="l/shared", types=["literal"], value="USA")
     n1 = NodeRecord(subject_id="n1", types=["T"])
     n2 = NodeRecord(subject_id="n2", types=["T"])
     
@@ -215,7 +215,7 @@ def test_insert_records_batch_deduplication(mock_spanner_batch):
     node_values = node_calls[0].kwargs['values']
     ids = [v[0] for v in node_values]
     assert len(ids) == 3
-    assert ids.count("dcid:l/shared") == 1
+    assert ids.count("l/shared") == 1
 
 def test_insert_records_batch_order(mock_spanner_batch):
     n1 = NodeRecord(subject_id="n1", types=["T"])
