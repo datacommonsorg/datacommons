@@ -25,7 +25,7 @@ export LEGACY_WEBSITE_TAG="a277e64"
 export LEGACY_MIXER_TAG="3564830"            
 export LEGACY_NL_TAG="a277e64"              
 export MCP_TAG="production-v1.1.7"
-export DCP_TAG="latest"
+export DCP_TAG="dcp-dev-01"
 
 # ==========================================
 # Secrets & Keys
