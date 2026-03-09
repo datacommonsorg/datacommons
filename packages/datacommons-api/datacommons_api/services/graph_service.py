@@ -108,13 +108,14 @@ def coerce_node_record_value(content: Any) -> dict[str, Any]:
     
     return {"value": None, "bytes": encoded_val}
 
-def get_node_record_value(record: Any) -> Union[str, bytes, None]:
+def get_node_record_value(record: Any) -> Union[str, None]:
     """
     Retrieves the logical value from a NodeRecord, abstracting the storage columns.
     Checks the 'bytes' column first as it handles larger/binary content.
+    Decodes the bytes to a UTF-8 string before returning.
     """
     if hasattr(record, "bytes") and record.bytes is not None:
-        return record.bytes
+        return record.bytes.decode("utf-8")
     
     return getattr(record, "value", None)
 

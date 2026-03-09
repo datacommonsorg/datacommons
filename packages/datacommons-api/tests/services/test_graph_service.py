@@ -60,6 +60,7 @@ def test_coerce_node_record_value_large():
     assert result["bytes"] == content.encode("utf-8")
 
 def test_coerce_node_record_value_binary():
+    # Example logic using arbitrary bytes
     content = b'\x00\x01'
     result = coerce_node_record_value(content)
     assert result["value"] is None
@@ -69,6 +70,10 @@ def test_node_record_value_round_trip():
     s = "Round Trip Test"
     record = NodeRecord(**coerce_node_record_value(s))
     assert get_node_record_value(record) == s
+
+def test_get_node_record_value_decodes_bytes():
+    record = NodeRecord(subject_id="n1", bytes=b"Decoded String")
+    assert get_node_record_value(record) == "Decoded String"
 
 # 1.2 ID Generation
 def test_generate_literal_id_determinism():
