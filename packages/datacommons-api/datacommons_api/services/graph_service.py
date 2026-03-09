@@ -610,9 +610,6 @@ class GraphService:
         """
         Maintenance cleanup for the Graph schema and data.
         """
-        logger.info("Dropping index EdgeByObjectValue")
-        query = "DROP INDEX EdgeByObjectValue"
-        self.session.execute(text(query))
         logger.info("Dropping table %s", EDGE_TABLE_NAME)
         query = f"DROP TABLE {EDGE_TABLE_NAME}"
         self.session.execute(text(query))
