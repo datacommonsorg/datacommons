@@ -14,10 +14,10 @@
 
 from datacommons_db.models.node import NodeRecord
 from datacommons_db.models.edge import EdgeRecord
-from datacommons_api.services.graph_service import get_node_model_batches
+from datacommons_api.services.graph_service import get_node_record_batches
 
 
-def test_get_node_model_batches_bug():
+def test_get_node_record_batches_bug():
     node1 = NodeRecord(subject_id="node1", types=["TypeA"])
     # 5 edges + 1 node = 6 items
     node1.outgoing_edges = [
@@ -42,7 +42,7 @@ def test_get_node_model_batches_bug():
     # Total items = 18. Let's set batch size to 10.
     # Node 1 (6 items) -> Batch 1
     # Node 2 (6 items) -> 6 + 6 = 12 > 10. So it hits the else block. Node 2 is skipped.
-    batches = get_node_model_batches([node1, node2, node3], batch_size=10)
+    batches = get_node_record_batches([node1, node2, node3], batch_size=10)
 
     print(f"Number of batches: {len(batches)}")
     for i, batch in enumerate(batches):
@@ -54,4 +54,4 @@ def test_get_node_model_batches_bug():
 
 
 if __name__ == "__main__":
-    test_get_node_model_batches_bug()
+    test_get_node_record_batches_bug()
