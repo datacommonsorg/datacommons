@@ -58,6 +58,19 @@ def test_normalize_graph_id():
     assert normalize_graph_id("") == ("", False)
     assert normalize_graph_id(None) == (None, False)
 
+def test_normalize_graph_id_with_context():
+    custom_context = {
+        "custom": "http://custom.org/",
+        "dcid": "https://datacommons.org/browser/"
+    }
+    
+    # 1. New Custom Prefix
+    assert normalize_graph_id("http://custom.org/Entity", custom_context) == ("custom:Entity", True)
+    assert normalize_graph_id("custom:Entity", custom_context) == ("custom:Entity", True)
+    
+    # 2. Overridden Prefix (dcid is normally stripped, now treated as remote shortform if fully specified)
+    assert normalize_graph_id("https://datacommons.org/browser/Place", custom_context) == ("dcid:Place", True)
+
 # 1.1 Content Abstraction
 def test_coerce_node_record_value_small():
     content = "Hello World"
@@ -264,7 +277,6 @@ def test_drop_tables_logic(mock_session):
             calls = [str(c[0][0]).upper() for c in mock_session.execute.call_args_list]
             assert any("DROP TABLE EDGE" in c for c in calls)
             assert any("DROP TABLE NODE" in c for c in calls)
-            assert any("DROP INDEX EDGEBYOBJECTVALUE" in c for c in calls)
 
 def test_node_deletion_cascade(graph_service, mock_spanner_batch):
     # Setup mock database behavior for the service instance

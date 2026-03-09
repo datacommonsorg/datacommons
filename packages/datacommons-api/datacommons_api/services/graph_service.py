@@ -83,7 +83,7 @@ DEFAULT_PROVENANCE_ID = "system:unknown_provenance"
 # Combine all known namespaces for lookup
 ALL_NAMESPACES = {**BASE_NAMESPACES, **NAMESPACES}
 
-def normalize_graph_id(identifier: str) -> tuple[str, bool]:
+def normalize_graph_id(identifier: str, document_context: Optional[dict] = None) -> tuple[str, bool]:
     """
     Normalizes an ID and detects if it is a remote node.
     - Converts full URIs to shortform CURIEs (http://schema.org/Person -> schema:Person).
@@ -95,14 +95,28 @@ def normalize_graph_id(identifier: str) -> tuple[str, bool]:
     """
     if not identifier:
         return identifier, False
-        
-    # 1. Check if it's already a known shortform (e.g., "schema:Person")
-    for prefix in ALL_NAMESPACES.keys():
+
+    # 1. Map URIs to prefixes so custom contexts can override default prefixes
+    uri_to_prefix = {uri: prefix for prefix, uri in ALL_NAMESPACES.items()}
+    known_prefixes = set(ALL_NAMESPACES.keys())
+    
+    if document_context:
+        for prefix, uri in document_context.items():
+            # Skip JSON-LD keywords like @vocab, @version, and ensure URI is a string
+            if not prefix.startswith("@") and isinstance(uri, str):
+                uri_to_prefix[uri] = prefix
+                known_prefixes.add(prefix)
+
+    # 2. Check if it's already a known shortform (e.g., "schema:Person")
+    for prefix in known_prefixes:
         if identifier.startswith(f"{prefix}:"):
             return identifier, True
             
-    # 2. Check if it's a full URI (e.g., "http://schema.org/Person")
-    for prefix, uri in ALL_NAMESPACES.items():
+    # 3. Check if it's a full URI (e.g., "http://schema.org/Person")
+    # Sort URIs by length descending to match more specific namespaces first
+    sorted_uris = sorted(uri_to_prefix.items(), key=lambda x: len(x[0]), reverse=True)
+    
+    for uri, prefix in sorted_uris:
         if identifier.startswith(uri):
             # Convert full URI to shortform!
             shortform = identifier.replace(uri, f"{prefix}:", 1)
@@ -181,14 +195,14 @@ def generate_literal_id(content: Any) -> str:
 
 # --- 2. INGESTION LOGIC (Transforming GraphNodes to DB NodeRecords) ---
 
-def create_node_record(graph_node: GraphNode) -> NodeRecord:
+def create_node_record(graph_node: GraphNode, context: Optional[dict] = None) -> NodeRecord:
     """
     Maps a high-level GraphNode to a physical NodeRecord.
     Ensures Go-compatible defaults (empty strings/lists instead of NULLs).
     """
     # Use getattr for resilience against dynamic Pydantic attributes
-    # Change subject_id and types to use normalize_graph_id
-    subject_id = normalize_graph_id(getattr(graph_node, "id", None))[0]
+    # Pass context to normalizer
+    subject_id = normalize_graph_id(getattr(graph_node, "id", None), context)[0]
     name = getattr(graph_node, "name", "") or ""
     
     raw_type = getattr(graph_node, "type", [])
@@ -204,7 +218,8 @@ def create_node_record(graph_node: GraphNode) -> NodeRecord:
     return NodeRecord(
         subject_id=subject_id,
         name=name,
-        types=[normalize_graph_id(t)[0] for t in types if t is not None],
+        # Pass context to normalizer
+        types=[normalize_graph_id(t, context)[0] for t in types if t is not None],
         value=content_data["value"],
         bytes=content_data["bytes"]
     )
@@ -246,7 +261,7 @@ def create_edge_record(
 
 from typing import Tuple, List
 
-def extract_edges_from_graph_node(graph_node: GraphNode) -> Tuple[List[EdgeRecord], List[NodeRecord]]:
+def extract_edges_from_graph_node(graph_node: GraphNode, context: Optional[dict] = None) -> Tuple[List[EdgeRecord], List[NodeRecord]]:
     """
     Traverses a JSON-LD GraphNode to extract its outgoing edges and synthesizes 
     required auxiliary nodes (Literal Nodes and External Proxy Nodes).
@@ -260,6 +275,7 @@ def extract_edges_from_graph_node(graph_node: GraphNode) -> Tuple[List[EdgeRecor
 
     Args:
         graph_node: The incoming JSON-LD GraphNode payload.
+        context: Optional dictionary representing the JSON-LD @context
 
     Returns:
         A tuple containing:
@@ -268,7 +284,7 @@ def extract_edges_from_graph_node(graph_node: GraphNode) -> Tuple[List[EdgeRecor
           that must be written to the database alongside the main node.
     """
     raw_subject_id = getattr(graph_node, "id", None)
-    subject_id = normalize_graph_id(raw_subject_id)[0] if raw_subject_id else None
+    subject_id = normalize_graph_id(raw_subject_id, context)[0] if raw_subject_id else None
     
     edges = []
     synthesized_nodes = []
@@ -278,7 +294,7 @@ def extract_edges_from_graph_node(graph_node: GraphNode) -> Tuple[List[EdgeRecor
     raw_fallback_prov = getattr(graph_node, "provenance", None)
     
     if raw_fallback_prov:
-        fallback_prov, fallback_is_remote = normalize_graph_id(raw_fallback_prov)
+        fallback_prov, fallback_is_remote = normalize_graph_id(raw_fallback_prov, context)
         if fallback_is_remote:
             # Generate a proxy stub for the external provenance URI
             synthesized_nodes.append(NodeRecord(
@@ -306,7 +322,7 @@ def extract_edges_from_graph_node(graph_node: GraphNode) -> Tuple[List[EdgeRecor
             continue
             
         # Normalize the predicate and satisfy the FKPredicate constraint.
-        predicate, pred_is_remote = normalize_graph_id(raw_predicate)
+        predicate, pred_is_remote = normalize_graph_id(raw_predicate, context)
         if pred_is_remote:
             synthesized_nodes.append(NodeRecord(
                 subject_id=predicate,
@@ -320,7 +336,7 @@ def extract_edges_from_graph_node(graph_node: GraphNode) -> Tuple[List[EdgeRecor
             if isinstance(val, dict) and "@id" in val:
                 # --- Handle Entity References (Node -> Node) ---
                 raw_target_id = val["@id"]
-                target_id, is_remote = normalize_graph_id(raw_target_id)
+                target_id, is_remote = normalize_graph_id(raw_target_id, context)
                 
                 # Satisfy the FKObject constraint for external targets
                 if is_remote:
@@ -335,7 +351,7 @@ def extract_edges_from_graph_node(graph_node: GraphNode) -> Tuple[List[EdgeRecor
                 # Resolve Edge-Level Provenance (Overrides fallback if present)
                 raw_edge_prov = val.get("@provenance", None)
                 if raw_edge_prov:
-                    edge_prov, prov_is_remote = normalize_graph_id(raw_edge_prov)
+                    edge_prov, prov_is_remote = normalize_graph_id(raw_edge_prov, context)
                     if prov_is_remote:
                         synthesized_nodes.append(NodeRecord(
                             subject_id=edge_prov,
@@ -539,12 +555,18 @@ class GraphService:
         Processes a JSON-LD document and performs a batched ingestion.
         """
         all_records = []
+        
+        # Extract the dynamic context from the incoming payload
+        doc_context = getattr(jsonld, "context", {})
+        
         for graph_node in jsonld.graph:
-            node_record = create_node_record(graph_node)
-            edges, literal_nodes = extract_edges_from_graph_node(graph_node)
+            # Pass the context into both factories!
+            node_record = create_node_record(graph_node, context=doc_context)
+            edges, synthesized_nodes = extract_edges_from_graph_node(graph_node, context=doc_context)
+            
             node_record.outgoing_edges = edges
             all_records.append(node_record)
-            all_records.extend(literal_nodes)
+            all_records.extend(synthesized_nodes)
 
         if not self.spanner_db:
             raise GraphServiceError("Spanner database client not initialized.")
