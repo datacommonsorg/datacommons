@@ -1,0 +1,111 @@
+terraform {
+  required_providers {
+    google = {
+      source  = "hashicorp/google"
+      version = ">= 5.0"
+    }
+    null = {
+      source  = "hashicorp/null"
+      version = ">= 3.0"
+    }
+  }
+}
+
+provider "google" {
+  project = var.project_id
+  region  = var.region
+}
+
+# Enable required APIs for both stacks
+resource "google_project_service" "apis" {
+  for_each = toset([
+    "run.googleapis.com",
+    "spanner.googleapis.com",
+    "iam.googleapis.com",
+    "sqladmin.googleapis.com",
+    "redis.googleapis.com",
+    "secretmanager.googleapis.com",
+    "vpcaccess.googleapis.com",
+    "artifactregistry.googleapis.com",
+    "compute.googleapis.com"
+  ])
+
+  service            = each.key
+  disable_on_destroy = false
+}
+
+# --- Data Commons Platform (DCP) Stack ---
+module "dcp" {
+  source = "./modules/dcp"
+  count  = var.enable_dcp ? 1 : 0
+
+  project_id               = var.project_id
+  region                   = var.region
+  image_url                = var.dcp_image_url
+  service_name             = var.dcp_service_name
+  service_account_name     = var.dcp_service_account_name
+  create_spanner           = var.dcp_create_spanner
+  spanner_instance_id      = var.dcp_spanner_instance_id
+  spanner_database_id      = var.dcp_spanner_database_id
+  spanner_processing_units = var.dcp_spanner_processing_units
+  cpu                      = var.dcp_cpu
+  memory                   = var.dcp_memory
+  min_instances            = var.dcp_min_instances
+  max_instances            = var.dcp_max_instances
+  concurrency              = var.dcp_concurrency
+  timeout_seconds          = var.dcp_timeout_seconds
+  deletion_protection      = var.deletion_protection
+
+  depends_on = [google_project_service.apis]
+}
+
+# --- Custom Data Commons (CDC) Legacy Stack ---
+module "cdc" {
+  source = "./modules/cdc"
+  count  = var.enable_cdc ? 1 : 0
+
+  project_id                    = var.project_id
+  namespace                     = var.cdc_namespace
+  dc_api_key                    = var.cdc_dc_api_key
+  maps_api_key                  = var.cdc_maps_api_key
+  disable_google_maps           = var.cdc_disable_google_maps
+  region                        = var.region
+  google_analytics_tag_id       = var.cdc_google_analytics_tag_id
+  gcs_data_bucket_name          = var.cdc_gcs_data_bucket_name
+  gcs_data_bucket_input_folder  = var.cdc_gcs_data_bucket_input_folder
+  gcs_data_bucket_output_folder = var.cdc_gcs_data_bucket_output_folder
+  gcs_data_bucket_location      = var.cdc_gcs_data_bucket_location
+  mysql_instance_name           = var.cdc_mysql_instance_name
+  mysql_database_name           = var.cdc_mysql_database_name
+  mysql_database_version        = var.cdc_mysql_database_version
+  mysql_cpu_count               = var.cdc_mysql_cpu_count
+  mysql_memory_size_mb          = var.cdc_mysql_memory_size_mb
+  mysql_storage_size_gb         = var.cdc_mysql_storage_size_gb
+  mysql_user                    = var.cdc_mysql_user
+  mysql_deletion_protection     = var.deletion_protection
+  dc_web_service_image          = var.cdc_web_service_image
+  dc_web_service_min_instance_count = var.cdc_web_service_min_instance_count
+  dc_web_service_max_instance_count = var.cdc_web_service_max_instance_count
+  dc_web_service_cpu            = var.cdc_web_service_cpu
+  dc_web_service_memory         = var.cdc_web_service_memory
+  make_dc_web_service_public    = var.cdc_make_dc_web_service_public
+  dc_data_job_image             = var.cdc_data_job_image
+  dc_data_job_cpu               = var.cdc_data_job_cpu
+  dc_data_job_memory            = var.cdc_data_job_memory
+  dc_data_job_timeout           = var.cdc_data_job_timeout
+  dc_search_scope               = var.cdc_search_scope
+  enable_mcp                   = var.cdc_enable_mcp
+  vpc_network_name              = var.cdc_vpc_network_name
+  vpc_network_subnet_name       = var.cdc_vpc_network_subnet_name
+  enable_redis                  = var.cdc_enable_redis
+  redis_instance_name           = var.cdc_redis_instance_name
+  redis_memory_size_gb          = var.cdc_redis_memory_size_gb
+  redis_tier                    = var.cdc_redis_tier
+  redis_location_id             = var.cdc_redis_location_id
+  redis_alternative_location_id = var.cdc_redis_alternative_location_id
+  redis_replica_count           = var.cdc_redis_replica_count
+  vpc_connector_cidr            = var.cdc_vpc_connector_cidr
+  deletion_protection           = var.deletion_protection
+
+  depends_on = [google_project_service.apis]
+}

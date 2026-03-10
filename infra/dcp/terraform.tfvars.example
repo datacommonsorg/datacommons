@@ -1,0 +1,20 @@
+# --- Shared Global Variables ---
+project_id          = "your-project-id"
+region              = "us-central1"
+deletion_protection = false
+
+# --- Stack Toggles ---
+enable_dcp          = true
+enable_cdc          = false
+
+# --- DCP Stack Variables ---
+dcp_image_url           = "gcr.io/your-project/datacommons-platform:latest"
+dcp_service_name        = "datacommons-platform"
+dcp_service_account_name = "dcp-runner-sa"
+dcp_create_spanner       = true
+
+# --- CDC Stack Variables (Legacy) ---
+# cdc_namespace         = "cdc"
+# cdc_dc_api_key        = "your-dc-api-key"
+# cdc_maps_api_key      = "your-maps-api-key"
+# cdc_enable_redis      = false
