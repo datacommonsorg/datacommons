@@ -1,3 +1,8 @@
+variable "namespace" {
+  description = "Global prefix for resources"
+  type        = string
+}
+
 variable "project_id" {
   description = "GCP Project ID"
   type        = string
@@ -23,8 +28,13 @@ variable "service_account_name" {
   type        = string
 }
 
-variable "create_spanner" {
-  description = "Whether to create a new Spanner instance and database"
+variable "create_spanner_instance" {
+  description = "Whether to create a new Spanner instance"
+  type        = bool
+}
+
+variable "create_spanner_db" {
+  description = "Whether to create a new Spanner database"
   type        = bool
 }
 
@@ -43,33 +53,33 @@ variable "spanner_processing_units" {
   type        = number
 }
 
-variable "cpu" {
-  description = "Number of CPUs"
+variable "service_cpu" {
+  description = "CPU limit for the service container"
   type        = string
 }
 
-variable "memory" {
-  description = "Amount of Memory"
+variable "service_memory" {
+  description = "Memory limit for the service container"
   type        = string
 }
 
-variable "min_instances" {
-  description = "Minimum number of instances"
+variable "service_min_instances" {
+  description = "Minimum number of service instances"
   type        = number
 }
 
-variable "max_instances" {
-  description = "Maximum number of instances"
+variable "service_max_instances" {
+  description = "Maximum number of service instances"
   type        = number
 }
 
-variable "concurrency" {
-  description = "Maximum concurrent requests per instance"
+variable "service_concurrency" {
+  description = "Maximum concurrent requests per service instance"
   type        = number
 }
 
-variable "timeout_seconds" {
-  description = "Request timeout in seconds"
+variable "service_timeout_seconds" {
+  description = "Request timeout in seconds for the service"
   type        = number
 }
 

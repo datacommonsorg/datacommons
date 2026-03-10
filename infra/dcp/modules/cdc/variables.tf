@@ -246,3 +246,21 @@ variable "deletion_protection" {
   type        = bool
   default     = false
 }
+
+variable "use_spanner" {
+  description = "Whether to use Spanner instead of Cloud SQL"
+  type        = bool
+  default     = false
+}
+
+variable "spanner_instance_id" {
+  description = "The Spanner instance ID to use if use_spanner is true"
+  type        = string
+  default     = ""
+}
+
+variable "spanner_database_id" {
+  description = "The Spanner database ID to use if use_spanner is true"
+  type        = string
+  default     = ""
+}

@@ -40,20 +40,22 @@ module "dcp" {
   count  = var.enable_dcp ? 1 : 0
 
   project_id               = var.project_id
+  namespace                = var.namespace
   region                   = var.region
   image_url                = var.dcp_image_url
   service_name             = var.dcp_service_name
   service_account_name     = var.dcp_service_account_name
-  create_spanner           = var.dcp_create_spanner
+  create_spanner_instance  = var.dcp_create_spanner_instance
+  create_spanner_db        = var.dcp_create_spanner_db
   spanner_instance_id      = var.dcp_spanner_instance_id
   spanner_database_id      = var.dcp_spanner_database_id
   spanner_processing_units = var.dcp_spanner_processing_units
-  cpu                      = var.dcp_cpu
-  memory                   = var.dcp_memory
-  min_instances            = var.dcp_min_instances
-  max_instances            = var.dcp_max_instances
-  concurrency              = var.dcp_concurrency
-  timeout_seconds          = var.dcp_timeout_seconds
+  service_cpu              = var.dcp_service_cpu
+  service_memory           = var.dcp_service_memory
+  service_min_instances    = var.dcp_service_min_instances
+  service_max_instances    = var.dcp_service_max_instances
+  service_concurrency      = var.dcp_service_concurrency
+  service_timeout_seconds  = var.dcp_service_timeout_seconds
   deletion_protection      = var.deletion_protection
 
   depends_on = [google_project_service.apis]
@@ -65,7 +67,7 @@ module "cdc" {
   count  = var.enable_cdc ? 1 : 0
 
   project_id                    = var.project_id
-  namespace                     = var.cdc_namespace
+  namespace                     = var.namespace
   dc_api_key                    = var.cdc_dc_api_key
   maps_api_key                  = var.cdc_maps_api_key
   disable_google_maps           = var.cdc_disable_google_maps
@@ -105,7 +107,18 @@ module "cdc" {
   redis_alternative_location_id = var.cdc_redis_alternative_location_id
   redis_replica_count           = var.cdc_redis_replica_count
   vpc_connector_cidr            = var.cdc_vpc_connector_cidr
+  use_spanner                   = var.enable_dcp
+  spanner_instance_id           = var.enable_dcp ? module.dcp[0].spanner_instance_id : ""
+  spanner_database_id           = var.enable_dcp ? module.dcp[0].spanner_database_id : ""
   deletion_protection           = var.deletion_protection
 
   depends_on = [google_project_service.apis]
+}
+
+# Ensure Spanner instance ID is provided when not creating a new one
+check "spanner_instance_id_provided" {
+  assert {
+    condition     = var.dcp_create_spanner_instance || var.dcp_spanner_instance_id != ""
+    error_message = "dcp_spanner_instance_id must be provided when dcp_create_spanner_instance is false."
+  }
 }

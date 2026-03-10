@@ -27,6 +27,7 @@ _override.tf.json
 terraform.rc
 tfplan
 infra/dcp/backend.tf
+.terraform.lock.hcl
 
 # Configuration
 infra/dcp/.env

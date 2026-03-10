@@ -39,31 +39,37 @@ variable "dcp_image_url" {
 variable "dcp_service_name" {
   description = "Cloud Run service name for DCP"
   type        = string
-  default     = "datacommons-platform"
+  default     = "dcp-svc"
 }
 
 variable "dcp_service_account_name" {
   description = "Service account for DCP"
   type        = string
-  default     = "dcp-runner-sa"
+  default     = "dcp-sa"
 }
 
-variable "dcp_create_spanner" {
-  description = "Create Spanner for DCP"
+variable "dcp_create_spanner_instance" {
+  description = "Create a new Spanner instance for DCP"
   type        = bool
   default     = false
+}
+
+variable "dcp_create_spanner_db" {
+  description = "Create a new Spanner database for DCP"
+  type        = bool
+  default     = true
 }
 
 variable "dcp_spanner_instance_id" {
   description = "Spanner instance for DCP"
   type        = string
-  default     = "dcp-spanner-instance"
+  default     = ""
 }
 
 variable "dcp_spanner_database_id" {
   description = "Spanner database for DCP"
   type        = string
-  default     = "dcp-spanner-db"
+  default     = "dcp-db"
 }
 
 variable "dcp_spanner_processing_units" {
@@ -72,47 +78,46 @@ variable "dcp_spanner_processing_units" {
   default     = 100
 }
 
-variable "dcp_cpu" {
-  description = "DCP CPU"
+variable "dcp_service_cpu" {
+  description = "CPU limit for the DCP service container"
   type        = string
   default     = "1000m"
 }
 
-variable "dcp_memory" {
-  description = "DCP Memory"
+variable "dcp_service_memory" {
+  description = "Memory limit for the DCP service container"
   type        = string
   default     = "512Mi"
 }
 
-variable "dcp_min_instances" {
-  description = "DCP min instances"
+variable "dcp_service_min_instances" {
+  description = "Minimum number of instances for the DCP service"
   type        = number
   default     = 0
 }
 
-variable "dcp_max_instances" {
-  description = "DCP max instances"
+variable "dcp_service_max_instances" {
+  description = "Maximum number of instances for the DCP service"
   type        = number
   default     = 10
 }
 
-variable "dcp_concurrency" {
-  description = "DCP concurrency"
+variable "dcp_service_concurrency" {
+  description = "Maximum concurrent requests per instance for the DCP service"
   type        = number
   default     = 80
 }
 
-variable "dcp_timeout_seconds" {
-  description = "DCP timeout"
+variable "dcp_service_timeout_seconds" {
+  description = "Request timeout in seconds for the DCP service"
   type        = number
   default     = 300
 }
 
-# --- CDC Stack Variables (Legacy) ---
-variable "cdc_namespace" {
-  description = "Prefix for CDC resources"
+variable "namespace" {
+  description = "Global prefix for all resources"
   type        = string
-  default     = "cdc"
+  default     = ""
 }
 
 variable "cdc_dc_api_key" {
@@ -166,7 +171,7 @@ variable "cdc_gcs_data_bucket_location" {
 variable "cdc_mysql_instance_name" {
   description = "CDC MySQL name"
   type        = string
-  default     = "datacommons-mysql-instance"
+  default     = "sql-inst"
 }
 
 variable "cdc_mysql_database_name" {

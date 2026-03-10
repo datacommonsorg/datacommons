@@ -1,6 +1,6 @@
 # Service Account for the Cloud Run service
 resource "google_service_account" "dcp_runner" {
-  account_id   = var.service_account_name
+  account_id   = "${local.name_prefix}${var.service_account_name}"
   display_name = "Data Commons Platform Runner"
 }
 

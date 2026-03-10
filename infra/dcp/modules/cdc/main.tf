@@ -44,7 +44,8 @@ resource "google_project_service" "required_apis" {
 
 # Cloud SQL instance for Data Commons
 resource "google_sql_database_instance" "mysql_instance" {
-  name             = "${var.namespace}-${var.mysql_instance_name}"
+  count            = var.use_spanner ? 0 : 1
+  name             = "${local.name_prefix}${var.mysql_instance_name}"
   database_version = var.mysql_database_version
   region           = var.region
 
@@ -64,8 +65,9 @@ resource "google_sql_database_instance" "mysql_instance" {
 
 # MySQL Database
 resource "google_sql_database" "mysql_db" {
+  count    = var.use_spanner ? 0 : 1
   name     = var.mysql_database_name
-  instance = google_sql_database_instance.mysql_instance.name
+  instance = google_sql_database_instance.mysql_instance[0].name
 }
 
 # Generate a random password for the MySQL user
@@ -76,7 +78,8 @@ resource "random_password" "mysql_password" {
 
 # Store MySQL password in Secret Manager
 resource "google_secret_manager_secret" "mysql_password_secret" {
-  secret_id = "${var.namespace}-mysql-password"
+  count     = var.use_spanner ? 0 : 1
+  secret_id = "${local.name_prefix}mysql-password"
 
   replication {
     auto {}
@@ -85,21 +88,23 @@ resource "google_secret_manager_secret" "mysql_password_secret" {
 }
 
 resource "google_secret_manager_secret_version" "mysql_password_secret_version" {
-  secret      = google_secret_manager_secret.mysql_password_secret.id
+  count       = var.use_spanner ? 0 : 1
+  secret      = google_secret_manager_secret.mysql_password_secret[0].id
   secret_data = random_password.mysql_password.result
 }
 
 # MySQL User
 resource "google_sql_user" "mysql_user" {
+  count    = var.use_spanner ? 0 : 1
   name     = var.mysql_user
-  instance = google_sql_database_instance.mysql_instance.name
+  instance = google_sql_database_instance.mysql_instance[0].name
   password = random_password.mysql_password.result
 }
 
 # Optional Redis instance
 resource "google_redis_instance" "redis_instance" {
   count              = var.enable_redis ? 1 : 0
-  name               = "${var.namespace}-${var.redis_instance_name}"
+  name               = "${local.name_prefix}${var.redis_instance_name}"
   memory_size_gb     = var.redis_memory_size_gb
   tier               = var.redis_tier
   region             = var.region
@@ -116,7 +121,7 @@ resource "google_redis_instance" "redis_instance" {
 
 # VPC Access Connector for private connections
 resource "google_vpc_access_connector" "connector" {
-  name          = "${var.namespace}-vpc-conn-v2"
+  name          = "${local.name_prefix}vpc-conn"
   region        = var.region
   network       = data.google_compute_network.default.name
   ip_cidr_range = var.vpc_connector_cidr
@@ -138,8 +143,8 @@ resource "google_storage_bucket" "data_bucket" {
 # Maps API Key
 resource "google_apikeys_key" "maps_api_key" {
   count        = var.maps_api_key == null && !var.disable_google_maps ? 1 : 0
-  name         = "${var.namespace}-maps-key"
-  display_name = "Maps API Key for ${var.namespace}"
+  name         = "${local.name_prefix}maps-key"
+  display_name = "Maps API Key for ${var.namespace != "" ? var.namespace : "Data Commons"}"
   project      = var.project_id
 
   restrictions {
@@ -152,7 +157,7 @@ resource "google_apikeys_key" "maps_api_key" {
 
 # Cloud Run job for data management
 resource "google_cloud_run_v2_job" "dc_data_job" {
-  name                = "${var.namespace}-datacommons-data-job"
+  name                = "${local.name_prefix}datacommons-data-job"
   location            = var.region
   deletion_protection = var.deletion_protection
 
@@ -219,8 +224,7 @@ resource "google_cloud_run_v2_job" "dc_data_job" {
 # Run the db init job on terraform apply to create tables
 resource "null_resource" "run_db_init" {
   depends_on = [
-    google_cloud_run_v2_job.dc_data_job,
-    google_sql_database_instance.mysql_instance
+    google_cloud_run_v2_job.dc_data_job
   ]
 
   triggers = {
@@ -230,7 +234,7 @@ resource "null_resource" "run_db_init" {
 
   provisioner "local-exec" {
     command = <<EOT
-      gcloud run jobs execute ${google_cloud_run_v2_job.dc_data_job.name} \
+      gcloud run jobs execute ${local.name_prefix}datacommons-data-job \
         --update-env-vars DATA_RUN_MODE=schemaupdate \
         --region=${var.region} \
         --project=${var.project_id} \
@@ -241,7 +245,7 @@ EOT
 
 # Cloud Run service for Data Commons website
 resource "google_cloud_run_v2_service" "dc_web_service" {
-  name                = "${var.namespace}-datacommons-web-service"
+  name                = "${local.name_prefix}datacommons-web-service"
   location            = var.region
   deletion_protection = var.deletion_protection
 
@@ -315,10 +319,13 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
       max_instance_count = var.dc_web_service_max_instance_count
     }
     service_account = google_service_account.datacommons_service_account.email
-    volumes {
-      name = "cloudsql"
-      cloud_sql_instance {
-        instances = [google_sql_database_instance.mysql_instance.connection_name]
+    dynamic "volumes" {
+      for_each = var.use_spanner ? [] : [1]
+      content {
+        name = "cloudsql"
+        cloud_sql_instance {
+          instances = [google_sql_database_instance.mysql_instance[0].connection_name]
+        }
       }
     }
   }

@@ -10,12 +10,12 @@ output "redis_instance_port" {
 
 output "mysql_instance_connection_name" {
   description = "The connection name of the MySQL instance"
-  value       = google_sql_database_instance.mysql_instance.connection_name
+  value       = var.use_spanner ? null : google_sql_database_instance.mysql_instance[0].connection_name
 }
 
 output "mysql_instance_public_ip" {
   description = "The public IP address of the MySQL instance"
-  value       = google_sql_database_instance.mysql_instance.public_ip_address
+  value       = var.use_spanner ? null : google_sql_database_instance.mysql_instance[0].public_ip_address
 }
 
 output "mysql_user" {

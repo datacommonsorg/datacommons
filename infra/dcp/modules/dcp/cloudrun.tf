@@ -1,17 +1,17 @@
 resource "google_cloud_run_v2_service" "dcp_service" {
-  name                = var.service_name
+  name                = "${local.name_prefix}${var.service_name}"
   location            = var.region
   ingress             = "INGRESS_TRAFFIC_ALL"
   deletion_protection = var.deletion_protection
 
   template {
     service_account                  = google_service_account.dcp_runner.email
-    timeout                          = "${var.timeout_seconds}s"
-    max_instance_request_concurrency = var.concurrency
+    timeout                          = "${var.service_timeout_seconds}s"
+    max_instance_request_concurrency = var.service_concurrency
 
     scaling {
-      min_instance_count = var.min_instances
-      max_instance_count = var.max_instances
+      min_instance_count = var.service_min_instances
+      max_instance_count = var.service_max_instances
     }
 
     containers {
@@ -19,8 +19,8 @@ resource "google_cloud_run_v2_service" "dcp_service" {
 
       resources {
         limits = {
-          cpu    = var.cpu
-          memory = var.memory
+          cpu    = var.service_cpu
+          memory = var.service_memory
         }
       }
 
@@ -34,11 +34,11 @@ resource "google_cloud_run_v2_service" "dcp_service" {
       }
       env {
         name  = "GCP_SPANNER_INSTANCE_ID"
-        value = var.spanner_instance_id
+        value = var.create_spanner_instance ? google_spanner_instance.main[0].name : "${local.name_prefix}${var.spanner_instance_id}"
       }
       env {
         name  = "GCP_SPANNER_DATABASE_NAME"
-        value = var.spanner_database_id
+        value = var.create_spanner_db ? google_spanner_database.database[0].name : "${local.name_prefix}${var.spanner_database_id}"
       }
     }
   }

@@ -7,9 +7,9 @@ output "service_account_email" {
 }
 
 output "spanner_instance_id" {
-  value = var.create_spanner ? google_spanner_instance.main[0].name : var.spanner_instance_id
+  value = var.create_spanner_instance ? google_spanner_instance.main[0].name : "${local.name_prefix}${var.spanner_instance_id}"
 }
 
 output "spanner_database_id" {
-  value = var.create_spanner ? google_spanner_database.database[0].name : var.spanner_database_id
+  value = var.create_spanner_db ? google_spanner_database.database[0].name : "${local.name_prefix}${var.spanner_database_id}"
 }
