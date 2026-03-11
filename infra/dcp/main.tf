@@ -18,9 +18,8 @@ provider "google" {
 
 # Enable required APIs for both stacks
 resource "google_project_service" "apis" {
-  for_each = toset([
+  for_each = toset(concat([
     "run.googleapis.com",
-    "spanner.googleapis.com",
     "iam.googleapis.com",
     "sqladmin.googleapis.com",
     "redis.googleapis.com",
@@ -28,7 +27,7 @@ resource "google_project_service" "apis" {
     "vpcaccess.googleapis.com",
     "artifactregistry.googleapis.com",
     "compute.googleapis.com"
-  ])
+  ], var.enable_dcp ? ["spanner.googleapis.com"] : []))
 
   service            = each.key
   disable_on_destroy = false
@@ -118,7 +117,7 @@ module "cdc" {
 # Ensure Spanner instance ID is provided when not creating a new one
 check "spanner_instance_id_provided" {
   assert {
-    condition     = var.dcp_create_spanner_instance || var.dcp_spanner_instance_id != ""
-    error_message = "dcp_spanner_instance_id must be provided when dcp_create_spanner_instance is false."
+    condition     = !var.enable_dcp || var.dcp_create_spanner_instance || var.dcp_spanner_instance_id != ""
+    error_message = "dcp_spanner_instance_id must be provided when reusing an existing instance (dcp_create_spanner_instance = false)."
   }
 }

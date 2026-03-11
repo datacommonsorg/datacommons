@@ -5,10 +5,20 @@ resource "google_service_account" "datacommons_service_account" {
 }
 
 resource "google_project_iam_member" "datacommons_service_account_roles" {
-  for_each = toset(["roles/compute.networkViewer", "roles/redis.editor", "roles/cloudsql.admin", "roles/storage.objectAdmin", "roles/run.admin", "roles/vpcaccess.user", "roles/iam.serviceAccountUser", "roles/secretmanager.secretAccessor", "roles/spanner.databaseUser"])
-  project  = var.project_id
-  member   = "serviceAccount:${google_service_account.datacommons_service_account.email}"
-  role     = each.value
+  for_each = setsubtract(toset([
+    "roles/compute.networkViewer",
+    "roles/redis.editor",
+    "roles/cloudsql.admin",
+    "roles/storage.objectAdmin",
+    "roles/run.admin",
+    "roles/vpcaccess.user",
+    "roles/iam.serviceAccountUser",
+    "roles/secretmanager.secretAccessor",
+    "roles/spanner.databaseUser"
+  ]), var.use_spanner ? [] : ["roles/spanner.databaseUser"])
+  project = var.project_id
+  member  = "serviceAccount:${google_service_account.datacommons_service_account.email}"
+  role    = each.value
 }
 
 resource "google_secret_manager_secret" "dc_api_key" {

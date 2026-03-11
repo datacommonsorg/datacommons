@@ -34,11 +34,11 @@ resource "google_cloud_run_v2_service" "dcp_service" {
       }
       env {
         name  = "GCP_SPANNER_INSTANCE_ID"
-        value = var.create_spanner_instance ? google_spanner_instance.main[0].name : "${local.name_prefix}${var.spanner_instance_id}"
+        value = var.create_spanner_instance ? (var.spanner_instance_id != "" ? "${local.name_prefix}${var.spanner_instance_id}" : "${local.name_prefix}dcp-instance") : var.spanner_instance_id
       }
       env {
         name  = "GCP_SPANNER_DATABASE_NAME"
-        value = var.create_spanner_db ? google_spanner_database.database[0].name : "${local.name_prefix}${var.spanner_database_id}"
+        value = var.create_spanner_db ? (var.spanner_database_id != "" ? "${local.name_prefix}${var.spanner_database_id}" : "${local.name_prefix}dcp-db") : var.spanner_database_id
       }
     }
   }
