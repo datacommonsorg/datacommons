@@ -32,3 +32,17 @@ resource "google_secret_manager_secret_version" "dc_api_key_version" {
   secret      = google_secret_manager_secret.dc_api_key.id
   secret_data = var.dc_api_key
 }
+ 
+resource "google_secret_manager_secret" "maps_api_key" {
+  count     = var.disable_google_maps ? 0 : 1
+  secret_id = "${local.name_prefix}maps-api-key"
+  replication {
+    auto {}
+  }
+}
+ 
+resource "google_secret_manager_secret_version" "maps_api_key_version" {
+  count       = var.disable_google_maps ? 0 : 1
+  secret      = google_secret_manager_secret.maps_api_key[0].id
+  secret_data = local.maps_api_key
+}

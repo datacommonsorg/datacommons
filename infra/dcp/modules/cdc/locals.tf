@@ -85,6 +85,15 @@ locals {
           version = "latest"
         }
       }
+    },
+    {
+      name = "MAPS_API_KEY"
+      value_source = {
+        secret_key_ref = {
+          secret  = var.disable_google_maps ? "" : google_secret_manager_secret.maps_api_key[0].secret_id
+          version = "latest"
+        }
+      }
     }
   ], var.use_spanner ? [] : [
     {
