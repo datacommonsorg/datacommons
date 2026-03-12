@@ -20,7 +20,7 @@ RUN uv sync --frozen --no-dev
 ENV PATH="/app/.venv/bin:$PATH"
 
 # Create a non-root user and switch to it for security
-RUN groupadd -r datacommons-runner && useradd -r -g datacommons-runner datacommons-runner
+RUN groupadd -r -g 1001 datacommons-runner && useradd -r -g 1001 -u 1001 datacommons-runner
 USER datacommons-runner
 
 # Expose the API port
