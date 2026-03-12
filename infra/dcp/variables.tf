@@ -30,10 +30,16 @@ variable "enable_cdc" {
 }
 
 # --- DCP Stack Variables ---
-variable "dcp_image_url" {
-  description = "Docker image URL for DCP"
+variable "dcp_image_base" {
+  description = "Docker image base URL for DCP (without tag)"
   type        = string
-  default     = "gcr.io/datcom-ci/datacommons-platform:latest"
+  default     = "us-docker.pkg.dev/datcom-ci/gcr.io/datacommons-platform"
+}
+
+variable "dcp_image_tag" {
+  description = "Docker image tag for DCP"
+  type        = string
+  default     = "latest"
 }
 
 variable "dcp_service_name" {

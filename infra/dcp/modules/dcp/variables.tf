@@ -13,8 +13,13 @@ variable "region" {
   type        = string
 }
 
-variable "image_url" {
-  description = "Docker image URL to deploy"
+variable "image_base" {
+  description = "Docker image base URL for DCP (without tag)"
+  type        = string
+}
+
+variable "image_tag" {
+  description = "Docker image tag for DCP"
   type        = string
 }
 

@@ -41,7 +41,8 @@ module "dcp" {
   project_id               = var.project_id
   namespace                = var.namespace
   region                   = var.region
-  image_url                = var.dcp_image_url
+  image_base               = var.dcp_image_base
+  image_tag                = var.dcp_image_tag
   service_name             = var.dcp_service_name
   service_account_name     = var.dcp_service_account_name
   create_spanner_instance  = var.dcp_create_spanner_instance

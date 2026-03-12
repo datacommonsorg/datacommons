@@ -15,7 +15,7 @@ resource "google_cloud_run_v2_service" "dcp_service" {
     }
 
     containers {
-      image = var.image_url
+      image = "${var.image_base}:${var.image_tag}"
 
       resources {
         limits = {

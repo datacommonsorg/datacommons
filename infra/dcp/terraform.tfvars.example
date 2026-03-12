@@ -1,15 +1,23 @@
 # --- Shared Global Variables ---
 project_id          = "your-project-id"
-namespace           = "techsoup"
+namespace           = "your-namespace"
+region              = "us-central1"
 
 # --- Stack Toggles ---
 enable_dcp                  = true
 enable_cdc                  = false
 
+# --- DCP Stack Variables ---
 # Only set to true if you need to create a dedicated Spanner Instance (Expensive!)
 # Otherwise, provide an existing instance ID in dcp_spanner_instance_id
 dcp_create_spanner_instance = false
+dcp_spanner_instance_id     = "your-existing-spanner-instance"
+
+# The Docker image tag to deploy.
+# We recommend you run ./update_image_tag.sh to fetch the latest commit SHA.
+# Using "latest" is discouraged as it prevents Terraform from detecting image updates.
+dcp_image_tag               = "latest"
 
 # --- CDC Stack Variables (Legacy) ---
-# cdc_dc_api_key        = "your-dc-api-key"
-# cdc_maps_api_key      = "your-maps-api-key"
+# cdc_dc_api_key              = "your-dc-api-key"
+# cdc_maps_api_key            = "your-maps-api-key"
