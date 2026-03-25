@@ -12,13 +12,16 @@ terraform {
 }
 
 provider "google" {
-  project = var.project_id
-  region  = var.region
+  project               = var.project_id
+  region                = var.region
+  user_project_override = var.user_project_override
+  billing_project       = var.billing_project_id != null ? var.billing_project_id : var.project_id
 }
 
 # Enable required APIs for both stacks
 resource "google_project_service" "apis" {
   for_each = toset(concat([
+    "apikeys.googleapis.com",
     "run.googleapis.com",
     "iam.googleapis.com",
     "sqladmin.googleapis.com",
@@ -31,6 +34,16 @@ resource "google_project_service" "apis" {
 
   service            = each.key
   disable_on_destroy = false
+}
+
+# --- Network Data Sources ---
+data "google_compute_network" "default" {
+  name = var.cdc_vpc_network_name
+}
+
+data "google_compute_subnetwork" "default" {
+  name   = var.cdc_vpc_network_subnet_name
+  region = var.region
 }
 
 # --- Data Commons Platform (DCP) Stack ---
@@ -106,6 +119,7 @@ module "cdc" {
   redis_alternative_location_id = var.cdc_redis_alternative_location_id
   redis_replica_count           = var.cdc_redis_replica_count
   vpc_connector_cidr            = var.cdc_vpc_connector_cidr
+  vpc_network_id                = data.google_compute_network.default.id
   use_spanner                   = var.enable_dcp
   spanner_instance_id           = var.enable_dcp ? module.dcp[0].spanner_instance_id : ""
   spanner_database_id           = var.enable_dcp ? module.dcp[0].spanner_database_id : ""

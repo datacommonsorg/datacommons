@@ -14,34 +14,6 @@
 
 # Custom Data Commons terraform resources
 
-# Reference the default VPC network
-data "google_compute_network" "default" {
-  name = var.vpc_network_name
-}
-
-# Reference the default VPC network subnet
-data "google_compute_subnetwork" "default" {
-  name   = var.vpc_network_subnet_name
-  region = var.region
-}
-
-# Enable required Google Cloud APIs
-resource "google_project_service" "required_apis" {
-  for_each = toset([
-    "run.googleapis.com",
-    "sqladmin.googleapis.com",
-    "compute.googleapis.com",
-    "redis.googleapis.com",
-    "secretmanager.googleapis.com",
-    "vpcaccess.googleapis.com",
-    "artifactregistry.googleapis.com",
-    "iam.googleapis.com"
-  ])
-  project            = var.project_id
-  service            = each.value
-  disable_on_destroy = false
-}
-
 # Cloud SQL instance for Data Commons
 resource "google_sql_database_instance" "mysql_instance" {
   count            = var.use_spanner ? 0 : 1
@@ -60,7 +32,6 @@ resource "google_sql_database_instance" "mysql_instance" {
   }
 
   deletion_protection = var.deletion_protection
-  depends_on          = [google_project_service.required_apis]
 }
 
 # MySQL Database
@@ -84,7 +55,6 @@ resource "google_secret_manager_secret" "mysql_password_secret" {
   replication {
     auto {}
   }
-  depends_on = [google_project_service.required_apis]
 }
 
 resource "google_secret_manager_secret_version" "mysql_password_secret_version" {
@@ -114,20 +84,18 @@ resource "google_redis_instance" "redis_instance" {
   display_name       = "Data Commons Redis Instance"
   reserved_ip_range  = null
   replica_count      = var.redis_replica_count
-  authorized_network = data.google_compute_network.default.id
+  authorized_network = var.vpc_network_id
   connect_mode       = "DIRECT_PEERING"
-  depends_on         = [google_project_service.required_apis]
 }
 
 # VPC Access Connector for private connections
 resource "google_vpc_access_connector" "connector" {
   name          = "${local.name_prefix}vpc-conn"
   region        = var.region
-  network       = data.google_compute_network.default.name
+  network       = var.vpc_network_name
   ip_cidr_range = var.vpc_connector_cidr
   min_instances = 2
   max_instances = 10
-  depends_on    = [google_project_service.required_apis]
 }
 
 # GCS Bucket for data storage
@@ -137,7 +105,6 @@ resource "google_storage_bucket" "data_bucket" {
   force_destroy = true
 
   uniform_bucket_level_access = true
-  depends_on                  = [google_project_service.required_apis]
 }
 
 # Maps API Key
@@ -152,7 +119,6 @@ resource "google_apikeys_key" "maps_api_key" {
       service = "maps-backend.googleapis.com"
     }
   }
-  depends_on = [google_project_service.required_apis]
 }
 
 # Cloud Run job for data management
@@ -218,11 +184,18 @@ resource "google_cloud_run_v2_job" "dc_data_job" {
       service_account = google_service_account.datacommons_service_account.email
     }
   }
-  depends_on = [google_project_service.required_apis]
+
+  depends_on = [
+    google_secret_manager_secret_version.mysql_password_secret_version,
+    google_secret_manager_secret_version.dc_api_key_version,
+    google_secret_manager_secret_version.maps_api_key_version
+  ]
 }
 
 # Run the db init job on terraform apply to create tables
 resource "null_resource" "run_db_init" {
+  count = var.use_spanner ? 0 : 1
+
   depends_on = [
     google_cloud_run_v2_job.dc_data_job
   ]
@@ -326,7 +299,6 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
     }
   }
   depends_on = [
-    google_project_service.required_apis,
     null_resource.run_db_init
   ]
 }

@@ -10,6 +10,18 @@ variable "region" {
   default     = "us-central1"
 }
 
+variable "user_project_override" {
+  description = "Set to true to specify a quota / billing project with billing_project_id. Default: true."
+  type        = bool
+  default     = true
+}
+
+variable "billing_project_id" {
+  description = "If user_project_override is set to true, will use this billing project id. Default: null (will use var.project_id as the billing project)"
+  type        = string
+  default     = null
+}
+
 variable "deletion_protection" {
   description = "Enable deletion protection for resources (set to true for production)"
   type        = bool
@@ -93,7 +105,7 @@ variable "dcp_service_memory" {
 variable "dcp_service_min_instances" {
   description = "Minimum number of instances for the DCP service"
   type        = number
-  default     = 0
+  default     = 1
 }
 
 variable "dcp_service_max_instances" {
