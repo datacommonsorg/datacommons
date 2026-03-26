@@ -34,4 +34,3 @@ infra/dcp/.env
 
 *.pyc
 .venv/
-uv.lock

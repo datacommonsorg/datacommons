@@ -118,6 +118,9 @@ resource "google_apikeys_key" "maps_api_key" {
     api_targets {
       service = "maps-backend.googleapis.com"
     }
+    api_targets {
+      service = "places_backend"
+    }
   }
 }
 

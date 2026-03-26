@@ -12,8 +12,11 @@ dcp_create_spanner_instance = false
 
 # --- CDC Stack Variables (Legacy) ---
 # cdc_dc_api_key        = "your-dc-api-key"  # You can get this from https://apikeys.datacommons.org
-# cdc_maps_api_key      = "your-maps-api-key"
 
 # When deploying to a shared project, override this to avoid VPC Peering conflicts
 # Examples: "10.13.0.0/28", "10.14.0.0/28", "10.15.0.0/28"
 # cdc_vpc_connector_cidr = "10.13.0.0/28"
+
+# --- Billing Config ---
+# user_project_override = true
+# billing_project_id    = "your-billing-project-id"
