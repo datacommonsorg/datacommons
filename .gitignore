@@ -10,3 +10,27 @@ node_modules
 .ruff_cache
 .coverage
 htmlcov/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.log.*
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+_override.tf
+_override.tf.json
+.terraformrc
+terraform.rc
+tfplan
+infra/dcp/backend.tf
+.terraform.lock.hcl
+
+# Configuration
+infra/dcp/.env
+
+*.pyc
+.venv/
