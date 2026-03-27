@@ -30,19 +30,25 @@ This directory contains the Terraform configuration to deploy the Data Commons P
     terraform init
     ```
 
-2.  **Plan**:
+2.  **Update Image Tag (Optional)**:
+    If you want to deploy the latest version of the application code from Artifact Registry, update the variables by running:
+    ```bash
+    ./update_image_tag.sh
+    ```
+
+3.  **Plan**:
     Review the changes Terraform will make.
     ```bash
     terraform plan
     ```
 
-3.  **Apply**:
+4.  **Apply**:
     Provision the infrastructure.
     ```bash
     terraform apply
     ```
 
-4.  **Teardown**:
+5.  **Teardown**:
     Destroy all resources.
     ```bash
     terraform destroy

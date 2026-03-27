@@ -53,10 +53,6 @@ locals {
       value = "gs://${local.gcs_data_bucket_name}/${var.gcs_data_bucket_output_folder}"
     },
     {
-      name  = "FORCE_RESTART"
-      value = "${timestamp()}"
-    },
-    {
       name  = "REDIS_HOST"
       value = try(local.redis_instance.host, "")
     },
