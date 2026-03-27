@@ -79,19 +79,19 @@ resource "google_sql_user" "mysql_user" {
 
 # Optional Redis instance
 resource "google_redis_instance" "redis_instance" {
-  count              = var.enable_redis ? 1 : 0
-  name               = "${local.name_prefix}${var.redis_instance_name}"
-  memory_size_gb     = var.redis_memory_size_gb
-  tier               = var.redis_tier
-  region             = var.region
-  location_id        = var.redis_location_id
+  count                   = var.enable_redis ? 1 : 0
+  name                    = "${local.name_prefix}${var.redis_instance_name}"
+  memory_size_gb          = var.redis_memory_size_gb
+  tier                    = var.redis_tier
+  region                  = var.region
+  location_id             = var.redis_location_id
   alternative_location_id = var.redis_alternative_location_id
-  redis_version      = "REDIS_6_X"
-  display_name       = "Data Commons Redis Instance"
-  reserved_ip_range  = null
-  replica_count      = var.redis_replica_count
-  authorized_network = var.vpc_network_id
-  connect_mode       = "DIRECT_PEERING"
+  redis_version           = "REDIS_6_X"
+  display_name            = "Data Commons Redis Instance"
+  reserved_ip_range       = null
+  replica_count           = var.redis_replica_count
+  authorized_network      = var.vpc_network_id
+  connect_mode            = "DIRECT_PEERING"
 }
 
 # VPC Access Connector for private connections
@@ -188,8 +188,8 @@ resource "google_cloud_run_v2_job" "dc_data_job" {
         connector = google_vpc_access_connector.connector.id
         egress    = "PRIVATE_RANGES_ONLY"
       }
-      max_retries = 0
-      timeout     = var.dc_data_job_timeout
+      max_retries     = 0
+      timeout         = var.dc_data_job_timeout
       service_account = google_service_account.datacommons_service_account.email
     }
   }

@@ -2,7 +2,7 @@
 
 locals {
   # Data Commons Data Bucket
-  name_prefix = var.namespace != "" ? "${var.namespace}-" : ""
+  name_prefix          = var.namespace != "" ? "${var.namespace}-" : ""
   gcs_data_bucket_name = var.gcs_data_bucket_name != "" ? var.gcs_data_bucket_name : "${local.name_prefix}datacommons-data-${var.project_id}"
 
   # Use var.maps_api_key if set, otherwise use generated Maps API key
@@ -95,7 +95,7 @@ locals {
         }
       }
     }
-  ], var.use_spanner ? [] : [
+    ], var.use_spanner ? [] : [
     {
       name = "DB_PASS"
       value_source = {
