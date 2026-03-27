@@ -68,6 +68,7 @@ module "dcp" {
   service_max_instances    = var.dcp_service_max_instances
   service_concurrency      = var.dcp_service_concurrency
   service_timeout_seconds  = var.dcp_service_timeout_seconds
+  make_service_public      = var.make_services_public
   deletion_protection      = var.deletion_protection
 
   depends_on = [google_project_service.apis]
@@ -102,7 +103,7 @@ module "cdc" {
   dc_web_service_max_instance_count = var.cdc_web_service_max_instance_count
   dc_web_service_cpu            = var.cdc_web_service_cpu
   dc_web_service_memory         = var.cdc_web_service_memory
-  make_dc_web_service_public    = var.cdc_make_dc_web_service_public
+  make_dc_web_service_public    = var.make_services_public
   dc_data_job_image             = var.cdc_data_job_image
   dc_data_job_cpu               = var.cdc_data_job_cpu
   dc_data_job_memory            = var.cdc_data_job_memory

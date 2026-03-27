@@ -14,10 +14,16 @@
 
 # Custom Data Commons terraform resources
 
+# Generate a random suffix to prevent 7-day naming collisions on recreation
+resource "random_id" "mysql_suffix" {
+  count       = var.use_spanner ? 0 : 1
+  byte_length = 4
+}
+
 # Cloud SQL instance for Data Commons
 resource "google_sql_database_instance" "mysql_instance" {
   count            = var.use_spanner ? 0 : 1
-  name             = "${local.name_prefix}${var.mysql_instance_name}"
+  name             = "${local.name_prefix}${var.mysql_instance_name}-${random_id.mysql_suffix[0].hex}"
   database_version = var.mysql_database_version
   region           = var.region
 

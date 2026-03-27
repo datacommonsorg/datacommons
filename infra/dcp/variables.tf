@@ -28,6 +28,12 @@ variable "deletion_protection" {
   default     = false
 }
 
+variable "make_services_public" {
+  description = "Whether to allow unauthenticated invocations to the Cloud Run services in the DCP and CDC stacks"
+  type        = bool
+  default     = false
+}
+
 # --- Stack Toggles ---
 variable "enable_dcp" {
   description = "Enable the new Data Commons Platform stack"
@@ -125,6 +131,7 @@ variable "dcp_service_timeout_seconds" {
   type        = number
   default     = 300
 }
+
 
 variable "namespace" {
   description = "Global prefix for all resources"
@@ -258,11 +265,6 @@ variable "cdc_web_service_memory" {
   default     = "16G"
 }
 
-variable "cdc_make_dc_web_service_public" {
-  description = "CDC public access"
-  type        = bool
-  default     = true
-}
 
 variable "cdc_data_job_image" {
   description = "CDC data job image"
