@@ -187,6 +187,11 @@ variable "vpc_network_name" {
   default     = "default"
 }
 
+variable "vpc_network_id" {
+  description = "VPC network ID"
+  type        = string
+}
+
 variable "vpc_network_subnet_name" {
   description = "VPC network subnet name to use"
   type        = string
@@ -230,7 +235,7 @@ variable "redis_alternative_location_id" {
 }
 
 variable "redis_replica_count" {
-  description = "Redis reserved IP range"
+  description = "Number of Redis replicas"
   type        = number
   default     = 1
 }
@@ -238,7 +243,7 @@ variable "redis_replica_count" {
 variable "vpc_connector_cidr" {
   description = "CIDR range for the VPC Access Connector"
   type        = string
-  default     = "10.8.0.0/28"
+  default     = "10.13.0.0/28"
 }
 
 variable "deletion_protection" {

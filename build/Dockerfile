@@ -1,7 +1,7 @@
 FROM python:3.12-slim
 
-# Install uv.
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+# Install uv. Pinning version for reproducibility.
+COPY --from=ghcr.io/astral-sh/uv:0.9.10 /uv /bin/uv
 
 # Set working directory
 WORKDIR /app
@@ -12,14 +12,16 @@ COPY pyproject.toml uv.lock ./
 # Copy the package directories
 COPY packages/ ./packages/
 
-# Install the dependencies, strictly from the lockfile
-RUN uv sync --frozen --no-dev --no-install-project
-
-# Install the project itself
+# Install the dependencies and the project itself
+# uv sync --frozen installs everything from the lockfile.
 RUN uv sync --frozen --no-dev
 
 # Place the virtualenv in the PATH
 ENV PATH="/app/.venv/bin:$PATH"
+
+# Create a non-root user and switch to it for security
+RUN groupadd -r -g 1001 datacommons-runner && useradd -r -g 1001 -u 1001 datacommons-runner
+USER datacommons-runner
 
 # Expose the API port
 EXPOSE 5000

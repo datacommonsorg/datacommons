@@ -13,49 +13,53 @@ if [ ! -f terraform.tfvars ]; then
     echo "⚠️  Warning: No terraform.tfvars file found. You might want to copy terraform.tfvars.example to terraform.tfvars first."
 fi
 
-# Prompt for bucket name
-read -p "Enter the name of your GCS Terraform State Bucket: " BUCKET_NAME
+# Prompt whether to use remote state
+read -p "Do you want to configure remote state storage in GCS? (y/N): " USE_REMOTE_STATE
 
-if [ -z "$BUCKET_NAME" ]; then
-    echo "Error: Bucket name cannot be empty."
-    exit 1
-fi
+if [[ "$USE_REMOTE_STATE" =~ ^[Yy]$ ]]; then
+    # Prompt for bucket name
+    read -p "Enter the name of your GCS Terraform State Bucket: " BUCKET_NAME
 
-# Prioritize project_id from terraform.tfvars if it exists
-if [ -f terraform.tfvars ]; then
-    PROJECT_ID=$(grep "^project_id" terraform.tfvars | awk -F'=' '{print $2}' | tr -d ' "')
-fi
+    if [ -z "$BUCKET_NAME" ]; then
+        echo "Error: Bucket name cannot be empty."
+        exit 1
+    fi
 
-# Fallback to .env (for backward compatibility during transition)
-if [ -z "$PROJECT_ID" ] && [ -f .env ]; then
-    PROJECT_ID=$(grep "^TF_VAR_project_id" .env | awk -F'=' '{print $2}' | tr -d ' "')
-fi
+    # Prioritize project_id from terraform.tfvars if it exists
+    if [ -f terraform.tfvars ]; then
+        PROJECT_ID=$(grep "^project_id" terraform.tfvars | awk -F'=' '{print $2}' | tr -d ' "')
+    fi
 
-# Fallback to GOOGLE_CLOUD_PROJECT
-if [ -z "$PROJECT_ID" ] && [ -n "$GOOGLE_CLOUD_PROJECT" ]; then
-    PROJECT_ID="$GOOGLE_CLOUD_PROJECT"
-fi
+    # Fallback to .env (for backward compatibility during transition)
+    if [ -z "$PROJECT_ID" ] && [ -f .env ]; then
+        PROJECT_ID=$(grep "^TF_VAR_project_id" .env | awk -F'=' '{print $2}' | tr -d ' "')
+    fi
 
-# Final prompting if still missing
-if [ -z "$PROJECT_ID" ]; then
-    read -p "Enter your Google Cloud Project ID: " PROJECT_ID
-fi
+    # Fallback to GOOGLE_CLOUD_PROJECT
+    if [ -z "$PROJECT_ID" ] && [ -n "$GOOGLE_CLOUD_PROJECT" ]; then
+        PROJECT_ID="$GOOGLE_CLOUD_PROJECT"
+    fi
 
-# Create the bucket if it doesn't exist
-echo "Checking bucket gs://${BUCKET_NAME}..."
-if ! gcloud storage buckets describe "gs://${BUCKET_NAME}" --project="${PROJECT_ID}" &>/dev/null; then
-    echo "Creating bucket gs://${BUCKET_NAME} in ${PROJECT_ID}..."
-    gcloud storage buckets create "gs://${BUCKET_NAME}" --project="${PROJECT_ID}" --location=us --uniform-bucket-level-access
-    
-    echo "Enabling versioning on gs://${BUCKET_NAME}..."
-    gcloud storage buckets update "gs://${BUCKET_NAME}" --versioning
-else
-    echo "Bucket gs://${BUCKET_NAME} already exists."
-fi
+    # Final prompting if still missing
+    if [ -z "$PROJECT_ID" ]; then
+        read -p "Enter your Google Cloud Project ID: " PROJECT_ID
+    fi
 
-# Generate the backend.tf file dynamically
-echo "Generating backend.tf..."
-cat <<EOF > backend.tf
+    # Create the bucket if it doesn't exist
+    echo "Checking bucket gs://${BUCKET_NAME}..."
+    if ! gcloud storage buckets describe "gs://${BUCKET_NAME}" --project="${PROJECT_ID}" &>/dev/null; then
+        echo "Creating bucket gs://${BUCKET_NAME} in ${PROJECT_ID}..."
+        gcloud storage buckets create "gs://${BUCKET_NAME}" --project="${PROJECT_ID}" --location=us --uniform-bucket-level-access
+        
+        echo "Enabling versioning on gs://${BUCKET_NAME}..."
+        gcloud storage buckets update "gs://${BUCKET_NAME}" --versioning
+    else
+        echo "Bucket gs://${BUCKET_NAME} already exists."
+    fi
+
+    # Generate the backend.tf file dynamically
+    echo "Generating backend.tf..."
+    cat <<EOF > backend.tf
 terraform {
   backend "gcs" {
     bucket = "${BUCKET_NAME}"
@@ -64,7 +68,14 @@ terraform {
 }
 EOF
 
-echo "✅ backend.tf created successfully!"
+    echo "✅ backend.tf created successfully!"
+else
+    echo "Skipping remote state setup. Local state will be used."
+    if [ -f backend.tf ]; then
+        echo "Removing existing backend.tf..."
+        rm backend.tf
+    fi
+fi
 echo "Now running terraform init..."
 terraform init
 
