@@ -81,8 +81,8 @@ echo "📝 Updating $TFVARS_FILE..."
 
 # Check if dcp_image_tag already exists
 if grep -q "^dcp_image_tag" "$TFVARS_FILE"; then
-    # Use sed to replace the line. (Special syntax for macOS)
-    sed -i '' "s/^dcp_image_tag.*/dcp_image_tag = \"$TAG\"/" "$TFVARS_FILE"
+    # Replace the line using a temporary file for cross-platform compatibility (macOS/Linux)
+    sed "s/^dcp_image_tag.*/dcp_image_tag = \"$TAG\"/" "$TFVARS_FILE" > "${TFVARS_FILE}.tmp" && mv "${TFVARS_FILE}.tmp" "$TFVARS_FILE"
 else
     # Append to end of file if it doesn't exist
     echo "" >> "$TFVARS_FILE"
