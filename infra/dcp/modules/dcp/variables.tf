@@ -87,3 +87,8 @@ variable "deletion_protection" {
   description = "Enable deletion protection"
   type        = bool
 }
+
+variable "make_service_public" {
+  description = "Whether to allow unauthenticated invocations to the service"
+  type        = bool
+}
