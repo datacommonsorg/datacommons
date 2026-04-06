@@ -28,15 +28,18 @@ class ObservationModel(Base):
 
     __tablename__ = OBSERVATION_TABLE_NAME
 
-    variable_measured = sa.Column(String(1024), nullable=False, primary_key=True)
     observation_about = sa.Column(String(1024), nullable=False, primary_key=True)
-    import_name = sa.Column(String(1024), nullable=False, primary_key=True)
+    variable_measured = sa.Column(String(1024), nullable=False, primary_key=True)
+    facet_id = sa.Column(String(1024), nullable=False, primary_key=True)
+    
     observation_period = sa.Column(String(1024), nullable=True)
     measurement_method = sa.Column(String(1024), nullable=True)
     unit = sa.Column(String(1024), nullable=True)
     scaling_factor = sa.Column(String(1024), nullable=True)
     observations = sa.Column(sa.LargeBinary, nullable=False)
+    import_name = sa.Column(String(1024), nullable=True)
     provenance_url = sa.Column(String(1024), nullable=False)
+    is_dc_aggregate = sa.Column(sa.Boolean, nullable=True)
 
     def __repr__(self):
         return f"<ObservationModel(variable_measured='{self.variable_measured}', observation_about='{self.observation_about}', import_name='{self.import_name}')>"

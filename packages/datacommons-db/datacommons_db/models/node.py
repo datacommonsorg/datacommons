@@ -29,6 +29,8 @@ class NodeModel(Base):
 
     __tablename__ = NODE_TABLE_NAME
     subject_id = sa.Column(String(1024), primary_key=True, autoincrement=False)
+    value = sa.Column(Text(), nullable=True)
+    bytes = sa.Column(sa.LargeBinary(), nullable=True)
     name = sa.Column(Text(), nullable=True)
     types = sa.Column(ARRAY(String(1024)), nullable=True)
 

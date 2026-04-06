@@ -18,6 +18,9 @@ from sqlalchemy import Engine, create_engine, inspect
 from sqlalchemy.orm import Session, sessionmaker
 
 from datacommons_db.models.base import Base
+from datacommons_db.models.edge import EdgeModel
+from datacommons_db.models.node import NodeModel
+from datacommons_db.models.observation import ObservationModel
 
 logger = logging.getLogger(__name__)
 
