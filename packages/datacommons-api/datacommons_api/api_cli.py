@@ -56,7 +56,6 @@ def start(
         gcp_spanner_database_name=gcp_spanner_database_name,
     )
 
-
     logger.info("Starting API server...")
     uvicorn.run(
         app,

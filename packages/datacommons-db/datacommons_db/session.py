@@ -22,8 +22,6 @@ from datacommons_db.models.base import Base
 logger = logging.getLogger(__name__)
 
 
-
-
 def get_engine(project_id: str, instance_id: str, database_name: str) -> Engine:
     """Create and return a SQLAlchemy engine for Cloud Spanner.
 
@@ -54,6 +52,3 @@ def get_session(project_id: str, instance_id: str, database_name: str) -> Sessio
     engine = get_engine(project_id, instance_id, database_name)
     session = sessionmaker(bind=engine)
     return session()
-
-
-
