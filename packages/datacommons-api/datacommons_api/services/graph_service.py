@@ -202,17 +202,8 @@ def node_model_to_graph_node(node: NodeModel) -> GraphNode:
 
         property_value = {}
 
-        if edge.object_bytes:
-            # If the edge has bytes, decode them and add them to the property value
-            property_value["@value"] = base64.b64decode(edge.object_bytes).decode(
-                "utf-8"
-            )
-        elif edge.object_value:
-            # If the edge has a literal value, add it to the property value
-            property_value["@value"] = edge.object_value
-        else:
-            # If the edge has an object id, add it to the property value
-            property_value["@id"] = edge.object_id
+        # All edges are object IDs
+        property_value["@id"] = edge.object_id
 
         # If the edge has provenance, add it to the property value
         if edge.provenance:
