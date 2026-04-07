@@ -18,9 +18,6 @@ from sqlalchemy import Engine, create_engine, inspect
 from sqlalchemy.orm import Session, sessionmaker
 
 from datacommons_db.models.base import Base
-from datacommons_db.models.edge import EdgeModel
-from datacommons_db.models.node import NodeModel
-from datacommons_db.models.observation import ObservationModel
 
 logger = logging.getLogger(__name__)
 
@@ -85,5 +82,9 @@ def initialize_db(project_id: str, instance_id: str, database_name: str):
     # Only create tables if database is completely empty
     if not existing_tables or missing_tables:
         # Import all models so they are properly initialized with the call to Base.metadata.create_all
+        from datacommons_db.models.edge import EdgeModel
+        from datacommons_db.models.node import NodeModel
+        from datacommons_db.models.observation import ObservationModel
+
         logger.info("Creating tables %s in database %s", REQUIRED_TABLES, database_name)
         Base.metadata.create_all(engine)
