@@ -92,3 +92,23 @@ variable "make_service_public" {
   description = "Whether to allow unauthenticated invocations to the service"
   type        = bool
 }
+
+# --- Ingestion Pipeline Config ---
+variable "deploy_data_ingestion_workflow" {
+  description = "Deploy the complete end-to-end Data Commons Ingestion workflow stack"
+  type        = bool
+}
+
+
+
+variable "create_ingestion_bucket" {
+  description = "Set to true to automatically provision a new GCS bucket for staging customer dataset files"
+  type        = bool
+  default     = true
+}
+
+variable "external_ingestion_bucket_name" {
+  description = "If create_ingestion_bucket is false, supply the exact external GCS bucket name to attach permissions to"
+  type        = string
+  default     = ""
+}

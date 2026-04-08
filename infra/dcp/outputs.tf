@@ -15,3 +15,8 @@ output "cdc_service_url" {
 output "cdc_mysql_instance_connection_name" {
   value = var.enable_cdc ? module.cdc[0].mysql_instance_connection_name : null
 }
+
+output "dcp_ingestion_orchestrator_id" {
+  description = "ID of the ingestion Cloud Workflows orchestrator"
+  value       = var.enable_dcp && var.dcp_deploy_data_ingestion_workflow ? module.dcp[0].ingestion_orchestrator_id : null
+}

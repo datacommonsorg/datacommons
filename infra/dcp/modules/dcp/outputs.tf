@@ -13,3 +13,8 @@ output "spanner_instance_id" {
 output "spanner_database_id" {
   value = var.create_spanner_db ? (var.spanner_database_id != "" ? "${local.name_prefix}${var.spanner_database_id}" : "${local.name_prefix}dcp-db") : var.spanner_database_id
 }
+
+output "ingestion_orchestrator_id" {
+  description = "Fully qualified ID of the Cloud Workflows ingestion orchestrator"
+  value       = var.deploy_data_ingestion_workflow ? google_workflows_workflow.ingestion_orchestrator[0].id : null
+}

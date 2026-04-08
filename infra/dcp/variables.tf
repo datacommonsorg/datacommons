@@ -355,3 +355,12 @@ variable "cdc_redis_replica_count" {
   type        = number
   default     = 1
 }
+
+# --- Ingestion Pipeline Config ---
+variable "dcp_deploy_data_ingestion_workflow" {
+  description = "Deploy the complete end-to-end Data Commons Ingestion workflow stack"
+  type        = bool
+  default     = false
+}
+
+

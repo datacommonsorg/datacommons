@@ -18,6 +18,13 @@ provider "google" {
   billing_project       = var.billing_project_id != null ? var.billing_project_id : var.project_id
 }
 
+provider "google-beta" {
+  project               = var.project_id
+  region                = var.region
+  user_project_override = var.user_project_override
+  billing_project       = var.billing_project_id != null ? var.billing_project_id : var.project_id
+}
+
 # Enable required APIs for both stacks
 resource "google_project_service" "apis" {
   for_each = toset(concat([
@@ -30,7 +37,10 @@ resource "google_project_service" "apis" {
     "vpcaccess.googleapis.com",
     "artifactregistry.googleapis.com",
     "compute.googleapis.com"
-  ], var.enable_dcp ? ["spanner.googleapis.com"] : []))
+  ], var.enable_dcp ? ["spanner.googleapis.com"] : [], var.dcp_deploy_data_ingestion_workflow ? [
+    "workflows.googleapis.com",
+    "workflowexecutions.googleapis.com"
+  ] : []))
 
   service            = each.key
   disable_on_destroy = false
@@ -70,6 +80,9 @@ module "dcp" {
   service_timeout_seconds  = var.dcp_service_timeout_seconds
   make_service_public      = var.make_services_public
   deletion_protection      = var.deletion_protection
+
+  deploy_data_ingestion_workflow = var.dcp_deploy_data_ingestion_workflow
+
 
   depends_on = [google_project_service.apis]
 }

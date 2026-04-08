@@ -21,3 +21,67 @@ resource "google_cloud_run_service_iam_binding" "public_invoker" {
     "allUsers"
   ]
 }
+
+# Dedicated Service Account for running the Dataflow Ingestion pipeline
+resource "google_service_account" "dcp_ingestion_runner" {
+  count        = var.deploy_data_ingestion_workflow ? 1 : 0
+  account_id   = "${local.name_prefix}dcp-ingestion-sa"
+  display_name = "Data Commons Platform Ingestion Runner"
+}
+
+# Grant Spanner Database User access to the Ingestion runner
+resource "google_project_iam_member" "ingestion_spanner_user" {
+  count = var.deploy_data_ingestion_workflow ? 1 : 0
+  project = var.project_id
+  role    = "roles/spanner.databaseUser"
+  member  = "serviceAccount:${google_service_account.dcp_ingestion_runner[0].email}"
+}
+
+# Grant Dataflow orchestration and Storage permissions exclusively to the new Ingestion runner
+resource "google_project_iam_member" "dataflow_admin" {
+  count = var.deploy_data_ingestion_workflow ? 1 : 0
+  project = var.project_id
+  role    = "roles/dataflow.admin"
+  member  = "serviceAccount:${google_service_account.dcp_ingestion_runner[0].email}"
+}
+
+resource "google_project_iam_member" "project_viewer" {
+  count = var.deploy_data_ingestion_workflow ? 1 : 0
+  project = var.project_id
+  role    = "roles/viewer"
+  member  = "serviceAccount:${google_service_account.dcp_ingestion_runner[0].email}"
+}
+
+resource "google_project_iam_member" "storage_admin" {
+  count = var.deploy_data_ingestion_workflow ? 1 : 0
+  project = var.project_id
+  role    = "roles/storage.objectAdmin"
+  member  = "serviceAccount:${google_service_account.dcp_ingestion_runner[0].email}"
+}
+
+resource "google_project_iam_member" "service_account_user" {
+  count = var.deploy_data_ingestion_workflow ? 1 : 0
+  project = var.project_id
+  role    = "roles/iam.serviceAccountUser"
+  member  = "serviceAccount:${google_service_account.dcp_ingestion_runner[0].email}"
+}
+
+# Fetch project number to reference the Workflows background Service Agent
+data "google_project" "project" {
+  project_id = var.project_id
+}
+
+resource "google_service_account_iam_member" "workflows_token_creator" {
+  count              = var.deploy_data_ingestion_workflow ? 1 : 0
+  service_account_id = google_service_account.dcp_ingestion_runner[0].name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "serviceAccount:service-${data.google_project.project.number}@gcp-sa-workflows.iam.gserviceaccount.com"
+}
+
+# Bind Object Admin access to either the newly created staging bucket or an explicitly reused external one
+resource "google_storage_bucket_iam_member" "dynamic_ingestion_bucket_access" {
+  count  = var.deploy_data_ingestion_workflow ? 1 : 0
+  bucket = var.create_ingestion_bucket ? google_storage_bucket.ingestion_bucket[0].name : var.external_ingestion_bucket_name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.dcp_ingestion_runner[0].email}"
+}
