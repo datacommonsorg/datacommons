@@ -36,9 +36,9 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
 }
 
 # Automatically provision a GCS bucket for the customer's custom graph ingestion files, if enabled
-resource "google_storage_bucket" "ingestion_bucket" {
+resource "google_storage_bucket" "data_ingestion_bucket" {
   count                       = var.deploy_data_ingestion_workflow && var.create_ingestion_bucket ? 1 : 0
-  name                        = "${var.namespace}-ingestion-staging-${var.project_id}"
+  name                        = "${var.namespace}-ingestion-bucket-${var.project_id}"
   location                    = var.region
   uniform_bucket_level_access = true
   force_destroy               = true

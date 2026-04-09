@@ -81,7 +81,7 @@ resource "google_service_account_iam_member" "workflows_token_creator" {
 # Bind Object Admin access to either the newly created staging bucket or an explicitly reused external one
 resource "google_storage_bucket_iam_member" "dynamic_ingestion_bucket_access" {
   count  = var.deploy_data_ingestion_workflow ? 1 : 0
-  bucket = var.create_ingestion_bucket ? google_storage_bucket.ingestion_bucket[0].name : var.external_ingestion_bucket_name
+  bucket = var.create_ingestion_bucket ? google_storage_bucket.data_ingestion_bucket[0].name : var.external_ingestion_bucket_name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${google_service_account.dcp_ingestion_runner[0].email}"
 }
