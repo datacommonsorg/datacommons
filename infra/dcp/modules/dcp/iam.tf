@@ -31,7 +31,7 @@ resource "google_service_account" "dcp_ingestion_runner" {
 
 # Grant Spanner Database User access to the Ingestion runner
 resource "google_project_iam_member" "ingestion_spanner_user" {
-  count = var.deploy_data_ingestion_workflow ? 1 : 0
+  count   = var.deploy_data_ingestion_workflow ? 1 : 0
   project = var.project_id
   role    = "roles/spanner.databaseUser"
   member  = "serviceAccount:${google_service_account.dcp_ingestion_runner[0].email}"
@@ -39,20 +39,11 @@ resource "google_project_iam_member" "ingestion_spanner_user" {
 
 # Grant Dataflow orchestration and Storage permissions exclusively to the new Ingestion runner
 resource "google_project_iam_member" "dataflow_admin" {
-  count = var.deploy_data_ingestion_workflow ? 1 : 0
+  count   = var.deploy_data_ingestion_workflow ? 1 : 0
   project = var.project_id
   role    = "roles/dataflow.admin"
   member  = "serviceAccount:${google_service_account.dcp_ingestion_runner[0].email}"
 }
-
-resource "google_project_iam_member" "project_viewer" {
-  count = var.deploy_data_ingestion_workflow ? 1 : 0
-  project = var.project_id
-  role    = "roles/viewer"
-  member  = "serviceAccount:${google_service_account.dcp_ingestion_runner[0].email}"
-}
-
-
 
 resource "google_service_account_iam_member" "service_account_user" {
   count              = var.deploy_data_ingestion_workflow ? 1 : 0
@@ -73,7 +64,7 @@ resource "google_service_account_iam_member" "workflows_token_creator" {
   member             = "serviceAccount:service-${data.google_project.project.number}@gcp-sa-workflows.iam.gserviceaccount.com"
 }
 
-# Bind Object Admin access to either the newly created staging bucket or an explicitly reused external one
+# Bind Object Admin access to either the newly created bucket or an explicitly reused external one
 resource "google_storage_bucket_iam_member" "dynamic_ingestion_bucket_access" {
   count  = var.deploy_data_ingestion_workflow ? 1 : 0
   bucket = var.create_ingestion_bucket ? google_storage_bucket.data_ingestion_bucket[0].name : var.external_ingestion_bucket_name

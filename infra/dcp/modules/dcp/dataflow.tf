@@ -1,8 +1,8 @@
 resource "google_workflows_workflow" "ingestion_orchestrator" {
-  count           = var.deploy_data_ingestion_workflow ? 1 : 0
-  name            = "${var.namespace}-ingestion-orchestrator"
-  region          = var.region
-  description     = "Triggers the Dataflow Flex Template Graph Ingestion Pipeline with runtime parameters"
+  count               = var.deploy_data_ingestion_workflow ? 1 : 0
+  name                = "${var.namespace}-ingestion-orchestrator"
+  region              = var.region
+  description         = "Triggers the Dataflow Flex Template Graph Ingestion Pipeline with runtime parameters"
   service_account     = google_service_account.dcp_ingestion_runner[0].id
   deletion_protection = var.deletion_protection
 

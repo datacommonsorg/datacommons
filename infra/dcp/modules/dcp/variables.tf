@@ -102,13 +102,13 @@ variable "deploy_data_ingestion_workflow" {
 
 
 variable "create_ingestion_bucket" {
-  description = "Set to true to automatically provision a new GCS bucket for staging customer dataset files"
+  description = "Controls whether Terraform automatically provisions a dedicated staging GCS bucket for uploading graph dataset (.mcf) files"
   type        = bool
   default     = true
 }
 
 variable "external_ingestion_bucket_name" {
-  description = "If create_ingestion_bucket is false, supply the exact external GCS bucket name to attach permissions to"
+  description = "Specifies an existing, external GCS bucket name to use for datasets if automatic provisioning is disabled"
   type        = string
   default     = ""
 }

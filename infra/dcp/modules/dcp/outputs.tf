@@ -19,6 +19,6 @@ output "ingestion_orchestrator_id" {
   value       = var.deploy_data_ingestion_workflow ? google_workflows_workflow.ingestion_orchestrator[0].id : null
 }
 output "data_ingestion_bucket_url" {
-  description = "GCS path to the dynamically provisioned staging bucket for customer custom MCF datasets"
+  description = "GCS path to the dynamically provisioned bucket for customer custom MCF datasets"
   value       = var.deploy_data_ingestion_workflow && var.create_ingestion_bucket ? google_storage_bucket.data_ingestion_bucket[0].url : null
 }
