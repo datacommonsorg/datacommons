@@ -4,7 +4,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
   region          = var.region
   description     = "Triggers the Dataflow Flex Template Graph Ingestion Pipeline with runtime parameters"
   service_account     = google_service_account.dcp_ingestion_runner[0].id
-  deletion_protection = false
+  deletion_protection = var.deletion_protection
 
   source_contents = <<-EOF
   main:
@@ -41,5 +41,5 @@ resource "google_storage_bucket" "data_ingestion_bucket" {
   name                        = "${var.namespace}-ingestion-bucket-${var.project_id}"
   location                    = var.region
   uniform_bucket_level_access = true
-  force_destroy               = true
+  force_destroy               = !var.deletion_protection
 }

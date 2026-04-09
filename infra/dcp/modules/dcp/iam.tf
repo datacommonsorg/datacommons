@@ -52,18 +52,13 @@ resource "google_project_iam_member" "project_viewer" {
   member  = "serviceAccount:${google_service_account.dcp_ingestion_runner[0].email}"
 }
 
-resource "google_project_iam_member" "storage_admin" {
-  count = var.deploy_data_ingestion_workflow ? 1 : 0
-  project = var.project_id
-  role    = "roles/storage.objectAdmin"
-  member  = "serviceAccount:${google_service_account.dcp_ingestion_runner[0].email}"
-}
 
-resource "google_project_iam_member" "service_account_user" {
-  count = var.deploy_data_ingestion_workflow ? 1 : 0
-  project = var.project_id
-  role    = "roles/iam.serviceAccountUser"
-  member  = "serviceAccount:${google_service_account.dcp_ingestion_runner[0].email}"
+
+resource "google_service_account_iam_member" "service_account_user" {
+  count              = var.deploy_data_ingestion_workflow ? 1 : 0
+  service_account_id = google_service_account.dcp_ingestion_runner[0].name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.dcp_ingestion_runner[0].email}"
 }
 
 # Fetch project number to reference the Workflows background Service Agent
