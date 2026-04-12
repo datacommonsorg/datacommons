@@ -14,8 +14,12 @@
 
 import os
 import sys
+from dotenv import load_dotenv
 
 from datacommons_api.core.logging import get_logger
+
+# Load environment variables from .env file
+load_dotenv()
 
 logger = get_logger(__name__)
 

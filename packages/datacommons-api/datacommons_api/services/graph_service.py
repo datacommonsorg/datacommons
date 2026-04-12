@@ -13,19 +13,27 @@
 # limitations under the License.
 
 # Standard library imports
+import hashlib
 import base64
 import logging
 import traceback
+
+from typing import Any, Union, List, Optional, Tuple
+from sqlalchemy import text
+from sqlalchemy.orm import Session, joinedload
 from google.cloud import spanner
 from google.cloud.spanner_v1 import database
-from sqlalchemy import text
+from datacommons_db.models.node import NodeRecord
+from datacommons_db.models.edge import EdgeRecord
+from datacommons_schema.models.jsonld import JSONLDDocument, GraphNode
+
+from sqlalchemy import text, exc
 from sqlalchemy.orm import Session, joinedload
 
 from datacommons_api.core.config import get_config
 from datacommons_api.core.constants import DEFAULT_NODE_FETCH_LIMIT
-from datacommons_db.models.edge import EdgeModel, EDGE_TABLE_NAME
-from datacommons_db.models.node import NodeModel, NODE_TABLE_NAME
-from datacommons_db.models.edge import OBJECT_VALUE_MAX_LENGTH
+from datacommons_db.models.edge import EdgeRecord, EDGE_TABLE_NAME
+from datacommons_db.models.node import NodeRecord, NODE_TABLE_NAME
 from datacommons_schema.models.jsonld import (
     GraphNode,
     GraphNodePropertyValue,
@@ -56,7 +64,7 @@ BASE_NAMESPACES = {
 }
 
 NAMESPACES = {
-    "dc": "https://datacommons.org/",
+    "dc": "https://datacommons.org/browser/",
     "schema": "https://schema.org/",
 }
 
@@ -64,462 +72,683 @@ LOCAL_NAMESPACE_NAME = "local"
 LOCAL_NAMESPACE_URL = f"http://localhost:5000/schema/{LOCAL_NAMESPACE_NAME}/"
 
 
-def create_node_model(graph_node: GraphNode) -> NodeModel:
-    """
-    Create a NodeModel instance from a GraphNode.
+# Threshold for Spanner STRING columns (10MB)
+# Payloads larger than this or binary payloads are stored in the 'bytes' column.
+VALUE_COLUMN_MAX_SIZE_BYTES = 10 * 1024 * 1024
 
-    Args:
-      graph_node: The GraphNode to convert
+DEFAULT_PROVENANCE_ID = "system:unknown_provenance"
+
+# --- 1. DATA ABSTRACTION & UTILITIES ---
+
+# Combine all known namespaces for lookup
+ALL_NAMESPACES = {**BASE_NAMESPACES, **NAMESPACES}
+
+
+def normalize_graph_id(
+    identifier: str, document_context: Optional[dict] = None
+) -> tuple[str, bool]:
+    """
+    Normalizes an ID and detects if it is a remote node.
+    - Converts full URIs to shortform CURIEs (http://schema.org/Person -> schema:Person).
+    - Preserves already-shortform remote IDs (schema:Person -> schema:Person).
+    - Strips prefixes from local nodes.
 
     Returns:
-      A NodeModel instance
+        Tuple of (normalized_id: str, is_remote: bool)
     """
-    types = graph_node.type
-    if not isinstance(types, list):
-        types = [types]
-    types = [t for t in types if t is not None]
+    if not identifier:
+        return identifier, False
 
-    # Remove all CURIE namespaces before storing the node id
-    subject_id = strip_namespace(graph_node.id)
-    types = [strip_namespace(t) for t in types]
-    return NodeModel(
+    # 1. Map URIs to prefixes so custom contexts can override default prefixes
+    uri_to_prefix = {uri: prefix for prefix, uri in ALL_NAMESPACES.items()}
+    known_prefixes = set(ALL_NAMESPACES.keys())
+
+    if document_context:
+        for prefix, uri in document_context.items():
+            # Skip JSON-LD keywords like @vocab, @version, and ensure URI is a string
+            if not prefix.startswith("@") and isinstance(uri, str):
+                uri_to_prefix[uri] = prefix
+                known_prefixes.add(prefix)
+
+    # 2. Check if it's already a known shortform (e.g., "schema:Person")
+    for prefix in known_prefixes:
+        if identifier.startswith(f"{prefix}:"):
+            return identifier, True
+
+    # 3. Check if it's a full URI (e.g., "http://schema.org/Person")
+    # Sort URIs by length descending to match more specific namespaces first
+    sorted_uris = sorted(uri_to_prefix.items(), key=lambda x: len(x[0]), reverse=True)
+
+    for uri, prefix in sorted_uris:
+        if identifier.startswith(uri):
+            # Convert full URI to shortform!
+            shortform = identifier.replace(uri, f"{prefix}:", 1)
+            return shortform, True
+
+        # Fallback to allow http:// prefixes for https:// vocabularies
+        if uri.startswith("https://"):
+            http_uri = "http://" + uri[8:]
+            if identifier.startswith(http_uri):
+                shortform = identifier.replace(http_uri, f"{prefix}:", 1)
+                return shortform, True
+
+    # 3. Check if it's a generated literal ID (do not strip these)
+    if identifier.startswith("l/"):
+        return identifier, False
+
+    # 4. Otherwise, it is a local node. Strip any local prefixes like "dcid:"
+    return identifier.split(":")[-1], False
+
+
+def coerce_node_record_value(content: Any) -> dict[str, Any]:
+    """
+    Coerces input content into the appropriate storage columns for a NodeRecord.
+
+    Used when converting GraphNodes into NodeRecords.
+
+    Logic:
+    - If str and < 10MB: store in 'value' (STRING).
+    - If bytes or > 10MB: store in 'bytes' (BYTES).
+    - Unused column is set to None (SQL NULL) for storage efficiency.
+    """
+    if content is None:
+        return {"value": "", "bytes": b""}
+
+    if isinstance(content, bytes):
+        return {"value": "", "bytes": content}
+
+    # Convert primitives (int, bool, float) to string for literal storage
+    str_val = str(content)
+    encoded_val = str_val.encode("utf-8")
+
+    if len(encoded_val) < VALUE_COLUMN_MAX_SIZE_BYTES:
+        return {"value": str_val, "bytes": b""}
+
+    return {"value": "", "bytes": encoded_val}
+
+
+def get_value_from_node_record(record: Any) -> Union[str, None]:
+    """
+    Retrieves the logical value from a NodeRecord, abstracting the storage columns.
+
+    Used on conversion from NodeRecord to GraphNode.
+
+    Checks the 'bytes' column first as it handles larger/binary content.
+    Decodes the bytes to a UTF-8 string before returning.
+    """
+    if hasattr(record, "bytes") and record.bytes:
+        return record.bytes.decode("utf-8", errors="ignore")
+
+    return getattr(record, "value", None)
+
+
+def generate_literal_id(content: Any) -> str:
+    """
+    Generates a deterministic ID for a literal node based on its content.
+    Used to de-duplicate literals (e.g., the string "USA" always maps to one ID).
+    """
+    if content is None:
+        content = ""
+
+    if isinstance(content, bytes):
+        raw_bytes = content
+    else:
+        raw_bytes = str(content).encode("utf-8")
+
+    m = hashlib.md5()
+    m.update(raw_bytes)
+    return f"l/{m.hexdigest()}"
+
+
+# --- 2. INGESTION LOGIC (Transforming GraphNodes to DB NodeRecords) ---
+
+
+def create_node_record(
+    graph_node: GraphNode, context: Optional[dict] = None
+) -> NodeRecord:
+    """
+    Maps a high-level GraphNode to a physical NodeRecord.
+    Ensures Go-compatible defaults (empty strings/lists instead of NULLs).
+    """
+    # Use getattr for resilience against dynamic Pydantic attributes
+    # Pass context to normalizer
+    subject_id = normalize_graph_id(getattr(graph_node, "id", None), context)[0]
+    name = getattr(graph_node, "name", "") or ""
+
+    raw_type = getattr(graph_node, "type", [])
+    if isinstance(raw_type, list):
+        types = raw_type
+    elif raw_type:
+        types = [raw_type]
+    else:
+        types = []
+
+    content_data = coerce_node_record_value(getattr(graph_node, "value", None))
+
+    return NodeRecord(
         subject_id=subject_id,
-        types=types,
+        name=name or "",
+        # Pass context to normalizer
+        types=[normalize_graph_id(t, context)[0] for t in types if t is not None],
+        value=content_data["value"],
+        bytes=content_data["bytes"],
     )
 
 
-def strip_namespace(id: str) -> str:
+def create_edge_record(
+    subject_id: str, predicate: str, object_id: str, provenance: Optional[str] = None
+) -> EdgeRecord:
     """
-    Strip all CURIE namespaces from an id.
-    """
-    return id.split(":")[-1]
+    Creates an EdgeRecord representing a pure relational pointer in the database.
 
-
-def create_edge_model(
-    subject_id: str,
-    predicate: str,
-    object_id: str | None = None,
-    object_value: str | None = None,
-    provenance: str | None = None,
-) -> EdgeModel:
-    """
-    Create an EdgeModel instance from edge data.
+    IMPORTANT: This is a "dumb" factory. All ID parameters (subject_id, predicate,
+    object_id, provenance) MUST be fully normalized (e.g., reduced to their CURIE
+    shortforms) prior to calling this function.
 
     Args:
-      subject_id: The ID of the source node
-      predicate: The edge predicate
-      object_id: The ID of the target node
-      object_value: The edge value
-        - A string literal
-        - A GraphNode
-      provenance: The ID of a node that is the provenance of the edge
-        TODO: Add an example of a provenance node
+        subject_id: The normalized ID of the source node.
+        predicate: The normalized edge predicate (e.g., 'schema:knows').
+        object_id: The normalized target ID (points to an entity or a synthesized literal).
+        provenance: The normalized ID of the provenance node, if any.
 
     Returns:
-      An EdgeModel instance
+        An instantiated EdgeRecord.
+
+    Raises:
+        GraphServiceError: If the object_id is missing or empty.
     """
-    # Handle lists of values by creating multiple edges
-    edge = EdgeModel(
-        object_id=strip_namespace(object_id),
-        predicate=strip_namespace(predicate),
-        subject_id=strip_namespace(subject_id),
+    if not object_id:
+        raise GraphServiceError(
+            f"Missing object_id for edge {subject_id} -> {predicate}."
+        )
+
+    return EdgeRecord(
+        subject_id=subject_id,
+        predicate=predicate,
+        object_id=object_id,
+        provenance=provenance or "",
     )
-    if provenance:
-        edge.provenance = strip_namespace(provenance)
-    if object_value:
-        edge.object_value = strip_namespace(object_value) if object_id else object_value
-    if object_value and not object_id:
-        # If the edge value is a string, use the subject id as the object id
-        edge.object_id = strip_namespace(subject_id)
-    if not object_id and not object_value:
-        message = f"Missing object_id or object_value for edge {subject_id} {predicate}"
-        raise GraphServiceError(message)
-    return edge
 
 
-def extract_edges_from_node(graph_node: GraphNode) -> list[EdgeModel]:
+from typing import Tuple, List
+
+
+def extract_edges_from_graph_node(
+    graph_node: GraphNode, context: Optional[dict] = None
+) -> Tuple[List[EdgeRecord], List[NodeRecord]]:
     """
-    Extract EdgeModel instances from a GraphNode's properties.
+    Traverses a JSON-LD GraphNode to extract its outgoing edges and synthesizes
+    required auxiliary nodes (Literal Nodes and External Proxy Nodes).
+
+    Architecture Note:
+    To maintain strict relational integrity in Spanner, every ID referenced by an Edge
+    (subject_id, predicate, object_id, and provenance) MUST exist as a physical row
+    in the Node table. This method intercepts remote URIs (e.g., 'schema:knows') and
+    literal values, generating local "stub" proxy nodes to satisfy those Foreign Key
+    constraints without requiring manual database intervention.
 
     Args:
-      graph_node: The GraphNode to extract edges from
+        graph_node: The incoming JSON-LD GraphNode payload.
+        context: Optional dictionary representing the JSON-LD @context
 
     Returns:
-      A list of EdgeModel instances
+        A tuple containing:
+        - A list of parsed, normalized EdgeRecords.
+        - A list of synthesized NodeRecords (Literals, Predicates, and External Proxies)
+          that must be written to the database alongside the main node.
     """
+    raw_subject_id = getattr(graph_node, "id", None)
+    subject_id = (
+        normalize_graph_id(raw_subject_id, context)[0] if raw_subject_id else None
+    )
+
     edges = []
+    synthesized_nodes = []
 
-    for predicate, edge_values in graph_node.model_dump().items():
-        # Skip node metadata
-        if predicate in ["@id", "@type", "id", "type"]:
+    # --- 1. Resolve Node-Level (Fallback) Provenance ---
+    # Ensure every edge has a valid provenance ID to satisfy the FKProvenance constraint.
+    raw_fallback_prov = getattr(graph_node, "provenance", None)
+
+    if raw_fallback_prov:
+        fallback_prov, fallback_is_remote = normalize_graph_id(
+            raw_fallback_prov, context
+        )
+        if fallback_is_remote:
+            # Generate a proxy stub for the external provenance URI
+            synthesized_nodes.append(
+                NodeRecord(
+                    subject_id=fallback_prov,
+                    types=["schema:ExternalProxy", "provenance_stub"],
+                )
+            )
+    else:
+        # Inject a system default provenance node if completely missing.
+        # This prevents Spanner from attempting to resolve a NULL or empty string Foreign Key.
+        fallback_prov = DEFAULT_PROVENANCE_ID
+        synthesized_nodes.append(
+            NodeRecord(
+                subject_id=DEFAULT_PROVENANCE_ID,
+                types=["system:DefaultNode"],
+                name="Unknown Provenance",
+            )
+        )
+
+    # Reserved JSON-LD and internal metadata keys to skip during edge extraction
+    reserved_keys = {"id", "type", "name", "value", "provenance"}
+    properties = graph_node.model_dump(by_alias=True, exclude_none=True)
+
+    # --- 2. Extract Edges from Node Properties ---
+    for raw_predicate, value in properties.items():
+        if raw_predicate in reserved_keys or raw_predicate.startswith("@"):
             continue
 
-        # Handle both single values and lists of values
-        values_list = edge_values if isinstance(edge_values, list) else [edge_values]
+        # Normalize the predicate and satisfy the FKPredicate constraint.
+        predicate, pred_is_remote = normalize_graph_id(raw_predicate, context)
+        if pred_is_remote:
+            synthesized_nodes.append(
+                NodeRecord(
+                    subject_id=predicate,
+                    types=["schema:ExternalProxy", "predicate_stub"],
+                )
+            )
 
-        for edge_value in values_list:
-            # If the edge value is a dictionary, parse it as a GraphNodePropertyValue
-            if isinstance(edge_value, dict):
-                edge_graph_node = GraphNodePropertyValue.model_validate(edge_value)
-                edge = create_edge_model(
-                    subject_id=graph_node.id,
-                    predicate=predicate,
-                    object_id=edge_graph_node.id,
-                    object_value=edge_graph_node.value,
+        values = value if isinstance(value, list) else [value]
+
+        for val in values:
+            if isinstance(val, dict) and "@id" in val:
+                # --- Handle Entity References (Node -> Node) ---
+                raw_target_id = val["@id"]
+                target_id, is_remote = normalize_graph_id(raw_target_id, context)
+
+                # Satisfy the FKObject constraint for external targets
+                if is_remote:
+                    # Synthesize a local proxy node for the external entity.
+                    synthesized_nodes.append(
+                        NodeRecord(
+                            subject_id=target_id,
+                            types=["schema:ExternalProxy"],
+                            name=val.get(
+                                "name", ""
+                            ),  # Cache external label if provided
+                        )
+                    )
+
+                # Resolve Edge-Level Provenance (Overrides fallback if present)
+                raw_edge_prov = val.get("@provenance", None)
+                if raw_edge_prov:
+                    edge_prov, prov_is_remote = normalize_graph_id(
+                        raw_edge_prov, context
+                    )
+                    if prov_is_remote:
+                        synthesized_nodes.append(
+                            NodeRecord(
+                                subject_id=edge_prov,
+                                types=["schema:ExternalProxy", "provenance_stub"],
+                            )
+                        )
+                else:
+                    edge_prov = fallback_prov
+
+                # Note: All IDs passed to create_edge_record here are fully normalized.
+                edges.append(
+                    create_edge_record(
+                        subject_id=subject_id,
+                        predicate=predicate,
+                        object_id=target_id,
+                        provenance=edge_prov,
+                    )
                 )
             else:
-                edge = create_edge_model(
-                    subject_id=graph_node.id,
-                    predicate=predicate,
-                    object_id=graph_node.id,  # For literal values, use the node id as the object id
-                    object_value=edge_value,
+                # --- Handle Literal Values (Node -> String/Int/Bool) ---
+                # Literals are converted into dummy nodes to keep edges purely relational.
+                lit_id = generate_literal_id(val)
+                synthesized_nodes.append(
+                    NodeRecord(
+                        subject_id=lit_id,
+                        types=["literal"],
+                        **coerce_node_record_value(val),
+                    )
                 )
-            edges.append(edge)
-    return edges
+
+                edges.append(
+                    create_edge_record(
+                        subject_id=subject_id,
+                        predicate=predicate,
+                        object_id=lit_id,
+                        provenance=fallback_prov,
+                    )
+                )
+
+    # Note: synthesized_nodes may contain many duplicate stubs (e.g., the same
+    # predicate stub repeated 10 times). The downstream `insert_records_batch`
+    # function is inherently responsible for deduplicating these prior to Spanner insertion.
+    return (edges, synthesized_nodes)
 
 
-def node_model_to_graph_node(node: NodeModel) -> GraphNode:
+# --- 3. EXTRACTION LOGIC (Transforming DB NodeRecords to GraphNodes) ---
+
+
+def node_record_to_graph_node(record: NodeRecord) -> GraphNode:
     """
-    Transform a SQLAlchemy Node into a JSON-LD GraphNode.
-
-    Outgoing edges are transformed into properties where the predicate becomes the property name
-    and the value is wrapped in a GraphNodePropertyValue object that includes provenance.
-
-    Args:
-      node: The SQLAlchemy Node instance to transform
-
-    Returns:
-      A GraphNode representing the transformed node with edge properties
+    The "De-normalizer". Collapses literal nodes back into simple property values
+    to hide the underlying storage model from the API user.
     """
-    # Start with the base node properties
-    graph_node_properties = {"@id": node.subject_id, "@type": node.types}
+    data = {"@id": record.subject_id}
+    if record.types:
+        data["@type"] = record.types
+    if record.name:
+        data["name"] = record.name
 
-    # Group edges by predicate
-    edge_groups = {}
-    for edge in node.outgoing_edges:
-        if edge.predicate not in edge_groups:
-            edge_groups[edge.predicate] = []
+    val = get_value_from_node_record(record)
+    if val is not None:
+        data["value"] = val
 
-        property_value = {}
+    properties = {}
+    for edge in record.outgoing_edges:
+        predicate = edge.predicate
+        target = getattr(edge, "target_node", None)
 
-        if edge.object_bytes:
-            # If the edge has bytes, decode them and add them to the property value
-            property_value["@value"] = base64.b64decode(edge.object_bytes).decode(
-                "utf-8"
-            )
-        elif edge.object_value:
-            # If the edge has a literal value, add it to the property value
-            property_value["@value"] = edge.object_value
+        prop_val = {}
+
+        if not target:
+            prop_val["@id"] = edge.object_id
+        elif "literal" in target.types:
+            # FIX #5: Wrap literal values in "@value"
+            prop_val["@value"] = get_value_from_node_record(target)
+        elif "schema:ExternalProxy" in target.types:
+            # It's a remote node! Just return its @id (e.g. "schema:Person")
+            # The JSON-LD context header will automatically expand it for the client.
+            prop_val["@id"] = target.subject_id
         else:
-            # If the edge has an object id, add it to the property value
-            property_value["@id"] = edge.object_id
+            prop_val["@id"] = target.subject_id
 
-        # If the edge has provenance, add it to the property value
-        if edge.provenance:
-            property_value["@provenance"] = edge.provenance
+        # --- NEW: Filter out the dummy provenance ID ---
+        prov = getattr(edge, "provenance", None)
+        if prov and prov != DEFAULT_PROVENANCE_ID:
+            prop_val["@provenance"] = prov
+        # -----------------------------------------------
 
-        edge_groups[edge.predicate].append(property_value)
-
-    # Add edge groups to properties
-    for predicate, values in edge_groups.items():
-        # If there's only one value, don't wrap it in a list
-        graph_node_properties[predicate] = values[0] if len(values) == 1 else values
-
-    return GraphNode(**graph_node_properties)
-
-
-def coerce_edge_val_for_db_write(e: EdgeModel, col: str) -> str | None:
-    """
-    Coerces and truncates edge values to comply with Spanner index limits.
-    Args:
-      e: The EdgeModel instance containing raw data.
-      col: The target database column name.
-    Returns:
-       - For 'object_value': A UTF-8 string truncated to 4096 bytes (safe-decoded).
-        - For 'object_bytes': A Base64-encoded representation of the model's 'object_value'.
-        - For other columns: The raw attribute value from the model.
-    """
-    if col not in ("object_value", "object_bytes"):
-        return getattr(e, col)
-
-    val = getattr(e, "object_value")
-    if not val:
-        return None
-    val_bytes = str(val).encode("utf-8")
-
-    # A Spanner index key incorporates both the indexed columns AND the Primary Key.
-    # Max index key length is 8192 bytes total. The Primary Keys can swallow up to 4096 bytes easily.
-    # So we must restrict object_value to 4096 bytes to guarantee the total key size is < 8192 bytes.
-    if col == "object_value":
-        if len(val_bytes) > OBJECT_VALUE_MAX_LENGTH:
-            # Slice to exactly OBJECT_VALUE_MAX_LENGTH bytes, dropping fragmented chars gracefully
-            # TODO: To avoid hash index collisions, we should use a deterministic hash of the object_value
-            # and store that along with the truncated value.
-            val_truncated = val_bytes[:OBJECT_VALUE_MAX_LENGTH].decode(
-                "utf-8", errors="ignore"
-            )
-            return val_truncated
-        return val
-    elif col == "object_bytes":
-        if len(val_bytes) > OBJECT_VALUE_MAX_LENGTH:
-            return base64.b64encode(val_bytes).decode("utf-8")
-        return None
-
-
-def get_node_models(jsonld: JSONLDDocument) -> list[NodeModel]:
-    """
-    Converts a JSON-LD document into a list of NodeModel instances with their outgoing edges loaded.
-    """
-    node_models = []
-    for graph_node in jsonld.graph:
-        node_model = create_node_model(graph_node)
-        node_model.outgoing_edges = extract_edges_from_node(graph_node)
-        node_models.append(node_model)
-    return node_models
-
-
-def get_node_model_batches(
-    node_models: list[NodeModel], batch_size: int = 1000
-) -> list[list[NodeModel]]:
-    """
-    Splits a list of NodeModel instances into batches of nodes and edges.
-
-    Args:
-      node_models: List of NodeModel instances
-      batch_size: Maximum number of nodes and edges per batch
-
-    Returns:
-      List of batches of nodes and edges
-    """
-    node_batches: list[list[NodeModel]] = []
-    current_batch: list[NodeModel] = []
-    current_batch_len = 0
-    for node_model in node_models:
-        node_len = len(node_model.outgoing_edges) + 1
-
-        # If the node itself is larger than the batch_size, add it as its own batch
-        if node_len >= batch_size:
-            if current_batch:
-                node_batches.append(current_batch)
-                current_batch = []
-                current_batch_len = 0
-            node_batches.append([node_model])
-            continue
-
-        # Add node and its edges to the current batch
-        if current_batch_len + node_len <= batch_size:
-            current_batch.append(node_model)
-            current_batch_len += node_len
+        if predicate in properties:
+            if not isinstance(properties[predicate], list):
+                properties[predicate] = [properties[predicate]]
+            properties[predicate].append(prop_val)
         else:
-            # If the current batch is full, add it to the list of batches
-            node_batches.append(current_batch)
-            current_batch = [node_model]
-            current_batch_len = node_len
+            properties[predicate] = prop_val
 
-    # Add the last batch if it's not empty
+    data.update(properties)
+    return GraphNode(**data)
+
+
+# --- 4. DATABASE WRITE & BATCHING OPERATIONS ---
+
+
+def get_node_record_batches(
+    nodes: List[NodeRecord], batch_size: int = 1000
+) -> List[List[NodeRecord]]:
+    """
+    Splits NodeRecords into batches based on estimated Spanner mutation count.
+    """
+    batches = []
+    current_batch = []
+    current_mutation_count = 0
+
+    for node in nodes:
+        node_mutations = 1 + len(getattr(node, "outgoing_edges", []))
+        if current_mutation_count + node_mutations > batch_size and current_batch:
+            batches.append(current_batch)
+            current_batch = []
+            current_mutation_count = 0
+        current_batch.append(node)
+        current_mutation_count += node_mutations
+
     if current_batch:
-        node_batches.append(current_batch)
-    return node_batches
+        batches.append(current_batch)
+    return batches
 
 
-def insert_node_models_batch(
-    node_models: list[NodeModel], spanner_batch: database.BatchCheckout
-):
+def insert_records_batch(records: List[NodeRecord], spanner_batch: Any):
     """
-    Inserts a batch of NodeModel instances into the database using Spanner API.
-
-    Args:
-      node_models: List of NodeModel instances
-      spanner_batch: Spanner batch to insert into
-
-    Returns:
-      None
+    Low-level execution of Spanner mutations.
+    Deduplicates nodes, deletes old edges, and ensures Nodes are inserted before Edges.
     """
-    # Get the column names from the NodeModel and EdgeModel
-    node_columns = tuple(c.name for c in NodeModel.__table__.columns)
-    edge_columns = tuple(
-        c.name
-        for c in EdgeModel.__table__.columns
-        if c.name != "object_value_tokenlist"
-    )
+    # 1. Deduplicate nodes by subject_id
+    # Crucial for literal nodes: Multiple edges might point to the exact same
+    # literal value, generating duplicate dummy nodes in the same batch.
+    unique_nodes = {node.subject_id: node for node in records}
 
-    # Insert nodes into the database
-    spanner_batch.insert_or_update(
-        table=NODE_TABLE_NAME,
-        columns=node_columns,
-        values=[tuple(getattr(n, col) for col in node_columns) for n in node_models],
-    )
+    # 2. Flatten all edges into a single list for optimized batch insertion
+    all_edges = []
+    for node in records:
+        all_edges.extend(getattr(node, "outgoing_edges", []))
 
-    # Delete existing edges for these nodes using a KeyRange prefix
+    # 3. Dynamically get column names from the SQLAlchemy models
+    node_columns = tuple(c.name for c in NodeRecord.__table__.columns)
+    edge_columns = tuple(c.name for c in EdgeRecord.__table__.columns)
+
+    # 4. Define Go-compatible fallbacks for non-nullable columns
+    # (in case literal nodes or incomplete models are missing them)
+    node_defaults = {"name": "", "types": [], "value": "", "bytes": b""}
+
+    # 5. Insert/Update Nodes
+    node_values = []
+    for n in unique_nodes.values():
+        row = []
+        for col in node_columns:
+            val = getattr(n, col, None)
+            # Apply default if the value is explicitly None and requires a fallback
+            if val is None and col in node_defaults:
+                val = node_defaults[col]
+
+            # Write id to value if it's empty and this isn't a literal node
+            if col == "value" and not val and not getattr(n, "bytes", b""):
+                if "literal" not in getattr(n, "types", []):
+                    val = n.subject_id
+
+            row.append(val)
+        node_values.append(tuple(row))
+
+    if node_values:
+        spanner_batch.insert_or_update(
+            table=NODE_TABLE_NAME, columns=node_columns, values=node_values
+        )
+
+    # 6. Delete existing edges for these nodes using a single, optimized KeySet
+    # (Restored from the old implementation for performance)
     keyset = spanner.KeySet(
         ranges=[
-            spanner.KeyRange(start_closed=[n.subject_id], end_closed=[n.subject_id])
-            for n in node_models
+            spanner.KeyRange(start_closed=[n_id], end_closed=[n_id])
+            for n_id in unique_nodes.keys()
         ]
     )
     spanner_batch.delete(table=EDGE_TABLE_NAME, keyset=keyset)
 
-    # Insert the new edges
-    for node_model in node_models:
-        # Skip if there are no edges to avoid empty insert errors
-        if not node_model.outgoing_edges:
-            continue
+    # 7. Insert the new edges
+    if all_edges:
+        edge_values = [
+            tuple(getattr(e, col, None) for col in edge_columns) for e in all_edges
+        ]
         spanner_batch.insert_or_update(
-            table=EDGE_TABLE_NAME,
-            columns=edge_columns,
-            values=[
-                tuple(coerce_edge_val_for_db_write(e, col) for col in edge_columns)
-                for e in node_model.outgoing_edges
-            ],
+            table=EDGE_TABLE_NAME, columns=edge_columns, values=edge_values
         )
+
+
+# --- 5. GRAPH SERVICE CLASS ---
 
 
 class GraphService:
     """
-    Service for managing graph database operations.
-
-    This service provides methods for querying and inserting nodes and edges
-    in the graph database, with support for JSON-LD format.
+    Public interface for Graph operations.
     """
 
     def __init__(self, session: Session):
-        """
-        Initialize the database service.
-
-        Args:
-          session: SQLAlchemy session for database operations
-        """
         self.session = session
 
+        # Initialize the Spanner database client using system configuration
         config = get_config()
-        spanner_client = spanner.Client(project=config.GCP_PROJECT_ID)
-        instance = spanner_client.instance(config.GCP_SPANNER_INSTANCE_ID)
-        self.spanner_database = instance.database(config.GCP_SPANNER_DATABASE_NAME)
-
+        client = spanner.Client(project=config.GCP_PROJECT_ID)
+        instance = client.instance(config.GCP_SPANNER_INSTANCE_ID)
+        self.spanner_db = instance.database(config.GCP_SPANNER_DATABASE_NAME)
         # Silence Spanner client INFO logs
-        self.spanner_database.logger.setLevel(logging.WARNING)
+        self.spanner_db.logger.setLevel(logging.WARNING)
+
+    def insert_graph_nodes(self, jsonld: JSONLDDocument):
+        """
+        Processes a JSON-LD document and performs a batched ingestion.
+        """
+        all_main_nodes = []
+        all_synthetic_nodes = []
+
+        # Extract the dynamic context from the incoming payload
+        doc_context = getattr(jsonld, "context", {})
+
+        for graph_node in jsonld.graph:
+            # Pass the context into both factories!
+            node_record = create_node_record(graph_node, context=doc_context)
+            edges, synthesized_nodes = extract_edges_from_graph_node(
+                graph_node, context=doc_context
+            )
+
+            # Attach source graph_node for debugging if things go wrong
+            node_record._source_graph_node = graph_node
+
+            node_record.outgoing_edges = edges
+            all_main_nodes.append(node_record)
+            all_synthetic_nodes.extend(synthesized_nodes)
+
+        if not self.spanner_db:
+            raise GraphServiceError("Spanner database client not initialized.")
+
+        # --- Filter existing synthetic nodes ---
+        unique_synthetic = {n.subject_id: n for n in all_synthetic_nodes}
+        existing_synthetic_ids = set()
+
+        if unique_synthetic:
+            # Spanner KeySet requires a list of lists for keys
+            keyset = spanner.KeySet(keys=[[k] for k in unique_synthetic.keys()])
+            try:
+                with self.spanner_db.snapshot() as snapshot:
+                    results = snapshot.read(
+                        table=NODE_TABLE_NAME, columns=["subject_id"], keyset=keyset
+                    )
+                    for row in results:
+                        existing_synthetic_ids.add(row[0])
+                logger.info(
+                    "Found %d already-existing synthetic nodes (skipping overwrite).",
+                    len(existing_synthetic_ids),
+                )
+            except Exception as e:
+                logger.warning(
+                    "Failed to check existing synthetic nodes; falling back to overwrite: %s",
+                    e,
+                )
+
+        # Filter out synthetic nodes that already exist in Spanner
+        filtered_synthetic_nodes = [
+            n
+            for n in unique_synthetic.values()
+            if n.subject_id not in existing_synthetic_ids
+        ]
+
+        # Combine lists such that main nodes appear LAST.
+        # This guarantees that if a main node shares the same subject_id as a synthetic node,
+        # its data will properly overwrite the proxy during deduplication in `insert_records_batch`.
+        all_records = filtered_synthetic_nodes + all_main_nodes
+
+        # Insert nodes and edges in batches
+        # TODO(dwnoble): this insert may fail if a node in an earlier batch references a node in a later batch.
+        # Also may fail if a node references a node that is in a remote knowledge graph
+        # Possible solution: Insert all nodes first, then insert all edges in a second pass.
+        batches = get_node_record_batches(all_records)
+        total_edges = sum(len(getattr(n, "outgoing_edges", [])) for n in all_records)
+        logger.info(
+            "Inserting %d nodes and %d edges in %d batch(es) to Spanner",
+            len(all_records),
+            total_edges,
+            len(batches),
+        )
+
+        try:
+            for i, batch in enumerate(batches):
+                try:
+                    with self.spanner_db.batch() as spanner_batch:
+                        insert_records_batch(batch, spanner_batch)
+                except Exception as batch_error:
+                    logger.error(
+                        "Error committing batch %d/%d to Spanner.", i + 1, len(batches)
+                    )
+                    logger.error(
+                        "Dumping NodeRecords and EdgeRecords from the failed batch for debugging:"
+                    )
+                    for n in batch:
+                        logger.error("  Node: %s (types: %s)", n.subject_id, n.types)
+                        if hasattr(n, "_source_graph_node") and n._source_graph_node:
+                            logger.error(
+                                "    Source GraphNode: %s",
+                                n._source_graph_node.model_dump_json(exclude_none=True),
+                            )
+                        for e in getattr(n, "outgoing_edges", []):
+                            logger.error(
+                                "    Edge: %s [%s] -> %s (prov: %s)",
+                                e.subject_id,
+                                e.predicate,
+                                e.object_id,
+                                getattr(e, "provenance", "None"),
+                            )
+                    raise batch_error
+        except Exception as e:
+            logger.exception("Failed to insert nodes to Spanner")
+            raise GraphServiceError(f"Failed to insert nodes to Spanner: {e}") from e
+
+        logger.info(
+            "Successfully committed %d nodes and %d edges to Spanner",
+            len(all_records),
+            total_edges,
+        )
 
     def get_graph_nodes(
-        self,
-        limit: int = DEFAULT_NODE_FETCH_LIMIT,
-        type_filter: list[str] | None = None,
+        self, limit: int = 10, type_filter: Optional[List[str]] = None
     ) -> JSONLDDocument:
         """
-        Get nodes with their outgoing edges, and transform them into JSON-LD format.
-
-        Args:
-          limit: Maximum number of nodes to return
-          type_filter: Optional type filter for nodes
-
-        Returns:
-          A JSONLDDocument containing the transformed nodes
+        Fetches a subgraph and transforms it back to JSON-LD.
         """
         logger.info(
             "Fetching graph nodes (limit=%d, type_filter=%s)", limit, type_filter
         )
-        node_models = self._get_nodes_with_outgoing_edges(
-            limit=limit, type_filter=type_filter
+        query = self.session.query(NodeRecord).options(
+            joinedload(NodeRecord.outgoing_edges).joinedload(EdgeRecord.target_node)
         )
-        graph_nodes = [node_model_to_graph_node(n) for n in node_models]
-        logger.info("Transformed %d nodes to JSON-LD format", len(graph_nodes))
 
+        if type_filter:
+            logger.info("Filtering nodes by types: %s", type_filter)
+            query = query.filter(NodeRecord.types.overlap(type_filter))
+
+        records = query.limit(limit).all()
+        logger.debug("Retrieved %d nodes with outgoing edges", len(records))
+        graph = [node_record_to_graph_node(r) for r in records]
+        logger.info("Transformed %d nodes to JSON-LD format", len(graph))
         return JSONLDDocument(
             context={
                 "@vocab": LOCAL_NAMESPACE_URL,
                 LOCAL_NAMESPACE_NAME: LOCAL_NAMESPACE_URL,
                 **BASE_NAMESPACES,
             },
-            graph=graph_nodes,
+            graph=graph,
         )
 
-    def _get_nodes_with_outgoing_edges(
-        self,
-        limit: int = DEFAULT_NODE_FETCH_LIMIT,
-        type_filter: list[str] | None = None,
-    ) -> list[NodeModel]:
+    def delete_node(self, subject_id: str):
         """
-        Get nodes with their outgoing edges.
-
-        Args:
-          limit: Maximum number of nodes to return
-          type_filter: Optional type filter for nodes
-
-        Returns:
-          A list of NodeModel instances with their outgoing edges loaded
+        Deletes a node. Spanner interleaving triggers a cascading delete of edges.
         """
-        query = self.session.query(NodeModel)
+        if not self.spanner_db:
+            raise GraphServiceError("Spanner database client not initialized.")
 
-        if type_filter:
-            logger.info("Filtering nodes by types: %s", type_filter)
-            query = query.filter(
-                text(
-                    "EXISTS ("
-                    "  SELECT 1 "
-                    "    FROM UNNEST(types) AS t "
-                    "   WHERE t IN UNNEST(:type_filter)"
-                    ")"
-                )
-            ).params(type_filter=type_filter)
+        with self.spanner_db.batch() as batch:
+            batch.delete(table="Node", keyset=spanner.KeySet(keys=[subject_id]))
 
-        # Load outgoing edges
-        query = query.options(joinedload(NodeModel.outgoing_edges)).limit(limit)
-
-        nodes = query.all()
-        logger.debug("Retrieved %d nodes with outgoing edges", len(nodes))
-        return nodes
-
-    def insert_graph_nodes(
-        self, jsonld: JSONLDDocument, batch_size: int = 1000
-    ) -> None:
+    def drop_tables(self):
         """
-        Inserts nodes and edges from a JSON-LD document into the database using Spanner API.
-
-        Updates the nodes and edges if they already exist.
-
-        Args:
-          jsonld: The JSON-LD document containing nodes and edges to insert
+        Maintenance cleanup for the Graph schema and data.
         """
-
-        # Convert JSON-LD to NodeModels
-        node_models = get_node_models(jsonld)
-        node_model_batches = get_node_model_batches(node_models, batch_size)
-        total_edges = sum(len(node_model.outgoing_edges) for node_model in node_models)
-
-        logger.info(
-            "Inserting %d nodes and %d edges in %d batch(es) to Spanner",
-            len(node_models),
-            total_edges,
-            len(node_model_batches),
-        )
-
-        # Insert nodes and edges in batches
-        # TODO(dwnoble): this insert may fail if a node in an earlier batch references a node in a later batch.
-        # Also may fail if a node references a node that is in a remote knowledge graph
-        # Possible solution: Insert all nodes first, then insert all edges in a second pass.
-        success_count = 0
-        try:
-            for node_model_batch in node_model_batches:
-                with self.spanner_database.batch() as spanner_batch:
-                    insert_node_models_batch(node_model_batch, spanner_batch)
-                success_count += len(node_model_batch)
-        except Exception as e:
-            error_message = f"Failed to insert nodes and edges to Spanner after {success_count}/{len(node_models)} nodes inserted"
-            logger.exception(error_message)
-            raise GraphServiceError(error_message) from e
-
-        logger.info(
-            "Successfully committed %d nodes and %d edges to Spanner",
-            success_count,
-            total_edges,
-        )
-
-    def drop_tables(self) -> None:
-        """
-        Delete Node and Edge tables from the graph database.
-        """
-        logger.info("Dropping index EdgeByObjectValue")
-        query = "DROP INDEX EdgeByObjectValue"
-        self.session.execute(text(query))
         logger.info("Dropping table %s", EDGE_TABLE_NAME)
         query = f"DROP TABLE {EDGE_TABLE_NAME}"
         self.session.execute(text(query))
