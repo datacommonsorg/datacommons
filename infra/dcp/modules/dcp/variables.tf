@@ -92,3 +92,23 @@ variable "make_service_public" {
   description = "Whether to allow unauthenticated invocations to the service"
   type        = bool
 }
+
+# --- Ingestion Pipeline Config ---
+variable "deploy_data_ingestion_workflow" {
+  description = "Deploy the complete end-to-end Data Commons Ingestion workflow stack"
+  type        = bool
+}
+
+
+
+variable "create_ingestion_bucket" {
+  description = "Controls whether Terraform automatically provisions a dedicated staging GCS bucket for uploading graph dataset (.mcf) files"
+  type        = bool
+  default     = true
+}
+
+variable "external_ingestion_bucket_name" {
+  description = "Specifies an existing, external GCS bucket name to use for datasets if automatic provisioning is disabled"
+  type        = string
+  default     = ""
+}
