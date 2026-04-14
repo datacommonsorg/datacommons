@@ -29,6 +29,8 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                 jobName: '$${"ingestion-job-" + string(int(sys.now()))}'
                 containerSpecGcsPath: 'gs://datcom-templates/templates/flex/ingestion.json'
                 parameters: '$${launch_params}'
+                environment:
+                  serviceAccountEmail: '${google_service_account.dcp_ingestion_runner[0].email}'
           result: launch_result
       - return_result:
           return: '$${launch_result}'
