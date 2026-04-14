@@ -58,7 +58,7 @@ def start(
 
     logger.info("Starting API server...")
     uvicorn.run(
-        app,
+        "datacommons_api.app:app",
         host=host,
         port=port,
         reload=reload,

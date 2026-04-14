@@ -11,6 +11,7 @@ node_modules
 .coverage
 htmlcov/
 
+
 # Terraform
 .terraform/
 *.tfstate
@@ -34,3 +35,5 @@ infra/dcp/.env
 
 *.pyc
 .venv/
+.env
+*.generated.yaml

@@ -1,6 +1,6 @@
 # --- Shared Global Variables ---
 project_id          = "your-project-id"
-namespace           = "techsoup"
+namespace           = "your-namespace"
 
 # --- Stack Toggles ---
 enable_dcp                  = true
