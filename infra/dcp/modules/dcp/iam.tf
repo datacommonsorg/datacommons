@@ -45,6 +45,14 @@ resource "google_project_iam_member" "dataflow_admin" {
   member  = "serviceAccount:${google_service_account.dcp_ingestion_runner[0].email}"
 }
 
+resource "google_project_iam_member" "dataflow_worker" {
+  count   = var.deploy_data_ingestion_workflow ? 1 : 0
+  project = var.project_id
+  role    = "roles/dataflow.worker"
+  member  = "serviceAccount:${google_service_account.dcp_ingestion_runner[0].email}"
+}
+
+
 resource "google_service_account_iam_member" "service_account_user" {
   count              = var.deploy_data_ingestion_workflow ? 1 : 0
   service_account_id = google_service_account.dcp_ingestion_runner[0].name
