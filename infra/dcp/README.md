@@ -1,64 +1,106 @@
-# Data Commons Platform (DCP) Infrastructure
+# Data Commons Platform (DCP) Infrastructure Guide
 
-This directory contains the Terraform configuration to deploy the Data Commons Platform on Google Cloud Platform (GCP).
+This directory contains the Terraform configuration to deploy the Data Commons Platform on Google Cloud Platform (GCP). This guide will walk you through setting up the infrastructure and running your first data ingestion workflow.
 
 ## Prerequisites
-*   **GCP Project**: A GCP project with billing enabled.
-*   **Terraform**: Terraform installed locally (>= 1.0.0).
-*   **gcloud CLI**: GCP CLI installed and authenticated.
 
-## Setup
+Before you begin, ensure you have the following:
 
-1.  **Configure Local Variables**:
-    Copy the example variable file and fill in your project details.
+*   **GCP Project**: A Google Cloud project with billing enabled.
+*   **Terraform**: Installed locally (version >= 1.0.0).
+*   **gcloud CLI**: Installed and authenticated to your GCP project.
     ```bash
-    cp terraform.tfvars.example terraform.tfvars
+    gcloud auth login
+    gcloud config set project <your-project-id>
     ```
-    Edit `terraform.tfvars` with your `project_id` and other preferred settings.
+*   **Permissions**: Ensure your user or service account has sufficient permissions to create Spanner databases, Cloud Run services, IAM bindings, and GCS buckets.
 
-2.  **Run Setup Script**:
-    The `setup.sh` script creates a GCS bucket for your Terraform state and initializes the backend.
-    ```bash
-    ./setup.sh
-    ```
+## Initial Setup
+
+### 1. Configure Local Variables
+
+Copy the example variables file to create your local configuration:
+```bash
+cp terraform.tfvars.example terraform.tfvars
+```
+
+Edit `terraform.tfvars` and fill in at least the following required variables:
+*   `project_id`: Your GCP Project ID.
+*   `namespace`: A unique identifier for resource naming (e.g., your name or team name).
+
+### 2. Run the Setup Script
+
+The `setup.sh` script automates the creation of a GCS bucket for storing Terraform state and initializes the backend configuration.
+```bash
+./setup.sh
+```
+This script will also enable necessary Google Cloud APIs for your project.
+
+## Configuration Guide (`terraform.tfvars`)
+
+You can control the deployment by setting values in `terraform.tfvars`. Here are the key configurations:
+
+### Stack Toggles
+*   `enable_dcp` (bool): Set to `true` to deploy the new Data Commons Platform stack (Cloud Run + Spanner).
+*   `enable_cdc` (bool): Set to `true` to deploy the legacy Custom Data Commons stack (Cloud Run + MySQL + Redis).
+
+### Data Ingestion Config
+*   `dcp_deploy_data_ingestion_workflow` (bool): Set to `true` to deploy the Cloud Workflows orchestrator and ingestion runner service account.
+*   `create_ingestion_bucket` (bool): Controls whether Terraform automatically provisions a dedicated staging GCS bucket for uploading graph dataset (.mcf) files. Defaults to `true`.
+*   `external_ingestion_bucket_name` (string): If `create_ingestion_bucket` is false, specify an existing external GCS bucket name to attach permissions to.
 
 ## Deployment
 
+Once configured, execute standard Terraform commands to provision resources:
+
 1.  **Initialize**:
-    Initialize Terraform (if not already done by setup.sh).
     ```bash
     terraform init
     ```
-
 2.  **Plan**:
-    Review the changes Terraform will make.
     ```bash
     terraform plan
     ```
-
 3.  **Apply**:
-    Provision the infrastructure.
     ```bash
     terraform apply
     ```
 
-4.  **Teardown**:
-    Destroy all resources.
-    ```bash
-    terraform destroy
-    ```
+## Running Data Ingestion Workflow
 
-## Architecture
+After successful deployment with `dcp_deploy_data_ingestion_workflow = true`, you can run the automated ingestion pipeline.
 
-This setup uses an **Orchestrator Pattern**:
-- `infra/dcp/main.tf`: The root entrypoint that calls modules.
-- `infra/dcp/modules/dcp/`: The new Data Commons Platform stack (Cloud Run + Spanner).
-- `infra/dcp/modules/cdc/`: The legacy Custom Data Commons stack (Cloud Run + MySQL + Redis).
+### Step 1: Upload your Schema file
+Upload your custom graph nodes file (`.mcf`) to the provisioned ingestion bucket. By default, the bucket name format is: `<namespace>-ingestion-bucket-<project_id>`.
 
-Each module is independent and can be toggled via the root variables in `terraform.tfvars`.
+```bash
+gcloud storage cp path/to/your/sample.mcf gs://<namespace>-ingestion-bucket-<project_id>/imports/sample.mcf
+```
 
-## Troubleshooting
-*   **Deletion Errors**: If you get a "cannot destroy... deletion_protection" error, ensure `deletion_protection = false` in your `terraform.tfvars`, run `terraform apply`, and then try `terraform destroy` again. Alternatively, use the helper command:
-    ```bash
-    make force-destroy
-    ```
+### Step 2: Trigger the Workflow Orchestrator
+Trigger the Cloud Workflow to start the Dataflow job that will read the file and insert it into Spanner.
+
+```bash
+gcloud workflows run <namespace>-ingestion-orchestrator \
+  --project=<project_id> \
+  --location=<region> \
+  --data='{
+    "templateLocation": "gs://datcom-templates/templates/flex/ingestion.json",
+    "region": "<region>",
+    "spannerInstanceId": "<spanner-instance-id>",
+    "spannerDatabaseId": "<spanner-database-id>",
+    "importList": "[{\"importName\": \"SampleTestCase\", \"graphPath\": \"gs://<namespace>-ingestion-bucket-<project_id>/imports/sample.mcf\"}]",
+    "tempLocation": "gs://<namespace>-ingestion-bucket-<project_id>/temp"
+  }'
+```
+
+**Key Data Parameters:**
+*   `spannerInstanceId`: The ID of your Spanner instance.
+*   `spannerDatabaseId`: The ID of your Spanner database.
+*   `importList`: A JSON string mapping the import logical name to the GCS path of the MCF file.
+
+**Tip:** You can use the special flag `"initializeDatabaseOnly": true` in the `--data` JSON payload to just initialize database schemas and skip data parsing.
+
+## Architecture & Troubleshooting
+
+Refer to the original sections in the repository for details on the **Orchestrator Pattern** and resolving common issues like deletion protection errors.
