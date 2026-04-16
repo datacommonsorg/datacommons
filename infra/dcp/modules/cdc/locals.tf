@@ -74,7 +74,7 @@ locals {
     },
     {
       name  = "USE_STALE_READS"
-      value = "true"
+      value = var.use_spanner ? "true" : "false"
     }
   ]
 
