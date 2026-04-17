@@ -264,7 +264,12 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
 
       env {
         name  = "USE_STALE_READS"
-        value = var.use_spanner ? "true" : "false"
+        value = (var.use_spanner && var.spanner_instance_id != "" && var.spanner_database_id != "") ? "true" : "false"
+      }
+
+      env {
+        name  = "GCP_PROJECT_ID"
+        value = var.project_id
       }
 
       dynamic "env" {
