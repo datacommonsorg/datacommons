@@ -49,6 +49,9 @@ You can control the deployment by setting values in `terraform.tfvars`. Here are
 *   `create_ingestion_bucket` (bool): Controls whether Terraform automatically provisions a dedicated staging GCS bucket for uploading graph dataset (.mcf) files. Defaults to `true`.
 *   `external_ingestion_bucket_name` (string): If `create_ingestion_bucket` is false, specify an existing external GCS bucket name to attach permissions to.
 
+### Access Control
+*   `make_services_public` (bool): Controls whether Cloud Run services are publicly accessible (unauthenticated). Defaults to `false` for security.
+
 ## Deployment
 
 Once configured, execute standard Terraform commands to provision resources:
@@ -99,8 +102,10 @@ gcloud workflows run <namespace>-ingestion-orchestrator \
 *   `spannerDatabaseId`: The ID of your Spanner database.
 *   `importList`: A JSON string mapping the import logical name to the GCS path of the MCF file.
 
-**Tip:** You can use the special flag `"initializeDatabaseOnly": true` in the `--data` JSON payload to just initialize database schemas and skip data parsing.
-
 ## Architecture & Troubleshooting
 
-Refer to the original sections in the repository for details on the **Orchestrator Pattern** and resolving common issues like deletion protection errors.
+### Orchestrator Pattern
+The ingestion pipeline uses Google Cloud Workflows as an orchestrator. It receives the ingestion parameters, names the Dataflow job with a timestamp, launches the Dataflow Flex Template, and returns the job status. This prevents direct interaction with complex Dataflow APIs for standard ingestion tasks.
+
+### Troubleshooting: Deletion Protection
+If you encounter errors destroying resources (like Spanner databases or GCS buckets), ensure you have set `deletion_protection = false` in your variables if you intended to destroy them. By default, deletion protection is enabled to prevent accidental data loss.
