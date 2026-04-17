@@ -71,10 +71,6 @@ locals {
     {
       name  = "GCP_SPANNER_DATABASE_NAME"
       value = var.spanner_database_id
-    },
-    {
-      name  = "USE_STALE_READS"
-      value = var.use_spanner ? "true" : "false"
     }
   ]
 

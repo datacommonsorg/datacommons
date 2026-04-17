@@ -262,6 +262,11 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
         }
       }
 
+      env {
+        name  = "USE_STALE_READS"
+        value = var.use_spanner ? "true" : "false"
+      }
+
       dynamic "env" {
         for_each = local.cloud_run_shared_env_variable_secrets
         content {
