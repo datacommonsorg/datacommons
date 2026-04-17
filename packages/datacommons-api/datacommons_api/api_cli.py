@@ -18,7 +18,7 @@ import uvicorn
 from datacommons_api.app import app
 from datacommons_api.core.config import get_config, initialize_config
 from datacommons_api.core.logging import get_logger, setup_logging
-from datacommons_db.session import get_session, initialize_db
+from datacommons_db.session import get_session
 from datacommons_api.services.graph_service import GraphService
 
 setup_logging()
@@ -56,16 +56,6 @@ def start(
         gcp_spanner_database_name=gcp_spanner_database_name,
     )
 
-    # Initialize the database
-    logger.info("Initializing database...")
-    logger.info("GCP Project ID: %s", config.GCP_PROJECT_ID)
-    logger.info("GCP Spanner Instance ID: %s", config.GCP_SPANNER_INSTANCE_ID)
-    logger.info("GCP Spanner Database Name: %s", config.GCP_SPANNER_DATABASE_NAME)
-    initialize_db(
-        config.GCP_PROJECT_ID,
-        config.GCP_SPANNER_INSTANCE_ID,
-        config.GCP_SPANNER_DATABASE_NAME,
-    )
     logger.info("Starting API server...")
     uvicorn.run(
         "datacommons_api.app:app",
