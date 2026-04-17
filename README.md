@@ -12,6 +12,8 @@ Data Commons powers [datacommons.org](https://datacommons.org), Google's open kn
 
 This guide covers setting up a local Data Commons, defining schemas in JSON-LD, adding data via the command-line interface, and querying relationships.
 
+For deploying Data Commons to Google Cloud Platform (GCP) using Terraform, please refer to the detailed [GCP Infrastructure Guide](infra/dcp/README.md).
+
 ## Prerequisites
 
 Before you begin, ensure you have the following installed:
