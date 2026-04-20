@@ -79,3 +79,12 @@ resource "google_storage_bucket_iam_member" "dynamic_ingestion_bucket_access" {
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${google_service_account.dcp_ingestion_runner[0].email}"
 }
+
+# Grant Workflows permission to invoke the ingestion helper
+resource "google_cloud_run_service_iam_member" "ingestion_helper_invoker" {
+  count    = var.deploy_data_ingestion_workflow ? 1 : 0
+  location = google_cloud_run_v2_service.ingestion_helper[0].location
+  service  = google_cloud_run_v2_service.ingestion_helper[0].name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.dcp_ingestion_runner[0].email}"
+}
