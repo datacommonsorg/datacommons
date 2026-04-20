@@ -18,6 +18,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
             - bucket_name: '$${text.split(input.tempLocation, "/")[2]}'
             - latest_version_gcs_path: '$${"gs://" + bucket_name + "/imports/" + input.importName + "/" + version}'
             - execution_error: null
+            - lock_timeout: '$${"lockTimeout" in keys(input) ? int(input.lockTimeout) : ${var.ingestion_lock_timeout}}'
             - launch_params:
                 projectId: '$${project_id}'
                 spannerInstanceId: '$${input.spannerInstanceId}'
@@ -34,7 +35,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
               body:
                 actionType: "acquire_ingestion_lock"
                 workflowId: '$${workflow_id}'
-                timeout: 3600
+                timeout: '$${lock_timeout}'
             result: lock_result
           retry:
             predicate: '$${http.default_retry_predicate}'
@@ -96,7 +97,8 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                   switch:
                     - condition: '$${job_status.currentState == "JOB_STATE_DONE"}'
                       next: promote_version
-                  next: skip_promotion
+              - fail_on_job_status:
+                  raise: '$${ "Dataflow job failed with state: " + job_status.currentState }'
               - promote_version:
                   call: http.post
                   args:
@@ -124,9 +126,6 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                         - importName: '$${input.importName}'
                           latestVersion: '$${version}'
                   result: history_result
-              - skip_promotion:
-                  assign:
-                    - dummy: 1
           except:
             as: e
             steps:
