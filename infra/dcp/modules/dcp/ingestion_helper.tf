@@ -7,12 +7,14 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
 
   template {
     containers {
+      # TODO(gmechali): Change this to a stable image.
       image = "gcr.io/datcom-ci/datacommons-ingestion-helper:latest"
       
       env {
         name  = "PROJECT_ID"
         value = var.project_id
       }
+      # TODO(gmechali): Remove this once we no longer use the :latest image.
       env {
         name  = "FORCE_RESTART"
         value = timestamp()
