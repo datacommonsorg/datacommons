@@ -18,7 +18,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
             - bucket_name: '$${text.split(input.tempLocation, "/")[2]}'
             - latest_version_gcs_path: '$${"gs://" + bucket_name + "/imports/" + input.importName + "/" + version}'
             - execution_error: null
-            - lock_timeout: '$${"lockTimeout" in keys(input) ? int(input.lockTimeout) : ${var.ingestion_lock_timeout}}'
+            - lock_timeout: ${var.ingestion_lock_timeout}
             - launch_params:
                 projectId: '$${project_id}'
                 spannerInstanceId: '$${input.spannerInstanceId}'
