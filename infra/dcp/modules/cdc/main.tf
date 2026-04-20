@@ -262,6 +262,11 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
         }
       }
 
+      env {
+        name  = "GCP_PROJECT_ID"
+        value = var.project_id
+      }
+
       dynamic "env" {
         for_each = local.cloud_run_shared_env_variable_secrets
         content {
