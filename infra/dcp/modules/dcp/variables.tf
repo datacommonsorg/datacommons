@@ -8,6 +8,12 @@ variable "project_id" {
   type        = string
 }
 
+variable "ingestion_lock_timeout" {
+  description = "Timeout for the ingestion lock in seconds"
+  type        = number
+  default     = 82800
+}
+
 variable "region" {
   description = "GCP Region"
   type        = string
