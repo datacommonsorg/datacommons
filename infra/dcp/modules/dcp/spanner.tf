@@ -5,6 +5,7 @@ resource "google_spanner_instance" "main" {
   display_name     = var.create_spanner_instance ? (var.spanner_instance_id != "" ? "${local.name_prefix}${var.spanner_instance_id}" : "${local.name_prefix}dcp-instance") : var.spanner_instance_id
   processing_units = var.spanner_processing_units
   force_destroy    = !var.deletion_protection
+  edition          = "ENTERPRISE"
 
 }
 

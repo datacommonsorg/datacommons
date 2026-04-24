@@ -25,7 +25,7 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
       }
       env {
         name  = "SPANNER_INSTANCE_ID"
-        value = var.spanner_instance_id
+        value = var.create_spanner_instance ? google_spanner_instance.main[0].name : var.spanner_instance_id
       }
       env {
         name  = "SPANNER_DATABASE_ID"

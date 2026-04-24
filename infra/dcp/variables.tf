@@ -93,7 +93,7 @@ variable "dcp_spanner_database_id" {
 variable "dcp_spanner_processing_units" {
   description = "Spanner units for DCP"
   type        = number
-  default     = 100
+  default     = 1000
 }
 
 variable "dcp_service_cpu" {
