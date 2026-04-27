@@ -1,12 +1,16 @@
+locals {
+  name_prefix = var.namespace != "" ? "${var.namespace}-" : ""
+}
+
 resource "google_workflows_workflow" "ingestion_orchestrator" {
-  count               = var.deploy_data_ingestion_workflow ? 1 : 0
-  name                = "${var.namespace}-ingestion-orchestrator"
+  count               = var.deploy ? 1 : 0
+  name                = "${local.name_prefix}ingestion-orchestrator"
   region              = var.region
   description         = "Triggers the Dataflow Flex Template Graph Ingestion Pipeline with runtime parameters"
-  service_account     = google_service_account.dcp_ingestion_runner[0].id
+  service_account     = var.ingestion_runner_id
   deletion_protection = var.deletion_protection
 
-  source_contents = <<-EOF
+  source_contents = <<-EOF2
   main:
     params: [input]
     steps:
@@ -29,7 +33,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
           try:
             call: http.post
             args:
-              url: '${google_cloud_run_v2_service.ingestion_helper[0].uri}'
+              url: '${var.ingestion_helper_uri}'
               auth:
                 type: OIDC
               body:
@@ -50,7 +54,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
               - set_import_staging:
                   call: http.post
                   args:
-                    url: '${google_cloud_run_v2_service.ingestion_helper[0].uri}'
+                    url: '${var.ingestion_helper_uri}'
                     auth:
                       type: OIDC
                     body:
@@ -70,7 +74,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                         containerSpecGcsPath: 'gs://datcom-templates/templates/flex/ingestion.json'
                         parameters: '$${launch_params}'
                         environment:
-                          serviceAccountEmail: '${google_service_account.dcp_ingestion_runner[0].email}'
+                          serviceAccountEmail: '${var.ingestion_runner_email}'
                   result: launch_result
               - get_job_id:
                   assign:
@@ -102,7 +106,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
               - promote_version:
                   call: http.post
                   args:
-                    url: '${google_cloud_run_v2_service.ingestion_helper[0].uri}'
+                    url: '${var.ingestion_helper_uri}'
                     auth:
                       type: OIDC
                     body:
@@ -114,7 +118,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
               - update_ingestion_history_step:
                   call: http.post
                   args:
-                    url: '${google_cloud_run_v2_service.ingestion_helper[0].uri}'
+                    url: '${var.ingestion_helper_uri}'
                     auth:
                       type: OIDC
                     body:
@@ -135,7 +139,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
       - release_lock_step:
           call: http.post
           args:
-            url: '${google_cloud_run_v2_service.ingestion_helper[0].uri}'
+            url: '${var.ingestion_helper_uri}'
             auth:
               type: OIDC
             body:
@@ -148,14 +152,5 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
               raise: '$${execution_error}'
       - return_result:
           return: '$${launch_result}'
-  EOF
-}
-
-# Automatically provision a GCS bucket for the customer's custom graph ingestion files, if enabled
-resource "google_storage_bucket" "data_ingestion_bucket" {
-  count                       = var.deploy_data_ingestion_workflow && var.create_ingestion_bucket ? 1 : 0
-  name                        = "${var.namespace}-ingestion-bucket-${var.project_id}"
-  location                    = var.region
-  uniform_bucket_level_access = true
-  force_destroy               = !var.deletion_protection
+  EOF2
 }

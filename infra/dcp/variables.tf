@@ -363,4 +363,21 @@ variable "dcp_deploy_data_ingestion_workflow" {
   default     = false
 }
 
+variable "dcp_create_ingestion_bucket" {
+  description = "Create a dedicated ingestion bucket for the DCP ingestion workflow"
+  type        = bool
+  default     = true
+}
+
+variable "dcp_external_ingestion_bucket_name" {
+  description = "Existing external bucket name to use when dcp_create_ingestion_bucket is false"
+  type        = string
+  default     = ""
+}
+
+variable "dcp_ingestion_lock_timeout" {
+  description = "Timeout for the ingestion lock in seconds"
+  type        = number
+  default     = 82800
+}
 

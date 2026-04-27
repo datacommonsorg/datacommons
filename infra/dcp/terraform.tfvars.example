@@ -1,22 +1,35 @@
 # --- Shared Global Variables ---
-project_id          = "your-project-id"
-namespace           = "your-namespace"
+project_id = "your-project-id"
+namespace  = "your-namespace"
+region     = "us-central1"
 
 # --- Stack Toggles ---
-enable_dcp                  = true
-enable_cdc                  = true
+enable_dcp = true
+enable_cdc = true
 
-# Only set to true if you need to create a dedicated Spanner Instance (Expensive!)
-# Otherwise, provide an existing instance ID in dcp_spanner_instance_id
+# --- DCP Core ---
+dcp_image_url               = "gcr.io/datcom-ci/datacommons-platform:latest"
+dcp_service_name            = "dcp-svc"
+dcp_service_account_name    = "dcp-sa"
 dcp_create_spanner_instance = false
+# dcp_spanner_instance_id   = "existing-instance-id" # required when create_spanner_instance=false
+dcp_create_spanner_db       = true
+dcp_spanner_database_id     = "dcp-db"
 
-# --- CDC Stack Variables (Legacy) ---
-# cdc_dc_api_key        = "your-dc-api-key"  # You can get this from https://apikeys.datacommons.org
+# --- DCP Ingestion ---
+dcp_deploy_data_ingestion_workflow = false
+dcp_create_ingestion_bucket        = true
+# dcp_external_ingestion_bucket_name = "existing-bucket-name"
+dcp_ingestion_lock_timeout         = 82800
 
-# When deploying to a shared project, override this to avoid VPC Peering conflicts
-# Examples: "10.13.0.0/28", "10.14.0.0/28", "10.15.0.0/28"
+# --- CDC ---
+# cdc_dc_api_key = "your-dc-api-key" # https://apikeys.datacommons.org
 # cdc_vpc_connector_cidr = "10.13.0.0/28"
 
-# --- Billing Config ---
+# --- Access / Safety ---
+make_services_public = false
+deletion_protection  = false
+
+# --- Billing (optional) ---
 # user_project_override = true
 # billing_project_id    = "your-billing-project-id"
