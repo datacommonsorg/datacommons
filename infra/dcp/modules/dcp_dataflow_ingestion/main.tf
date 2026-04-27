@@ -98,10 +98,10 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
   }
 }
 
-resource "google_cloud_run_service_iam_member" "ingestion_helper_invoker" {
+resource "google_cloud_run_v2_service_iam_member" "ingestion_helper_invoker" {
   count    = var.deploy ? 1 : 0
   location = google_cloud_run_v2_service.ingestion_helper[0].location
-  service  = google_cloud_run_v2_service.ingestion_helper[0].name
+  name     = google_cloud_run_v2_service.ingestion_helper[0].name
   role     = "roles/run.invoker"
   member   = "serviceAccount:${google_service_account.dcp_ingestion_runner[0].email}"
 }

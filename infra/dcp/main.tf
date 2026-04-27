@@ -87,9 +87,9 @@ locals {
 
   stack_cdc = {
     dc_api_key                     = var.cdc_dc_api_key
-    maps_api_key                   = coalesce(var.cdc_maps_api_key, "")
+    maps_api_key                   = var.cdc_maps_api_key
     disable_google_maps            = var.cdc_disable_google_maps
-    google_analytics_tag_id        = coalesce(var.cdc_google_analytics_tag_id, "")
+    google_analytics_tag_id        = var.cdc_google_analytics_tag_id
     gcs_data_bucket_name           = var.cdc_gcs_data_bucket_name
     gcs_data_bucket_input_folder   = var.cdc_gcs_data_bucket_input_folder
     gcs_data_bucket_output_folder  = var.cdc_gcs_data_bucket_output_folder
@@ -118,7 +118,7 @@ locals {
     redis_location_id              = var.cdc_redis_location_id
     redis_alternative_location_id  = var.cdc_redis_alternative_location_id
     redis_replica_count            = var.cdc_redis_replica_count
-    search_scope                   = coalesce(var.cdc_search_scope, "")
+    search_scope                   = var.cdc_search_scope
     enable_mcp                     = var.cdc_enable_mcp
   }
 }

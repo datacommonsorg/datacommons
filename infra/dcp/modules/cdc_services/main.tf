@@ -94,11 +94,11 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
   }
 }
 
-resource "google_cloud_run_service_iam_member" "public_access" {
+resource "google_cloud_run_v2_service_iam_member" "public_access" {
   count    = var.make_dc_web_service_public ? 1 : 0
   location = google_cloud_run_v2_service.dc_web_service.location
   project  = google_cloud_run_v2_service.dc_web_service.project
-  service  = google_cloud_run_v2_service.dc_web_service.name
+  name     = google_cloud_run_v2_service.dc_web_service.name
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
