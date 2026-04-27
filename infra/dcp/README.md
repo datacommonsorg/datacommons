@@ -104,6 +104,24 @@ gcloud workflows run <namespace>-ingestion-orchestrator \
 
 ## Architecture & Troubleshooting
 
+### Modular Structure
+Stack composition is delegated to `modules/stack`, which manages smaller, dedicated sub-modules for various components of both the CDC and DCP stacks.
+
+### Module Overview
+*   **`stack`**: Orchestrates sub-modules based on feature toggles ([modules/stack](file:///Users/dwnoble/Projects/datacommons/datacommons/infra/dcp/modules/stack/main.tf)).
+*   **`cdc_data_ingestion_job`**: Ingestion Cloud Run v2 Job.
+*   **`cdc_iam`**: IAM and Secret Manager config for CDC.
+*   **`cdc_mysql`**: Cloud SQL MySQL instance and databases.
+*   **`cdc_network`**: VPC and serverless access connectors.
+*   **`cdc_redis`**: Memorystore Redis instance.
+*   **`cdc_services`**: CDC Cloud Run v2 web services ([modules/cdc_services](file:///Users/dwnoble/Projects/datacommons/datacommons/infra/dcp/modules/cdc_services/main.tf)).
+*   **`cdc_storage`**: GCS buckets for I/O.
+*   **`dcp_dataflow_ingestion`**: Dataflow and helper service for DCP ([modules/dcp_dataflow_ingestion](file:///Users/dwnoble/Projects/datacommons/datacommons/infra/dcp/modules/dcp_dataflow_ingestion/main.tf)).
+*   **`dcp_ingestion_workflow`**: Cloud Workflows for orchestration.
+*   **`dcp_service`**: DCP Cloud Run service.
+*   **`dcp_storage`**: GCS bucket for DCP pipeline.
+*   **`spanner`**: Shared Cloud Spanner instance and databases.
+
 ### Orchestrator Pattern
 The ingestion pipeline uses Google Cloud Workflows as an orchestrator. It receives the ingestion parameters, names the Dataflow job with a timestamp, launches the Dataflow Flex Template, and returns the job status. This prevents direct interaction with complex Dataflow APIs for standard ingestion tasks.
 
