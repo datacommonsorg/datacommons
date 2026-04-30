@@ -37,3 +37,7 @@ infra/dcp/.env
 .venv/
 .env
 *.generated.yaml
+
+AGENTS.md
+docs/plans
+docs/designs
