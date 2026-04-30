@@ -14,7 +14,8 @@ resource "google_project_iam_member" "datacommons_service_account_roles" {
     "roles/vpcaccess.user",
     "roles/iam.serviceAccountUser",
     "roles/secretmanager.secretAccessor",
-    "roles/spanner.databaseUser"
+    "roles/spanner.databaseUser",
+    "roles/workflows.invoker"
   ]), var.use_spanner ? [] : ["roles/spanner.databaseUser"])
   project = var.project_id
   member  = "serviceAccount:${google_service_account.datacommons_service_account.email}"
@@ -46,3 +47,17 @@ resource "google_secret_manager_secret_version" "maps_api_key_version" {
   secret      = google_secret_manager_secret.maps_api_key[0].id
   secret_data = local.maps_api_key
 }
+
+resource "google_storage_bucket_iam_member" "cdc_data_bucket_access" {
+  bucket = google_storage_bucket.data_bucket.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.datacommons_service_account.email}"
+}
+
+resource "google_storage_bucket_iam_member" "dataflow_bucket_access" {
+  bucket = google_storage_bucket.data_bucket.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${local.name_prefix}dcp-ingestion-sa@${var.project_id}.iam.gserviceaccount.com"
+}
+
+
