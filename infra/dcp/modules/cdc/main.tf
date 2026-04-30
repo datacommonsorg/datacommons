@@ -183,6 +183,26 @@ resource "google_cloud_run_v2_job" "dc_data_job" {
           name  = "INPUT_DIR"
           value = "gs://${google_storage_bucket.data_bucket.name}/${var.gcs_data_bucket_input_folder}"
         }
+        env {
+          name  = "WORKFLOW_NAME"
+          value = var.workflow_name
+        }
+        env {
+          name  = "PROJECT_ID"
+          value = var.project_id
+        }
+        env {
+          name  = "WORKFLOW_LOCATION"
+          value = var.region
+        }
+        env {
+          name  = "TEMP_LOCATION"
+          value = "gs://${google_storage_bucket.data_bucket.name}/temp"
+        }
+        env {
+          name  = "REGION"
+          value = var.region
+        }
       }
       vpc_access {
         connector = google_vpc_access_connector.connector.id
