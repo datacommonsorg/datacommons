@@ -1,10 +1,11 @@
 locals {
   name_prefix = var.namespace != "" ? "${var.namespace}-" : ""
+  display_name_prefix = var.namespace != "" ? "(${var.namespace}) " : ""
 }
 
 resource "google_service_account" "dcp_runner" {
   account_id   = "${local.name_prefix}${var.service_account_name}"
-  display_name = "Data Commons Platform Runner"
+  display_name = "${local.display_name_prefix}Data Commons Platform Runner"
 }
 
 resource "google_project_iam_member" "spanner_user" {

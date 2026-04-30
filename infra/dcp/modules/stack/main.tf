@@ -41,7 +41,7 @@ locals {
     },
     {
       name  = "OUTPUT_DIR"
-      value = "gs://${module.cdc_storage[0].bucket_name}/${var.cdc.gcs_data_bucket_output_folder}"
+      value = "gs://${module.storage.cdc_bucket_name}/${var.cdc.gcs_data_bucket_output_folder}"
     },
     {
       name  = "FORCE_RESTART"
@@ -122,21 +122,30 @@ module "dcp_service" {
   spanner_database_id     = module.spanner[0].spanner_database_id
 }
 
-module "dcp_storage" {
-  source = "../dcp_storage"
-  count  = local.enable_dcp ? 1 : 0
+module "storage" {
+  source = "../storage"
 
-  deploy               = var.dcp.deploy_data_ingestion_workflow
-  create_bucket        = var.dcp.create_ingestion_bucket
-  external_bucket_name = var.dcp.external_ingestion_bucket_name
-  namespace            = var.shared.namespace
-  project_id           = var.shared.project_id
-  region               = var.shared.region
-  deletion_protection  = var.shared.deletion_protection
+  enable_dcp           = local.enable_dcp
+  enable_cdc           = local.enable_cdc
+  
+  # DCP vars
+  dcp_deploy                = var.dcp.deploy_data_ingestion_workflow
+  dcp_create_bucket         = var.dcp.create_ingestion_bucket
+  dcp_external_bucket_name  = var.dcp.external_ingestion_bucket_name
+  dcp_region                 = var.shared.region
+  dcp_deletion_protection   = var.shared.deletion_protection
+  
+  # CDC vars
+  cdc_gcs_data_bucket_name     = var.cdc.gcs_data_bucket_name
+  cdc_gcs_data_bucket_location = var.cdc.gcs_data_bucket_location
+  
+  # Shared vars
+  project_id = var.shared.project_id
+  namespace  = var.shared.namespace
 }
 
-module "dcp_dataflow_ingestion" {
-  source = "../dcp_dataflow_ingestion"
+module "dcp_ingestion_dataflow" {
+  source = "../dcp_ingestion_dataflow"
   count  = local.enable_dcp ? 1 : 0
 
   deploy                = var.dcp.deploy_data_ingestion_workflow
@@ -146,7 +155,22 @@ module "dcp_dataflow_ingestion" {
   deletion_protection   = var.shared.deletion_protection
   spanner_instance_id   = module.spanner[0].spanner_instance_id
   spanner_database_id   = module.spanner[0].spanner_database_id
-  ingestion_bucket_name = module.dcp_storage[0].bucket_name
+  ingestion_bucket_name = module.storage.dcp_bucket_name
+}
+
+module "dcp_ingestion_helper" {
+  source = "../dcp_ingestion_helper"
+  count  = local.enable_dcp ? 1 : 0
+
+  deploy                = var.dcp.deploy_data_ingestion_workflow
+  project_id            = var.shared.project_id
+  namespace             = var.shared.namespace
+  region                = var.shared.region
+  deletion_protection   = var.shared.deletion_protection
+  spanner_instance_id   = module.spanner[0].spanner_instance_id
+  spanner_database_id   = module.spanner[0].spanner_database_id
+  ingestion_bucket_name = module.storage.dcp_bucket_name
+  service_account_email = module.dcp_ingestion_dataflow[0].ingestion_runner_email
 }
 
 module "dcp_ingestion_workflow" {
@@ -159,20 +183,12 @@ module "dcp_ingestion_workflow" {
   deletion_protection    = var.shared.deletion_protection
   project_id             = var.shared.project_id
   ingestion_lock_timeout = var.dcp.ingestion_lock_timeout
-  ingestion_helper_uri   = module.dcp_dataflow_ingestion[0].ingestion_helper_uri
-  ingestion_runner_id    = module.dcp_dataflow_ingestion[0].ingestion_runner_id
-  ingestion_runner_email = module.dcp_dataflow_ingestion[0].ingestion_runner_email
+  ingestion_helper_uri   = module.dcp_ingestion_helper[0].ingestion_helper_uri
+  ingestion_runner_id    = module.dcp_ingestion_dataflow[0].ingestion_runner_id
+  ingestion_runner_email = module.dcp_ingestion_dataflow[0].ingestion_runner_email
 }
 
-module "cdc_storage" {
-  source = "../cdc_storage"
-  count  = local.enable_cdc ? 1 : 0
 
-  project_id               = var.shared.project_id
-  namespace                = var.shared.namespace
-  gcs_data_bucket_name     = var.cdc.gcs_data_bucket_name
-  gcs_data_bucket_location = var.cdc.gcs_data_bucket_location
-}
 
 module "cdc_network" {
   source = "../cdc_network"
@@ -240,7 +256,7 @@ module "cdc_data_ingestion_job" {
   dc_data_job_timeout           = var.cdc.data_job_timeout
   service_account_email         = module.cdc_iam[0].service_account_email
   vpc_connector_id              = module.cdc_network[0].connector_id
-  bucket_name                   = module.cdc_storage[0].bucket_name
+  bucket_name                   = module.storage.cdc_bucket_name
   gcs_data_bucket_input_folder  = var.cdc.gcs_data_bucket_input_folder
   gcs_data_bucket_output_folder = var.cdc.gcs_data_bucket_output_folder
   run_db_init                   = !local.cdc_use_spanner

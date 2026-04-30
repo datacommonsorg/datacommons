@@ -25,5 +25,5 @@ output "dcp_ingestion_orchestrator_id" {
 
 output "dcp_data_ingestion_bucket_url" {
   description = "GCS URL pointing directly to the dynamically provisioned bucket for your input graph MCF files"
-  value       = var.toggles.enable_dcp && var.dcp.deploy_data_ingestion_workflow ? module.dcp_storage[0].bucket_url : null
+  value       = var.toggles.enable_dcp && var.dcp.deploy_data_ingestion_workflow ? module.storage.dcp_bucket_url : null
 }

@@ -115,11 +115,11 @@ Stack composition is delegated to `modules/stack`, which manages smaller, dedica
 *   **`cdc_network`**: VPC and serverless access connectors.
 *   **`cdc_redis`**: Memorystore Redis instance.
 *   **`cdc_services`**: CDC Cloud Run v2 web services ([modules/cdc_services](file:///Users/dwnoble/Projects/datacommons/datacommons/infra/dcp/modules/cdc_services/main.tf)).
-*   **`cdc_storage`**: GCS buckets for I/O.
-*   **`dcp_dataflow_ingestion`**: Dataflow and helper service for DCP ([modules/dcp_dataflow_ingestion](file:///Users/dwnoble/Projects/datacommons/datacommons/infra/dcp/modules/dcp_dataflow_ingestion/main.tf)).
+*   **`dcp_ingestion_dataflow`**: Dataflow runner service account and IAM for DCP ([modules/dcp_ingestion_dataflow](file:///Users/dwnoble/Projects/datacommons/datacommons/infra/dcp/modules/dcp_ingestion_dataflow/main.tf)).
+*   **`dcp_ingestion_helper`**: Helper Cloud Run service for DCP ([modules/dcp_ingestion_helper](file:///Users/dwnoble/Projects/datacommons/datacommons/infra/dcp/modules/dcp_ingestion_helper/main.tf)).
 *   **`dcp_ingestion_workflow`**: Cloud Workflows for orchestration.
 *   **`dcp_service`**: DCP Cloud Run service.
-*   **`dcp_storage`**: GCS bucket for DCP pipeline.
+*   **`storage`**: GCS buckets for both CDC and DCP stacks ([modules/storage](file:///Users/dwnoble/Projects/datacommons/datacommons/infra/dcp/modules/storage/main.tf)).
 *   **`spanner`**: Shared Cloud Spanner instance and databases.
 
 ### Orchestrator Pattern
