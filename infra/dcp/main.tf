@@ -139,6 +139,8 @@ module "cdc" {
   spanner_database_id               = var.enable_dcp ? module.dcp[0].spanner_database_id : ""
   deletion_protection               = var.deletion_protection
   workflow_name                     = var.enable_dcp ? module.dcp[0].ingestion_orchestrator_name : ""
+  dcp_ingestion_service_account_email = var.enable_dcp && var.dcp_deploy_data_ingestion_workflow ? module.dcp[0].ingestion_service_account_email : ""
+
 
 
   depends_on = [google_project_service.apis]

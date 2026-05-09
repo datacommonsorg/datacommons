@@ -6,6 +6,12 @@ output "service_account_email" {
   value = google_service_account.dcp_runner.email
 }
 
+output "ingestion_service_account_email" {
+  description = "Email of the DCP ingestion service account"
+  value       = var.deploy_data_ingestion_workflow ? google_service_account.dcp_ingestion_runner[0].email : null
+}
+
+
 output "spanner_instance_id" {
   value = var.create_spanner_instance ? (var.spanner_instance_id != "" ? "${local.name_prefix}${var.spanner_instance_id}" : "${local.name_prefix}dcp-instance") : var.spanner_instance_id
 }

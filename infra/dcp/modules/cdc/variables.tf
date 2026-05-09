@@ -276,3 +276,10 @@ variable "workflow_name" {
   default     = ""
 }
 
+variable "dcp_ingestion_service_account_email" {
+  description = "Email of the DCP ingestion service account"
+  type        = string
+  default     = ""
+}
+
+

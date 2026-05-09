@@ -56,8 +56,10 @@ resource "google_storage_bucket_iam_member" "cdc_data_bucket_access" {
 }
 
 resource "google_storage_bucket_iam_member" "dataflow_bucket_access" {
+  count  = var.dcp_ingestion_service_account_email != "" ? 1 : 0
   bucket = google_storage_bucket.data_bucket.name
   role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${local.name_prefix}dcp-ingestion-sa@${var.project_id}.iam.gserviceaccount.com" 
+  member = "serviceAccount:${var.dcp_ingestion_service_account_email}"
 }
+
 
