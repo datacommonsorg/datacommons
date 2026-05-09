@@ -24,3 +24,9 @@ output "dcp_data_ingestion_bucket_url" {
   description = "GCS URL pointing directly to the dynamically provisioned bucket for your input graph MCF files"
   value       = var.enable_dcp && var.dcp_deploy_data_ingestion_workflow ? module.dcp[0].data_ingestion_bucket_url : null
 }
+
+output "workflow_name" {
+  description = "Name of the ingestion Cloud Workflows orchestrator"
+  value       = var.enable_dcp && var.dcp_deploy_data_ingestion_workflow ? module.dcp[0].ingestion_orchestrator_name : ""
+}
+

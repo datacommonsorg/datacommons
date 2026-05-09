@@ -269,3 +269,10 @@ variable "spanner_database_id" {
   type        = string
   default     = ""
 }
+
+variable "workflow_name" {
+  description = "The name of the Cloud Workflow to trigger after ingestion"
+  type        = string
+  default     = ""
+}
+

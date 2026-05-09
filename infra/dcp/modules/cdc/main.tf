@@ -96,6 +96,7 @@ resource "google_redis_instance" "redis_instance" {
 
 # VPC Access Connector for private connections
 resource "google_vpc_access_connector" "connector" {
+  count         = var.use_spanner ? 0 : 1
   name          = "${local.name_prefix}vpc-conn"
   region        = var.region
   network       = var.vpc_network_name
@@ -103,6 +104,7 @@ resource "google_vpc_access_connector" "connector" {
   min_instances = 2
   max_instances = 10
 }
+
 
 # GCS Bucket for data storage
 resource "google_storage_bucket" "data_bucket" {
@@ -183,11 +185,21 @@ resource "google_cloud_run_v2_job" "dc_data_job" {
           name  = "INPUT_DIR"
           value = "gs://${google_storage_bucket.data_bucket.name}/${var.gcs_data_bucket_input_folder}"
         }
+        env {
+          name  = "INGESTION_WORKFLOW_NAME"
+          value = var.workflow_name
+        }
+
+
       }
-      vpc_access {
-        connector = google_vpc_access_connector.connector.id
-        egress    = "PRIVATE_RANGES_ONLY"
+      dynamic "vpc_access" {
+        for_each = var.use_spanner ? [] : [1]
+        content {
+          connector = google_vpc_access_connector.connector[0].id
+          egress    = "PRIVATE_RANGES_ONLY"
+        }
       }
+
       max_retries     = 0
       timeout         = var.dc_data_job_timeout
       service_account = google_service_account.datacommons_service_account.email
@@ -293,10 +305,14 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
         value = var.enable_mcp ? "true" : "false"
       }
     }
-    vpc_access {
-      connector = google_vpc_access_connector.connector.id
-      egress    = "PRIVATE_RANGES_ONLY"
+    dynamic "vpc_access" {
+      for_each = var.use_spanner ? [] : [1]
+      content {
+        connector = google_vpc_access_connector.connector[0].id
+        egress    = "PRIVATE_RANGES_ONLY"
+      }
     }
+
     scaling {
       min_instance_count = var.dc_web_service_min_instance_count
       max_instance_count = var.dc_web_service_max_instance_count

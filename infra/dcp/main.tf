@@ -138,6 +138,8 @@ module "cdc" {
   spanner_instance_id               = var.enable_dcp ? module.dcp[0].spanner_instance_id : ""
   spanner_database_id               = var.enable_dcp ? module.dcp[0].spanner_database_id : ""
   deletion_protection               = var.deletion_protection
+  workflow_name                     = var.enable_dcp ? module.dcp[0].ingestion_orchestrator_name : ""
+
 
   depends_on = [google_project_service.apis]
 }
