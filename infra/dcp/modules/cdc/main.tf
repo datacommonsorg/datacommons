@@ -189,6 +189,24 @@ resource "google_cloud_run_v2_job" "dc_data_job" {
           name  = "INGESTION_WORKFLOW_NAME"
           value = var.workflow_name
         }
+        env {
+          name  = "TEMP_LOCATION"
+          value = "gs://${google_storage_bucket.data_bucket.name}/temp"
+        }
+        env {
+          name  = "PROJECT_ID"
+          value = var.project_id
+        }
+        env {
+          name  = "WORKFLOW_LOCATION"
+          value = var.region
+        }
+        env {
+          name  = "REGION"
+          value = var.region
+        }
+
+
 
 
       }
