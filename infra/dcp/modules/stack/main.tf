@@ -82,6 +82,10 @@ locals {
     {
       name  = "REGION"
       value = var.shared.region
+    },
+    {
+      name  = "USE_SPANNER_GRAPH"
+      value = local.cdc_use_spanner ? "true" : "false"
     }
 
   ] : []
