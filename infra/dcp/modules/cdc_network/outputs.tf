@@ -1,3 +1,4 @@
 output "connector_id" {
-  value = google_vpc_access_connector.connector.id
+  value = try(google_vpc_access_connector.connector[0].id, null)
 }
+

@@ -56,10 +56,14 @@ resource "google_cloud_run_v2_job" "dc_data_job" {
           value = "gs://${var.bucket_name}/${var.gcs_data_bucket_input_folder}"
         }
       }
-      vpc_access {
-        connector = var.vpc_connector_id
-        egress    = "PRIVATE_RANGES_ONLY"
+      dynamic "vpc_access" {
+        for_each = var.vpc_connector_id != null && var.vpc_connector_id != "" ? [1] : []
+        content {
+          connector = var.vpc_connector_id
+          egress    = "PRIVATE_RANGES_ONLY"
+        }
       }
+
       max_retries     = 0
       timeout         = var.dc_data_job_timeout
       service_account = var.service_account_email

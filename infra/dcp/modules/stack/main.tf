@@ -62,7 +62,28 @@ locals {
     {
       name  = "GCP_SPANNER_DATABASE_NAME"
       value = local.dcp_spanner_database_id
+    },
+    {
+      name  = "INGESTION_WORKFLOW_NAME"
+      value = local.enable_dcp ? module.dcp_ingestion_workflow[0].ingestion_orchestrator_name : ""
+    },
+    {
+      name  = "TEMP_LOCATION"
+      value = "gs://${module.storage.cdc_bucket_name}/temp"
+    },
+    {
+      name  = "PROJECT_ID"
+      value = var.shared.project_id
+    },
+    {
+      name  = "WORKFLOW_LOCATION"
+      value = var.shared.region
+    },
+    {
+      name  = "REGION"
+      value = var.shared.region
     }
+
   ] : []
 
   cdc_cloud_run_shared_env_variable_secrets = local.enable_cdc ? concat([
@@ -198,7 +219,9 @@ module "cdc_network" {
   region             = var.shared.region
   vpc_network_name   = var.cdc.vpc_network_name
   vpc_connector_cidr = var.cdc.vpc_connector_cidr
+  use_spanner         = local.cdc_use_spanner
 }
+
 
 module "cdc_mysql" {
   source = "../cdc_mysql"
@@ -297,3 +320,11 @@ check "spanner_instance_id_provided" {
     error_message = "dcp_spanner_instance_id must be provided when reusing an existing instance (dcp_create_spanner_instance = false)."
   }
 }
+
+resource "google_storage_bucket_iam_member" "dataflow_cdc_bucket_access" {
+  count  = local.enable_cdc && local.enable_dcp && var.dcp.deploy_data_ingestion_workflow ? 1 : 0
+  bucket = module.storage.cdc_bucket_name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${module.dcp_ingestion_dataflow[0].ingestion_runner_email}"
+}
+
