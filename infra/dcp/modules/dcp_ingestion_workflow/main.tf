@@ -150,6 +150,15 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
           switch:
             - condition: '$${execution_error != null}'
               raise: '$${execution_error}'
+      - restart_service:
+          call: googleapis.run.v2.projects.locations.services.patch
+          args:
+            name: "projects/${var.project_id}/locations/${var.region}/services/${local.name_prefix}datacommons-web-service"
+            updateMask: "template.labels"
+            body:
+              template:
+                labels:
+                  restarted-at: '$${string(int(sys.now()))}'
       - return_result:
           return: '$${launch_result}'
   EOF2
