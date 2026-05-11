@@ -65,7 +65,7 @@ locals {
     },
     {
       name  = "INGESTION_WORKFLOW_NAME"
-      value = local.enable_dcp ? module.dcp_ingestion_workflow[0].ingestion_orchestrator_name : ""
+      value = local.enable_dcp ? coalesce(module.dcp_ingestion_workflow[0].ingestion_orchestrator_name, "") : ""
     },
     {
       name  = "TEMP_LOCATION"
