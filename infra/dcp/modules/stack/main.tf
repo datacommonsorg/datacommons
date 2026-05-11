@@ -332,3 +332,11 @@ resource "google_storage_bucket_iam_member" "dataflow_cdc_bucket_access" {
   member = "serviceAccount:${module.dcp_ingestion_dataflow[0].ingestion_runner_email}"
 }
 
+# This is only needed to trigger the services restart to pick up the GCS embeddings change
+resource "google_service_account_iam_member" "ingestion_runner_act_as_cdc_sa" {
+  count              = local.enable_cdc && local.enable_dcp ? 1 : 0
+  service_account_id = "projects/${var.shared.project_id}/serviceAccounts/${module.cdc_iam[0].service_account_email}"
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${module.dcp_ingestion_dataflow[0].ingestion_runner_email}"
+}
+
