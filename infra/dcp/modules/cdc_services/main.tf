@@ -70,10 +70,14 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
       }
     }
 
-    vpc_access {
-      connector = var.vpc_connector_id
-      egress    = "PRIVATE_RANGES_ONLY"
+    dynamic "vpc_access" {
+      for_each = var.vpc_connector_id != null && var.vpc_connector_id != "" ? [1] : []
+      content {
+        connector = var.vpc_connector_id
+        egress    = "PRIVATE_RANGES_ONLY"
+      }
     }
+
 
     scaling {
       min_instance_count = var.dc_web_service_min_instance_count

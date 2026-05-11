@@ -3,7 +3,9 @@ locals {
 }
 
 resource "google_vpc_access_connector" "connector" {
+  count         = var.use_spanner ? 0 : 1
   name          = "${local.name_prefix}vpc-conn"
+
   region        = var.region
   network       = var.vpc_network_name
   ip_cidr_range = var.vpc_connector_cidr

@@ -18,8 +18,10 @@ resource "google_project_iam_member" "datacommons_service_account_roles" {
     "roles/vpcaccess.user",
     "roles/iam.serviceAccountUser",
     "roles/secretmanager.secretAccessor",
-    "roles/spanner.databaseUser"
+    "roles/spanner.databaseUser",
+    "roles/workflows.invoker"
   ]), var.use_spanner ? [] : ["roles/spanner.databaseUser"])
+
 
   project = var.project_id
   member  = "serviceAccount:${google_service_account.datacommons_service_account.email}"

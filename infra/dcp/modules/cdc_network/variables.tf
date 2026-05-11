@@ -13,3 +13,9 @@ variable "vpc_network_name" {
 variable "vpc_connector_cidr" {
   type = string
 }
+
+variable "use_spanner" {
+  type    = bool
+  default = false
+}
+
