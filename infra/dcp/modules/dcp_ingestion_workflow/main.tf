@@ -19,16 +19,18 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
             - project_id: '${var.project_id}'
             - workflow_id: '$${sys.get_env("GOOGLE_CLOUD_WORKFLOW_EXECUTION_ID")}'
             - version: '$${"version-" + string(int(sys.now()))}'
-            - bucket_name: '$${text.split(input.tempLocation, "/")[2]}'
+            - spanner_instance_id: '${var.spanner_instance_id}'
+            - spanner_database_id: '${var.spanner_database_id}'
+            - bucket_name: '${var.ingestion_bucket_name}'
             - latest_version_gcs_path: '$${"gs://" + bucket_name + "/imports/" + input.importName + "/" + version}'
             - execution_error: null
             - lock_timeout: ${var.ingestion_lock_timeout}
             - launch_params:
                 projectId: '$${project_id}'
-                spannerInstanceId: '$${input.spannerInstanceId}'
-                spannerDatabaseId: '$${input.spannerDatabaseId}'
+                spannerInstanceId: '$${spanner_instance_id}'
+                spannerDatabaseId: '$${spanner_database_id}'
                 importList: '$${input.importList}'
-                tempLocation: '$${input.tempLocation}'
+                tempLocation: '$${"gs://" + bucket_name + "/temp/"}'
       - acquire_lock:
           try:
             call: http.post

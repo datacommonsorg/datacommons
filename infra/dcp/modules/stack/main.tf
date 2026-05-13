@@ -211,6 +211,9 @@ module "dcp_ingestion_workflow" {
   ingestion_helper_uri   = module.dcp_ingestion_helper[0].ingestion_helper_uri
   ingestion_runner_id    = module.dcp_ingestion_dataflow[0].ingestion_runner_id
   ingestion_runner_email = module.dcp_ingestion_dataflow[0].ingestion_runner_email
+  spanner_instance_id    = module.spanner[0].spanner_instance_id
+  spanner_database_id    = module.spanner[0].spanner_database_id
+  ingestion_bucket_name  = module.storage.dcp_bucket_name
 }
 
 
