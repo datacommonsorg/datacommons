@@ -218,7 +218,6 @@ BACKEND_TF_TEMPLATE = """terraform {{
 """
 
 
-
 def _configure_remote_state(resolved_project_id: str, resolved_namespace: str) -> str:
     """Handles GCS state bucket verification, creation, and IAM setup."""
     default_bucket = f"tf-state-{resolved_namespace}-{resolved_project_id}"
@@ -251,7 +250,9 @@ def _configure_remote_state(resolved_project_id: str, resolved_namespace: str) -
             if reuse:
                 return bucket_name
             else:
-                click.secho("Please enter a different bucket name to continue.", fg="cyan")
+                click.secho(
+                    "Please enter a different bucket name to continue.", fg="cyan"
+                )
                 continue
         except exceptions.NotFound:
             click.secho(
@@ -263,12 +264,21 @@ def _configure_remote_state(resolved_project_id: str, resolved_namespace: str) -
                 new_bucket.iam_configuration.uniform_bucket_level_access_enabled = True
                 new_bucket.versioning_enabled = True
                 new_bucket.patch()
-                click.secho(f"Enabling versioning on gs://{bucket_name}...", fg="bright_black")
+                click.secho(
+                    f"Enabling versioning on gs://{bucket_name}...", fg="bright_black"
+                )
 
-                click.secho("Configuring bucket IAM policy for project editors/owners...", fg="bright_black")
+                click.secho(
+                    "Configuring bucket IAM policy for project editors/owners...",
+                    fg="bright_black",
+                )
                 policy = new_bucket.get_iam_policy(requested_policy_version=3)
-                policy["roles/storage.objectAdmin"].add(f"projectEditor:{resolved_project_id}")
-                policy["roles/storage.objectAdmin"].add(f"projectOwner:{resolved_project_id}")
+                policy["roles/storage.objectAdmin"].add(
+                    f"projectEditor:{resolved_project_id}"
+                )
+                policy["roles/storage.objectAdmin"].add(
+                    f"projectOwner:{resolved_project_id}"
+                )
                 new_bucket.set_iam_policy(policy)
 
                 return bucket_name
@@ -279,7 +289,10 @@ def _configure_remote_state(resolved_project_id: str, resolved_namespace: str) -
                     bold=True,
                 )
                 click.secho(str(e), fg="red")
-                click.secho("Please verify permissions/names availability and try again.", fg="yellow")
+                click.secho(
+                    "Please verify permissions/names availability and try again.",
+                    fg="yellow",
+                )
                 continue
         except Exception as e:
             click.secho(
@@ -288,7 +301,10 @@ def _configure_remote_state(resolved_project_id: str, resolved_namespace: str) -
                 bold=True,
             )
             click.secho(str(e), fg="red")
-            click.secho("Please verify permissions/names availability and try again.", fg="yellow")
+            click.secho(
+                "Please verify permissions/names availability and try again.",
+                fg="yellow",
+            )
             continue
 
 
@@ -298,11 +314,19 @@ def infra() -> None:
 
 
 @infra.command()
-@click.option("--project-id", default="", help="GCP project id to initialize into tfvars.")
-@click.option("--namespace", default="", help="Namespace prefix for provisioned resources.")
+@click.option(
+    "--project-id", default="", help="GCP project id to initialize into tfvars."
+)
+@click.option(
+    "--namespace", default="", help="Namespace prefix for provisioned resources."
+)
 @click.option("--dc-api-key", default="", help="Data Commons API key.")
-@click.option("--ref", default="main", show_default=True, help="Git ref for module source.")
-@click.option("--force", is_flag=True, help="Overwrite existing generated files if present.")
+@click.option(
+    "--ref", default="main", show_default=True, help="Git ref for module source."
+)
+@click.option(
+    "--force", is_flag=True, help="Overwrite existing generated files if present."
+)
 def init(
     project_id: str,
     namespace: str,
@@ -314,9 +338,10 @@ def init(
     click.secho("Datacommons Infra Init", fg="cyan", bold=True)
     click.secho("Generating Terraform starter files...", fg="bright_black")
 
-    resolved_project_id = project_id.strip() or click.prompt(
-        "GCP project id", type=str, prompt_suffix=": "
-    ).strip()
+    resolved_project_id = (
+        project_id.strip()
+        or click.prompt("GCP project id", type=str, prompt_suffix=": ").strip()
+    )
     if not resolved_project_id:
         raise click.ClickException("GCP project id must not be empty.")
 
@@ -342,13 +367,16 @@ def init(
 
         break
 
-    resolved_dc_api_key = dc_api_key.strip() or click.prompt(
-        "Data Commons API key (get one at apikeys.datacommons.org)",
-        type=str,
-        default="",
-        show_default=False,
-        prompt_suffix=": ",
-    ).strip()
+    resolved_dc_api_key = (
+        dc_api_key.strip()
+        or click.prompt(
+            "Data Commons API key (get one at apikeys.datacommons.org)",
+            type=str,
+            default="",
+            show_default=False,
+            prompt_suffix=": ",
+        ).strip()
+    )
 
     main_tf_path = target_dir / "main.tf"
     tfvars_path = target_dir / "terraform.tfvars"
@@ -389,14 +417,17 @@ def init(
     )
     remote_state_info = ""
     if use_remote_state and resolved_bucket_name:
-        remote_state_info = REMOTE_STATE_TEMPLATE.format(bucket_name=resolved_bucket_name)
+        remote_state_info = REMOTE_STATE_TEMPLATE.format(
+            bucket_name=resolved_bucket_name
+        )
 
     readme_path.write_text(
         README_TEMPLATE.format(remote_state_section=remote_state_info), encoding="utf-8"
     )
     if use_remote_state and resolved_bucket_name:
         backend_tf_path.write_text(
-            BACKEND_TF_TEMPLATE.format(bucket_name=resolved_bucket_name), encoding="utf-8"
+            BACKEND_TF_TEMPLATE.format(bucket_name=resolved_bucket_name),
+            encoding="utf-8",
         )
 
     click.secho(f"Initialized Terraform scaffold in {target_dir}", fg="green")

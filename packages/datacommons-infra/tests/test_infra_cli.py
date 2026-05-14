@@ -96,11 +96,13 @@ def test_init_existing_folder_force(runner: CliRunner, tmp_path: Path) -> None:
 
         main_tf = existing_dir / "main.tf"
         assert "old content" not in main_tf.read_text()
-        assert "module \"datacommons_dcp\"" in main_tf.read_text()
+        assert 'module "datacommons_dcp"' in main_tf.read_text()
 
 
 @patch("datacommons_infra.infra_cli._configure_remote_state")
-def test_init_remote_state(mock_configure: patch, runner: CliRunner, tmp_path: Path) -> None:
+def test_init_remote_state(
+    mock_configure: patch, runner: CliRunner, tmp_path: Path
+) -> None:
     mock_configure.return_value = "mock-bucket-name"
 
     with runner.isolated_filesystem(temp_dir=tmp_path):
