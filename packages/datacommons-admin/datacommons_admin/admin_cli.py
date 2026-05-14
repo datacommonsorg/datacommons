@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from pathlib import Path
+from typing import Any, Tuple
 
 import click
 from google.api_core import exceptions
@@ -119,7 +120,7 @@ def _configure_remote_state(resolved_project_id: str, resolved_namespace: str) -
 
 @click.group()
 def admin() -> None:
-    """Admin commands."""
+    """Manage a Data Commons Platform instance in Google Cloud"""
 
 
 @admin.command()
@@ -251,10 +252,7 @@ def init(
     )
 
 
-@admin.command(name="init-db")
-def init_db() -> None:
-    """Initialize the Spanner database via the DCP Ingestion Helper service."""
-    click.secho("Datacommons Admin Init-DB", fg="cyan", bold=True)
+def _setup_ingestion_client() -> Tuple[Any, str, str]:
     click.secho(
         "Fetching Ingestion Helper URI, Orchestrator Service Account, and Spanner details from Terraform outputs...",
         fg="bright_black",
@@ -279,14 +277,48 @@ def init_db() -> None:
         f"Found Spanner Database Instance: {instance_id} / Database ID: {database_id}",
         fg="green",
     )
+
+    client = IngestionHelperClient(uri, service_account_email=sa_email)
+    return client, instance_id, database_id
+
+
+def _run_seed_db(client: Any, instance_id: str, database_id: str) -> None:
+    click.secho(
+        f"Seeding Spanner database '{instance_id}/{database_id}' via the Ingestion Helper service (this may take a few moments)...",
+        fg="bright_black",
+    )
+    result = client.seed_database()
+    click.secho("Successfully seeded Spanner database!", fg="green", bold=True)
+    if "message" in result:
+        click.secho(f"Details: {result['message']}", fg="bright_black")
+
+
+@admin.command(name="init-db")
+@click.option(
+    "--init-only", is_flag=True, help="Only initialize the database without seeding."
+)
+def init_db(init_only: bool) -> None:
+    """Initialize (and by default seed) the Spanner database via the DCP Ingestion Helper service."""
+    click.secho("Datacommons Admin Init-DB", fg="cyan", bold=True)
+    client, instance_id, database_id = _setup_ingestion_client()
+
     click.secho(
         f"Initializing Spanner database '{instance_id}/{database_id}' via the Ingestion Helper service (this may take a few moments)...",
         fg="bright_black",
     )
-
-    client = IngestionHelperClient(uri, service_account_email=sa_email)
     result = client.initialize_database()
 
     click.secho("Successfully initialized Spanner database!", fg="green", bold=True)
     if "message" in result:
         click.secho(f"Details: {result['message']}", fg="bright_black")
+
+    if not init_only:
+        _run_seed_db(client, instance_id, database_id)
+
+
+@admin.command(name="seed-db")
+def seed_db() -> None:
+    """Seed the Spanner database via the DCP Ingestion Helper service."""
+    click.secho("Datacommons Admin Seed-DB", fg="cyan", bold=True)
+    client, instance_id, database_id = _setup_ingestion_client()
+    _run_seed_db(client, instance_id, database_id)
