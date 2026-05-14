@@ -21,12 +21,14 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
             - version: '$${"version-" + string(int(sys.now()))}'
             - bucket_name: '$${text.split(input.tempLocation, "/")[2]}'
             - latest_version_gcs_path: '$${"gs://" + bucket_name + "/imports/" + input.importName + "/" + version}'
+            - spanner_instance_id: '${var.spanner_instance_id}'
+            - spanner_database_id: '${var.spanner_database_id}'
             - execution_error: null
             - lock_timeout: ${var.ingestion_lock_timeout}
             - launch_params:
                 projectId: '$${project_id}'
-                spannerInstanceId: '$${input.spannerInstanceId}'
-                spannerDatabaseId: '$${input.spannerDatabaseId}'
+                spannerInstanceId: '$${spanner_instance_id}'
+                spannerDatabaseId: '$${spanner_database_id}'
                 importList: '$${input.importList}'
                 tempLocation: '$${input.tempLocation}'
       - acquire_lock:
@@ -67,7 +69,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                   call: googleapis.dataflow.v1b3.projects.locations.flexTemplates.launch
                   args:
                     projectId: '$${project_id}'
-                    location: '$${input.region}'
+                    location: '${var.region}'
                     body:
                       launchParameter:
                         jobName: '$${"ingestion-job-" + string(int(sys.now()))}'
@@ -85,7 +87,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                         call: googleapis.dataflow.v1b3.projects.locations.jobs.get
                         args:
                           projectId: '$${project_id}'
-                          location: '$${input.region}'
+                          location: '${var.region}'
                           jobId: '$${job_id}'
                         result: job_status
                     - check_terminal:

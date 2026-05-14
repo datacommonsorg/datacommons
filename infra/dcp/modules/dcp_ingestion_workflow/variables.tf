@@ -33,3 +33,15 @@ variable "ingestion_runner_id" {
 variable "ingestion_runner_email" {
   type = string
 }
+
+variable "spanner_instance_id" {
+  type = string
+}
+
+variable "spanner_database_id" {
+  type = string
+}
+
+variable "ingestion_bucket_name" {
+  type = string
+}
