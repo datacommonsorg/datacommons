@@ -21,14 +21,12 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
             - version: '$${"version-" + string(int(sys.now()))}'
             - bucket_name: '$${text.split(input.tempLocation, "/")[2]}'
             - latest_version_gcs_path: '$${"gs://" + bucket_name + "/imports/" + input.importName + "/" + version}'
-            - spanner_instance_id: '${var.spanner_instance_id}'
-            - spanner_database_id: '${var.spanner_database_id}'
             - execution_error: null
             - lock_timeout: ${var.ingestion_lock_timeout}
             - launch_params:
                 projectId: '$${project_id}'
-                spannerInstanceId: '$${spanner_instance_id}'
-                spannerDatabaseId: '$${spanner_database_id}'
+                spannerInstanceId: '${var.spanner_instance_id}'
+                spannerDatabaseId: '${var.spanner_database_id}'
                 importList: '$${input.importList}'
                 tempLocation: '$${input.tempLocation}'
       - acquire_lock:
