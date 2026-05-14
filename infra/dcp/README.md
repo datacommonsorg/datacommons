@@ -21,8 +21,8 @@ Before you begin, ensure you have the following:
 
 If you want users to deploy from this module remotely (without cloning this repo), start from:
 
-*   [`examples/remote-module/main.tf`](/Users/dnoble/Projects/datacommons/datacommons/infra/dcp/examples/remote-module/main.tf)
-*   [`examples/remote-module/terraform.tfvars.example`](/Users/dnoble/Projects/datacommons/datacommons/infra/dcp/examples/remote-module/terraform.tfvars.example)
+*   [examples/remote-module/main.tf](examples/remote-module/main.tf)
+*   [examples/remote-module/terraform.tfvars.example](examples/remote-module/terraform.tfvars.example)
 
 This uses a Git module source in the form:
 
