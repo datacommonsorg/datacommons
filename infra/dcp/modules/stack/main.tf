@@ -296,6 +296,7 @@ module "cdc_data_ingestion_job" {
   use_spanner                   = local.cdc_use_spanner
   env_vars                      = local.cdc_cloud_run_shared_env_variables
   secret_env_vars               = local.cdc_cloud_run_shared_env_variable_secrets
+  orchestrator_email            = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow && module.dcp_ingestion_dataflow[0].orchestrator_email != null ? module.dcp_ingestion_dataflow[0].orchestrator_email : ""
 
   depends_on = [module.cdc_iam]
 }

@@ -322,3 +322,8 @@ def seed_db() -> None:
     click.secho("Datacommons Admin Seed-DB", fg="cyan", bold=True)
     client, instance_id, database_id = _setup_ingestion_client()
     _run_seed_db(client, instance_id, database_id)
+
+
+from datacommons_admin.ingest_cli import ingest
+
+admin.add_command(ingest)

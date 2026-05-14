@@ -98,3 +98,20 @@ resource "null_resource" "run_db_init" {
 EOT
   }
 }
+
+resource "google_cloud_run_v2_job_iam_member" "orchestrator_viewer" {
+  count    = var.orchestrator_email != "" ? 1 : 0
+  location = google_cloud_run_v2_job.dc_data_job.location
+  name     = google_cloud_run_v2_job.dc_data_job.name
+  role     = "roles/run.viewer"
+  member   = "serviceAccount:${var.orchestrator_email}"
+}
+
+resource "google_cloud_run_v2_job_iam_member" "orchestrator_invoker" {
+  count    = var.orchestrator_email != "" ? 1 : 0
+  location = google_cloud_run_v2_job.dc_data_job.location
+  name     = google_cloud_run_v2_job.dc_data_job.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${var.orchestrator_email}"
+}
+
