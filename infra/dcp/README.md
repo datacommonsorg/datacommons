@@ -17,6 +17,21 @@ Before you begin, ensure you have the following:
 
 ## Initial Setup
 
+### Remote Module Quick Start (Minimal Consumer Config)
+
+If you want users to deploy from this module remotely (without cloning this repo), start from:
+
+*   [examples/remote-module/main.tf](examples/remote-module/main.tf)
+*   [examples/remote-module/terraform.tfvars.example](examples/remote-module/terraform.tfvars.example)
+
+This uses a Git module source in the form:
+
+```hcl
+source = "git::https://github.com/<org>/<repo>.git//infra/dcp?ref=<tag-or-commit>"
+```
+
+Use a release tag or commit SHA (instead of `main`) for reproducible environments.
+
 ### 1. Configure Local Variables
 
 Copy the example variables file to create your local configuration:
@@ -46,6 +61,9 @@ You can control the deployment by setting values in `terraform.tfvars`. Here are
 
 ### Data Ingestion Config
 *   `dcp_deploy_data_ingestion_workflow` (bool): Set to `true` to deploy the Cloud Workflows orchestrator and ingestion runner service account.
+*   `dcp_ingestion_helper_image` (string): Docker image URL for the DCP ingestion helper service. Defaults to `gcr.io/datcom-ci/datacommons-ingestion-helper:latest`.
+*   `cdc_data_job_image` (string): Docker image URL for the CDC data ingestion job. Defaults to `gcr.io/datcom-ci/datacommons-data:stable`.
+*   `cdc_gcs_data_bucket_input_folder` (string): GCS data bucket input folder for CDC. Defaults to `input`.
 *   `create_ingestion_bucket` (bool): Controls whether Terraform automatically provisions a dedicated staging GCS bucket for uploading graph dataset (.mcf) files. Defaults to `true`.
 *   `external_ingestion_bucket_name` (string): If `create_ingestion_bucket` is false, specify an existing external GCS bucket name to attach permissions to.
 
@@ -68,6 +86,17 @@ Once configured, execute standard Terraform commands to provision resources:
     ```bash
     terraform apply
     ```
+
+## Outputs
+
+Upon successful apply, Terraform displays key endpoints and resource names:
+*   `dcp_service_url`: Cloud Run service URL for DCP.
+*   `cdc_service_url`: Cloud Run service URL for CDC.
+*   `workflow_name`: Name of the Cloud Workflows ingestion orchestrator.
+*   `dcp_ingestion_helper_uri`: URI of the DCP ingestion helper Cloud Run service.
+*   `cdc_data_job_name`: Name of the CDC Cloud Run data ingestion job.
+*   `dcp_spanner_instance_id`: ID of the provisioned or referenced Cloud Spanner instance.
+*   `dcp_spanner_database_id`: ID of the provisioned Cloud Spanner database.
 
 ## Running Data Ingestion Workflow
 

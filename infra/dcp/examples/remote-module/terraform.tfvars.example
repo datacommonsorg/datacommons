@@ -1,0 +1,8 @@
+# Required variables
+project_id = "your-gcp-project-id"
+namespace  = "your-team"
+
+# Optional
+dcp_create_spanner_instance = false
+dcp_spanner_instance_id = "your-existing-spanner-instance-id"
+dcp_deploy_data_ingestion_workflow = true

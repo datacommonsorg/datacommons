@@ -33,3 +33,13 @@ output "dcp_ingestion_orchestrator_name" {
   value       = var.toggles.enable_dcp && var.dcp.deploy_data_ingestion_workflow ? module.dcp_ingestion_workflow[0].ingestion_orchestrator_name : null
 }
 
+output "dcp_ingestion_helper_uri" {
+  description = "URI of the DCP ingestion helper Cloud Run service"
+  value       = var.toggles.enable_dcp && var.dcp.deploy_data_ingestion_workflow ? module.dcp_ingestion_helper[0].ingestion_helper_uri : null
+}
+
+output "cdc_data_job_name" {
+  description = "Name of the CDC Cloud Run data ingestion job"
+  value       = var.toggles.enable_cdc ? module.cdc_data_ingestion_job[0].job_name : null
+}
+

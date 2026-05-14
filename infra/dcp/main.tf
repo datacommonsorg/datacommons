@@ -83,6 +83,7 @@ locals {
     create_ingestion_bucket        = var.dcp_create_ingestion_bucket
     external_ingestion_bucket_name = var.dcp_external_ingestion_bucket_name
     ingestion_lock_timeout         = var.dcp_ingestion_lock_timeout
+    ingestion_helper_image         = var.dcp_ingestion_helper_image
   }
 
   stack_cdc = {
