@@ -10,7 +10,9 @@ Data Commons powers [datacommons.org](https://datacommons.org), Google's open kn
 
 ## Getting Started
 
-This guide covers setting up Data Commons locally and in Google Cloud Platform (GCP), defining schemas in JSON-LD, adding data via the command-line interface, and querying relationships.
+This guide covers setting up a local Data Commons, defining schemas in JSON-LD, adding data via the command-line interface, and querying relationships.
+
+For deploying Data Commons to Google Cloud Platform (GCP) using Terraform, please refer to the detailed [GCP Infrastructure Guide](infra/dcp/README.md).
 
 ## Prerequisites
 
@@ -21,11 +23,11 @@ Before you begin, ensure you have the following installed:
 - A Google Cloud Platform (GCP) project with Cloud Spanner enabled
 - A Cloud Spanner instance and database (using Google Standard SQL) for storing the knowledge graph
 
-## Setting Up Data Commons Locally
+## Setting Up Data Commons
 
 This section will guide you through setting up Data Commons locally and defining your first custom schema and data.
 
-### 1. Install Data Commons
+### 1. Install Data Commons Locally
 
 To get started, you'll need to check out the Data Commons repository and set up your local environment.
 
@@ -338,7 +340,7 @@ You should see the:
 }
 ```
 
-## Schema Tools
+### Schema Tools
 
 Use the `datacommons schema` command to convert between MCF and JSON-LD formats.
 
