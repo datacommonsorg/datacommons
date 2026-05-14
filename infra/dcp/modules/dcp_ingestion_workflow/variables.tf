@@ -41,7 +41,3 @@ variable "spanner_instance_id" {
 variable "spanner_database_id" {
   type = string
 }
-
-variable "ingestion_bucket_name" {
-  type = string
-}

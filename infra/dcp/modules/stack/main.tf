@@ -213,7 +213,6 @@ module "dcp_ingestion_workflow" {
   ingestion_runner_email = module.dcp_ingestion_dataflow[0].ingestion_runner_email
   spanner_instance_id    = module.spanner[0].spanner_instance_id
   spanner_database_id    = module.spanner[0].spanner_database_id
-  ingestion_bucket_name  = module.storage.dcp_bucket_name
 }
 
 
