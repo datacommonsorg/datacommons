@@ -33,3 +33,8 @@ variable "ingestion_bucket_name" {
 variable "service_account_email" {
   type = string
 }
+
+variable "ingestion_helper_image" {
+  type    = string
+  default = "gcr.io/datcom-ci/datacommons-ingestion-helper:latest"
+}

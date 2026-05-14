@@ -33,3 +33,13 @@ output "workflow_name" {
   value       = module.stack.dcp_ingestion_orchestrator_name
 }
 
+output "dcp_ingestion_helper_uri" {
+  description = "URI of the DCP ingestion helper Cloud Run service"
+  value       = module.stack.dcp_ingestion_helper_uri
+}
+
+output "cdc_data_job_name" {
+  description = "Name of the CDC Cloud Run data ingestion job"
+  value       = module.stack.cdc_data_job_name
+}
+

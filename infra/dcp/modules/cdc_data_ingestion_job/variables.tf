@@ -12,6 +12,7 @@ variable "bucket_name" { type = string }
 variable "gcs_data_bucket_input_folder" { type = string }
 variable "gcs_data_bucket_output_folder" { type = string }
 variable "run_db_init" { type = bool }
+variable "use_spanner" { type = bool }
 
 variable "env_vars" {
   type = list(object({

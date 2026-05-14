@@ -10,7 +10,7 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
 
   template {
     containers {
-      image = "gcr.io/datcom-ci/datacommons-ingestion-helper:latest"
+      image = var.ingestion_helper_image
 
       env {
         name  = "PROJECT_ID"

@@ -55,6 +55,14 @@ resource "google_cloud_run_v2_job" "dc_data_job" {
           name  = "INPUT_DIR"
           value = "gs://${var.bucket_name}/${var.gcs_data_bucket_input_folder}"
         }
+
+        dynamic "env" {
+          for_each = var.use_spanner ? [1] : []
+          content {
+            name  = "DATA_RUN_MODE"
+            value = "dcpbridge"
+          }
+        }
       }
       dynamic "vpc_access" {
         for_each = var.vpc_connector_id != null && var.vpc_connector_id != "" ? [1] : []

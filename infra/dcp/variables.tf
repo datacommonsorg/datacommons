@@ -381,3 +381,9 @@ variable "dcp_ingestion_lock_timeout" {
   default     = 82800
 }
 
+variable "dcp_ingestion_helper_image" {
+  description = "Docker image URL for the DCP ingestion helper service"
+  type        = string
+  default     = "gcr.io/datcom-ci/datacommons-ingestion-helper:latest"
+}
+

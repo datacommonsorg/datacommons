@@ -35,6 +35,7 @@ variable "dcp" {
     create_ingestion_bucket         = bool
     external_ingestion_bucket_name  = string
     ingestion_lock_timeout          = number
+    ingestion_helper_image          = string
   })
 }
 

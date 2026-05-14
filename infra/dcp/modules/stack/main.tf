@@ -194,8 +194,9 @@ module "dcp_ingestion_helper" {
   deletion_protection   = var.shared.deletion_protection
   spanner_instance_id   = module.spanner[0].spanner_instance_id
   spanner_database_id   = module.spanner[0].spanner_database_id
-  ingestion_bucket_name = module.storage.dcp_bucket_name
-  service_account_email = module.dcp_ingestion_dataflow[0].ingestion_runner_email
+  ingestion_bucket_name  = module.storage.dcp_bucket_name
+  service_account_email  = module.dcp_ingestion_dataflow[0].ingestion_runner_email
+  ingestion_helper_image = var.dcp.ingestion_helper_image
 }
 
 module "dcp_ingestion_workflow" {
@@ -287,8 +288,11 @@ module "cdc_data_ingestion_job" {
   gcs_data_bucket_input_folder  = var.cdc.gcs_data_bucket_input_folder
   gcs_data_bucket_output_folder = var.cdc.gcs_data_bucket_output_folder
   run_db_init                   = !local.cdc_use_spanner
+  use_spanner                   = local.cdc_use_spanner
   env_vars                      = local.cdc_cloud_run_shared_env_variables
   secret_env_vars               = local.cdc_cloud_run_shared_env_variable_secrets
+
+  depends_on = [module.cdc_iam]
 }
 
 module "cdc_services" {
