@@ -1,1 +1,1 @@
-"""Infrastructure CLI package for Data Commons."""
+"""CLI package for administering Data Commons instances in GCP."""
