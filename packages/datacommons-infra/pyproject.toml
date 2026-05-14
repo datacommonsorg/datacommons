@@ -1,0 +1,24 @@
+[project]
+name = "datacommons-infra"
+dynamic = ["version"]
+description = "Data Commons Infrastructure CLI"
+license = "Apache-2.0"
+readme = "README.md"
+requires-python = ">=3.11"
+keywords = []
+authors = []
+urls = {Homepage = "https://github.com/datacommonsorg/datacommons"}
+dependencies = [
+  "click>=8.1.7",
+  "google-cloud-storage>=2.13.0",
+]
+
+[build-system]
+requires = ["uv", "setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.dynamic]
+version = {attr = "datacommons_infra.version.__version__"}

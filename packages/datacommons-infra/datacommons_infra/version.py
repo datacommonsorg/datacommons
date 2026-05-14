@@ -1,4 +1,4 @@
-# Copyright 2025 Google LLC.
+# Copyright 2026 Google LLC.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,24 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import click
-
-from datacommons_api.core.logging import get_logger, setup_logging
-from datacommons_api.api_cli import api as api_cli
-from datacommons_infra.infra_cli import infra as infra_cli
-from datacommons_schema.schema_cli import schema as schema_cli
-
-setup_logging()
-logger = get_logger(__name__)
-
-
-@click.group()
-def cli():
-    """Datacommons CLI suite"""
-    pass
-
-
-# Add schema CLI commands to the main CLI
-cli.add_command(api_cli)
-cli.add_command(infra_cli)
-cli.add_command(schema_cli)
+__version__ = "0.0.1"
