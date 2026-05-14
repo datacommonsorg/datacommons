@@ -18,7 +18,7 @@ from unittest.mock import patch
 from click.testing import CliRunner
 import pytest
 
-from datacommons_infra.infra_cli import infra, init
+from datacommons_admin.admin_cli import admin, init
 
 
 @pytest.fixture
@@ -29,7 +29,7 @@ def runner() -> CliRunner:
 def test_init_success_with_options(runner: CliRunner, tmp_path: Path) -> None:
     with runner.isolated_filesystem(temp_dir=tmp_path):
         result = runner.invoke(
-            infra,
+            admin,
             [
                 "init",
                 "--project-id",
@@ -60,7 +60,7 @@ def test_init_success_with_options(runner: CliRunner, tmp_path: Path) -> None:
 def test_init_success_with_prompts(runner: CliRunner, tmp_path: Path) -> None:
     with runner.isolated_filesystem(temp_dir=tmp_path):
         result = runner.invoke(
-            infra,
+            admin,
             ["init"],
             input="prompt-project\nprompt-ns\nprompt-key\nN\n",
         )
@@ -80,7 +80,7 @@ def test_init_existing_folder_force(runner: CliRunner, tmp_path: Path) -> None:
         (existing_dir / "main.tf").write_text("old content")
 
         result = runner.invoke(
-            infra,
+            admin,
             [
                 "init",
                 "--project-id",
@@ -99,7 +99,7 @@ def test_init_existing_folder_force(runner: CliRunner, tmp_path: Path) -> None:
         assert 'module "datacommons_dcp"' in main_tf.read_text()
 
 
-@patch("datacommons_infra.infra_cli._configure_remote_state")
+@patch("datacommons_admin.admin_cli._configure_remote_state")
 def test_init_remote_state(
     mock_configure: patch, runner: CliRunner, tmp_path: Path
 ) -> None:
@@ -107,7 +107,7 @@ def test_init_remote_state(
 
     with runner.isolated_filesystem(temp_dir=tmp_path):
         result = runner.invoke(
-            infra,
+            admin,
             [
                 "init",
                 "--project-id",

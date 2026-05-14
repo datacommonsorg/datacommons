@@ -344,7 +344,7 @@ You should see the:
 Use the CLI to scaffold a Terraform deployment directory:
 
 ```bash
-uv run datacommons infra init
+uv run datacommons admin init
 ```
 
 The command will prompt for:

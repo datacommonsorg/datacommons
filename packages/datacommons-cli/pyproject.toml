@@ -12,7 +12,7 @@ dependencies = [
   "click>=8.1.7",
   "datacommons-api",
   "datacommons-db",
-  "datacommons-infra",
+  "datacommons-admin",
   "datacommons-schema",
 ]
 urls = {Homepage = "https://github.com/datacommonsorg/datacommons"}

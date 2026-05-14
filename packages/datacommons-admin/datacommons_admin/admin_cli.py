@@ -309,11 +309,11 @@ def _configure_remote_state(resolved_project_id: str, resolved_namespace: str) -
 
 
 @click.group()
-def infra() -> None:
-    """Infrastructure commands."""
+def admin() -> None:
+    """Admin commands."""
 
 
-@infra.command()
+@admin.command()
 @click.option(
     "--project-id", default="", help="GCP project id to initialize into tfvars."
 )
@@ -334,8 +334,8 @@ def init(
     ref: str,
     force: bool,
 ) -> None:
-    """Initialize Terraform scaffolding for Data Commons infrastructure."""
-    click.secho("Datacommons Infra Init", fg="cyan", bold=True)
+    """Initialize Terraform scaffolding for Data Commons administration/infrastructure."""
+    click.secho("Datacommons Admin Init", fg="cyan", bold=True)
     click.secho("Generating Terraform starter files...", fg="bright_black")
 
     resolved_project_id = (
