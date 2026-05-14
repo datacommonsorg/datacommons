@@ -338,32 +338,6 @@ You should see the:
 }
 ```
 
-
-## Deploying Data Commons Platform In GCP
-
-Use the CLI to scaffold a Terraform deployment directory:
-
-```bash
-uv run datacommons infra init
-```
-
-The command will prompt for:
-- GCP project id
-- namespace
-- Data Commons API key
-
-It then creates a new folder with `main.tf`, `terraform.tfvars`, and a deployment `README.md`.
-
-From the generated folder:
-
-```bash
-terraform init
-terraform plan
-terraform apply
-```
-
-For the full infrastructure module and complete variable reference, see the detailed [GCP Infrastructure Guide](infra/dcp/README.md).
-
 ## Schema Tools
 
 Use the `datacommons schema` command to convert between MCF and JSON-LD formats.
