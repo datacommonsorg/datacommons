@@ -65,7 +65,7 @@ locals {
     },
     {
       name  = "INGESTION_WORKFLOW_NAME"
-      value = local.enable_dcp ? coalesce(module.dcp_ingestion_workflow[0].ingestion_orchestrator_name, "") : ""
+      value = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow && module.dcp_ingestion_workflow[0].ingestion_orchestrator_name != null ? module.dcp_ingestion_workflow[0].ingestion_orchestrator_name : ""
     },
     {
       name  = "TEMP_LOCATION"
@@ -123,7 +123,7 @@ module "spanner" {
   spanner_database_id      = var.dcp.spanner_database_id
   spanner_processing_units = var.dcp.spanner_processing_units
   deletion_protection      = var.shared.deletion_protection
-  orchestrator_email       = local.enable_dcp ? coalesce(module.dcp_ingestion_dataflow[0].orchestrator_email, "") : ""
+  orchestrator_email       = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow && module.dcp_ingestion_dataflow[0].orchestrator_email != null ? module.dcp_ingestion_dataflow[0].orchestrator_email : ""
 }
 
 module "dcp_service" {
@@ -146,7 +146,7 @@ module "dcp_service" {
   make_service_public     = var.shared.make_services_public
   spanner_instance_id     = module.spanner[0].spanner_instance_id
   spanner_database_id     = module.spanner[0].spanner_database_id
-  orchestrator_email       = local.enable_dcp ? coalesce(module.dcp_ingestion_dataflow[0].orchestrator_email, "") : ""
+  orchestrator_email       = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow && module.dcp_ingestion_dataflow[0].orchestrator_email != null ? module.dcp_ingestion_dataflow[0].orchestrator_email : ""
 }
 
 module "storage" {
@@ -169,7 +169,7 @@ module "storage" {
   # Shared vars
   project_id         = var.shared.project_id
   namespace          = var.shared.namespace
-  orchestrator_email = local.enable_dcp ? coalesce(module.dcp_ingestion_dataflow[0].orchestrator_email, "") : ""
+  orchestrator_email = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow && module.dcp_ingestion_dataflow[0].orchestrator_email != null ? module.dcp_ingestion_dataflow[0].orchestrator_email : ""
 }
 
 module "dcp_ingestion_dataflow" {
@@ -200,7 +200,7 @@ module "dcp_ingestion_helper" {
   ingestion_bucket_name  = module.storage.dcp_bucket_name
   service_account_email  = module.dcp_ingestion_dataflow[0].ingestion_runner_email
   ingestion_helper_image = var.dcp.ingestion_helper_image
-  orchestrator_email     = coalesce(module.dcp_ingestion_dataflow[0].orchestrator_email, "")
+  orchestrator_email     = var.dcp.deploy_data_ingestion_workflow && module.dcp_ingestion_dataflow[0].orchestrator_email != null ? module.dcp_ingestion_dataflow[0].orchestrator_email : ""
 }
 
 module "dcp_ingestion_workflow" {
@@ -216,7 +216,7 @@ module "dcp_ingestion_workflow" {
   ingestion_helper_uri   = module.dcp_ingestion_helper[0].ingestion_helper_uri
   ingestion_runner_id    = module.dcp_ingestion_dataflow[0].ingestion_runner_id
   ingestion_runner_email = module.dcp_ingestion_dataflow[0].ingestion_runner_email
-  orchestrator_email     = coalesce(module.dcp_ingestion_dataflow[0].orchestrator_email, "")
+  orchestrator_email     = var.dcp.deploy_data_ingestion_workflow && module.dcp_ingestion_dataflow[0].orchestrator_email != null ? module.dcp_ingestion_dataflow[0].orchestrator_email : ""
 }
 
 
@@ -343,7 +343,7 @@ resource "google_storage_bucket_iam_member" "dataflow_cdc_bucket_access" {
 
 # This is only needed to trigger the services restart to pick up the GCS embeddings change
 resource "google_service_account_iam_member" "ingestion_runner_act_as_cdc_sa" {
-  count              = local.enable_cdc && local.enable_dcp ? 1 : 0
+  count              = local.enable_cdc && local.enable_dcp && var.dcp.deploy_data_ingestion_workflow ? 1 : 0
   service_account_id = "projects/${var.shared.project_id}/serviceAccounts/${module.cdc_iam[0].service_account_email}"
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:${module.dcp_ingestion_dataflow[0].ingestion_runner_email}"
