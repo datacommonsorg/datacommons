@@ -275,7 +275,10 @@ def init_db() -> None:
 
     click.secho(f"Found Ingestion Helper URI: {uri}", fg="green")
     click.secho(f"Found Orchestrator Service Account: {sa_email}", fg="green")
-    click.secho(f"Found Spanner Database Instance: {instance_id} / Database ID: {database_id}", fg="green")
+    click.secho(
+        f"Found Spanner Database Instance: {instance_id} / Database ID: {database_id}",
+        fg="green",
+    )
     click.secho(
         f"Initializing Spanner database '{instance_id}/{database_id}' via the Ingestion Helper service (this may take a few moments)...",
         fg="bright_black",
@@ -287,4 +290,3 @@ def init_db() -> None:
     click.secho("Successfully initialized Spanner database!", fg="green", bold=True)
     if "message" in result:
         click.secho(f"Details: {result['message']}", fg="bright_black")
-

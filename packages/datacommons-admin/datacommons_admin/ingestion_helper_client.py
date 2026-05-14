@@ -33,6 +33,7 @@ class IngestionHelperClient:
 
         if service_account_email:
             from google.auth import impersonated_credentials
+
             target_credentials = impersonated_credentials.Credentials(
                 source_credentials=base_credentials,
                 target_principal=service_account_email,
@@ -47,6 +48,7 @@ class IngestionHelperClient:
             try:
                 token = id_token.fetch_id_token(self.auth_req, self.base_url)
                 from google.oauth2.credentials import Credentials
+
                 creds = Credentials(token)
             except Exception as e:
                 raise click.ClickException(
@@ -96,4 +98,3 @@ class IngestionHelperClient:
             return response.json()
         except Exception:
             return {"status": "success", "message": response.text}
-

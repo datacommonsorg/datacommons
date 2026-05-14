@@ -183,4 +183,3 @@ def test_init_db_success(
     result = runner.invoke(admin, ["init-db"])
     assert result.exit_code == 0
     assert "Successfully initialized Spanner database" in result.output
-
