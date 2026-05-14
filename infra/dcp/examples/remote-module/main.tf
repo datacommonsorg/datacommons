@@ -11,8 +11,7 @@ terraform {
 
 module "datacommons_dcp" {
   # Pin this to a tag/commit for reproducible deployments.
-  # source = "git::https://github.com/datacommonsorg/datacommons.git//infra/dcp?ref=main"
-  source = "../infra/dcp"
+  source = "git::https://github.com/datacommonsorg/datacommons.git//infra/dcp?ref=main"
 
   project_id = var.project_id
   namespace  = var.namespace
@@ -44,6 +43,7 @@ variable "dc_api_key" {
   description = "Data Commons API key"
   type        = string
   default     = ""
+  sensitive = true
 }
 
 variable "dcp_create_spanner_instance" {
