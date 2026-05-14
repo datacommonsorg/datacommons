@@ -38,3 +38,9 @@ variable "ingestion_helper_image" {
   type    = string
   default = "gcr.io/datcom-ci/datacommons-ingestion-helper:latest"
 }
+
+variable "orchestrator_email" {
+  type        = string
+  description = "Email of the orchestrator service account"
+  default     = ""
+}

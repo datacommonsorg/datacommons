@@ -29,3 +29,9 @@ variable "spanner_processing_units" {
 variable "deletion_protection" {
   type = bool
 }
+
+variable "orchestrator_email" {
+  type        = string
+  description = "Email of the orchestrator service account"
+  default     = ""
+}

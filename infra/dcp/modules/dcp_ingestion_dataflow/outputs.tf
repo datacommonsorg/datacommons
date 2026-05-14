@@ -6,3 +6,11 @@ output "ingestion_runner_id" {
   value = var.deploy ? google_service_account.dcp_ingestion_runner[0].id : null
 }
 
+output "orchestrator_email" {
+  value = var.deploy ? google_service_account.dcp_orchestrator[0].email : null
+}
+
+output "orchestrator_id" {
+  value = var.deploy ? google_service_account.dcp_orchestrator[0].id : null
+}
+

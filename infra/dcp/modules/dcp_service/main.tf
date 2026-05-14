@@ -72,3 +72,11 @@ resource "google_cloud_run_service_iam_binding" "public_invoker" {
   role     = "roles/run.invoker"
   members  = ["allUsers"]
 }
+
+resource "google_cloud_run_v2_service_iam_member" "orchestrator_invoker" {
+  count    = var.orchestrator_email != "" ? 1 : 0
+  location = google_cloud_run_v2_service.dcp_service.location
+  name     = google_cloud_run_v2_service.dcp_service.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${var.orchestrator_email}"
+}

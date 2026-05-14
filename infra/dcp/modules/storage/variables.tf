@@ -41,3 +41,9 @@ variable "cdc_gcs_data_bucket_name" {
 variable "cdc_gcs_data_bucket_location" {
   type = string
 }
+
+variable "orchestrator_email" {
+  type        = string
+  description = "Email of the orchestrator service account"
+  default     = ""
+}

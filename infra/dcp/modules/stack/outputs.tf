@@ -43,3 +43,8 @@ output "cdc_data_job_name" {
   value       = var.toggles.enable_cdc ? module.cdc_data_ingestion_job[0].job_name : null
 }
 
+output "dcp_orchestrator_service_account_email" {
+  description = "Email of the DCP orchestrator service account used by CLI and Workflows"
+  value       = var.toggles.enable_dcp && var.dcp.deploy_data_ingestion_workflow ? module.dcp_ingestion_dataflow[0].orchestrator_email : null
+}
+

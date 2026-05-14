@@ -43,3 +43,8 @@ output "cdc_data_job_name" {
   value       = module.stack.cdc_data_job_name
 }
 
+output "dcp_orchestrator_service_account_email" {
+  description = "Email of the DCP orchestrator service account used by CLI and Workflows"
+  value       = module.stack.dcp_orchestrator_service_account_email
+}
+
