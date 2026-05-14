@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from pathlib import Path
+from typing import Any, Tuple
 
 import click
 from google.api_core import exceptions
@@ -251,6 +252,47 @@ def init(
     )
 
 
+def _setup_ingestion_client() -> Tuple[Any, str, str]:
+    click.secho(
+        "Fetching Ingestion Helper URI, Orchestrator Service Account, and Spanner details from Terraform outputs...",
+        fg="bright_black",
+    )
+
+    from datacommons_admin.tf_utils import (
+        get_dcp_ingestion_helper_uri,
+        get_dcp_orchestrator_service_account_email,
+        get_dcp_spanner_instance_id,
+        get_dcp_spanner_database_id,
+    )
+    from datacommons_admin.ingestion_helper_client import IngestionHelperClient
+
+    uri = get_dcp_ingestion_helper_uri()
+    sa_email = get_dcp_orchestrator_service_account_email()
+    instance_id = get_dcp_spanner_instance_id()
+    database_id = get_dcp_spanner_database_id()
+
+    click.secho(f"Found Ingestion Helper URI: {uri}", fg="green")
+    click.secho(f"Found Orchestrator Service Account: {sa_email}", fg="green")
+    click.secho(
+        f"Found Spanner Database Instance: {instance_id} / Database ID: {database_id}",
+        fg="green",
+    )
+
+    client = IngestionHelperClient(uri, service_account_email=sa_email)
+    return client, instance_id, database_id
+
+
+def _run_seed_db(client: Any, instance_id: str, database_id: str) -> None:
+    click.secho(
+        f"Seeding Spanner database '{instance_id}/{database_id}' via the Ingestion Helper service (this may take a few moments)...",
+        fg="bright_black",
+    )
+    result = client.seed_database()
+    click.secho("Successfully seeded Spanner database!", fg="green", bold=True)
+    if "message" in result:
+        click.secho(f"Details: {result['message']}", fg="bright_black")
+
+
 @admin.command(name="init-db")
 @click.option(
     "--init-only", is_flag=True, help="Only initialize the database without seeding."
@@ -258,36 +300,12 @@ def init(
 def init_db(init_only: bool) -> None:
     """Initialize (and by default seed) the Spanner database via the DCP Ingestion Helper service."""
     click.secho("Datacommons Admin Init-DB", fg="cyan", bold=True)
-    click.secho(
-        "Fetching Ingestion Helper URI, Orchestrator Service Account, and Spanner details from Terraform outputs...",
-        fg="bright_black",
-    )
+    client, instance_id, database_id = _setup_ingestion_client()
 
-    from datacommons_admin.tf_utils import (
-        get_dcp_ingestion_helper_uri,
-        get_dcp_orchestrator_service_account_email,
-        get_dcp_spanner_instance_id,
-        get_dcp_spanner_database_id,
-    )
-    from datacommons_admin.ingestion_helper_client import IngestionHelperClient
-
-    uri = get_dcp_ingestion_helper_uri()
-    sa_email = get_dcp_orchestrator_service_account_email()
-    instance_id = get_dcp_spanner_instance_id()
-    database_id = get_dcp_spanner_database_id()
-
-    click.secho(f"Found Ingestion Helper URI: {uri}", fg="green")
-    click.secho(f"Found Orchestrator Service Account: {sa_email}", fg="green")
-    click.secho(
-        f"Found Spanner Database Instance: {instance_id} / Database ID: {database_id}",
-        fg="green",
-    )
     click.secho(
         f"Initializing Spanner database '{instance_id}/{database_id}' via the Ingestion Helper service (this may take a few moments)...",
         fg="bright_black",
     )
-
-    client = IngestionHelperClient(uri, service_account_email=sa_email)
     result = client.initialize_database()
 
     click.secho("Successfully initialized Spanner database!", fg="green", bold=True)
@@ -295,52 +313,12 @@ def init_db(init_only: bool) -> None:
         click.secho(f"Details: {result['message']}", fg="bright_black")
 
     if not init_only:
-        click.secho(
-            f"Seeding Spanner database '{instance_id}/{database_id}' via the Ingestion Helper service...",
-            fg="bright_black",
-        )
-        seed_result = client.seed_database()
-        click.secho("Successfully seeded Spanner database!", fg="green", bold=True)
-        if "message" in seed_result:
-            click.secho(f"Details: {seed_result['message']}", fg="bright_black")
+        _run_seed_db(client, instance_id, database_id)
 
 
 @admin.command(name="seed-db")
 def seed_db() -> None:
     """Seed the Spanner database via the DCP Ingestion Helper service."""
     click.secho("Datacommons Admin Seed-DB", fg="cyan", bold=True)
-    click.secho(
-        "Fetching Ingestion Helper URI, Orchestrator Service Account, and Spanner details from Terraform outputs...",
-        fg="bright_black",
-    )
-
-    from datacommons_admin.tf_utils import (
-        get_dcp_ingestion_helper_uri,
-        get_dcp_orchestrator_service_account_email,
-        get_dcp_spanner_instance_id,
-        get_dcp_spanner_database_id,
-    )
-    from datacommons_admin.ingestion_helper_client import IngestionHelperClient
-
-    uri = get_dcp_ingestion_helper_uri()
-    sa_email = get_dcp_orchestrator_service_account_email()
-    instance_id = get_dcp_spanner_instance_id()
-    database_id = get_dcp_spanner_database_id()
-
-    click.secho(f"Found Ingestion Helper URI: {uri}", fg="green")
-    click.secho(f"Found Orchestrator Service Account: {sa_email}", fg="green")
-    click.secho(
-        f"Found Spanner Database Instance: {instance_id} / Database ID: {database_id}",
-        fg="green",
-    )
-    click.secho(
-        f"Seeding Spanner database '{instance_id}/{database_id}' via the Ingestion Helper service (this may take a few moments)...",
-        fg="bright_black",
-    )
-
-    client = IngestionHelperClient(uri, service_account_email=sa_email)
-    result = client.seed_database()
-
-    click.secho("Successfully seeded Spanner database!", fg="green", bold=True)
-    if "message" in result:
-        click.secho(f"Details: {result['message']}", fg="bright_black")
+    client, instance_id, database_id = _setup_ingestion_client()
+    _run_seed_db(client, instance_id, database_id)
