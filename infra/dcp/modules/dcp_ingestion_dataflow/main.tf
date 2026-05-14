@@ -62,3 +62,30 @@ resource "google_storage_bucket_iam_member" "dynamic_ingestion_bucket_access" {
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${google_service_account.dcp_ingestion_runner[0].email}"
 }
+
+resource "google_service_account" "dcp_orchestrator" {
+  count        = var.deploy ? 1 : 0
+  account_id   = "${local.name_prefix}dcp-orc-sa"
+  display_name = "${local.display_name_prefix}Data Commons Platform Orchestrator"
+}
+
+resource "google_project_iam_member" "orchestrator_dataflow_admin" {
+  count   = var.deploy ? 1 : 0
+  project = var.project_id
+  role    = "roles/dataflow.admin"
+  member  = "serviceAccount:${google_service_account.dcp_orchestrator[0].email}"
+}
+
+resource "google_project_iam_member" "orchestrator_workflows_invoker" {
+  count   = var.deploy ? 1 : 0
+  project = var.project_id
+  role    = "roles/workflows.invoker"
+  member  = "serviceAccount:${google_service_account.dcp_orchestrator[0].email}"
+}
+
+resource "google_service_account_iam_member" "orchestrator_sa_user" {
+  count              = var.deploy ? 1 : 0
+  service_account_id = google_service_account.dcp_ingestion_runner[0].name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.dcp_orchestrator[0].email}"
+}

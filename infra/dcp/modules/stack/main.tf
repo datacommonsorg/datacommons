@@ -123,6 +123,7 @@ module "spanner" {
   spanner_database_id      = var.dcp.spanner_database_id
   spanner_processing_units = var.dcp.spanner_processing_units
   deletion_protection      = var.shared.deletion_protection
+  orchestrator_email       = local.enable_dcp ? coalesce(module.dcp_ingestion_dataflow[0].orchestrator_email, "") : ""
 }
 
 module "dcp_service" {
@@ -145,6 +146,7 @@ module "dcp_service" {
   make_service_public     = var.shared.make_services_public
   spanner_instance_id     = module.spanner[0].spanner_instance_id
   spanner_database_id     = module.spanner[0].spanner_database_id
+  orchestrator_email       = local.enable_dcp ? coalesce(module.dcp_ingestion_dataflow[0].orchestrator_email, "") : ""
 }
 
 module "storage" {
@@ -165,8 +167,9 @@ module "storage" {
   cdc_gcs_data_bucket_location = var.cdc.gcs_data_bucket_location
   
   # Shared vars
-  project_id = var.shared.project_id
-  namespace  = var.shared.namespace
+  project_id         = var.shared.project_id
+  namespace          = var.shared.namespace
+  orchestrator_email = local.enable_dcp ? coalesce(module.dcp_ingestion_dataflow[0].orchestrator_email, "") : ""
 }
 
 module "dcp_ingestion_dataflow" {
@@ -197,6 +200,7 @@ module "dcp_ingestion_helper" {
   ingestion_bucket_name  = module.storage.dcp_bucket_name
   service_account_email  = module.dcp_ingestion_dataflow[0].ingestion_runner_email
   ingestion_helper_image = var.dcp.ingestion_helper_image
+  orchestrator_email     = coalesce(module.dcp_ingestion_dataflow[0].orchestrator_email, "")
 }
 
 module "dcp_ingestion_workflow" {
@@ -212,6 +216,7 @@ module "dcp_ingestion_workflow" {
   ingestion_helper_uri   = module.dcp_ingestion_helper[0].ingestion_helper_uri
   ingestion_runner_id    = module.dcp_ingestion_dataflow[0].ingestion_runner_id
   ingestion_runner_email = module.dcp_ingestion_dataflow[0].ingestion_runner_email
+  orchestrator_email     = coalesce(module.dcp_ingestion_dataflow[0].orchestrator_email, "")
 }
 
 

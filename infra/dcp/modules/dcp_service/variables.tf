@@ -61,3 +61,9 @@ variable "spanner_instance_id" {
 variable "spanner_database_id" {
   type = string
 }
+
+variable "orchestrator_email" {
+  type        = string
+  description = "Email of the orchestrator service account"
+  default     = ""
+}

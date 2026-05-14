@@ -21,3 +21,11 @@ resource "google_spanner_database" "database" {
 
   deletion_protection = var.deletion_protection
 }
+
+resource "google_spanner_database_iam_member" "orchestrator_spanner_user" {
+  count    = var.create_spanner_db && var.orchestrator_email != "" ? 1 : 0
+  instance = var.create_spanner_instance ? google_spanner_instance.main[0].name : local.effective_instance_id
+  database = google_spanner_database.database[0].name
+  role     = "roles/spanner.databaseUser"
+  member   = "serviceAccount:${var.orchestrator_email}"
+}

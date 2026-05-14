@@ -53,3 +53,11 @@ resource "google_cloud_run_v2_service_iam_member" "ingestion_helper_invoker" {
   role     = "roles/run.invoker"
   member   = "serviceAccount:${var.service_account_email}"
 }
+
+resource "google_cloud_run_v2_service_iam_member" "orchestrator_invoker" {
+  count    = var.deploy && var.orchestrator_email != "" ? 1 : 0
+  location = google_cloud_run_v2_service.ingestion_helper[0].location
+  name     = google_cloud_run_v2_service.ingestion_helper[0].name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${var.orchestrator_email}"
+}

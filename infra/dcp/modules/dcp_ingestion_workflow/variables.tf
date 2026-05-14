@@ -33,3 +33,9 @@ variable "ingestion_runner_id" {
 variable "ingestion_runner_email" {
   type = string
 }
+
+variable "orchestrator_email" {
+  type        = string
+  description = "Email of the orchestrator service account"
+  default     = ""
+}
