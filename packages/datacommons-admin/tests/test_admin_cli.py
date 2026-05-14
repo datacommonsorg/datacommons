@@ -183,3 +183,71 @@ def test_init_db_success(
     result = runner.invoke(admin, ["init-db"])
     assert result.exit_code == 0
     assert "Successfully initialized Spanner database" in result.output
+    assert "Successfully seeded Spanner database" in result.output
+
+
+@patch("datacommons_admin.tf_utils.shutil.which")
+@patch("datacommons_admin.tf_utils.subprocess.run")
+@patch("datacommons_admin.ingestion_helper_client.AuthorizedSession")
+@patch("datacommons_admin.ingestion_helper_client.google.auth.default")
+def test_init_db_init_only(
+    mock_auth_default: patch,
+    mock_session: patch,
+    mock_run: patch,
+    mock_which: patch,
+    runner: CliRunner,
+) -> None:
+    mock_which.return_value = "terraform"
+    from unittest.mock import MagicMock
+
+    mock_proc = MagicMock()
+    mock_proc.stdout = '{"dcp_ingestion_helper_uri": {"value": "https://mock-helper"}, "dcp_orchestrator_service_account_email": {"value": "mock-orch-sa@mock.com"}, "dcp_spanner_instance_id": {"value": "mock-instance"}, "dcp_spanner_database_id": {"value": "mock-db"}}'
+    mock_run.return_value = mock_proc
+
+    mock_creds = MagicMock()
+    mock_auth_default.return_value = (mock_creds, "test-project")
+
+    mock_session_inst = MagicMock()
+    mock_resp = MagicMock()
+    mock_resp.ok = True
+    mock_resp.json.return_value = {"status": "success", "message": "DB Initialized"}
+    mock_session_inst.post.return_value = mock_resp
+    mock_session.return_value = mock_session_inst
+
+    result = runner.invoke(admin, ["init-db", "--init-only"])
+    assert result.exit_code == 0
+    assert "Successfully initialized Spanner database" in result.output
+    assert "Seeding Spanner database" not in result.output
+
+
+@patch("datacommons_admin.tf_utils.shutil.which")
+@patch("datacommons_admin.tf_utils.subprocess.run")
+@patch("datacommons_admin.ingestion_helper_client.AuthorizedSession")
+@patch("datacommons_admin.ingestion_helper_client.google.auth.default")
+def test_seed_db_success(
+    mock_auth_default: patch,
+    mock_session: patch,
+    mock_run: patch,
+    mock_which: patch,
+    runner: CliRunner,
+) -> None:
+    mock_which.return_value = "terraform"
+    from unittest.mock import MagicMock
+
+    mock_proc = MagicMock()
+    mock_proc.stdout = '{"dcp_ingestion_helper_uri": {"value": "https://mock-helper"}, "dcp_orchestrator_service_account_email": {"value": "mock-orch-sa@mock.com"}, "dcp_spanner_instance_id": {"value": "mock-instance"}, "dcp_spanner_database_id": {"value": "mock-db"}}'
+    mock_run.return_value = mock_proc
+
+    mock_creds = MagicMock()
+    mock_auth_default.return_value = (mock_creds, "test-project")
+
+    mock_session_inst = MagicMock()
+    mock_resp = MagicMock()
+    mock_resp.ok = True
+    mock_resp.json.return_value = {"status": "success", "message": "DB Seeded"}
+    mock_session_inst.post.return_value = mock_resp
+    mock_session.return_value = mock_session_inst
+
+    result = runner.invoke(admin, ["seed-db"])
+    assert result.exit_code == 0
+    assert "Successfully seeded Spanner database" in result.output

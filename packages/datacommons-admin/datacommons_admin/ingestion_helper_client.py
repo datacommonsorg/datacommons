@@ -19,6 +19,7 @@ from google.oauth2 import id_token
 
 
 ACTION_INITIALIZE_DATABASE = "initialize_database"
+ACTION_SEED_DATABASE = "seed_database"
 
 
 class IngestionHelperClient:
@@ -58,10 +59,9 @@ class IngestionHelperClient:
 
         self.session = AuthorizedSession(creds)
 
-    def initialize_database(self) -> dict:
-        """Calls the initialize_database endpoint on the ingestion helper service."""
+    def _call_endpoint(self, action_type: str) -> dict:
         url = self.base_url
-        payload = {"actionType": ACTION_INITIALIZE_DATABASE}
+        payload = {"actionType": action_type}
 
         try:
             response = self.session.post(url, json=payload, timeout=300)
@@ -98,3 +98,11 @@ class IngestionHelperClient:
             return response.json()
         except Exception:
             return {"status": "success", "message": response.text}
+
+    def initialize_database(self) -> dict:
+        """Calls the initialize_database endpoint on the ingestion helper service."""
+        return self._call_endpoint(ACTION_INITIALIZE_DATABASE)
+
+    def seed_database(self) -> dict:
+        """Calls the seed_database endpoint on the ingestion helper service."""
+        return self._call_endpoint(ACTION_SEED_DATABASE)
