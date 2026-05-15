@@ -48,3 +48,10 @@ output "dcp_orchestrator_service_account_email" {
   value       = module.stack.dcp_orchestrator_service_account_email
 }
 
+output "data_bucket_name" {
+  description = "Name of the GCS bucket used for CDC data ingestion"
+  value       = module.stack.data_bucket_name
+}
+
+
+
