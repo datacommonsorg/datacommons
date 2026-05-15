@@ -287,7 +287,7 @@ variable "cdc_data_job_memory" {
 variable "cdc_data_job_timeout" {
   description = "CDC data job timeout"
   type        = string
-  default     = "600s"
+  default     = "3600s"
 }
 
 variable "cdc_search_scope" {

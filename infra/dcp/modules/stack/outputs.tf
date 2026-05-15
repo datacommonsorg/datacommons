@@ -48,3 +48,10 @@ output "dcp_orchestrator_service_account_email" {
   value       = var.toggles.enable_dcp && var.dcp.deploy_data_ingestion_workflow ? module.dcp_ingestion_dataflow[0].orchestrator_email : null
 }
 
+output "data_bucket_name" {
+  description = "Name of the GCS bucket used for CDC data ingestion"
+  value       = var.toggles.enable_cdc ? module.storage.cdc_bucket_name : null
+}
+
+
+

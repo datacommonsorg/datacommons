@@ -41,6 +41,7 @@ module "datacommons_dcp" {{
   dcp_ingestion_helper_image         = var.dcp_ingestion_helper_image
   cdc_gcs_data_bucket_input_folder   = var.gcs_data_bucket_input_folder
   cdc_data_job_image                 = var.cdc_data_job_image
+  cdc_data_job_timeout               = var.cdc_data_job_timeout
 }}
 
 variable "project_id" {{
@@ -102,6 +103,12 @@ variable "cdc_data_job_image" {{
   default     = "gcr.io/datcom-ci/datacommons-data:stable"
 }}
 
+variable "cdc_data_job_timeout" {{
+  description = "Docker container timeout for the CDC data ingestion job"
+  type        = string
+  default     = "3600s"
+}}
+
 output "dcp_service_url" {{
   value = module.datacommons_dcp.dcp_service_url
 }}
@@ -133,7 +140,12 @@ output "workflow_name" {{
 output "dcp_orchestrator_service_account_email" {{
   value = module.datacommons_dcp.dcp_orchestrator_service_account_email
 }}
+
+output "data_bucket_name" {{
+  value = module.datacommons_dcp.data_bucket_name
+}}
 """
+
 
 TFVARS_TEMPLATE = """project_id = "{project_id}"
 namespace  = "{namespace}"
@@ -153,6 +165,9 @@ dcp_spanner_database_id     = "dcp-db"
 
 # Optional CDC Data Job image (defaults to stable)
 # cdc_data_job_image = "gcr.io/datcom-ci/datacommons-data:stable"
+
+# Optional CDC Data Job timeout (defaults to 3600s)
+# cdc_data_job_timeout = "3600s"
 """
 
 REMOTE_STATE_TEMPLATE = """

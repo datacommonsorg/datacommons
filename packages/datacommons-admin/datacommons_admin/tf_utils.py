@@ -23,6 +23,7 @@ TF_OUTPUT_INGESTION_HELPER_URI = "dcp_ingestion_helper_uri"
 TF_OUTPUT_ORCHESTRATOR_SERVICE_ACCOUNT_EMAIL = "dcp_orchestrator_service_account_email"
 TF_OUTPUT_SPANNER_INSTANCE_ID = "dcp_spanner_instance_id"
 TF_OUTPUT_SPANNER_DATABASE_ID = "dcp_spanner_database_id"
+TF_OUTPUT_CDC_DATA_JOB_NAME = "cdc_data_job_name"
 
 
 def get_terraform_output(key: str) -> str:
@@ -108,3 +109,8 @@ def get_dcp_spanner_instance_id() -> str:
 def get_dcp_spanner_database_id() -> str:
     """Convenience wrapper to fetch the dcp_spanner_database_id Terraform output."""
     return get_terraform_output(TF_OUTPUT_SPANNER_DATABASE_ID)
+
+
+def get_cdc_data_job_name() -> str:
+    """Convenience wrapper to fetch the cdc_data_job_name Terraform output."""
+    return get_terraform_output(TF_OUTPUT_CDC_DATA_JOB_NAME)
