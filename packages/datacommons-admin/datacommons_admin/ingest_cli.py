@@ -79,8 +79,6 @@ def start() -> None:
             click.secho(exec_url, fg="blue", underline=True)
 
 
-
-
 @ingest.command(name="show-config")
 def show_config() -> None:
     """Print the current ingestion job configuration (environment variables)."""

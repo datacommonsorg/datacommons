@@ -30,7 +30,9 @@ class IngestionJobClient:
                     "Could not determine GCP project ID from environment. Please verify your gcloud auth login."
                 )
             location = "us-central1"
-            self.full_job_name = f"projects/{project_id}/locations/{location}/jobs/{job_name}"
+            self.full_job_name = (
+                f"projects/{project_id}/locations/{location}/jobs/{job_name}"
+            )
         else:
             self.full_job_name = job_name
 
@@ -125,7 +127,9 @@ class IngestionJobClient:
         except Exception as e:
             raise click.ClickException(f"Failed to parse Cloud Run job response: {e}")
 
-        containers = job_data.get("template", {}).get("template", {}).get("containers", [])
+        containers = (
+            job_data.get("template", {}).get("template", {}).get("containers", [])
+        )
         if not containers:
             return []
 
