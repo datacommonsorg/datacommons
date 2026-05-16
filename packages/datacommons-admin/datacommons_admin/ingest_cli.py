@@ -48,7 +48,9 @@ def start() -> None:
         fg="bright_black",
     )
 
-    client = IngestionJobClient(job_name, service_account_email=sa_email, project_id=project_id)
+    client = IngestionJobClient(
+        job_name, service_account_email=sa_email, project_id=project_id
+    )
     result = client.start_job()
 
     click.secho("Successfully started ingestion job!", fg="green", bold=True)

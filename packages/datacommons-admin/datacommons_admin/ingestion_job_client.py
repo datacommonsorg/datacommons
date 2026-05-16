@@ -20,10 +20,12 @@ from google.auth.transport.requests import AuthorizedSession
 class IngestionJobClient:
     """Client for interacting with Cloud Run Admin API to manage CDC data ingestion jobs."""
 
-    def __init__(self, job_name: str, service_account_email: str = None, project_id: str = None) -> None:
+    def __init__(
+        self, job_name: str, service_account_email: str = None, project_id: str = None
+    ) -> None:
         self.service_account_email = service_account_email
         base_credentials, default_project_id = google.auth.default()
-        
+
         resolved_project_id = project_id or default_project_id
 
         if not job_name.startswith("projects/"):
