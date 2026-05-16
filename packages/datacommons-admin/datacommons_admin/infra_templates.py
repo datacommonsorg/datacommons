@@ -151,6 +151,10 @@ output "dcp_orchestrator_service_account_email" {{
 output "data_bucket_name" {{
   value = module.datacommons_dcp.data_bucket_name
 }}
+
+output "project_id" {{
+  value = module.datacommons_dcp.project_id
+}}
 """
 
 
