@@ -26,7 +26,7 @@ jobs:
         run: uv sync --locked
 
       - name: Check formatting with Ruff
-        run: uv run --extra lint ruff format --check
+        run: uv run ruff format --check
 
       # TODO(dwnoble): Fix formatting issues in datacommons-schema and uncomment these
       #- name: Lint with Ruff
@@ -35,4 +35,4 @@ jobs:
       - name: Run tests
         run: |
           # Enable parallel test execution
-          uv run --extra test pytest
+          uv run pytest

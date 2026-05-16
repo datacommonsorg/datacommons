@@ -22,9 +22,9 @@ dependencies = [
   "rdflib",
 ]
 
-[project.optional-dependencies]
-test = [
-  "pytest",
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
 ]
 
 [project.urls]

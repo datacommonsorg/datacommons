@@ -10,7 +10,7 @@ Data Commons powers [datacommons.org](https://datacommons.org), Google's open kn
 
 ## Getting Started
 
-This guide covers setting up a local Data Commons, defining schemas in JSON-LD, adding data via the command-line interface, and querying relationships.
+This guide covers setting up Data Commons locally and in Google Cloud Platform (GCP), defining schemas in JSON-LD, adding data via the command-line interface, and querying relationships.
 
 ## Prerequisites
 
@@ -21,11 +21,11 @@ Before you begin, ensure you have the following installed:
 - A Google Cloud Platform (GCP) project with Cloud Spanner enabled
 - A Cloud Spanner instance and database (using Google Standard SQL) for storing the knowledge graph
 
-## Setting Up Data Commons
+## Setting Up Data Commons Locally
 
 This section will guide you through setting up Data Commons locally and defining your first custom schema and data.
 
-### 1. Install Data Commons Locally
+### 1. Install Data Commons
 
 To get started, you'll need to check out the Data Commons repository and set up your local environment.
 
@@ -53,7 +53,7 @@ uv sync
 Run the test suite to verify your setup:
 
 ```bash
-uv run --extra test pytest
+uv run pytest
 ```
 
 Tests are also run automatically before pushing changes.
@@ -68,26 +68,26 @@ export GCP_SPANNER_INSTANCE_ID="your-spanner-instance-id"
 export GCP_SPANNER_DATABASE_NAME="your-spanner-database-name"
 ```
 
-Replace the values with your actual GCP project and Spanner instance details. You can find these in your Google Cloud Console under the Spanner section. Make sure you have the necessary permissions to create and modify databases in your Spanner instance.
+Replace the values with your actual GCP project and Spanner instance details or put them in a `.env` file in the root of the repository. You can find these in your Google Cloud Console under the Spanner section. Make sure you have the necessary permissions to create and modify databases in your Spanner instance.
 
 #### Start Data Commons:
 
-Run the `datacommons` command using `uv` to start a local development server.
+Launch Data Commons API server on port 5000, ready to receive your schema and data. CLI arguments override .env settings.
 
 ```bash
+# Standard start
 uv run datacommons api start
-```
 
-This will start the Data Commons API server on port 5000, ready to receive your schema and data.
+# Development mode (with auto-reload)
+uv run datacommons api start --reload
 
-Alternatively, you can set the spanner configuration using command line arguments, which will take precedence over environment variables:
-
-```bash
+# Override Spanner credentials config via CLI
 uv run datacommons api start \
   --gcp-project-id="your-gcp-project-id" \
   --gcp-spanner-instance-id="your-spanner-instance-id" \
   --gcp-spanner-database-name="your-spanner-database-name"
 ```
+
 
 ### 2. Define Your Schema
 
@@ -180,12 +180,22 @@ From the repository's root directory, run:
 
 ```bash
 curl -X POST "http://localhost:5000/nodes/" -H "Content-Type: application/json" -d @examples/person-schema.jsonld
+
+# With default provenance
+curl -X POST "http://localhost:5000/nodes" \
+  -H "Content-Type: application/json" \
+  -d @examples/person-schema.jsonld
 ```
 
 #### Upload the people data:
 
 ```bash
-curl -X POST "http://localhost:5000/nodes/" -H "Content-Type: application/json" -d @examples/people.jsonld
+curl -X POST "http://localhost:5000/nodes" -H "Content-Type: application/json" -d @examples/people.jsonld
+
+# With default provenance
+curl -X POST "http://localhost:5000/nodes" \
+  -H "Content-Type: application/json" \
+  -d @examples/people.jsonld
 ```
 
 #### Verify imported data
@@ -328,7 +338,33 @@ You should see the:
 }
 ```
 
-### Schema Tools
+
+## Deploying Data Commons Platform In GCP
+
+Use the CLI to scaffold a Terraform deployment directory:
+
+```bash
+uv run datacommons admin init
+```
+
+The command will prompt for:
+- GCP project id
+- namespace
+- Data Commons API key
+
+It then creates a new folder with `main.tf`, `terraform.tfvars`, and a deployment `README.md`.
+
+From the generated folder:
+
+```bash
+terraform init
+terraform plan
+terraform apply
+```
+
+For the full infrastructure module and complete variable reference, see the detailed [GCP Infrastructure Guide](infra/dcp/README.md).
+
+## Schema Tools
 
 Use the `datacommons schema` command to convert between MCF and JSON-LD formats.
 
