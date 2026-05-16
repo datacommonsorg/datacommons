@@ -159,6 +159,10 @@ output "project_id" {{
 output "cdc_service_name" {{
   value = module.datacommons_dcp.cdc_service_name
 }}
+
+output "region" {{
+  value = module.datacommons_dcp.region
+}}
 """
 
 
