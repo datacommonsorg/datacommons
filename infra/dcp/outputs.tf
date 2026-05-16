@@ -14,6 +14,10 @@ output "cdc_service_url" {
   value = module.stack.cdc_service_url
 }
 
+output "cdc_service_name" {
+  value = module.stack.cdc_service_name
+}
+
 output "cdc_mysql_instance_connection_name" {
   value = module.stack.cdc_mysql_instance_connection_name
 }
