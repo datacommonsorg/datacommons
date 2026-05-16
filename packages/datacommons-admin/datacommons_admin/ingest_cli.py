@@ -18,6 +18,7 @@ from datacommons_admin.ingestion_job_client import IngestionJobClient
 from datacommons_admin.tf_utils import (
     get_cdc_data_job_name,
     get_dcp_orchestrator_service_account_email,
+    get_dcp_project_id,
 )
 
 
@@ -37,15 +38,17 @@ def start() -> None:
 
     job_name = get_cdc_data_job_name()
     sa_email = get_dcp_orchestrator_service_account_email()
+    project_id = get_dcp_project_id()
 
     click.secho(f"Found Data Job Name: {job_name}", fg="green")
     click.secho(f"Found Orchestrator Service Account: {sa_email}", fg="green")
+    click.secho(f"Found GCP Project ID: {project_id}", fg="green")
     click.secho(
         f"Starting Cloud Run job '{job_name}' via Admin API (this may take a few moments)...",
         fg="bright_black",
     )
 
-    client = IngestionJobClient(job_name, service_account_email=sa_email)
+    client = IngestionJobClient(job_name, service_account_email=sa_email, project_id=project_id)
     result = client.start_job()
 
     click.secho("Successfully started ingestion job!", fg="green", bold=True)

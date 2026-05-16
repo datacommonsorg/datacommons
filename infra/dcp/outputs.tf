@@ -53,5 +53,7 @@ output "data_bucket_name" {
   value       = module.stack.data_bucket_name
 }
 
-
-
+output "project_id" {
+  description = "The GCP project ID where resources are deployed"
+  value       = var.project_id
+}
