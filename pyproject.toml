@@ -115,3 +115,11 @@ extend-ignore = [
 # Explicitly define PyPI as the default index
 [[tool.uv.index]]
 url = "https://pypi.org/simple"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+# Tell setuptools this is a meta-package and to stop looking for code
+packages = []
