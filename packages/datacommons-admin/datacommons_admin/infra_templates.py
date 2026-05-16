@@ -155,6 +155,10 @@ output "data_bucket_name" {{
 output "project_id" {{
   value = module.datacommons_dcp.project_id
 }}
+
+output "cdc_service_name" {{
+  value = module.datacommons_dcp.cdc_service_name
+}}
 """
 
 
