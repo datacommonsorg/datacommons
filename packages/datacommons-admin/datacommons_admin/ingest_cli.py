@@ -80,6 +80,24 @@ def start() -> None:
             click.secho(job_url, fg="blue", underline=True)
             click.secho("Execution Console Link: ", fg="cyan", bold=True, nl=False)
             click.secho(exec_url, fg="blue", underline=True)
+        elif (
+            len(parts) >= 6
+            and parts[0] == "projects"
+            and parts[2] == "locations"
+            and parts[4] == "operations"
+        ):
+            project_id = parts[1]
+            location = parts[3]
+            operation_id = parts[5]
+
+            short_job_name = job_name.split("/")[-1] if "/" in job_name else job_name
+
+            job_url = f"https://console.cloud.google.com/run/jobs/details/{location}/{short_job_name}/executions?project={project_id}"
+
+            click.secho("Job Console Link: ", fg="cyan", bold=True, nl=False)
+            click.secho(job_url, fg="blue", underline=True)
+            click.secho("Operation ID: ", fg="cyan", bold=True, nl=False)
+            click.secho(operation_id, fg="green")
 
 
 @ingest.command(name="show-config")
