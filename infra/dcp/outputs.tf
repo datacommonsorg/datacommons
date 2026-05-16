@@ -61,3 +61,8 @@ output "project_id" {
   description = "The GCP project ID where resources are deployed"
   value       = var.project_id
 }
+
+output "region" {
+  description = "The GCP region where resources are deployed"
+  value       = var.region
+}
