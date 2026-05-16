@@ -21,7 +21,11 @@ class IngestionJobClient:
     """Client for interacting with Cloud Run Admin API to manage CDC data ingestion jobs."""
 
     def __init__(
-        self, job_name: str, service_account_email: str = None, project_id: str = None, location: str = None
+        self,
+        job_name: str,
+        service_account_email: str = None,
+        project_id: str = None,
+        location: str = None,
     ) -> None:
         self.service_account_email = service_account_email
         base_credentials, default_project_id = google.auth.default()
@@ -34,9 +38,7 @@ class IngestionJobClient:
                 raise click.ClickException(
                     "Could not determine GCP project ID from environment or Terraform. Please verify your gcloud auth login."
                 )
-            self.full_job_name = (
-                f"projects/{resolved_project_id}/locations/{resolved_location}/jobs/{job_name}"
-            )
+            self.full_job_name = f"projects/{resolved_project_id}/locations/{resolved_location}/jobs/{job_name}"
         else:
             self.full_job_name = job_name
 
