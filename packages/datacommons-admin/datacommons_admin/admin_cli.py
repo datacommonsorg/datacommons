@@ -119,7 +119,7 @@ def _configure_remote_state(resolved_project_id: str, resolved_namespace: str) -
 
 
 def _get_github_templates(ref: str) -> tuple[str, str, str, str]:
-    """Fetches variables.tf, main.tf, outputs.tf, and terraform.tfvars.example from GitHub for the given ref."""
+    """Fetches variables.tf, main.tf, outputs.tf, and terraform.tfvars.template from GitHub for the given ref."""
     base_url = (
         f"https://raw.githubusercontent.com/datacommonsorg/datacommons/{ref}/infra/dcp"
     )
@@ -135,7 +135,7 @@ def _get_github_templates(ref: str) -> tuple[str, str, str, str]:
         fetch("variables.tf"),
         fetch("main.tf"),
         fetch("outputs.tf"),
-        fetch("terraform.tfvars.example"),
+        fetch("terraform.tfvars.template"),
     )
 
 

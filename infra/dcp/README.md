@@ -22,7 +22,7 @@ Before you begin, ensure you have the following:
 If you want users to deploy from this module remotely (without cloning this repo), start from:
 
 *   [examples/remote-module/main.tf](examples/remote-module/main.tf)
-*   [examples/remote-module/terraform.tfvars.example](examples/remote-module/terraform.tfvars.example)
+*   [examples/remote-module/terraform.tfvars.template](examples/remote-module/terraform.tfvars.template)
 
 This uses a Git module source in the form:
 
@@ -36,7 +36,7 @@ Use a release tag or commit SHA (instead of `main`) for reproducible environment
 
 Copy the example variables file to create your local configuration:
 ```bash
-cp terraform.tfvars.example terraform.tfvars
+cp terraform.tfvars.template terraform.tfvars
 ```
 
 Edit `terraform.tfvars` and fill in at least the following required variables:
