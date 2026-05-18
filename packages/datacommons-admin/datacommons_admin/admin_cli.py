@@ -120,7 +120,10 @@ def _configure_remote_state(resolved_project_id: str, resolved_namespace: str) -
 
 def _get_github_templates(ref: str) -> tuple[str, str, str, str]:
     """Fetches variables.tf, main.tf, outputs.tf, and terraform.tfvars.example from GitHub for the given ref."""
-    base_url = f"https://raw.githubusercontent.com/datacommonsorg/datacommons/{ref}/infra/dcp"
+    base_url = (
+        f"https://raw.githubusercontent.com/datacommonsorg/datacommons/{ref}/infra/dcp"
+    )
+
     def fetch(filename: str) -> str:
         url = f"{base_url}/{filename}"
         click.secho(f"Downloading {filename} from GitHub ({ref})...", fg="bright_black")
@@ -231,8 +234,10 @@ def init(
     target_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        variables_content, main_content, outputs_content, tfvars_example = _get_github_templates(ref)
-        
+        variables_content, main_content, outputs_content, tfvars_example = (
+            _get_github_templates(ref)
+        )
+
         # Update the stack module source to point to GitHub
         resolved_source = f"git::https://github.com/datacommonsorg/datacommons.git//infra/dcp/modules/stack?ref={ref}"
         main_content = re.sub(
@@ -246,11 +251,11 @@ def init(
         main_tf_path.write_text(main_content, encoding="utf-8")
         (target_dir / "outputs.tf").write_text(outputs_content, encoding="utf-8")
         tfvars_path.write_text(tfvars_content, encoding="utf-8")
-        
+
         click.secho(f"- Wrote {target_dir / 'variables.tf'}", fg="bright_black")
         click.secho(f"- Wrote {target_dir / 'outputs.tf'}", fg="bright_black")
         click.secho(f"- Wrote {tfvars_path}", fg="bright_black")
-        
+
     except Exception as e:
         raise click.ClickException(f"Failed to initialize Terraform templates: {e}")
 
