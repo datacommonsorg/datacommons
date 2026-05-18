@@ -27,8 +27,14 @@ def runner() -> CliRunner:
 
 
 @patch("datacommons_admin.admin_cli._get_github_templates")
-def test_init_success_with_options(mock_get_templates, runner: CliRunner, tmp_path: Path) -> None:
-    mock_get_templates.return_value = ("variable \"test\" {}", "module \"stack\" {\n  source = \"./modules/stack\"\n}", "output \"test\" {}")
+def test_init_success_with_options(
+    mock_get_templates, runner: CliRunner, tmp_path: Path
+) -> None:
+    mock_get_templates.return_value = (
+        'variable "test" {}',
+        'module "stack" {\n  source = "./modules/stack"\n}',
+        'output "test" {}',
+    )
     with runner.isolated_filesystem(temp_dir=tmp_path):
         result = runner.invoke(
             admin,
@@ -60,8 +66,14 @@ def test_init_success_with_options(mock_get_templates, runner: CliRunner, tmp_pa
 
 
 @patch("datacommons_admin.admin_cli._get_github_templates")
-def test_init_success_with_prompts(mock_get_templates, runner: CliRunner, tmp_path: Path) -> None:
-    mock_get_templates.return_value = ("variable \"test\" {}", "module \"stack\" {\n  source = \"./modules/stack\"\n}", "output \"test\" {}")
+def test_init_success_with_prompts(
+    mock_get_templates, runner: CliRunner, tmp_path: Path
+) -> None:
+    mock_get_templates.return_value = (
+        'variable "test" {}',
+        'module "stack" {\n  source = "./modules/stack"\n}',
+        'output "test" {}',
+    )
     with runner.isolated_filesystem(temp_dir=tmp_path):
         result = runner.invoke(
             admin,
@@ -78,8 +90,14 @@ def test_init_success_with_prompts(mock_get_templates, runner: CliRunner, tmp_pa
 
 
 @patch("datacommons_admin.admin_cli._get_github_templates")
-def test_init_existing_folder_force(mock_get_templates, runner: CliRunner, tmp_path: Path) -> None:
-    mock_get_templates.return_value = ("variable \"test\" {}", "module \"stack\" {\n  source = \"./modules/stack\"\n}", "output \"test\" {}")
+def test_init_existing_folder_force(
+    mock_get_templates, runner: CliRunner, tmp_path: Path
+) -> None:
+    mock_get_templates.return_value = (
+        'variable "test" {}',
+        'module "stack" {\n  source = "./modules/stack"\n}',
+        'output "test" {}',
+    )
     with runner.isolated_filesystem(temp_dir=tmp_path):
         existing_dir = Path.cwd() / "existing-ns"
         existing_dir.mkdir()
@@ -110,7 +128,11 @@ def test_init_existing_folder_force(mock_get_templates, runner: CliRunner, tmp_p
 def test_init_remote_state(
     mock_configure: patch, mock_get_templates: patch, runner: CliRunner, tmp_path: Path
 ) -> None:
-    mock_get_templates.return_value = ("variable \"test\" {}", "module \"stack\" {\n  source = \"./modules/stack\"\n}", "output \"test\" {}")
+    mock_get_templates.return_value = (
+        'variable "test" {}',
+        'module "stack" {\n  source = "./modules/stack"\n}',
+        'output "test" {}',
+    )
     mock_configure.return_value = "mock-bucket-name"
 
     with runner.isolated_filesystem(temp_dir=tmp_path):
