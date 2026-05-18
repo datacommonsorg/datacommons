@@ -34,6 +34,7 @@ def test_init_success_with_options(
         'variable "test" {}',
         'module "stack" {\n  source = "./modules/stack"\n}',
         'output "test" {}',
+        'project_id = "$$PROJECT_ID$$"\nnamespace  = "$$NAMESPACE$$"\n# cdc_dc_api_key = "$$DC_API_KEY$$"',
     )
     with runner.isolated_filesystem(temp_dir=tmp_path):
         result = runner.invoke(
@@ -73,6 +74,7 @@ def test_init_success_with_prompts(
         'variable "test" {}',
         'module "stack" {\n  source = "./modules/stack"\n}',
         'output "test" {}',
+        'project_id = "$$PROJECT_ID$$"\nnamespace  = "$$NAMESPACE$$"\n# cdc_dc_api_key = "$$DC_API_KEY$$"',
     )
     with runner.isolated_filesystem(temp_dir=tmp_path):
         result = runner.invoke(
@@ -97,6 +99,7 @@ def test_init_existing_folder_force(
         'variable "test" {}',
         'module "stack" {\n  source = "./modules/stack"\n}',
         'output "test" {}',
+        'project_id = "$$PROJECT_ID$$"\nnamespace  = "$$NAMESPACE$$"\n# cdc_dc_api_key = "$$DC_API_KEY$$"',
     )
     with runner.isolated_filesystem(temp_dir=tmp_path):
         existing_dir = Path.cwd() / "existing-ns"
@@ -132,6 +135,7 @@ def test_init_remote_state(
         'variable "test" {}',
         'module "stack" {\n  source = "./modules/stack"\n}',
         'output "test" {}',
+        'project_id = "$$PROJECT_ID$$"\nnamespace  = "$$NAMESPACE$$"\n# cdc_dc_api_key = "$$DC_API_KEY$$"',
     )
     mock_configure.return_value = "mock-bucket-name"
 
