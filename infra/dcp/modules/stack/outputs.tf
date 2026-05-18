@@ -14,6 +14,10 @@ output "cdc_service_url" {
   value = var.toggles.enable_cdc ? module.cdc_services[0].service_url : null
 }
 
+output "cdc_service_name" {
+  value = var.toggles.enable_cdc ? module.cdc_services[0].service_name : null
+}
+
 output "cdc_mysql_instance_connection_name" {
   value = var.toggles.enable_cdc && !var.toggles.enable_dcp ? module.cdc_mysql[0].mysql_instance_connection_name : null
 }

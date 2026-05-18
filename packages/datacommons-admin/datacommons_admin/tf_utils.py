@@ -24,6 +24,8 @@ TF_OUTPUT_ORCHESTRATOR_SERVICE_ACCOUNT_EMAIL = "dcp_orchestrator_service_account
 TF_OUTPUT_SPANNER_INSTANCE_ID = "dcp_spanner_instance_id"
 TF_OUTPUT_SPANNER_DATABASE_ID = "dcp_spanner_database_id"
 TF_OUTPUT_CDC_DATA_JOB_NAME = "cdc_data_job_name"
+TF_OUTPUT_PROJECT_ID = "project_id"
+TF_OUTPUT_REGION = "region"
 
 
 def get_terraform_output(key: str) -> str:
@@ -114,3 +116,13 @@ def get_dcp_spanner_database_id() -> str:
 def get_cdc_data_job_name() -> str:
     """Convenience wrapper to fetch the cdc_data_job_name Terraform output."""
     return get_terraform_output(TF_OUTPUT_CDC_DATA_JOB_NAME)
+
+
+def get_dcp_project_id() -> str:
+    """Convenience wrapper to fetch the project_id Terraform output."""
+    return get_terraform_output(TF_OUTPUT_PROJECT_ID)
+
+
+def get_dcp_region() -> str:
+    """Convenience wrapper to fetch the region Terraform output."""
+    return get_terraform_output(TF_OUTPUT_REGION)

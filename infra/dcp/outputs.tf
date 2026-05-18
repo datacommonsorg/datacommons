@@ -14,6 +14,10 @@ output "cdc_service_url" {
   value = module.stack.cdc_service_url
 }
 
+output "cdc_service_name" {
+  value = module.stack.cdc_service_name
+}
+
 output "cdc_mysql_instance_connection_name" {
   value = module.stack.cdc_mysql_instance_connection_name
 }
@@ -53,5 +57,12 @@ output "data_bucket_name" {
   value       = module.stack.data_bucket_name
 }
 
+output "project_id" {
+  description = "The GCP project ID where resources are deployed"
+  value       = var.project_id
+}
 
-
+output "region" {
+  description = "The GCP region where resources are deployed"
+  value       = var.region
+}
