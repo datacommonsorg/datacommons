@@ -28,17 +28,16 @@ class IngestionJobClient:
         location: str = None,
     ) -> None:
         self.service_account_email = service_account_email
-        base_credentials, default_project_id = google.auth.default()
+        base_credentials, _ = google.auth.default()
 
-        resolved_project_id = project_id or default_project_id
         resolved_location = location or "us-central1"
 
         if not job_name.startswith("projects/"):
-            if not resolved_project_id:
+            if not project_id:
                 raise click.ClickException(
-                    "Could not determine GCP project ID from environment or Terraform. Please verify your gcloud auth login."
+                    "Project ID must be provided via Terraform outputs or as an argument when job name is not a full resource name."
                 )
-            self.full_job_name = f"projects/{resolved_project_id}/locations/{resolved_location}/jobs/{job_name}"
+            self.full_job_name = f"projects/{project_id}/locations/{resolved_location}/jobs/{job_name}"
         else:
             self.full_job_name = job_name
 

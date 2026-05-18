@@ -317,7 +317,7 @@ def test_ingest_show_config_success(
     from unittest.mock import MagicMock
 
     mock_proc = MagicMock()
-    mock_proc.stdout = '{"cdc_data_job_name": {"value": "mock-job"}, "dcp_orchestrator_service_account_email": {"value": "mock-orch-sa@mock.com"}}'
+    mock_proc.stdout = '{"cdc_data_job_name": {"value": "mock-job"}, "dcp_orchestrator_service_account_email": {"value": "mock-orch-sa@mock.com"}, "project_id": {"value": "mock-proj"}, "region": {"value": "us-central1"}}'
     mock_run.return_value = mock_proc
 
     mock_creds = MagicMock()
