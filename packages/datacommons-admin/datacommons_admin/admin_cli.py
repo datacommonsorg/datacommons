@@ -239,11 +239,16 @@ def init(
 
         # Update the stack module source to point to GitHub
         resolved_source = f"git::https://github.com/datacommonsorg/datacommons.git//infra/dcp/modules/stack?ref={ref}"
-        main_content = re.sub(
-            r'source\s*=\s*["\']\./modules/stack["\']',
+        main_content, count = re.subn(
+            r'source\s*=\s*["\']\./modules/stack/?["\']',
             f'source = "{resolved_source}"',
             main_content,
         )
+        if count == 0:
+            raise click.ClickException(
+                "Failed to patch main.tf: could not find the 'stack' module source line. "
+                "The remote template format may have changed."
+            )
 
         # Write the files
         (target_dir / "variables.tf").write_text(variables_content, encoding="utf-8")
