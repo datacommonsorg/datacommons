@@ -25,7 +25,6 @@ from datacommons_admin.infra_templates import (
     BACKEND_TF_TEMPLATE,
     README_TEMPLATE,
     REMOTE_STATE_TEMPLATE,
-    TFVARS_TEMPLATE,
 )
 
 
