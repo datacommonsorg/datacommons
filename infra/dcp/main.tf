@@ -125,6 +125,8 @@ locals {
 }
 
 module "stack" {
+  # DO NOT CHANGE the format of the source line below. 
+  # The Data Commons CLI relies on matching 'source = "./modules/stack"' to generate user scaffolding.
   source = "./modules/stack"
 
   shared  = local.stack_shared
