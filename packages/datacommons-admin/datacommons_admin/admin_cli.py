@@ -128,7 +128,8 @@ def _get_github_templates(ref: str) -> tuple[str, str, str]:
     def fetch(filename: str) -> str:
         url = f"{base_url}/{filename}"
         click.secho(f"Downloading {filename} from GitHub ({ref})...", fg="bright_black")
-        with urllib.request.urlopen(url, timeout=10) as response:
+        req = urllib.request.Request(url, headers={"User-Agent": "DataCommons-CLI"})
+        with urllib.request.urlopen(req, timeout=10) as response:
             return response.read().decode("utf-8")
 
     return fetch("variables.tf"), fetch("main.tf"), fetch("outputs.tf")
