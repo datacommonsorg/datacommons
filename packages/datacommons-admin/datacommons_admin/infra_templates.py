@@ -13,8 +13,6 @@
 # limitations under the License.
 
 
-
-
 TFVARS_TEMPLATE = """project_id = "{project_id}"
 namespace  = "{namespace}"
 dc_api_key = "{dc_api_key}"

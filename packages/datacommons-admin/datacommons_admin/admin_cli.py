@@ -120,23 +120,25 @@ def _configure_remote_state(resolved_project_id: str, resolved_namespace: str) -
 
 def _get_github_templates(ref: str) -> tuple[str, str, str]:
     """Fetches variables.tf, main.tf, and outputs.tf from GitHub for the given ref."""
-    base_url = f"https://raw.githubusercontent.com/datacommonsorg/datacommons/{ref}/infra/dcp"
+    base_url = (
+        f"https://raw.githubusercontent.com/datacommonsorg/datacommons/{ref}/infra/dcp"
+    )
     vars_url = f"{base_url}/variables.tf"
     main_url = f"{base_url}/main.tf"
     outputs_url = f"{base_url}/outputs.tf"
-    
+
     click.secho(f"Downloading variables.tf from GitHub ({ref})...", fg="bright_black")
     with urllib.request.urlopen(vars_url) as response:
-        variables_content = response.read().decode('utf-8')
-        
+        variables_content = response.read().decode("utf-8")
+
     click.secho(f"Downloading main.tf from GitHub ({ref})...", fg="bright_black")
     with urllib.request.urlopen(main_url) as response:
-        main_content = response.read().decode('utf-8')
-        
+        main_content = response.read().decode("utf-8")
+
     click.secho(f"Downloading outputs.tf from GitHub ({ref})...", fg="bright_black")
     with urllib.request.urlopen(outputs_url) as response:
-        outputs_content = response.read().decode('utf-8')
-        
+        outputs_content = response.read().decode("utf-8")
+
     return variables_content, main_content, outputs_content
 
 
@@ -238,22 +240,24 @@ def init(
     )
 
     target_dir.mkdir(parents=True, exist_ok=True)
-    
+
     try:
         variables_content, main_content, outputs_content = _get_github_templates(ref)
-        
+
         # Update the stack module source to point to GitHub
         resolved_source = f"git::https://github.com/datacommonsorg/datacommons.git//infra/dcp/modules/stack?ref={ref}"
-        main_content = main_content.replace('source = "./modules/stack"', f'source = "{resolved_source}"')
-        
+        main_content = main_content.replace(
+            'source = "./modules/stack"', f'source = "{resolved_source}"'
+        )
+
         # Write the files
         (target_dir / "variables.tf").write_text(variables_content, encoding="utf-8")
         main_tf_path.write_text(main_content, encoding="utf-8")
         (target_dir / "outputs.tf").write_text(outputs_content, encoding="utf-8")
-        
+
         click.secho(f"- Wrote {target_dir / 'variables.tf'}", fg="bright_black")
         click.secho(f"- Wrote {target_dir / 'outputs.tf'}", fg="bright_black")
-        
+
     except Exception as e:
         raise click.ClickException(f"Failed to download templates from GitHub: {e}")
     tfvars_path.write_text(
