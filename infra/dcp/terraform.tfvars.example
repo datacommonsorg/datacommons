@@ -1,6 +1,6 @@
 # --- Shared Global Variables ---
-project_id = "your-project-id"
-namespace  = "your-namespace"
+project_id = "$$PROJECT_ID$$"
+namespace  = "$$NAMESPACE$$"
 region     = "us-central1"
 
 # --- Stack Toggles ---
@@ -23,7 +23,7 @@ dcp_create_ingestion_bucket        = true
 dcp_ingestion_lock_timeout         = 82800
 
 # --- CDC ---
-# cdc_dc_api_key = "your-dc-api-key" # https://apikeys.datacommons.org
+cdc_dc_api_key = "$$DC_API_KEY$$" # https://apikeys.datacommons.org
 # cdc_vpc_connector_cidr = "10.13.0.0/28"
 
 # --- Access / Safety ---

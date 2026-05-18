@@ -25,7 +25,6 @@ from datacommons_admin.infra_templates import (
     BACKEND_TF_TEMPLATE,
     README_TEMPLATE,
     REMOTE_STATE_TEMPLATE,
-    TFVARS_TEMPLATE,
 )
 
 
@@ -119,12 +118,9 @@ def _configure_remote_state(resolved_project_id: str, resolved_namespace: str) -
             continue
 
 
-def _get_github_templates(ref: str) -> tuple[str, str, str]:
-    """Fetches variables.tf, main.tf, and outputs.tf from GitHub for the given ref."""
-    base_url = (
-        f"https://raw.githubusercontent.com/datacommonsorg/datacommons/{ref}/infra/dcp"
-    )
-
+def _get_github_templates(ref: str) -> tuple[str, str, str, str]:
+    """Fetches variables.tf, main.tf, outputs.tf, and terraform.tfvars.example from GitHub for the given ref."""
+    base_url = f"https://raw.githubusercontent.com/datacommonsorg/datacommons/{ref}/infra/dcp"
     def fetch(filename: str) -> str:
         url = f"{base_url}/{filename}"
         click.secho(f"Downloading {filename} from GitHub ({ref})...", fg="bright_black")
@@ -235,39 +231,29 @@ def init(
     target_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        variables_content, main_content, outputs_content = _get_github_templates(ref)
-
+        variables_content, main_content, outputs_content, tfvars_example = _get_github_templates(ref)
+        
         # Update the stack module source to point to GitHub
         resolved_source = f"git::https://github.com/datacommonsorg/datacommons.git//infra/dcp/modules/stack?ref={ref}"
-        main_content, count = re.subn(
-            r'source\s*=\s*["\']\./modules/stack/?["\']',
+        main_content = re.sub(
+            r'source\s*=\s*["\']\./modules/stack["\']',
             f'source = "{resolved_source}"',
             main_content,
         )
-        if count == 0:
-            raise click.ClickException(
-                "Failed to patch main.tf: could not find the 'stack' module source line. "
-                "The remote template format may have changed."
-            )
 
         # Write the files
         (target_dir / "variables.tf").write_text(variables_content, encoding="utf-8")
         main_tf_path.write_text(main_content, encoding="utf-8")
         (target_dir / "outputs.tf").write_text(outputs_content, encoding="utf-8")
-
+        tfvars_path.write_text(tfvars_content, encoding="utf-8")
+        
         click.secho(f"- Wrote {target_dir / 'variables.tf'}", fg="bright_black")
         click.secho(f"- Wrote {target_dir / 'outputs.tf'}", fg="bright_black")
-
+        click.secho(f"- Wrote {tfvars_path}", fg="bright_black")
+        
     except Exception as e:
         raise click.ClickException(f"Failed to initialize Terraform templates: {e}")
-    tfvars_path.write_text(
-        TFVARS_TEMPLATE.format(
-            project_id=resolved_project_id,
-            namespace=resolved_namespace,
-            dc_api_key=resolved_dc_api_key,
-        ),
-        encoding="utf-8",
-    )
+
     remote_state_info = ""
     if use_remote_state and resolved_bucket_name:
         remote_state_info = REMOTE_STATE_TEMPLATE.format(
