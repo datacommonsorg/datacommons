@@ -39,7 +39,9 @@ class IngestionJobClient:
                 raise click.ClickException(
                     "Location must be provided via Terraform outputs or as an argument when job name is not a full resource name."
                 )
-            self.full_job_name = f"projects/{project_id}/locations/{location}/jobs/{job_name}"
+            self.full_job_name = (
+                f"projects/{project_id}/locations/{location}/jobs/{job_name}"
+            )
         else:
             self.full_job_name = job_name
 
