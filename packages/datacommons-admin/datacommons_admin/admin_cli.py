@@ -132,7 +132,12 @@ def _get_github_templates(ref: str) -> tuple[str, str, str, str]:
         with urllib.request.urlopen(req, timeout=10) as response:
             return response.read().decode("utf-8")
 
-    return fetch("variables.tf"), fetch("main.tf"), fetch("outputs.tf"), fetch("terraform.tfvars.example")
+    return (
+        fetch("variables.tf"),
+        fetch("main.tf"),
+        fetch("outputs.tf"),
+        fetch("terraform.tfvars.example"),
+    )
 
 
 @click.group()
@@ -235,7 +240,9 @@ def init(
     target_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        variables_content, main_content, outputs_content, tfvars_example = _get_github_templates(ref)
+        variables_content, main_content, outputs_content, tfvars_example = (
+            _get_github_templates(ref)
+        )
 
         # Update the stack module source to point to GitHub
         resolved_source = f"git::https://github.com/datacommonsorg/datacommons.git//infra/dcp/modules/stack?ref={ref}"
@@ -251,11 +258,17 @@ def init(
         (target_dir / "outputs.tf").write_text(outputs_content, encoding="utf-8")
         # Modify tfvars_example with actual values
         tfvars_content = tfvars_example
-        tfvars_content = tfvars_content.replace('"$$PROJECT_ID$$"', f'"{resolved_project_id}"')
-        tfvars_content = tfvars_content.replace('"$$NAMESPACE$$"', f'"{resolved_namespace}"')
+        tfvars_content = tfvars_content.replace(
+            '"$$PROJECT_ID$$"', f'"{resolved_project_id}"'
+        )
+        tfvars_content = tfvars_content.replace(
+            '"$$NAMESPACE$$"', f'"{resolved_namespace}"'
+        )
         if resolved_dc_api_key:
-            tfvars_content = tfvars_content.replace('"$$DC_API_KEY$$"', f'"{resolved_dc_api_key}"')
-            
+            tfvars_content = tfvars_content.replace(
+                '"$$DC_API_KEY$$"', f'"{resolved_dc_api_key}"'
+            )
+
         (target_dir / "terraform.tfvars").write_text(tfvars_content, encoding="utf-8")
 
         click.secho(f"- Wrote {target_dir / 'variables.tf'}", fg="bright_black")
