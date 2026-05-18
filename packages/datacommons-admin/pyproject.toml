@@ -11,6 +11,7 @@ urls = {Homepage = "https://github.com/datacommonsorg/datacommons"}
 dependencies = [
   "click>=8.1.7",
   "google-cloud-storage>=2.13.0",
+  "pyopenssl>=24.0.0",
 ]
 
 [build-system]

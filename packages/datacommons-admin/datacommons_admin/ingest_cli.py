@@ -18,6 +18,8 @@ from datacommons_admin.ingestion_job_client import IngestionJobClient
 from datacommons_admin.tf_utils import (
     get_cdc_data_job_name,
     get_dcp_orchestrator_service_account_email,
+    get_dcp_project_id,
+    get_dcp_region,
 )
 
 
@@ -37,15 +39,24 @@ def start() -> None:
 
     job_name = get_cdc_data_job_name()
     sa_email = get_dcp_orchestrator_service_account_email()
+    project_id = get_dcp_project_id()
+    region = get_dcp_region()
 
     click.secho(f"Found Data Job Name: {job_name}", fg="green")
     click.secho(f"Found Orchestrator Service Account: {sa_email}", fg="green")
+    click.secho(f"Found GCP Project ID: {project_id}", fg="green")
+    click.secho(f"Found GCP Region: {region}", fg="green")
     click.secho(
         f"Starting Cloud Run job '{job_name}' via Admin API (this may take a few moments)...",
         fg="bright_black",
     )
 
-    client = IngestionJobClient(job_name, service_account_email=sa_email)
+    client = IngestionJobClient(
+        job_name,
+        service_account_email=sa_email,
+        project_id=project_id,
+        location=region,
+    )
     result = client.start_job()
 
     click.secho("Successfully started ingestion job!", fg="green", bold=True)
@@ -77,6 +88,24 @@ def start() -> None:
             click.secho(job_url, fg="blue", underline=True)
             click.secho("Execution Console Link: ", fg="cyan", bold=True, nl=False)
             click.secho(exec_url, fg="blue", underline=True)
+        elif (
+            len(parts) >= 6
+            and parts[0] == "projects"
+            and parts[2] == "locations"
+            and parts[4] == "operations"
+        ):
+            resp_project_id = parts[1]
+            location = parts[3]
+            operation_id = parts[5]
+
+            short_job_name = job_name.split("/")[-1] if "/" in job_name else job_name
+
+            job_url = f"https://console.cloud.google.com/run/jobs/details/{location}/{short_job_name}/executions?project={resp_project_id}"
+
+            click.secho("Job Console Link: ", fg="cyan", bold=True, nl=False)
+            click.secho(job_url, fg="blue", underline=True)
+            click.secho("Operation ID: ", fg="cyan", bold=True, nl=False)
+            click.secho(operation_id, fg="green")
 
 
 @ingest.command(name="show-config")
@@ -90,15 +119,24 @@ def show_config() -> None:
 
     job_name = get_cdc_data_job_name()
     sa_email = get_dcp_orchestrator_service_account_email()
+    project_id = get_dcp_project_id()
+    region = get_dcp_region()
 
     click.secho(f"Found Data Job Name: {job_name}", fg="green")
     click.secho(f"Found Orchestrator Service Account: {sa_email}", fg="green")
+    click.secho(f"Found GCP Project ID: {project_id}", fg="green")
+    click.secho(f"Found GCP Region: {region}", fg="green")
     click.secho(
         f"Fetching configuration for Cloud Run job '{job_name}'...",
         fg="bright_black",
     )
 
-    client = IngestionJobClient(job_name, service_account_email=sa_email)
+    client = IngestionJobClient(
+        job_name,
+        service_account_email=sa_email,
+        project_id=project_id,
+        location=region,
+    )
     env_vars = client.get_config()
 
     click.secho("\nCurrent Ingestion Job Configuration:", fg="cyan", bold=True)

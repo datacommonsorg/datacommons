@@ -20,16 +20,25 @@ from google.auth.transport.requests import AuthorizedSession
 class IngestionJobClient:
     """Client for interacting with Cloud Run Admin API to manage CDC data ingestion jobs."""
 
-    def __init__(self, job_name: str, service_account_email: str = None) -> None:
+    def __init__(
+        self,
+        job_name: str,
+        service_account_email: str = None,
+        project_id: str = None,
+        location: str = None,
+    ) -> None:
         self.service_account_email = service_account_email
-        base_credentials, project_id = google.auth.default()
+        base_credentials, _ = google.auth.default()
 
         if not job_name.startswith("projects/"):
             if not project_id:
                 raise click.ClickException(
-                    "Could not determine GCP project ID from environment. Please verify your gcloud auth login."
+                    "Project ID must be provided via Terraform outputs or as an argument when job name is not a full resource name."
                 )
-            location = "us-central1"
+            if not location:
+                raise click.ClickException(
+                    "Location must be provided via Terraform outputs or as an argument when job name is not a full resource name."
+                )
             self.full_job_name = (
                 f"projects/{project_id}/locations/{location}/jobs/{job_name}"
             )
