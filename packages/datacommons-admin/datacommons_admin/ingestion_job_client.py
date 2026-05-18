@@ -30,14 +30,16 @@ class IngestionJobClient:
         self.service_account_email = service_account_email
         base_credentials, _ = google.auth.default()
 
-        resolved_location = location or "us-central1"
-
         if not job_name.startswith("projects/"):
             if not project_id:
                 raise click.ClickException(
                     "Project ID must be provided via Terraform outputs or as an argument when job name is not a full resource name."
                 )
-            self.full_job_name = f"projects/{project_id}/locations/{resolved_location}/jobs/{job_name}"
+            if not location:
+                raise click.ClickException(
+                    "Location must be provided via Terraform outputs or as an argument when job name is not a full resource name."
+                )
+            self.full_job_name = f"projects/{project_id}/locations/{location}/jobs/{job_name}"
         else:
             self.full_job_name = job_name
 
