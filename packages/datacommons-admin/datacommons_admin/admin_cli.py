@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from pathlib import Path
+import re
 import urllib.request
 from typing import Any, Tuple
 
@@ -123,23 +124,14 @@ def _get_github_templates(ref: str) -> tuple[str, str, str]:
     base_url = (
         f"https://raw.githubusercontent.com/datacommonsorg/datacommons/{ref}/infra/dcp"
     )
-    vars_url = f"{base_url}/variables.tf"
-    main_url = f"{base_url}/main.tf"
-    outputs_url = f"{base_url}/outputs.tf"
 
-    click.secho(f"Downloading variables.tf from GitHub ({ref})...", fg="bright_black")
-    with urllib.request.urlopen(vars_url) as response:
-        variables_content = response.read().decode("utf-8")
+    def fetch(filename: str) -> str:
+        url = f"{base_url}/{filename}"
+        click.secho(f"Downloading {filename} from GitHub ({ref})...", fg="bright_black")
+        with urllib.request.urlopen(url, timeout=10) as response:
+            return response.read().decode("utf-8")
 
-    click.secho(f"Downloading main.tf from GitHub ({ref})...", fg="bright_black")
-    with urllib.request.urlopen(main_url) as response:
-        main_content = response.read().decode("utf-8")
-
-    click.secho(f"Downloading outputs.tf from GitHub ({ref})...", fg="bright_black")
-    with urllib.request.urlopen(outputs_url) as response:
-        outputs_content = response.read().decode("utf-8")
-
-    return variables_content, main_content, outputs_content
+    return fetch("variables.tf"), fetch("main.tf"), fetch("outputs.tf")
 
 
 @click.group()
@@ -246,8 +238,10 @@ def init(
 
         # Update the stack module source to point to GitHub
         resolved_source = f"git::https://github.com/datacommonsorg/datacommons.git//infra/dcp/modules/stack?ref={ref}"
-        main_content = main_content.replace(
-            'source = "./modules/stack"', f'source = "{resolved_source}"'
+        main_content = re.sub(
+            r'source\s*=\s*["\']\./modules/stack["\']',
+            f'source = "{resolved_source}"',
+            main_content,
         )
 
         # Write the files
@@ -259,7 +253,7 @@ def init(
         click.secho(f"- Wrote {target_dir / 'outputs.tf'}", fg="bright_black")
 
     except Exception as e:
-        raise click.ClickException(f"Failed to download templates from GitHub: {e}")
+        raise click.ClickException(f"Failed to initialize Terraform templates: {e}")
     tfvars_path.write_text(
         TFVARS_TEMPLATE.format(
             project_id=resolved_project_id,
