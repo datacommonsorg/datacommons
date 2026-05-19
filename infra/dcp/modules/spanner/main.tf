@@ -51,7 +51,7 @@ resource "google_spanner_database_iam_member" "spanner_reader" {
   instance = var.create_spanner_instance ? google_spanner_instance.main[0].name : local.effective_instance_id
   database = google_spanner_database.database[0].name
   role     = "roles/spanner.databaseUser"
-  member   = "serviceAccount:${google_bigquery_connection.spanner_connection[0].service_account_id}"
+  member   = "serviceAccount:${google_bigquery_connection.spanner_connection[0].email}"
 }
 
 # Grant Ingestion Helper access to use the connection
