@@ -312,7 +312,7 @@ def test_ingest_start_success(
     mock_resp = MagicMock()
     mock_resp.ok = True
     mock_resp.json.return_value = {
-        "name": "projects/mock-proj/locations/us-central1/jobs/mock-job/executions/exec-123"
+        "name": "projects/mock-proj/locations/us-central1/operations/op-123"
     }
     mock_session_inst.post.return_value = mock_resp
     mock_session.return_value = mock_session_inst
@@ -321,17 +321,12 @@ def test_ingest_start_success(
     assert result.exit_code == 0
     assert "Successfully started ingestion job!" in result.output
     assert (
-        "Execution details: projects/mock-proj/locations/us-central1/jobs/mock-job/executions/exec-123"
+        "Operation details: projects/mock-proj/locations/us-central1/operations/op-123"
         in result.output
     )
-    assert "Job ID: mock-job" in result.output
-    assert "Execution ID: exec-123" in result.output
+    assert "Operation ID: op-123" in result.output
     assert (
         "Job Console Link: https://console.cloud.google.com/run/jobs/details/us-central1/mock-job/executions?project=mock-proj"
-        in result.output
-    )
-    assert (
-        "Execution Console Link: https://console.cloud.google.com/run/jobs/executions/details/us-central1/exec-123?project=mock-proj"
         in result.output
     )
 
