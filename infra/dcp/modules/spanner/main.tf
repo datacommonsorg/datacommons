@@ -75,3 +75,11 @@ resource "google_project_iam_member" "helper_bq_editor" {
   role    = "roles/bigquery.dataEditor"
   member  = "serviceAccount:${var.ingestion_helper_sa_email}"
 }
+
+# Grant Ingestion Helper access to run jobs in BigQuery
+resource "google_project_iam_member" "helper_bq_job_user" {
+  count   = var.create_spanner_db && var.enable_bq_federation && var.ingestion_helper_sa_email != "" ? 1 : 0
+  project = var.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${var.ingestion_helper_sa_email}"
+}
