@@ -104,17 +104,24 @@ def _configure_remote_state(resolved_project_id: str, resolved_namespace: str) -
                     fg="yellow",
                 )
                 continue
+        except exceptions.Unauthorized as e:
+            raise click.ClickException(
+                f"Authentication failed: {e}\n"
+                "Please ensure you are authenticated. Run 'gcloud auth application-default login' and try again."
+            )
         except Exception as e:
             click.secho(
-                f"Error: Failed to access bucket gs://{bucket_name}.",
+                f"Error: Failed to access or create bucket gs://{bucket_name}.",
                 fg="red",
                 bold=True,
             )
             click.secho(str(e), fg="red")
-            click.secho(
-                "Please verify permissions/names availability and try again.",
-                fg="yellow",
-            )
+
+            if not click.confirm(
+                "Do you want to try another bucket name?", default=True
+            ):
+                raise click.ClickException("Operation aborted by user.")
+
             continue
 
 
