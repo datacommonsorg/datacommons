@@ -30,7 +30,6 @@ resource "google_spanner_database_iam_member" "orchestrator_spanner_user" {
   member   = "serviceAccount:${var.orchestrator_email}"
 }
 
-data "google_project" "current" {}
 
 data "google_bigquery_default_service_account" "bq_sa" {
   project = var.project_id
