@@ -44,6 +44,9 @@ resource "google_project_service" "apis" {
     "workflows.googleapis.com",
     "workflowexecutions.googleapis.com",
     "dataflow.googleapis.com"
+  ] : [], var.enable_bq_federation ? [
+    "bigqueryconnection.googleapis.com",
+    "bigquery.googleapis.com"
   ] : []))
 
   service            = each.key
@@ -84,6 +87,8 @@ locals {
     external_ingestion_bucket_name = var.dcp_external_ingestion_bucket_name
     ingestion_lock_timeout         = var.dcp_ingestion_lock_timeout
     ingestion_helper_image         = var.dcp_ingestion_helper_image
+    enable_bq_federation           = var.enable_bq_federation
+    bq_connection_name             = var.bq_connection_name
   }
 
   stack_cdc = {

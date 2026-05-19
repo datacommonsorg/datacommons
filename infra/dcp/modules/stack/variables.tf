@@ -36,6 +36,8 @@ variable "dcp" {
     external_ingestion_bucket_name  = string
     ingestion_lock_timeout          = number
     ingestion_helper_image          = string
+    enable_bq_federation           = bool
+    bq_connection_name             = string
   })
 }
 
@@ -77,3 +79,5 @@ variable "cdc" {
     enable_mcp                     = bool
   })
 }
+
+

@@ -35,3 +35,21 @@ variable "orchestrator_email" {
   description = "Email of the orchestrator service account"
   default     = ""
 }
+
+variable "enable_bq_federation" {
+  type        = bool
+  description = "Enable BigQuery federation to Spanner"
+  default     = false
+}
+
+variable "bq_connection_name" {
+  type        = string
+  description = "Name of the BigQuery connection"
+  default     = "spanner_connection"
+}
+
+variable "ingestion_helper_sa_email" {
+  type        = string
+  description = "Email of the ingestion helper service account"
+  default     = ""
+}

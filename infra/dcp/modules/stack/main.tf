@@ -124,6 +124,9 @@ module "spanner" {
   spanner_processing_units = var.dcp.spanner_processing_units
   deletion_protection      = var.shared.deletion_protection
   orchestrator_email       = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow && module.dcp_ingestion_dataflow[0].orchestrator_email != null ? module.dcp_ingestion_dataflow[0].orchestrator_email : ""
+  enable_bq_federation       = var.dcp.enable_bq_federation
+  bq_connection_name         = var.dcp.bq_connection_name
+  ingestion_helper_sa_email = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow ? module.dcp_ingestion_dataflow[0].ingestion_runner_email : ""
 }
 
 module "dcp_service" {
