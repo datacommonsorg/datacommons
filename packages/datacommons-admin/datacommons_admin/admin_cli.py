@@ -169,6 +169,11 @@ def admin() -> None:
     default="US",
     help="GCS bucket location if a new bucket needs to be created.",
 )
+@click.option(
+    "--tf-state-prefix",
+    default="",
+    help="GCS object prefix for Terraform state file (default: terraform/state/{namespace}).",
+)
 def init(
     project_id: str,
     namespace: str,
@@ -178,6 +183,7 @@ def init(
     tf_remote_state: bool,
     tf_state_bucket: str,
     tf_state_bucket_location: str,
+    tf_state_prefix: str,
 ) -> None:
     """Initialize Terraform scaffolding for Data Commons administration/infrastructure."""
     click.secho("Datacommons Admin Init", fg="cyan", bold=True)
@@ -221,6 +227,10 @@ def init(
             show_default=False,
             prompt_suffix=": ",
         ).strip()
+    )
+
+    resolved_tf_state_prefix = (
+        tf_state_prefix.strip() or f"terraform/state/{resolved_namespace}"
     )
 
     main_tf_path = target_dir / "main.tf"
@@ -299,7 +309,7 @@ def init(
     remote_state_info = ""
     if use_remote_state and resolved_bucket_name:
         remote_state_info = REMOTE_STATE_TEMPLATE.format(
-            bucket_name=resolved_bucket_name
+            bucket_name=resolved_bucket_name, prefix=resolved_tf_state_prefix
         )
 
     readme_path.write_text(
@@ -307,7 +317,10 @@ def init(
     )
     if use_remote_state and resolved_bucket_name:
         backend_tf_path.write_text(
-            BACKEND_TF_TEMPLATE.format(bucket_name=resolved_bucket_name),
+            BACKEND_TF_TEMPLATE.format(
+                bucket_name=resolved_bucket_name,
+                prefix=resolved_tf_state_prefix,
+            ),
             encoding="utf-8",
         )
 
