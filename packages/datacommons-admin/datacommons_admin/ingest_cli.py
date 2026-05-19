@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import click
+import re
 
 from datacommons_admin.ingestion_job_client import IngestionJobClient
 from datacommons_admin.tf_utils import (
@@ -20,6 +21,7 @@ from datacommons_admin.tf_utils import (
     get_dcp_orchestrator_service_account_email,
     get_dcp_project_id,
     get_dcp_region,
+    get_dcp_workflow_name,
 )
 
 
@@ -41,6 +43,7 @@ def start() -> None:
     sa_email = get_dcp_orchestrator_service_account_email()
     project_id = get_dcp_project_id()
     region = get_dcp_region()
+    workflow_name = get_dcp_workflow_name()
 
     click.secho(f"Found Data Job Name: {job_name}", fg="green")
     click.secho(f"Found Orchestrator Service Account: {sa_email}", fg="green")
@@ -60,52 +63,36 @@ def start() -> None:
     result = client.start_job()
 
     click.secho("Successfully started ingestion job!", fg="green", bold=True)
-    exec_name = result.get("name") or result.get("metadata", {}).get("name")
-    if exec_name:
-        click.secho(f"Execution details: {exec_name}", fg="bright_black")
+    res_name = result.get("name") or result.get("metadata", {}).get("name")
 
-        parts = exec_name.split("/")
-        if (
-            len(parts) >= 8
-            and parts[0] == "projects"
-            and parts[2] == "locations"
-            and parts[4] == "jobs"
-            and parts[6] == "executions"
-        ):
-            project_id = parts[1]
-            location = parts[3]
-            job_id = parts[5]
-            execution_id = parts[7]
+    if res_name:
+        op_pattern = r"projects/([^/]+)/locations/([^/]+)/operations/([^/]+)"
+        op_match = re.match(op_pattern, res_name)
 
-            job_url = f"https://console.cloud.google.com/run/jobs/details/{location}/{job_id}/executions?project={project_id}"
-            exec_url = f"https://console.cloud.google.com/run/jobs/executions/details/{location}/{execution_id}?project={project_id}"
-
-            click.secho("Job ID: ", fg="cyan", bold=True, nl=False)
-            click.secho(job_id, fg="green")
-            click.secho("Execution ID: ", fg="cyan", bold=True, nl=False)
-            click.secho(execution_id, fg="green")
-            click.secho("Job Console Link: ", fg="cyan", bold=True, nl=False)
-            click.secho(job_url, fg="blue", underline=True)
-            click.secho("Execution Console Link: ", fg="cyan", bold=True, nl=False)
-            click.secho(exec_url, fg="blue", underline=True)
-        elif (
-            len(parts) >= 6
-            and parts[0] == "projects"
-            and parts[2] == "locations"
-            and parts[4] == "operations"
-        ):
-            resp_project_id = parts[1]
-            location = parts[3]
-            operation_id = parts[5]
+        if op_match:
+            click.secho(f"Operation details: {res_name}", fg="bright_black")
+            resp_project_id, location, operation_id = op_match.groups()
 
             short_job_name = job_name.split("/")[-1] if "/" in job_name else job_name
-
             job_url = f"https://console.cloud.google.com/run/jobs/details/{location}/{short_job_name}/executions?project={resp_project_id}"
 
-            click.secho("Job Console Link: ", fg="cyan", bold=True, nl=False)
-            click.secho(job_url, fg="blue", underline=True)
             click.secho("Operation ID: ", fg="cyan", bold=True, nl=False)
             click.secho(operation_id, fg="green")
+            click.secho("Job Console Link: ", fg="cyan", bold=True, nl=False)
+            click.secho(job_url, fg="blue", underline=True)
+        else:
+            click.secho(f"Resource details: {res_name}", fg="bright_black")
+
+        click.secho("\n[!] Note on Ingestion Completion", fg="yellow", bold=True)
+        click.secho(
+            "This job triggers a Cloud Workflow that runs in the background.\n"
+            "Check the Workflows console below to verify full completion.",
+            fg="yellow",
+        )
+
+        workflow_url = f"https://console.cloud.google.com/workflows/workflow/{region}/{workflow_name}/executions?project={project_id}"
+        click.secho("Workflow Console Link: ", fg="cyan", bold=True, nl=False)
+        click.secho(workflow_url, fg="blue", underline=True)
 
 
 @ingest.command(name="show-config")
