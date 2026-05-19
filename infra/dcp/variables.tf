@@ -296,6 +296,18 @@ variable "cdc_search_scope" {
   default     = "base_and_custom"
 }
 
+variable "enable_bq_federation" {
+  description = "Enable BigQuery federation to Spanner"
+  type        = bool
+  default     = false
+}
+
+variable "bq_connection_name" {
+  description = "BigQuery connection name for Spanner"
+  type        = string
+  default     = "spanner_connection"
+}
+
 variable "cdc_enable_mcp" {
   description = "CDC enable MCP"
   type        = bool
