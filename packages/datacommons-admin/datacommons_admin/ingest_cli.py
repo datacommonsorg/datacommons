@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import click
+import re
 
 from datacommons_admin.ingestion_job_client import IngestionJobClient
 from datacommons_admin.tf_utils import (
@@ -61,11 +62,9 @@ def start() -> None:
     )
     result = client.start_job()
 
-    import re
-
     click.secho("Successfully started ingestion job!", fg="green", bold=True)
     res_name = result.get("name") or result.get("metadata", {}).get("name")
-    
+
     if res_name:
         op_pattern = r"projects/([^/]+)/locations/([^/]+)/operations/([^/]+)"
         op_match = re.match(op_pattern, res_name)
@@ -73,7 +72,7 @@ def start() -> None:
         if op_match:
             click.secho(f"Operation details: {res_name}", fg="bright_black")
             resp_project_id, location, operation_id = op_match.groups()
-            
+
             short_job_name = job_name.split("/")[-1] if "/" in job_name else job_name
             job_url = f"https://console.cloud.google.com/run/jobs/details/{location}/{short_job_name}/executions?project={resp_project_id}"
 
@@ -88,9 +87,9 @@ def start() -> None:
         click.secho(
             "This job triggers a Cloud Workflow that runs in the background.\n"
             "Check the Workflows console below to verify full completion.",
-            fg="yellow"
+            fg="yellow",
         )
-        
+
         workflow_url = f"https://console.cloud.google.com/workflows/workflow/{region}/{workflow_name}/executions?project={project_id}"
         click.secho("Workflow Console Link: ", fg="cyan", bold=True, nl=False)
         click.secho(workflow_url, fg="blue", underline=True)
