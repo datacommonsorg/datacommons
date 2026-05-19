@@ -65,26 +65,26 @@ locals {
   }
 
   stack_dcp = {
-    image_url                      = var.dcp_image_url
-    service_name                   = var.dcp_service_name
-    service_account_name           = var.dcp_service_account_name
-    create_spanner_instance        = var.dcp_create_spanner_instance
-    create_spanner_db              = var.dcp_create_spanner_db
-    spanner_instance_id            = var.dcp_spanner_instance_id
-    spanner_database_id            = var.dcp_spanner_database_id
+    image_url                        = var.dcp_image_url
+    service_name                     = var.dcp_service_name
+    service_account_name             = var.dcp_service_account_name
+    create_spanner_instance          = var.dcp_create_spanner_instance
+    create_spanner_db                = var.dcp_create_spanner_db
+    spanner_instance_id              = var.dcp_spanner_instance_id
+    spanner_database_id              = var.dcp_spanner_database_id
     spanner_version_retention_period = var.dcp_spanner_version_retention_period
-    spanner_processing_units       = var.dcp_spanner_processing_units
-    service_cpu                    = var.dcp_service_cpu
-    service_memory                 = var.dcp_service_memory
-    service_min_instances          = var.dcp_service_min_instances
-    service_max_instances          = var.dcp_service_max_instances
-    service_concurrency            = var.dcp_service_concurrency
-    service_timeout_seconds        = var.dcp_service_timeout_seconds
-    deploy_data_ingestion_workflow = var.dcp_deploy_data_ingestion_workflow
-    create_ingestion_bucket        = var.dcp_create_ingestion_bucket
-    external_ingestion_bucket_name = var.dcp_external_ingestion_bucket_name
-    ingestion_lock_timeout         = var.dcp_ingestion_lock_timeout
-    ingestion_helper_image         = var.dcp_ingestion_helper_image
+    spanner_processing_units         = var.dcp_spanner_processing_units
+    service_cpu                      = var.dcp_service_cpu
+    service_memory                   = var.dcp_service_memory
+    service_min_instances            = var.dcp_service_min_instances
+    service_max_instances            = var.dcp_service_max_instances
+    service_concurrency              = var.dcp_service_concurrency
+    service_timeout_seconds          = var.dcp_service_timeout_seconds
+    deploy_data_ingestion_workflow   = var.dcp_deploy_data_ingestion_workflow
+    create_ingestion_bucket          = var.dcp_create_ingestion_bucket
+    external_ingestion_bucket_name   = var.dcp_external_ingestion_bucket_name
+    ingestion_lock_timeout           = var.dcp_ingestion_lock_timeout
+    ingestion_helper_image           = var.dcp_ingestion_helper_image
   }
 
   stack_cdc = {
