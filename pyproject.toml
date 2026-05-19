@@ -30,7 +30,12 @@ lint = [
 ]
 test = [
     "pytest>=9.0.3",
+    "datacommons-api",
+    "datacommons-db",
+    "datacommons-schema",
+    "datacommons-admin",
 ]
+
 
 [project.urls]
 Documentation = "https://github.com/datacommonsorg/datacommons#readme"
