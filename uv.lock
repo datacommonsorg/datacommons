@@ -362,18 +362,12 @@ source = { editable = "packages/datacommons-cli" }
 dependencies = [
     { name = "click" },
     { name = "datacommons-admin" },
-    { name = "datacommons-api" },
-    { name = "datacommons-db" },
-    { name = "datacommons-schema" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.1.7" },
     { name = "datacommons-admin", editable = "packages/datacommons-admin" },
-    { name = "datacommons-api", editable = "packages/datacommons-api" },
-    { name = "datacommons-db", editable = "packages/datacommons-db" },
-    { name = "datacommons-schema", editable = "packages/datacommons-schema" },
 ]
 
 [[package]]
@@ -412,6 +406,10 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "datacommons-admin" },
+    { name = "datacommons-api" },
+    { name = "datacommons-db" },
+    { name = "datacommons-schema" },
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "ruff" },
@@ -421,6 +419,10 @@ lint = [
     { name = "ruff" },
 ]
 test = [
+    { name = "datacommons-admin" },
+    { name = "datacommons-api" },
+    { name = "datacommons-db" },
+    { name = "datacommons-schema" },
     { name = "pytest" },
 ]
 
@@ -429,6 +431,10 @@ requires-dist = [{ name = "datacommons-cli", editable = "packages/datacommons-cl
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "datacommons-admin", editable = "packages/datacommons-admin" },
+    { name = "datacommons-api", editable = "packages/datacommons-api" },
+    { name = "datacommons-db", editable = "packages/datacommons-db" },
+    { name = "datacommons-schema", editable = "packages/datacommons-schema" },
     { name = "pre-commit", specifier = ">=4.5.1" },
     { name = "pytest", specifier = ">=9.0.3" },
     { name = "ruff", specifier = ">=0.15.0" },
@@ -437,7 +443,13 @@ lint = [
     { name = "pre-commit", specifier = ">=4.5.1" },
     { name = "ruff", specifier = ">=0.15.0" },
 ]
-test = [{ name = "pytest", specifier = ">=9.0.3" }]
+test = [
+    { name = "datacommons-admin", editable = "packages/datacommons-admin" },
+    { name = "datacommons-api", editable = "packages/datacommons-api" },
+    { name = "datacommons-db", editable = "packages/datacommons-db" },
+    { name = "datacommons-schema", editable = "packages/datacommons-schema" },
+    { name = "pytest", specifier = ">=9.0.3" },
+]
 
 [[package]]
 name = "datacommons-schema"
