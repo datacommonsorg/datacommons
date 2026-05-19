@@ -115,6 +115,7 @@ module "spanner" {
   source = "../spanner"
   count  = local.enable_dcp ? 1 : 0
 
+  project_id               = var.shared.project_id
   namespace                = var.shared.namespace
   region                   = var.shared.region
   create_spanner_instance  = var.dcp.create_spanner_instance
