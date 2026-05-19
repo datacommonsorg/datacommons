@@ -51,15 +51,17 @@ resource "google_spanner_database_iam_member" "spanner_reader" {
   instance = var.create_spanner_instance ? google_spanner_instance.main[0].name : local.effective_instance_id
   database = google_spanner_database.database[0].name
   role     = "roles/spanner.databaseUser"
-  member   = "serviceAccount:${google_bigquery_connection.spanner_connection[0].email}"
+  member   = "serviceAccount:${google_bigquery_connection.spanner_connection[0].service_account}"
 }
 
 # Grant Ingestion Helper access to use the connection
-resource "google_project_iam_member" "helper_connection_user" {
-  count   = var.create_spanner_db && var.enable_bq_federation && var.ingestion_helper_sa_email != "" ? 1 : 0
-  project = data.google_project.current.project_id
-  role    = "roles/bigquery.connectionUser"
-  member  = "serviceAccount:${var.ingestion_helper_sa_email}"
+resource "google_bigquery_connection_iam_member" "helper_connection_user" {
+  count         = var.create_spanner_db && var.enable_bq_federation && var.ingestion_helper_sa_email != "" ? 1 : 0
+  project       = data.google_project.current.project_id
+  location      = var.region
+  connection_id = google_bigquery_connection.spanner_connection[0].connection_id
+  role          = "roles/bigquery.connectionUser"
+  member        = "serviceAccount:${var.ingestion_helper_sa_email}"
 }
 
 # Grant Ingestion Helper access to create/edit tables in BigQuery
