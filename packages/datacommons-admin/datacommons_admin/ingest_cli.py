@@ -20,6 +20,7 @@ from datacommons_admin.tf_utils import (
     get_dcp_orchestrator_service_account_email,
     get_dcp_project_id,
     get_dcp_region,
+    get_dcp_workflow_name,
 )
 
 
@@ -41,6 +42,7 @@ def start() -> None:
     sa_email = get_dcp_orchestrator_service_account_email()
     project_id = get_dcp_project_id()
     region = get_dcp_region()
+    workflow_name = get_dcp_workflow_name()
 
     click.secho(f"Found Data Job Name: {job_name}", fg="green")
     click.secho(f"Found Orchestrator Service Account: {sa_email}", fg="green")
@@ -81,6 +83,17 @@ def start() -> None:
             click.secho(job_url, fg="blue", underline=True)
         else:
             click.secho(f"Resource details: {res_name}", fg="bright_black")
+
+        click.secho("\n[!] Note on Ingestion Completion", fg="yellow", bold=True)
+        click.secho(
+            "This job triggers a Cloud Workflow that runs in the background.\n"
+            "Check the Workflows console below to verify full completion.",
+            fg="yellow"
+        )
+        
+        workflow_url = f"https://console.cloud.google.com/workflows/workflow/{region}/{workflow_name}/executions?project={project_id}"
+        click.secho("Workflow Console Link: ", fg="cyan", bold=True, nl=False)
+        click.secho(workflow_url, fg="blue", underline=True)
 
 
 @ingest.command(name="show-config")
