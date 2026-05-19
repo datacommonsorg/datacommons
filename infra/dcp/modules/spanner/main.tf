@@ -71,7 +71,7 @@ resource "google_bigquery_connection_iam_member" "helper_connection_user" {
 # Grant Ingestion Helper access to create/edit tables in BigQuery
 resource "google_project_iam_member" "helper_bq_editor" {
   count   = var.create_spanner_db && var.enable_bq_federation && var.ingestion_helper_sa_email != "" ? 1 : 0
-  project = data.google_project.current.project_id
+  project = var.project_id
   role    = "roles/bigquery.dataEditor"
   member  = "serviceAccount:${var.ingestion_helper_sa_email}"
 }
