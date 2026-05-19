@@ -221,6 +221,7 @@ module "dcp_ingestion_workflow" {
   ingestion_runner_id    = module.dcp_ingestion_dataflow[0].ingestion_runner_id
   ingestion_runner_email = module.dcp_ingestion_dataflow[0].ingestion_runner_email
   orchestrator_email     = var.dcp.deploy_data_ingestion_workflow && module.dcp_ingestion_dataflow[0].orchestrator_email != null ? module.dcp_ingestion_dataflow[0].orchestrator_email : ""
+  enable_bq_federation   = var.dcp.enable_bq_federation
 }
 
 
