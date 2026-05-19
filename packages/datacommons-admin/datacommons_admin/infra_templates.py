@@ -42,7 +42,6 @@ Set environment-specific values in `terraform.tfvars` (for example `project_id`,
 
 For the full list of supported module inputs and defaults, see:
 - https://github.com/datacommonsorg/datacommons/blob/main/infra/dcp/variables.tf
-- https://github.com/datacommonsorg/datacommons/blob/main/infra/dcp/variables.tf
 - https://github.com/datacommonsorg/datacommons/blob/main/infra/dcp/outputs.tf
 - https://github.com/datacommonsorg/datacommons/blob/main/infra/dcp/terraform.tfvars.template
 - https://github.com/datacommonsorg/datacommons/blob/main/infra/dcp/README.md
