@@ -32,6 +32,10 @@ resource "google_spanner_database_iam_member" "orchestrator_spanner_user" {
 
 data "google_project" "current" {}
 
+data "google_bigquery_default_service_account" "bq_sa" {
+  project = data.google_project.current.project_id
+}
+
 # Create BigQuery Connection to Spanner
 resource "google_bigquery_connection" "spanner_connection" {
   count         = var.create_spanner_db && var.enable_bq_federation ? 1 : 0
@@ -51,7 +55,7 @@ resource "google_spanner_database_iam_member" "spanner_reader" {
   instance = var.create_spanner_instance ? google_spanner_instance.main[0].name : local.effective_instance_id
   database = google_spanner_database.database[0].name
   role     = "roles/spanner.databaseUser"
-  member   = "serviceAccount:${google_bigquery_connection.spanner_connection[0].service_account}"
+  member   = "serviceAccount:${data.google_bigquery_default_service_account.bq_sa.email}"
 }
 
 # Grant Ingestion Helper access to use the connection
