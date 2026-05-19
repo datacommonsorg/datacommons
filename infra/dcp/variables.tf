@@ -90,6 +90,12 @@ variable "dcp_spanner_database_id" {
   default     = "dcp-db"
 }
 
+variable "dcp_spanner_version_retention_period" {
+  description = "Spanner database version retention period"
+  type        = string
+  default     = "6h"
+}
+
 variable "dcp_spanner_processing_units" {
   description = "Spanner units for DCP"
   type        = number
