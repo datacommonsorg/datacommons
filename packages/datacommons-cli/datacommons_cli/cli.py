@@ -15,9 +15,7 @@
 import click
 
 from datacommons_api.core.logging import get_logger, setup_logging
-from datacommons_api.api_cli import api as api_cli
 from datacommons_admin.admin_cli import admin as admin_cli
-from datacommons_schema.schema_cli import schema as schema_cli
 
 setup_logging()
 logger = get_logger(__name__)
@@ -30,6 +28,4 @@ def cli():
 
 
 # Add schema CLI commands to the main CLI
-cli.add_command(api_cli)
 cli.add_command(admin_cli)
-cli.add_command(schema_cli)
