@@ -124,6 +124,7 @@ module "spanner" {
   spanner_processing_units = var.dcp.spanner_processing_units
   deletion_protection      = var.shared.deletion_protection
   orchestrator_email       = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow && module.dcp_ingestion_dataflow[0].orchestrator_email != null ? module.dcp_ingestion_dataflow[0].orchestrator_email : ""
+  spanner_version_retention_period = var.dcp.spanner_version_retention_period
 }
 
 module "dcp_service" {

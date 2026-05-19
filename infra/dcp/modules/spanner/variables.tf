@@ -35,3 +35,9 @@ variable "orchestrator_email" {
   description = "Email of the orchestrator service account"
   default     = ""
 }
+
+variable "spanner_version_retention_period" {
+  type        = string
+  description = "The version retention period for the Spanner database"
+  default     = "6h"
+}

@@ -33,6 +33,7 @@ variable "dcp" {
     service_timeout_seconds         = number
     deploy_data_ingestion_workflow = bool
     create_ingestion_bucket         = bool
+    spanner_version_retention_period = string
     external_ingestion_bucket_name  = string
     ingestion_lock_timeout          = number
     ingestion_helper_image          = string
