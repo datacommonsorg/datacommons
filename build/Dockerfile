@@ -14,7 +14,9 @@ COPY packages/ ./packages/
 
 # Install the dependencies and the project itself
 # uv sync --frozen installs everything from the lockfile.
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev --all-packages
+
+
 
 # Place the virtualenv in the PATH
 ENV PATH="/app/.venv/bin:$PATH"
@@ -27,5 +29,5 @@ USER datacommons-runner
 EXPOSE 5000
 
 # Set the entrypoint to the CLI
-ENTRYPOINT ["datacommons", "api"]
+ENTRYPOINT ["datacommons-api"]
 CMD ["start", "--host", "0.0.0.0", "--port", "5000"]
