@@ -118,7 +118,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                       type: OIDC
                     body:
                       actionType: "run_aggregation"
-                      importName: '$${input.importName}'
+                      importList: '$${json.decode(input.importList)}'
                   result: bq_result
               - promote_version:
                   call: http.post
