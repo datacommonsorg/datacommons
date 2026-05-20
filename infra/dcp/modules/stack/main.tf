@@ -129,6 +129,9 @@ module "spanner" {
   bq_connection_name         = var.dcp.bq_connection_name
   ingestion_helper_sa_email = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow ? module.dcp_ingestion_dataflow[0].ingestion_runner_email : ""
   spanner_version_retention_period = var.dcp.spanner_version_retention_period
+  create_bq_reservation           = var.dcp.create_bq_reservation
+  bq_reservation_slot_capacity     = var.dcp.bq_reservation_slot_capacity
+  bq_reservation_max_slots        = var.dcp.bq_reservation_max_slots
 }
 
 module "dcp_service" {
