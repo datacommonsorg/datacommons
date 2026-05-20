@@ -58,3 +58,9 @@ variable "ingestion_helper_sa_email" {
   description = "Email of the ingestion helper service account"
   default     = ""
 }
+
+variable "spanner_version_retention_period" {
+  type        = string
+  description = "The version retention period for the Spanner database"
+  default     = "6h"
+}

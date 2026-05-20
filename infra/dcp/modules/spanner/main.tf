@@ -19,7 +19,8 @@ resource "google_spanner_database" "database" {
   instance = var.create_spanner_instance ? google_spanner_instance.main[0].name : local.effective_instance_id
   name     = local.effective_database_id
 
-  deletion_protection = var.deletion_protection
+  deletion_protection      = var.deletion_protection
+  version_retention_period = var.spanner_version_retention_period
 }
 
 resource "google_spanner_database_iam_member" "orchestrator_spanner_user" {

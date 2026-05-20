@@ -38,13 +38,13 @@ variable "make_services_public" {
 variable "enable_dcp" {
   description = "Enable the new Data Commons Platform stack"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "enable_cdc" {
   description = "Enable the legacy Custom Data Commons stack"
   type        = bool
-  default     = true
+  default     = false
 }
 
 # --- DCP Stack Variables ---
@@ -90,6 +90,12 @@ variable "dcp_spanner_database_id" {
   default     = "dcp-db"
 }
 
+variable "dcp_spanner_version_retention_period" {
+  description = "Spanner database version retention period"
+  type        = string
+  default     = "6h"
+}
+
 variable "dcp_spanner_processing_units" {
   description = "Spanner units for DCP"
   type        = number
@@ -105,7 +111,7 @@ variable "dcp_service_cpu" {
 variable "dcp_service_memory" {
   description = "Memory limit for the DCP service container"
   type        = string
-  default     = "512Mi"
+  default     = "1Gi"
 }
 
 variable "dcp_service_min_instances" {
@@ -238,7 +244,7 @@ variable "cdc_vpc_connector_cidr" {
 variable "cdc_web_service_image" {
   description = "CDC web image"
   type        = string
-  default     = "gcr.io/datcom-ci/datacommons-services:stable"
+  default     = "gcr.io/datcom-ci/datacommons-services:latest"
 }
 
 variable "cdc_web_service_min_instance_count" {
@@ -250,7 +256,7 @@ variable "cdc_web_service_min_instance_count" {
 variable "cdc_web_service_max_instance_count" {
   description = "CDC max instances"
   type        = number
-  default     = 1
+  default     = 3
 }
 
 variable "cdc_web_service_cpu" {
@@ -269,25 +275,25 @@ variable "cdc_web_service_memory" {
 variable "cdc_data_job_image" {
   description = "CDC data job image"
   type        = string
-  default     = "gcr.io/datcom-ci/datacommons-data:stable"
+  default     = "gcr.io/datcom-ci/datacommons-data:latest"
 }
 
 variable "cdc_data_job_cpu" {
   description = "CDC data job CPU"
   type        = string
-  default     = "2"
+  default     = "8"
 }
 
 variable "cdc_data_job_memory" {
   description = "CDC data job RAM"
   type        = string
-  default     = "8G"
+  default     = "32G"
 }
 
 variable "cdc_data_job_timeout" {
   description = "CDC data job timeout"
   type        = string
-  default     = "3600s"
+  default     = "21600s"
 }
 
 variable "cdc_search_scope" {
@@ -372,7 +378,7 @@ variable "cdc_redis_replica_count" {
 variable "dcp_deploy_data_ingestion_workflow" {
   description = "Deploy the complete end-to-end Data Commons Ingestion workflow stack"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "dcp_create_ingestion_bucket" {

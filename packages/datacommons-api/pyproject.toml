@@ -20,6 +20,9 @@ dependencies = [
   "python-dotenv>=1.2.1",
 ]
 
+[project.scripts]
+datacommons-api = "datacommons_api.api_cli:api"
+
 [dependency-groups]
 dev = [
     "pytest>=9.0.2",
