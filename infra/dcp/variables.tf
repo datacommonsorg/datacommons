@@ -323,7 +323,7 @@ variable "dcp_create_bq_reservation" {
 variable "dcp_bq_reservation_slot_capacity" {
   description = "Baseline slots for BigQuery reservation"
   type        = number
-  default     = 100
+  default     = 0
 }
 
 variable "dcp_bq_reservation_max_slots" {
