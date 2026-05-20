@@ -14,11 +14,7 @@
 
 import click
 
-from datacommons_api.core.logging import get_logger, setup_logging
 from datacommons_admin.admin_cli import admin as admin_cli
-
-setup_logging()
-logger = get_logger(__name__)
 
 
 @click.group()
