@@ -81,7 +81,7 @@ def _create_and_configure_bucket(
     """
     click.echo(f"  - {'Status'.ljust(12)}: Not found")
     click.echo(f"  - {'Project'.ljust(12)}: {project_id}")
-    _log_resolved_value("Location", location, location == "US")
+    _log_resolved_value("Location", location, location == DEFAULT_BUCKET_LOCATION)
 
     if not _confirm(" Create this bucket?", indent=2, default=True):
         return False
