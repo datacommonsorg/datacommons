@@ -44,3 +44,8 @@ variable "orchestrator_email" {
   description = "Email of the orchestrator service account"
   default     = ""
 }
+
+variable "bq_connection_id" {
+  type    = string
+  default = ""
+}

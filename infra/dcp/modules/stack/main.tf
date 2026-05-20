@@ -201,6 +201,7 @@ module "dcp_ingestion_helper" {
   deletion_protection   = var.shared.deletion_protection
   spanner_instance_id   = module.spanner[0].spanner_instance_id
   spanner_database_id   = module.spanner[0].spanner_database_id
+  bq_connection_id      = module.spanner[0].bq_connection_id
   ingestion_bucket_name  = module.storage.dcp_bucket_name
   service_account_email  = module.dcp_ingestion_dataflow[0].ingestion_runner_email
   ingestion_helper_image = var.dcp.ingestion_helper_image
