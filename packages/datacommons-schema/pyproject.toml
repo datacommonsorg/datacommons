@@ -22,6 +22,9 @@ dependencies = [
   "rdflib",
 ]
 
+[project.scripts]
+datacommons-schema = "datacommons_schema.schema_cli:schema"
+
 [dependency-groups]
 dev = [
     "pytest>=9.0.2",

@@ -1,0 +1,61 @@
+# Copyright 2025 Google LLC.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+steps:
+  # 1. Set lockstep version across version.py files and root pyproject.toml using inline python
+  - name: 'python:3.12-slim'
+    entrypoint: 'bash'
+    env:
+      - 'TAG_NAME=$TAG_NAME'
+    args:
+      - '-c'
+      - |
+        tag_version=$${TAG_NAME#v}
+        echo "Updating version files to $tag_version"
+        python3 -c "import glob, re; [open(f, 'w').write(re.sub(r'^__version__ = \".*\"', '__version__ = \"'\"$tag_version\"'\"', content, flags=re.MULTILINE)) for f in glob.glob('packages/*/datacommons_*/version.py') for content in [open(f, 'r').read()]]"
+        python3 -c "import re; [open('pyproject.toml', 'w').write(re.sub(r'^version = \".*\"', 'version = \"'\"$tag_version\"'\"', content, flags=re.MULTILINE)) for content in [open('pyproject.toml', 'r').read()]]"
+
+  # 2. Build and publish all Python packages to TestPyPI
+  - name: 'ghcr.io/astral-sh/uv:python3.12-trixie-slim'
+    entrypoint: 'bash'
+    secretEnv:
+      - 'TEST_PYPI_TOKEN'
+    args:
+      - '-c'
+      - |
+        for pkg in packages/*; do
+          pkg_name=$(basename "$pkg")
+          if [ "$pkg_name" = "datacommons-db" ] || [ "$pkg_name" = "datacommons-api" ] || [ "$pkg_name" = "datacommons-schema" ]; then
+            echo "Skipping experimental package $pkg_name..."
+            continue
+          fi
+          if [ -d "$pkg" ] && [ -f "$pkg/pyproject.toml" ]; then
+            echo "Building and publishing $pkg..."
+            cd "$pkg"
+            rm -rf dist/ build/ *.egg-info
+            uv build --out-dir dist
+            uv publish --token $$TEST_PYPI_TOKEN --publish-url https://test.pypi.org/legacy/
+            cd -
+          fi
+        done
+
+availableSecrets:
+  secretManager:
+  - versionName: projects/$PROJECT_ID/secrets/TEST_PYPI_TOKEN/versions/latest
+    env: 'TEST_PYPI_TOKEN'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+tags: ['pypi--datacommons-platform-staging']
