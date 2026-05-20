@@ -79,11 +79,11 @@ def _create_and_configure_bucket(
 
     Returns True if created, False if cancelled.
     """
-    click.echo("    Status:   Not found")
-    click.echo(f"  - Project:  {project_id}")
+    click.echo(f"  - {'Status'.ljust(12)}: Not found")
+    click.echo(f"  - {'Project'.ljust(12)}: {project_id}")
     _log_resolved_value("Location", location, location == "US")
 
-    if not _confirm(" Create this bucket?", indent=4, default=True):
+    if not _confirm(" Create this bucket?", indent=2, default=True):
         return False
 
     click.secho(
@@ -128,10 +128,10 @@ def _ensure_bucket_ready(
     """
     try:
         bucket = storage_client.get_bucket(bucket_name)
-        click.echo("    Status:   Found")
+        click.echo(f"  - {'Status'.ljust(12)}: Found")
         # Only prompt to reuse if it was the default bucket
         if is_default:
-            if not _confirm(" Use this bucket?", indent=4, default=True):
+            if not _confirm(" Use this bucket?", indent=2, default=True):
                 _abort_bucket_setup(is_default)
         else:
             click.echo("  Proceeding...")
