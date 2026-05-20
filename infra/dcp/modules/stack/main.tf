@@ -115,6 +115,7 @@ module "spanner" {
   source = "../spanner"
   count  = local.enable_dcp ? 1 : 0
 
+  project_id               = var.shared.project_id
   namespace                = var.shared.namespace
   region                   = var.shared.region
   create_spanner_instance  = var.dcp.create_spanner_instance
@@ -124,6 +125,9 @@ module "spanner" {
   spanner_processing_units = var.dcp.spanner_processing_units
   deletion_protection      = var.shared.deletion_protection
   orchestrator_email       = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow && module.dcp_ingestion_dataflow[0].orchestrator_email != null ? module.dcp_ingestion_dataflow[0].orchestrator_email : ""
+  enable_bq_federation       = var.dcp.enable_bq_federation
+  bq_connection_name         = var.dcp.bq_connection_name
+  ingestion_helper_sa_email = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow ? module.dcp_ingestion_dataflow[0].ingestion_runner_email : ""
   spanner_version_retention_period = var.dcp.spanner_version_retention_period
 }
 
@@ -198,6 +202,7 @@ module "dcp_ingestion_helper" {
   deletion_protection   = var.shared.deletion_protection
   spanner_instance_id   = module.spanner[0].spanner_instance_id
   spanner_database_id   = module.spanner[0].spanner_database_id
+  bq_connection_id      = module.spanner[0].bq_connection_id
   ingestion_bucket_name  = module.storage.dcp_bucket_name
   service_account_email  = module.dcp_ingestion_dataflow[0].ingestion_runner_email
   ingestion_helper_image = var.dcp.ingestion_helper_image
@@ -218,6 +223,7 @@ module "dcp_ingestion_workflow" {
   ingestion_runner_id    = module.dcp_ingestion_dataflow[0].ingestion_runner_id
   ingestion_runner_email = module.dcp_ingestion_dataflow[0].ingestion_runner_email
   orchestrator_email     = var.dcp.deploy_data_ingestion_workflow && module.dcp_ingestion_dataflow[0].orchestrator_email != null ? module.dcp_ingestion_dataflow[0].orchestrator_email : ""
+  enable_bq_federation   = var.dcp.enable_bq_federation
 }
 
 

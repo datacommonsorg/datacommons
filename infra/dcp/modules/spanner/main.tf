@@ -30,3 +30,56 @@ resource "google_spanner_database_iam_member" "orchestrator_spanner_user" {
   role     = "roles/spanner.databaseUser"
   member   = "serviceAccount:${var.orchestrator_email}"
 }
+
+
+data "google_bigquery_default_service_account" "bq_sa" {
+  project = var.project_id
+}
+
+# Create BigQuery Connection to Spanner
+resource "google_bigquery_connection" "spanner_connection" {
+  count         = var.create_spanner_db && var.enable_bq_federation ? 1 : 0
+  location      = var.region
+  connection_id = "${local.name_prefix}${var.bq_connection_name}"
+  description   = "Federated connection to Spanner for custom DC"
+
+  cloud_spanner {
+    database = var.create_spanner_db ? google_spanner_database.database[0].id : "projects/${var.project_id}/instances/${local.effective_instance_id}/databases/${local.effective_database_id}"
+    use_parallelism = true
+  }
+}
+
+# Grant the connection's service account access to Spanner
+resource "google_spanner_database_iam_member" "spanner_reader" {
+  count    = var.create_spanner_db && var.enable_bq_federation ? 1 : 0
+  instance = var.create_spanner_instance ? google_spanner_instance.main[0].name : local.effective_instance_id
+  database = google_spanner_database.database[0].name
+  role     = "roles/spanner.databaseUser"
+  member   = "serviceAccount:${data.google_bigquery_default_service_account.bq_sa.email}"
+}
+
+# Grant Ingestion Helper access to use the connection
+resource "google_bigquery_connection_iam_member" "helper_connection_user" {
+  count         = var.create_spanner_db && var.enable_bq_federation && var.ingestion_helper_sa_email != "" ? 1 : 0
+  project       = var.project_id
+  location      = var.region
+  connection_id = google_bigquery_connection.spanner_connection[0].connection_id
+  role          = "roles/bigquery.connectionUser"
+  member        = "serviceAccount:${var.ingestion_helper_sa_email}"
+}
+
+# Grant Ingestion Helper access to create/edit tables in BigQuery
+resource "google_project_iam_member" "helper_bq_editor" {
+  count   = var.create_spanner_db && var.enable_bq_federation && var.ingestion_helper_sa_email != "" ? 1 : 0
+  project = var.project_id
+  role    = "roles/bigquery.dataEditor"
+  member  = "serviceAccount:${var.ingestion_helper_sa_email}"
+}
+
+# Grant Ingestion Helper access to run jobs in BigQuery
+resource "google_project_iam_member" "helper_bq_job_user" {
+  count   = var.create_spanner_db && var.enable_bq_federation && var.ingestion_helper_sa_email != "" ? 1 : 0
+  project = var.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${var.ingestion_helper_sa_email}"
+}

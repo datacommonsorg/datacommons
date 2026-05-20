@@ -101,9 +101,25 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
               - check_success:
                   switch:
                     - condition: '$${job_status.currentState == "JOB_STATE_DONE"}'
-                      next: promote_version
+                      next: check_bq_enabled
               - fail_on_job_status:
                   raise: '$${ "Dataflow job failed with state: " + job_status.currentState }'
+              - check_bq_enabled:
+                  switch:
+                    - condition: ${var.enable_bq_federation ? "true" : "false"}
+                      next: trigger_bq_federation
+                    - condition: true
+                      next: promote_version
+              - trigger_bq_federation:
+                  call: http.post
+                  args:
+                    url: '${var.ingestion_helper_uri}'
+                    auth:
+                      type: OIDC
+                    body:
+                      actionType: "run_aggregation"
+                      importList: '$${json.decode(input.importList)}'
+                  result: bq_result
               - promote_version:
                   call: http.post
                   args:

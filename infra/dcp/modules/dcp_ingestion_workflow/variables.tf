@@ -39,3 +39,8 @@ variable "orchestrator_email" {
   description = "Email of the orchestrator service account"
   default     = ""
 }
+
+variable "enable_bq_federation" {
+  type    = bool
+  default = false
+}

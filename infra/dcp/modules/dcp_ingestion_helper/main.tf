@@ -33,6 +33,14 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
         value = var.spanner_database_id
       }
       env {
+        name  = "SPANNER_GRAPH_DATABASE_ID"
+        value = var.spanner_database_id
+      }
+      env {
+        name  = "BQ_SPANNER_CONN_ID"
+        value = var.bq_connection_id
+      }
+      env {
         name  = "LOCATION"
         value = var.region
       }
