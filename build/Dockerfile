@@ -14,7 +14,7 @@ COPY packages/ ./packages/
 
 # Install the dependencies and the project itself
 # uv sync --frozen installs everything from the lockfile.
-RUN uv sync --frozen --no-dev --package datacommons-api
+RUN uv sync --frozen --no-dev --package datacommons-api --no-cache
 
 
 
