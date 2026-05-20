@@ -182,6 +182,9 @@ def _configure_remote_state(
             f"Permission denied: {e}\n"
             f"Please ensure your account has 'Storage Admin' or 'Project Editor' permissions in project '{project_id}'."
         )
+    except click.Abort:
+        click.echo("")
+        sys.exit(1)
     except Exception as e:
         click.secho(
             f"  Error: Failed to access or create bucket gs://{bucket_name}.",
