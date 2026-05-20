@@ -107,7 +107,7 @@ def _abort_bucket_setup(is_default: bool):
     click.secho("  Cancelling setup", fg="yellow")
     if is_default:
         click.secho(
-            "  Hint: Use --no-tf-remote-state for local, or --tf-state-bucket to customize. See --help for more.",
+            "  Hint: Use --no-tf-remote-state to keep Terraform state local, or --tf-state-bucket to specify an existing bucket. See --help for more.",
             fg="bright_black",
         )
     # Use sys.exit(1) instead of click.Abort() to avoid being caught by broad
