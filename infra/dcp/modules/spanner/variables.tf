@@ -74,7 +74,7 @@ variable "create_bq_reservation" {
 variable "bq_reservation_slot_capacity" {
   type        = number
   description = "Baseline slots for BigQuery reservation"
-  default     = 100
+  default     = 0
 }
 
 variable "bq_reservation_max_slots" {
