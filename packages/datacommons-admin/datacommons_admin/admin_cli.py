@@ -311,7 +311,7 @@ def _setup_dcp_config_dir(
             )
 
     target_dir.mkdir(parents=True, exist_ok=True)
-    click.secho(f"Creating directory: {target_dir}", fg="cyan")
+    click.secho(f"Creating directory: {target_dir}", fg="bright_black")
 
     try:
         variables_content, main_content, outputs_content, tfvars_example = (
@@ -361,7 +361,7 @@ def _setup_dcp_config_dir(
             encoding="utf-8",
         )
 
-    click.secho("Downloaded and populated Terraform templates.", fg="green")
+    click.secho("Downloaded and populated Terraform templates.", fg="bright_black")
 
 
 @admin.command()
@@ -458,12 +458,12 @@ def init(
     )
 
     click.secho(
-        f"\nCustomize variables in {resolved_namespace}/terraform.tfvars as needed.",
-        fg="bright_black",
+        f"Customize variables in {resolved_namespace}/terraform.tfvars as needed.",
+        fg="green",
     )
     click.secho(
         f"Refer to {resolved_namespace}/README.md for more info and next steps.",
-        fg="bright_black",
+        fg="green",
     )
 
 
