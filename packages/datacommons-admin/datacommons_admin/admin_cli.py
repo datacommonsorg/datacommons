@@ -30,13 +30,13 @@ from datacommons_admin.infra_templates import (
 
 def _create_and_configure_bucket(storage_client, bucket_name: str, project_id: str, location: str = "US"):
     """Creates a GCS bucket, enables versioning, and sets IAM policy."""
-    click.secho(f"Creating bucket gs://{bucket_name} in project {project_id} with location {location}...", fg="bright_black")
+    click.secho(f"  Creating bucket gs://{bucket_name} in project {project_id} with location {location}...", fg="bright_black")
     new_bucket = storage_client.create_bucket(bucket_name, location=location)
     new_bucket.iam_configuration.uniform_bucket_level_access_enabled = True
     new_bucket.versioning_enabled = True
     new_bucket.patch()
-    click.secho(f"Enabling versioning on gs://{bucket_name}...", fg="bright_black")
-    click.secho("Configuring bucket IAM policy for project editors/owners...", fg="bright_black")
+    click.secho(f"  Enabling versioning...", fg="bright_black")
+    click.secho("  Configuring bucket IAM policy...", fg="bright_black")
     policy = new_bucket.get_iam_policy(requested_policy_version=3)
     policy["roles/storage.objectAdmin"].add(f"projectEditor:{project_id}")
     policy["roles/storage.objectAdmin"].add(f"projectOwner:{project_id}")
@@ -50,31 +50,42 @@ def _ensure_bucket_ready(storage_client, bucket_name: str, project_id: str, loca
     """
     try:
         bucket = storage_client.get_bucket(bucket_name)
+        click.echo("    Status:   Found")
         # Only prompt to reuse if it was the default bucket
         if is_default:
-            if not click.confirm(
-                f"Bucket gs://{bucket_name} already exists. Do you want to re-use it?",
-                default=True,
-            ):
-                return False
+            click.secho("    [?]", fg="cyan", bold=True, nl=False)
+            if not click.confirm(" Use this bucket?", default=True):
+                click.secho("  Cancelling setup", fg="yellow")
+                if is_default:
+                    click.secho("  Hint: Use --no-tf-remote-state for local, or --tf-state-bucket to customize. See --help for more.", fg="bright_black")
+                import sys
+                sys.exit(1)
+        else:
+            click.echo("  Proceeding...")
         return True
     except exceptions.NotFound:
-        if click.confirm(
-            f"Bucket '{bucket_name}' does not exist. Is it okay to create it in project '{project_id}' with location '{location}'?",
-            default=True,
-        ):
+        click.echo("    Status:   Not found")
+        click.echo(f"  - Project:  {project_id}")
+        if location == "US":
+            click.echo(f"  - Location: {location} (Default)")
+        else:
+            click.secho("  ✔", fg="green", nl=False)
+            click.echo(f" Location: {location} (from flag)")
+            
+        click.secho("    [?]", fg="cyan", bold=True, nl=False)
+        if click.confirm(" Create this bucket?", default=True):
             _create_and_configure_bucket(storage_client, bucket_name, project_id, location)
             return True
         else:
+            click.secho("  Cancelling setup", fg="yellow")
             if is_default:
-                click.echo("To use local state, run with: --no-tf-remote-state")
-                click.echo(f"To use a specific bucket, run with: --tf-state-bucket <name>")
-            return False
+                click.secho("  Hint: Use --no-tf-remote-state for local, or --tf-state-bucket to customize. See --help for more.", fg="bright_black")
+            import sys
+            sys.exit(1)
 
 
 def _configure_remote_state(project_id: str, namespace: str, bucket_name: str = "", location: str = "US") -> str:
     """Handles GCS state bucket verification, creation, and IAM setup."""
-    click.secho("\n[Terraform Remote State Setup]", fg="cyan", bold=True)
     try:
         storage_client = storage.Client(project=project_id)
     except Exception as e:
@@ -86,14 +97,17 @@ def _configure_remote_state(project_id: str, namespace: str, bucket_name: str = 
     is_default = False
     if not bucket_name:
         bucket_name = f"tf-state-{namespace}-{project_id}"
-        click.echo(f"Defaulting to bucket: {bucket_name}")
         is_default = True
 
+    click.echo("Setting up GCS Bucket for storing terraform state remotely:")
+    if is_default:
+        click.echo(f"  - Name:     {bucket_name} (Default)")
+    else:
+        click.secho("  ✔", fg="green", nl=False)
+        click.echo(f" Name:     {bucket_name} (from flag)")
+
     try:
-        if _ensure_bucket_ready(storage_client, bucket_name, project_id, location, is_default):
-            return bucket_name
-        else:
-            raise click.ClickException("Setup cancelled.")
+        ready = _ensure_bucket_ready(storage_client, bucket_name, project_id, location, is_default)
     except exceptions.Unauthorized as e:
         raise click.ClickException(
             f"Authentication failed: {e}\n"
@@ -106,12 +120,16 @@ def _configure_remote_state(project_id: str, namespace: str, bucket_name: str = 
         )
     except Exception as e:
         click.secho(
-            f"Error: Failed to access or create bucket gs://{bucket_name}.",
+            f"  Error: Failed to access or create bucket gs://{bucket_name}.",
             fg="red",
             bold=True,
         )
-        click.secho(str(e), fg="red")
+        click.secho(f"  {e}", fg="red")
         raise click.ClickException("Setup cancelled.")
+
+    if not ready:
+        raise click.ClickException("Setup cancelled.")
+    return bucket_name
 
 
 def _get_github_templates(ref: str) -> tuple[str, str, str, str]:
@@ -122,7 +140,7 @@ def _get_github_templates(ref: str) -> tuple[str, str, str, str]:
 
     def fetch(filename: str) -> str:
         url = f"{base_url}/{filename}"
-        click.secho(f"Downloading {filename} from GitHub ({ref})...", fg="bright_black")
+
         req = urllib.request.Request(url, headers={"User-Agent": "DataCommons-CLI"})
         with urllib.request.urlopen(req, timeout=10) as response:
             return response.read().decode("utf-8")
@@ -187,11 +205,21 @@ def init(
 ) -> None:
     """Initialize Terraform scaffolding for Data Commons administration/infrastructure."""
     click.secho("Datacommons Admin Init", fg="cyan", bold=True)
-    click.secho("Generating Terraform starter files...", fg="bright_black")
+    
+    click.secho("\n[Project Configuration]", fg="cyan", bold=True)
+    if project_id:
+        click.secho("  ✔", fg="green", nl=False)
+        click.echo(f" Project ID: {project_id} (from flag)")
+    if namespace:
+        click.secho("  ✔", fg="green", nl=False)
+        click.echo(f" Namespace:  {namespace} (from flag)")
 
     resolved_project_id = (
         project_id.strip()
-        or click.prompt("GCP project id", type=str, prompt_suffix=": ").strip()
+        or (
+            click.secho("GCP project id", fg="cyan", bold=True, nl=False)
+            or click.prompt("", type=str, prompt_suffix=": ").strip()
+        )
     )
     if not resolved_project_id:
         raise click.ClickException("GCP project id must not be empty.")
@@ -199,9 +227,8 @@ def init(
     resolved_namespace = namespace.strip()
     while True:
         if not resolved_namespace:
-            resolved_namespace = click.prompt(
-                "Namespace", type=str, prompt_suffix=": "
-            ).strip()
+            click.secho("Namespace", fg="cyan", bold=True, nl=False)
+            resolved_namespace = click.prompt("", type=str, prompt_suffix=": ").strip()
             if not resolved_namespace:
                 click.secho("Error: Namespace must not be empty.", fg="red")
                 continue
@@ -218,20 +245,7 @@ def init(
 
         break
 
-    resolved_dc_api_key = (
-        dc_api_key.strip()
-        or click.prompt(
-            "Data Commons API key (get one at apikeys.datacommons.org) [optional, press Enter to skip]",
-            type=str,
-            default="",
-            show_default=False,
-            prompt_suffix=": ",
-        ).strip()
-    )
 
-    resolved_tf_state_prefix = (
-        tf_state_prefix.strip() or f"terraform/state/{resolved_namespace}"
-    )
 
     main_tf_path = target_dir / "main.tf"
     tfvars_path = target_dir / "terraform.tfvars"
@@ -239,8 +253,10 @@ def init(
     backend_tf_path = target_dir / "backend.tf"
 
     use_remote_state = tf_remote_state
-    if not use_remote_state:
-        click.echo("Local state only, skipping GCS configs for terraform state management")
+    click.secho("\n[Terraform Backend Setup]", fg="cyan", bold=True)
+    click.secho("Configuring backend for Terraform state...", fg="bright_black")
+    if not tf_remote_state:
+        click.echo("  Using local backend for Terraform state.")
 
     paths_to_check = [main_tf_path, tfvars_path, readme_path]
     if use_remote_state:
@@ -265,7 +281,32 @@ def init(
         else ""
     )
 
+    click.secho("\n[Terraform Starter Files]", fg="cyan", bold=True)
+    click.secho("Downloading templates and populating configuration files...", fg="bright_black")
+    
+    resolved_dc_api_key = dc_api_key.strip()
+    if not resolved_dc_api_key:
+        click.secho("  [?]", fg="cyan", bold=True, nl=False)
+        resolved_dc_api_key = click.prompt(
+            " Data Commons API key (from apikeys.datacommons.org)",
+            type=str,
+            default="",
+            show_default=False,
+        ).strip()
+        
+        if not resolved_dc_api_key:
+            click.secho(
+                "  [!] Warning: Data Commons API key was skipped. You must add it to terraform.tfvars before running terraform apply.",
+                fg="yellow",
+                bold=True,
+            )
+
     target_dir.mkdir(parents=True, exist_ok=True)
+    click.secho(f"Creating directory: {target_dir}", fg="cyan")
+
+    resolved_tf_state_prefix = (
+        tf_state_prefix.strip() or f"terraform/state/{resolved_namespace}"
+    )
 
     try:
         variables_content, main_content, outputs_content, tfvars_example = (
@@ -299,9 +340,7 @@ def init(
 
         (target_dir / "terraform.tfvars").write_text(tfvars_content, encoding="utf-8")
 
-        click.secho(f"- Wrote {target_dir / 'variables.tf'}", fg="bright_black")
-        click.secho(f"- Wrote {target_dir / 'outputs.tf'}", fg="bright_black")
-        click.secho(f"- Wrote {tfvars_path}", fg="bright_black")
+
 
     except Exception as e:
         raise click.ClickException(f"Failed to initialize Terraform templates: {e}")
@@ -324,22 +363,11 @@ def init(
             encoding="utf-8",
         )
 
-    click.secho(f"Initialized Terraform scaffold in {target_dir}", fg="green")
-    click.secho(f"- Wrote {main_tf_path}", fg="bright_black")
-    click.secho(f"- Wrote {tfvars_path}", fg="bright_black")
-    click.secho(f"- Wrote {readme_path}", fg="bright_black")
-    if use_remote_state and resolved_bucket_name:
-        click.secho(f"- Wrote {backend_tf_path}", fg="bright_black")
-    click.secho(
-        f"Generated new folder '{resolved_namespace}'. See {resolved_namespace}/README.md for next steps.",
-        fg="cyan",
-    )
-    if not resolved_dc_api_key:
-        click.secho(
-            "\n[!] Warning: Data Commons API key was skipped. You must add it to terraform.tfvars before running terraform apply. Get one at apikeys.datacommons.org",
-            fg="yellow",
-            bold=True,
-        )
+    click.secho("Downloaded and populated Terraform templates.", fg="green")
+    
+    click.echo(f"\nYou can customize variables in {resolved_namespace}/terraform.tfvars as needed.")
+    click.echo(f"Refer to {resolved_namespace}/README.md for more info and next steps.")
+
 
 
 def _setup_ingestion_client() -> Tuple[Any, str, str]:

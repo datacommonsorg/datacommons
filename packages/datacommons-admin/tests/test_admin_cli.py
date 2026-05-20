@@ -51,7 +51,7 @@ def test_init_success_with_options(
             ],
         )
         assert result.exit_code == 0
-        assert "Initialized Terraform scaffold" in result.output
+        assert "Downloaded and populated Terraform templates." in result.output
 
         target_dir = Path.cwd() / "test-ns"
         assert target_dir.exists()
@@ -120,7 +120,7 @@ def test_init_existing_folder_force(
             input="test-key\n",
         )
         assert result.exit_code == 0
-        assert "Initialized Terraform scaffold" in result.output
+        assert "Downloaded and populated Terraform templates." in result.output
 
         main_tf = existing_dir / "main.tf"
         assert "old content" not in main_tf.read_text()
