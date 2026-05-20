@@ -1,0 +1,64 @@
+steps:
+  - name: python:3.12-slim
+    entrypoint: bash
+    secretEnv: ['GH_TOKEN']
+    env: ['NEW_VERSION=${_NEW_VERSION}']
+    args:
+      - -c
+      - |
+        apt-get update && apt-get install -y git curl gh
+        
+        # Fail on error
+        set -e
+
+        # Config Git with Robot Author
+        git config --global url."https://${_GITHUB_AUTHOR}:$$GH_TOKEN@github.com/".insteadOf "https://github.com/"
+        git config --global credential.helper store
+        echo "https://${_GITHUB_AUTHOR}:$$GH_TOKEN@github.com" > /root/.git-credentials
+        chmod 600 /root/.git-credentials
+        
+        git config --global user.email "${_GITHUB_AUTHOR}@users.noreply.github.com"
+        git config --global user.name "${_GITHUB_AUTHOR}"
+
+        # Clone Repo
+        rm -rf /workspace/* /workspace/.[!.]*
+        git clone "https://github.com/${_GITHUB_ORG}/${_GITHUB_REPO}.git" /workspace --branch "${_GITHUB_BRANCH}" --single-branch --depth 1
+
+        # Create Branch
+        BRANCH_NAME="chore/bump-version-$$NEW_VERSION"
+        git checkout -b $$BRANCH_NAME
+
+        # Update Version Files
+        echo "Updating version.py files and root pyproject.toml to $$NEW_VERSION"
+        python3 -c "import glob, re; [open(f, 'w').write(re.sub(r'^__version__ = \".*\"', '__version__ = \"'\"$$NEW_VERSION\"'\"', content, flags=re.MULTILINE)) for f in glob.glob('packages/*/datacommons_*/version.py') for content in [open(f, 'r').read()]]"
+        python3 -c "import re; [open('pyproject.toml', 'w').write(re.sub(r'^version = \".*\"', 'version = \"'\"$$NEW_VERSION\"'\"', content, flags=re.MULTILINE)) for content in [open('pyproject.toml', 'r').read()]]"
+        
+        # Commit & Push
+        git add pyproject.toml packages/*/datacommons_*/version.py
+        git commit -m "chore: bump version to $$NEW_VERSION"
+        git push origin $$BRANCH_NAME
+
+
+        # Create PR
+        gh pr create \
+          --repo "${_GITHUB_ORG}/${_GITHUB_REPO}" \
+          --title "chore: bump version to $$NEW_VERSION" \
+          --body "Automated PR from Cloud Build release pipeline matching to update our version to $$NEW_VERSION ahead of its release" \
+          --base "${_GITHUB_BRANCH}" \
+          --head "$$BRANCH_NAME" || { echo "PR creation failed! It might already exist."; exit 1; }
+
+
+
+substitutions:
+  _GITHUB_AUTHOR: 'datacommons-robot-author'
+  _GITHUB_ORG: 'datacommonsorg'
+  _GITHUB_REPO: 'datacommons'
+  _GITHUB_BRANCH: 'main'
+
+availableSecrets:
+  secretManager:
+  - versionName: projects/$PROJECT_ID/secrets/agent-toolkit-github-pat/versions/latest
+    env: 'GH_TOKEN'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
