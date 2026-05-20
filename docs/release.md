@@ -10,7 +10,7 @@ All tracked packages (`packages/datacommons-admin` and `packages/datacommons-cli
 
 Version changes are managed via automated inline replacements in:
 * `__version__` within package `version.py` files (`packages/*/datacommons_*/version.py`).
-* `version` within the root [pyproject.toml](file:///Users/dwnoble/Projects/datacommons/datacommons/pyproject.toml).
+* `version` within the root [pyproject.toml](../pyproject.toml).
 
 ---
 

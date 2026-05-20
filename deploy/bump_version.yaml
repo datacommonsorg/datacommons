@@ -45,7 +45,9 @@ steps:
           --title "chore: bump version to $$NEW_VERSION" \
           --body "Automated PR from Cloud Build release pipeline matching to update our version to $$NEW_VERSION ahead of its release" \
           --base "${_GITHUB_BRANCH}" \
-          --head "$$BRANCH_NAME" || echo "PR creation failed, it might already exist."
+          --head "$$BRANCH_NAME" || { echo "PR creation failed! It might already exist."; exit 1; }
+
+
 
 substitutions:
   _GITHUB_AUTHOR: 'datacommons-robot-author'

@@ -27,14 +27,13 @@ steps:
         python3 -c "import re; [open('pyproject.toml', 'w').write(re.sub(r'^version = \".*\"', 'version = \"'\"$tag_version\"'\"', content, flags=re.MULTILINE)) for content in [open('pyproject.toml', 'r').read()]]"
 
   # 2. Build and publish all Python packages to PyPI
-  - name: 'python:3.12-slim'
+  - name: 'ghcr.io/astral-sh/uv:python3.12-trixie-slim'
     entrypoint: 'bash'
     secretEnv:
       - 'PYPI_TOKEN'
     args:
       - '-c'
       - |
-        pip install uv
         for pkg in packages/*; do
           pkg_name=$(basename "$pkg")
           if [ "$pkg_name" = "datacommons-db" ] || [ "$pkg_name" = "datacommons-api" ] || [ "$pkg_name" = "datacommons-schema" ]; then
