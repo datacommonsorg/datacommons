@@ -104,7 +104,10 @@ def _create_and_configure_bucket(
 
 
 def _abort_bucket_setup(is_default: bool):
-    click.secho("  No bucket available for remote Terraform state storage. Cancelling setup", fg="red")
+    click.secho(
+        "  No bucket available for remote Terraform state storage. Cancelling setup",
+        fg="red",
+    )
     if is_default:
         click.secho(
             "  Hint: Use --no-tf-remote-state to keep Terraform state local, or --tf-state-bucket to specify an existing bucket. See --help for more.",
