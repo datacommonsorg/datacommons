@@ -35,6 +35,8 @@ variable "dcp" {
     create_ingestion_bucket         = bool
     spanner_version_retention_period = string
     create_bq_reservation           = bool
+    bq_reservation_slot_capacity     = number
+    bq_reservation_max_slots        = number
     external_ingestion_bucket_name  = string
     ingestion_lock_timeout          = number
     ingestion_helper_image          = string

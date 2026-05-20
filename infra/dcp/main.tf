@@ -78,6 +78,8 @@ locals {
     spanner_database_id            = var.dcp_spanner_database_id
     spanner_version_retention_period = var.dcp_spanner_version_retention_period
     create_bq_reservation           = var.dcp_create_bq_reservation
+    bq_reservation_slot_capacity     = var.dcp_bq_reservation_slot_capacity
+    bq_reservation_max_slots        = var.dcp_bq_reservation_max_slots
     spanner_processing_units       = var.dcp_spanner_processing_units
     service_cpu                    = var.dcp_service_cpu
     service_memory                 = var.dcp_service_memory

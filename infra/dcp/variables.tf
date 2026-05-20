@@ -320,6 +320,18 @@ variable "dcp_create_bq_reservation" {
   default     = true
 }
 
+variable "dcp_bq_reservation_slot_capacity" {
+  description = "Baseline slots for BigQuery reservation"
+  type        = number
+  default     = 100
+}
+
+variable "dcp_bq_reservation_max_slots" {
+  description = "Max slots for BigQuery reservation autoscale"
+  type        = number
+  default     = 400
+}
+
 variable "cdc_enable_mcp" {
   description = "CDC enable MCP"
   type        = bool

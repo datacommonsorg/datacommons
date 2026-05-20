@@ -70,3 +70,15 @@ variable "create_bq_reservation" {
   description = "Create a new BigQuery reservation for federation queries"
   default     = true
 }
+
+variable "bq_reservation_slot_capacity" {
+  type        = number
+  description = "Baseline slots for BigQuery reservation"
+  default     = 100
+}
+
+variable "bq_reservation_max_slots" {
+  type        = number
+  description = "Max slots for BigQuery reservation autoscale"
+  default     = 400
+}

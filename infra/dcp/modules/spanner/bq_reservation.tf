@@ -18,10 +18,10 @@ resource "google_bigquery_reservation" "default" {
   name          = "default"
   location      = var.region
   edition       = "ENTERPRISE"
-  slot_capacity = 100
+  slot_capacity = var.bq_reservation_slot_capacity
 
   autoscale {
-    max_slots = 400
+    max_slots = var.bq_reservation_max_slots
   }
 }
 
