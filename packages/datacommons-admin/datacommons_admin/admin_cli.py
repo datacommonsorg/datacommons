@@ -232,6 +232,7 @@ def init(
     click.secho("Datacommons Admin Init", fg="cyan", bold=True)
 
     click.secho("\n[Project Configuration]", fg="cyan", bold=True)
+    click.secho("Configuring project settings...", fg="bright_black")
     if project_id:
         click.secho("  ✔", fg="green", nl=False)
         click.echo(f" Project ID: {project_id} (from flag)")
@@ -239,18 +240,24 @@ def init(
         click.secho("  ✔", fg="green", nl=False)
         click.echo(f" Namespace:  {namespace} (from flag)")
 
-    resolved_project_id = project_id.strip() or (
-        click.secho("GCP project id", fg="cyan", bold=True, nl=False)
-        or click.prompt("", type=str, prompt_suffix=": ").strip()
-    )
+    resolved_project_id = project_id.strip()
+    if not resolved_project_id:
+        click.secho("  [?]", fg="cyan", bold=True, nl=False)
+        resolved_project_id = click.prompt(
+            " GCP project id",
+            type=str,
+        ).strip()
     if not resolved_project_id:
         raise click.ClickException("GCP project id must not be empty.")
 
     resolved_namespace = namespace.strip()
     while True:
         if not resolved_namespace:
-            click.secho("Namespace", fg="cyan", bold=True, nl=False)
-            resolved_namespace = click.prompt("", type=str, prompt_suffix=": ").strip()
+            click.secho("  [?]", fg="cyan", bold=True, nl=False)
+            resolved_namespace = click.prompt(
+                " Namespace",
+                type=str,
+            ).strip()
             if not resolved_namespace:
                 click.secho("Error: Namespace must not be empty.", fg="red")
                 continue
@@ -385,10 +392,8 @@ def init(
 
     click.secho("Downloaded and populated Terraform templates.", fg="green")
 
-    click.echo(
-        f"\nYou can customize variables in {resolved_namespace}/terraform.tfvars as needed."
-    )
-    click.echo(f"Refer to {resolved_namespace}/README.md for more info and next steps.")
+    click.secho(f"\nCustomize variables in {resolved_namespace}/terraform.tfvars as needed.", fg="bright_black")
+    click.secho(f"Refer to {resolved_namespace}/README.md for more info and next steps.", fg="bright_black")
 
 
 def _setup_ingestion_client() -> Tuple[Any, str, str]:
