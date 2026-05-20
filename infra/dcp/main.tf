@@ -44,7 +44,7 @@ resource "google_project_service" "apis" {
     "workflows.googleapis.com",
     "workflowexecutions.googleapis.com",
     "dataflow.googleapis.com"
-  ] : [], var.enable_bq_federation ? [
+    ] : [], var.enable_bq_federation ? [
     "bigqueryconnection.googleapis.com",
     "bigquery.googleapis.com"
   ] : []))
