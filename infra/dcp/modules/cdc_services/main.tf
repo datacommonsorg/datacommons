@@ -68,6 +68,10 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
         name  = "ENABLE_MCP"
         value = var.enable_mcp ? "true" : "false"
       }
+      env {
+        name  = "DC_INSTRUCTIONS_DIR"
+        value = var.cdc_bucket_name != "" ? "gs://${var.cdc_bucket_name}/input/mcp_instructions" : ""
+      }
     }
 
     dynamic "vpc_access" {
