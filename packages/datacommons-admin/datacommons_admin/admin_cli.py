@@ -14,6 +14,7 @@
 
 from pathlib import Path
 import re
+import sys
 import urllib.request
 from typing import Any, Tuple
 
@@ -109,7 +110,9 @@ def _abort_bucket_setup(is_default: bool):
             "  Hint: Use --no-tf-remote-state for local, or --tf-state-bucket to customize. See --help for more.",
             fg="bright_black",
         )
-    raise click.Abort()
+    # Use sys.exit(1) instead of click.Abort() to avoid being caught by broad
+    # except Exception blocks in the caller and to avoid Click's "Aborted!" message.
+    sys.exit(1)
 
 
 def _ensure_bucket_ready(
