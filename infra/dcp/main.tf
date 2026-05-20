@@ -46,7 +46,8 @@ resource "google_project_service" "apis" {
     "dataflow.googleapis.com"
     ] : [], var.enable_bq_federation ? [
     "bigqueryconnection.googleapis.com",
-    "bigquery.googleapis.com"
+    "bigquery.googleapis.com",
+    "bigqueryreservation.googleapis.com"
   ] : []))
 
   service            = each.key
@@ -76,6 +77,7 @@ locals {
     spanner_instance_id            = var.dcp_spanner_instance_id
     spanner_database_id            = var.dcp_spanner_database_id
     spanner_version_retention_period = var.dcp_spanner_version_retention_period
+    create_bq_reservation           = var.create_bq_reservation
     spanner_processing_units       = var.dcp_spanner_processing_units
     service_cpu                    = var.dcp_service_cpu
     service_memory                 = var.dcp_service_memory

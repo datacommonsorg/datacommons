@@ -314,6 +314,12 @@ variable "bq_connection_name" {
   default     = "spanner_connection"
 }
 
+variable "create_bq_reservation" {
+  description = "Create a new BigQuery reservation for federation queries"
+  type        = bool
+  default     = true
+}
+
 variable "cdc_enable_mcp" {
   description = "CDC enable MCP"
   type        = bool

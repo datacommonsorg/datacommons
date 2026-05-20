@@ -64,3 +64,9 @@ variable "spanner_version_retention_period" {
   description = "The version retention period for the Spanner database"
   default     = "6h"
 }
+
+variable "create_bq_reservation" {
+  type        = bool
+  description = "Create a new BigQuery reservation for federation queries"
+  default     = true
+}
