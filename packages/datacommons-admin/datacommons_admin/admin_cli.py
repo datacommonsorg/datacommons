@@ -389,11 +389,12 @@ def _setup_dcp_config_dir(
 @click.option(
     "--tf-state-bucket",
     default="",
-    help="Explicit GCS bucket name for Terraform remote state.",
+    help="Specify a custom GCS bucket name for Terraform remote state (defaults to auto-generated name).",
 )
 @click.option(
     "--tf-state-bucket-location",
     default=DEFAULT_BUCKET_LOCATION,
+    show_default=True,
     help="GCS bucket location if a new bucket needs to be created.",
 )
 @click.option(
