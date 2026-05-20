@@ -302,19 +302,19 @@ variable "cdc_search_scope" {
   default     = "base_and_custom"
 }
 
-variable "enable_bq_federation" {
+variable "dcp_enable_bq_federation" {
   description = "Enable BigQuery federation to Spanner"
   type        = bool
   default     = false
 }
 
-variable "bq_connection_name" {
+variable "dcp_bq_connection_name" {
   description = "BigQuery connection name for Spanner"
   type        = string
   default     = "spanner_connection"
 }
 
-variable "create_bq_reservation" {
+variable "dcp_create_bq_reservation" {
   description = "Create a new BigQuery reservation for federation queries"
   type        = bool
   default     = true

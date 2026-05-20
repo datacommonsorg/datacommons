@@ -14,7 +14,7 @@
 
 # Create the BigQuery Reservation for Federation queries
 resource "google_bigquery_reservation" "default" {
-  count         = var.create_spanner_db && var.enable_bq_federation ? 1 : 0
+  count         = var.create_spanner_db && var.enable_bq_federation && var.create_bq_reservation ? 1 : 0
   name          = "default"
   location      = var.region
   edition       = "ENTERPRISE"
@@ -27,7 +27,7 @@ resource "google_bigquery_reservation" "default" {
 
 # Assign the reservation to the project for queries
 resource "google_bigquery_reservation_assignment" "project_assignment" {
-  count       = var.create_spanner_db && var.enable_bq_federation ? 1 : 0
+  count       = var.create_spanner_db && var.enable_bq_federation && var.create_bq_reservation ? 1 : 0
   reservation = google_bigquery_reservation.default[0].id
   assignee    = "projects/${var.project_id}"
   job_type    = "QUERY"
