@@ -48,9 +48,9 @@ output "ingestion_orchestrator_service_account_email" {
   value       = module.stack.ingestion_orchestrator_service_account_email
 }
 
-output "ingestion_prep_bucket_name" {
+output "ingestion_input_bucket_name" {
   description = "Name of the GCS bucket used for data ingestion pre-processing"
-  value       = module.stack.ingestion_prep_bucket_name
+  value       = module.stack.ingestion_input_bucket_name
 }
 
 output "project_id" {

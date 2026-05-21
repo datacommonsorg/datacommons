@@ -22,7 +22,7 @@ variable "create_pipeline_bucket" {
   type = bool
 }
 
-variable "pipeline_bucket_name" {
+variable "ingestion_workflow_bucket_name" {
   type = string
 }
 
@@ -34,7 +34,7 @@ variable "deletion_protection" {
   type = bool
 }
 
-variable "prep_bucket_name" {
+variable "ingestion_input_bucket_name" {
   type = string
 }
 

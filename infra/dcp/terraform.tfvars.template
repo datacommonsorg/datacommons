@@ -27,8 +27,8 @@ base_dc_api_key = "$$DC_API_KEY$$"
 # =============================================================================
 # Data Input Settings
 # =============================================================================
-# ingestion_prep_bucket_name = "existing-bucket-name"
-# ingestion_prep_bucket_input_folder = "/path/to/data"
+# ingestion_input_bucket_name = "existing-bucket-name"
+# ingestion_input_folder = "/path/to/data"
 
 # =============================================================================
 # Data Commons Service

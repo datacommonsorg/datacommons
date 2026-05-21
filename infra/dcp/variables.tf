@@ -145,31 +145,31 @@ variable "ingestion_prep_job_timeout" {
   default     = "21600s"
 }
 
-variable "ingestion_prep_bucket_name" {
+variable "ingestion_input_bucket_name" {
   description = "GCS bucket name for landing files and pre-processing"
   type        = string
   default     = ""
 }
 
-variable "create_ingestion_prep_bucket" {
+variable "create_ingestion_input_bucket" {
   description = "Create a dedicated GCS bucket for data ingestion pre-processing"
   type        = bool
   default     = true
 }
 
-variable "ingestion_prep_bucket_input_folder" {
+variable "ingestion_input_folder" {
   description = "Folder within the bucket where raw files are uploaded"
   type        = string
   default     = "input"
 }
 
-variable "ingestion_prep_bucket_output_folder" {
+variable "ingestion_output_folder" {
   description = "Folder where pre-processed files are placed for the next stage"
   type        = string
   default     = "output"
 }
 
-variable "ingestion_prep_bucket_location" {
+variable "ingestion_input_bucket_location" {
   description = "GCS region for the pre-processing bucket"
   type        = string
   default     = "US"
@@ -185,13 +185,13 @@ variable "deploy_ingestion_workflow" {
   default     = true
 }
 
-variable "create_ingestion_bucket" {
+variable "create_ingestion_workflow_bucket" {
   description = "Create a dedicated ingestion bucket for the ingestion workflow"
   type        = bool
   default     = true
 }
 
-variable "ingestion_bucket_name" {
+variable "ingestion_workflow_bucket_name" {
   description = "The name of the ingestion bucket (used for creation if create_ingestion_bucket is true, or as the existing bucket name if false)"
   type        = string
   default     = ""

@@ -128,17 +128,17 @@ locals {
     prep_job_cpu    = var.ingestion_prep_job_cpu
     prep_job_memory = var.ingestion_prep_job_memory
     prep_job_timeout = var.ingestion_prep_job_timeout
-    prep_bucket_name = var.ingestion_prep_bucket_name
-    prep_bucket_input_folder = var.ingestion_prep_bucket_input_folder
-    prep_bucket_output_folder = var.ingestion_prep_bucket_output_folder
-    prep_bucket_location = var.ingestion_prep_bucket_location
-    create_prep_bucket   = var.create_ingestion_prep_bucket
+    ingestion_input_bucket_name = var.ingestion_input_bucket_name
+    ingestion_input_folder = var.ingestion_input_folder
+    ingestion_output_folder = var.ingestion_output_folder
+    ingestion_input_bucket_location = var.ingestion_input_bucket_location
+    create_ingestion_input_bucket   = var.create_ingestion_input_bucket
     
     deploy_workflow  = var.deploy_ingestion_workflow
     lock_timeout     = var.ingestion_lock_timeout
     helper_image     = var.ingestion_service_image
-    create_bucket    = var.create_ingestion_bucket
-    bucket_name      = var.ingestion_bucket_name
+    create_ingestion_workflow_bucket = var.create_ingestion_workflow_bucket
+    ingestion_workflow_bucket_name = var.ingestion_workflow_bucket_name
   }
 }
 

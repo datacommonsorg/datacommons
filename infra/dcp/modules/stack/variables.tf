@@ -83,16 +83,16 @@ variable "ingestion_config" {
     prep_job_cpu    = string
     prep_job_memory = string
     prep_job_timeout = string
-    prep_bucket_name = string
-    prep_bucket_input_folder = string
-    prep_bucket_output_folder = string
-    prep_bucket_location = string
-    create_prep_bucket   = bool
+    ingestion_input_bucket_name = string
+    ingestion_input_folder = string
+    ingestion_output_folder = string
+    ingestion_input_bucket_location = string
+    create_ingestion_input_bucket   = bool
     
     deploy_workflow  = bool
     lock_timeout     = number
     helper_image     = string
-    create_bucket    = bool
-    bucket_name      = string
+    create_ingestion_workflow_bucket = bool
+    ingestion_workflow_bucket_name = string
   })
 }

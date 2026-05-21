@@ -15,7 +15,7 @@ locals {
     },
     {
       name  = "OUTPUT_DIR"
-      value = "gs://${module.storage.prep_bucket_name}/${var.ingestion_config.prep_bucket_output_folder}"
+      value = "gs://${module.storage.ingestion_input_bucket_name}/${var.ingestion_config.ingestion_output_folder}"
     },
     {
       name  = "FORCE_RESTART"
@@ -43,7 +43,7 @@ locals {
     },
     {
       name  = "TEMP_LOCATION"
-      value = "gs://${module.storage.prep_bucket_name}/temp"
+      value = "gs://${module.storage.ingestion_input_bucket_name}/temp"
     },
     {
       name  = "PROJECT_ID"
@@ -131,14 +131,14 @@ module "storage" {
   
   # DCP vars
   deploy_pipeline        = var.ingestion_config.deploy_workflow
-  create_pipeline_bucket = var.ingestion_config.create_bucket
-  pipeline_bucket_name   = var.ingestion_config.bucket_name
+  create_pipeline_bucket = var.ingestion_config.create_ingestion_workflow_bucket
+  ingestion_workflow_bucket_name = var.ingestion_config.ingestion_workflow_bucket_name
   region                 = var.global.region
   deletion_protection    = var.global.deletion_protection
   
   # Prep bucket vars
-  prep_bucket_name     = var.ingestion_config.prep_bucket_name
-  prep_bucket_location = var.ingestion_config.prep_bucket_location
+  ingestion_input_bucket_name = var.ingestion_config.ingestion_input_bucket_name
+  prep_bucket_location = var.ingestion_config.ingestion_input_bucket_location
   
   # Shared vars
   project_id         = var.global.project_id
@@ -157,7 +157,7 @@ module "ingestion_dataflow" {
   deletion_protection   = var.global.deletion_protection
   spanner_instance_id   = module.spanner.spanner_instance_id
   spanner_database_id   = module.spanner.spanner_database_id
-  ingestion_bucket_name = module.storage.pipeline_bucket_name
+  ingestion_bucket_name = module.storage.ingestion_workflow_bucket_name
 }
 
 module "ingestion_service" {
@@ -172,7 +172,7 @@ module "ingestion_service" {
   spanner_instance_id   = module.spanner.spanner_instance_id
   spanner_database_id   = module.spanner.spanner_database_id
   bq_connection_id      = module.spanner.bq_connection_id
-  ingestion_bucket_name  = module.storage.pipeline_bucket_name
+  ingestion_bucket_name  = module.storage.ingestion_workflow_bucket_name
   service_account_email  = module.ingestion_dataflow[0].ingestion_runner_email
   ingestion_helper_image = var.ingestion_config.helper_image
   orchestrator_email     = var.ingestion_config.deploy_workflow && module.ingestion_dataflow[0].orchestrator_email != null ? module.ingestion_dataflow[0].orchestrator_email : ""
@@ -251,9 +251,9 @@ module "ingestion_prep_job" {
   dc_data_job_timeout           = var.ingestion_config.prep_job_timeout
   service_account_email         = module.iam.service_account_email
   vpc_connector_id              = module.networking[0].connector_id
-  bucket_name                   = module.storage.prep_bucket_name
-  gcs_data_bucket_input_folder  = var.ingestion_config.prep_bucket_input_folder
-  gcs_data_bucket_output_folder = var.ingestion_config.prep_bucket_output_folder
+  bucket_name                   = module.storage.ingestion_input_bucket_name
+  gcs_data_bucket_input_folder  = var.ingestion_config.ingestion_input_folder
+  gcs_data_bucket_output_folder = var.ingestion_config.ingestion_output_folder
   run_db_init                   = false
   use_spanner                   = true
   env_vars                      = local.cloud_run_shared_env_variables
@@ -280,7 +280,7 @@ module "datacommons_service" {
   google_analytics_tag_id           = var.datacommons_service_config.google_analytics_tag
   dc_search_scope                   = var.datacommons_service_config.search_scope
   enable_mcp                        = var.datacommons_service_config.enable_mcp
-  prep_bucket_name                   = module.storage.prep_bucket_name
+  prep_bucket_name                   = module.storage.ingestion_input_bucket_name
   service_account_email             = module.iam.service_account_email
   vpc_connector_id                  = module.networking[0].connector_id
   use_spanner                       = true
@@ -300,7 +300,7 @@ check "spanner_instance_id_provided" {
 
 resource "google_storage_bucket_iam_member" "dataflow_bucket_access" {
   count  = var.platform_service_config.enable && var.ingestion_config.deploy_workflow ? 1 : 0
-  bucket = module.storage.prep_bucket_name
+  bucket = module.storage.ingestion_input_bucket_name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${module.ingestion_dataflow[0].ingestion_runner_email}"
 }

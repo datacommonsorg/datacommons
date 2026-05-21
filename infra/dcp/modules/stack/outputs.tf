@@ -48,7 +48,7 @@ output "ingestion_orchestrator_service_account_email" {
   value       = var.platform_service_config.enable && var.ingestion_config.deploy_workflow ? module.ingestion_dataflow[0].orchestrator_email : null
 }
 
-output "ingestion_prep_bucket_name" {
+output "ingestion_input_bucket_name" {
   description = "Name of the GCS bucket used for data ingestion pre-processing"
-  value       = module.storage.prep_bucket_name
+  value       = module.storage.ingestion_input_bucket_name
 }
