@@ -39,7 +39,7 @@ locals {
     },
     {
       name  = "INGESTION_WORKFLOW_NAME"
-      value = var.platform_service_config.enable && var.ingestion_config.deploy_workflow && module.ingestion_workflow[0].orchestrator_email != "" ? module.ingestion_workflow[0].orchestrator_email : ""
+      value = coalesce(one(module.ingestion_workflow[*].ingestion_orchestrator_name), "")
     },
     {
       name  = "TEMP_LOCATION"
@@ -90,10 +90,10 @@ module "spanner" {
   spanner_database_id      = var.spanner_config.database_id
   spanner_processing_units = var.spanner_config.processing_units
   deletion_protection      = var.global.deletion_protection
-  orchestrator_email       = var.platform_service_config.enable && var.ingestion_config.deploy_workflow && module.ingestion_dataflow[0].orchestrator_email != null ? module.ingestion_dataflow[0].orchestrator_email : ""
+  orchestrator_email       = coalesce(one(module.ingestion_dataflow[*].orchestrator_email), "")
   enable_bq_federation       = var.bq_federation_config.enable
   bq_connection_name         = var.bq_federation_config.connection_name
-  ingestion_helper_sa_email = var.platform_service_config.enable && var.ingestion_config.deploy_workflow ? module.ingestion_dataflow[0].ingestion_runner_email : ""
+  ingestion_helper_sa_email = coalesce(one(module.ingestion_dataflow[*].ingestion_runner_email), "")
   spanner_version_retention_period = var.spanner_config.version_retention_period
   create_bq_reservation           = var.bq_federation_config.create_reservation
   bq_reservation_slot_capacity     = var.bq_federation_config.slot_capacity
@@ -120,7 +120,7 @@ module "platform_service" {
   make_service_public     = var.global.allow_unauthenticated_access
   spanner_instance_id     = module.spanner.spanner_instance_id
   spanner_database_id     = module.spanner.spanner_database_id
-  orchestrator_email       = local.enable_platform_service && var.ingestion_config.deploy_workflow && module.ingestion_dataflow[0].orchestrator_email != null ? module.ingestion_dataflow[0].orchestrator_email : ""
+  orchestrator_email       = coalesce(one(module.ingestion_dataflow[*].orchestrator_email), "")
 }
 
 module "storage" {
@@ -143,7 +143,7 @@ module "storage" {
   # Shared vars
   project_id         = var.global.project_id
   namespace          = var.global.namespace
-  orchestrator_email = var.platform_service_config.enable && var.ingestion_config.deploy_workflow && module.ingestion_dataflow[0].orchestrator_email != "" ? module.ingestion_dataflow[0].orchestrator_email : ""
+  orchestrator_email = coalesce(one(module.ingestion_dataflow[*].orchestrator_email), "")
 }
 
 module "ingestion_dataflow" {
@@ -258,7 +258,7 @@ module "ingestion_prep_job" {
   use_spanner                   = true
   env_vars                      = local.cloud_run_shared_env_variables
   secret_env_vars               = local.datacommons_service_secrets
-  orchestrator_email            = local.enable_platform_service && var.ingestion_config.deploy_workflow && module.ingestion_dataflow[0].orchestrator_email != null ? module.ingestion_dataflow[0].orchestrator_email : ""
+  orchestrator_email            = coalesce(one(module.ingestion_dataflow[*].orchestrator_email), "")
 
   depends_on = [module.iam]
 }

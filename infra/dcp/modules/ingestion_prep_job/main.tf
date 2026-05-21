@@ -3,7 +3,7 @@ locals {
 }
 
 resource "google_cloud_run_v2_job" "dc_data_job" {
-  name                = "${local.name_prefix}datacommons-data-job"
+  name                = "${local.name_prefix}dcp-ingestion-prep-job"
   location            = var.region
   deletion_protection = var.deletion_protection
 
@@ -90,7 +90,7 @@ resource "null_resource" "run_db_init" {
 
   provisioner "local-exec" {
     command = <<EOT
-      gcloud run jobs execute ${local.name_prefix}datacommons-data-job \
+      gcloud run jobs execute ${local.name_prefix}dcp-ingestion-prep-job \
         --update-env-vars DATA_RUN_MODE=schemaupdate \
         --region=${var.region} \
         --project=${var.project_id} \

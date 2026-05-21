@@ -4,7 +4,7 @@ locals {
 
 resource "google_workflows_workflow" "ingestion_orchestrator" {
   count               = var.deploy ? 1 : 0
-  name                = "${local.name_prefix}ingestion-orchestrator"
+  name                = "${local.name_prefix}dcp-ingestion-orchestrator"
   region              = var.region
   description         = "Triggers the Dataflow Flex Template Graph Ingestion Pipeline with runtime parameters"
   service_account     = var.ingestion_runner_id
@@ -170,7 +170,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
       - restart_service:
           call: googleapis.run.v2.projects.locations.services.patch
           args:
-            name: "projects/${var.project_id}/locations/${var.region}/services/${local.name_prefix}datacommons-web-service"
+            name: "projects/${var.project_id}/locations/${var.region}/services/${local.name_prefix}dcp-datacommons-service"
             updateMask: "template.labels"
             body:
               template:

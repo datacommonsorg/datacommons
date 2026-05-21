@@ -3,7 +3,7 @@ locals {
 }
 
 resource "google_cloud_run_v2_service" "dc_web_service" {
-  name                = "${local.name_prefix}datacommons-web-service"
+  name                = "${local.name_prefix}dcp-datacommons-service"
   location            = var.region
   deletion_protection = var.deletion_protection
 
