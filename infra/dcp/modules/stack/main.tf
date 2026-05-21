@@ -198,7 +198,7 @@ module "ingestion_workflow" {
 
 
 module "networking" {
-  source = "../cdc_network"
+  source = "../networking"
   count  = 1
 
   namespace          = var.global.namespace
@@ -212,7 +212,7 @@ module "networking" {
 
 
 module "redis" {
-  source = "../cdc_redis"
+  source = "../redis"
   count  = var.redis_config.enable ? 1 : 0
 
   namespace                     = var.global.namespace
@@ -227,7 +227,7 @@ module "redis" {
 }
 
 module "iam" {
-  source = "../cdc_iam"
+  source = "../iam"
 
   project_id          = var.global.project_id
   namespace           = var.global.namespace
