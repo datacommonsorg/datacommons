@@ -65,7 +65,7 @@ locals {
 
   stack_toggles = {
     enable_dcp = var.enable_dcp
-    enable_cdc = var.enable_cdc
+    enable_cdc = true # TODO: Remove when refactoring stack module interface
   }
 
   stack_dcp = {
@@ -105,12 +105,6 @@ locals {
     gcs_data_bucket_input_folder   = var.cdc_gcs_data_bucket_input_folder
     gcs_data_bucket_output_folder  = var.cdc_gcs_data_bucket_output_folder
     gcs_data_bucket_location       = var.cdc_gcs_data_bucket_location
-    mysql_instance_name            = var.cdc_mysql_instance_name
-    mysql_database_name            = var.cdc_mysql_database_name
-    mysql_database_version         = var.cdc_mysql_database_version
-    mysql_cpu_count                = var.cdc_mysql_cpu_count
-    mysql_memory_size_mb           = var.cdc_mysql_memory_size_mb
-    mysql_user                     = var.cdc_mysql_user
     vpc_connector_cidr             = var.cdc_vpc_connector_cidr
     vpc_network_name               = var.cdc_vpc_network_name
     web_service_image              = var.cdc_web_service_image

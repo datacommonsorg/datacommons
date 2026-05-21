@@ -20,24 +20,8 @@ locals {
       value = local.cdc_use_spanner ? "false" : "true"
     },
     {
-      name  = "CLOUDSQL_INSTANCE"
-      value = local.cdc_use_spanner ? "" : module.cdc_mysql[0].mysql_instance_connection_name
-    },
-    {
-      name  = "DB_NAME"
-      value = var.cdc.mysql_database_name
-    },
-    {
-      name  = "DB_USER"
-      value = var.cdc.mysql_user
-    },
-    {
-      name  = "DB_HOST"
-      value = ""
-    },
-    {
-      name  = "DB_PORT"
-      value = "3306"
+      name  = "USE_CLOUDSQL"
+      value = "false"
     },
     {
       name  = "OUTPUT_DIR"
@@ -102,12 +86,7 @@ locals {
       secret  = module.cdc_iam[0].maps_api_key_secret_id
       version = "latest"
     }
-    ], local.cdc_use_spanner ? [] : [
-    {
-      name    = "DB_PASS"
-      secret  = module.cdc_mysql[0].mysql_password_secret_id
-      version = "latest"
-    }
+
   ]) : []
 }
 
@@ -243,20 +222,7 @@ module "cdc_network" {
 }
 
 
-module "cdc_mysql" {
-  source = "../cdc_mysql"
-  count  = local.enable_cdc && !local.cdc_use_spanner ? 1 : 0
 
-  namespace              = var.shared.namespace
-  region                 = var.shared.region
-  mysql_instance_name    = var.cdc.mysql_instance_name
-  mysql_database_name    = var.cdc.mysql_database_name
-  mysql_database_version = var.cdc.mysql_database_version
-  mysql_cpu_count        = var.cdc.mysql_cpu_count
-  mysql_memory_size_mb   = var.cdc.mysql_memory_size_mb
-  mysql_user             = var.cdc.mysql_user
-  deletion_protection    = var.shared.deletion_protection
-}
 
 module "cdc_redis" {
   source = "../cdc_redis"
@@ -332,7 +298,7 @@ module "cdc_services" {
   service_account_email             = module.cdc_iam[0].service_account_email
   vpc_connector_id                  = module.cdc_network[0].connector_id
   use_spanner                       = local.cdc_use_spanner
-  mysql_connection_name             = local.cdc_use_spanner ? "" : module.cdc_mysql[0].mysql_instance_connection_name
+  mysql_connection_name             = ""
   env_vars                          = local.cdc_cloud_run_shared_env_variables
   secret_env_vars                   = local.cdc_cloud_run_shared_env_variable_secrets
 

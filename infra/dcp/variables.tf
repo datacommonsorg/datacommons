@@ -41,11 +41,6 @@ variable "enable_dcp" {
   default     = true
 }
 
-variable "enable_cdc" {
-  description = "Enable the legacy Custom Data Commons stack"
-  type        = bool
-  default     = false
-}
 
 # --- DCP Stack Variables ---
 variable "dcp_image_url" {
@@ -193,47 +188,6 @@ variable "cdc_gcs_data_bucket_location" {
   default     = "US"
 }
 
-variable "cdc_mysql_instance_name" {
-  description = "CDC MySQL name"
-  type        = string
-  default     = "sql-inst"
-}
-
-variable "cdc_mysql_database_name" {
-  description = "CDC MySQL DB name"
-  type        = string
-  default     = "datacommons"
-}
-
-variable "cdc_mysql_database_version" {
-  description = "CDC MySQL version"
-  type        = string
-  default     = "MYSQL_8_0"
-}
-
-variable "cdc_mysql_cpu_count" {
-  description = "CDC MySQL CPU"
-  type        = number
-  default     = 2
-}
-
-variable "cdc_mysql_memory_size_mb" {
-  description = "CDC MySQL RAM"
-  type        = number
-  default     = 7680
-}
-
-variable "cdc_mysql_storage_size_gb" {
-  description = "CDC MySQL Disk"
-  type        = number
-  default     = 20
-}
-
-variable "cdc_mysql_user" {
-  description = "CDC MySQL user"
-  type        = string
-  default     = "datacommons"
-}
 
 variable "cdc_vpc_connector_cidr" {
   description = "CIDR range for the CDC VPC Access Connector"
@@ -344,11 +298,6 @@ variable "cdc_vpc_network_name" {
   default     = "default"
 }
 
-variable "cdc_vpc_network_subnet_name" {
-  description = "CDC VPC subnet"
-  type        = string
-  default     = "default"
-}
 
 variable "cdc_enable_redis" {
   description = "CDC enable redis"
