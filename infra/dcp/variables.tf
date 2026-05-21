@@ -43,20 +43,20 @@ variable "enable_dcp" {
 
 
 # --- DCP Stack Variables ---
-variable "dcp_image_url" {
-  description = "Docker image URL for DCP"
+variable "platform_service_image" {
+  description = "Docker image URL for the platform service component"
   type        = string
   default     = "gcr.io/datcom-ci/datacommons-platform:latest"
 }
 
-variable "dcp_service_name" {
-  description = "Cloud Run service name for DCP"
+variable "platform_service_name" {
+  description = "Cloud Run service name for the platform service component"
   type        = string
   default     = "dcp-svc"
 }
 
-variable "dcp_service_account_name" {
-  description = "Service account for DCP"
+variable "platform_service_account_name" {
+  description = "Service account for the platform service component"
   type        = string
   default     = "dcp-sa"
 }
@@ -97,38 +97,38 @@ variable "spanner_processing_units" {
   default     = 1000
 }
 
-variable "dcp_service_cpu" {
-  description = "CPU limit for the DCP service container"
+variable "platform_service_cpu" {
+  description = "CPU limit for the platform service container"
   type        = string
   default     = "1000m"
 }
 
-variable "dcp_service_memory" {
-  description = "Memory limit for the DCP service container"
+variable "platform_service_memory" {
+  description = "Memory limit for the platform service container"
   type        = string
   default     = "1Gi"
 }
 
-variable "dcp_service_min_instances" {
-  description = "Minimum number of instances for the DCP service"
+variable "platform_service_min_instances" {
+  description = "Minimum number of instances for the platform service"
   type        = number
   default     = 1
 }
 
-variable "dcp_service_max_instances" {
-  description = "Maximum number of instances for the DCP service"
+variable "platform_service_max_instances" {
+  description = "Maximum number of instances for the platform service"
   type        = number
   default     = 10
 }
 
-variable "dcp_service_concurrency" {
-  description = "Maximum concurrent requests per instance for the DCP service"
+variable "platform_service_concurrency" {
+  description = "Maximum concurrent requests per instance for the platform service"
   type        = number
   default     = 80
 }
 
-variable "dcp_service_timeout_seconds" {
-  description = "Request timeout in seconds for the DCP service"
+variable "platform_service_timeout_seconds" {
+  description = "Request timeout in seconds for the platform service"
   type        = number
   default     = 300
 }
@@ -195,32 +195,38 @@ variable "vpc_connector_cidr" {
   default     = "10.13.0.0/28"
 }
 
-variable "cdc_web_service_image" {
-  description = "CDC web image"
+variable "datacommons_service_image" {
+  description = "Docker image URL for the main Data Commons service"
   type        = string
   default     = "gcr.io/datcom-ci/datacommons-services:latest"
 }
 
-variable "cdc_web_service_min_instance_count" {
-  description = "CDC min instances"
+variable "datacommons_service_name" {
+  description = "Cloud Run service name for the main Data Commons service"
+  type        = string
+  default     = "datacommons-service"
+}
+
+variable "datacommons_service_min_instances" {
+  description = "Minimum number of instances for the Data Commons service"
   type        = number
   default     = 1
 }
 
-variable "cdc_web_service_max_instance_count" {
-  description = "CDC max instances"
+variable "datacommons_service_max_instances" {
+  description = "Maximum number of instances for the Data Commons service"
   type        = number
   default     = 3
 }
 
-variable "cdc_web_service_cpu" {
-  description = "CDC web CPU"
+variable "datacommons_service_cpu" {
+  description = "CPU limit for the Data Commons service container"
   type        = string
   default     = "4"
 }
 
-variable "cdc_web_service_memory" {
-  description = "CDC web RAM"
+variable "datacommons_service_memory" {
+  description = "Memory limit for the Data Commons service container"
   type        = string
   default     = "16G"
 }

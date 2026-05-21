@@ -69,9 +69,9 @@ locals {
   }
 
   stack_dcp = {
-    image_url                      = var.dcp_image_url
-    service_name                   = var.dcp_service_name
-    service_account_name           = var.dcp_service_account_name
+    image_url                      = var.platform_service_image
+    service_name                   = var.platform_service_name
+    service_account_name           = var.platform_service_account_name
     create_spanner_instance        = var.create_spanner_instance
     create_spanner_db              = var.create_spanner_db
     spanner_instance_id            = var.spanner_instance_id
@@ -81,12 +81,12 @@ locals {
     bq_reservation_slot_capacity     = var.bq_reservation_slot_capacity
     bq_reservation_max_slots        = var.bq_reservation_max_slots
     spanner_processing_units       = var.spanner_processing_units
-    service_cpu                    = var.dcp_service_cpu
-    service_memory                 = var.dcp_service_memory
-    service_min_instances          = var.dcp_service_min_instances
-    service_max_instances          = var.dcp_service_max_instances
-    service_concurrency            = var.dcp_service_concurrency
-    service_timeout_seconds        = var.dcp_service_timeout_seconds
+    service_cpu                    = var.platform_service_cpu
+    service_memory                 = var.platform_service_memory
+    service_min_instances          = var.platform_service_min_instances
+    service_max_instances          = var.platform_service_max_instances
+    service_concurrency            = var.platform_service_concurrency
+    service_timeout_seconds        = var.platform_service_timeout_seconds
     deploy_data_ingestion_workflow = var.dcp_deploy_data_ingestion_workflow
     create_ingestion_bucket        = var.dcp_create_ingestion_bucket
     external_ingestion_bucket_name = var.dcp_external_ingestion_bucket_name
@@ -107,11 +107,11 @@ locals {
     gcs_data_bucket_location       = var.cdc_gcs_data_bucket_location
     vpc_connector_cidr             = var.vpc_connector_cidr
     vpc_network_name               = var.vpc_network_name
-    web_service_image              = var.cdc_web_service_image
-    web_service_min_instance_count = var.cdc_web_service_min_instance_count
-    web_service_max_instance_count = var.cdc_web_service_max_instance_count
-    web_service_cpu                = var.cdc_web_service_cpu
-    web_service_memory             = var.cdc_web_service_memory
+    web_service_image              = var.datacommons_service_image
+    web_service_min_instance_count = var.datacommons_service_min_instances
+    web_service_max_instance_count = var.datacommons_service_max_instances
+    web_service_cpu                = var.datacommons_service_cpu
+    web_service_memory             = var.datacommons_service_memory
     data_job_image                 = var.cdc_data_job_image
     data_job_cpu                   = var.cdc_data_job_cpu
     data_job_memory                = var.cdc_data_job_memory

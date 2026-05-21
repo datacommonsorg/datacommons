@@ -113,8 +113,8 @@ module "spanner" {
   bq_reservation_max_slots        = var.dcp.bq_reservation_max_slots
 }
 
-module "dcp_service" {
-  source = "../dcp_service"
+module "platform_service" {
+  source = "../platform_service"
   count  = local.enable_dcp ? 1 : 0
 
   namespace               = var.shared.namespace
@@ -277,8 +277,8 @@ module "cdc_data_ingestion_job" {
   depends_on = [module.cdc_iam]
 }
 
-module "cdc_services" {
-  source = "../cdc_services"
+module "datacommons_service" {
+  source = "../datacommons_service"
   count  = local.enable_cdc ? 1 : 0
 
   project_id                        = var.shared.project_id
