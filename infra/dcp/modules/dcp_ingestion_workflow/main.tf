@@ -72,7 +72,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                     location: '$${input.region}'
                     body:
                       launchParameter:
-                        jobName: '$${text.replace(text.lower(input.importName), "_", "-") + "-" + string(int(sys.now()))}'
+                        jobName: '${replace(lower(var.namespace), "_", "-")}-$${text.replace(text.lower(input.importName), "_", "-")}-$${string(int(sys.now()))}'
                         containerSpecGcsPath: 'gs://datcom-templates/templates/flex/ingestion.json'
                         parameters: '$${launch_params}'
                         environment:
