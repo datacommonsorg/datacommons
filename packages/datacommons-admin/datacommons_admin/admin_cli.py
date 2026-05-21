@@ -110,7 +110,7 @@ def _abort_bucket_setup(is_default: bool):
     )
     if is_default:
         click.secho(
-            "  Hint: Use --no-tf-remote-state to keep Terraform state local, or --tf-state-bucket to specify an existing bucket. See --help for more.",
+            "  Hint: Use --no-tf-remote-state to keep Terraform state local, or --tf-state-bucket to override the bucket name. See --help for more.",
             fg="bright_black",
         )
     # Use sys.exit(1) instead of click.Abort() to avoid being caught by broad
