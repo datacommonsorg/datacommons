@@ -44,9 +44,10 @@ resource "google_project_service" "apis" {
     "workflows.googleapis.com",
     "workflowexecutions.googleapis.com",
     "dataflow.googleapis.com"
-    ] : [], var.enable_bq_federation ? [
+    ] : [], var.dcp_enable_bq_federation ? [
     "bigqueryconnection.googleapis.com",
-    "bigquery.googleapis.com"
+    "bigquery.googleapis.com",
+    "bigqueryreservation.googleapis.com"
   ] : []))
 
   service            = each.key
@@ -76,6 +77,9 @@ locals {
     spanner_instance_id            = var.dcp_spanner_instance_id
     spanner_database_id            = var.dcp_spanner_database_id
     spanner_version_retention_period = var.dcp_spanner_version_retention_period
+    create_bq_reservation           = var.dcp_create_bq_reservation
+    bq_reservation_slot_capacity     = var.dcp_bq_reservation_slot_capacity
+    bq_reservation_max_slots        = var.dcp_bq_reservation_max_slots
     spanner_processing_units       = var.dcp_spanner_processing_units
     service_cpu                    = var.dcp_service_cpu
     service_memory                 = var.dcp_service_memory
@@ -88,8 +92,8 @@ locals {
     external_ingestion_bucket_name = var.dcp_external_ingestion_bucket_name
     ingestion_lock_timeout         = var.dcp_ingestion_lock_timeout
     ingestion_helper_image         = var.dcp_ingestion_helper_image
-    enable_bq_federation           = var.enable_bq_federation
-    bq_connection_name             = var.bq_connection_name
+    enable_bq_federation           = var.dcp_enable_bq_federation
+    bq_connection_name             = var.dcp_bq_connection_name
   }
 
   stack_cdc = {

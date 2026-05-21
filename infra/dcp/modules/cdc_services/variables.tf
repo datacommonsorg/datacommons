@@ -82,3 +82,9 @@ variable "secret_env_vars" {
     version = string
   }))
 }
+
+variable "cdc_bucket_name" {
+  type        = string
+  description = "Name of the GCS bucket for CDC data"
+  default     = ""
+}

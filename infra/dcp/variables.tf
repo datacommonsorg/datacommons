@@ -302,16 +302,34 @@ variable "cdc_search_scope" {
   default     = "base_and_custom"
 }
 
-variable "enable_bq_federation" {
+variable "dcp_enable_bq_federation" {
   description = "Enable BigQuery federation to Spanner"
   type        = bool
   default     = false
 }
 
-variable "bq_connection_name" {
+variable "dcp_bq_connection_name" {
   description = "BigQuery connection name for Spanner"
   type        = string
   default     = "spanner_connection"
+}
+
+variable "dcp_create_bq_reservation" {
+  description = "Create a new BigQuery reservation for federation queries"
+  type        = bool
+  default     = true
+}
+
+variable "dcp_bq_reservation_slot_capacity" {
+  description = "Baseline slots for BigQuery reservation"
+  type        = number
+  default     = 0
+}
+
+variable "dcp_bq_reservation_max_slots" {
+  description = "Max slots for BigQuery reservation autoscale"
+  type        = number
+  default     = 400
 }
 
 variable "cdc_enable_mcp" {

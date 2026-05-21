@@ -64,3 +64,21 @@ variable "spanner_version_retention_period" {
   description = "The version retention period for the Spanner database"
   default     = "6h"
 }
+
+variable "create_bq_reservation" {
+  type        = bool
+  description = "Create a new BigQuery reservation for federation queries"
+  default     = true
+}
+
+variable "bq_reservation_slot_capacity" {
+  type        = number
+  description = "Baseline slots for BigQuery reservation"
+  default     = 0
+}
+
+variable "bq_reservation_max_slots" {
+  type        = number
+  description = "Max slots for BigQuery reservation autoscale"
+  default     = 400
+}
