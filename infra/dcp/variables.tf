@@ -164,26 +164,26 @@ variable "cdc_google_analytics_tag_id" {
   default     = null
 }
 
-variable "cdc_gcs_data_bucket_name" {
-  description = "CDC data bucket"
+variable "ingestion_prep_bucket_name" {
+  description = "GCS bucket name for landing files and pre-processing"
   type        = string
   default     = ""
 }
 
-variable "cdc_gcs_data_bucket_input_folder" {
-  description = "CDC input folder"
+variable "ingestion_prep_bucket_input_folder" {
+  description = "Folder within the bucket where raw files are uploaded"
   type        = string
   default     = "input"
 }
 
-variable "cdc_gcs_data_bucket_output_folder" {
-  description = "CDC output folder"
+variable "ingestion_prep_bucket_output_folder" {
+  description = "Folder where pre-processed files are placed for the next stage"
   type        = string
   default     = "output"
 }
 
-variable "cdc_gcs_data_bucket_location" {
-  description = "CDC bucket location"
+variable "ingestion_prep_bucket_location" {
+  description = "GCS region for the pre-processing bucket"
   type        = string
   default     = "US"
 }
@@ -232,26 +232,26 @@ variable "datacommons_service_memory" {
 }
 
 
-variable "cdc_data_job_image" {
-  description = "CDC data job image"
+variable "ingestion_prep_job_image" {
+  description = "Docker image URL for the data ingestion pre-processing job"
   type        = string
   default     = "gcr.io/datcom-ci/datacommons-data:latest"
 }
 
-variable "cdc_data_job_cpu" {
-  description = "CDC data job CPU"
+variable "ingestion_prep_job_cpu" {
+  description = "CPU limit for the pre-processing job container"
   type        = string
   default     = "8"
 }
 
-variable "cdc_data_job_memory" {
-  description = "CDC data job RAM"
+variable "ingestion_prep_job_memory" {
+  description = "Memory limit for the pre-processing job container"
   type        = string
   default     = "32G"
 }
 
-variable "cdc_data_job_timeout" {
-  description = "CDC data job timeout"
+variable "ingestion_prep_job_timeout" {
+  description = "Request timeout for the pre-processing job"
   type        = string
   default     = "21600s"
 }
@@ -348,32 +348,32 @@ variable "redis_replica_count" {
 }
 
 # --- Ingestion Pipeline Config ---
-variable "dcp_deploy_data_ingestion_workflow" {
+variable "deploy_ingestion_workflow" {
   description = "Deploy the complete end-to-end Data Commons Ingestion workflow stack"
   type        = bool
   default     = true
 }
 
-variable "dcp_create_ingestion_bucket" {
-  description = "Create a dedicated ingestion bucket for the DCP ingestion workflow"
+variable "create_ingestion_bucket" {
+  description = "Create a dedicated ingestion bucket for the ingestion workflow"
   type        = bool
   default     = true
 }
 
-variable "dcp_external_ingestion_bucket_name" {
-  description = "Existing external bucket name to use when dcp_create_ingestion_bucket is false"
+variable "ingestion_bucket_name" {
+  description = "The name of the ingestion bucket (used for creation if create_ingestion_bucket is true, or as the existing bucket name if false)"
   type        = string
   default     = ""
 }
 
-variable "dcp_ingestion_lock_timeout" {
+variable "ingestion_lock_timeout" {
   description = "Timeout for the ingestion lock in seconds"
   type        = number
   default     = 82800
 }
 
-variable "dcp_ingestion_helper_image" {
-  description = "Docker image URL for the DCP ingestion helper service"
+variable "ingestion_service_image" {
+  description = "Docker image URL for the ingestion support service"
   type        = string
   default     = "gcr.io/datcom-ci/datacommons-ingestion-helper:latest"
 }

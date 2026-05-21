@@ -49,7 +49,7 @@ locals {
     },
     {
       name  = "INGESTION_WORKFLOW_NAME"
-      value = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow && module.dcp_ingestion_workflow[0].ingestion_orchestrator_name != null ? module.dcp_ingestion_workflow[0].ingestion_orchestrator_name : ""
+      value = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow && module.ingestion_workflow[0].ingestion_orchestrator_name != null ? module.ingestion_workflow[0].ingestion_orchestrator_name : ""
     },
     {
       name  = "TEMP_LOCATION"
@@ -103,10 +103,10 @@ module "spanner" {
   spanner_database_id      = var.dcp.spanner_database_id
   spanner_processing_units = var.dcp.spanner_processing_units
   deletion_protection      = var.shared.deletion_protection
-  orchestrator_email       = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow && module.dcp_ingestion_dataflow[0].orchestrator_email != null ? module.dcp_ingestion_dataflow[0].orchestrator_email : ""
+  orchestrator_email       = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow && module.ingestion_dataflow[0].orchestrator_email != null ? module.ingestion_dataflow[0].orchestrator_email : ""
   enable_bq_federation       = var.dcp.enable_bq_federation
   bq_connection_name         = var.dcp.bq_connection_name
-  ingestion_helper_sa_email = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow ? module.dcp_ingestion_dataflow[0].ingestion_runner_email : ""
+  ingestion_helper_sa_email = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow ? module.ingestion_dataflow[0].ingestion_runner_email : ""
   spanner_version_retention_period = var.dcp.spanner_version_retention_period
   create_bq_reservation           = var.dcp.create_bq_reservation
   bq_reservation_slot_capacity     = var.dcp.bq_reservation_slot_capacity
@@ -133,7 +133,7 @@ module "platform_service" {
   make_service_public     = var.shared.make_services_public
   spanner_instance_id     = module.spanner[0].spanner_instance_id
   spanner_database_id     = module.spanner[0].spanner_database_id
-  orchestrator_email       = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow && module.dcp_ingestion_dataflow[0].orchestrator_email != null ? module.dcp_ingestion_dataflow[0].orchestrator_email : ""
+  orchestrator_email       = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow && module.ingestion_dataflow[0].orchestrator_email != null ? module.ingestion_dataflow[0].orchestrator_email : ""
 }
 
 module "storage" {
@@ -156,11 +156,11 @@ module "storage" {
   # Shared vars
   project_id         = var.shared.project_id
   namespace          = var.shared.namespace
-  orchestrator_email = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow && module.dcp_ingestion_dataflow[0].orchestrator_email != null ? module.dcp_ingestion_dataflow[0].orchestrator_email : ""
+  orchestrator_email = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow && module.ingestion_dataflow[0].orchestrator_email != null ? module.ingestion_dataflow[0].orchestrator_email : ""
 }
 
-module "dcp_ingestion_dataflow" {
-  source = "../dcp_ingestion_dataflow"
+module "ingestion_dataflow" {
+  source = "../ingestion_dataflow"
   count  = local.enable_dcp ? 1 : 0
 
   deploy                = var.dcp.deploy_data_ingestion_workflow
@@ -173,8 +173,8 @@ module "dcp_ingestion_dataflow" {
   ingestion_bucket_name = module.storage.dcp_bucket_name
 }
 
-module "dcp_ingestion_helper" {
-  source = "../dcp_ingestion_helper"
+module "ingestion_service" {
+  source = "../ingestion_service"
   count  = local.enable_dcp ? 1 : 0
 
   deploy                = var.dcp.deploy_data_ingestion_workflow
@@ -186,13 +186,13 @@ module "dcp_ingestion_helper" {
   spanner_database_id   = module.spanner[0].spanner_database_id
   bq_connection_id      = module.spanner[0].bq_connection_id
   ingestion_bucket_name  = module.storage.dcp_bucket_name
-  service_account_email  = module.dcp_ingestion_dataflow[0].ingestion_runner_email
+  service_account_email  = module.ingestion_dataflow[0].ingestion_runner_email
   ingestion_helper_image = var.dcp.ingestion_helper_image
-  orchestrator_email     = var.dcp.deploy_data_ingestion_workflow && module.dcp_ingestion_dataflow[0].orchestrator_email != null ? module.dcp_ingestion_dataflow[0].orchestrator_email : ""
+  orchestrator_email     = var.dcp.deploy_data_ingestion_workflow && module.ingestion_dataflow[0].orchestrator_email != null ? module.ingestion_dataflow[0].orchestrator_email : ""
 }
 
-module "dcp_ingestion_workflow" {
-  source = "../dcp_ingestion_workflow"
+module "ingestion_workflow" {
+  source = "../ingestion_workflow"
   count  = local.enable_dcp ? 1 : 0
 
   deploy                 = var.dcp.deploy_data_ingestion_workflow
@@ -201,10 +201,10 @@ module "dcp_ingestion_workflow" {
   deletion_protection    = var.shared.deletion_protection
   project_id             = var.shared.project_id
   ingestion_lock_timeout = var.dcp.ingestion_lock_timeout
-  ingestion_helper_uri   = module.dcp_ingestion_helper[0].ingestion_helper_uri
-  ingestion_runner_id    = module.dcp_ingestion_dataflow[0].ingestion_runner_id
-  ingestion_runner_email = module.dcp_ingestion_dataflow[0].ingestion_runner_email
-  orchestrator_email     = var.dcp.deploy_data_ingestion_workflow && module.dcp_ingestion_dataflow[0].orchestrator_email != null ? module.dcp_ingestion_dataflow[0].orchestrator_email : ""
+  ingestion_helper_uri   = module.ingestion_service[0].ingestion_helper_uri
+  ingestion_runner_id    = module.ingestion_dataflow[0].ingestion_runner_id
+  ingestion_runner_email = module.ingestion_dataflow[0].ingestion_runner_email
+  orchestrator_email     = var.dcp.deploy_data_ingestion_workflow && module.ingestion_dataflow[0].orchestrator_email != null ? module.ingestion_dataflow[0].orchestrator_email : ""
   enable_bq_federation   = var.dcp.enable_bq_federation
 }
 
@@ -251,8 +251,8 @@ module "cdc_iam" {
   use_spanner         = local.cdc_use_spanner
 }
 
-module "cdc_data_ingestion_job" {
-  source = "../cdc_data_ingestion_job"
+module "ingestion_prep_job" {
+  source = "../ingestion_prep_job"
   count  = local.enable_cdc ? 1 : 0
 
   project_id                    = var.shared.project_id
@@ -272,7 +272,7 @@ module "cdc_data_ingestion_job" {
   use_spanner                   = local.cdc_use_spanner
   env_vars                      = local.cdc_cloud_run_shared_env_variables
   secret_env_vars               = local.cdc_cloud_run_shared_env_variable_secrets
-  orchestrator_email            = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow && module.dcp_ingestion_dataflow[0].orchestrator_email != null ? module.dcp_ingestion_dataflow[0].orchestrator_email : ""
+  orchestrator_email            = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow && module.ingestion_dataflow[0].orchestrator_email != null ? module.ingestion_dataflow[0].orchestrator_email : ""
 
   depends_on = [module.cdc_iam]
 }
@@ -302,7 +302,7 @@ module "datacommons_service" {
   env_vars                          = local.cdc_cloud_run_shared_env_variables
   secret_env_vars                   = local.cdc_cloud_run_shared_env_variable_secrets
 
-  depends_on = [module.cdc_data_ingestion_job]
+  depends_on = [module.ingestion_prep_job]
 }
 
 check "spanner_instance_id_provided" {
@@ -316,7 +316,7 @@ resource "google_storage_bucket_iam_member" "dataflow_cdc_bucket_access" {
   count  = local.enable_cdc && local.enable_dcp && var.dcp.deploy_data_ingestion_workflow ? 1 : 0
   bucket = module.storage.cdc_bucket_name
   role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${module.dcp_ingestion_dataflow[0].ingestion_runner_email}"
+  member = "serviceAccount:${module.ingestion_dataflow[0].ingestion_runner_email}"
 }
 
 # This is only needed to trigger the services restart to pick up the GCS embeddings change
@@ -324,6 +324,6 @@ resource "google_service_account_iam_member" "ingestion_runner_act_as_cdc_sa" {
   count              = local.enable_cdc && local.enable_dcp && var.dcp.deploy_data_ingestion_workflow ? 1 : 0
   service_account_id = "projects/${var.shared.project_id}/serviceAccounts/${module.cdc_iam[0].service_account_email}"
   role               = "roles/iam.serviceAccountUser"
-  member             = "serviceAccount:${module.dcp_ingestion_dataflow[0].ingestion_runner_email}"
+  member             = "serviceAccount:${module.ingestion_dataflow[0].ingestion_runner_email}"
 }
 

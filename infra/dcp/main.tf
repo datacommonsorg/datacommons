@@ -87,11 +87,11 @@ locals {
     service_max_instances          = var.platform_service_max_instances
     service_concurrency            = var.platform_service_concurrency
     service_timeout_seconds        = var.platform_service_timeout_seconds
-    deploy_data_ingestion_workflow = var.dcp_deploy_data_ingestion_workflow
-    create_ingestion_bucket        = var.dcp_create_ingestion_bucket
-    external_ingestion_bucket_name = var.dcp_external_ingestion_bucket_name
-    ingestion_lock_timeout         = var.dcp_ingestion_lock_timeout
-    ingestion_helper_image         = var.dcp_ingestion_helper_image
+    deploy_data_ingestion_workflow = var.deploy_ingestion_workflow
+    create_ingestion_bucket        = var.create_ingestion_bucket
+    external_ingestion_bucket_name = var.ingestion_bucket_name
+    ingestion_lock_timeout         = var.ingestion_lock_timeout
+    ingestion_helper_image         = var.ingestion_service_image
     enable_bq_federation           = var.enable_bq_federation
     bq_connection_name             = var.bq_connection_name
   }
@@ -101,10 +101,10 @@ locals {
     maps_api_key                   = var.cdc_maps_api_key
     disable_google_maps            = var.cdc_disable_google_maps
     google_analytics_tag_id        = var.cdc_google_analytics_tag_id
-    gcs_data_bucket_name           = var.cdc_gcs_data_bucket_name
-    gcs_data_bucket_input_folder   = var.cdc_gcs_data_bucket_input_folder
-    gcs_data_bucket_output_folder  = var.cdc_gcs_data_bucket_output_folder
-    gcs_data_bucket_location       = var.cdc_gcs_data_bucket_location
+    gcs_data_bucket_name           = var.ingestion_prep_bucket_name
+    gcs_data_bucket_input_folder   = var.ingestion_prep_bucket_input_folder
+    gcs_data_bucket_output_folder  = var.ingestion_prep_bucket_output_folder
+    gcs_data_bucket_location       = var.ingestion_prep_bucket_location
     vpc_connector_cidr             = var.vpc_connector_cidr
     vpc_network_name               = var.vpc_network_name
     web_service_image              = var.datacommons_service_image
@@ -112,10 +112,10 @@ locals {
     web_service_max_instance_count = var.datacommons_service_max_instances
     web_service_cpu                = var.datacommons_service_cpu
     web_service_memory             = var.datacommons_service_memory
-    data_job_image                 = var.cdc_data_job_image
-    data_job_cpu                   = var.cdc_data_job_cpu
-    data_job_memory                = var.cdc_data_job_memory
-    data_job_timeout               = var.cdc_data_job_timeout
+    data_job_image                 = var.ingestion_prep_job_image
+    data_job_cpu                   = var.ingestion_prep_job_cpu
+    data_job_memory                = var.ingestion_prep_job_memory
+    data_job_timeout               = var.ingestion_prep_job_timeout
     enable_redis                   = var.cdc_enable_redis
     redis_instance_name            = var.cdc_redis_instance_name
     redis_memory_size_gb           = var.redis_memory_size_gb
