@@ -29,6 +29,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                 spannerDatabaseId: '$${input.spannerDatabaseId}'
                 importList: '$${input.importList}'
                 tempLocation: '$${input.tempLocation}'
+                stagingLocation: '$${input.tempLocation}'
                 forceCombineNodes: 'true'
       - acquire_lock:
           try:
