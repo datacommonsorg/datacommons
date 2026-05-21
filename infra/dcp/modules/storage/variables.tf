@@ -1,11 +1,3 @@
-variable "enable_platform_service" {
-  type = bool
-}
-
-variable "enable_datacommons_service" {
-  type = bool
-}
-
 variable "project_id" {
   type = string
 }
@@ -14,11 +6,11 @@ variable "namespace" {
   type = string
 }
 
-variable "deploy_pipeline" {
+variable "deploy_workflow" {
   type = bool
 }
 
-variable "create_pipeline_bucket" {
+variable "create_workflow_bucket" {
   type = bool
 }
 
@@ -38,11 +30,11 @@ variable "ingestion_input_bucket_name" {
   type = string
 }
 
-variable "prep_bucket_location" {
+variable "input_bucket_location" {
   type = string
 }
 
-variable "create_prep_bucket" {
+variable "create_input_bucket" {
   type    = bool
   default = true
 }

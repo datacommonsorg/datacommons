@@ -20,22 +20,22 @@ output "datacommons_service_name" {
 
 output "ingestion_workflow_id" {
   description = "ID of the ingestion Cloud Workflows orchestrator"
-  value       = one(module.ingestion_workflow[*].ingestion_orchestrator_id)
+  value       = module.ingestion_workflow.ingestion_orchestrator_id
 }
 
 output "ingestion_bucket_url" {
   description = "GCS URL pointing directly to the dynamically provisioned bucket for your input graph MCF files"
-  value       = var.platform_service_config.enable && var.ingestion_config.deploy_workflow ? module.storage.pipeline_bucket_url : null
+  value       = var.ingestion_config.deploy_workflow ? module.storage.ingestion_workflow_bucket_url : null
 }
 
 output "ingestion_workflow_name" {
   description = "Name of the ingestion Cloud Workflows orchestrator"
-  value       = one(module.ingestion_workflow[*].ingestion_orchestrator_name)
+  value       = module.ingestion_workflow.ingestion_orchestrator_name
 }
 
 output "ingestion_service_uri" {
   description = "URI of the ingestion support Cloud Run service"
-  value       = one(module.ingestion_service[*].ingestion_helper_uri)
+  value       = module.ingestion_service.ingestion_helper_uri
 }
 
 output "ingestion_prep_job_name" {
@@ -45,7 +45,7 @@ output "ingestion_prep_job_name" {
 
 output "ingestion_orchestrator_service_account_email" {
   description = "Email of the orchestrator service account used by CLI and Workflows"
-  value       = one(module.ingestion_dataflow[*].orchestrator_email)
+  value       = module.ingestion_dataflow.orchestrator_email
 }
 
 output "ingestion_input_bucket_name" {
