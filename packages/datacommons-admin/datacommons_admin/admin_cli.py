@@ -35,12 +35,12 @@ GITHUB_REPO_URL = "https://github.com/datacommonsorg/datacommons.git"
 
 
 def _get_default_bucket_name(namespace: str, project_id: str) -> str:
-    """Returns the default GCS bucket name for Terraform state."""
+    """Returns the default Google Cloud Storage bucket name for Terraform state."""
     return f"tf-state-{namespace}-{project_id}"
 
 
 def _get_default_state_prefix(namespace: str) -> str:
-    """Returns the default GCS object prefix for Terraform state."""
+    """Returns the default Google Cloud Storage object prefix for Terraform state."""
     return f"terraform/state/{namespace}"
 
 
@@ -75,7 +75,7 @@ def _create_and_configure_bucket(
     project_id: str,
     location: str = DEFAULT_BUCKET_LOCATION,
 ) -> bool:
-    """Prompts and creates a GCS bucket, enables versioning, and sets IAM policy.
+    """Prompts and creates a Google Cloud Storage bucket, enables versioning, and sets IAM policy.
 
     Returns True if created, False if cancelled.
     """
@@ -83,7 +83,7 @@ def _create_and_configure_bucket(
     click.echo(f"  - {'Project'.ljust(12)}: {project_id}")
     _log_resolved_value("Location", location, location == DEFAULT_BUCKET_LOCATION)
 
-    if not _confirm(" Create this bucket?", indent=2, default=True):
+    if not _confirm("Create this bucket?", indent=2, default=True):
         return False
 
     click.secho(
@@ -105,7 +105,7 @@ def _create_and_configure_bucket(
 
 def _abort_bucket_setup(is_default: bool):
     click.secho(
-        "  No bucket available for remote Terraform state storage. Cancelling setup",
+        "  No bucket available for remote Terraform state storage. Cancelling setup.",
         fg="red",
     )
     if is_default:
@@ -134,7 +134,7 @@ def _ensure_bucket_ready(
         click.echo(f"  - {'Status'.ljust(12)}: Found")
         # Only prompt to reuse if it was the default bucket
         if is_default:
-            if not _confirm(" Use this bucket?", indent=2, default=True):
+            if not _confirm("Use this bucket?", indent=2, default=True):
                 _abort_bucket_setup(is_default)
         else:
             click.echo("  Proceeding...")
@@ -154,12 +154,12 @@ def _configure_remote_state(
     bucket_name: str = "",
     location: str = DEFAULT_BUCKET_LOCATION,
 ) -> str:
-    """Handles GCS state bucket verification, creation, and IAM setup."""
+    """Handles Google Cloud Storage state bucket verification, creation, and IAM setup."""
     try:
         storage_client = storage.Client(project=project_id)
     except Exception as e:
         raise click.ClickException(
-            f"Failed to initialize GCS client for project '{project_id}': {e}. "
+            f"Failed to initialize Google Cloud Storage client for project '{project_id}': {e}. "
             "Ensure you are authenticated via 'gcloud auth application-default login'."
         )
 
@@ -168,7 +168,9 @@ def _configure_remote_state(
         bucket_name = _get_default_bucket_name(namespace, project_id)
         is_default = True
 
-    click.echo("Setting up GCS Bucket for storing terraform state remotely:")
+    click.echo(
+        "Setting up Google Cloud Storage bucket for storing terraform state remotely:"
+    )
     _log_resolved_value("Name", bucket_name, is_default)
 
     try:
@@ -237,14 +239,16 @@ def _resolve_project_config(
 
     resolved_project_id = project_id.strip()
     if not resolved_project_id:
-        resolved_project_id = _prompt(" GCP project id", indent=2, type=str).strip()
+        resolved_project_id = _prompt(
+            "Google Cloud Platform project ID", indent=2, type=str
+        ).strip()
     if not resolved_project_id:
-        raise click.ClickException("GCP project id must not be empty.")
+        raise click.ClickException("GCP project ID must not be empty.")
 
     resolved_namespace = namespace.strip()
     while True:
         if not resolved_namespace:
-            resolved_namespace = _prompt(" Namespace", indent=2, type=str).strip()
+            resolved_namespace = _prompt("Namespace", indent=2, type=str).strip()
             if not resolved_namespace:
                 click.secho("Error: Namespace must not be empty.", fg="red")
                 continue
@@ -299,7 +303,7 @@ def _setup_dcp_config_dir(
     api_key = dc_api_key.strip()
     if not api_key:
         api_key = _prompt(
-            " Data Commons API key (from apikeys.datacommons.org)",
+            "Data Commons API key (from apikeys.datacommons.org)",
             indent=2,
             type=str,
             default="",
@@ -369,7 +373,9 @@ def _setup_dcp_config_dir(
 
 @admin.command()
 @click.option(
-    "--project-id", default="", help="GCP project id to initialize into tfvars."
+    "--project-id",
+    default="",
+    help="Google Cloud Platform project ID used for all resources related to your Data Commons instance.",
 )
 @click.option(
     "--namespace", default="", help="Namespace prefix for provisioned resources."
@@ -384,23 +390,23 @@ def _setup_dcp_config_dir(
 @click.option(
     "--tf-remote-state/--no-tf-remote-state",
     default=True,
-    help="Enable or disable Terraform remote state management in GCS.",
+    help="Enable or disable Terraform remote state management in Google Cloud Storage. Disabling ignores other --tf-state-* flags.",
 )
 @click.option(
     "--tf-state-bucket",
     default="",
-    help="Specify a custom GCS bucket name for Terraform remote state (defaults to auto-generated name).",
+    help="Google Cloud Storage bucket for Terraform remote state. Generates a default name if omitted. Prompts to create the bucket if it is missing.",
 )
 @click.option(
     "--tf-state-bucket-location",
     default=DEFAULT_BUCKET_LOCATION,
     show_default=True,
-    help="GCS bucket location if a new bucket needs to be created.",
+    help="Google Cloud Storage bucket location if a new bucket needs to be created.",
 )
 @click.option(
     "--tf-state-prefix",
     default="",
-    help="GCS object prefix for Terraform state file (default: terraform/state/{namespace}).",
+    help="Google Cloud Storage object prefix for Terraform state file (default: terraform/state/{namespace}).",
 )
 def init(
     project_id: str,
