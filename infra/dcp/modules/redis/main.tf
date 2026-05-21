@@ -17,3 +17,14 @@ resource "google_redis_instance" "redis_instance" {
   authorized_network      = var.vpc_network_id
   connect_mode            = "DIRECT_PEERING"
 }
+
+resource "google_vpc_access_connector" "connector" {
+  count         = var.enable_connector ? 1 : 0
+  name          = "${local.name_prefix}dcp-vpc-conn"
+
+  region        = var.region
+  network       = var.vpc_network_id
+  ip_cidr_range = var.vpc_connector_cidr
+  min_instances = 2
+  max_instances = 10
+}

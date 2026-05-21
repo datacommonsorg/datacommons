@@ -170,20 +170,6 @@ module "ingestion_workflow" {
 
 
 
-module "networking" {
-  source = "../networking"
-  count  = 1
-
-  namespace          = var.global.namespace
-  region             = var.global.region
-  vpc_network_name   = var.redis_config.vpc_network_name
-  vpc_connector_cidr = var.redis_config.vpc_connector_cidr
-  enable_connector   = var.redis_config.enable
-}
-
-
-
-
 module "redis" {
   source = "../redis"
   count  = var.redis_config.enable ? 1 : 0
@@ -197,6 +183,8 @@ module "redis" {
   redis_alternative_location_id = var.redis_config.alternative_location_id
   redis_replica_count           = var.redis_config.replica_count
   vpc_network_id                = data.google_compute_network.default.id
+  vpc_connector_cidr            = var.redis_config.vpc_connector_cidr
+  enable_connector              = true
 }
 
 module "iam" {
@@ -223,7 +211,7 @@ module "ingestion_prep_job" {
   dc_data_job_memory            = var.ingestion_config.prep_job_memory
   dc_data_job_timeout           = var.ingestion_config.prep_job_timeout
   service_account_email         = module.iam.service_account_email
-  vpc_connector_id              = module.networking[0].connector_id
+  vpc_connector_id              = var.redis_config.enable ? module.redis[0].connector_id : null
   bucket_name                   = module.storage.ingestion_input_bucket_name
   gcs_data_bucket_input_folder  = var.ingestion_config.ingestion_input_folder
   gcs_data_bucket_output_folder = var.ingestion_config.ingestion_output_folder
@@ -255,7 +243,7 @@ module "datacommons_service" {
   enable_mcp                        = var.datacommons_service_config.enable_mcp
   prep_bucket_name                   = module.storage.ingestion_input_bucket_name
   service_account_email             = module.iam.service_account_email
-  vpc_connector_id                  = module.networking[0].connector_id
+  vpc_connector_id                  = var.redis_config.enable ? module.redis[0].connector_id : null
   use_spanner                       = true
   mysql_connection_name             = ""
   env_vars                          = local.cloud_run_shared_env_variables
