@@ -3,7 +3,7 @@ data "google_compute_network" "default" {
 }
 
 locals {
-  enable_dcp = var.platform_service_config.enable
+  enable_platform_service = var.platform_service_config.enable
 
   redis_host = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
   redis_port = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
@@ -102,7 +102,7 @@ module "spanner" {
 
 module "platform_service" {
   source = "../platform_service"
-  count  = local.enable_dcp ? 1 : 0
+  count  = local.enable_platform_service ? 1 : 0
 
   namespace               = var.global.namespace
   project_id              = var.global.project_id
@@ -120,13 +120,13 @@ module "platform_service" {
   make_service_public     = var.global.allow_unauthenticated_access
   spanner_instance_id     = module.spanner.spanner_instance_id
   spanner_database_id     = module.spanner.spanner_database_id
-  orchestrator_email       = local.enable_dcp && var.ingestion_config.deploy_workflow && module.ingestion_dataflow[0].orchestrator_email != null ? module.ingestion_dataflow[0].orchestrator_email : ""
+  orchestrator_email       = local.enable_platform_service && var.ingestion_config.deploy_workflow && module.ingestion_dataflow[0].orchestrator_email != null ? module.ingestion_dataflow[0].orchestrator_email : ""
 }
 
 module "storage" {
   source = "../storage"
 
-  enable_dcp           = local.enable_dcp
+  enable_platform_service = local.enable_platform_service
   enable_datacommons_service = var.datacommons_service_config.enable
   
   # DCP vars
@@ -136,7 +136,7 @@ module "storage" {
   region                 = var.global.region
   deletion_protection    = var.global.deletion_protection
   
-  # CDC vars
+  # Prep bucket vars
   prep_bucket_name     = var.ingestion_config.prep_bucket_name
   prep_bucket_location = var.ingestion_config.prep_bucket_location
   
@@ -148,7 +148,7 @@ module "storage" {
 
 module "ingestion_dataflow" {
   source = "../ingestion_dataflow"
-  count  = local.enable_dcp ? 1 : 0
+  count  = local.enable_platform_service ? 1 : 0
 
   deploy                = var.ingestion_config.deploy_workflow
   project_id            = var.global.project_id
@@ -162,7 +162,7 @@ module "ingestion_dataflow" {
 
 module "ingestion_service" {
   source = "../ingestion_service"
-  count  = local.enable_dcp ? 1 : 0
+  count  = local.enable_platform_service ? 1 : 0
 
   deploy                = var.ingestion_config.deploy_workflow
   project_id            = var.global.project_id
@@ -180,7 +180,7 @@ module "ingestion_service" {
 
 module "ingestion_workflow" {
   source = "../ingestion_workflow"
-  count  = local.enable_dcp ? 1 : 0
+  count  = local.enable_platform_service ? 1 : 0
 
   deploy                 = var.ingestion_config.deploy_workflow
   namespace              = var.global.namespace
@@ -258,7 +258,7 @@ module "ingestion_prep_job" {
   use_spanner                   = true
   env_vars                      = local.cloud_run_shared_env_variables
   secret_env_vars               = local.datacommons_service_secrets
-  orchestrator_email            = local.enable_dcp && var.ingestion_config.deploy_workflow && module.ingestion_dataflow[0].orchestrator_email != null ? module.ingestion_dataflow[0].orchestrator_email : ""
+  orchestrator_email            = local.enable_platform_service && var.ingestion_config.deploy_workflow && module.ingestion_dataflow[0].orchestrator_email != null ? module.ingestion_dataflow[0].orchestrator_email : ""
 
   depends_on = [module.iam]
 }

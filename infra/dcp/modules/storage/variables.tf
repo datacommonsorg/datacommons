@@ -1,4 +1,4 @@
-variable "enable_dcp" {
+variable "enable_platform_service" {
   type = bool
 }
 
