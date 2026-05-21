@@ -83,7 +83,7 @@ def _create_and_configure_bucket(
     click.echo(f"  - {'Project'.ljust(12)}: {project_id}")
     _log_resolved_value("Location", location, location == DEFAULT_BUCKET_LOCATION)
 
-    if not _confirm("Create this bucket?", indent=2, default=True):
+    if not _confirm("Create this bucket?", default=True):
         return False
 
     click.secho(
@@ -134,7 +134,7 @@ def _ensure_bucket_ready(
         click.echo(f"  - {'Status'.ljust(12)}: Found")
         # Only prompt to reuse if it was the default bucket
         if is_default:
-            if not _confirm("Use this bucket?", indent=2, default=True):
+            if not _confirm("Use this bucket?", default=True):
                 _abort_bucket_setup(is_default)
         else:
             click.echo("  Proceeding...")
@@ -240,7 +240,7 @@ def _resolve_project_config(
     resolved_project_id = project_id.strip()
     if not resolved_project_id:
         resolved_project_id = _prompt(
-            "Google Cloud Platform project ID", indent=2, type=str
+            "Google Cloud Platform project ID", type=str
         ).strip()
     if not resolved_project_id:
         raise click.ClickException("GCP project ID must not be empty.")
@@ -248,7 +248,7 @@ def _resolve_project_config(
     resolved_namespace = namespace.strip()
     while True:
         if not resolved_namespace:
-            resolved_namespace = _prompt("Namespace", indent=2, type=str).strip()
+            resolved_namespace = _prompt("Namespace", type=str).strip()
             if not resolved_namespace:
                 click.secho("Error: Namespace must not be empty.", fg="red")
                 continue
@@ -304,7 +304,6 @@ def _setup_dcp_config_dir(
     if not api_key:
         api_key = _prompt(
             "Data Commons API key (from apikeys.datacommons.org)",
-            indent=2,
             type=str,
             default="",
             show_default=False,
