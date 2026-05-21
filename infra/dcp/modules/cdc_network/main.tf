@@ -4,7 +4,7 @@ locals {
 
 resource "google_vpc_access_connector" "connector" {
   count         = var.use_spanner ? 0 : 1
-  name          = "${local.name_prefix}vpc-conn"
+  name          = "${local.name_prefix}dcp-vpc-conn"
 
   region        = var.region
   network       = var.vpc_network_name

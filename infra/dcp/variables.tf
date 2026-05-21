@@ -61,38 +61,38 @@ variable "dcp_service_account_name" {
   default     = "dcp-sa"
 }
 
-variable "dcp_create_spanner_instance" {
-  description = "Create a new Spanner instance for DCP"
+variable "create_spanner_instance" {
+  description = "Create a new Spanner instance"
   type        = bool
   default     = false
 }
 
-variable "dcp_create_spanner_db" {
-  description = "Create a new Spanner database for DCP"
+variable "create_spanner_db" {
+  description = "Create a new Spanner database within the specified spanner_instance_id"
   type        = bool
   default     = true
 }
 
-variable "dcp_spanner_instance_id" {
-  description = "Spanner instance for DCP"
+variable "spanner_instance_id" {
+  description = "The ID of the Spanner instance"
   type        = string
   default     = ""
 }
 
-variable "dcp_spanner_database_id" {
-  description = "Spanner database for DCP"
+variable "spanner_database_id" {
+  description = "The ID of the Spanner database"
   type        = string
   default     = "dcp-db"
 }
 
-variable "dcp_spanner_version_retention_period" {
-  description = "Spanner database version retention period"
+variable "spanner_version_retention_period" {
+  description = "Spanner database version retention period (e.g., 6h)"
   type        = string
   default     = "6h"
 }
 
-variable "dcp_spanner_processing_units" {
-  description = "Spanner units for DCP"
+variable "spanner_processing_units" {
+  description = "Compute capacity for the Spanner instance in processing units (1000 = 1 node)"
   type        = number
   default     = 1000
 }
@@ -189,8 +189,8 @@ variable "cdc_gcs_data_bucket_location" {
 }
 
 
-variable "cdc_vpc_connector_cidr" {
-  description = "CIDR range for the CDC VPC Access Connector"
+variable "vpc_connector_cidr" {
+  description = "CIDR range for the VPC Access Connector"
   type        = string
   default     = "10.13.0.0/28"
 }
@@ -256,32 +256,32 @@ variable "cdc_search_scope" {
   default     = "base_and_custom"
 }
 
-variable "dcp_enable_bq_federation" {
-  description = "Enable BigQuery federation to Spanner"
+variable "enable_bq_federation" {
+  description = "Enable BigQuery federation to allow querying Spanner data via BigQuery"
   type        = bool
   default     = false
 }
 
-variable "dcp_bq_connection_name" {
-  description = "BigQuery connection name for Spanner"
+variable "bq_connection_name" {
+  description = "The name of the BigQuery external connection to Spanner"
   type        = string
   default     = "spanner_connection"
 }
 
-variable "dcp_create_bq_reservation" {
-  description = "Create a new BigQuery reservation for federation queries"
+variable "create_bq_reservation" {
+  description = "Create a dedicated BigQuery reservation for federation queries"
   type        = bool
   default     = true
 }
 
-variable "dcp_bq_reservation_slot_capacity" {
-  description = "Baseline slots for BigQuery reservation"
+variable "bq_reservation_slot_capacity" {
+  description = "Baseline compute slots for the BigQuery reservation"
   type        = number
   default     = 0
 }
 
-variable "dcp_bq_reservation_max_slots" {
-  description = "Max slots for BigQuery reservation autoscale"
+variable "bq_reservation_max_slots" {
+  description = "Maximum slots for BigQuery reservation autoscaling"
   type        = number
   default     = 400
 }
@@ -292,51 +292,51 @@ variable "cdc_enable_mcp" {
   default     = true
 }
 
-variable "cdc_vpc_network_name" {
-  description = "CDC VPC network"
+variable "vpc_network_name" {
+  description = "VPC network name"
   type        = string
   default     = "default"
 }
 
 
-variable "cdc_enable_redis" {
-  description = "CDC enable redis"
+variable "enable_redis" {
+  description = "Enable a Memorystore Redis instance for caching"
   type        = bool
   default     = false
 }
 
-variable "cdc_redis_instance_name" {
-  description = "CDC redis name"
+variable "redis_instance_name" {
+  description = "The name of the Redis instance"
   type        = string
-  default     = "datacommons-redis-instance"
+  default     = "dcp-redis-instance"
 }
 
-variable "cdc_redis_memory_size_gb" {
-  description = "CDC redis size"
+variable "redis_memory_size_gb" {
+  description = "The memory capacity of the Redis instance in GB"
   type        = number
   default     = 2
 }
 
-variable "cdc_redis_tier" {
-  description = "CDC redis tier"
+variable "redis_tier" {
+  description = "The service tier of the Redis instance (BASIC or STANDARD_HA)"
   type        = string
   default     = "STANDARD_HA"
 }
 
-variable "cdc_redis_location_id" {
-  description = "CDC redis zone"
+variable "redis_location_id" {
+  description = "The primary zone where the Redis instance will be located"
   type        = string
   default     = "us-central1-a"
 }
 
-variable "cdc_redis_alternative_location_id" {
-  description = "CDC redis alt zone"
+variable "redis_alternative_location_id" {
+  description = "The alternative zone for the failover Redis instance (required for STANDARD_HA tier)"
   type        = string
   default     = "us-central1-b"
 }
 
-variable "cdc_redis_replica_count" {
-  description = "CDC redis replicas"
+variable "redis_replica_count" {
+  description = "The number of read replicas for the Redis instance"
   type        = number
   default     = 1
 }

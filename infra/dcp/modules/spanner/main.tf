@@ -40,7 +40,7 @@ data "google_bigquery_default_service_account" "bq_sa" {
 resource "google_bigquery_connection" "spanner_connection" {
   count         = var.create_spanner_db && var.enable_bq_federation ? 1 : 0
   location      = var.region
-  connection_id = "${local.name_prefix}${var.bq_connection_name}"
+  connection_id = "${local.name_prefix}dcp-${var.bq_connection_name}"
   description   = "Federated connection to Spanner for custom DC"
 
   cloud_spanner {

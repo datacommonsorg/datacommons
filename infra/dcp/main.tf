@@ -72,15 +72,15 @@ locals {
     image_url                      = var.dcp_image_url
     service_name                   = var.dcp_service_name
     service_account_name           = var.dcp_service_account_name
-    create_spanner_instance        = var.dcp_create_spanner_instance
-    create_spanner_db              = var.dcp_create_spanner_db
-    spanner_instance_id            = var.dcp_spanner_instance_id
-    spanner_database_id            = var.dcp_spanner_database_id
-    spanner_version_retention_period = var.dcp_spanner_version_retention_period
-    create_bq_reservation           = var.dcp_create_bq_reservation
-    bq_reservation_slot_capacity     = var.dcp_bq_reservation_slot_capacity
-    bq_reservation_max_slots        = var.dcp_bq_reservation_max_slots
-    spanner_processing_units       = var.dcp_spanner_processing_units
+    create_spanner_instance        = var.create_spanner_instance
+    create_spanner_db              = var.create_spanner_db
+    spanner_instance_id            = var.spanner_instance_id
+    spanner_database_id            = var.spanner_database_id
+    spanner_version_retention_period = var.spanner_version_retention_period
+    create_bq_reservation           = var.create_bq_reservation
+    bq_reservation_slot_capacity     = var.bq_reservation_slot_capacity
+    bq_reservation_max_slots        = var.bq_reservation_max_slots
+    spanner_processing_units       = var.spanner_processing_units
     service_cpu                    = var.dcp_service_cpu
     service_memory                 = var.dcp_service_memory
     service_min_instances          = var.dcp_service_min_instances
@@ -92,8 +92,8 @@ locals {
     external_ingestion_bucket_name = var.dcp_external_ingestion_bucket_name
     ingestion_lock_timeout         = var.dcp_ingestion_lock_timeout
     ingestion_helper_image         = var.dcp_ingestion_helper_image
-    enable_bq_federation           = var.dcp_enable_bq_federation
-    bq_connection_name             = var.dcp_bq_connection_name
+    enable_bq_federation           = var.enable_bq_federation
+    bq_connection_name             = var.bq_connection_name
   }
 
   stack_cdc = {
@@ -105,8 +105,8 @@ locals {
     gcs_data_bucket_input_folder   = var.cdc_gcs_data_bucket_input_folder
     gcs_data_bucket_output_folder  = var.cdc_gcs_data_bucket_output_folder
     gcs_data_bucket_location       = var.cdc_gcs_data_bucket_location
-    vpc_connector_cidr             = var.cdc_vpc_connector_cidr
-    vpc_network_name               = var.cdc_vpc_network_name
+    vpc_connector_cidr             = var.vpc_connector_cidr
+    vpc_network_name               = var.vpc_network_name
     web_service_image              = var.cdc_web_service_image
     web_service_min_instance_count = var.cdc_web_service_min_instance_count
     web_service_max_instance_count = var.cdc_web_service_max_instance_count
@@ -118,11 +118,11 @@ locals {
     data_job_timeout               = var.cdc_data_job_timeout
     enable_redis                   = var.cdc_enable_redis
     redis_instance_name            = var.cdc_redis_instance_name
-    redis_memory_size_gb           = var.cdc_redis_memory_size_gb
-    redis_tier                     = var.cdc_redis_tier
-    redis_location_id              = var.cdc_redis_location_id
-    redis_alternative_location_id  = var.cdc_redis_alternative_location_id
-    redis_replica_count            = var.cdc_redis_replica_count
+    redis_memory_size_gb           = var.redis_memory_size_gb
+    redis_tier                     = var.redis_tier
+    redis_location_id              = var.redis_location_id
+    redis_alternative_location_id  = var.redis_alternative_location_id
+    redis_replica_count            = var.redis_replica_count
     search_scope                   = var.cdc_search_scope
     enable_mcp                     = var.cdc_enable_mcp
   }
