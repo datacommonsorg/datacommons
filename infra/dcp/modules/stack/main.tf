@@ -63,7 +63,7 @@ locals {
     }
   ]
 
-  cdc_cloud_run_shared_env_variable_secrets = var.datacommons_service_config.enable ? concat([
+  datacommons_service_secrets = var.datacommons_service_config.enable ? concat([
     {
       name    = "DC_API_KEY"
       secret  = module.iam.dc_api_key_secret_id
@@ -127,7 +127,7 @@ module "storage" {
   source = "../storage"
 
   enable_dcp           = local.enable_dcp
-  enable_cdc           = var.datacommons_service_config.enable
+  enable_datacommons_service = var.datacommons_service_config.enable
   
   # DCP vars
   deploy_pipeline        = var.ingestion_config.deploy_workflow
@@ -257,7 +257,7 @@ module "ingestion_prep_job" {
   run_db_init                   = false
   use_spanner                   = true
   env_vars                      = local.cloud_run_shared_env_variables
-  secret_env_vars               = local.cdc_cloud_run_shared_env_variable_secrets
+  secret_env_vars               = local.datacommons_service_secrets
   orchestrator_email            = local.enable_dcp && var.ingestion_config.deploy_workflow && module.ingestion_dataflow[0].orchestrator_email != null ? module.ingestion_dataflow[0].orchestrator_email : ""
 
   depends_on = [module.iam]
@@ -286,7 +286,7 @@ module "datacommons_service" {
   use_spanner                       = true
   mysql_connection_name             = ""
   env_vars                          = local.cloud_run_shared_env_variables
-  secret_env_vars                   = local.cdc_cloud_run_shared_env_variable_secrets
+  secret_env_vars                   = local.datacommons_service_secrets
 
   depends_on = [module.ingestion_prep_job]
 }

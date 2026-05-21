@@ -5,7 +5,7 @@ locals {
 }
 
 resource "google_storage_bucket" "prep_bucket" {
-  count                       = var.enable_cdc && var.create_prep_bucket ? 1 : 0
+  count                       = var.enable_datacommons_service && var.create_prep_bucket ? 1 : 0
   name                        = local.prep_bucket_name
   location                    = var.prep_bucket_location
   force_destroy               = true
@@ -21,7 +21,7 @@ resource "google_storage_bucket" "pipeline_bucket" {
 }
 
 resource "google_storage_bucket_iam_member" "orchestrator_prep_bucket" {
-  count  = var.enable_cdc && var.orchestrator_email != "" ? 1 : 0
+  count  = var.enable_datacommons_service && var.orchestrator_email != "" ? 1 : 0
   bucket = var.create_prep_bucket ? google_storage_bucket.prep_bucket[0].name : local.prep_bucket_name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${var.orchestrator_email}"

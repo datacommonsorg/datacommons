@@ -1,5 +1,5 @@
 output "prep_bucket_name" {
-  value = var.enable_cdc ? (var.create_prep_bucket ? google_storage_bucket.prep_bucket[0].name : local.prep_bucket_name) : null
+  value = var.enable_datacommons_service ? (var.create_prep_bucket ? google_storage_bucket.prep_bucket[0].name : local.prep_bucket_name) : null
 }
 
 output "pipeline_bucket_name" {

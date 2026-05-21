@@ -2,7 +2,7 @@ variable "enable_dcp" {
   type = bool
 }
 
-variable "enable_cdc" {
+variable "enable_datacommons_service" {
   type = bool
 }
 
