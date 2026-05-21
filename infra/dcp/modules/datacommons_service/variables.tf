@@ -83,8 +83,8 @@ variable "secret_env_vars" {
   }))
 }
 
-variable "cdc_bucket_name" {
+variable "prep_bucket_name" {
   type        = string
-  description = "Name of the GCS bucket for CDC data"
+  description = "Name of the GCS bucket for data ingestion pre-processing"
   default     = ""
 }

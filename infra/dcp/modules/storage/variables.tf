@@ -14,32 +14,37 @@ variable "namespace" {
   type = string
 }
 
-variable "dcp_deploy" {
+variable "deploy_pipeline" {
   type = bool
 }
 
-variable "dcp_create_bucket" {
+variable "create_pipeline_bucket" {
   type = bool
 }
 
-variable "dcp_external_bucket_name" {
+variable "pipeline_bucket_name" {
   type = string
 }
 
-variable "dcp_region" {
+variable "region" {
   type = string
 }
 
-variable "dcp_deletion_protection" {
+variable "deletion_protection" {
   type = bool
 }
 
-variable "cdc_gcs_data_bucket_name" {
+variable "prep_bucket_name" {
   type = string
 }
 
-variable "cdc_gcs_data_bucket_location" {
+variable "prep_bucket_location" {
   type = string
+}
+
+variable "create_prep_bucket" {
+  type    = bool
+  default = true
 }
 
 variable "orchestrator_email" {

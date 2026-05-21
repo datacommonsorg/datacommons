@@ -14,7 +14,7 @@ variable "vpc_connector_cidr" {
   type = string
 }
 
-variable "use_spanner" {
+variable "enable_connector" {
   type    = bool
   default = false
 }
