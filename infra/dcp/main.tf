@@ -40,7 +40,7 @@ resource "google_project_service" "apis" {
     "vpcaccess.googleapis.com",
     "artifactregistry.googleapis.com",
     "compute.googleapis.com"
-    ], (var.enable_platform_service || var.enable_datacommons_service) ? ["spanner.googleapis.com"] : [],
+    ], var.enable_datacommons_service ? ["spanner.googleapis.com"] : [],
     var.deploy_ingestion_workflow ? [
     "workflows.googleapis.com",
     "workflowexecutions.googleapis.com",
@@ -98,18 +98,6 @@ locals {
     instructions_dir     = var.mcp_instructions_dir
   }
 
-  platform_service_config = {
-    enable          = var.enable_platform_service
-    image           = var.platform_service_image
-    name            = var.platform_service_name
-    account_name    = var.platform_service_account_name
-    cpu             = var.platform_service_cpu
-    memory          = var.platform_service_memory
-    min_instances   = var.platform_service_min_instances
-    max_instances   = var.platform_service_max_instances
-    concurrency     = var.platform_service_concurrency
-    timeout_seconds = var.platform_service_timeout_seconds
-  }
 
   redis_config = {
     enable                  = var.enable_redis
@@ -151,7 +139,6 @@ module "stack" {
   spanner_config        = local.spanner_config
   bq_federation_config = local.bq_federation_config
   datacommons_service_config = local.datacommons_service_config
-  platform_service_config    = local.platform_service_config
   redis_config         = local.redis_config
   ingestion_config     = local.ingestion_config
 

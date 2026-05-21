@@ -3,7 +3,6 @@ data "google_compute_network" "default" {
 }
 
 locals {
-  enable_platform_service = var.platform_service_config.enable
 
   redis_host = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
   redis_port = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
@@ -100,28 +99,6 @@ module "spanner" {
   bq_reservation_max_slots        = var.bq_federation_config.max_slots
 }
 
-module "platform_service" {
-  source = "../platform_service"
-  count  = local.enable_platform_service ? 1 : 0
-
-  namespace               = var.global.namespace
-  project_id              = var.global.project_id
-  region                  = var.global.region
-  image_url               = var.platform_service_config.image
-  service_name            = var.platform_service_config.name
-  service_account_name    = var.platform_service_config.account_name
-  service_cpu             = var.platform_service_config.cpu
-  service_memory          = var.platform_service_config.memory
-  service_min_instances   = var.platform_service_config.min_instances
-  service_max_instances   = var.platform_service_config.max_instances
-  service_concurrency     = var.platform_service_config.concurrency
-  service_timeout_seconds = var.platform_service_config.timeout_seconds
-  deletion_protection     = var.global.deletion_protection
-  make_service_public     = var.global.allow_unauthenticated_access
-  spanner_instance_id     = module.spanner.spanner_instance_id
-  spanner_database_id     = module.spanner.spanner_database_id
-  orchestrator_email       = coalesce(module.ingestion_dataflow.orchestrator_email, "")
-}
 
 module "storage" {
   source = "../storage"
@@ -289,7 +266,7 @@ module "datacommons_service" {
 
 check "spanner_instance_id_provided" {
   assert {
-    condition     = !var.platform_service_config.enable || var.spanner_config.create_instance || var.spanner_config.instance_id != ""
+    condition     = !var.datacommons_service_config.enable || var.spanner_config.create_instance || var.spanner_config.instance_id != ""
     error_message = "spanner_instance_id must be provided when reusing an existing instance (create_spanner_instance = false)."
   }
 }

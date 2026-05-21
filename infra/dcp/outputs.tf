@@ -1,6 +1,3 @@
-output "platform_service_url" {
-  value = module.stack.platform_service_url
-}
 
 output "spanner_instance_id" {
   value = module.stack.spanner_instance_id

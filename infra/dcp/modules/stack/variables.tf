@@ -48,21 +48,6 @@ variable "datacommons_service_config" {
   })
 }
 
-variable "platform_service_config" {
-  type = object({
-    enable          = bool
-    image           = string
-    name            = string
-    account_name    = string
-    cpu             = string
-    memory          = string
-    min_instances   = number
-    max_instances   = number
-    concurrency     = number
-    timeout_seconds = number
-  })
-}
-
 variable "redis_config" {
   type = object({
     enable                  = bool

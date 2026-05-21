@@ -1,6 +1,4 @@
-output "platform_service_url" {
-  value = var.platform_service_config.enable ? module.platform_service[0].service_url : null
-}
+
 
 output "spanner_instance_id" {
   value = module.spanner.spanner_instance_id
