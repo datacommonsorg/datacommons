@@ -18,7 +18,7 @@ REMOTE_STATE_TEMPLATE = """
 
 Terraform state is configured to be stored remotely in Google Cloud Storage:
 - **Bucket**: `gs://{bucket_name}`
-- **Prefix**: `terraform/state`
+- **Prefix**: `{prefix}`
 
 This enables team collaboration, state locking, and automated pipeline deployments. The bucket is configured with Uniform Bucket-Level Access and object versioning.
 """
@@ -41,7 +41,6 @@ Set environment-specific values in `terraform.tfvars` (for example `project_id`,
 ## Learn More About Variables
 
 For the full list of supported module inputs and defaults, see:
-- https://github.com/datacommonsorg/datacommons/blob/main/infra/dcp/variables.tf
 - https://github.com/datacommonsorg/datacommons/blob/main/infra/dcp/variables.tf
 - https://github.com/datacommonsorg/datacommons/blob/main/infra/dcp/outputs.tf
 - https://github.com/datacommonsorg/datacommons/blob/main/infra/dcp/terraform.tfvars.template
@@ -70,7 +69,7 @@ https://github.com/datacommonsorg/datacommons
 BACKEND_TF_TEMPLATE = """terraform {{
   backend "gcs" {{
     bucket = "{bucket_name}"
-    prefix = "terraform/state"
+    prefix = "{prefix}"
   }}
 }}
 """

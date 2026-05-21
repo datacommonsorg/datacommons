@@ -29,6 +29,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                 spannerDatabaseId: '$${input.spannerDatabaseId}'
                 importList: '$${input.importList}'
                 tempLocation: '$${input.tempLocation}'
+                stagingLocation: '$${input.tempLocation}'
                 forceCombineNodes: 'true'
       - acquire_lock:
           try:
@@ -71,11 +72,13 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                     location: '$${input.region}'
                     body:
                       launchParameter:
-                        jobName: '$${"ingestion-job-" + string(int(sys.now()))}'
+                        jobName: '$${"${replace(lower(var.namespace), "_", "-")}-" + text.substring(text.replace_all(text.to_lower(input.importName), "_", "-"), 0, 35) + "-" + string(int(sys.now()))}'
                         containerSpecGcsPath: 'gs://datcom-templates/templates/flex/ingestion.json'
                         parameters: '$${launch_params}'
                         environment:
                           serviceAccountEmail: '${var.ingestion_runner_email}'
+                          tempLocation: '$${input.tempLocation}'
+                          stagingLocation: '$${input.tempLocation}'
                   result: launch_result
               - get_job_id:
                   assign:

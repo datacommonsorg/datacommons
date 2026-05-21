@@ -47,11 +47,11 @@ def test_init_success_with_options(
                 "test-ns",
                 "--dc-api-key",
                 "test-key",
+                "--no-tf-remote-state",
             ],
-            input="N\n",  # Do not configure remote state
         )
         assert result.exit_code == 0
-        assert "Initialized Terraform scaffold" in result.output
+        assert "Downloaded and populated Terraform templates." in result.output
 
         target_dir = Path.cwd() / "test-ns"
         assert target_dir.exists()
@@ -79,8 +79,8 @@ def test_init_success_with_prompts(
     with runner.isolated_filesystem(temp_dir=tmp_path):
         result = runner.invoke(
             admin,
-            ["init"],
-            input="prompt-project\nprompt-ns\nprompt-key\nN\n",
+            ["init", "--no-tf-remote-state"],
+            input="prompt-project\nprompt-ns\nprompt-key\n",
         )
         assert result.exit_code == 0
         target_dir = Path.cwd() / "prompt-ns"
@@ -115,11 +115,12 @@ def test_init_existing_folder_force(
                 "--namespace",
                 "existing-ns",
                 "--force",
+                "--no-tf-remote-state",
             ],
-            input="test-key\nN\n",
+            input="test-key\n",
         )
         assert result.exit_code == 0
-        assert "Initialized Terraform scaffold" in result.output
+        assert "Downloaded and populated Terraform templates." in result.output
 
         main_tf = existing_dir / "main.tf"
         assert "old content" not in main_tf.read_text()
@@ -151,10 +152,9 @@ def test_init_remote_state(
                 "--dc-api-key",
                 "remote-key",
             ],
-            input="Y\n",  # Yes to remote state
         )
         assert result.exit_code == 0
-        mock_configure.assert_called_once_with("remote-project", "remote-ns")
+        mock_configure.assert_called_once_with("remote-project", "remote-ns", "", "US")
 
         target_dir = Path.cwd() / "remote-ns"
         assert (target_dir / "backend.tf").exists()
