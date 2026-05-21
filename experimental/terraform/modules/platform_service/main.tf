@@ -3,7 +3,7 @@ locals {
   display_name_prefix = var.namespace != "" ? "(${var.namespace}) " : ""
 }
 
-resource "google_service_account" "dcp_runner" {
+resource "google_service_account" "runner" {
   account_id   = "${local.name_prefix}${var.service_account_name}"
   display_name = "${local.display_name_prefix}Data Commons Platform Runner"
 }
@@ -11,17 +11,17 @@ resource "google_service_account" "dcp_runner" {
 resource "google_project_iam_member" "spanner_user" {
   project = var.project_id
   role    = "roles/spanner.databaseUser"
-  member  = "serviceAccount:${google_service_account.dcp_runner.email}"
+  member  = "serviceAccount:${google_service_account.runner.email}"
 }
 
-resource "google_cloud_run_v2_service" "dcp_service" {
+resource "google_cloud_run_v2_service" "service" {
   name                = "${local.name_prefix}${var.service_name}"
   location            = var.region
   ingress             = "INGRESS_TRAFFIC_ALL"
   deletion_protection = var.deletion_protection
 
   template {
-    service_account                  = google_service_account.dcp_runner.email
+    service_account                  = google_service_account.runner.email
     timeout                          = "${var.service_timeout_seconds}s"
     max_instance_request_concurrency = var.service_concurrency
 
@@ -67,16 +67,16 @@ resource "google_cloud_run_v2_service" "dcp_service" {
 
 resource "google_cloud_run_service_iam_binding" "public_invoker" {
   count    = var.make_service_public ? 1 : 0
-  location = google_cloud_run_v2_service.dcp_service.location
-  service  = google_cloud_run_v2_service.dcp_service.name
+  location = google_cloud_run_v2_service.service.location
+  service  = google_cloud_run_v2_service.service.name
   role     = "roles/run.invoker"
   members  = ["allUsers"]
 }
 
 resource "google_cloud_run_v2_service_iam_member" "orchestrator_invoker" {
   count    = var.orchestrator_email != "" ? 1 : 0
-  location = google_cloud_run_v2_service.dcp_service.location
-  name     = google_cloud_run_v2_service.dcp_service.name
+  location = google_cloud_run_v2_service.service.location
+  name     = google_cloud_run_v2_service.service.name
   role     = "roles/run.invoker"
   member   = "serviceAccount:${var.orchestrator_email}"
 }

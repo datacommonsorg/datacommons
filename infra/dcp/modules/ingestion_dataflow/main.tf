@@ -3,7 +3,7 @@ locals {
   display_name_prefix = var.namespace != "" ? "(${var.namespace}) " : ""
 }
 
-resource "google_service_account" "dcp_ingestion_runner" {
+resource "google_service_account" "ingestion_runner" {
   count        = var.deploy ? 1 : 0
   account_id   = "${local.name_prefix}dcp-ingestion-sa"
   display_name = "${local.display_name_prefix}Data Commons Platform Ingestion Runner"
@@ -13,21 +13,21 @@ resource "google_project_iam_member" "ingestion_spanner_user" {
   count   = var.deploy ? 1 : 0
   project = var.project_id
   role    = "roles/spanner.databaseUser"
-  member  = "serviceAccount:${google_service_account.dcp_ingestion_runner[0].email}"
+  member  = "serviceAccount:${google_service_account.ingestion_runner[0].email}"
 }
 
 resource "google_project_iam_member" "dataflow_admin" {
   count   = var.deploy ? 1 : 0
   project = var.project_id
   role    = "roles/dataflow.admin"
-  member  = "serviceAccount:${google_service_account.dcp_ingestion_runner[0].email}"
+  member  = "serviceAccount:${google_service_account.ingestion_runner[0].email}"
 }
 
 resource "google_project_iam_member" "dataflow_worker" {
   count   = var.deploy ? 1 : 0
   project = var.project_id
   role    = "roles/dataflow.worker"
-  member  = "serviceAccount:${google_service_account.dcp_ingestion_runner[0].email}"
+  member  = "serviceAccount:${google_service_account.ingestion_runner[0].email}"
 }
 
 # This is only needed to trigger the services restart to pick up the GCS embeddings change
@@ -35,14 +35,14 @@ resource "google_project_iam_member" "ingestion_run_developer" {
   count   = var.deploy ? 1 : 0
   project = var.project_id
   role    = "roles/run.developer"
-  member  = "serviceAccount:${google_service_account.dcp_ingestion_runner[0].email}"
+  member  = "serviceAccount:${google_service_account.ingestion_runner[0].email}"
 }
 
 resource "google_service_account_iam_member" "service_account_user" {
   count              = var.deploy ? 1 : 0
-  service_account_id = google_service_account.dcp_ingestion_runner[0].name
+  service_account_id = google_service_account.ingestion_runner[0].name
   role               = "roles/iam.serviceAccountUser"
-  member             = "serviceAccount:${google_service_account.dcp_ingestion_runner[0].email}"
+  member             = "serviceAccount:${google_service_account.ingestion_runner[0].email}"
 }
 
 data "google_project" "project" {
@@ -51,7 +51,7 @@ data "google_project" "project" {
 
 resource "google_service_account_iam_member" "workflows_token_creator" {
   count              = var.deploy ? 1 : 0
-  service_account_id = google_service_account.dcp_ingestion_runner[0].name
+  service_account_id = google_service_account.ingestion_runner[0].name
   role               = "roles/iam.serviceAccountTokenCreator"
   member             = "serviceAccount:service-${data.google_project.project.number}@gcp-sa-workflows.iam.gserviceaccount.com"
 }
@@ -60,32 +60,32 @@ resource "google_storage_bucket_iam_member" "dynamic_ingestion_bucket_access" {
   count  = var.deploy ? 1 : 0
   bucket = var.ingestion_bucket_name
   role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.dcp_ingestion_runner[0].email}"
+  member = "serviceAccount:${google_service_account.ingestion_runner[0].email}"
 }
 
-resource "google_service_account" "dcp_orchestrator" {
+resource "google_service_account" "ingestion_orchestrator" {
   count        = var.deploy ? 1 : 0
   account_id   = "${local.name_prefix}dcp-orc-sa"
   display_name = "${local.display_name_prefix}Data Commons Platform Orchestrator"
 }
 
-resource "google_project_iam_member" "orchestrator_dataflow_admin" {
+resource "google_project_iam_member" "ingestion_orchestrator_dataflow_admin" {
   count   = var.deploy ? 1 : 0
   project = var.project_id
   role    = "roles/dataflow.admin"
-  member  = "serviceAccount:${google_service_account.dcp_orchestrator[0].email}"
+  member  = "serviceAccount:${google_service_account.ingestion_orchestrator[0].email}"
 }
 
-resource "google_project_iam_member" "orchestrator_workflows_invoker" {
+resource "google_project_iam_member" "ingestion_orchestrator_workflows_invoker" {
   count   = var.deploy ? 1 : 0
   project = var.project_id
   role    = "roles/workflows.invoker"
-  member  = "serviceAccount:${google_service_account.dcp_orchestrator[0].email}"
+  member  = "serviceAccount:${google_service_account.ingestion_orchestrator[0].email}"
 }
 
-resource "google_service_account_iam_member" "orchestrator_sa_user" {
+resource "google_service_account_iam_member" "ingestion_orchestrator_sa_user" {
   count              = var.deploy ? 1 : 0
-  service_account_id = google_service_account.dcp_ingestion_runner[0].name
+  service_account_id = google_service_account.ingestion_runner[0].name
   role               = "roles/iam.serviceAccountUser"
-  member             = "serviceAccount:${google_service_account.dcp_orchestrator[0].email}"
+  member             = "serviceAccount:${google_service_account.ingestion_orchestrator[0].email}"
 }

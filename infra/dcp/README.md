@@ -56,19 +56,19 @@ This script will also enable necessary Google Cloud APIs for your project.
 You can control the deployment by setting values in `terraform.tfvars`. Here are the key configurations:
 
 ### Stack Toggles
-*   `enable_dcp` (bool): Set to `true` to deploy the new Data Commons Platform stack (Cloud Run + Spanner).
-*   `enable_cdc` (bool): Set to `true` to deploy the legacy Custom Data Commons stack (Cloud Run + MySQL + Redis).
+*   `enable_datacommons_service` (bool): Set to `true` to deploy the main Data Commons service. Defaults to `true`.
+*   `enable_platform_service` (bool): Set to `true` to deploy the platform service. Defaults to `true`.
 
 ### Data Ingestion Config
-*   `dcp_deploy_data_ingestion_workflow` (bool): Set to `true` to deploy the Cloud Workflows orchestrator and ingestion runner service account.
-*   `dcp_ingestion_helper_image` (string): Docker image URL for the DCP ingestion helper service. Defaults to `gcr.io/datcom-ci/datacommons-ingestion-helper:latest`.
-*   `cdc_data_job_image` (string): Docker image URL for the CDC data ingestion job. Defaults to `gcr.io/datcom-ci/datacommons-data:stable`.
-*   `cdc_gcs_data_bucket_input_folder` (string): GCS data bucket input folder for CDC. Defaults to `input`.
+*   `deploy_ingestion_workflow` (bool): Set to `true` to deploy the Cloud Workflows orchestrator and ingestion runner service account.
+*   `ingestion_service_image` (string): Docker image URL for the ingestion support service.
+*   `ingestion_prep_job_image` (string): Docker image URL for the data ingestion pre-processing job.
+*   `ingestion_prep_bucket_input_folder` (string): GCS data bucket input folder for pre-processing. Defaults to `input`.
 *   `create_ingestion_bucket` (bool): Controls whether Terraform automatically provisions a dedicated staging GCS bucket for uploading graph dataset (.mcf) files. Defaults to `true`.
-*   `external_ingestion_bucket_name` (string): If `create_ingestion_bucket` is false, specify an existing external GCS bucket name to attach permissions to.
+*   `ingestion_bucket_name` (string): The name of the ingestion bucket (used for creation if `create_ingestion_bucket` is true, or as the existing bucket name if false).
 
 ### Access Control
-*   `make_services_public` (bool): Controls whether Cloud Run services are publicly accessible (unauthenticated). Defaults to `false` for security.
+*   `allow_unauthenticated_access` (bool): Controls whether Cloud Run services are publicly accessible (unauthenticated). Defaults to `false` for security.
 
 ## Deployment
 
@@ -90,17 +90,17 @@ Once configured, execute standard Terraform commands to provision resources:
 ## Outputs
 
 Upon successful apply, Terraform displays key endpoints and resource names:
-*   `dcp_service_url`: Cloud Run service URL for DCP.
-*   `cdc_service_url`: Cloud Run service URL for CDC.
-*   `workflow_name`: Name of the Cloud Workflows ingestion orchestrator.
-*   `dcp_ingestion_helper_uri`: URI of the DCP ingestion helper Cloud Run service.
-*   `cdc_data_job_name`: Name of the CDC Cloud Run data ingestion job.
-*   `dcp_spanner_instance_id`: ID of the provisioned or referenced Cloud Spanner instance.
-*   `dcp_spanner_database_id`: ID of the provisioned Cloud Spanner database.
+*   `platform_service_url`: Cloud Run service URL for the platform service.
+*   `datacommons_service_url`: Cloud Run service URL for the Data Commons service.
+*   `ingestion_workflow_name`: Name of the Cloud Workflows ingestion orchestrator.
+*   `ingestion_service_uri`: URI of the ingestion support Cloud Run service.
+*   `ingestion_prep_job_name`: Name of the data ingestion pre-processing job.
+*   `spanner_instance_id`: ID of the provisioned or referenced Cloud Spanner instance.
+*   `spanner_database_id`: ID of the provisioned Cloud Spanner database.
 
 ## Running Data Ingestion Workflow
 
-After successful deployment with `dcp_deploy_data_ingestion_workflow = true`, you can run the automated ingestion pipeline.
+After successful deployment with `deploy_ingestion_workflow = true`, you can run the automated ingestion pipeline.
 
 ### Step 1: Upload your Schema file
 Upload your custom graph nodes file (`.mcf`) to the provisioned ingestion bucket. By default, the bucket name format is: `<namespace>-ingestion-bucket-<project_id>`.
@@ -131,24 +131,21 @@ gcloud workflows run <namespace>-ingestion-orchestrator \
 *   `spannerDatabaseId`: The ID of your Spanner database.
 *   `importList`: A JSON string mapping the import logical name to the GCS path of the MCF file.
 
-## Architecture & Troubleshooting
-
 ### Modular Structure
-Stack composition is delegated to `modules/stack`, which manages smaller, dedicated sub-modules for various components of both the CDC and DCP stacks.
+Stack composition is delegated to `modules/stack`, which manages smaller, dedicated sub-modules for various components of the Data Commons Platform.
 
 ### Module Overview
-*   **`stack`**: Orchestrates sub-modules based on feature toggles ([modules/stack](file:///Users/dwnoble/Projects/datacommons/datacommons/infra/dcp/modules/stack/main.tf)).
-*   **`cdc_data_ingestion_job`**: Ingestion Cloud Run v2 Job.
-*   **`cdc_iam`**: IAM and Secret Manager config for CDC.
-*   **`cdc_mysql`**: Cloud SQL MySQL instance and databases.
-*   **`cdc_network`**: VPC and serverless access connectors.
-*   **`cdc_redis`**: Memorystore Redis instance.
-*   **`cdc_services`**: CDC Cloud Run v2 web services ([modules/cdc_services](file:///Users/dwnoble/Projects/datacommons/datacommons/infra/dcp/modules/cdc_services/main.tf)).
-*   **`dcp_ingestion_dataflow`**: Dataflow runner service account and IAM for DCP ([modules/dcp_ingestion_dataflow](file:///Users/dwnoble/Projects/datacommons/datacommons/infra/dcp/modules/dcp_ingestion_dataflow/main.tf)).
-*   **`dcp_ingestion_helper`**: Helper Cloud Run service for DCP ([modules/dcp_ingestion_helper](file:///Users/dwnoble/Projects/datacommons/datacommons/infra/dcp/modules/dcp_ingestion_helper/main.tf)).
-*   **`dcp_ingestion_workflow`**: Cloud Workflows for orchestration.
-*   **`dcp_service`**: DCP Cloud Run service.
-*   **`storage`**: GCS buckets for both CDC and DCP stacks ([modules/storage](file:///Users/dwnoble/Projects/datacommons/datacommons/infra/dcp/modules/storage/main.tf)).
+*   **`stack`**: Orchestrates sub-modules ([modules/stack](modules/stack/main.tf)).
+*   **`ingestion_prep_job`**: Ingestion Cloud Run v2 Job for pre-processing.
+*   **`iam`**: IAM and Secret Manager config.
+*   **`networking`**: VPC and serverless access connectors.
+*   **`redis`**: Memorystore Redis instance.
+*   **`datacommons_service`**: Main Data Commons Cloud Run v2 web service.
+*   **`ingestion_dataflow`**: Dataflow runner service account and IAM ([modules/ingestion_dataflow](modules/ingestion_dataflow/main.tf)).
+*   **`ingestion_service`**: Helper Cloud Run service for ingestion ([modules/ingestion_service](modules/ingestion_service/main.tf)).
+*   **`ingestion_workflow`**: Cloud Workflows for orchestration.
+*   **`platform_service`**: Platform service Cloud Run service.
+*   **`storage`**: GCS buckets ([modules/storage](modules/storage/main.tf)).
 *   **`spanner`**: Shared Cloud Spanner instance and databases.
 
 ### Orchestrator Pattern

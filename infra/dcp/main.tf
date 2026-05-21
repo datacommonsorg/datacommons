@@ -40,11 +40,12 @@ resource "google_project_service" "apis" {
     "vpcaccess.googleapis.com",
     "artifactregistry.googleapis.com",
     "compute.googleapis.com"
-    ], var.enable_dcp ? ["spanner.googleapis.com"] : [], var.dcp_deploy_data_ingestion_workflow ? [
+    ], var.enable_datacommons_service ? ["spanner.googleapis.com"] : [],
+    var.deploy_ingestion_workflow ? [
     "workflows.googleapis.com",
     "workflowexecutions.googleapis.com",
     "dataflow.googleapis.com"
-    ] : [], var.dcp_enable_bq_federation ? [
+    ] : [], var.enable_bq_federation ? [
     "bigqueryconnection.googleapis.com",
     "bigquery.googleapis.com",
     "bigqueryreservation.googleapis.com"
@@ -55,82 +56,77 @@ resource "google_project_service" "apis" {
 }
 
 locals {
-  stack_shared = {
-    project_id           = var.project_id
-    region               = var.region
-    namespace            = var.namespace
-    deletion_protection  = var.deletion_protection
-    make_services_public = var.make_services_public
+  global_config = {
+    project_id                  = var.project_id
+    region                      = var.region
+    namespace                   = var.namespace
+    deletion_protection         = var.deletion_protection
+    allow_unauthenticated_access = var.allow_unauthenticated_access
   }
 
-  stack_toggles = {
-    enable_dcp = var.enable_dcp
-    enable_cdc = var.enable_cdc
+  spanner_config = {
+    create_instance            = var.create_spanner_instance
+    create_db                  = var.create_spanner_db
+    instance_id                = var.spanner_instance_id
+    database_id                = var.spanner_database_id
+    version_retention_period   = var.spanner_version_retention_period
+    processing_units          = var.spanner_processing_units
   }
 
-  stack_dcp = {
-    image_url                      = var.dcp_image_url
-    service_name                   = var.dcp_service_name
-    service_account_name           = var.dcp_service_account_name
-    create_spanner_instance        = var.dcp_create_spanner_instance
-    create_spanner_db              = var.dcp_create_spanner_db
-    spanner_instance_id            = var.dcp_spanner_instance_id
-    spanner_database_id            = var.dcp_spanner_database_id
-    spanner_version_retention_period = var.dcp_spanner_version_retention_period
-    create_bq_reservation           = var.dcp_create_bq_reservation
-    bq_reservation_slot_capacity     = var.dcp_bq_reservation_slot_capacity
-    bq_reservation_max_slots        = var.dcp_bq_reservation_max_slots
-    spanner_processing_units       = var.dcp_spanner_processing_units
-    service_cpu                    = var.dcp_service_cpu
-    service_memory                 = var.dcp_service_memory
-    service_min_instances          = var.dcp_service_min_instances
-    service_max_instances          = var.dcp_service_max_instances
-    service_concurrency            = var.dcp_service_concurrency
-    service_timeout_seconds        = var.dcp_service_timeout_seconds
-    deploy_data_ingestion_workflow = var.dcp_deploy_data_ingestion_workflow
-    create_ingestion_bucket        = var.dcp_create_ingestion_bucket
-    external_ingestion_bucket_name = var.dcp_external_ingestion_bucket_name
-    ingestion_lock_timeout         = var.dcp_ingestion_lock_timeout
-    ingestion_helper_image         = var.dcp_ingestion_helper_image
-    enable_bq_federation           = var.dcp_enable_bq_federation
-    bq_connection_name             = var.dcp_bq_connection_name
+  bq_federation_config = {
+    enable            = var.enable_bq_federation
+    connection_name   = var.bq_connection_name
+    create_reservation = var.create_bq_reservation
+    slot_capacity     = var.bq_reservation_slot_capacity
+    max_slots         = var.bq_reservation_max_slots
   }
 
-  stack_cdc = {
-    dc_api_key                     = var.cdc_dc_api_key
-    maps_api_key                   = var.cdc_maps_api_key
-    disable_google_maps            = var.cdc_disable_google_maps
-    google_analytics_tag_id        = var.cdc_google_analytics_tag_id
-    gcs_data_bucket_name           = var.cdc_gcs_data_bucket_name
-    gcs_data_bucket_input_folder   = var.cdc_gcs_data_bucket_input_folder
-    gcs_data_bucket_output_folder  = var.cdc_gcs_data_bucket_output_folder
-    gcs_data_bucket_location       = var.cdc_gcs_data_bucket_location
-    mysql_instance_name            = var.cdc_mysql_instance_name
-    mysql_database_name            = var.cdc_mysql_database_name
-    mysql_database_version         = var.cdc_mysql_database_version
-    mysql_cpu_count                = var.cdc_mysql_cpu_count
-    mysql_memory_size_mb           = var.cdc_mysql_memory_size_mb
-    mysql_user                     = var.cdc_mysql_user
-    vpc_connector_cidr             = var.cdc_vpc_connector_cidr
-    vpc_network_name               = var.cdc_vpc_network_name
-    web_service_image              = var.cdc_web_service_image
-    web_service_min_instance_count = var.cdc_web_service_min_instance_count
-    web_service_max_instance_count = var.cdc_web_service_max_instance_count
-    web_service_cpu                = var.cdc_web_service_cpu
-    web_service_memory             = var.cdc_web_service_memory
-    data_job_image                 = var.cdc_data_job_image
-    data_job_cpu                   = var.cdc_data_job_cpu
-    data_job_memory                = var.cdc_data_job_memory
-    data_job_timeout               = var.cdc_data_job_timeout
-    enable_redis                   = var.cdc_enable_redis
-    redis_instance_name            = var.cdc_redis_instance_name
-    redis_memory_size_gb           = var.cdc_redis_memory_size_gb
-    redis_tier                     = var.cdc_redis_tier
-    redis_location_id              = var.cdc_redis_location_id
-    redis_alternative_location_id  = var.cdc_redis_alternative_location_id
-    redis_replica_count            = var.cdc_redis_replica_count
-    search_scope                   = var.cdc_search_scope
-    enable_mcp                     = var.cdc_enable_mcp
+  datacommons_service_config = {
+    enable               = var.enable_datacommons_service
+    image                = var.datacommons_service_image
+    name                 = var.datacommons_service_name
+    min_instances        = var.datacommons_service_min_instances
+    max_instances        = var.datacommons_service_max_instances
+    cpu                  = var.datacommons_service_cpu
+    memory               = var.datacommons_service_memory
+    dc_api_key           = var.base_dc_api_key
+    maps_api_key         = var.maps_api_key
+    enable_google_maps   = var.enable_google_maps
+    google_analytics_tag = var.google_analytics_tag_id
+    enable_mcp           = var.enable_mcp
+    search_scope         = var.mcp_search_scope
+    instructions_dir     = var.mcp_instructions_dir
+  }
+
+
+  redis_config = {
+    enable                  = var.enable_redis
+    instance_name           = var.redis_instance_name
+    memory_size_gb          = var.redis_memory_size_gb
+    tier                    = var.redis_tier
+    location_id             = var.redis_location_id
+    alternative_location_id = var.redis_alternative_location_id
+    replica_count           = var.redis_replica_count
+    vpc_network_name        = var.vpc_network_name
+    vpc_connector_cidr      = var.vpc_connector_cidr
+  }
+
+  ingestion_config = {
+    prep_job_image  = var.ingestion_prep_job_image
+    prep_job_cpu    = var.ingestion_prep_job_cpu
+    prep_job_memory = var.ingestion_prep_job_memory
+    prep_job_timeout = var.ingestion_prep_job_timeout
+    ingestion_input_bucket_name = var.ingestion_input_bucket_name
+    ingestion_input_folder = var.ingestion_input_folder
+    ingestion_output_folder = var.ingestion_output_folder
+    ingestion_input_bucket_location = var.ingestion_input_bucket_location
+    create_ingestion_input_bucket   = var.create_ingestion_input_bucket
+    
+    deploy_workflow  = var.deploy_ingestion_workflow
+    lock_timeout     = var.ingestion_lock_timeout
+    helper_image     = var.ingestion_service_image
+    create_ingestion_workflow_bucket = var.create_ingestion_workflow_bucket
+    ingestion_workflow_bucket_name = var.ingestion_workflow_bucket_name
   }
 }
 
@@ -139,10 +135,12 @@ module "stack" {
   # The Data Commons CLI relies on matching 'source = "./modules/stack"' to generate user scaffolding.
   source = "./modules/stack"
 
-  shared  = local.stack_shared
-  toggles = local.stack_toggles
-  dcp     = local.stack_dcp
-  cdc     = local.stack_cdc
+  global               = local.global_config
+  spanner_config        = local.spanner_config
+  bq_federation_config = local.bq_federation_config
+  datacommons_service_config = local.datacommons_service_config
+  redis_config         = local.redis_config
+  ingestion_config     = local.ingestion_config
 
   depends_on = [google_project_service.apis]
 }

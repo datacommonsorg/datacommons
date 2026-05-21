@@ -1,11 +1,11 @@
-output "cdc_bucket_name" {
-  value = var.enable_cdc ? google_storage_bucket.cdc_data_bucket[0].name : null
+output "ingestion_input_bucket_name" {
+  value = var.create_input_bucket ? google_storage_bucket.input_bucket[0].name : local.ingestion_input_bucket_name
 }
 
-output "dcp_bucket_name" {
-  value = var.enable_dcp && var.dcp_deploy ? (var.dcp_create_bucket ? google_storage_bucket.dcp_data_ingestion_bucket[0].name : var.dcp_external_bucket_name) : null
+output "ingestion_workflow_bucket_name" {
+  value = var.deploy_workflow ? (var.create_workflow_bucket ? google_storage_bucket.workflow_bucket[0].name : local.ingestion_workflow_bucket_name) : null
 }
 
-output "dcp_bucket_url" {
-  value = var.enable_dcp && var.dcp_deploy ? (var.dcp_create_bucket ? google_storage_bucket.dcp_data_ingestion_bucket[0].url : null) : null
+output "ingestion_workflow_bucket_url" {
+  value = var.deploy_workflow ? (var.create_workflow_bucket ? google_storage_bucket.workflow_bucket[0].url : "gs://${local.ingestion_workflow_bucket_name}") : null
 }

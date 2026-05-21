@@ -1,11 +1,3 @@
-variable "enable_dcp" {
-  type = bool
-}
-
-variable "enable_cdc" {
-  type = bool
-}
-
 variable "project_id" {
   type = string
 }
@@ -14,32 +6,37 @@ variable "namespace" {
   type = string
 }
 
-variable "dcp_deploy" {
+variable "deploy_workflow" {
   type = bool
 }
 
-variable "dcp_create_bucket" {
+variable "create_workflow_bucket" {
   type = bool
 }
 
-variable "dcp_external_bucket_name" {
+variable "ingestion_workflow_bucket_name" {
   type = string
 }
 
-variable "dcp_region" {
+variable "region" {
   type = string
 }
 
-variable "dcp_deletion_protection" {
+variable "deletion_protection" {
   type = bool
 }
 
-variable "cdc_gcs_data_bucket_name" {
+variable "ingestion_input_bucket_name" {
   type = string
 }
 
-variable "cdc_gcs_data_bucket_location" {
+variable "input_bucket_location" {
   type = string
+}
+
+variable "create_input_bucket" {
+  type    = bool
+  default = true
 }
 
 variable "orchestrator_email" {
