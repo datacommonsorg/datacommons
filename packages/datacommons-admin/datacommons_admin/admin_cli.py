@@ -419,7 +419,7 @@ def init(
     tf_state_prefix: str,
 ) -> None:
     """Initialize Terraform scaffolding for Data Commons administration/infrastructure."""
-    click.secho("Datacommons Admin Init", fg="cyan", bold=True)
+    click.secho("Data Commons Admin Init", fg="cyan", bold=True)
 
     # 1. Project Configs
     click.secho("\n[Project Configuration]", fg="cyan", bold=True)
