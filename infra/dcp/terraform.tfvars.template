@@ -1,35 +1,52 @@
-# --- Shared Global Variables ---
+# =============================================================================
+# Customize your Data Commons installation below.
+# Run 'terraform apply' to provision or update your resources in Google Cloud.
+# =============================================================================
+# Critical Variables
+# =============================================================================
 project_id = "$$PROJECT_ID$$"
 namespace  = "$$NAMESPACE$$"
-region     = "us-central1"
+# region     = "us-central1"
 
-# --- Stack Toggles ---
-enable_dcp = true
-enable_cdc = true
+# Get a free DC API Key at https://apikeys.datacommons.org (Required)
+base_dc_api_key = "$$DC_API_KEY$$"
 
-# --- DCP Core ---
-dcp_image_url               = "gcr.io/datcom-ci/datacommons-platform:latest"
-dcp_service_name            = "dcp-svc"
-dcp_service_account_name    = "dcp-sa"
-dcp_create_spanner_instance = false
-# dcp_spanner_instance_id   = "existing-instance-id" # required when create_spanner_instance=false
-dcp_create_spanner_db       = true
-dcp_spanner_database_id     = "dcp-db"
+# Required for place resolution in maps
+# maps_api_key = "AIzaSy..."
 
-# --- DCP Ingestion ---
-dcp_deploy_data_ingestion_workflow = false
-dcp_create_ingestion_bucket        = true
-# dcp_external_ingestion_bucket_name = "existing-bucket-name"
-dcp_ingestion_lock_timeout         = 82800
+# Spanner Instance: By default, Terraform will not create a new Spanner instance.
+# Provide the ID of your existing instance or set create to true to make a new one:
+# spanner_instance_id     = "your-existing-spanner-instance"
+# create_spanner_instance = true
 
-# --- CDC ---
-cdc_dc_api_key = "$$DC_API_KEY$$" # https://apikeys.datacommons.org
-# cdc_vpc_connector_cidr = "10.13.0.0/28"
+# Spanner Database: By default, Terraform creates a database named 'dcp-db'.
+# Set to false and provide an ID to reuse an existing database:
+# create_spanner_db       = false
+# spanner_database_id     = "your-existing-spanner-db"
 
-# --- Access / Safety ---
-make_services_public = false
-deletion_protection  = false
+# =============================================================================
+# Data Input Settings
+# =============================================================================
+# ingestion_prep_bucket_name = "existing-bucket-name"
+# ingestion_prep_bucket_input_folder = "/path/to/data"
 
-# --- Billing (optional) ---
+# =============================================================================
+# Data Commons Service
+# =============================================================================
+# Uncomment to pin to a specific image tag (default is 'latest'):
+# datacommons_service_image = "gcr.io/datcom-ci/datacommons-services:<tag>"
+
+# =============================================================================
+# Access / Safety
+# =============================================================================
+# Set to true to allow unauthenticated access to serving services (default: false)
+# allow_unauthenticated_access = true
+
+# Enable deletion protection for Spanner and buckets (default: false)
+# deletion_protection = true
+
+# =============================================================================
+# Billing (Optional)
+# =============================================================================
 # user_project_override = true
 # billing_project_id    = "your-billing-project-id"
