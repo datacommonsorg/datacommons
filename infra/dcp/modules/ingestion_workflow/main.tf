@@ -167,6 +167,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
           switch:
             - condition: '$${execution_error != null}'
               raise: '$${execution_error}'
+%{ if var.enable_datacommons_service }
       - restart_service:
           call: googleapis.run.v2.projects.locations.services.patch
           args:
@@ -176,6 +177,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
               template:
                 labels:
                   restarted-at: '$${string(int(sys.now()))}'
+%{ endif }
       - return_result:
           return: '$${launch_result}'
   EOF2

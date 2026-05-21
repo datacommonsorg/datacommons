@@ -188,6 +188,7 @@ module "ingestion_workflow" {
   ingestion_runner_email = module.ingestion_dataflow.ingestion_runner_email
   orchestrator_email     = var.ingestion_config.deploy_workflow ? coalesce(module.ingestion_dataflow.orchestrator_email, "") : ""
   enable_bq_federation   = var.bq_federation_config.enable
+  enable_datacommons_service = var.datacommons_service_config.enable
 }
 
 
@@ -234,7 +235,7 @@ module "iam" {
 
 module "ingestion_prep_job" {
   source = "../ingestion_prep_job"
-  count  = var.datacommons_service_config.enable ? 1 : 0
+  count  = var.ingestion_config.deploy_workflow ? 1 : 0
 
   project_id                    = var.global.project_id
   namespace                     = var.global.namespace
