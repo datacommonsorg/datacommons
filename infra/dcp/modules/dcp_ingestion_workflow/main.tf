@@ -29,6 +29,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                 spannerDatabaseId: '$${input.spannerDatabaseId}'
                 importList: '$${input.importList}'
                 tempLocation: '$${input.tempLocation}'
+                stagingLocation: '$${input.tempLocation}'
                 forceCombineNodes: 'true'
       - acquire_lock:
           try:
@@ -76,6 +77,8 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                         parameters: '$${launch_params}'
                         environment:
                           serviceAccountEmail: '${var.ingestion_runner_email}'
+                          tempLocation: '$${input.tempLocation}'
+                          stagingLocation: '$${input.tempLocation}'
                   result: launch_result
               - get_job_id:
                   assign:
