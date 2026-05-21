@@ -11,11 +11,11 @@ output "spanner_database_id" {
 }
 
 output "datacommons_service_url" {
-  value = module.datacommons_service[0].service_url
+  value = length(module.datacommons_service) > 0 ? module.datacommons_service[0].service_url : null
 }
 
 output "datacommons_service_name" {
-  value = module.datacommons_service[0].service_name
+  value = length(module.datacommons_service) > 0 ? module.datacommons_service[0].service_name : null
 }
 
 output "ingestion_workflow_id" {
@@ -40,7 +40,7 @@ output "ingestion_service_uri" {
 
 output "ingestion_prep_job_name" {
   description = "Name of the data ingestion pre-processing job"
-  value       = module.ingestion_prep_job[0].job_name
+  value       = length(module.ingestion_prep_job) > 0 ? module.ingestion_prep_job[0].job_name : null
 }
 
 output "ingestion_orchestrator_service_account_email" {

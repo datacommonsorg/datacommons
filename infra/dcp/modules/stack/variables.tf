@@ -31,6 +31,7 @@ variable "bq_federation_config" {
 
 variable "datacommons_service_config" {
   type = object({
+    enable               = bool
     image                = string
     name                 = string
     min_instances        = number

@@ -40,11 +40,12 @@ resource "google_project_service" "apis" {
     "vpcaccess.googleapis.com",
     "artifactregistry.googleapis.com",
     "compute.googleapis.com"
-    ], var.enable_dcp ? ["spanner.googleapis.com"] : [], var.dcp_deploy_data_ingestion_workflow ? [
+    ], (var.enable_platform_service || var.enable_datacommons_service) ? ["spanner.googleapis.com"] : [],
+    var.deploy_ingestion_workflow ? [
     "workflows.googleapis.com",
     "workflowexecutions.googleapis.com",
     "dataflow.googleapis.com"
-    ] : [], var.dcp_enable_bq_federation ? [
+    ] : [], var.enable_bq_federation ? [
     "bigqueryconnection.googleapis.com",
     "bigquery.googleapis.com",
     "bigqueryreservation.googleapis.com"
@@ -81,6 +82,7 @@ locals {
   }
 
   datacommons_service_config = {
+    enable               = var.enable_datacommons_service
     image                = var.datacommons_service_image
     name                 = var.datacommons_service_name
     min_instances        = var.datacommons_service_min_instances

@@ -51,20 +51,19 @@ locals {
     },
     {
       name  = "WORKFLOW_LOCATION"
-      value = var.shared.region
+      value = var.global.region
     },
     {
       name  = "REGION"
-      value = var.shared.region
+      value = var.global.region
     },
     {
       name  = "USE_SPANNER_GRAPH"
-      value = local.cdc_use_spanner ? "true" : "false"
+      value = "true"
     }
+  ]
 
-  ] : []
-
-  cdc_cloud_run_shared_env_variable_secrets = local.enable_cdc ? concat([
+  cdc_cloud_run_shared_env_variable_secrets = var.datacommons_service_config.enable ? concat([
     {
       name    = "DC_API_KEY"
       secret  = module.iam.dc_api_key_secret_id
@@ -76,18 +75,17 @@ locals {
       secret  = module.iam.maps_api_key_secret_id
       version = "latest"
     }
-
-  ]) : []
+  ] : []) : []
 }
 
 module "spanner" {
   source = "../spanner"
 
-  project_id               = var.shared.project_id
-  namespace                = var.shared.namespace
-  region                   = var.shared.region
+  project_id               = var.global.project_id
+  namespace                = var.global.namespace
+  region                   = var.global.region
   create_spanner_instance  = var.spanner_config.create_instance
-  create_db                = var.spanner_config.create_db
+  create_spanner_db        = var.spanner_config.create_db
   spanner_instance_id      = var.spanner_config.instance_id
   spanner_database_id      = var.spanner_config.database_id
   spanner_processing_units = var.spanner_config.processing_units
@@ -106,9 +104,9 @@ module "platform_service" {
   source = "../platform_service"
   count  = local.enable_dcp ? 1 : 0
 
-  namespace               = var.shared.namespace
-  project_id              = var.shared.project_id
-  region                  = var.shared.region
+  namespace               = var.global.namespace
+  project_id              = var.global.project_id
+  region                  = var.global.region
   image_url               = var.platform_service_config.image
   service_name            = var.platform_service_config.name
   service_account_name    = var.platform_service_config.account_name
@@ -118,18 +116,18 @@ module "platform_service" {
   service_max_instances   = var.platform_service_config.max_instances
   service_concurrency     = var.platform_service_config.concurrency
   service_timeout_seconds = var.platform_service_config.timeout_seconds
-  deletion_protection     = var.shared.deletion_protection
-  make_service_public     = var.shared.make_services_public
+  deletion_protection     = var.global.deletion_protection
+  make_service_public     = var.global.allow_unauthenticated_access
   spanner_instance_id     = module.spanner.spanner_instance_id
   spanner_database_id     = module.spanner.spanner_database_id
-  orchestrator_email       = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow && module.ingestion_dataflow[0].orchestrator_email != null ? module.ingestion_dataflow[0].orchestrator_email : ""
+  orchestrator_email       = local.enable_dcp && var.ingestion_config.deploy_workflow && module.ingestion_dataflow[0].orchestrator_email != null ? module.ingestion_dataflow[0].orchestrator_email : ""
 }
 
 module "storage" {
   source = "../storage"
 
   enable_dcp           = local.enable_dcp
-  enable_cdc           = local.enable_cdc
+  enable_cdc           = var.datacommons_service_config.enable
   
   # DCP vars
   deploy_pipeline        = var.ingestion_config.deploy_workflow
@@ -153,10 +151,10 @@ module "ingestion_dataflow" {
   count  = local.enable_dcp ? 1 : 0
 
   deploy                = var.ingestion_config.deploy_workflow
-  project_id            = var.shared.project_id
-  namespace             = var.shared.namespace
-  region                = var.shared.region
-  deletion_protection   = var.shared.deletion_protection
+  project_id            = var.global.project_id
+  namespace             = var.global.namespace
+  region                = var.global.region
+  deletion_protection   = var.global.deletion_protection
   spanner_instance_id   = module.spanner.spanner_instance_id
   spanner_database_id   = module.spanner.spanner_database_id
   ingestion_bucket_name = module.storage.pipeline_bucket_name
@@ -167,10 +165,10 @@ module "ingestion_service" {
   count  = local.enable_dcp ? 1 : 0
 
   deploy                = var.ingestion_config.deploy_workflow
-  project_id            = var.shared.project_id
-  namespace             = var.shared.namespace
-  region                = var.shared.region
-  deletion_protection   = var.shared.deletion_protection
+  project_id            = var.global.project_id
+  namespace             = var.global.namespace
+  region                = var.global.region
+  deletion_protection   = var.global.deletion_protection
   spanner_instance_id   = module.spanner.spanner_instance_id
   spanner_database_id   = module.spanner.spanner_database_id
   bq_connection_id      = module.spanner.bq_connection_id
@@ -185,10 +183,10 @@ module "ingestion_workflow" {
   count  = local.enable_dcp ? 1 : 0
 
   deploy                 = var.ingestion_config.deploy_workflow
-  namespace              = var.shared.namespace
-  region                 = var.shared.region
-  deletion_protection    = var.shared.deletion_protection
-  project_id             = var.shared.project_id
+  namespace              = var.global.namespace
+  region                 = var.global.region
+  deletion_protection    = var.global.deletion_protection
+  project_id             = var.global.project_id
   ingestion_lock_timeout = var.ingestion_config.lock_timeout
   ingestion_helper_uri   = module.ingestion_service[0].ingestion_helper_uri
   ingestion_runner_id    = module.ingestion_dataflow[0].ingestion_runner_id
@@ -241,12 +239,12 @@ module "iam" {
 
 module "ingestion_prep_job" {
   source = "../ingestion_prep_job"
-  count  = local.enable_cdc ? 1 : 0
+  count  = var.datacommons_service_config.enable ? 1 : 0
 
-  project_id                    = var.shared.project_id
-  namespace                     = var.shared.namespace
-  region                        = var.shared.region
-  deletion_protection           = var.shared.deletion_protection
+  project_id                    = var.global.project_id
+  namespace                     = var.global.namespace
+  region                        = var.global.region
+  deletion_protection           = var.global.deletion_protection
   dc_data_job_image             = var.ingestion_config.prep_job_image
   dc_data_job_cpu               = var.ingestion_config.prep_job_cpu
   dc_data_job_memory            = var.ingestion_config.prep_job_memory
@@ -256,23 +254,23 @@ module "ingestion_prep_job" {
   bucket_name                   = module.storage.prep_bucket_name
   gcs_data_bucket_input_folder  = var.ingestion_config.prep_bucket_input_folder
   gcs_data_bucket_output_folder = var.ingestion_config.prep_bucket_output_folder
-  run_db_init                   = !local.cdc_use_spanner
-  use_spanner                   = local.cdc_use_spanner
-  env_vars                      = local.cdc_cloud_run_shared_env_variables
+  run_db_init                   = false
+  use_spanner                   = true
+  env_vars                      = local.cloud_run_shared_env_variables
   secret_env_vars               = local.cdc_cloud_run_shared_env_variable_secrets
-  orchestrator_email            = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow && module.ingestion_dataflow[0].orchestrator_email != null ? module.ingestion_dataflow[0].orchestrator_email : ""
+  orchestrator_email            = local.enable_dcp && var.ingestion_config.deploy_workflow && module.ingestion_dataflow[0].orchestrator_email != null ? module.ingestion_dataflow[0].orchestrator_email : ""
 
-  depends_on = [module.cdc_iam]
+  depends_on = [module.iam]
 }
 
 module "datacommons_service" {
   source = "../datacommons_service"
-  count  = local.enable_cdc ? 1 : 0
+  count  = var.datacommons_service_config.enable ? 1 : 0
 
-  project_id                        = var.shared.project_id
-  namespace                         = var.shared.namespace
-  region                            = var.shared.region
-  deletion_protection               = var.shared.deletion_protection
+  project_id                        = var.global.project_id
+  namespace                         = var.global.namespace
+  region                            = var.global.region
+  deletion_protection               = var.global.deletion_protection
   dc_web_service_image              = var.datacommons_service_config.image
   dc_web_service_cpu                = var.datacommons_service_config.cpu
   dc_web_service_memory             = var.datacommons_service_config.memory
@@ -285,7 +283,7 @@ module "datacommons_service" {
   prep_bucket_name                   = module.storage.prep_bucket_name
   service_account_email             = module.iam.service_account_email
   vpc_connector_id                  = module.networking[0].connector_id
-  use_spanner                       = local.cdc_use_spanner
+  use_spanner                       = true
   mysql_connection_name             = ""
   env_vars                          = local.cloud_run_shared_env_variables
   secret_env_vars                   = local.cdc_cloud_run_shared_env_variable_secrets
@@ -310,7 +308,7 @@ resource "google_storage_bucket_iam_member" "dataflow_bucket_access" {
 # This is only needed to trigger the services restart to pick up the GCS embeddings change
 resource "google_service_account_iam_member" "ingestion_runner_act_as_sa" {
   count              = var.platform_service_config.enable && var.ingestion_config.deploy_workflow ? 1 : 0
-  service_account_id = "projects/${var.shared.project_id}/serviceAccounts/${module.iam.service_account_email}"
+  service_account_id = "projects/${var.global.project_id}/serviceAccounts/${module.iam.service_account_email}"
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:${module.ingestion_dataflow[0].ingestion_runner_email}"
 }

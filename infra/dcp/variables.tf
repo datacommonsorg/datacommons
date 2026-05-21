@@ -213,6 +213,12 @@ variable "ingestion_service_image" {
 # Serving Layer - Data Commons Service
 # =============================================================================
 
+variable "enable_datacommons_service" {
+  description = "Enable the main Data Commons service"
+  type        = bool
+  default     = true
+}
+
 variable "datacommons_service_image" {
   description = "Docker image URL for the main Data Commons service"
   type        = string
