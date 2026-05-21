@@ -77,8 +77,8 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                         parameters: '$${launch_params}'
                         environment:
                           serviceAccountEmail: '${var.ingestion_runner_email}'
-                          tempLocation: '${input.tempLocation}'
-                          stagingLocation: '${input.tempLocation}'
+                          tempLocation: '$${input.tempLocation}'
+                          stagingLocation: '$${input.tempLocation}'
                   result: launch_result
               - get_job_id:
                   assign:
