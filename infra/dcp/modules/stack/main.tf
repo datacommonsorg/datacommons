@@ -65,13 +65,13 @@ locals {
   datacommons_service_secrets = var.datacommons_service_config.enable ? concat([
     {
       name    = "DC_API_KEY"
-      secret  = module.iam.dc_api_key_secret_id
+      secret  = module.auth.dc_api_key_secret_id
       version = "latest"
     }
     ], var.datacommons_service_config.enable_google_maps ? [
     {
       name    = "MAPS_API_KEY"
-      secret  = module.iam.maps_api_key_secret_id
+      secret  = module.auth.maps_api_key_secret_id
       version = "latest"
     }
   ] : []) : []
@@ -187,8 +187,8 @@ module "redis" {
   enable_connector              = true
 }
 
-module "iam" {
-  source = "../iam"
+module "auth" {
+  source = "../auth"
 
   project_id          = var.global.project_id
   namespace           = var.global.namespace
@@ -210,7 +210,7 @@ module "ingestion_prep_job" {
   dc_data_job_cpu               = var.ingestion_config.prep_job_cpu
   dc_data_job_memory            = var.ingestion_config.prep_job_memory
   dc_data_job_timeout           = var.ingestion_config.prep_job_timeout
-  service_account_email         = module.iam.service_account_email
+  service_account_email         = module.auth.service_account_email
   vpc_connector_id              = var.redis_config.enable ? module.redis[0].connector_id : null
   bucket_name                   = module.storage.ingestion_input_bucket_name
   gcs_data_bucket_input_folder  = var.ingestion_config.ingestion_input_folder
@@ -221,11 +221,11 @@ module "ingestion_prep_job" {
   secret_env_vars               = local.datacommons_service_secrets
   orchestrator_email            = coalesce(module.ingestion_dataflow.orchestrator_email, "")
 
-  depends_on = [module.iam]
+  depends_on = [module.auth]
 }
 
-module "datacommons_service" {
-  source = "../datacommons_service"
+module "datacommons_services" {
+  source = "../datacommons_services"
   count  = var.datacommons_service_config.enable ? 1 : 0
 
   project_id                        = var.global.project_id
@@ -242,7 +242,7 @@ module "datacommons_service" {
   dc_search_scope                   = var.datacommons_service_config.search_scope
   enable_mcp                        = var.datacommons_service_config.enable_mcp
   prep_bucket_name                   = module.storage.ingestion_input_bucket_name
-  service_account_email             = module.iam.service_account_email
+  service_account_email             = module.auth.service_account_email
   vpc_connector_id                  = var.redis_config.enable ? module.redis[0].connector_id : null
   use_spanner                       = true
   mysql_connection_name             = ""
@@ -269,7 +269,7 @@ resource "google_storage_bucket_iam_member" "dataflow_bucket_access" {
 # This is only needed to trigger the services restart to pick up the GCS embeddings change
 resource "google_service_account_iam_member" "ingestion_runner_act_as_sa" {
   count              = var.ingestion_config.deploy_workflow ? 1 : 0
-  service_account_id = "projects/${var.global.project_id}/serviceAccounts/${module.iam.service_account_email}"
+  service_account_id = "projects/${var.global.project_id}/serviceAccounts/${module.auth.service_account_email}"
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:${module.ingestion_dataflow.ingestion_runner_email}"
 }

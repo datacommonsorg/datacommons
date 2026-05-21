@@ -9,11 +9,11 @@ output "spanner_database_id" {
 }
 
 output "datacommons_service_url" {
-  value = length(module.datacommons_service) > 0 ? module.datacommons_service[0].service_url : null
+  value = length(module.datacommons_services) > 0 ? module.datacommons_services[0].service_url : null
 }
 
 output "datacommons_service_name" {
-  value = length(module.datacommons_service) > 0 ? module.datacommons_service[0].service_name : null
+  value = length(module.datacommons_services) > 0 ? module.datacommons_services[0].service_name : null
 }
 
 output "ingestion_workflow_id" {
