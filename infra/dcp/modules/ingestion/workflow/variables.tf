@@ -22,7 +22,7 @@ variable "lock_acquisition_timeout" {
   type = number
 }
 
-variable "ingestion_helper_uri" {
+variable "ingestion_helper_url" {
   type = string
 }
 
