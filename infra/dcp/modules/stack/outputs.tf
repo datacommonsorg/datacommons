@@ -33,12 +33,12 @@ output "ingestion_workflow_name" {
 
 output "ingestion_service_uri" {
   description = "URI of the ingestion support Cloud Run service"
-  value       = module.ingestion_service.ingestion_helper_uri
+  value       = module.ingestion_helper_service.ingestion_helper_uri
 }
 
 output "ingestion_prep_job_name" {
   description = "Name of the data ingestion pre-processing job"
-  value       = length(module.ingestion_prep_job) > 0 ? module.ingestion_prep_job[0].job_name : null
+  value       = length(module.ingestion_preprocessing_job) > 0 ? module.ingestion_preprocessing_job[0].job_name : null
 }
 
 output "ingestion_orchestrator_service_account_email" {

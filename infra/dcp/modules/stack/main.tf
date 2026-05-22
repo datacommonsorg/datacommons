@@ -122,7 +122,7 @@ module "storage" {
 }
 
 module "ingestion_dataflow" {
-  source = "../ingestion_dataflow"
+  source = "../ingestion/dataflow"
 
   deploy                = var.ingestion_config.deploy_workflow
   project_id            = var.global.project_id
@@ -134,8 +134,8 @@ module "ingestion_dataflow" {
   ingestion_bucket_name = module.storage.ingestion_workflow_bucket_name
 }
 
-module "ingestion_service" {
-  source = "../ingestion_service"
+module "ingestion_helper_service" {
+  source = "../ingestion/helper_service"
 
   deploy                = var.ingestion_config.deploy_workflow
   project_id            = var.global.project_id
@@ -152,7 +152,7 @@ module "ingestion_service" {
 }
 
 module "ingestion_workflow" {
-  source = "../ingestion_workflow"
+  source = "../ingestion/workflow"
 
   deploy                 = var.ingestion_config.deploy_workflow
   namespace              = var.global.namespace
@@ -160,7 +160,7 @@ module "ingestion_workflow" {
   deletion_protection    = var.global.deletion_protection
   project_id             = var.global.project_id
   ingestion_lock_timeout = var.ingestion_config.lock_timeout
-  ingestion_helper_uri   = module.ingestion_service.ingestion_helper_uri
+  ingestion_helper_uri   = module.ingestion_helper_service.ingestion_helper_uri
   ingestion_runner_id    = module.ingestion_dataflow.ingestion_runner_id
   ingestion_runner_email = module.ingestion_dataflow.ingestion_runner_email
   orchestrator_email     = var.ingestion_config.deploy_workflow ? coalesce(module.ingestion_dataflow.orchestrator_email, "") : ""
@@ -198,8 +198,8 @@ module "auth" {
   use_spanner         = true
 }
 
-module "ingestion_prep_job" {
-  source = "../ingestion_prep_job"
+module "ingestion_preprocessing_job" {
+  source = "../ingestion/preprocessing_job"
   count  = var.ingestion_config.deploy_workflow ? 1 : 0
 
   project_id                    = var.global.project_id
@@ -249,7 +249,7 @@ module "datacommons_services" {
   env_vars                          = local.cloud_run_shared_env_variables
   secret_env_vars                   = local.datacommons_service_secrets
 
-  depends_on = [module.ingestion_prep_job]
+  depends_on = [module.ingestion_preprocessing_job]
 }
 
 check "spanner_instance_id_provided" {
