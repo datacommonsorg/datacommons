@@ -379,3 +379,12 @@ resource "google_cloud_run_v2_service_iam_member" "workflow_serving_developer" {
   member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
 
+resource "google_workflows_workflow_iam_member" "preprocessing_workflow_invoker" {
+  count    = var.ingestion_config.enable_ingestion ? 1 : 0
+  project  = var.global.project_id
+  region   = var.global.region
+  workflow = module.ingestion_workflow.workflow_name
+  role     = "roles/workflows.invoker"
+  member   = "serviceAccount:${module.ingestion_preprocessing_job[0].service_account_email}"
+}
+
