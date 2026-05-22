@@ -265,6 +265,13 @@ resource "google_service_account_iam_member" "ingestion_workflow_act_as_serving_
   member             = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
 
+resource "google_service_account_iam_member" "ingestion_workflow_act_as_dataflow_sa" {
+  count              = var.ingestion_config.enable_ingestion ? 1 : 0
+  service_account_id = "projects/${var.global.project_id}/serviceAccounts/${module.ingestion_dataflow.service_account_email}"
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
 resource "google_secret_manager_secret_iam_member" "preprocessing_api_key_accessor" {
   count     = var.ingestion_config.enable_ingestion ? 1 : 0
   project   = var.global.project_id
