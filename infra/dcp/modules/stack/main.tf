@@ -255,6 +255,14 @@ check "spanner_instance_id_provided" {
   }
 }
 
+check "datacommons_api_key_provided" {
+  assert {
+    condition     = (!var.datacommons_services_config.enable && !var.ingestion_config.enable_ingestion) || var.auth_config.google_datacommons_api_key != ""
+    error_message = "auth_google_datacommons_api_key must be provided when datacommons_services or ingestion are enabled."
+  }
+}
+
+
 
 
 # =============================================================================
