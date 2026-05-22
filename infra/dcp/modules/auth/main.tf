@@ -21,15 +21,9 @@ resource "random_id" "api_key_suffix" {
 }
 
 resource "google_apikeys_key" "maps_api_key" {
-<<<<<<< Updated upstream
   count = var.google_maps_api_key == null && var.create_google_maps_key ? 1 : 0
 
   name         = "${local.name_prefix}dc-google-maps-key-${random_id.api_key_suffix.hex}"
-=======
-  # TODO: FIX THIS!
-  count        = var.maps_api_key == null && var.create_maps_key ? 1 : 0
-  name         = "${local.name_prefix}maps-key"
->>>>>>> Stashed changes
   display_name = "Maps API Key for ${var.namespace != "" ? var.namespace : "Data Commons"}"
   project      = var.project_id
 
