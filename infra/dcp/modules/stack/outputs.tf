@@ -1,11 +1,11 @@
 
 
 output "spanner_instance_id" {
-  value = module.spanner.spanner_instance_id
+  value = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : null
 }
 
 output "spanner_database_id" {
-  value = module.spanner.spanner_database_id
+  value = var.spanner_config.enable ? module.spanner[0].spanner_database_id : null
 }
 
 output "datacommons_service_url" {

@@ -20,11 +20,13 @@ variable "create_database" {
 }
 
 variable "instance_id" {
-  type = string
+  type    = string
+  default = ""
 }
 
 variable "database_id" {
-  type = string
+  type    = string
+  default = ""
 }
 
 variable "processing_units" {

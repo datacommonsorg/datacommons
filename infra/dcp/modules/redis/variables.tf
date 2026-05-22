@@ -6,27 +6,28 @@ variable "region" {
   type = string
 }
 
-variable "redis_instance_name" {
-  type = string
+variable "instance_name" {
+  type    = string
+  default = ""
 }
 
-variable "redis_memory_size_gb" {
+variable "memory_size_gb" {
   type = number
 }
 
-variable "redis_tier" {
+variable "tier" {
   type = string
 }
 
-variable "redis_location_id" {
+variable "location_id" {
   type = string
 }
 
-variable "redis_alternative_location_id" {
+variable "alternative_location_id" {
   type = string
 }
 
-variable "redis_replica_count" {
+variable "replica_count" {
   type = number
 }
 

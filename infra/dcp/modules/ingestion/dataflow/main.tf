@@ -16,12 +16,6 @@ resource "google_project_iam_member" "ingestion_spanner_user" {
   member  = "serviceAccount:${google_service_account.dataflow_sa[0].email}"
 }
 
-resource "google_project_iam_member" "dataflow_admin" {
-  count   = var.deploy ? 1 : 0
-  project = var.project_id
-  role    = "roles/dataflow.admin"
-  member  = "serviceAccount:${google_service_account.dataflow_sa[0].email}"
-}
 
 resource "google_project_iam_member" "dataflow_worker" {
   count   = var.deploy ? 1 : 0
@@ -56,10 +50,4 @@ resource "google_service_account_iam_member" "workflows_token_creator" {
   member             = "serviceAccount:service-${data.google_project.project.number}@gcp-sa-workflows.iam.gserviceaccount.com"
 }
 
-resource "google_storage_bucket_iam_member" "dynamic_ingestion_bucket_access" {
-  count  = var.deploy ? 1 : 0
-  bucket = var.ingestion_bucket_name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.dataflow_sa[0].email}"
-}
 

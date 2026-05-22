@@ -11,9 +11,7 @@ resource "google_project_iam_member" "serving_sa_roles" {
   for_each = setsubtract(toset([
     "roles/compute.networkViewer",
     "roles/redis.editor",
-    "roles/cloudsql.admin",
-    "roles/storage.objectAdmin",
-    "roles/run.admin",
+    "roles/storage.objectViewer",
     "roles/vpcaccess.user",
     "roles/iam.serviceAccountUser",
     "roles/secretmanager.secretAccessor",

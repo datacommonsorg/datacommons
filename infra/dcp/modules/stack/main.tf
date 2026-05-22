@@ -30,11 +30,13 @@ locals {
     },
     {
       name  = "GCP_SPANNER_INSTANCE_ID"
-      value = module.spanner.spanner_instance_id
+      # Use index [0] because module.spanner is now conditional (count). Fallback to empty string if disabled.
+      value = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
     },
     {
       name  = "GCP_SPANNER_DATABASE_NAME"
-      value = module.spanner.spanner_database_id
+      # Use index [0] because module.spanner is now conditional (count). Fallback to empty string if disabled.
+      value = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
     },
     {
       name  = "INGESTION_WORKFLOW_NAME"
@@ -79,6 +81,7 @@ locals {
 
 module "spanner" {
   source = "../spanner"
+  count  = var.spanner_config.enable ? 1 : 0
 
   project_id               = var.global.project_id
   namespace                = var.global.namespace
@@ -142,7 +145,6 @@ module "ingestion_dataflow" {
   deploy                = var.ingestion_config.enable_ingestion
   project_id            = var.global.project_id
   namespace             = var.global.namespace
-  deletion_protection   = var.global.deletion_protection
   ingestion_bucket_name = module.storage.artifacts_bucket_name
 }
 
@@ -154,9 +156,10 @@ module "ingestion_helper_service" {
   namespace             = var.global.namespace
   region                = var.global.region
   deletion_protection   = var.global.deletion_protection
-  spanner_instance_id   = module.spanner.spanner_instance_id
-  spanner_database_id   = module.spanner.spanner_database_id
-  bigquery_connection_id = module.spanner.bigquery_connection_id
+  # Use index [0] because module.spanner is conditional. Fallback to empty string if disabled.
+  spanner_instance_id   = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
+  spanner_database_id   = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
+  bigquery_connection_id = var.spanner_config.enable ? module.spanner[0].bigquery_connection_id : ""
   ingestion_bucket_name  = module.storage.artifacts_bucket_name
   image = var.ingestion_config.helper_service_image
 }
@@ -184,12 +187,12 @@ module "redis" {
 
   namespace                     = var.global.namespace
   region                        = var.global.region
-  redis_instance_name           = var.redis_config.instance_name
-  redis_memory_size_gb          = var.redis_config.memory_size_gb
-  redis_tier                    = var.redis_config.tier
-  redis_location_id             = var.redis_config.location_id
-  redis_alternative_location_id = var.redis_config.alternative_location_id
-  redis_replica_count           = var.redis_config.replica_count
+  instance_name                 = var.redis_config.instance_name
+  memory_size_gb                = var.redis_config.memory_size_gb
+  tier                          = var.redis_config.tier
+  location_id                   = var.redis_config.location_id
+  alternative_location_id       = var.redis_config.alternative_location_id
+  replica_count                 = var.redis_config.replica_count
   vpc_network_id                = data.google_compute_network.default.id
   vpc_connector_cidr            = var.redis_config.vpc_connector_cidr
   enable_connector              = true
@@ -226,7 +229,7 @@ module "datacommons_services" {
   mcp_instructions_path             = var.datacommons_services_config.instructions_path
   artifacts_bucket_name             = module.storage.artifacts_bucket_name
   vpc_connector_id                  = var.redis_config.enable ? module.redis[0].connector_id : null
-  use_spanner                       = true
+  use_spanner                       = var.spanner_config.enable
   mysql_connection_name             = ""
   env_vars                          = local.cloud_run_shared_env_variables
   secret_env_vars                   = local.datacommons_services_secrets
@@ -269,10 +272,12 @@ resource "google_secret_manager_secret_iam_member" "preprocessing_api_key_access
 }
 
 resource "google_bigquery_connection_iam_member" "helper_connection_user" {
-  count         = var.ingestion_config.enable_ingestion && var.spanner_config.enable_bigquery_connection ? 1 : 0
+  # Only create if ingestion is enabled, BQ connection is enabled, and Spanner is enabled!
+  count         = var.ingestion_config.enable_ingestion && var.spanner_config.enable_bigquery_connection && var.spanner_config.enable ? 1 : 0
   project       = var.global.project_id
   location      = var.global.region
-  connection_id = module.spanner.bigquery_connection_id
+  # Use index [0] because module.spanner is conditional.
+  connection_id = module.spanner[0].bigquery_connection_id
   role          = "roles/bigquery.connectionUser"
   member        = "serviceAccount:${module.ingestion_helper_service.service_account_email}"
 }
@@ -292,9 +297,11 @@ resource "google_project_iam_member" "helper_bq_job_user" {
 }
 
 resource "google_spanner_database_iam_member" "workflow_spanner_user" {
-  count    = var.ingestion_config.enable_ingestion ? 1 : 0
-  instance = module.spanner.spanner_instance_id
-  database = module.spanner.spanner_database_id
+  # Only create if ingestion is enabled and Spanner is enabled!
+  count    = var.ingestion_config.enable_ingestion && var.spanner_config.enable ? 1 : 0
+  # Use index [0] because module.spanner is conditional.
+  instance = module.spanner[0].spanner_instance_id
+  database = module.spanner[0].spanner_database_id
   role     = "roles/spanner.databaseUser"
   member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
@@ -327,5 +334,12 @@ resource "google_storage_bucket_iam_member" "preprocessing_bucket_access" {
   bucket = module.storage.artifacts_bucket_name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${module.ingestion_preprocessing_job[0].service_account_email}"
+}
+
+resource "google_project_iam_member" "workflow_dataflow_developer" {
+  count   = var.ingestion_config.enable_ingestion ? 1 : 0
+  project = var.global.project_id
+  role    = "roles/dataflow.developer"
+  member  = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
 

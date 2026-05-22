@@ -11,9 +11,6 @@ variable "namespace" {
 }
 
 
-variable "deletion_protection" {
-  type = bool
-}
 
 
 variable "ingestion_bucket_name" {

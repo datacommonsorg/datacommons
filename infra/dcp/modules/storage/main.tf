@@ -1,6 +1,6 @@
 locals {
   name_prefix = var.namespace != "" ? "${var.namespace}-" : ""
-  artifacts_bucket_name = var.artifacts_bucket_name != "" ? var.artifacts_bucket_name : "${local.name_prefix}artifacts-${var.project_id}"
+  artifacts_bucket_name = var.artifacts_bucket_name != "" ? var.artifacts_bucket_name : "${local.name_prefix}dc-artifacts-${var.project_id}"
 }
 
 resource "google_storage_bucket" "artifacts_bucket" {
