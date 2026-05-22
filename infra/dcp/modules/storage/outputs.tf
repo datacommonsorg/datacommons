@@ -1,11 +1,7 @@
-output "cdc_bucket_name" {
-  value = var.enable_cdc ? google_storage_bucket.cdc_data_bucket[0].name : null
+output "artifacts_bucket_name" {
+  value = var.create_artifacts_bucket ? google_storage_bucket.artifacts_bucket[0].name : local.artifacts_bucket_name
 }
 
-output "dcp_bucket_name" {
-  value = var.enable_dcp && var.dcp_deploy ? (var.dcp_create_bucket ? google_storage_bucket.dcp_data_ingestion_bucket[0].name : var.dcp_external_bucket_name) : null
-}
-
-output "dcp_bucket_url" {
-  value = var.enable_dcp && var.dcp_deploy ? (var.dcp_create_bucket ? google_storage_bucket.dcp_data_ingestion_bucket[0].url : null) : null
+output "artifacts_bucket_url" {
+  value = var.create_artifacts_bucket ? google_storage_bucket.artifacts_bucket[0].url : "gs://${local.artifacts_bucket_name}"
 }

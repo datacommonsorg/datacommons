@@ -1,13 +1,28 @@
-# --- Shared Global Variables ---
+# =============================================================================
+# Global Configuration
+# =============================================================================
+
 variable "project_id" {
   description = "GCP Project ID"
   type        = string
 }
 
 variable "region" {
-  description = "GCP Region"
+  description = "The default GCP region where regional resources (such as Cloud Run services, Spanner databases, and storage buckets) will be provisioned."
   type        = string
   default     = "us-central1"
+}
+
+variable "namespace" {
+  description = "A unique identifier used as a prefix for resource naming. This prevents naming conflicts when deploying multiple isolated environments (like dev, staging, or feature branches) within the same GCP project."
+  type        = string
+  default     = ""
+}
+
+variable "deletion_protection" {
+  description = "Enable deletion protection for resources (set to true for production)"
+  type        = bool
+  default     = false
 }
 
 variable "user_project_override" {
@@ -22,404 +37,328 @@ variable "billing_project_id" {
   default     = null
 }
 
-variable "deletion_protection" {
-  description = "Enable deletion protection for resources (set to true for production)"
-  type        = bool
-  default     = false
-}
+# =============================================================================
+# Auth Module
+# =============================================================================
 
-variable "make_services_public" {
-  description = "Whether to allow unauthenticated invocations to the Cloud Run services in the DCP and CDC stacks"
-  type        = bool
-  default     = false
-}
-
-# --- Stack Toggles ---
-variable "enable_dcp" {
-  description = "Enable the new Data Commons Platform stack"
-  type        = bool
-  default     = true
-}
-
-variable "enable_cdc" {
-  description = "Enable the legacy Custom Data Commons stack"
-  type        = bool
-  default     = false
-}
-
-# --- DCP Stack Variables ---
-variable "dcp_image_url" {
-  description = "Docker image URL for DCP"
-  type        = string
-  default     = "gcr.io/datcom-ci/datacommons-platform:latest"
-}
-
-variable "dcp_service_name" {
-  description = "Cloud Run service name for DCP"
-  type        = string
-  default     = "dcp-svc"
-}
-
-variable "dcp_service_account_name" {
-  description = "Service account for DCP"
-  type        = string
-  default     = "dcp-sa"
-}
-
-variable "dcp_create_spanner_instance" {
-  description = "Create a new Spanner instance for DCP"
-  type        = bool
-  default     = false
-}
-
-variable "dcp_create_spanner_db" {
-  description = "Create a new Spanner database for DCP"
-  type        = bool
-  default     = true
-}
-
-variable "dcp_spanner_instance_id" {
-  description = "Spanner instance for DCP"
+variable "auth_google_datacommons_api_key" {
+  description = "API key used to authenticate and connect to the remote Base Data Commons instance"
   type        = string
   default     = ""
 }
 
-variable "dcp_spanner_database_id" {
-  description = "Spanner database for DCP"
-  type        = string
-  default     = "dcp-db"
-}
-
-variable "dcp_spanner_version_retention_period" {
-  description = "Spanner database version retention period"
-  type        = string
-  default     = "6h"
-}
-
-variable "dcp_spanner_processing_units" {
-  description = "Spanner units for DCP"
-  type        = number
-  default     = 1000
-}
-
-variable "dcp_service_cpu" {
-  description = "CPU limit for the DCP service container"
-  type        = string
-  default     = "1000m"
-}
-
-variable "dcp_service_memory" {
-  description = "Memory limit for the DCP service container"
-  type        = string
-  default     = "1Gi"
-}
-
-variable "dcp_service_min_instances" {
-  description = "Minimum number of instances for the DCP service"
-  type        = number
-  default     = 1
-}
-
-variable "dcp_service_max_instances" {
-  description = "Maximum number of instances for the DCP service"
-  type        = number
-  default     = 10
-}
-
-variable "dcp_service_concurrency" {
-  description = "Maximum concurrent requests per instance for the DCP service"
-  type        = number
-  default     = 80
-}
-
-variable "dcp_service_timeout_seconds" {
-  description = "Request timeout in seconds for the DCP service"
-  type        = number
-  default     = 300
-}
-
-
-variable "namespace" {
-  description = "Global prefix for all resources"
-  type        = string
-  default     = ""
-}
-
-variable "cdc_dc_api_key" {
-  description = "DC API Key for CDC"
-  type        = string
-  default     = ""
-}
-
-variable "cdc_maps_api_key" {
-  description = "Maps API Key for CDC"
+variable "auth_google_maps_api_key" {
+  description = "Google Maps API key (used for place resolution)"
   type        = string
   default     = null
 }
 
-variable "cdc_disable_google_maps" {
-  description = "Disable maps in CDC"
+variable "auth_create_google_maps_api_key" {
+  description = "Create a new Google Maps API key if maps_api_key is not provided"
   type        = bool
-  default     = false
+  default     = true
 }
 
-variable "cdc_google_analytics_tag_id" {
-  description = "GA tag for CDC"
-  type        = string
-  default     = null
+# =============================================================================
+# Storage Module
+# =============================================================================
+
+variable "storage_create_artifacts_bucket" {
+  description = "Create a dedicated GCS bucket for Data Commons artifacts"
+  type        = bool
+  default     = true
 }
 
-variable "cdc_gcs_data_bucket_name" {
-  description = "CDC data bucket"
+variable "storage_artifacts_bucket_name" {
+  description = "The name of the unified GCS bucket for artifacts (serving and ingestion). If not provided, a name will be automatically generated following the pattern [namespace-]dc-artifacts-[project_id]"
   type        = string
   default     = ""
 }
 
-variable "cdc_gcs_data_bucket_input_folder" {
-  description = "CDC input folder"
-  type        = string
-  default     = "input"
-}
+# =============================================================================
+# Redis Module
+# =============================================================================
 
-variable "cdc_gcs_data_bucket_output_folder" {
-  description = "CDC output folder"
-  type        = string
-  default     = "output"
-}
-
-variable "cdc_gcs_data_bucket_location" {
-  description = "CDC bucket location"
-  type        = string
-  default     = "US"
-}
-
-variable "cdc_mysql_instance_name" {
-  description = "CDC MySQL name"
-  type        = string
-  default     = "sql-inst"
-}
-
-variable "cdc_mysql_database_name" {
-  description = "CDC MySQL DB name"
-  type        = string
-  default     = "datacommons"
-}
-
-variable "cdc_mysql_database_version" {
-  description = "CDC MySQL version"
-  type        = string
-  default     = "MYSQL_8_0"
-}
-
-variable "cdc_mysql_cpu_count" {
-  description = "CDC MySQL CPU"
-  type        = number
-  default     = 2
-}
-
-variable "cdc_mysql_memory_size_mb" {
-  description = "CDC MySQL RAM"
-  type        = number
-  default     = 7680
-}
-
-variable "cdc_mysql_storage_size_gb" {
-  description = "CDC MySQL Disk"
-  type        = number
-  default     = 20
-}
-
-variable "cdc_mysql_user" {
-  description = "CDC MySQL user"
-  type        = string
-  default     = "datacommons"
-}
-
-variable "cdc_vpc_connector_cidr" {
-  description = "CIDR range for the CDC VPC Access Connector"
-  type        = string
-  default     = "10.13.0.0/28"
-}
-
-variable "cdc_web_service_image" {
-  description = "CDC web image"
-  type        = string
-  default     = "gcr.io/datcom-ci/datacommons-services:latest"
-}
-
-variable "cdc_web_service_min_instance_count" {
-  description = "CDC min instances"
-  type        = number
-  default     = 1
-}
-
-variable "cdc_web_service_max_instance_count" {
-  description = "CDC max instances"
-  type        = number
-  default     = 3
-}
-
-variable "cdc_web_service_cpu" {
-  description = "CDC web CPU"
-  type        = string
-  default     = "4"
-}
-
-variable "cdc_web_service_memory" {
-  description = "CDC web RAM"
-  type        = string
-  default     = "16G"
-}
-
-
-variable "cdc_data_job_image" {
-  description = "CDC data job image"
-  type        = string
-  default     = "gcr.io/datcom-ci/datacommons-data:latest"
-}
-
-variable "cdc_data_job_cpu" {
-  description = "CDC data job CPU"
-  type        = string
-  default     = "8"
-}
-
-variable "cdc_data_job_memory" {
-  description = "CDC data job RAM"
-  type        = string
-  default     = "32G"
-}
-
-variable "cdc_data_job_timeout" {
-  description = "CDC data job timeout"
-  type        = string
-  default     = "21600s"
-}
-
-variable "cdc_search_scope" {
-  description = "CDC search scope"
-  type        = string
-  default     = "base_and_custom"
-}
-
-variable "dcp_enable_bq_federation" {
-  description = "Enable BigQuery federation to Spanner"
+variable "enable_redis" {
+  description = "Enable a Memorystore Redis instance for caching"
   type        = bool
   default     = false
 }
 
-variable "dcp_bq_connection_name" {
-  description = "BigQuery connection name for Spanner"
+variable "redis_instance_name" {
+  description = "The name of the Redis instance. If not provided, a name will be automatically generated following the pattern [namespace-]dc-redis-instance"
   type        = string
-  default     = "spanner_connection"
+  default     = ""
 }
 
-variable "dcp_create_bq_reservation" {
-  description = "Create a new BigQuery reservation for federation queries"
-  type        = bool
-  default     = true
-}
-
-variable "dcp_bq_reservation_slot_capacity" {
-  description = "Baseline slots for BigQuery reservation"
-  type        = number
-  default     = 0
-}
-
-variable "dcp_bq_reservation_max_slots" {
-  description = "Max slots for BigQuery reservation autoscale"
-  type        = number
-  default     = 400
-}
-
-variable "cdc_enable_mcp" {
-  description = "CDC enable MCP"
-  type        = bool
-  default     = true
-}
-
-variable "cdc_vpc_network_name" {
-  description = "CDC VPC network"
-  type        = string
-  default     = "default"
-}
-
-variable "cdc_vpc_network_subnet_name" {
-  description = "CDC VPC subnet"
-  type        = string
-  default     = "default"
-}
-
-variable "cdc_enable_redis" {
-  description = "CDC enable redis"
-  type        = bool
-  default     = false
-}
-
-variable "cdc_redis_instance_name" {
-  description = "CDC redis name"
-  type        = string
-  default     = "datacommons-redis-instance"
-}
-
-variable "cdc_redis_memory_size_gb" {
-  description = "CDC redis size"
+variable "redis_memory_size_gb" {
+  description = "The memory capacity of the Redis instance in GB"
   type        = number
   default     = 2
 }
 
-variable "cdc_redis_tier" {
-  description = "CDC redis tier"
+variable "redis_tier" {
+  description = "The service tier of the Redis instance (BASIC or STANDARD_HA)"
   type        = string
   default     = "STANDARD_HA"
 }
 
-variable "cdc_redis_location_id" {
-  description = "CDC redis zone"
+variable "redis_location_id" {
+  description = "The primary zone where the Redis instance will be located"
   type        = string
   default     = "us-central1-a"
 }
 
-variable "cdc_redis_alternative_location_id" {
-  description = "CDC redis alt zone"
+variable "redis_alternative_location_id" {
+  description = "The alternative zone for the failover Redis instance (required for STANDARD_HA tier)"
   type        = string
   default     = "us-central1-b"
 }
 
-variable "cdc_redis_replica_count" {
-  description = "CDC redis replicas"
+variable "redis_replica_count" {
+  description = "The number of read replicas for the Redis instance"
   type        = number
   default     = 1
 }
 
-# --- Ingestion Pipeline Config ---
-variable "dcp_deploy_data_ingestion_workflow" {
-  description = "Deploy the complete end-to-end Data Commons Ingestion workflow stack"
+variable "redis_vpc_network_name" {
+  description = "VPC network name"
+  type        = string
+  default     = "default"
+}
+
+variable "redis_vpc_connector_cidr" {
+  description = "CIDR range for the VPC Access Connector"
+  type        = string
+  default     = "10.13.0.0/28"
+}
+
+# =============================================================================
+# Spanner Module
+# =============================================================================
+
+variable "enable_spanner" {
+  description = "Enable Cloud Spanner database"
   type        = bool
   default     = true
 }
 
-variable "dcp_create_ingestion_bucket" {
-  description = "Create a dedicated ingestion bucket for the DCP ingestion workflow"
+variable "spanner_create_instance" {
+  description = "Create a new Spanner instance"
+  type        = bool
+  default     = false
+}
+
+variable "spanner_create_database" {
+  description = "Create a new Spanner database within the specified spanner_instance_id"
   type        = bool
   default     = true
 }
 
-variable "dcp_external_ingestion_bucket_name" {
-  description = "Existing external bucket name to use when dcp_create_ingestion_bucket is false"
+variable "spanner_instance_id" {
+  description = "The ID of the Spanner instance. If not provided, a name will be automatically generated following the pattern [namespace-]dc-instance"
   type        = string
   default     = ""
 }
 
-variable "dcp_ingestion_lock_timeout" {
+variable "spanner_database_id" {
+  description = "The ID of the Spanner database. If not provided, a name will be automatically generated following the pattern [namespace-]dc-db"
+  type        = string
+  default     = ""
+}
+
+variable "spanner_version_retention_period" {
+  description = "Spanner database version retention period (e.g., 6h)"
+  type        = string
+  default     = "6h"
+}
+
+variable "spanner_processing_units" {
+  description = "Compute capacity for the Spanner instance in processing units (1000 = 1 node)"
+  type        = number
+  default     = 1000
+}
+
+variable "spanner_enable_bigquery_connection" {
+  description = "Enable BigQuery connection to allow querying Spanner data via BigQuery."
+  type        = bool
+  default     = true
+}
+
+variable "spanner_bigquery_connection_name" {
+  description = "The name of the BigQuery external connection to Spanner"
+  type        = string
+  default     = "spanner_connection"
+}
+
+variable "spanner_create_bigquery_reservation" {
+  description = "Create a dedicated BigQuery reservation for federation queries"
+  type        = bool
+  default     = true
+}
+
+variable "spanner_bigquery_reservation_slot_capacity" {
+  description = "Baseline compute slots for the BigQuery reservation"
+  type        = number
+  default     = 0
+}
+
+variable "spanner_bigquery_reservation_max_slots" {
+  description = "Maximum slots for BigQuery reservation autoscaling"
+  type        = number
+  default     = 400
+}
+
+# =============================================================================
+# Datacommons Services Module
+# =============================================================================
+
+variable "enable_datacommons_services" {
+  description = "Enable the main Data Commons services"
+  type        = bool
+  default     = true
+}
+
+variable "datacommons_services_image" {
+  description = "Docker image URL for the main Data Commons services"
+  type        = string
+  default     = "gcr.io/datcom-ci/datacommons-services:latest"
+}
+
+variable "datacommons_services_name" {
+  description = "Cloud Run service name for the main Data Commons services"
+  type        = string
+  default     = "datacommons-service"
+}
+
+variable "datacommons_services_min_instances" {
+  description = "Minimum number of instances for the Data Commons services"
+  type        = number
+  default     = 1
+}
+
+variable "datacommons_services_max_instances" {
+  description = "Maximum number of instances for the Data Commons services"
+  type        = number
+  default     = 3
+}
+
+variable "datacommons_services_cpu" {
+  description = "CPU limit for the Data Commons services container"
+  type        = string
+  default     = "4"
+}
+
+variable "datacommons_services_memory" {
+  description = "Memory limit for the Data Commons services container"
+  type        = string
+  default     = "16G"
+}
+
+variable "datacommons_services_allow_unauthenticated_access" {
+  description = "Allow unauthenticated access to the public-facing services of the Data Commons Platform"
+  type        = bool
+  default     = false
+}
+
+variable "datacommons_services_google_analytics_tag_id" {
+  description = "Google Analytics tag ID for frontend usage tracking (only relevant if the website is deployed)"
+  type        = string
+  default     = null
+}
+
+variable "datacommons_services_website_disable_google_maps_api" {
+  description = "Disable Google Maps integration for the website"
+  type        = bool
+  default     = false
+}
+
+variable "datacommons_services_enable_mcp" {
+  description = "Enable Model Context Protocol (MCP) support"
+  type        = bool
+  default     = true
+}
+
+variable "datacommons_services_mcp_search_scope" {
+  description = "Controls the datasets (base and/or custom) that are searched in response to AI queries"
+  type        = string
+  default     = "base_and_custom"
+}
+
+variable "datacommons_services_mcp_instructions_path" {
+  description = "Directory path for customized instructions for server tools and agents"
+  type        = string
+  default     = null
+}
+
+# =============================================================================
+# Ingestion - Preprocessing Job
+# =============================================================================
+
+variable "ingestion_preprocessing_job_image" {
+  description = "Docker image URL for the data ingestion pre-processing job"
+  type        = string
+  default     = "gcr.io/datcom-ci/datacommons-data:latest"
+}
+
+variable "ingestion_preprocessing_job_cpu" {
+  description = "CPU limit for the pre-processing job container"
+  type        = string
+  default     = "8"
+}
+
+variable "ingestion_preprocessing_job_memory" {
+  description = "Memory limit for the pre-processing job container"
+  type        = string
+  default     = "32G"
+}
+
+variable "ingestion_preprocessing_job_timeout" {
+  description = "Request timeout for the pre-processing job"
+  type        = string
+  default     = "21600s"
+}
+
+variable "ingestion_input_path" {
+  description = "Path within the bucket where raw files are uploaded"
+  type        = string
+  default     = "ingestion/input/"
+}
+
+# =============================================================================
+# Ingestion - Workflow
+# =============================================================================
+
+variable "enable_ingestion" {
+  description = "Enable the complete end-to-end Data Commons Ingestion workflow stack"
+  type        = bool
+  default     = true
+}
+
+variable "ingestion_workflow_lock_acquisition_timeout" {
   description = "Timeout for the ingestion lock in seconds"
   type        = number
   default     = 82800
 }
 
-variable "dcp_ingestion_helper_image" {
-  description = "Docker image URL for the DCP ingestion helper service"
+variable "ingestion_workflow_enable_bigquery_postprocessing" {
+  description = "Enable BigQuery post-processing (aggregation) in the ingestion workflow"
+  type        = bool
+  default     = true
+}
+
+variable "ingestion_workflow_artifacts_path" {
+  description = "Path where pre-processed files are placed for the next stage"
+  type        = string
+  default     = "ingestion/internal"
+}
+
+# =============================================================================
+# Ingestion - Helper Service
+# =============================================================================
+
+variable "ingestion_helper_service_image" {
+  description = "Docker image URL for the ingestion support service"
   type        = string
   default     = "gcr.io/datcom-ci/datacommons-ingestion-helper:latest"
 }
-
