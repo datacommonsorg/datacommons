@@ -149,7 +149,9 @@ module "ingestion_dataflow" {
   project_id            = var.global.project_id
   namespace             = var.global.namespace
   ingestion_bucket_name = module.storage.artifacts_bucket_name
+  use_spanner           = var.spanner_config.enable
 }
+
 
 module "ingestion_helper_service" {
   source = "../ingestion/helper_service"
@@ -165,7 +167,9 @@ module "ingestion_helper_service" {
   bigquery_connection_id = var.spanner_config.enable ? module.spanner[0].bigquery_connection_id : ""
   ingestion_bucket_name  = module.storage.artifacts_bucket_name
   image                  = var.ingestion_config.helper_service_image
+  use_spanner            = var.spanner_config.enable
 }
+
 
 module "ingestion_workflow" {
   source = "../ingestion/workflow"
@@ -207,13 +211,12 @@ module "redis" {
 module "auth" {
   source = "../auth"
 
-  project_id      = var.global.project_id
-  namespace       = var.global.namespace
-  dc_api_key      = var.auth_config.google_datacommons_api_key
-  maps_api_key    = var.auth_config.google_maps_api_key
-  create_maps_key = var.auth_config.create_maps_key
+  project_id             = var.global.project_id
+  namespace              = var.global.namespace
+  dc_api_key             = var.auth_config.google_datacommons_api_key
+  google_maps_api_key    = var.auth_config.google_maps_api_key
+  create_google_maps_key = var.auth_config.create_google_maps_key
 }
-
 
 module "datacommons_services" {
   source = "../datacommons_services"
@@ -244,10 +247,20 @@ module "datacommons_services" {
 
 check "spanner_instance_id_provided" {
   assert {
-    condition     = !var.datacommons_services_config.enable || var.spanner_config.create_instance || var.spanner_config.instance_id != ""
+    condition     = !var.spanner_config.enable || var.spanner_config.create_instance || var.spanner_config.instance_id != ""
     error_message = "spanner_instance_id must be provided when reusing an existing instance (create_spanner_instance = false)."
   }
 }
+
+check "datacommons_api_key_provided" {
+  assert {
+    condition     = (!var.datacommons_services_config.enable && !var.ingestion_config.enable_ingestion) || var.auth_config.google_datacommons_api_key != ""
+    error_message = "auth_google_datacommons_api_key must be provided when datacommons_services or ingestion are enabled."
+  }
+}
+
+
+
 
 # =============================================================================
 # Cross-Module IAM Bindings

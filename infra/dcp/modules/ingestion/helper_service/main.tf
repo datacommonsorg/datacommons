@@ -61,12 +61,13 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
 }
 
 resource "google_spanner_database_iam_member" "helper_spanner_user" {
-  count    = var.deploy ? 1 : 0
+  count    = var.deploy && var.use_spanner ? 1 : 0
   instance = var.spanner_instance_id
   database = var.spanner_database_id
   role     = "roles/spanner.databaseUser"
   member   = "serviceAccount:${google_service_account.helper_sa[0].email}"
 }
+
 
 resource "google_storage_bucket_iam_member" "helper_bucket_access" {
   count  = var.deploy ? 1 : 0

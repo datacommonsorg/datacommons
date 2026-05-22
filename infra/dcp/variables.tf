@@ -48,13 +48,13 @@ variable "auth_google_datacommons_api_key" {
 }
 
 variable "auth_google_maps_api_key" {
-  description = "Google Maps API key (used for place resolution)"
+  description = "Optional Google Maps API key. If provided, it will be used and Terraform will NOT create a new key (and will destroy any auto-generated key it was previously managing)."
   type        = string
   default     = null
 }
 
 variable "auth_create_google_maps_api_key" {
-  description = "Create a new Google Maps API key if maps_api_key is not provided"
+  description = "Whether to automatically create a restricted Google Maps API key. This only applies if auth_google_maps_api_key is not provided (null)."
   type        = bool
   default     = true
 }
