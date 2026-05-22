@@ -38,13 +38,19 @@ variable "datacommons_service_config" {
     max_instances        = number
     cpu                  = string
     memory               = string
-    dc_api_key           = string
-    maps_api_key         = string
-    enable_google_maps   = bool
     google_analytics_tag = string
     enable_mcp           = bool
     search_scope         = string
     instructions_dir     = string
+    website_disable_google_maps_api = bool
+  })
+}
+
+variable "auth_config" {
+  type = object({
+    google_datacommons_api_key = string
+    google_maps_api_key        = string
+    create_maps_key           = bool
   })
 }
 

@@ -7,5 +7,5 @@ output "dc_api_key_secret_id" {
 }
 
 output "maps_api_key_secret_id" {
-  value = var.disable_google_maps ? "" : google_secret_manager_secret_version.maps_api_key_version[0].secret
+  value = try(google_secret_manager_secret_version.maps_api_key_version[0].secret, "")
 }

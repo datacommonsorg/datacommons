@@ -41,7 +41,7 @@ resource "google_secret_manager_secret_version" "dc_api_key_version" {
 }
 
 resource "google_apikeys_key" "maps_api_key" {
-  count        = var.maps_api_key == null && !var.disable_google_maps ? 1 : 0
+  count        = var.maps_api_key == null && var.create_maps_key ? 1 : 0
   name         = "${local.name_prefix}maps-key"
   display_name = "Maps API Key for ${var.namespace != "" ? var.namespace : "Data Commons"}"
   project      = var.project_id
@@ -57,7 +57,7 @@ resource "google_apikeys_key" "maps_api_key" {
 }
 
 resource "google_secret_manager_secret" "maps_api_key" {
-  count     = var.disable_google_maps ? 0 : 1
+  count     = (var.maps_api_key != null || var.create_maps_key) ? 1 : 0
   secret_id = "${local.name_prefix}maps-api-key"
   replication {
     auto {}
@@ -65,7 +65,7 @@ resource "google_secret_manager_secret" "maps_api_key" {
 }
 
 resource "google_secret_manager_secret_version" "maps_api_key_version" {
-  count       = var.disable_google_maps ? 0 : 1
+  count       = (var.maps_api_key != null || var.create_maps_key) ? 1 : 0
   secret      = google_secret_manager_secret.maps_api_key[0].id
   secret_data = local.maps_api_key_value
 }

@@ -15,9 +15,9 @@ variable "maps_api_key" {
   default = null
 }
 
-variable "disable_google_maps" {
+variable "create_maps_key" {
   type    = bool
-  default = false
+  default = true
 }
 
 variable "use_spanner" {

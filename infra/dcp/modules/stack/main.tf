@@ -68,7 +68,7 @@ locals {
       secret  = module.auth.dc_api_key_secret_id
       version = "latest"
     }
-    ], var.datacommons_service_config.enable_google_maps ? [
+    ], !var.datacommons_service_config.website_disable_google_maps_api ? [
     {
       name    = "MAPS_API_KEY"
       secret  = module.auth.maps_api_key_secret_id
@@ -192,9 +192,9 @@ module "auth" {
 
   project_id          = var.global.project_id
   namespace           = var.global.namespace
-  dc_api_key          = var.datacommons_service_config.dc_api_key
-  maps_api_key        = var.datacommons_service_config.maps_api_key
-  disable_google_maps = !var.datacommons_service_config.enable_google_maps
+  dc_api_key          = var.auth_config.google_datacommons_api_key
+  maps_api_key        = var.auth_config.google_maps_api_key
+  create_maps_key     = var.auth_config.create_maps_key
   use_spanner         = true
 }
 

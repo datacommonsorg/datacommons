@@ -255,6 +255,12 @@ variable "datacommons_service_memory" {
   default     = "16G"
 }
 
+variable "datacommons_services_website_disable_google_maps_api" {
+  description = "Disable Google Maps integration for the website"
+  type        = bool
+  default     = false
+}
+
 # =============================================================================
 # Redis Configuration
 # =============================================================================
@@ -268,7 +274,7 @@ variable "enable_redis" {
 variable "redis_instance_name" {
   description = "The name of the Redis instance"
   type        = string
-  default     = "dcp-redis-instance"
+  default     = "dc-redis-instance"
 }
 
 variable "redis_memory_size_gb" {
@@ -305,13 +311,13 @@ variable "redis_replica_count" {
 # Networking Configuration
 # =============================================================================
 
-variable "vpc_network_name" {
+variable "redis_vpc_network_name" {
   description = "VPC network name"
   type        = string
   default     = "default"
 }
 
-variable "vpc_connector_cidr" {
+variable "redis_vpc_connector_cidr" {
   description = "CIDR range for the VPC Access Connector"
   type        = string
   default     = "10.13.0.0/28"
@@ -321,20 +327,20 @@ variable "vpc_connector_cidr" {
 # External Services & API Keys
 # =============================================================================
 
-variable "base_dc_api_key" {
+variable "auth_google_datacommons_api_key" {
   description = "API key used to authenticate and connect to the remote Base Data Commons instance"
   type        = string
   default     = ""
 }
 
-variable "maps_api_key" {
+variable "auth_google_maps_api_key" {
   description = "Google Maps API key (used for place resolution)"
   type        = string
   default     = null
 }
 
-variable "enable_google_maps" {
-  description = "Enable Google Maps integration for place resolution"
+variable "auth_create_google_maps_api_key" {
+  description = "Create a new Google Maps API key if maps_api_key is not provided"
   type        = bool
   default     = true
 }

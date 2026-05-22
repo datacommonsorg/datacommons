@@ -89,13 +89,17 @@ locals {
     max_instances        = var.datacommons_service_max_instances
     cpu                  = var.datacommons_service_cpu
     memory               = var.datacommons_service_memory
-    dc_api_key           = var.base_dc_api_key
-    maps_api_key         = var.maps_api_key
-    enable_google_maps   = var.enable_google_maps
     google_analytics_tag = var.google_analytics_tag_id
     enable_mcp           = var.enable_mcp
     search_scope         = var.mcp_search_scope
     instructions_dir     = var.mcp_instructions_dir
+    website_disable_google_maps_api = var.datacommons_services_website_disable_google_maps_api
+  }
+
+  auth_config = {
+    google_datacommons_api_key = var.auth_google_datacommons_api_key
+    google_maps_api_key        = var.auth_google_maps_api_key
+    create_maps_key           = var.auth_create_google_maps_api_key
   }
 
 
@@ -107,8 +111,8 @@ locals {
     location_id             = var.redis_location_id
     alternative_location_id = var.redis_alternative_location_id
     replica_count           = var.redis_replica_count
-    vpc_network_name        = var.vpc_network_name
-    vpc_connector_cidr      = var.vpc_connector_cidr
+    vpc_network_name        = var.redis_vpc_network_name
+    vpc_connector_cidr      = var.redis_vpc_connector_cidr
   }
 
   ingestion_config = {
@@ -139,6 +143,7 @@ module "stack" {
   spanner_config        = local.spanner_config
   bq_federation_config = local.bq_federation_config
   datacommons_service_config = local.datacommons_service_config
+  auth_config          = local.auth_config
   redis_config         = local.redis_config
   ingestion_config     = local.ingestion_config
 
