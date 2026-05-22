@@ -168,7 +168,6 @@ module "ingestion_helper_service" {
   ingestion_bucket_name  = module.storage.artifacts_bucket_name
   image                  = var.ingestion_config.helper_service_image
   use_spanner            = var.spanner_config.enable
-  bigquery_job_service_account = module.ingestion_dataflow.service_account_email
 }
 
 
