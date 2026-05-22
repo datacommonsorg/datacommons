@@ -181,6 +181,8 @@ module "ingestion_workflow" {
   enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
   enable_datacommons_services    = var.datacommons_services_config.enable
   ingestion_helper_service_name  = "${var.global.namespace != "" ? "${var.global.namespace}-" : ""}dc-ingestion-helper"
+
+  depends_on = [module.ingestion_helper_service]
 }
 
 
