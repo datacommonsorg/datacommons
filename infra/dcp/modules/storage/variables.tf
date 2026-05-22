@@ -1,11 +1,3 @@
-variable "enable_dcp" {
-  type = bool
-}
-
-variable "enable_cdc" {
-  type = bool
-}
-
 variable "project_id" {
   type = string
 }
@@ -14,36 +6,20 @@ variable "namespace" {
   type = string
 }
 
-variable "dcp_deploy" {
+variable "create_artifacts_bucket" {
+  type    = bool
+  default = true
+}
+
+variable "artifacts_bucket_name" {
+  type = string
+}
+
+variable "region" {
+  type = string
+}
+
+variable "deletion_protection" {
   type = bool
 }
 
-variable "dcp_create_bucket" {
-  type = bool
-}
-
-variable "dcp_external_bucket_name" {
-  type = string
-}
-
-variable "dcp_region" {
-  type = string
-}
-
-variable "dcp_deletion_protection" {
-  type = bool
-}
-
-variable "cdc_gcs_data_bucket_name" {
-  type = string
-}
-
-variable "cdc_gcs_data_bucket_location" {
-  type = string
-}
-
-variable "orchestrator_email" {
-  type        = string
-  description = "Email of the orchestrator service account"
-  default     = ""
-}

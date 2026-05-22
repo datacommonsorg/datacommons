@@ -1,47 +1,20 @@
 data "google_compute_network" "default" {
-  name = var.cdc.vpc_network_name
+  name = var.redis_config.vpc_network_name
 }
 
 locals {
-  enable_dcp = var.toggles.enable_dcp
-  enable_cdc = var.toggles.enable_cdc
 
-  cdc_use_spanner = var.toggles.enable_cdc && var.toggles.enable_dcp
+  redis_host = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
+  redis_port = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
 
-  dcp_spanner_instance_id = local.enable_dcp ? module.spanner[0].spanner_instance_id : ""
-  dcp_spanner_database_id = local.enable_dcp ? module.spanner[0].spanner_database_id : ""
-
-  cdc_redis_host = local.enable_cdc && var.cdc.enable_redis ? module.cdc_redis[0].redis_host : ""
-  cdc_redis_port = local.enable_cdc && var.cdc.enable_redis ? tostring(module.cdc_redis[0].redis_port) : ""
-
-  cdc_cloud_run_shared_env_variables = local.enable_cdc ? [
+  cloud_run_shared_env_variables = [
     {
       name  = "USE_CLOUDSQL"
-      value = local.cdc_use_spanner ? "false" : "true"
-    },
-    {
-      name  = "CLOUDSQL_INSTANCE"
-      value = local.cdc_use_spanner ? "" : module.cdc_mysql[0].mysql_instance_connection_name
-    },
-    {
-      name  = "DB_NAME"
-      value = var.cdc.mysql_database_name
-    },
-    {
-      name  = "DB_USER"
-      value = var.cdc.mysql_user
-    },
-    {
-      name  = "DB_HOST"
-      value = ""
-    },
-    {
-      name  = "DB_PORT"
-      value = "3306"
+      value = "false"
     },
     {
       name  = "OUTPUT_DIR"
-      value = "gs://${module.storage.cdc_bucket_name}/${var.cdc.gcs_data_bucket_output_folder}"
+      value = "gs://${module.storage.artifacts_bucket_name}/${var.ingestion_config.workflow_artifacts_path}"
     },
     {
       name  = "FORCE_RESTART"
@@ -49,315 +22,339 @@ locals {
     },
     {
       name  = "REDIS_HOST"
-      value = local.cdc_redis_host
+      value = local.redis_host
     },
     {
       name  = "REDIS_PORT"
-      value = local.cdc_redis_port
+      value = local.redis_port
     },
     {
-      name  = "GCP_SPANNER_INSTANCE_ID"
-      value = local.dcp_spanner_instance_id
+      name = "GCP_SPANNER_INSTANCE_ID"
+      # Use index [0] because module.spanner is now conditional (count). Fallback to empty string if disabled.
+      value = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
     },
     {
-      name  = "GCP_SPANNER_DATABASE_NAME"
-      value = local.dcp_spanner_database_id
+      name = "GCP_SPANNER_DATABASE_NAME"
+      # Use index [0] because module.spanner is now conditional (count). Fallback to empty string if disabled.
+      value = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
     },
     {
-      name  = "INGESTION_WORKFLOW_NAME"
-      value = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow && module.dcp_ingestion_workflow[0].ingestion_orchestrator_name != null ? module.dcp_ingestion_workflow[0].ingestion_orchestrator_name : ""
+      name = "INGESTION_WORKFLOW_NAME"
+      # Fallback to empty string if ingestion is disabled and module output is null
+      value = module.ingestion_workflow.workflow_name != null ? module.ingestion_workflow.workflow_name : ""
     },
     {
       name  = "TEMP_LOCATION"
-      value = "gs://${module.storage.cdc_bucket_name}/temp"
+      value = "gs://${module.storage.artifacts_bucket_name}/temp"
     },
     {
       name  = "PROJECT_ID"
-      value = var.shared.project_id
+      value = var.global.project_id
     },
     {
       name  = "WORKFLOW_LOCATION"
-      value = var.shared.region
+      value = var.global.region
     },
     {
       name  = "REGION"
-      value = var.shared.region
+      value = var.global.region
     },
     {
       name  = "USE_SPANNER_GRAPH"
-      value = local.cdc_use_spanner ? "true" : "false"
+      value = "true"
     }
+  ]
 
-  ] : []
-
-  cdc_cloud_run_shared_env_variable_secrets = local.enable_cdc ? concat([
+  datacommons_services_secrets = var.datacommons_services_config.enable ? concat([
     {
       name    = "DC_API_KEY"
-      secret  = module.cdc_iam[0].dc_api_key_secret_id
+      secret  = module.auth.dc_api_key_secret_id
       version = "latest"
     }
-    ], var.cdc.disable_google_maps ? [] : [
+    ], !var.datacommons_services_config.website_disable_google_maps_api ? [
     {
       name    = "MAPS_API_KEY"
-      secret  = module.cdc_iam[0].maps_api_key_secret_id
+      secret  = module.auth.maps_api_key_secret_id
       version = "latest"
     }
-    ], local.cdc_use_spanner ? [] : [
-    {
-      name    = "DB_PASS"
-      secret  = module.cdc_mysql[0].mysql_password_secret_id
-      version = "latest"
-    }
-  ]) : []
+  ] : []) : []
 }
 
 module "spanner" {
   source = "../spanner"
-  count  = local.enable_dcp ? 1 : 0
+  count  = var.spanner_config.enable ? 1 : 0
 
-  project_id               = var.shared.project_id
-  namespace                = var.shared.namespace
-  region                   = var.shared.region
-  create_spanner_instance  = var.dcp.create_spanner_instance
-  create_spanner_db        = var.dcp.create_spanner_db
-  spanner_instance_id      = var.dcp.spanner_instance_id
-  spanner_database_id      = var.dcp.spanner_database_id
-  spanner_processing_units = var.dcp.spanner_processing_units
-  deletion_protection      = var.shared.deletion_protection
-  orchestrator_email       = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow && module.dcp_ingestion_dataflow[0].orchestrator_email != null ? module.dcp_ingestion_dataflow[0].orchestrator_email : ""
-  enable_bq_federation       = var.dcp.enable_bq_federation
-  bq_connection_name         = var.dcp.bq_connection_name
-  ingestion_helper_sa_email = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow ? module.dcp_ingestion_dataflow[0].ingestion_runner_email : ""
-  spanner_version_retention_period = var.dcp.spanner_version_retention_period
-  create_bq_reservation           = var.dcp.create_bq_reservation
-  bq_reservation_slot_capacity     = var.dcp.bq_reservation_slot_capacity
-  bq_reservation_max_slots        = var.dcp.bq_reservation_max_slots
+  project_id                         = var.global.project_id
+  namespace                          = var.global.namespace
+  region                             = var.global.region
+  create_instance                    = var.spanner_config.create_instance
+  create_database                    = var.spanner_config.create_db
+  instance_id                        = var.spanner_config.instance_id
+  database_id                        = var.spanner_config.database_id
+  processing_units                   = var.spanner_config.processing_units
+  deletion_protection                = var.global.deletion_protection
+  version_retention_period           = var.spanner_config.version_retention_period
+  enable_bigquery_connection         = var.spanner_config.enable_bigquery_connection
+  bigquery_connection_name           = var.spanner_config.bigquery_connection_name
+  create_bigquery_reservation        = var.spanner_config.create_bigquery_reservation
+  bigquery_reservation_slot_capacity = var.spanner_config.bigquery_reservation_slot_capacity
+  bigquery_reservation_max_slots     = var.spanner_config.bigquery_reservation_max_slots
 }
 
-module "dcp_service" {
-  source = "../dcp_service"
-  count  = local.enable_dcp ? 1 : 0
-
-  namespace               = var.shared.namespace
-  project_id              = var.shared.project_id
-  region                  = var.shared.region
-  image_url               = var.dcp.image_url
-  service_name            = var.dcp.service_name
-  service_account_name    = var.dcp.service_account_name
-  service_cpu             = var.dcp.service_cpu
-  service_memory          = var.dcp.service_memory
-  service_min_instances   = var.dcp.service_min_instances
-  service_max_instances   = var.dcp.service_max_instances
-  service_concurrency     = var.dcp.service_concurrency
-  service_timeout_seconds = var.dcp.service_timeout_seconds
-  deletion_protection     = var.shared.deletion_protection
-  make_service_public     = var.shared.make_services_public
-  spanner_instance_id     = module.spanner[0].spanner_instance_id
-  spanner_database_id     = module.spanner[0].spanner_database_id
-  orchestrator_email       = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow && module.dcp_ingestion_dataflow[0].orchestrator_email != null ? module.dcp_ingestion_dataflow[0].orchestrator_email : ""
-}
 
 module "storage" {
   source = "../storage"
 
-  enable_dcp           = local.enable_dcp
-  enable_cdc           = local.enable_cdc
-  
-  # DCP vars
-  dcp_deploy                = var.dcp.deploy_data_ingestion_workflow
-  dcp_create_bucket         = var.dcp.create_ingestion_bucket
-  dcp_external_bucket_name  = var.dcp.external_ingestion_bucket_name
-  dcp_region                 = var.shared.region
-  dcp_deletion_protection   = var.shared.deletion_protection
-  
-  # CDC vars
-  cdc_gcs_data_bucket_name     = var.cdc.gcs_data_bucket_name
-  cdc_gcs_data_bucket_location = var.cdc.gcs_data_bucket_location
-  
+  # Ingestion Workflow Bucket Vars
+  create_artifacts_bucket = var.storage_create_artifacts_bucket
+  artifacts_bucket_name   = var.storage_artifacts_bucket_name
+  region                  = var.global.region
+  deletion_protection     = var.global.deletion_protection
+
   # Shared vars
-  project_id         = var.shared.project_id
-  namespace          = var.shared.namespace
-  orchestrator_email = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow && module.dcp_ingestion_dataflow[0].orchestrator_email != null ? module.dcp_ingestion_dataflow[0].orchestrator_email : ""
+  project_id = var.global.project_id
+  namespace  = var.global.namespace
 }
 
-module "dcp_ingestion_dataflow" {
-  source = "../dcp_ingestion_dataflow"
-  count  = local.enable_dcp ? 1 : 0
+module "ingestion_preprocessing_job" {
+  source = "../ingestion/preprocessing_job"
+  count  = var.ingestion_config.enable_ingestion ? 1 : 0
 
-  deploy                = var.dcp.deploy_data_ingestion_workflow
-  project_id            = var.shared.project_id
-  namespace             = var.shared.namespace
-  region                = var.shared.region
-  deletion_protection   = var.shared.deletion_protection
-  spanner_instance_id   = module.spanner[0].spanner_instance_id
-  spanner_database_id   = module.spanner[0].spanner_database_id
-  ingestion_bucket_name = module.storage.dcp_bucket_name
+  project_id              = var.global.project_id
+  namespace               = var.global.namespace
+  region                  = var.global.region
+  deletion_protection     = var.global.deletion_protection
+  image                   = var.ingestion_config.preprocessing_job_image
+  cpu                     = var.ingestion_config.preprocessing_job_cpu
+  memory                  = var.ingestion_config.preprocessing_job_memory
+  timeout                 = var.ingestion_config.preprocessing_job_timeout
+  vpc_connector_id        = var.redis_config.enable ? module.redis[0].connector_id : null
+  bucket_name             = module.storage.artifacts_bucket_name
+  input_path              = var.ingestion_config.input_path
+  workflow_artifacts_path = var.ingestion_config.workflow_artifacts_path
+  run_database_init       = false
+  use_spanner             = true
+  env_vars                = local.cloud_run_shared_env_variables
+  secret_env_vars         = local.datacommons_services_secrets
+  dc_api_key_secret_id    = module.auth.dc_api_key_secret_id
+  maps_api_key_secret_id  = module.auth.maps_api_key_secret_id
+
+  depends_on = [module.auth]
 }
 
-module "dcp_ingestion_helper" {
-  source = "../dcp_ingestion_helper"
-  count  = local.enable_dcp ? 1 : 0
+module "ingestion_dataflow" {
+  source = "../ingestion/dataflow"
 
-  deploy                = var.dcp.deploy_data_ingestion_workflow
-  project_id            = var.shared.project_id
-  namespace             = var.shared.namespace
-  region                = var.shared.region
-  deletion_protection   = var.shared.deletion_protection
-  spanner_instance_id   = module.spanner[0].spanner_instance_id
-  spanner_database_id   = module.spanner[0].spanner_database_id
-  bq_connection_id      = module.spanner[0].bq_connection_id
-  ingestion_bucket_name  = module.storage.dcp_bucket_name
-  service_account_email  = module.dcp_ingestion_dataflow[0].ingestion_runner_email
-  ingestion_helper_image = var.dcp.ingestion_helper_image
-  orchestrator_email     = var.dcp.deploy_data_ingestion_workflow && module.dcp_ingestion_dataflow[0].orchestrator_email != null ? module.dcp_ingestion_dataflow[0].orchestrator_email : ""
+  deploy                = var.ingestion_config.enable_ingestion
+  project_id            = var.global.project_id
+  namespace             = var.global.namespace
+  ingestion_bucket_name = module.storage.artifacts_bucket_name
 }
 
-module "dcp_ingestion_workflow" {
-  source = "../dcp_ingestion_workflow"
-  count  = local.enable_dcp ? 1 : 0
+module "ingestion_helper_service" {
+  source = "../ingestion/helper_service"
 
-  deploy                 = var.dcp.deploy_data_ingestion_workflow
-  namespace              = var.shared.namespace
-  region                 = var.shared.region
-  deletion_protection    = var.shared.deletion_protection
-  project_id             = var.shared.project_id
-  ingestion_lock_timeout = var.dcp.ingestion_lock_timeout
-  ingestion_helper_uri   = module.dcp_ingestion_helper[0].ingestion_helper_uri
-  ingestion_runner_id    = module.dcp_ingestion_dataflow[0].ingestion_runner_id
-  ingestion_runner_email = module.dcp_ingestion_dataflow[0].ingestion_runner_email
-  orchestrator_email     = var.dcp.deploy_data_ingestion_workflow && module.dcp_ingestion_dataflow[0].orchestrator_email != null ? module.dcp_ingestion_dataflow[0].orchestrator_email : ""
-  enable_bq_federation   = var.dcp.enable_bq_federation
+  deploy              = var.ingestion_config.enable_ingestion
+  project_id          = var.global.project_id
+  namespace           = var.global.namespace
+  region              = var.global.region
+  deletion_protection = var.global.deletion_protection
+  # Use index [0] because module.spanner is conditional. Fallback to empty string if disabled.
+  spanner_instance_id    = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
+  spanner_database_id    = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
+  bigquery_connection_id = var.spanner_config.enable ? module.spanner[0].bigquery_connection_id : ""
+  ingestion_bucket_name  = module.storage.artifacts_bucket_name
+  image                  = var.ingestion_config.helper_service_image
 }
 
+module "ingestion_workflow" {
+  source = "../ingestion/workflow"
 
+  deploy                         = var.ingestion_config.enable_ingestion
+  namespace                      = var.global.namespace
+  region                         = var.global.region
+  deletion_protection            = var.global.deletion_protection
+  project_id                     = var.global.project_id
+  lock_acquisition_timeout       = var.ingestion_config.workflow_lock_acquisition_timeout
+  ingestion_helper_uri           = module.ingestion_helper_service.ingestion_helper_uri
+  dataflow_service_account_email = module.ingestion_dataflow.service_account_email
+  enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
+  enable_datacommons_services    = var.datacommons_services_config.enable
+  ingestion_helper_service_name  = "${var.global.namespace != "" ? "${var.global.namespace}-" : ""}dc-ingestion-helper"
 
-module "cdc_network" {
-  source = "../cdc_network"
-  count  = local.enable_cdc ? 1 : 0
-
-  namespace          = var.shared.namespace
-  region             = var.shared.region
-  vpc_network_name   = var.cdc.vpc_network_name
-  vpc_connector_cidr = var.cdc.vpc_connector_cidr
-  use_spanner         = local.cdc_use_spanner
+  depends_on = [module.ingestion_helper_service]
 }
 
 
-module "cdc_mysql" {
-  source = "../cdc_mysql"
-  count  = local.enable_cdc && !local.cdc_use_spanner ? 1 : 0
 
-  namespace              = var.shared.namespace
-  region                 = var.shared.region
-  mysql_instance_name    = var.cdc.mysql_instance_name
-  mysql_database_name    = var.cdc.mysql_database_name
-  mysql_database_version = var.cdc.mysql_database_version
-  mysql_cpu_count        = var.cdc.mysql_cpu_count
-  mysql_memory_size_mb   = var.cdc.mysql_memory_size_mb
-  mysql_user             = var.cdc.mysql_user
-  deletion_protection    = var.shared.deletion_protection
+module "redis" {
+  source = "../redis"
+  count  = var.redis_config.enable ? 1 : 0
+
+  namespace               = var.global.namespace
+  region                  = var.global.region
+  instance_name           = var.redis_config.instance_name
+  memory_size_gb          = var.redis_config.memory_size_gb
+  tier                    = var.redis_config.tier
+  location_id             = var.redis_config.location_id
+  alternative_location_id = var.redis_config.alternative_location_id
+  replica_count           = var.redis_config.replica_count
+  vpc_network_id          = data.google_compute_network.default.id
+  vpc_connector_cidr      = var.redis_config.vpc_connector_cidr
+  enable_connector        = true
 }
 
-module "cdc_redis" {
-  source = "../cdc_redis"
-  count  = local.enable_cdc && var.cdc.enable_redis ? 1 : 0
+module "auth" {
+  source = "../auth"
 
-  namespace                     = var.shared.namespace
-  region                        = var.shared.region
-  redis_instance_name           = var.cdc.redis_instance_name
-  redis_memory_size_gb          = var.cdc.redis_memory_size_gb
-  redis_tier                    = var.cdc.redis_tier
-  redis_location_id             = var.cdc.redis_location_id
-  redis_alternative_location_id = var.cdc.redis_alternative_location_id
-  redis_replica_count           = var.cdc.redis_replica_count
-  vpc_network_id                = data.google_compute_network.default.id
+  project_id      = var.global.project_id
+  namespace       = var.global.namespace
+  dc_api_key      = var.auth_config.google_datacommons_api_key
+  maps_api_key    = var.auth_config.google_maps_api_key
+  create_maps_key = var.auth_config.create_maps_key
 }
 
-module "cdc_iam" {
-  source = "../cdc_iam"
-  count  = local.enable_cdc ? 1 : 0
 
-  project_id          = var.shared.project_id
-  namespace           = var.shared.namespace
-  dc_api_key          = var.cdc.dc_api_key
-  maps_api_key        = var.cdc.maps_api_key
-  disable_google_maps = var.cdc.disable_google_maps
-  use_spanner         = local.cdc_use_spanner
-}
+module "datacommons_services" {
+  source = "../datacommons_services"
+  count  = var.datacommons_services_config.enable ? 1 : 0
 
-module "cdc_data_ingestion_job" {
-  source = "../cdc_data_ingestion_job"
-  count  = local.enable_cdc ? 1 : 0
+  project_id              = var.global.project_id
+  namespace               = var.global.namespace
+  region                  = var.global.region
+  deletion_protection     = var.global.deletion_protection
+  image                   = var.datacommons_services_config.image
+  cpu                     = var.datacommons_services_config.cpu
+  memory                  = var.datacommons_services_config.memory
+  min_instances           = var.datacommons_services_config.min_instances
+  max_instances           = var.datacommons_services_config.max_instances
+  make_public             = var.datacommons_services_config.allow_unauthenticated_access
+  google_analytics_tag_id = var.datacommons_services_config.google_analytics_tag
+  mcp_search_scope        = var.datacommons_services_config.search_scope
+  enable_mcp              = var.datacommons_services_config.enable_mcp
+  mcp_instructions_path   = var.datacommons_services_config.instructions_path
+  artifacts_bucket_name   = module.storage.artifacts_bucket_name
+  vpc_connector_id        = var.redis_config.enable ? module.redis[0].connector_id : null
+  use_spanner             = var.spanner_config.enable
+  env_vars                = local.cloud_run_shared_env_variables
+  secret_env_vars         = local.datacommons_services_secrets
 
-  project_id                    = var.shared.project_id
-  namespace                     = var.shared.namespace
-  region                        = var.shared.region
-  deletion_protection           = var.shared.deletion_protection
-  dc_data_job_image             = var.cdc.data_job_image
-  dc_data_job_cpu               = var.cdc.data_job_cpu
-  dc_data_job_memory            = var.cdc.data_job_memory
-  dc_data_job_timeout           = var.cdc.data_job_timeout
-  service_account_email         = module.cdc_iam[0].service_account_email
-  vpc_connector_id              = module.cdc_network[0].connector_id
-  bucket_name                   = module.storage.cdc_bucket_name
-  gcs_data_bucket_input_folder  = var.cdc.gcs_data_bucket_input_folder
-  gcs_data_bucket_output_folder = var.cdc.gcs_data_bucket_output_folder
-  run_db_init                   = !local.cdc_use_spanner
-  use_spanner                   = local.cdc_use_spanner
-  env_vars                      = local.cdc_cloud_run_shared_env_variables
-  secret_env_vars               = local.cdc_cloud_run_shared_env_variable_secrets
-  orchestrator_email            = local.enable_dcp && var.dcp.deploy_data_ingestion_workflow && module.dcp_ingestion_dataflow[0].orchestrator_email != null ? module.dcp_ingestion_dataflow[0].orchestrator_email : ""
-
-  depends_on = [module.cdc_iam]
-}
-
-module "cdc_services" {
-  source = "../cdc_services"
-  count  = local.enable_cdc ? 1 : 0
-
-  project_id                        = var.shared.project_id
-  namespace                         = var.shared.namespace
-  region                            = var.shared.region
-  deletion_protection               = var.shared.deletion_protection
-  dc_web_service_image              = var.cdc.web_service_image
-  dc_web_service_cpu                = var.cdc.web_service_cpu
-  dc_web_service_memory             = var.cdc.web_service_memory
-  dc_web_service_min_instance_count = var.cdc.web_service_min_instance_count
-  dc_web_service_max_instance_count = var.cdc.web_service_max_instance_count
-  make_dc_web_service_public        = var.shared.make_services_public
-  google_analytics_tag_id           = var.cdc.google_analytics_tag_id
-  dc_search_scope                   = var.cdc.search_scope
-  enable_mcp                        = var.cdc.enable_mcp
-  cdc_bucket_name                   = module.storage.cdc_bucket_name
-  service_account_email             = module.cdc_iam[0].service_account_email
-  vpc_connector_id                  = module.cdc_network[0].connector_id
-  use_spanner                       = local.cdc_use_spanner
-  mysql_connection_name             = local.cdc_use_spanner ? "" : module.cdc_mysql[0].mysql_instance_connection_name
-  env_vars                          = local.cdc_cloud_run_shared_env_variables
-  secret_env_vars                   = local.cdc_cloud_run_shared_env_variable_secrets
-
-  depends_on = [module.cdc_data_ingestion_job]
+  depends_on = [module.ingestion_preprocessing_job]
 }
 
 check "spanner_instance_id_provided" {
   assert {
-    condition     = !var.toggles.enable_dcp || var.dcp.create_spanner_instance || var.dcp.spanner_instance_id != ""
-    error_message = "dcp_spanner_instance_id must be provided when reusing an existing instance (dcp_create_spanner_instance = false)."
+    condition     = !var.datacommons_services_config.enable || var.spanner_config.create_instance || var.spanner_config.instance_id != ""
+    error_message = "spanner_instance_id must be provided when reusing an existing instance (create_spanner_instance = false)."
   }
 }
 
-resource "google_storage_bucket_iam_member" "dataflow_cdc_bucket_access" {
-  count  = local.enable_cdc && local.enable_dcp && var.dcp.deploy_data_ingestion_workflow ? 1 : 0
-  bucket = module.storage.cdc_bucket_name
+# =============================================================================
+# Cross-Module IAM Bindings
+# =============================================================================
+
+resource "google_storage_bucket_iam_member" "dataflow_bucket_access" {
+  count  = var.ingestion_config.enable_ingestion ? 1 : 0
+  bucket = module.storage.artifacts_bucket_name
   role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${module.dcp_ingestion_dataflow[0].ingestion_runner_email}"
+  member = "serviceAccount:${module.ingestion_dataflow.service_account_email}"
 }
 
 # This is only needed to trigger the services restart to pick up the GCS embeddings change
-resource "google_service_account_iam_member" "ingestion_runner_act_as_cdc_sa" {
-  count              = local.enable_cdc && local.enable_dcp && var.dcp.deploy_data_ingestion_workflow ? 1 : 0
-  service_account_id = "projects/${var.shared.project_id}/serviceAccounts/${module.cdc_iam[0].service_account_email}"
+# Mandatory dependency: The Ingestion Workflow service account needs to act as the Serving service account
+# to perform the service restart step via the Cloud Run API after ingestion completes.
+resource "google_service_account_iam_member" "ingestion_workflow_act_as_serving_sa" {
+  count              = var.ingestion_config.enable_ingestion && var.datacommons_services_config.enable ? 1 : 0
+  service_account_id = "projects/${var.global.project_id}/serviceAccounts/${module.datacommons_services[0].service_account_email}"
   role               = "roles/iam.serviceAccountUser"
-  member             = "serviceAccount:${module.dcp_ingestion_dataflow[0].ingestion_runner_email}"
+  member             = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
+
+resource "google_bigquery_connection_iam_member" "helper_connection_user" {
+  # Only create if ingestion is enabled, BQ connection is enabled, and Spanner is enabled!
+  count    = var.ingestion_config.enable_ingestion && var.spanner_config.enable_bigquery_connection && var.spanner_config.enable ? 1 : 0
+  project  = var.global.project_id
+  location = var.global.region
+  # Use index [0] because module.spanner is conditional.
+  connection_id = module.spanner[0].bigquery_connection_id
+  role          = "roles/bigquery.connectionUser"
+  member        = "serviceAccount:${module.ingestion_helper_service.service_account_email}"
+}
+
+resource "google_project_iam_member" "helper_bq_editor" {
+  # Grant access only if ingestion and bigquery postprocessing are enabled
+  count   = var.ingestion_config.enable_ingestion && var.ingestion_config.workflow_enable_bigquery_postprocessing ? 1 : 0
+  project = var.global.project_id
+  role    = "roles/bigquery.dataEditor"
+  member  = "serviceAccount:${module.ingestion_helper_service.service_account_email}"
+}
+
+resource "google_project_iam_member" "helper_bq_job_user" {
+  # Grant access only if ingestion and bigquery postprocessing are enabled
+  count   = var.ingestion_config.enable_ingestion && var.ingestion_config.workflow_enable_bigquery_postprocessing ? 1 : 0
+  project = var.global.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${module.ingestion_helper_service.service_account_email}"
+}
+
+resource "google_spanner_database_iam_member" "workflow_spanner_user" {
+  # Only create if ingestion is enabled and Spanner is enabled!
+  count = var.ingestion_config.enable_ingestion && var.spanner_config.enable ? 1 : 0
+  # Use index [0] because module.spanner is conditional.
+  instance = module.spanner[0].spanner_instance_id
+  database = module.spanner[0].spanner_database_id
+  role     = "roles/spanner.databaseUser"
+  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
+
+
+resource "google_storage_bucket_iam_member" "workflow_bucket_access" {
+  count  = var.ingestion_config.enable_ingestion ? 1 : 0
+  bucket = module.storage.artifacts_bucket_name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
+resource "google_cloud_run_v2_job_iam_member" "workflow_pre_viewer" {
+  count    = var.ingestion_config.enable_ingestion ? 1 : 0
+  location = var.global.region
+  name     = module.ingestion_preprocessing_job[0].job_name
+  role     = "roles/run.viewer"
+  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
+resource "google_cloud_run_v2_job_iam_member" "workflow_pre_invoker" {
+  count    = var.ingestion_config.enable_ingestion ? 1 : 0
+  location = var.global.region
+  name     = module.ingestion_preprocessing_job[0].job_name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
+resource "google_storage_bucket_iam_member" "preprocessing_bucket_access" {
+  count  = var.ingestion_config.enable_ingestion ? 1 : 0
+  bucket = module.storage.artifacts_bucket_name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${module.ingestion_preprocessing_job[0].service_account_email}"
+}
+
+
+
+resource "google_project_iam_member" "workflow_dataflow_developer" {
+  count   = var.ingestion_config.enable_ingestion ? 1 : 0
+  project = var.global.project_id
+  role    = "roles/dataflow.developer"
+  member  = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "workflow_serving_developer" {
+  count    = var.ingestion_config.enable_ingestion && var.datacommons_services_config.enable ? 1 : 0
+  location = var.global.region
+  name     = module.datacommons_services[0].service_name
+  role     = "roles/run.developer"
+  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
+
 
