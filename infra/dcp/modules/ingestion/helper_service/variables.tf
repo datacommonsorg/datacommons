@@ -40,8 +40,16 @@ variable "bigquery_connection_id" {
   default = ""
 }
 
+<<<<<<< Updated upstream
 variable "use_spanner" {
   type    = bool
   default = true
 }
 
+=======
+variable "bigquery_job_service_account" {
+  type        = string
+  description = "Service account email to impersonate for BigQuery jobs"
+  default     = ""
+}
+>>>>>>> Stashed changes

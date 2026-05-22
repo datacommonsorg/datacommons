@@ -47,6 +47,10 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
         value = var.bigquery_connection_id
       }
       env {
+        name  = "BQ_JOB_SERVICE_ACCOUNT"
+        value = var.bigquery_job_service_account
+      }
+      env {
         name  = "LOCATION"
         value = var.region
       }
@@ -74,6 +78,36 @@ resource "google_storage_bucket_iam_member" "helper_bucket_access" {
   bucket = var.ingestion_bucket_name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${google_service_account.helper_sa[0].email}"
+}
+
+resource "google_project_iam_member" "helper_bq_editor" {
+  count   = var.deploy ? 1 : 0
+  project = var.project_id
+  role    = "roles/bigquery.dataEditor"
+  member  = "serviceAccount:${google_service_account.helper_sa[0].email}"
+}
+
+resource "google_project_iam_member" "helper_bq_job_user" {
+  count   = var.deploy ? 1 : 0
+  project = var.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${google_service_account.helper_sa[0].email}"
+}
+
+resource "google_bigquery_connection_iam_member" "helper_connection_user" {
+  count         = var.deploy && var.bigquery_connection_id != "" ? 1 : 0
+  project       = var.project_id
+  location      = var.region
+  connection_id = var.bigquery_connection_id
+  role          = "roles/bigquery.connectionUser"
+  member        = "serviceAccount:${google_service_account.helper_sa[0].email}"
+}
+
+resource "google_service_account_iam_member" "helper_act_as_dataflow_sa" {
+  count              = var.deploy && var.bigquery_job_service_account != "" ? 1 : 0
+  service_account_id = "projects/${var.project_id}/serviceAccounts/${var.bigquery_job_service_account}"
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "serviceAccount:${google_service_account.helper_sa[0].email}"
 }
 
 
