@@ -3,5 +3,5 @@ output "job_name" {
 }
 
 output "run_db_init_id" {
-  value = var.run_db_init ? null_resource.run_db_init[0].id : null
+  value = var.run_database_init ? null_resource.run_db_init[0].id : null
 }

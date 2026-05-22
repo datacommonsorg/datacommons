@@ -138,7 +138,7 @@ module "ingestion_preprocessing_job" {
   bucket_name                   = module.storage.ingestion_input_bucket_name
   input_path                    = var.ingestion_config.input_path
   workflow_artifacts_path        = var.ingestion_config.workflow_artifacts_path
-  run_db_init                   = false
+  run_database_init             = false
   use_spanner                   = true
   env_vars                      = local.cloud_run_shared_env_variables
   secret_env_vars               = local.datacommons_services_secrets

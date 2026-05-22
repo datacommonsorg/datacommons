@@ -80,7 +80,7 @@ resource "google_cloud_run_v2_job" "dc_data_job" {
 }
 
 resource "null_resource" "run_db_init" {
-  count = var.run_db_init ? 1 : 0
+  count = var.run_database_init ? 1 : 0
 
   depends_on = [google_cloud_run_v2_job.dc_data_job]
 
