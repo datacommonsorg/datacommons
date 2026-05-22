@@ -13,6 +13,7 @@ resource "google_project_iam_member" "serving_sa_roles" {
     "roles/redis.editor",
     "roles/storage.objectViewer",
     "roles/vpcaccess.user",
+    # TODO: Review this overly broad permission.
     "roles/iam.serviceAccountUser",
     "roles/secretmanager.secretAccessor",
     "roles/spanner.databaseUser",
@@ -84,7 +85,7 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
       }
       env {
         name  = "DC_SEARCH_SCOPE"
-        value = var.dc_search_scope
+        value = var.mcp_search_scope
       }
       env {
         name  = "ENABLE_MCP"
@@ -112,15 +113,6 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
 
     service_account = google_service_account.serving_sa.email
 
-    dynamic "volumes" {
-      for_each = var.use_spanner ? [] : [1]
-      content {
-        name = "cloudsql"
-        cloud_sql_instance {
-          instances = [var.mysql_connection_name]
-        }
-      }
-    }
   }
 }
 

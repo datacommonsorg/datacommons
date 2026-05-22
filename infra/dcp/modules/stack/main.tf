@@ -225,13 +225,12 @@ module "datacommons_services" {
   max_instances                     = var.datacommons_services_config.max_instances
   make_public                       = var.datacommons_services_config.allow_unauthenticated_access
   google_analytics_tag_id           = var.datacommons_services_config.google_analytics_tag
-  dc_search_scope                   = var.datacommons_services_config.search_scope
+  mcp_search_scope                  = var.datacommons_services_config.search_scope
   enable_mcp                        = var.datacommons_services_config.enable_mcp
   mcp_instructions_path             = var.datacommons_services_config.instructions_path
   artifacts_bucket_name             = module.storage.artifacts_bucket_name
   vpc_connector_id                  = var.redis_config.enable ? module.redis[0].connector_id : null
   use_spanner                       = var.spanner_config.enable
-  mysql_connection_name             = ""
   env_vars                          = local.cloud_run_shared_env_variables
   secret_env_vars                   = local.datacommons_services_secrets
 
@@ -284,14 +283,16 @@ resource "google_bigquery_connection_iam_member" "helper_connection_user" {
 }
 
 resource "google_project_iam_member" "helper_bq_editor" {
-  count   = var.ingestion_config.enable_ingestion && var.spanner_config.enable_bigquery_connection ? 1 : 0
+  # Grant access only if ingestion and bigquery postprocessing are enabled
+  count   = var.ingestion_config.enable_ingestion && var.ingestion_config.workflow_enable_bigquery_postprocessing ? 1 : 0
   project = var.global.project_id
   role    = "roles/bigquery.dataEditor"
   member  = "serviceAccount:${module.ingestion_helper_service.service_account_email}"
 }
 
 resource "google_project_iam_member" "helper_bq_job_user" {
-  count   = var.ingestion_config.enable_ingestion && var.spanner_config.enable_bigquery_connection ? 1 : 0
+  # Grant access only if ingestion and bigquery postprocessing are enabled
+  count   = var.ingestion_config.enable_ingestion && var.ingestion_config.workflow_enable_bigquery_postprocessing ? 1 : 0
   project = var.global.project_id
   role    = "roles/bigquery.jobUser"
   member  = "serviceAccount:${module.ingestion_helper_service.service_account_email}"
