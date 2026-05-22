@@ -182,7 +182,7 @@ variable "spanner_processing_units" {
 variable "spanner_enable_bigquery_connection" {
   description = "Enable BigQuery connection to allow querying Spanner data via BigQuery."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "spanner_bigquery_connection_name" {
@@ -344,7 +344,7 @@ variable "ingestion_workflow_lock_acquisition_timeout" {
 variable "ingestion_workflow_enable_bigquery_postprocessing" {
   description = "Enable BigQuery post-processing (aggregation) in the ingestion workflow"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "ingestion_workflow_artifacts_path" {

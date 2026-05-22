@@ -273,6 +273,14 @@ resource "google_secret_manager_secret_iam_member" "preprocessing_api_key_access
   member    = "serviceAccount:${module.ingestion_preprocessing_job[0].service_account_email}"
 }
 
+resource "google_secret_manager_secret_iam_member" "preprocessing_maps_key_accessor" {
+  count     = var.ingestion_config.enable_ingestion ? 1 : 0
+  project   = var.global.project_id
+  secret_id = module.auth.maps_api_key_secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${module.ingestion_preprocessing_job[0].service_account_email}"
+}
+
 resource "google_bigquery_connection_iam_member" "helper_connection_user" {
   # Only create if ingestion is enabled, BQ connection is enabled, and Spanner is enabled!
   count         = var.ingestion_config.enable_ingestion && var.spanner_config.enable_bigquery_connection && var.spanner_config.enable ? 1 : 0
