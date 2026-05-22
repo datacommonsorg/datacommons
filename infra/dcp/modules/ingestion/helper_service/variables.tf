@@ -45,8 +45,3 @@ variable "use_spanner" {
   default = true
 }
 
-variable "bigquery_job_service_account" {
-  type        = string
-  description = "Service account email to impersonate for BigQuery jobs"
-  default     = ""
-}

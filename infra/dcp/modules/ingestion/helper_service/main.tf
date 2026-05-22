@@ -46,10 +46,7 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
         name  = "BQ_SPANNER_CONN_ID"
         value = var.bigquery_connection_id
       }
-      env {
-        name  = "BQ_JOB_SERVICE_ACCOUNT"
-        value = var.bigquery_job_service_account
-      }
+
       env {
         name  = "LOCATION"
         value = var.region
