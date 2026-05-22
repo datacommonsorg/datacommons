@@ -31,11 +31,6 @@ variable "dataflow_service_account_email" {
   type = string
 }
 
-variable "orchestrator_email" {
-  type        = string
-  description = "Email of the orchestrator service account"
-  default     = ""
-}
 
 variable "enable_bigquery_postprocessing" {
   type    = bool

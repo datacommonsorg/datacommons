@@ -23,7 +23,7 @@ output "ingestion_workflow_id" {
 
 output "ingestion_bucket_url" {
   description = "GCS URL pointing directly to the dynamically provisioned bucket for your input graph MCF files"
-  value       = var.ingestion_config.enable_ingestion ? module.storage.ingestion_workflow_bucket_url : null
+  value       = var.ingestion_config.enable_ingestion ? module.storage.artifacts_bucket_url : null
 }
 
 output "ingestion_workflow_name" {
@@ -48,5 +48,5 @@ output "ingestion_workflow_service_account_email" {
 
 output "ingestion_input_bucket_name" {
   description = "Name of the GCS bucket used for data ingestion pre-processing"
-  value       = module.storage.ingestion_input_bucket_name
+  value       = module.storage.artifacts_bucket_name
 }

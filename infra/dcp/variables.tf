@@ -120,6 +120,22 @@ variable "spanner_bigquery_reservation_max_slots" {
 }
 
 # =============================================================================
+# Storage Configuration
+# =============================================================================
+
+variable "storage_create_artifacts_bucket" {
+  description = "Create a dedicated GCS bucket for Data Commons artifacts"
+  type        = bool
+  default     = true
+}
+
+variable "storage_artifacts_bucket_name" {
+  description = "The name of the unified GCS bucket for artifacts (serving and ingestion)"
+  type        = string
+  default     = ""
+}
+
+# =============================================================================
 # Ingestion Layer - Preprocessing Job
 # =============================================================================
 
@@ -147,17 +163,6 @@ variable "ingestion_preprocessing_job_timeout" {
   default     = "21600s"
 }
 
-variable "ingestion_input_bucket_name" {
-  description = "GCS bucket name for landing files and pre-processing"
-  type        = string
-  default     = ""
-}
-
-variable "ingestion_create_input_bucket" {
-  description = "Create a dedicated GCS bucket for data ingestion pre-processing"
-  type        = bool
-  default     = true
-}
 
 variable "ingestion_input_path" {
   description = "Path within the bucket where raw files are uploaded"
@@ -171,11 +176,6 @@ variable "ingestion_workflow_artifacts_path" {
   default     = "ingestion/internal/"
 }
 
-variable "ingestion_input_bucket_location" {
-  description = "GCS region for the pre-processing bucket"
-  type        = string
-  default     = "US"
-}
 
 # =============================================================================
 # Ingestion Layer - Workflow & Helper Service
@@ -187,17 +187,6 @@ variable "enable_ingestion" {
   default     = true
 }
 
-variable "ingestion_create_workflow_bucket" {
-  description = "Create a dedicated ingestion bucket for the ingestion workflow"
-  type        = bool
-  default     = true
-}
-
-variable "ingestion_workflow_bucket_name" {
-  description = "The name of the ingestion bucket (used for creation if create_ingestion_bucket is true, or as the existing bucket name if false)"
-  type        = string
-  default     = ""
-}
 
 variable "ingestion_workflow_enable_bigquery_postprocessing" {
   description = "Enable BigQuery post-processing (aggregation) in the ingestion workflow"

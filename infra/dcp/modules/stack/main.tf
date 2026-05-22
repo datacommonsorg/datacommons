@@ -14,7 +14,7 @@ locals {
     },
     {
       name  = "OUTPUT_DIR"
-      value = "gs://${module.storage.ingestion_input_bucket_name}/${var.ingestion_config.workflow_artifacts_path}"
+      value = "gs://${module.storage.artifacts_bucket_name}/${var.ingestion_config.workflow_artifacts_path}"
     },
     {
       name  = "FORCE_RESTART"
@@ -42,7 +42,7 @@ locals {
     },
     {
       name  = "TEMP_LOCATION"
-      value = "gs://${module.storage.ingestion_input_bucket_name}/temp"
+      value = "gs://${module.storage.artifacts_bucket_name}/temp"
     },
     {
       name  = "PROJECT_ID"
@@ -103,16 +103,10 @@ module "storage" {
   source = "../storage"
 
   # Ingestion Workflow Bucket Vars
-  deploy_workflow        = var.ingestion_config.enable_ingestion
-  create_workflow_bucket = var.ingestion_config.create_workflow_bucket
-  ingestion_workflow_bucket_name = var.ingestion_config.workflow_bucket_name
+  create_artifacts_bucket = var.storage_create_artifacts_bucket
+  artifacts_bucket_name   = var.storage_artifacts_bucket_name
   region                 = var.global.region
   deletion_protection    = var.global.deletion_protection
-  
-  # Ingestion Input Bucket Vars
-  ingestion_input_bucket_name = var.ingestion_config.input_bucket_name
-  input_bucket_location       = var.ingestion_config.input_bucket_location
-  create_input_bucket         = var.ingestion_config.create_input_bucket
   
   # Shared vars
   project_id         = var.global.project_id
@@ -132,7 +126,7 @@ module "ingestion_preprocessing_job" {
   memory                        = var.ingestion_config.preprocessing_job_memory
   timeout                       = var.ingestion_config.preprocessing_job_timeout
   vpc_connector_id              = var.redis_config.enable ? module.redis[0].connector_id : null
-  bucket_name                   = module.storage.ingestion_input_bucket_name
+  bucket_name                   = module.storage.artifacts_bucket_name
   input_path                    = var.ingestion_config.input_path
   workflow_artifacts_path        = var.ingestion_config.workflow_artifacts_path
   run_database_init             = false
@@ -149,11 +143,8 @@ module "ingestion_dataflow" {
   deploy                = var.ingestion_config.enable_ingestion
   project_id            = var.global.project_id
   namespace             = var.global.namespace
-  region                = var.global.region
   deletion_protection   = var.global.deletion_protection
-  spanner_instance_id   = module.spanner.spanner_instance_id
-  spanner_database_id   = module.spanner.spanner_database_id
-  ingestion_bucket_name = module.storage.ingestion_workflow_bucket_name
+  ingestion_bucket_name = module.storage.artifacts_bucket_name
 }
 
 module "ingestion_helper_service" {
@@ -167,7 +158,7 @@ module "ingestion_helper_service" {
   spanner_instance_id   = module.spanner.spanner_instance_id
   spanner_database_id   = module.spanner.spanner_database_id
   bigquery_connection_id = module.spanner.bigquery_connection_id
-  ingestion_bucket_name  = module.storage.ingestion_workflow_bucket_name
+  ingestion_bucket_name  = module.storage.artifacts_bucket_name
   image = var.ingestion_config.helper_service_image
 }
 
@@ -234,7 +225,7 @@ module "datacommons_services" {
   google_analytics_tag_id           = var.datacommons_services_config.google_analytics_tag
   dc_search_scope                   = var.datacommons_services_config.search_scope
   enable_mcp                        = var.datacommons_services_config.enable_mcp
-  prep_bucket_name                   = module.storage.ingestion_input_bucket_name
+  prep_bucket_name                   = module.storage.artifacts_bucket_name
   vpc_connector_id                  = var.redis_config.enable ? module.redis[0].connector_id : null
   use_spanner                       = true
   mysql_connection_name             = ""
@@ -257,7 +248,7 @@ check "spanner_instance_id_provided" {
 
 resource "google_storage_bucket_iam_member" "dataflow_bucket_access" {
   count  = var.ingestion_config.enable_ingestion ? 1 : 0
-  bucket = module.storage.ingestion_input_bucket_name
+  bucket = module.storage.artifacts_bucket_name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${module.ingestion_dataflow.service_account_email}"
 }
@@ -309,16 +300,9 @@ resource "google_spanner_database_iam_member" "workflow_spanner_user" {
   member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
 
-resource "google_storage_bucket_iam_member" "workflow_input_bucket_access" {
-  count  = var.ingestion_config.enable_ingestion ? 1 : 0
-  bucket = module.storage.ingestion_input_bucket_name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${module.ingestion_workflow.service_account_email}"
-}
-
 resource "google_storage_bucket_iam_member" "workflow_bucket_access" {
   count  = var.ingestion_config.enable_ingestion ? 1 : 0
-  bucket = module.storage.ingestion_workflow_bucket_name
+  bucket = module.storage.artifacts_bucket_name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
@@ -339,16 +323,9 @@ resource "google_cloud_run_v2_job_iam_member" "workflow_pre_invoker" {
   member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
 
-resource "google_storage_bucket_iam_member" "preprocessing_input_bucket_access" {
+resource "google_storage_bucket_iam_member" "preprocessing_bucket_access" {
   count  = var.ingestion_config.enable_ingestion ? 1 : 0
-  bucket = module.storage.ingestion_input_bucket_name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${module.ingestion_preprocessing_job[0].service_account_email}"
-}
-
-resource "google_storage_bucket_iam_member" "preprocessing_workflow_bucket_access" {
-  count  = var.ingestion_config.enable_ingestion ? 1 : 0
-  bucket = module.storage.ingestion_workflow_bucket_name
+  bucket = module.storage.artifacts_bucket_name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${module.ingestion_preprocessing_job[0].service_account_email}"
 }

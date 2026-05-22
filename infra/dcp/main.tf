@@ -120,11 +120,6 @@ locals {
     workflow_enable_bigquery_postprocessing = var.ingestion_workflow_enable_bigquery_postprocessing
 
     # Storage & Paths
-    input_bucket_name              = var.ingestion_input_bucket_name
-    input_bucket_location          = var.ingestion_input_bucket_location
-    create_input_bucket            = var.ingestion_create_input_bucket
-    workflow_bucket_name           = var.ingestion_workflow_bucket_name
-    create_workflow_bucket         = var.ingestion_create_workflow_bucket
     input_path                     = var.ingestion_input_path
     workflow_artifacts_path        = var.ingestion_workflow_artifacts_path
 
@@ -147,6 +142,8 @@ module "stack" {
 
   global               = local.global_config
   spanner_config        = local.spanner_config
+  storage_create_artifacts_bucket = var.storage_create_artifacts_bucket
+  storage_artifacts_bucket_name   = var.storage_artifacts_bucket_name
   datacommons_services_config = local.datacommons_services_config
   auth_config          = local.auth_config
   redis_config         = local.redis_config

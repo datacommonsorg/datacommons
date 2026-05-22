@@ -8,6 +8,15 @@ variable "global" {
   })
 }
 
+variable "storage_create_artifacts_bucket" {
+  type    = bool
+  default = true
+}
+
+variable "storage_artifacts_bucket_name" {
+  type = string
+}
+
 variable "spanner_config" {
   type = object({
     enable                             = bool
@@ -71,11 +80,6 @@ variable "ingestion_config" {
     workflow_enable_bigquery_postprocessing = bool
 
     # Storage & Paths
-    input_bucket_name              = string
-    input_bucket_location          = string
-    create_input_bucket            = bool
-    workflow_bucket_name           = string
-    create_workflow_bucket         = bool
     input_path                     = string
     workflow_artifacts_path        = string
 
