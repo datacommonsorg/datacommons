@@ -6,14 +6,12 @@ variable "image" { type = string }
 variable "cpu" { type = string }
 variable "memory" { type = string }
 variable "timeout" { type = string }
-variable "service_account_email" { type = string }
 variable "vpc_connector_id" { type = string }
 variable "bucket_name" { type = string }
 variable "input_path" { type = string }
 variable "workflow_artifacts_path" { type = string }
 variable "run_database_init" { type = bool }
 variable "use_spanner" { type = bool }
-variable "orchestrator_email" { type = string }
 
 variable "env_vars" {
   type = list(object({

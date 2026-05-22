@@ -120,7 +120,7 @@ variable "spanner_bigquery_reservation_max_slots" {
 }
 
 # =============================================================================
-# Ingestion Layer - Prep Stage
+# Ingestion Layer - Preprocessing Job
 # =============================================================================
 
 variable "ingestion_preprocessing_job_image" {
@@ -178,7 +178,7 @@ variable "ingestion_input_bucket_location" {
 }
 
 # =============================================================================
-# Ingestion Layer - Pipeline Stage
+# Ingestion Layer - Workflow & Helper Service
 # =============================================================================
 
 variable "enable_ingestion" {

@@ -20,16 +20,3 @@ resource "google_storage_bucket" "workflow_bucket" {
   force_destroy               = !var.deletion_protection
 }
 
-resource "google_storage_bucket_iam_member" "orchestrator_input_bucket" {
-  count  = var.orchestrator_email != "" ? 1 : 0
-  bucket = var.create_input_bucket ? google_storage_bucket.input_bucket[0].name : local.ingestion_input_bucket_name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${var.orchestrator_email}"
-}
-
-resource "google_storage_bucket_iam_member" "orchestrator_workflow_bucket" {
-  count  = var.deploy_workflow && var.orchestrator_email != "" ? 1 : 0
-  bucket = var.create_workflow_bucket ? google_storage_bucket.workflow_bucket[0].name : local.ingestion_workflow_bucket_name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${var.orchestrator_email}"
-}

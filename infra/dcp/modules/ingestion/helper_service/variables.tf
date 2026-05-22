@@ -30,20 +30,13 @@ variable "ingestion_bucket_name" {
   type = string
 }
 
-variable "service_account_email" {
-  type = string
-}
 
 variable "image" {
   type    = string
   default = "gcr.io/datcom-ci/datacommons-ingestion-helper:latest"
 }
 
-variable "orchestrator_email" {
-  type        = string
-  description = "Email of the orchestrator service account"
-  default     = ""
-}
+
 
 variable "bigquery_connection_id" {
   type    = string

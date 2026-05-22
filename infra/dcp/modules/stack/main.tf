@@ -89,8 +89,7 @@ module "spanner" {
   database_id              = var.spanner_config.database_id
   processing_units         = var.spanner_config.processing_units
   deletion_protection      = var.global.deletion_protection
-  orchestrator_email       = coalesce(module.ingestion_dataflow.orchestrator_email, "")
-  ingestion_helper_sa_email = coalesce(module.ingestion_dataflow.ingestion_runner_email, "")
+  ingestion_helper_sa_email = coalesce(module.ingestion_dataflow.service_account_email, "")
   version_retention_period = var.spanner_config.version_retention_period
   enable_bigquery_connection       = var.spanner_config.enable_bigquery_connection
   bigquery_connection_name         = var.spanner_config.bigquery_connection_name
@@ -118,7 +117,6 @@ module "storage" {
   # Shared vars
   project_id         = var.global.project_id
   namespace          = var.global.namespace
-  orchestrator_email = coalesce(module.ingestion_dataflow.orchestrator_email, "")
 }
 
 module "ingestion_preprocessing_job" {
@@ -133,7 +131,6 @@ module "ingestion_preprocessing_job" {
   cpu                           = var.ingestion_config.preprocessing_job_cpu
   memory                        = var.ingestion_config.preprocessing_job_memory
   timeout                       = var.ingestion_config.preprocessing_job_timeout
-  service_account_email         = module.ingestion_dataflow.ingestion_runner_email
   vpc_connector_id              = var.redis_config.enable ? module.redis[0].connector_id : null
   bucket_name                   = module.storage.ingestion_input_bucket_name
   input_path                    = var.ingestion_config.input_path
@@ -142,7 +139,6 @@ module "ingestion_preprocessing_job" {
   use_spanner                   = true
   env_vars                      = local.cloud_run_shared_env_variables
   secret_env_vars               = local.datacommons_services_secrets
-  orchestrator_email            = coalesce(module.ingestion_dataflow.orchestrator_email, "")
 
   depends_on = [module.auth]
 }
@@ -172,9 +168,7 @@ module "ingestion_helper_service" {
   spanner_database_id   = module.spanner.spanner_database_id
   bigquery_connection_id = module.spanner.bigquery_connection_id
   ingestion_bucket_name  = module.storage.ingestion_workflow_bucket_name
-  service_account_email  = module.ingestion_dataflow.ingestion_runner_email
   image = var.ingestion_config.helper_service_image
-  orchestrator_email     = var.ingestion_config.enable_ingestion ? coalesce(module.ingestion_dataflow.orchestrator_email, "") : ""
 }
 
 module "ingestion_workflow" {
@@ -187,9 +181,7 @@ module "ingestion_workflow" {
   project_id             = var.global.project_id
   lock_acquisition_timeout = var.ingestion_config.workflow_lock_acquisition_timeout
   ingestion_helper_uri   = module.ingestion_helper_service.ingestion_helper_uri
-  ingestion_runner_id    = module.ingestion_dataflow.ingestion_runner_id
-  ingestion_runner_email = module.ingestion_dataflow.ingestion_runner_email
-  orchestrator_email     = var.ingestion_config.enable_ingestion ? coalesce(module.ingestion_dataflow.orchestrator_email, "") : ""
+  dataflow_service_account_email = module.ingestion_dataflow.service_account_email
   enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
   enable_datacommons_services = var.datacommons_services_config.enable
 }
@@ -259,11 +251,15 @@ check "spanner_instance_id_provided" {
   }
 }
 
+# =============================================================================
+# Cross-Module IAM Bindings
+# =============================================================================
+
 resource "google_storage_bucket_iam_member" "dataflow_bucket_access" {
   count  = var.ingestion_config.enable_ingestion ? 1 : 0
   bucket = module.storage.ingestion_input_bucket_name
   role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${module.ingestion_dataflow.ingestion_runner_email}"
+  member = "serviceAccount:${module.ingestion_dataflow.service_account_email}"
 }
 
 # This is only needed to trigger the services restart to pick up the GCS embeddings change
@@ -271,13 +267,89 @@ resource "google_service_account_iam_member" "ingestion_runner_act_as_sa" {
   count              = var.ingestion_config.enable_ingestion && var.datacommons_services_config.enable ? 1 : 0
   service_account_id = "projects/${var.global.project_id}/serviceAccounts/${module.datacommons_services[0].service_account_email}"
   role               = "roles/iam.serviceAccountUser"
-  member             = "serviceAccount:${module.ingestion_dataflow.ingestion_runner_email}"
+  member             = "serviceAccount:${module.ingestion_dataflow.service_account_email}"
 }
 
-resource "google_secret_manager_secret_iam_member" "ingestion_runner_api_key_accessor" {
+resource "google_secret_manager_secret_iam_member" "preprocessing_api_key_accessor" {
+  count     = var.ingestion_config.enable_ingestion ? 1 : 0
   project   = var.global.project_id
   secret_id = module.auth.dc_api_key_secret_id
   role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${module.ingestion_dataflow.ingestion_runner_email}"
+  member    = "serviceAccount:${module.ingestion_preprocessing_job[0].service_account_email}"
+}
+
+resource "google_bigquery_connection_iam_member" "helper_connection_user" {
+  count         = var.ingestion_config.enable_ingestion && var.spanner_config.enable_bigquery_connection ? 1 : 0
+  project       = var.global.project_id
+  location      = var.global.region
+  connection_id = module.spanner.bigquery_connection_id
+  role          = "roles/bigquery.connectionUser"
+  member        = "serviceAccount:${module.ingestion_helper_service.service_account_email}"
+}
+
+resource "google_project_iam_member" "helper_bq_editor" {
+  count   = var.ingestion_config.enable_ingestion && var.spanner_config.enable_bigquery_connection ? 1 : 0
+  project = var.global.project_id
+  role    = "roles/bigquery.dataEditor"
+  member  = "serviceAccount:${module.ingestion_helper_service.service_account_email}"
+}
+
+resource "google_project_iam_member" "helper_bq_job_user" {
+  count   = var.ingestion_config.enable_ingestion && var.spanner_config.enable_bigquery_connection ? 1 : 0
+  project = var.global.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${module.ingestion_helper_service.service_account_email}"
+}
+
+resource "google_spanner_database_iam_member" "workflow_spanner_user" {
+  count    = var.ingestion_config.enable_ingestion ? 1 : 0
+  instance = module.spanner.spanner_instance_id
+  database = module.spanner.spanner_database_id
+  role     = "roles/spanner.databaseUser"
+  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
+resource "google_storage_bucket_iam_member" "workflow_input_bucket_access" {
+  count  = var.ingestion_config.enable_ingestion ? 1 : 0
+  bucket = module.storage.ingestion_input_bucket_name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
+resource "google_storage_bucket_iam_member" "workflow_bucket_access" {
+  count  = var.ingestion_config.enable_ingestion ? 1 : 0
+  bucket = module.storage.ingestion_workflow_bucket_name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
+resource "google_cloud_run_v2_job_iam_member" "workflow_pre_viewer" {
+  count    = var.ingestion_config.enable_ingestion ? 1 : 0
+  location = var.global.region
+  name     = module.ingestion_preprocessing_job[0].job_name
+  role     = "roles/run.viewer"
+  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
+resource "google_cloud_run_v2_job_iam_member" "workflow_pre_invoker" {
+  count    = var.ingestion_config.enable_ingestion ? 1 : 0
+  location = var.global.region
+  name     = module.ingestion_preprocessing_job[0].job_name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
+resource "google_storage_bucket_iam_member" "preprocessing_input_bucket_access" {
+  count  = var.ingestion_config.enable_ingestion ? 1 : 0
+  bucket = module.storage.ingestion_input_bucket_name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${module.ingestion_preprocessing_job[0].service_account_email}"
+}
+
+resource "google_storage_bucket_iam_member" "preprocessing_workflow_bucket_access" {
+  count  = var.ingestion_config.enable_ingestion ? 1 : 0
+  bucket = module.storage.ingestion_workflow_bucket_name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${module.ingestion_preprocessing_job[0].service_account_email}"
 }
 

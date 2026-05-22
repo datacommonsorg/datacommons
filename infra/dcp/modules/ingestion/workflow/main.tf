@@ -2,12 +2,18 @@ locals {
   name_prefix = var.namespace != "" ? "${var.namespace}-" : ""
 }
 
+resource "google_service_account" "workflow_sa" {
+  count        = var.deploy ? 1 : 0
+  account_id   = "${local.name_prefix}dc-ing-wf-sa"
+  display_name = "Data Commons Ingestion Workflow SA"
+}
+
 resource "google_workflows_workflow" "ingestion_orchestrator" {
   count               = var.deploy ? 1 : 0
   name                = "${local.name_prefix}dcp-ingestion-orchestrator"
   region              = var.region
   description         = "Triggers the Dataflow Flex Template Graph Ingestion Pipeline with runtime parameters"
-  service_account     = var.ingestion_runner_id
+  service_account     = google_service_account.workflow_sa[0].email
   deletion_protection = var.deletion_protection
 
   source_contents = <<-EOF2
@@ -76,7 +82,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                         containerSpecGcsPath: 'gs://datcom-templates/templates/flex/ingestion.json'
                         parameters: '$${launch_params}'
                         environment:
-                          serviceAccountEmail: '${var.ingestion_runner_email}'
+                          serviceAccountEmail: '${var.dataflow_service_account_email}'
                           tempLocation: '$${input.tempLocation}'
                           stagingLocation: '$${input.tempLocation}'
                   result: launch_result

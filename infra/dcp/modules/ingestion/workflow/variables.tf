@@ -26,11 +26,8 @@ variable "ingestion_helper_uri" {
   type = string
 }
 
-variable "ingestion_runner_id" {
-  type = string
-}
 
-variable "ingestion_runner_email" {
+variable "dataflow_service_account_email" {
   type = string
 }
 

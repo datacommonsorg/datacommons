@@ -17,7 +17,7 @@ output "datacommons_service_name" {
 }
 
 output "ingestion_workflow_id" {
-  description = "ID of the ingestion Cloud Workflows orchestrator"
+  description = "ID of the ingestion Cloud Workflow"
   value       = module.ingestion_workflow.ingestion_orchestrator_id
 }
 
@@ -27,7 +27,7 @@ output "ingestion_bucket_url" {
 }
 
 output "ingestion_workflow_name" {
-  description = "Name of the ingestion Cloud Workflows orchestrator"
+  description = "Name of the ingestion Cloud Workflow"
   value       = module.ingestion_workflow.ingestion_orchestrator_name
 }
 
@@ -41,9 +41,9 @@ output "ingestion_prep_job_name" {
   value       = length(module.ingestion_preprocessing_job) > 0 ? module.ingestion_preprocessing_job[0].job_name : null
 }
 
-output "ingestion_orchestrator_service_account_email" {
-  description = "Email of the orchestrator service account used by CLI and Workflows"
-  value       = module.ingestion_dataflow.orchestrator_email
+output "ingestion_workflow_service_account_email" {
+  description = "Email of the service account used by the ingestion workflow"
+  value       = module.ingestion_workflow.service_account_email
 }
 
 output "ingestion_input_bucket_name" {

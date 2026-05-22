@@ -40,9 +40,9 @@ output "ingestion_prep_job_name" {
   value       = module.stack.ingestion_prep_job_name
 }
 
-output "ingestion_orchestrator_service_account_email" {
-  description = "Email of the orchestrator service account used by CLI and Workflows"
-  value       = module.stack.ingestion_orchestrator_service_account_email
+output "ingestion_workflow_service_account_email" {
+  description = "Email of the service account used by the ingestion workflow"
+  value       = module.stack.ingestion_workflow_service_account_email
 }
 
 output "ingestion_input_bucket_name" {

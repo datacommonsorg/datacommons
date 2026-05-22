@@ -23,13 +23,6 @@ resource "google_spanner_database" "database" {
   version_retention_period = var.version_retention_period
 }
 
-resource "google_spanner_database_iam_member" "orchestrator_spanner_user" {
-  count    = var.orchestrator_email != "" ? 1 : 0
-  instance = var.create_instance ? google_spanner_instance.main[0].name : local.effective_instance_id
-  database = var.create_database ? google_spanner_database.database[0].name : local.effective_database_id
-  role     = "roles/spanner.databaseUser"
-  member   = "serviceAccount:${var.orchestrator_email}"
-}
 
 
 data "google_bigquery_default_service_account" "bq_sa" {
@@ -58,31 +51,6 @@ resource "google_spanner_database_iam_member" "spanner_reader" {
   member   = "serviceAccount:${data.google_bigquery_default_service_account.bq_sa.email}"
 }
 
-# Grant Ingestion Helper access to use the connection
-resource "google_bigquery_connection_iam_member" "helper_connection_user" {
-  count         = var.enable_bigquery_connection && var.ingestion_helper_sa_email != "" ? 1 : 0
-  project       = var.project_id
-  location      = var.region
-  connection_id = google_bigquery_connection.spanner_connection[0].connection_id
-  role          = "roles/bigquery.connectionUser"
-  member        = "serviceAccount:${var.ingestion_helper_sa_email}"
-}
-
-# Grant Ingestion Helper access to create/edit tables in BigQuery
-resource "google_project_iam_member" "helper_bq_editor" {
-  count   = var.enable_bigquery_connection && var.ingestion_helper_sa_email != "" ? 1 : 0
-  project = var.project_id
-  role    = "roles/bigquery.dataEditor"
-  member  = "serviceAccount:${var.ingestion_helper_sa_email}"
-}
-
-# Grant Ingestion Helper access to run jobs in BigQuery
-resource "google_project_iam_member" "helper_bq_job_user" {
-  count   = var.enable_bigquery_connection && var.ingestion_helper_sa_email != "" ? 1 : 0
-  project = var.project_id
-  role    = "roles/bigquery.jobUser"
-  member  = "serviceAccount:${var.ingestion_helper_sa_email}"
-}
 
 # Create the BigQuery Reservation for Federation queries
 resource "google_bigquery_reservation" "default" {

@@ -2,6 +2,12 @@ locals {
   name_prefix = var.namespace != "" ? "${var.namespace}-" : ""
 }
 
+resource "google_service_account" "helper_sa" {
+  count        = var.deploy ? 1 : 0
+  account_id   = "${local.name_prefix}dc-ing-hlp-sa"
+  display_name = "Data Commons Ingestion Helper SA"
+}
+
 resource "google_cloud_run_v2_service" "ingestion_helper" {
   count               = var.deploy ? 1 : 0
   name                = "${local.name_prefix}ingestion-helper"
@@ -50,22 +56,8 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
       }
     }
 
-    service_account = var.service_account_email
+    service_account = google_service_account.helper_sa[0].email
   }
 }
 
-resource "google_cloud_run_v2_service_iam_member" "ingestion_helper_invoker" {
-  count    = var.deploy ? 1 : 0
-  location = google_cloud_run_v2_service.ingestion_helper[0].location
-  name     = google_cloud_run_v2_service.ingestion_helper[0].name
-  role     = "roles/run.invoker"
-  member   = "serviceAccount:${var.service_account_email}"
-}
 
-resource "google_cloud_run_v2_service_iam_member" "orchestrator_invoker" {
-  count    = var.deploy && var.orchestrator_email != "" ? 1 : 0
-  location = google_cloud_run_v2_service.ingestion_helper[0].location
-  name     = google_cloud_run_v2_service.ingestion_helper[0].name
-  role     = "roles/run.invoker"
-  member   = "serviceAccount:${var.orchestrator_email}"
-}

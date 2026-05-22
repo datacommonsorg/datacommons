@@ -2,6 +2,11 @@ locals {
   name_prefix = var.namespace != "" ? "${var.namespace}-" : ""
 }
 
+resource "google_service_account" "preprocessing_sa" {
+  account_id   = "${local.name_prefix}dc-ing-pre-sa"
+  display_name = "Data Commons Ingestion Preprocessing SA"
+}
+
 resource "google_cloud_run_v2_job" "dc_data_job" {
   name                = "${local.name_prefix}dcp-ingestion-prep-job"
   location            = var.region
@@ -74,7 +79,7 @@ resource "google_cloud_run_v2_job" "dc_data_job" {
 
       max_retries     = 0
       timeout         = var.timeout
-      service_account = var.service_account_email
+      service_account = google_service_account.preprocessing_sa.email
     }
   }
 }
@@ -99,19 +104,4 @@ EOT
   }
 }
 
-resource "google_cloud_run_v2_job_iam_member" "orchestrator_viewer" {
-  count    = var.orchestrator_email != "" ? 1 : 0
-  location = google_cloud_run_v2_job.dc_data_job.location
-  name     = google_cloud_run_v2_job.dc_data_job.name
-  role     = "roles/run.viewer"
-  member   = "serviceAccount:${var.orchestrator_email}"
-}
-
-resource "google_cloud_run_v2_job_iam_member" "orchestrator_invoker" {
-  count    = var.orchestrator_email != "" ? 1 : 0
-  location = google_cloud_run_v2_job.dc_data_job.location
-  name     = google_cloud_run_v2_job.dc_data_job.name
-  role     = "roles/run.invoker"
-  member   = "serviceAccount:${var.orchestrator_email}"
-}
 
