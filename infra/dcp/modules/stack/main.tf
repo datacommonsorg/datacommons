@@ -180,7 +180,7 @@ module "ingestion_workflow" {
   deletion_protection            = var.global.deletion_protection
   project_id                     = var.global.project_id
   lock_acquisition_timeout       = var.ingestion_config.workflow_lock_acquisition_timeout
-  ingestion_helper_uri           = module.ingestion_helper_service.ingestion_helper_uri
+  ingestion_helper_url           = module.ingestion_helper_service.ingestion_helper_url
   dataflow_service_account_email = module.ingestion_dataflow.service_account_email
   enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
   enable_datacommons_services    = var.datacommons_services_config.enable

@@ -30,9 +30,9 @@ output "ingestion_workflow_name" {
   value       = module.stack.ingestion_workflow_name
 }
 
-output "ingestion_service_uri" {
-  description = "URI of the ingestion support Cloud Run service"
-  value       = module.stack.ingestion_service_uri
+output "ingestion_service_url" {
+  description = "URL of the ingestion support Cloud Run service"
+  value       = module.stack.ingestion_service_url
 }
 
 output "ingestion_prep_job_name" {

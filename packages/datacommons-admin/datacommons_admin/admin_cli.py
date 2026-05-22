@@ -480,31 +480,31 @@ def init(
 
 def _setup_ingestion_client() -> Tuple[Any, str, str]:
     click.secho(
-        "Fetching Ingestion Helper URI, Orchestrator Service Account, and Spanner details from Terraform outputs...",
+        "Fetching Ingestion Service URL, Workflow Service Account, and Spanner details from Terraform outputs...",
         fg="bright_black",
     )
 
     from datacommons_admin.tf_utils import (
-        get_dcp_ingestion_helper_uri,
-        get_dcp_orchestrator_service_account_email,
-        get_dcp_spanner_instance_id,
-        get_dcp_spanner_database_id,
+        get_ingestion_service_url,
+        get_ingestion_workflow_service_account_email,
+        get_spanner_instance_id,
+        get_spanner_database_id,
     )
     from datacommons_admin.ingestion_helper_client import IngestionHelperClient
 
-    uri = get_dcp_ingestion_helper_uri()
-    sa_email = get_dcp_orchestrator_service_account_email()
-    instance_id = get_dcp_spanner_instance_id()
-    database_id = get_dcp_spanner_database_id()
+    url = get_ingestion_service_url()
+    sa_email = get_ingestion_workflow_service_account_email()
+    instance_id = get_spanner_instance_id()
+    database_id = get_spanner_database_id()
 
-    click.secho(f"Found Ingestion Helper URI: {uri}", fg="green")
-    click.secho(f"Found Orchestrator Service Account: {sa_email}", fg="green")
+    click.secho(f"Found Ingestion Service URL: {url}", fg="green")
+    click.secho(f"Found Ingestion Workflow Service Account: {sa_email}", fg="green")
     click.secho(
         f"Found Spanner Database Instance: {instance_id} / Database ID: {database_id}",
         fg="green",
     )
 
-    client = IngestionHelperClient(uri, service_account_email=sa_email)
+    client = IngestionHelperClient(url, service_account_email=sa_email)
     return client, instance_id, database_id
 
 
