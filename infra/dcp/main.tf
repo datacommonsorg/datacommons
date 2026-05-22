@@ -78,7 +78,6 @@ locals {
     bigquery_reservation_max_slots     = var.spanner_bigquery_reservation_max_slots
   }
 
-
   datacommons_services_config = {
     enable                          = var.enable_datacommons_services
     image                           = var.datacommons_services_image
@@ -100,10 +99,6 @@ locals {
     google_maps_api_key        = var.auth_google_maps_api_key
     create_google_maps_key     = var.auth_create_google_maps_api_key
   }
-
-
-
-
 
   redis_config = {
     enable                  = var.enable_redis
