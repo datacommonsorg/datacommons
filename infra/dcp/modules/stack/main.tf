@@ -211,15 +211,12 @@ module "redis" {
 module "auth" {
   source = "../auth"
 
-  project_id                 = var.global.project_id
-  namespace                  = var.global.namespace
-  dc_api_key                 = var.auth_config.google_datacommons_api_key
-  maps_api_key               = var.auth_config.google_maps_api_key
-  create_maps_key            = var.auth_config.create_maps_key
-  maps_api_key_name_override = var.auth_config.maps_api_key_name_override
+  project_id             = var.global.project_id
+  namespace              = var.global.namespace
+  dc_api_key             = var.auth_config.google_datacommons_api_key
+  google_maps_api_key    = var.auth_config.google_maps_api_key
+  create_google_maps_key = var.auth_config.create_google_maps_key
 }
-
-
 
 module "datacommons_services" {
   source = "../datacommons_services"

@@ -98,9 +98,10 @@ locals {
   auth_config = {
     google_datacommons_api_key = var.auth_google_datacommons_api_key
     google_maps_api_key        = var.auth_google_maps_api_key
-    create_maps_key            = var.auth_create_google_maps_api_key
-    maps_api_key_name_override = var.auth_google_maps_api_key_name_override
+    create_google_maps_key     = var.auth_create_google_maps_api_key
   }
+
+
 
 
 
