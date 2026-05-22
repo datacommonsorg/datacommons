@@ -8,13 +8,13 @@ variable "project_id" {
 }
 
 variable "region" {
-  description = "GCP Region"
+  description = "The default GCP region where regional resources (such as Cloud Run services, Spanner databases, and storage buckets) will be provisioned."
   type        = string
   default     = "us-central1"
 }
 
 variable "namespace" {
-  description = "Global prefix for all resources"
+  description = "A unique identifier used as a prefix for resource naming. This prevents naming conflicts when deploying multiple isolated environments (like dev, staging, or feature branches) within the same GCP project."
   type        = string
   default     = ""
 }
@@ -180,7 +180,7 @@ variable "spanner_processing_units" {
 }
 
 variable "spanner_enable_bigquery_connection" {
-  description = "Enable creation of BigQuery connection to Spanner"
+  description = "Enable BigQuery connection to allow querying Spanner data via BigQuery."
   type        = bool
   default     = false
 }

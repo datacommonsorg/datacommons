@@ -46,7 +46,7 @@ output "ingestion_workflow_service_account_email" {
   value       = module.ingestion_workflow.service_account_email
 }
 
-output "ingestion_input_bucket_name" {
-  description = "Name of the GCS bucket used for data ingestion pre-processing"
+output "storage_artifacts_bucket_name" {
+  description = "Name of the unified GCS bucket for artifacts"
   value       = module.storage.artifacts_bucket_name
 }
