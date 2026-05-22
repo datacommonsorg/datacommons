@@ -150,6 +150,7 @@ module "ingestion_dataflow" {
   namespace             = var.global.namespace
   ingestion_bucket_name = module.storage.artifacts_bucket_name
   use_spanner           = var.spanner_config.enable
+  region                = var.global.region
 }
 
 
