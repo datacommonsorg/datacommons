@@ -34,11 +34,11 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
   template {
     timeout = "300s"
     containers {
-      image = var.dc_web_service_image
+      image = var.image
       resources {
         limits = {
-          cpu    = var.dc_web_service_cpu
-          memory = var.dc_web_service_memory
+          cpu    = var.cpu
+          memory = var.memory
         }
       }
       ports {
@@ -94,7 +94,7 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
       }
       env {
         name  = "DC_INSTRUCTIONS_DIR"
-        value = var.prep_bucket_name != "" ? "gs://${var.prep_bucket_name}/mcp_instructions" : ""
+        value = var.mcp_instructions_path != null ? "gs://${var.artifacts_bucket_name}/${var.mcp_instructions_path}" : ""
       }
     }
 
@@ -108,8 +108,8 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
 
 
     scaling {
-      min_instance_count = var.dc_web_service_min_instance_count
-      max_instance_count = var.dc_web_service_max_instance_count
+      min_instance_count = var.min_instances
+      max_instance_count = var.max_instances
     }
 
     service_account = google_service_account.serving_sa.email
@@ -127,7 +127,7 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
 }
 
 resource "google_cloud_run_v2_service_iam_member" "public_access" {
-  count    = var.make_dc_web_service_public ? 1 : 0
+  count    = var.make_public ? 1 : 0
   location = google_cloud_run_v2_service.dc_web_service.location
   project  = google_cloud_run_v2_service.dc_web_service.project
   name     = google_cloud_run_v2_service.dc_web_service.name

@@ -14,27 +14,27 @@ variable "deletion_protection" {
   type = bool
 }
 
-variable "dc_web_service_image" {
+variable "image" {
   type = string
 }
 
-variable "dc_web_service_cpu" {
+variable "cpu" {
   type = string
 }
 
-variable "dc_web_service_memory" {
+variable "memory" {
   type = string
 }
 
-variable "dc_web_service_min_instance_count" {
+variable "min_instances" {
   type = number
 }
 
-variable "dc_web_service_max_instance_count" {
+variable "max_instances" {
   type = number
 }
 
-variable "make_dc_web_service_public" {
+variable "make_public" {
   type = bool
 }
 
@@ -80,8 +80,14 @@ variable "secret_env_vars" {
   }))
 }
 
-variable "prep_bucket_name" {
+variable "artifacts_bucket_name" {
   type        = string
-  description = "Name of the GCS bucket for data ingestion pre-processing"
+  description = "Name of the unified GCS bucket for artifacts"
   default     = ""
+}
+
+variable "mcp_instructions_path" {
+  type        = string
+  description = "Path within the unified storage bucket for customized instructions for server tools and agents"
+  default     = null
 }
