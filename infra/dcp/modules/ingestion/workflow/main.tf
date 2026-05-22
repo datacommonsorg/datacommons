@@ -206,3 +206,10 @@ resource "google_cloud_run_v2_service_iam_member" "helper_invoker" {
   role     = "roles/run.invoker"
   member   = "serviceAccount:${google_service_account.workflow_sa[0].email}"
 }
+
+resource "google_project_iam_member" "workflow_run_viewer" {
+  count   = var.deploy ? 1 : 0
+  project = var.project_id
+  role    = "roles/run.viewer"
+  member  = "serviceAccount:${google_service_account.workflow_sa[0].email}"
+}
