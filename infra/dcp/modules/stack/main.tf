@@ -256,11 +256,13 @@ resource "google_storage_bucket_iam_member" "dataflow_bucket_access" {
 }
 
 # This is only needed to trigger the services restart to pick up the GCS embeddings change
-resource "google_service_account_iam_member" "ingestion_runner_act_as_sa" {
+# Mandatory dependency: The Ingestion Workflow service account needs to act as the Serving service account
+# to perform the service restart step via the Cloud Run API after ingestion completes.
+resource "google_service_account_iam_member" "ingestion_workflow_act_as_serving_sa" {
   count              = var.ingestion_config.enable_ingestion && var.datacommons_services_config.enable ? 1 : 0
   service_account_id = "projects/${var.global.project_id}/serviceAccounts/${module.datacommons_services[0].service_account_email}"
   role               = "roles/iam.serviceAccountUser"
-  member             = "serviceAccount:${module.ingestion_dataflow.service_account_email}"
+  member             = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
 
 resource "google_secret_manager_secret_iam_member" "preprocessing_api_key_accessor" {
@@ -343,5 +345,13 @@ resource "google_project_iam_member" "workflow_dataflow_developer" {
   project = var.global.project_id
   role    = "roles/dataflow.developer"
   member  = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "workflow_serving_developer" {
+  count    = var.ingestion_config.enable_ingestion && var.datacommons_services_config.enable ? 1 : 0
+  location = var.global.region
+  name     = module.datacommons_services[0].service_name
+  role     = "roles/run.developer"
+  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
 
