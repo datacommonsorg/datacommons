@@ -105,7 +105,6 @@ EOT
 }
 
 resource "google_secret_manager_secret_iam_member" "preprocessing_api_key_accessor" {
-  count     = var.dc_api_key_secret_id != "" ? 1 : 0
   project   = var.project_id
   secret_id = var.dc_api_key_secret_id
   role      = "roles/secretmanager.secretAccessor"
@@ -113,7 +112,6 @@ resource "google_secret_manager_secret_iam_member" "preprocessing_api_key_access
 }
 
 resource "google_secret_manager_secret_iam_member" "preprocessing_maps_key_accessor" {
-  count     = var.maps_api_key_secret_id != "" ? 1 : 0
   project   = var.project_id
   secret_id = var.maps_api_key_secret_id
   role      = "roles/secretmanager.secretAccessor"

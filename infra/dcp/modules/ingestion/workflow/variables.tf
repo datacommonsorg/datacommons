@@ -26,11 +26,9 @@ variable "ingestion_helper_uri" {
   type = string
 }
 
-
 variable "dataflow_service_account_email" {
   type = string
 }
-
 
 variable "enable_bigquery_postprocessing" {
   type    = bool

@@ -10,9 +10,6 @@ variable "namespace" {
   type = string
 }
 
-
-
-
 variable "ingestion_bucket_name" {
   type = string
 }
