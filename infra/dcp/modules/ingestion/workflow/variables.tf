@@ -18,7 +18,7 @@ variable "project_id" {
   type = string
 }
 
-variable "ingestion_lock_timeout" {
+variable "lock_acquisition_timeout" {
   type = number
 }
 
@@ -40,7 +40,7 @@ variable "orchestrator_email" {
   default     = ""
 }
 
-variable "enable_bq_federation" {
+variable "enable_bigquery_postprocessing" {
   type    = bool
   default = false
 }

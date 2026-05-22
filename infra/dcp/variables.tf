@@ -123,25 +123,25 @@ variable "spanner_bigquery_reservation_max_slots" {
 # Ingestion Layer - Prep Stage
 # =============================================================================
 
-variable "ingestion_prep_job_image" {
+variable "ingestion_preprocessing_job_image" {
   description = "Docker image URL for the data ingestion pre-processing job"
   type        = string
   default     = "gcr.io/datcom-ci/datacommons-data:latest"
 }
 
-variable "ingestion_prep_job_cpu" {
+variable "ingestion_preprocessing_job_cpu" {
   description = "CPU limit for the pre-processing job container"
   type        = string
   default     = "8"
 }
 
-variable "ingestion_prep_job_memory" {
+variable "ingestion_preprocessing_job_memory" {
   description = "Memory limit for the pre-processing job container"
   type        = string
   default     = "32G"
 }
 
-variable "ingestion_prep_job_timeout" {
+variable "ingestion_preprocessing_job_timeout" {
   description = "Request timeout for the pre-processing job"
   type        = string
   default     = "21600s"
@@ -153,22 +153,22 @@ variable "ingestion_input_bucket_name" {
   default     = ""
 }
 
-variable "create_ingestion_input_bucket" {
+variable "ingestion_create_input_bucket" {
   description = "Create a dedicated GCS bucket for data ingestion pre-processing"
   type        = bool
   default     = true
 }
 
-variable "ingestion_input_folder" {
-  description = "Folder within the bucket where raw files are uploaded"
+variable "ingestion_input_path" {
+  description = "Path within the bucket where raw files are uploaded"
   type        = string
-  default     = "input"
+  default     = "ingestion/input/"
 }
 
-variable "ingestion_output_folder" {
-  description = "Folder where pre-processed files are placed for the next stage"
+variable "ingestion_workflow_artifacts_path" {
+  description = "Path where pre-processed files are placed for the next stage"
   type        = string
-  default     = "output"
+  default     = "ingestion/internal/"
 }
 
 variable "ingestion_input_bucket_location" {
@@ -181,13 +181,13 @@ variable "ingestion_input_bucket_location" {
 # Ingestion Layer - Pipeline Stage
 # =============================================================================
 
-variable "deploy_ingestion_workflow" {
-  description = "Deploy the complete end-to-end Data Commons Ingestion workflow stack"
+variable "enable_ingestion" {
+  description = "Enable the complete end-to-end Data Commons Ingestion workflow stack"
   type        = bool
   default     = true
 }
 
-variable "create_ingestion_workflow_bucket" {
+variable "ingestion_create_workflow_bucket" {
   description = "Create a dedicated ingestion bucket for the ingestion workflow"
   type        = bool
   default     = true
@@ -205,13 +205,13 @@ variable "ingestion_workflow_enable_bigquery_postprocessing" {
   default     = false
 }
 
-variable "ingestion_lock_timeout" {
+variable "ingestion_workflow_lock_acquisition_timeout" {
   description = "Timeout for the ingestion lock in seconds"
   type        = number
   default     = 82800
 }
 
-variable "ingestion_service_image" {
+variable "ingestion_helper_service_image" {
   description = "Docker image URL for the ingestion support service"
   type        = string
   default     = "gcr.io/datcom-ci/datacommons-ingestion-helper:latest"

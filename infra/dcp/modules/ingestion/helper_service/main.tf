@@ -10,7 +10,7 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
 
   template {
     containers {
-      image = var.ingestion_helper_image
+      image = var.image
 
       env {
         name  = "PROJECT_ID"
@@ -38,7 +38,7 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
       }
       env {
         name  = "BQ_SPANNER_CONN_ID"
-        value = var.bq_connection_id
+        value = var.bigquery_connection_id
       }
       env {
         name  = "LOCATION"

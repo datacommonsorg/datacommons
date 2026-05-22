@@ -11,23 +11,23 @@ variable "region" {
   type = string
 }
 
-variable "create_spanner_instance" {
+variable "create_instance" {
   type = bool
 }
 
-variable "create_spanner_db" {
+variable "create_database" {
   type = bool
 }
 
-variable "spanner_instance_id" {
+variable "instance_id" {
   type = string
 }
 
-variable "spanner_database_id" {
+variable "database_id" {
   type = string
 }
 
-variable "spanner_processing_units" {
+variable "processing_units" {
   type = number
 }
 
@@ -59,7 +59,7 @@ variable "ingestion_helper_sa_email" {
   default     = ""
 }
 
-variable "spanner_version_retention_period" {
+variable "version_retention_period" {
   type        = string
   description = "The version retention period for the Spanner database"
   default     = "6h"

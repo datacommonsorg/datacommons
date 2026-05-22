@@ -22,7 +22,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
             - bucket_name: '$${text.split(input.tempLocation, "/")[2]}'
             - latest_version_gcs_path: '$${"gs://" + bucket_name + "/imports/" + input.importName + "/" + version}'
             - execution_error: null
-            - lock_timeout: ${var.ingestion_lock_timeout}
+            - lock_timeout: ${var.lock_acquisition_timeout}
             - launch_params:
                 projectId: '$${project_id}'
                 spannerInstanceId: '$${input.spannerInstanceId}'
@@ -109,7 +109,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                   raise: '$${ "Dataflow job failed with state: " + job_status.currentState }'
               - check_bq_enabled:
                   switch:
-                    - condition: ${var.enable_bq_federation ? "true" : "false"}
+                    - condition: ${var.enable_bigquery_postprocessing ? "true" : "false"}
                       next: trigger_bq_federation
                     - condition: true
                       next: promote_version

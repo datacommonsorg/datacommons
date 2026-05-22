@@ -41,7 +41,7 @@ resource "google_project_service" "apis" {
     "artifactregistry.googleapis.com",
     "compute.googleapis.com"
     ], var.enable_spanner ? ["spanner.googleapis.com"] : [],
-    var.deploy_ingestion_workflow ? [
+    var.enable_ingestion ? [
     "workflows.googleapis.com",
     "workflowexecutions.googleapis.com",
     "dataflow.googleapis.com"
@@ -115,22 +115,28 @@ locals {
   }
 
   ingestion_config = {
-    prep_job_image  = var.ingestion_prep_job_image
-    prep_job_cpu    = var.ingestion_prep_job_cpu
-    prep_job_memory = var.ingestion_prep_job_memory
-    prep_job_timeout = var.ingestion_prep_job_timeout
-    ingestion_input_bucket_name = var.ingestion_input_bucket_name
-    ingestion_input_folder = var.ingestion_input_folder
-    ingestion_output_folder = var.ingestion_output_folder
-    ingestion_input_bucket_location = var.ingestion_input_bucket_location
-    create_ingestion_input_bucket   = var.create_ingestion_input_bucket
-    
-    deploy_workflow  = var.deploy_ingestion_workflow
-    lock_timeout     = var.ingestion_lock_timeout
-    helper_image     = var.ingestion_service_image
-    create_ingestion_workflow_bucket = var.create_ingestion_workflow_bucket
-    ingestion_workflow_bucket_name = var.ingestion_workflow_bucket_name
-    enable_bigquery_postprocessing = var.ingestion_workflow_enable_bigquery_postprocessing
+    # Global Toggles
+    enable_ingestion               = var.enable_ingestion
+    workflow_enable_bigquery_postprocessing = var.ingestion_workflow_enable_bigquery_postprocessing
+
+    # Storage & Paths
+    input_bucket_name              = var.ingestion_input_bucket_name
+    input_bucket_location          = var.ingestion_input_bucket_location
+    create_input_bucket            = var.ingestion_create_input_bucket
+    workflow_bucket_name           = var.ingestion_workflow_bucket_name
+    create_workflow_bucket         = var.ingestion_create_workflow_bucket
+    input_path                     = var.ingestion_input_path
+    workflow_artifacts_path        = var.ingestion_workflow_artifacts_path
+
+    # Preprocessing Job
+    preprocessing_job_image        = var.ingestion_preprocessing_job_image
+    preprocessing_job_cpu          = var.ingestion_preprocessing_job_cpu
+    preprocessing_job_memory       = var.ingestion_preprocessing_job_memory
+    preprocessing_job_timeout      = var.ingestion_preprocessing_job_timeout
+
+    # Workflow & Helper Service
+    workflow_lock_acquisition_timeout = var.ingestion_workflow_lock_acquisition_timeout
+    helper_service_image           = var.ingestion_helper_service_image
   }
 }
 

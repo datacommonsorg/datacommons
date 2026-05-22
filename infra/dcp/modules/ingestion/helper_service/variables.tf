@@ -34,7 +34,7 @@ variable "service_account_email" {
   type = string
 }
 
-variable "ingestion_helper_image" {
+variable "image" {
   type    = string
   default = "gcr.io/datcom-ci/datacommons-ingestion-helper:latest"
 }
@@ -45,7 +45,7 @@ variable "orchestrator_email" {
   default     = ""
 }
 
-variable "bq_connection_id" {
+variable "bigquery_connection_id" {
   type    = string
   default = ""
 }

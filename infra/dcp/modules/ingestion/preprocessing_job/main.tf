@@ -10,11 +10,11 @@ resource "google_cloud_run_v2_job" "dc_data_job" {
   template {
     template {
       containers {
-        image = var.dc_data_job_image
+        image = var.image
         resources {
           limits = {
-            cpu    = var.dc_data_job_cpu
-            memory = var.dc_data_job_memory
+            cpu    = var.cpu
+            memory = var.memory
           }
         }
 
@@ -45,15 +45,15 @@ resource "google_cloud_run_v2_job" "dc_data_job" {
         }
         env {
           name  = "GCS_INPUT_FOLDER"
-          value = var.gcs_data_bucket_input_folder
+          value = var.input_path
         }
         env {
           name  = "GCS_OUTPUT_FOLDER"
-          value = var.gcs_data_bucket_output_folder
+          value = var.workflow_artifacts_path
         }
         env {
           name  = "INPUT_DIR"
-          value = "gs://${var.bucket_name}/${var.gcs_data_bucket_input_folder}"
+          value = "gs://${var.bucket_name}/${var.input_path}"
         }
 
         dynamic "env" {
@@ -73,7 +73,7 @@ resource "google_cloud_run_v2_job" "dc_data_job" {
       }
 
       max_retries     = 0
-      timeout         = var.dc_data_job_timeout
+      timeout         = var.timeout
       service_account = var.service_account_email
     }
   }
@@ -85,7 +85,7 @@ resource "null_resource" "run_db_init" {
   depends_on = [google_cloud_run_v2_job.dc_data_job]
 
   triggers = {
-    job_image = var.dc_data_job_image
+    job_image = var.image
   }
 
   provisioner "local-exec" {

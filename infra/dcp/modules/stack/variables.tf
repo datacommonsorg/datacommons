@@ -66,21 +66,27 @@ variable "redis_config" {
 
 variable "ingestion_config" {
   type = object({
-    prep_job_image  = string
-    prep_job_cpu    = string
-    prep_job_memory = string
-    prep_job_timeout = string
-    ingestion_input_bucket_name = string
-    ingestion_input_folder = string
-    ingestion_output_folder = string
-    ingestion_input_bucket_location = string
-    create_ingestion_input_bucket   = bool
-    
-    deploy_workflow  = bool
-    lock_timeout     = number
-    helper_image     = string
-    create_ingestion_workflow_bucket = bool
-    ingestion_workflow_bucket_name = string
-    enable_bigquery_postprocessing = bool
+    # Global Toggles
+    enable_ingestion               = bool
+    workflow_enable_bigquery_postprocessing = bool
+
+    # Storage & Paths
+    input_bucket_name              = string
+    input_bucket_location          = string
+    create_input_bucket            = bool
+    workflow_bucket_name           = string
+    create_workflow_bucket         = bool
+    input_path                     = string
+    workflow_artifacts_path        = string
+
+    # Preprocessing Job
+    preprocessing_job_image        = string
+    preprocessing_job_cpu          = string
+    preprocessing_job_memory       = string
+    preprocessing_job_timeout      = string
+
+    # Workflow & Helper Service
+    workflow_lock_acquisition_timeout = number
+    helper_service_image           = string
   })
 }

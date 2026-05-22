@@ -1,32 +1,32 @@
 locals {
   name_prefix           = var.namespace != "" ? "${var.namespace}-" : ""
-  effective_instance_id = var.create_spanner_instance ? (var.spanner_instance_id != "" ? "${local.name_prefix}${var.spanner_instance_id}" : "${local.name_prefix}dcp-instance") : var.spanner_instance_id
-  effective_database_id = var.create_spanner_db ? (var.spanner_database_id != "" ? "${local.name_prefix}${var.spanner_database_id}" : "${local.name_prefix}dcp-db") : var.spanner_database_id
+  effective_instance_id = var.create_instance ? (var.instance_id != "" ? "${local.name_prefix}${var.instance_id}" : "${local.name_prefix}dcp-instance") : var.instance_id
+  effective_database_id = var.create_database ? (var.database_id != "" ? "${local.name_prefix}${var.database_id}" : "${local.name_prefix}dcp-db") : var.database_id
 }
 
 resource "google_spanner_instance" "main" {
-  count            = var.create_spanner_instance ? 1 : 0
+  count            = var.create_instance ? 1 : 0
   name             = local.effective_instance_id
   config           = "regional-${var.region}"
   display_name     = local.effective_instance_id
-  processing_units = var.spanner_processing_units
+  processing_units = var.processing_units
   force_destroy    = !var.deletion_protection
   edition          = "ENTERPRISE"
 }
 
 resource "google_spanner_database" "database" {
-  count    = var.create_spanner_db ? 1 : 0
-  instance = var.create_spanner_instance ? google_spanner_instance.main[0].name : local.effective_instance_id
+  count    = var.create_database ? 1 : 0
+  instance = var.create_instance ? google_spanner_instance.main[0].name : local.effective_instance_id
   name     = local.effective_database_id
 
   deletion_protection      = var.deletion_protection
-  version_retention_period = var.spanner_version_retention_period
+  version_retention_period = var.version_retention_period
 }
 
 resource "google_spanner_database_iam_member" "orchestrator_spanner_user" {
   count    = var.orchestrator_email != "" ? 1 : 0
-  instance = var.create_spanner_instance ? google_spanner_instance.main[0].name : local.effective_instance_id
-  database = var.create_spanner_db ? google_spanner_database.database[0].name : local.effective_database_id
+  instance = var.create_instance ? google_spanner_instance.main[0].name : local.effective_instance_id
+  database = var.create_database ? google_spanner_database.database[0].name : local.effective_database_id
   role     = "roles/spanner.databaseUser"
   member   = "serviceAccount:${var.orchestrator_email}"
 }
@@ -44,7 +44,7 @@ resource "google_bigquery_connection" "spanner_connection" {
   description   = "Federated connection to Spanner for custom DC"
 
   cloud_spanner {
-    database = "projects/${var.project_id}/instances/${var.create_spanner_instance ? google_spanner_instance.main[0].name : local.effective_instance_id}/databases/${var.create_spanner_db ? google_spanner_database.database[0].name : local.effective_database_id}"
+    database = "projects/${var.project_id}/instances/${var.create_instance ? google_spanner_instance.main[0].name : local.effective_instance_id}/databases/${var.create_database ? google_spanner_database.database[0].name : local.effective_database_id}"
     use_parallelism = true
   }
 }
@@ -52,8 +52,8 @@ resource "google_bigquery_connection" "spanner_connection" {
 # Grant the connection's service account access to Spanner
 resource "google_spanner_database_iam_member" "spanner_reader" {
   count    = var.enable_bigquery_connection ? 1 : 0
-  instance = var.create_spanner_instance ? google_spanner_instance.main[0].name : local.effective_instance_id
-  database = var.create_spanner_db ? google_spanner_database.database[0].name : local.effective_database_id
+  instance = var.create_instance ? google_spanner_instance.main[0].name : local.effective_instance_id
+  database = var.create_database ? google_spanner_database.database[0].name : local.effective_database_id
   role     = "roles/spanner.databaseUser"
   member   = "serviceAccount:${data.google_bigquery_default_service_account.bq_sa.email}"
 }

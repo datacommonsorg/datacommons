@@ -14,7 +14,7 @@ locals {
     },
     {
       name  = "OUTPUT_DIR"
-      value = "gs://${module.storage.ingestion_input_bucket_name}/${var.ingestion_config.ingestion_output_folder}"
+      value = "gs://${module.storage.ingestion_input_bucket_name}/${var.ingestion_config.workflow_artifacts_path}"
     },
     {
       name  = "FORCE_RESTART"
@@ -83,15 +83,15 @@ module "spanner" {
   project_id               = var.global.project_id
   namespace                = var.global.namespace
   region                   = var.global.region
-  create_spanner_instance  = var.spanner_config.create_instance
-  create_spanner_db        = var.spanner_config.create_db
-  spanner_instance_id      = var.spanner_config.instance_id
-  spanner_database_id      = var.spanner_config.database_id
-  spanner_processing_units = var.spanner_config.processing_units
+  create_instance          = var.spanner_config.create_instance
+  create_database          = var.spanner_config.create_db
+  instance_id              = var.spanner_config.instance_id
+  database_id              = var.spanner_config.database_id
+  processing_units         = var.spanner_config.processing_units
   deletion_protection      = var.global.deletion_protection
   orchestrator_email       = coalesce(module.ingestion_dataflow.orchestrator_email, "")
   ingestion_helper_sa_email = coalesce(module.ingestion_dataflow.ingestion_runner_email, "")
-  spanner_version_retention_period = var.spanner_config.version_retention_period
+  version_retention_period = var.spanner_config.version_retention_period
   enable_bigquery_connection       = var.spanner_config.enable_bigquery_connection
   bigquery_connection_name         = var.spanner_config.bigquery_connection_name
   create_bigquery_reservation           = var.spanner_config.create_bigquery_reservation
@@ -104,16 +104,16 @@ module "storage" {
   source = "../storage"
 
   # Ingestion Workflow Bucket Vars
-  deploy_workflow        = var.ingestion_config.deploy_workflow
-  create_workflow_bucket = var.ingestion_config.create_ingestion_workflow_bucket
-  ingestion_workflow_bucket_name = var.ingestion_config.ingestion_workflow_bucket_name
+  deploy_workflow        = var.ingestion_config.enable_ingestion
+  create_workflow_bucket = var.ingestion_config.create_workflow_bucket
+  ingestion_workflow_bucket_name = var.ingestion_config.workflow_bucket_name
   region                 = var.global.region
   deletion_protection    = var.global.deletion_protection
   
   # Ingestion Input Bucket Vars
-  ingestion_input_bucket_name = var.ingestion_config.ingestion_input_bucket_name
-  input_bucket_location       = var.ingestion_config.ingestion_input_bucket_location
-  create_input_bucket         = var.ingestion_config.create_ingestion_input_bucket
+  ingestion_input_bucket_name = var.ingestion_config.input_bucket_name
+  input_bucket_location       = var.ingestion_config.input_bucket_location
+  create_input_bucket         = var.ingestion_config.create_input_bucket
   
   # Shared vars
   project_id         = var.global.project_id
@@ -121,10 +121,36 @@ module "storage" {
   orchestrator_email = coalesce(module.ingestion_dataflow.orchestrator_email, "")
 }
 
+module "ingestion_preprocessing_job" {
+  source = "../ingestion/preprocessing_job"
+  count  = var.ingestion_config.enable_ingestion ? 1 : 0
+
+  project_id                    = var.global.project_id
+  namespace                     = var.global.namespace
+  region                        = var.global.region
+  deletion_protection           = var.global.deletion_protection
+  image                         = var.ingestion_config.preprocessing_job_image
+  cpu                           = var.ingestion_config.preprocessing_job_cpu
+  memory                        = var.ingestion_config.preprocessing_job_memory
+  timeout                       = var.ingestion_config.preprocessing_job_timeout
+  service_account_email         = module.auth.service_account_email
+  vpc_connector_id              = var.redis_config.enable ? module.redis[0].connector_id : null
+  bucket_name                   = module.storage.ingestion_input_bucket_name
+  input_path                    = var.ingestion_config.input_path
+  workflow_artifacts_path        = var.ingestion_config.workflow_artifacts_path
+  run_db_init                   = false
+  use_spanner                   = true
+  env_vars                      = local.cloud_run_shared_env_variables
+  secret_env_vars               = local.datacommons_services_secrets
+  orchestrator_email            = coalesce(module.ingestion_dataflow.orchestrator_email, "")
+
+  depends_on = [module.auth]
+}
+
 module "ingestion_dataflow" {
   source = "../ingestion/dataflow"
 
-  deploy                = var.ingestion_config.deploy_workflow
+  deploy                = var.ingestion_config.enable_ingestion
   project_id            = var.global.project_id
   namespace             = var.global.namespace
   region                = var.global.region
@@ -137,34 +163,34 @@ module "ingestion_dataflow" {
 module "ingestion_helper_service" {
   source = "../ingestion/helper_service"
 
-  deploy                = var.ingestion_config.deploy_workflow
+  deploy                = var.ingestion_config.enable_ingestion
   project_id            = var.global.project_id
   namespace             = var.global.namespace
   region                = var.global.region
   deletion_protection   = var.global.deletion_protection
   spanner_instance_id   = module.spanner.spanner_instance_id
   spanner_database_id   = module.spanner.spanner_database_id
-  bq_connection_id      = module.spanner.bq_connection_id
+  bigquery_connection_id = module.spanner.bigquery_connection_id
   ingestion_bucket_name  = module.storage.ingestion_workflow_bucket_name
   service_account_email  = module.ingestion_dataflow.ingestion_runner_email
-  ingestion_helper_image = var.ingestion_config.helper_image
-  orchestrator_email     = var.ingestion_config.deploy_workflow ? coalesce(module.ingestion_dataflow.orchestrator_email, "") : ""
+  image = var.ingestion_config.helper_service_image
+  orchestrator_email     = var.ingestion_config.enable_ingestion ? coalesce(module.ingestion_dataflow.orchestrator_email, "") : ""
 }
 
 module "ingestion_workflow" {
   source = "../ingestion/workflow"
 
-  deploy                 = var.ingestion_config.deploy_workflow
+  deploy                 = var.ingestion_config.enable_ingestion
   namespace              = var.global.namespace
   region                 = var.global.region
   deletion_protection    = var.global.deletion_protection
   project_id             = var.global.project_id
-  ingestion_lock_timeout = var.ingestion_config.lock_timeout
+  lock_acquisition_timeout = var.ingestion_config.workflow_lock_acquisition_timeout
   ingestion_helper_uri   = module.ingestion_helper_service.ingestion_helper_uri
   ingestion_runner_id    = module.ingestion_dataflow.ingestion_runner_id
   ingestion_runner_email = module.ingestion_dataflow.ingestion_runner_email
-  orchestrator_email     = var.ingestion_config.deploy_workflow ? coalesce(module.ingestion_dataflow.orchestrator_email, "") : ""
-  enable_bq_federation   = var.ingestion_config.enable_bigquery_postprocessing
+  orchestrator_email     = var.ingestion_config.enable_ingestion ? coalesce(module.ingestion_dataflow.orchestrator_email, "") : ""
+  enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
   enable_datacommons_services = var.datacommons_services_config.enable
 }
 
@@ -198,31 +224,6 @@ module "auth" {
   use_spanner         = true
 }
 
-module "ingestion_preprocessing_job" {
-  source = "../ingestion/preprocessing_job"
-  count  = var.ingestion_config.deploy_workflow ? 1 : 0
-
-  project_id                    = var.global.project_id
-  namespace                     = var.global.namespace
-  region                        = var.global.region
-  deletion_protection           = var.global.deletion_protection
-  dc_data_job_image             = var.ingestion_config.prep_job_image
-  dc_data_job_cpu               = var.ingestion_config.prep_job_cpu
-  dc_data_job_memory            = var.ingestion_config.prep_job_memory
-  dc_data_job_timeout           = var.ingestion_config.prep_job_timeout
-  service_account_email         = module.auth.service_account_email
-  vpc_connector_id              = var.redis_config.enable ? module.redis[0].connector_id : null
-  bucket_name                   = module.storage.ingestion_input_bucket_name
-  gcs_data_bucket_input_folder  = var.ingestion_config.ingestion_input_folder
-  gcs_data_bucket_output_folder = var.ingestion_config.ingestion_output_folder
-  run_db_init                   = false
-  use_spanner                   = true
-  env_vars                      = local.cloud_run_shared_env_variables
-  secret_env_vars               = local.datacommons_services_secrets
-  orchestrator_email            = coalesce(module.ingestion_dataflow.orchestrator_email, "")
-
-  depends_on = [module.auth]
-}
 
 module "datacommons_services" {
   source = "../datacommons_services"
@@ -260,7 +261,7 @@ check "spanner_instance_id_provided" {
 }
 
 resource "google_storage_bucket_iam_member" "dataflow_bucket_access" {
-  count  = var.ingestion_config.deploy_workflow ? 1 : 0
+  count  = var.ingestion_config.enable_ingestion ? 1 : 0
   bucket = module.storage.ingestion_input_bucket_name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${module.ingestion_dataflow.ingestion_runner_email}"
@@ -268,7 +269,7 @@ resource "google_storage_bucket_iam_member" "dataflow_bucket_access" {
 
 # This is only needed to trigger the services restart to pick up the GCS embeddings change
 resource "google_service_account_iam_member" "ingestion_runner_act_as_sa" {
-  count              = var.ingestion_config.deploy_workflow ? 1 : 0
+  count              = var.ingestion_config.enable_ingestion ? 1 : 0
   service_account_id = "projects/${var.global.project_id}/serviceAccounts/${module.auth.service_account_email}"
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:${module.ingestion_dataflow.ingestion_runner_email}"
