@@ -59,6 +59,13 @@ variable "auth_create_google_maps_api_key" {
   default     = true
 }
 
+variable "auth_google_maps_api_key_name_override" {
+  description = "Override the default name for the Google Maps API key. This is useful in dev/test environments when a key with the default name has been recently deleted and is in the recovery state, blocking the name from being reused."
+  type        = string
+  default     = ""
+}
+
+
 # =============================================================================
 # Storage Module
 # =============================================================================

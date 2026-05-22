@@ -17,6 +17,13 @@ namespace  = "$$NAMESPACE$$"
 # Get a free DC API Key at https://apikeys.datacommons.org (Required)
 auth_google_datacommons_api_key = "$$DC_API_KEY$$"
 
+# Override the default name for the Google Maps API key.
+# This is required if you recently destroyed the stack and are recreating it,
+# as Google Cloud keeps deleted keys in a recovery state for 30 days,
+# blocking the name from being reused.
+# auth_google_maps_api_key_name_override = ""
+
+
 # =============================================================================
 # Storage Module
 # =============================================================================

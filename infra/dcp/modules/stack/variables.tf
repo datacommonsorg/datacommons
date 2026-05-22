@@ -56,8 +56,10 @@ variable "auth_config" {
     google_datacommons_api_key = string
     google_maps_api_key        = string
     create_maps_key            = bool
+    maps_api_key_name_override = string
   })
 }
+
 
 variable "redis_config" {
   type = object({

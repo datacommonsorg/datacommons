@@ -17,11 +17,11 @@ resource "google_secret_manager_secret_version" "dc_api_key_version" {
 }
 
 resource "google_apikeys_key" "maps_api_key" {
-  # TODO: FIX THIS!
-  # count        = var.maps_api_key == null && var.create_maps_key ? 1 : 0
-  name         = "${local.name_prefix}maps-key"
+  count        = var.maps_api_key == null && var.create_maps_key ? 1 : 0
+  name         = var.maps_api_key_name_override != "" ? var.maps_api_key_name_override : "${local.name_prefix}maps-key"
   display_name = "Maps API Key for ${var.namespace != "" ? var.namespace : "Data Commons"}"
   project      = var.project_id
+
 
   restrictions {
     api_targets {

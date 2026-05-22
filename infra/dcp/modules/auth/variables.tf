@@ -20,3 +20,9 @@ variable "create_maps_key" {
   default = true
 }
 
+variable "maps_api_key_name_override" {
+  type    = string
+  default = ""
+}
+
+
