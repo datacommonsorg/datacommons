@@ -326,6 +326,14 @@ resource "google_spanner_database_iam_member" "workflow_spanner_user" {
   member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
 
+resource "google_spanner_database_iam_member" "helper_spanner_user" {
+  count    = var.ingestion_config.enable_ingestion && var.spanner_config.enable ? 1 : 0
+  instance = module.spanner[0].spanner_instance_id
+  database = module.spanner[0].spanner_database_id
+  role     = "roles/spanner.databaseUser"
+  member   = "serviceAccount:${module.ingestion_helper_service.service_account_email}"
+}
+
 resource "google_storage_bucket_iam_member" "workflow_bucket_access" {
   count  = var.ingestion_config.enable_ingestion ? 1 : 0
   bucket = module.storage.artifacts_bucket_name
