@@ -191,3 +191,18 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
           return: '$${launch_result}'
   EOF2
 }
+
+resource "google_service_account_iam_member" "workflow_act_as_dataflow_sa" {
+  count              = var.deploy ? 1 : 0
+  service_account_id = "projects/${var.project_id}/serviceAccounts/${var.dataflow_service_account_email}"
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.workflow_sa[0].email}"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "helper_invoker" {
+  count    = var.deploy && var.ingestion_helper_service_name != "" ? 1 : 0
+  location = var.region
+  name     = var.ingestion_helper_service_name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.workflow_sa[0].email}"
+}

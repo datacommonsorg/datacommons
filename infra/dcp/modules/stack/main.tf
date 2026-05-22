@@ -136,6 +136,8 @@ module "ingestion_preprocessing_job" {
   use_spanner                   = true
   env_vars                      = local.cloud_run_shared_env_variables
   secret_env_vars               = local.datacommons_services_secrets
+  dc_api_key_secret_id          = module.auth.dc_api_key_secret_id
+  maps_api_key_secret_id        = module.auth.maps_api_key_secret_id
 
   depends_on = [module.auth]
 }
@@ -178,6 +180,7 @@ module "ingestion_workflow" {
   dataflow_service_account_email = module.ingestion_dataflow.service_account_email
   enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
   enable_datacommons_services = var.datacommons_services_config.enable
+  ingestion_helper_service_name = "${var.global.namespace != "" ? "${var.global.namespace}-" : ""}dc-ingestion-helper"
 }
 
 
@@ -265,37 +268,6 @@ resource "google_service_account_iam_member" "ingestion_workflow_act_as_serving_
   member             = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
 
-resource "google_service_account_iam_member" "ingestion_workflow_act_as_dataflow_sa" {
-  count              = var.ingestion_config.enable_ingestion ? 1 : 0
-  service_account_id = "projects/${var.global.project_id}/serviceAccounts/${module.ingestion_dataflow.service_account_email}"
-  role               = "roles/iam.serviceAccountUser"
-  member             = "serviceAccount:${module.ingestion_workflow.service_account_email}"
-}
-
-resource "google_secret_manager_secret_iam_member" "preprocessing_api_key_accessor" {
-  count     = var.ingestion_config.enable_ingestion ? 1 : 0
-  project   = var.global.project_id
-  secret_id = module.auth.dc_api_key_secret_id
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${module.ingestion_preprocessing_job[0].service_account_email}"
-}
-
-resource "google_secret_manager_secret_iam_member" "preprocessing_maps_key_accessor" {
-  count     = var.ingestion_config.enable_ingestion ? 1 : 0
-  project   = var.global.project_id
-  secret_id = module.auth.maps_api_key_secret_id
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${module.ingestion_preprocessing_job[0].service_account_email}"
-}
-
-resource "google_cloud_run_v2_service_iam_member" "helper_invoker" {
-  count    = var.ingestion_config.enable_ingestion ? 1 : 0
-  location = var.global.region
-  name     = "${var.global.namespace != "" ? "${var.global.namespace}-" : ""}dc-ingestion-helper"
-  role     = "roles/run.invoker"
-  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
-}
-
 resource "google_bigquery_connection_iam_member" "helper_connection_user" {
   # Only create if ingestion is enabled, BQ connection is enabled, and Spanner is enabled!
   count         = var.ingestion_config.enable_ingestion && var.spanner_config.enable_bigquery_connection && var.spanner_config.enable ? 1 : 0
@@ -333,13 +305,7 @@ resource "google_spanner_database_iam_member" "workflow_spanner_user" {
   member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
 
-resource "google_spanner_database_iam_member" "helper_spanner_user" {
-  count    = var.ingestion_config.enable_ingestion && var.spanner_config.enable ? 1 : 0
-  instance = module.spanner[0].spanner_instance_id
-  database = module.spanner[0].spanner_database_id
-  role     = "roles/spanner.databaseUser"
-  member   = "serviceAccount:${module.ingestion_helper_service.service_account_email}"
-}
+
 
 resource "google_storage_bucket_iam_member" "workflow_bucket_access" {
   count  = var.ingestion_config.enable_ingestion ? 1 : 0
@@ -371,12 +337,7 @@ resource "google_storage_bucket_iam_member" "preprocessing_bucket_access" {
   member = "serviceAccount:${module.ingestion_preprocessing_job[0].service_account_email}"
 }
 
-resource "google_storage_bucket_iam_member" "helper_bucket_access" {
-  count  = var.ingestion_config.enable_ingestion ? 1 : 0
-  bucket = module.storage.artifacts_bucket_name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${module.ingestion_helper_service.service_account_email}"
-}
+
 
 resource "google_project_iam_member" "workflow_dataflow_developer" {
   count   = var.ingestion_config.enable_ingestion ? 1 : 0
@@ -393,10 +354,5 @@ resource "google_cloud_run_v2_service_iam_member" "workflow_serving_developer" {
   member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
 
-resource "google_project_iam_member" "preprocessing_workflow_invoker" {
-  count   = var.ingestion_config.enable_ingestion ? 1 : 0
-  project = var.global.project_id
-  role    = "roles/workflows.invoker"
-  member  = "serviceAccount:${module.ingestion_preprocessing_job[0].service_account_email}"
-}
+
 

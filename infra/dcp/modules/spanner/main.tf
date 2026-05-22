@@ -51,6 +51,13 @@ resource "google_spanner_database_iam_member" "spanner_reader" {
   member   = "serviceAccount:${data.google_bigquery_default_service_account.bq_sa.email}"
 }
 
+resource "google_project_iam_member" "bq_sa_spanner_viewer" {
+  count   = var.enable_bigquery_connection ? 1 : 0
+  project = var.project_id
+  role    = "roles/spanner.viewer"
+  member  = "serviceAccount:${data.google_bigquery_default_service_account.bq_sa.email}"
+}
+
 
 # Create the BigQuery Reservation for Federation queries
 resource "google_bigquery_reservation" "default" {

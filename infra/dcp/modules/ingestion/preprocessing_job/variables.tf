@@ -27,3 +27,15 @@ variable "secret_env_vars" {
     version = string
   }))
 }
+
+variable "dc_api_key_secret_id" {
+  type        = string
+  description = "Secret ID for Data Commons API key"
+  default     = ""
+}
+
+variable "maps_api_key_secret_id" {
+  type        = string
+  description = "Secret ID for Maps API key"
+  default     = ""
+}

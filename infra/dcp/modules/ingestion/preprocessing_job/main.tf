@@ -104,4 +104,26 @@ EOT
   }
 }
 
+resource "google_secret_manager_secret_iam_member" "preprocessing_api_key_accessor" {
+  count     = var.dc_api_key_secret_id != "" ? 1 : 0
+  project   = var.project_id
+  secret_id = var.dc_api_key_secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.preprocessing_sa.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "preprocessing_maps_key_accessor" {
+  count     = var.maps_api_key_secret_id != "" ? 1 : 0
+  project   = var.project_id
+  secret_id = var.maps_api_key_secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.preprocessing_sa.email}"
+}
+
+resource "google_project_iam_member" "preprocessing_workflow_invoker" {
+  project = var.project_id
+  role    = "roles/workflows.invoker"
+  member  = "serviceAccount:${google_service_account.preprocessing_sa.email}"
+}
+
 

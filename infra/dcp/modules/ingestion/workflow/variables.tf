@@ -42,3 +42,9 @@ variable "enable_datacommons_services" {
   description = "Flag to indicate if datacommons_services is enabled"
   default     = true
 }
+
+variable "ingestion_helper_service_name" {
+  type        = string
+  description = "Name of the ingestion helper Cloud Run service"
+  default     = ""
+}
