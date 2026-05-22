@@ -284,7 +284,7 @@ resource "google_secret_manager_secret_iam_member" "preprocessing_maps_key_acces
 resource "google_cloud_run_v2_service_iam_member" "helper_invoker" {
   count    = var.ingestion_config.enable_ingestion ? 1 : 0
   location = var.global.region
-  name     = module.ingestion_helper_service.service_name
+  name     = "${var.global.namespace != "" ? "${var.global.namespace}-" : ""}dc-ingestion-helper"
   role     = "roles/run.invoker"
   member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
