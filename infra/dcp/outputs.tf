@@ -59,3 +59,9 @@ output "region" {
   description = "The GCP region where resources are deployed"
   value       = var.region
 }
+
+output "ingestion_input_path" {
+  description = "Path within the bucket where raw files should be uploaded"
+  value       = var.ingestion_input_path
+}
+
