@@ -41,13 +41,13 @@ variable "orchestrator_email" {
   default     = ""
 }
 
-variable "enable_bq_federation" {
+variable "enable_bigquery_connection" {
   type        = bool
   description = "Enable BigQuery federation to Spanner"
   default     = false
 }
 
-variable "bq_connection_name" {
+variable "bigquery_connection_name" {
   type        = string
   description = "Name of the BigQuery connection"
   default     = "spanner_connection"
@@ -65,19 +65,19 @@ variable "spanner_version_retention_period" {
   default     = "6h"
 }
 
-variable "create_bq_reservation" {
+variable "create_bigquery_reservation" {
   type        = bool
   description = "Create a new BigQuery reservation for federation queries"
   default     = true
 }
 
-variable "bq_reservation_slot_capacity" {
+variable "bigquery_reservation_slot_capacity" {
   type        = number
   description = "Baseline slots for BigQuery reservation"
   default     = 0
 }
 
-variable "bq_reservation_max_slots" {
+variable "bigquery_reservation_max_slots" {
   type        = number
   description = "Max slots for BigQuery reservation autoscale"
   default     = 400

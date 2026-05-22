@@ -40,12 +40,12 @@ resource "google_project_service" "apis" {
     "vpcaccess.googleapis.com",
     "artifactregistry.googleapis.com",
     "compute.googleapis.com"
-    ], var.enable_datacommons_services ? ["spanner.googleapis.com"] : [],
+    ], var.enable_spanner ? ["spanner.googleapis.com"] : [],
     var.deploy_ingestion_workflow ? [
     "workflows.googleapis.com",
     "workflowexecutions.googleapis.com",
     "dataflow.googleapis.com"
-    ] : [], var.enable_bq_federation ? [
+    ] : [], var.spanner_enable_bigquery_connection ? [
     "bigqueryconnection.googleapis.com",
     "bigquery.googleapis.com",
     "bigqueryreservation.googleapis.com"
@@ -65,21 +65,20 @@ locals {
   }
 
   spanner_config = {
-    create_instance            = var.create_spanner_instance
-    create_db                  = var.create_spanner_db
-    instance_id                = var.spanner_instance_id
-    database_id                = var.spanner_database_id
-    version_retention_period   = var.spanner_version_retention_period
-    processing_units          = var.spanner_processing_units
+    enable                    = var.enable_spanner
+    create_instance           = var.spanner_create_instance
+    create_db                 = var.spanner_create_database
+    instance_id               = var.spanner_instance_id
+    database_id               = var.spanner_database_id
+    version_retention_period  = var.spanner_version_retention_period
+    processing_units         = var.spanner_processing_units
+    enable_bigquery_connection          = var.spanner_enable_bigquery_connection
+    bigquery_connection_name           = var.spanner_bigquery_connection_name
+    create_bigquery_reservation        = var.spanner_create_bigquery_reservation
+    bigquery_reservation_slot_capacity = var.spanner_bigquery_reservation_slot_capacity
+    bigquery_reservation_max_slots     = var.spanner_bigquery_reservation_max_slots
   }
 
-  bq_federation_config = {
-    enable            = var.enable_bq_federation
-    connection_name   = var.bq_connection_name
-    create_reservation = var.create_bq_reservation
-    slot_capacity     = var.bq_reservation_slot_capacity
-    max_slots         = var.bq_reservation_max_slots
-  }
 
   datacommons_services_config = {
     enable               = var.enable_datacommons_services
@@ -131,6 +130,7 @@ locals {
     helper_image     = var.ingestion_service_image
     create_ingestion_workflow_bucket = var.create_ingestion_workflow_bucket
     ingestion_workflow_bucket_name = var.ingestion_workflow_bucket_name
+    enable_bigquery_postprocessing = var.ingestion_workflow_enable_bigquery_postprocessing
   }
 }
 
@@ -141,7 +141,6 @@ module "stack" {
 
   global               = local.global_config
   spanner_config        = local.spanner_config
-  bq_federation_config = local.bq_federation_config
   datacommons_services_config = local.datacommons_services_config
   auth_config          = local.auth_config
   redis_config         = local.redis_config

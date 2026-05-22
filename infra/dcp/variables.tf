@@ -47,13 +47,19 @@ variable "billing_project_id" {
 # Spanner Configuration
 # =============================================================================
 
-variable "create_spanner_instance" {
+variable "enable_spanner" {
+  description = "Enable Cloud Spanner database"
+  type        = bool
+  default     = true
+}
+
+variable "spanner_create_instance" {
   description = "Create a new Spanner instance"
   type        = bool
   default     = false
 }
 
-variable "create_spanner_db" {
+variable "spanner_create_database" {
   description = "Create a new Spanner database within the specified spanner_instance_id"
   type        = bool
   default     = true
@@ -68,7 +74,7 @@ variable "spanner_instance_id" {
 variable "spanner_database_id" {
   description = "The ID of the Spanner database"
   type        = string
-  default     = "dcp-db"
+  default     = "dc-db"
 }
 
 variable "spanner_version_retention_period" {
@@ -83,35 +89,31 @@ variable "spanner_processing_units" {
   default     = 1000
 }
 
-# =============================================================================
-# BigQuery Federation Configuration
-# =============================================================================
-
-variable "enable_bq_federation" {
-  description = "Enable BigQuery federation to allow querying Spanner data via BigQuery"
+variable "spanner_enable_bigquery_connection" {
+  description = "Enable creation of BigQuery connection to Spanner"
   type        = bool
   default     = false
 }
 
-variable "bq_connection_name" {
+variable "spanner_bigquery_connection_name" {
   description = "The name of the BigQuery external connection to Spanner"
   type        = string
   default     = "spanner_connection"
 }
 
-variable "create_bq_reservation" {
+variable "spanner_create_bigquery_reservation" {
   description = "Create a dedicated BigQuery reservation for federation queries"
   type        = bool
   default     = true
 }
 
-variable "bq_reservation_slot_capacity" {
+variable "spanner_bigquery_reservation_slot_capacity" {
   description = "Baseline compute slots for the BigQuery reservation"
   type        = number
   default     = 0
 }
 
-variable "bq_reservation_max_slots" {
+variable "spanner_bigquery_reservation_max_slots" {
   description = "Maximum slots for BigQuery reservation autoscaling"
   type        = number
   default     = 400
@@ -195,6 +197,12 @@ variable "ingestion_workflow_bucket_name" {
   description = "The name of the ingestion bucket (used for creation if create_ingestion_bucket is true, or as the existing bucket name if false)"
   type        = string
   default     = ""
+}
+
+variable "ingestion_workflow_enable_bigquery_postprocessing" {
+  description = "Enable BigQuery post-processing (aggregation) in the ingestion workflow"
+  type        = bool
+  default     = false
 }
 
 variable "ingestion_lock_timeout" {

@@ -10,22 +10,18 @@ variable "global" {
 
 variable "spanner_config" {
   type = object({
-    create_instance            = bool
-    create_db                  = bool
-    instance_id                = string
-    database_id                = string
-    version_retention_period   = string
-    processing_units          = number
-  })
-}
-
-variable "bq_federation_config" {
-  type = object({
-    enable            = bool
-    connection_name   = string
-    create_reservation = bool
-    slot_capacity     = number
-    max_slots         = number
+    enable                             = bool
+    create_instance                    = bool
+    create_db                          = bool
+    instance_id                        = string
+    database_id                        = string
+    version_retention_period           = string
+    processing_units                   = number
+    enable_bigquery_connection                    = bool
+    bigquery_connection_name           = string
+    create_bigquery_reservation        = bool
+    bigquery_reservation_slot_capacity = number
+    bigquery_reservation_max_slots     = number
   })
 }
 
@@ -85,5 +81,6 @@ variable "ingestion_config" {
     helper_image     = string
     create_ingestion_workflow_bucket = bool
     ingestion_workflow_bucket_name = string
+    enable_bigquery_postprocessing = bool
   })
 }

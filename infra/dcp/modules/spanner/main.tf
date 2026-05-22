@@ -38,9 +38,9 @@ data "google_bigquery_default_service_account" "bq_sa" {
 
 # Create BigQuery Connection to Spanner
 resource "google_bigquery_connection" "spanner_connection" {
-  count         = var.enable_bq_federation ? 1 : 0
+  count         = var.enable_bigquery_connection ? 1 : 0
   location      = var.region
-  connection_id = "${local.name_prefix}dcp-${var.bq_connection_name}"
+  connection_id = "${local.name_prefix}dcp-${var.bigquery_connection_name}"
   description   = "Federated connection to Spanner for custom DC"
 
   cloud_spanner {
@@ -51,7 +51,7 @@ resource "google_bigquery_connection" "spanner_connection" {
 
 # Grant the connection's service account access to Spanner
 resource "google_spanner_database_iam_member" "spanner_reader" {
-  count    = var.enable_bq_federation ? 1 : 0
+  count    = var.enable_bigquery_connection ? 1 : 0
   instance = var.create_spanner_instance ? google_spanner_instance.main[0].name : local.effective_instance_id
   database = var.create_spanner_db ? google_spanner_database.database[0].name : local.effective_database_id
   role     = "roles/spanner.databaseUser"
@@ -60,7 +60,7 @@ resource "google_spanner_database_iam_member" "spanner_reader" {
 
 # Grant Ingestion Helper access to use the connection
 resource "google_bigquery_connection_iam_member" "helper_connection_user" {
-  count         = var.enable_bq_federation && var.ingestion_helper_sa_email != "" ? 1 : 0
+  count         = var.enable_bigquery_connection && var.ingestion_helper_sa_email != "" ? 1 : 0
   project       = var.project_id
   location      = var.region
   connection_id = google_bigquery_connection.spanner_connection[0].connection_id
@@ -70,7 +70,7 @@ resource "google_bigquery_connection_iam_member" "helper_connection_user" {
 
 # Grant Ingestion Helper access to create/edit tables in BigQuery
 resource "google_project_iam_member" "helper_bq_editor" {
-  count   = var.enable_bq_federation && var.ingestion_helper_sa_email != "" ? 1 : 0
+  count   = var.enable_bigquery_connection && var.ingestion_helper_sa_email != "" ? 1 : 0
   project = var.project_id
   role    = "roles/bigquery.dataEditor"
   member  = "serviceAccount:${var.ingestion_helper_sa_email}"
@@ -78,8 +78,29 @@ resource "google_project_iam_member" "helper_bq_editor" {
 
 # Grant Ingestion Helper access to run jobs in BigQuery
 resource "google_project_iam_member" "helper_bq_job_user" {
-  count   = var.enable_bq_federation && var.ingestion_helper_sa_email != "" ? 1 : 0
+  count   = var.enable_bigquery_connection && var.ingestion_helper_sa_email != "" ? 1 : 0
   project = var.project_id
   role    = "roles/bigquery.jobUser"
   member  = "serviceAccount:${var.ingestion_helper_sa_email}"
+}
+
+# Create the BigQuery Reservation for Federation queries
+resource "google_bigquery_reservation" "default" {
+  count         = var.enable_bigquery_connection && var.create_bigquery_reservation ? 1 : 0
+  name          = "default"
+  location      = var.region
+  edition       = "ENTERPRISE"
+  slot_capacity = var.bigquery_reservation_slot_capacity
+
+  autoscale {
+    max_slots = var.bigquery_reservation_max_slots
+  }
+}
+
+# Assign the reservation to the project for queries
+resource "google_bigquery_reservation_assignment" "project_assignment" {
+  count       = var.enable_bigquery_connection && var.create_bigquery_reservation ? 1 : 0
+  reservation = google_bigquery_reservation.default[0].id
+  assignee    = "projects/${var.project_id}"
+  job_type    = "QUERY"
 }

@@ -90,13 +90,13 @@ module "spanner" {
   spanner_processing_units = var.spanner_config.processing_units
   deletion_protection      = var.global.deletion_protection
   orchestrator_email       = coalesce(module.ingestion_dataflow.orchestrator_email, "")
-  enable_bq_federation       = var.bq_federation_config.enable
-  bq_connection_name         = var.bq_federation_config.connection_name
   ingestion_helper_sa_email = coalesce(module.ingestion_dataflow.ingestion_runner_email, "")
   spanner_version_retention_period = var.spanner_config.version_retention_period
-  create_bq_reservation           = var.bq_federation_config.create_reservation
-  bq_reservation_slot_capacity     = var.bq_federation_config.slot_capacity
-  bq_reservation_max_slots        = var.bq_federation_config.max_slots
+  enable_bigquery_connection       = var.spanner_config.enable_bigquery_connection
+  bigquery_connection_name         = var.spanner_config.bigquery_connection_name
+  create_bigquery_reservation           = var.spanner_config.create_bigquery_reservation
+  bigquery_reservation_slot_capacity     = var.spanner_config.bigquery_reservation_slot_capacity
+  bigquery_reservation_max_slots        = var.spanner_config.bigquery_reservation_max_slots
 }
 
 
@@ -164,7 +164,7 @@ module "ingestion_workflow" {
   ingestion_runner_id    = module.ingestion_dataflow.ingestion_runner_id
   ingestion_runner_email = module.ingestion_dataflow.ingestion_runner_email
   orchestrator_email     = var.ingestion_config.deploy_workflow ? coalesce(module.ingestion_dataflow.orchestrator_email, "") : ""
-  enable_bq_federation   = var.bq_federation_config.enable
+  enable_bq_federation   = var.ingestion_config.enable_bigquery_postprocessing
   enable_datacommons_services = var.datacommons_services_config.enable
 }
 
