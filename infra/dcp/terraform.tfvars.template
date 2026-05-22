@@ -17,8 +17,6 @@ namespace  = "$$NAMESPACE$$"
 # Get a free DC API Key at https://apikeys.datacommons.org (Required)
 auth_google_datacommons_api_key = "$$DC_API_KEY$$"
 
-
-
 # =============================================================================
 # Storage Module
 # =============================================================================
