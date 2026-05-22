@@ -1,5 +1,5 @@
 locals {
-  name_prefix = var.namespace != "" ? "${var.namespace}-" : ""
+  name_prefix         = var.namespace != "" ? "${var.namespace}-" : ""
   display_name_prefix = var.namespace != "" ? "(${var.namespace}) " : ""
 }
 
@@ -19,8 +19,8 @@ resource "google_redis_instance" "redis_instance" {
 }
 
 resource "google_vpc_access_connector" "connector" {
-  count         = var.enable_connector ? 1 : 0
-  name          = "${local.name_prefix}dc-vpc-conn"
+  count = var.enable_connector ? 1 : 0
+  name  = "${local.name_prefix}dc-vpc-conn"
 
   region        = var.region
   network       = var.vpc_network_id

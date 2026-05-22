@@ -1,5 +1,5 @@
 locals {
-  name_prefix = var.namespace != "" ? "${var.namespace}-" : ""
+  name_prefix         = var.namespace != "" ? "${var.namespace}-" : ""
   display_name_prefix = var.namespace != "" ? "(${var.namespace}) " : ""
 }
 

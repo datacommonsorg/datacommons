@@ -1,9 +1,9 @@
 variable "global" {
   type = object({
-    project_id                  = string
-    region                      = string
-    namespace                   = string
-    deletion_protection         = bool
+    project_id          = string
+    region              = string
+    namespace           = string
+    deletion_protection = bool
   })
 }
 
@@ -25,7 +25,7 @@ variable "spanner_config" {
     database_id                        = string
     version_retention_period           = string
     processing_units                   = number
-    enable_bigquery_connection                    = bool
+    enable_bigquery_connection         = bool
     bigquery_connection_name           = string
     create_bigquery_reservation        = bool
     bigquery_reservation_slot_capacity = number
@@ -35,18 +35,18 @@ variable "spanner_config" {
 
 variable "datacommons_services_config" {
   type = object({
-    enable               = bool
-    image                = string
-    name                 = string
-    min_instances        = number
-    max_instances        = number
-    cpu                  = string
-    memory               = string
-    google_analytics_tag = string
-    enable_mcp           = bool
-    search_scope         = string
-    instructions_path    = string
-    allow_unauthenticated_access = bool
+    enable                          = bool
+    image                           = string
+    name                            = string
+    min_instances                   = number
+    max_instances                   = number
+    cpu                             = string
+    memory                          = string
+    google_analytics_tag            = string
+    enable_mcp                      = bool
+    search_scope                    = string
+    instructions_path               = string
+    allow_unauthenticated_access    = bool
     website_disable_google_maps_api = bool
   })
 }
@@ -55,7 +55,7 @@ variable "auth_config" {
   type = object({
     google_datacommons_api_key = string
     google_maps_api_key        = string
-    create_maps_key           = bool
+    create_maps_key            = bool
   })
 }
 
@@ -76,21 +76,21 @@ variable "redis_config" {
 variable "ingestion_config" {
   type = object({
     # Global Toggles
-    enable_ingestion               = bool
+    enable_ingestion                        = bool
     workflow_enable_bigquery_postprocessing = bool
 
     # Storage & Paths
-    input_path                     = string
-    workflow_artifacts_path        = string
+    input_path              = string
+    workflow_artifacts_path = string
 
     # Preprocessing Job
-    preprocessing_job_image        = string
-    preprocessing_job_cpu          = string
-    preprocessing_job_memory       = string
-    preprocessing_job_timeout      = string
+    preprocessing_job_image   = string
+    preprocessing_job_cpu     = string
+    preprocessing_job_memory  = string
+    preprocessing_job_timeout = string
 
     # Workflow & Helper Service
     workflow_lock_acquisition_timeout = number
-    helper_service_image           = string
+    helper_service_image              = string
   })
 }

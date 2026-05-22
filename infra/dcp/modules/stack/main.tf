@@ -29,17 +29,17 @@ locals {
       value = local.redis_port
     },
     {
-      name  = "GCP_SPANNER_INSTANCE_ID"
+      name = "GCP_SPANNER_INSTANCE_ID"
       # Use index [0] because module.spanner is now conditional (count). Fallback to empty string if disabled.
       value = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
     },
     {
-      name  = "GCP_SPANNER_DATABASE_NAME"
+      name = "GCP_SPANNER_DATABASE_NAME"
       # Use index [0] because module.spanner is now conditional (count). Fallback to empty string if disabled.
       value = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
     },
     {
-      name  = "INGESTION_WORKFLOW_NAME"
+      name = "INGESTION_WORKFLOW_NAME"
       # Fallback to empty string if ingestion is disabled and module output is null
       value = module.ingestion_workflow.workflow_name != null ? module.ingestion_workflow.workflow_name : ""
     },
@@ -84,21 +84,21 @@ module "spanner" {
   source = "../spanner"
   count  = var.spanner_config.enable ? 1 : 0
 
-  project_id               = var.global.project_id
-  namespace                = var.global.namespace
-  region                   = var.global.region
-  create_instance          = var.spanner_config.create_instance
-  create_database          = var.spanner_config.create_db
-  instance_id              = var.spanner_config.instance_id
-  database_id              = var.spanner_config.database_id
-  processing_units         = var.spanner_config.processing_units
-  deletion_protection      = var.global.deletion_protection
-  version_retention_period = var.spanner_config.version_retention_period
-  enable_bigquery_connection       = var.spanner_config.enable_bigquery_connection
-  bigquery_connection_name         = var.spanner_config.bigquery_connection_name
-  create_bigquery_reservation           = var.spanner_config.create_bigquery_reservation
-  bigquery_reservation_slot_capacity     = var.spanner_config.bigquery_reservation_slot_capacity
-  bigquery_reservation_max_slots        = var.spanner_config.bigquery_reservation_max_slots
+  project_id                         = var.global.project_id
+  namespace                          = var.global.namespace
+  region                             = var.global.region
+  create_instance                    = var.spanner_config.create_instance
+  create_database                    = var.spanner_config.create_db
+  instance_id                        = var.spanner_config.instance_id
+  database_id                        = var.spanner_config.database_id
+  processing_units                   = var.spanner_config.processing_units
+  deletion_protection                = var.global.deletion_protection
+  version_retention_period           = var.spanner_config.version_retention_period
+  enable_bigquery_connection         = var.spanner_config.enable_bigquery_connection
+  bigquery_connection_name           = var.spanner_config.bigquery_connection_name
+  create_bigquery_reservation        = var.spanner_config.create_bigquery_reservation
+  bigquery_reservation_slot_capacity = var.spanner_config.bigquery_reservation_slot_capacity
+  bigquery_reservation_max_slots     = var.spanner_config.bigquery_reservation_max_slots
 }
 
 
@@ -108,36 +108,36 @@ module "storage" {
   # Ingestion Workflow Bucket Vars
   create_artifacts_bucket = var.storage_create_artifacts_bucket
   artifacts_bucket_name   = var.storage_artifacts_bucket_name
-  region                 = var.global.region
-  deletion_protection    = var.global.deletion_protection
-  
+  region                  = var.global.region
+  deletion_protection     = var.global.deletion_protection
+
   # Shared vars
-  project_id         = var.global.project_id
-  namespace          = var.global.namespace
+  project_id = var.global.project_id
+  namespace  = var.global.namespace
 }
 
 module "ingestion_preprocessing_job" {
   source = "../ingestion/preprocessing_job"
   count  = var.ingestion_config.enable_ingestion ? 1 : 0
 
-  project_id                    = var.global.project_id
-  namespace                     = var.global.namespace
-  region                        = var.global.region
-  deletion_protection           = var.global.deletion_protection
-  image                         = var.ingestion_config.preprocessing_job_image
-  cpu                           = var.ingestion_config.preprocessing_job_cpu
-  memory                        = var.ingestion_config.preprocessing_job_memory
-  timeout                       = var.ingestion_config.preprocessing_job_timeout
-  vpc_connector_id              = var.redis_config.enable ? module.redis[0].connector_id : null
-  bucket_name                   = module.storage.artifacts_bucket_name
-  input_path                    = var.ingestion_config.input_path
-  workflow_artifacts_path        = var.ingestion_config.workflow_artifacts_path
-  run_database_init             = false
-  use_spanner                   = true
-  env_vars                      = local.cloud_run_shared_env_variables
-  secret_env_vars               = local.datacommons_services_secrets
-  dc_api_key_secret_id          = module.auth.dc_api_key_secret_id
-  maps_api_key_secret_id        = module.auth.maps_api_key_secret_id
+  project_id              = var.global.project_id
+  namespace               = var.global.namespace
+  region                  = var.global.region
+  deletion_protection     = var.global.deletion_protection
+  image                   = var.ingestion_config.preprocessing_job_image
+  cpu                     = var.ingestion_config.preprocessing_job_cpu
+  memory                  = var.ingestion_config.preprocessing_job_memory
+  timeout                 = var.ingestion_config.preprocessing_job_timeout
+  vpc_connector_id        = var.redis_config.enable ? module.redis[0].connector_id : null
+  bucket_name             = module.storage.artifacts_bucket_name
+  input_path              = var.ingestion_config.input_path
+  workflow_artifacts_path = var.ingestion_config.workflow_artifacts_path
+  run_database_init       = false
+  use_spanner             = true
+  env_vars                = local.cloud_run_shared_env_variables
+  secret_env_vars         = local.datacommons_services_secrets
+  dc_api_key_secret_id    = module.auth.dc_api_key_secret_id
+  maps_api_key_secret_id  = module.auth.maps_api_key_secret_id
 
   depends_on = [module.auth]
 }
@@ -154,33 +154,33 @@ module "ingestion_dataflow" {
 module "ingestion_helper_service" {
   source = "../ingestion/helper_service"
 
-  deploy                = var.ingestion_config.enable_ingestion
-  project_id            = var.global.project_id
-  namespace             = var.global.namespace
-  region                = var.global.region
-  deletion_protection   = var.global.deletion_protection
+  deploy              = var.ingestion_config.enable_ingestion
+  project_id          = var.global.project_id
+  namespace           = var.global.namespace
+  region              = var.global.region
+  deletion_protection = var.global.deletion_protection
   # Use index [0] because module.spanner is conditional. Fallback to empty string if disabled.
-  spanner_instance_id   = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
-  spanner_database_id   = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
+  spanner_instance_id    = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
+  spanner_database_id    = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
   bigquery_connection_id = var.spanner_config.enable ? module.spanner[0].bigquery_connection_id : ""
   ingestion_bucket_name  = module.storage.artifacts_bucket_name
-  image = var.ingestion_config.helper_service_image
+  image                  = var.ingestion_config.helper_service_image
 }
 
 module "ingestion_workflow" {
   source = "../ingestion/workflow"
 
-  deploy                 = var.ingestion_config.enable_ingestion
-  namespace              = var.global.namespace
-  region                 = var.global.region
-  deletion_protection    = var.global.deletion_protection
-  project_id             = var.global.project_id
-  lock_acquisition_timeout = var.ingestion_config.workflow_lock_acquisition_timeout
-  ingestion_helper_uri   = module.ingestion_helper_service.ingestion_helper_uri
+  deploy                         = var.ingestion_config.enable_ingestion
+  namespace                      = var.global.namespace
+  region                         = var.global.region
+  deletion_protection            = var.global.deletion_protection
+  project_id                     = var.global.project_id
+  lock_acquisition_timeout       = var.ingestion_config.workflow_lock_acquisition_timeout
+  ingestion_helper_uri           = module.ingestion_helper_service.ingestion_helper_uri
   dataflow_service_account_email = module.ingestion_dataflow.service_account_email
   enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
-  enable_datacommons_services = var.datacommons_services_config.enable
-  ingestion_helper_service_name = "${var.global.namespace != "" ? "${var.global.namespace}-" : ""}dc-ingestion-helper"
+  enable_datacommons_services    = var.datacommons_services_config.enable
+  ingestion_helper_service_name  = "${var.global.namespace != "" ? "${var.global.namespace}-" : ""}dc-ingestion-helper"
 }
 
 
@@ -189,27 +189,27 @@ module "redis" {
   source = "../redis"
   count  = var.redis_config.enable ? 1 : 0
 
-  namespace                     = var.global.namespace
-  region                        = var.global.region
-  instance_name                 = var.redis_config.instance_name
-  memory_size_gb                = var.redis_config.memory_size_gb
-  tier                          = var.redis_config.tier
-  location_id                   = var.redis_config.location_id
-  alternative_location_id       = var.redis_config.alternative_location_id
-  replica_count                 = var.redis_config.replica_count
-  vpc_network_id                = data.google_compute_network.default.id
-  vpc_connector_cidr            = var.redis_config.vpc_connector_cidr
-  enable_connector              = true
+  namespace               = var.global.namespace
+  region                  = var.global.region
+  instance_name           = var.redis_config.instance_name
+  memory_size_gb          = var.redis_config.memory_size_gb
+  tier                    = var.redis_config.tier
+  location_id             = var.redis_config.location_id
+  alternative_location_id = var.redis_config.alternative_location_id
+  replica_count           = var.redis_config.replica_count
+  vpc_network_id          = data.google_compute_network.default.id
+  vpc_connector_cidr      = var.redis_config.vpc_connector_cidr
+  enable_connector        = true
 }
 
 module "auth" {
   source = "../auth"
 
-  project_id          = var.global.project_id
-  namespace           = var.global.namespace
-  dc_api_key          = var.auth_config.google_datacommons_api_key
-  maps_api_key        = var.auth_config.google_maps_api_key
-  create_maps_key     = var.auth_config.create_maps_key
+  project_id      = var.global.project_id
+  namespace       = var.global.namespace
+  dc_api_key      = var.auth_config.google_datacommons_api_key
+  maps_api_key    = var.auth_config.google_maps_api_key
+  create_maps_key = var.auth_config.create_maps_key
 }
 
 
@@ -217,25 +217,25 @@ module "datacommons_services" {
   source = "../datacommons_services"
   count  = var.datacommons_services_config.enable ? 1 : 0
 
-  project_id                        = var.global.project_id
-  namespace                         = var.global.namespace
-  region                            = var.global.region
-  deletion_protection               = var.global.deletion_protection
-  image                             = var.datacommons_services_config.image
-  cpu                               = var.datacommons_services_config.cpu
-  memory                            = var.datacommons_services_config.memory
-  min_instances                     = var.datacommons_services_config.min_instances
-  max_instances                     = var.datacommons_services_config.max_instances
-  make_public                       = var.datacommons_services_config.allow_unauthenticated_access
-  google_analytics_tag_id           = var.datacommons_services_config.google_analytics_tag
-  mcp_search_scope                  = var.datacommons_services_config.search_scope
-  enable_mcp                        = var.datacommons_services_config.enable_mcp
-  mcp_instructions_path             = var.datacommons_services_config.instructions_path
-  artifacts_bucket_name             = module.storage.artifacts_bucket_name
-  vpc_connector_id                  = var.redis_config.enable ? module.redis[0].connector_id : null
-  use_spanner                       = var.spanner_config.enable
-  env_vars                          = local.cloud_run_shared_env_variables
-  secret_env_vars                   = local.datacommons_services_secrets
+  project_id              = var.global.project_id
+  namespace               = var.global.namespace
+  region                  = var.global.region
+  deletion_protection     = var.global.deletion_protection
+  image                   = var.datacommons_services_config.image
+  cpu                     = var.datacommons_services_config.cpu
+  memory                  = var.datacommons_services_config.memory
+  min_instances           = var.datacommons_services_config.min_instances
+  max_instances           = var.datacommons_services_config.max_instances
+  make_public             = var.datacommons_services_config.allow_unauthenticated_access
+  google_analytics_tag_id = var.datacommons_services_config.google_analytics_tag
+  mcp_search_scope        = var.datacommons_services_config.search_scope
+  enable_mcp              = var.datacommons_services_config.enable_mcp
+  mcp_instructions_path   = var.datacommons_services_config.instructions_path
+  artifacts_bucket_name   = module.storage.artifacts_bucket_name
+  vpc_connector_id        = var.redis_config.enable ? module.redis[0].connector_id : null
+  use_spanner             = var.spanner_config.enable
+  env_vars                = local.cloud_run_shared_env_variables
+  secret_env_vars         = local.datacommons_services_secrets
 
   depends_on = [module.ingestion_preprocessing_job]
 }
@@ -270,9 +270,9 @@ resource "google_service_account_iam_member" "ingestion_workflow_act_as_serving_
 
 resource "google_bigquery_connection_iam_member" "helper_connection_user" {
   # Only create if ingestion is enabled, BQ connection is enabled, and Spanner is enabled!
-  count         = var.ingestion_config.enable_ingestion && var.spanner_config.enable_bigquery_connection && var.spanner_config.enable ? 1 : 0
-  project       = var.global.project_id
-  location      = var.global.region
+  count    = var.ingestion_config.enable_ingestion && var.spanner_config.enable_bigquery_connection && var.spanner_config.enable ? 1 : 0
+  project  = var.global.project_id
+  location = var.global.region
   # Use index [0] because module.spanner is conditional.
   connection_id = module.spanner[0].bigquery_connection_id
   role          = "roles/bigquery.connectionUser"
@@ -297,7 +297,7 @@ resource "google_project_iam_member" "helper_bq_job_user" {
 
 resource "google_spanner_database_iam_member" "workflow_spanner_user" {
   # Only create if ingestion is enabled and Spanner is enabled!
-  count    = var.ingestion_config.enable_ingestion && var.spanner_config.enable ? 1 : 0
+  count = var.ingestion_config.enable_ingestion && var.spanner_config.enable ? 1 : 0
   # Use index [0] because module.spanner is conditional.
   instance = module.spanner[0].spanner_instance_id
   database = module.spanner[0].spanner_database_id

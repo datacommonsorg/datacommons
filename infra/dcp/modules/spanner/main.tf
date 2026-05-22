@@ -37,7 +37,7 @@ resource "google_bigquery_connection" "spanner_connection" {
   description   = "Federated connection to Spanner for custom DC"
 
   cloud_spanner {
-    database = "projects/${var.project_id}/instances/${var.create_instance ? google_spanner_instance.main[0].name : local.effective_instance_id}/databases/${var.create_database ? google_spanner_database.database[0].name : local.effective_database_id}"
+    database        = "projects/${var.project_id}/instances/${var.create_instance ? google_spanner_instance.main[0].name : local.effective_instance_id}/databases/${var.create_database ? google_spanner_database.database[0].name : local.effective_database_id}"
     use_parallelism = true
   }
 }
