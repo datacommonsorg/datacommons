@@ -64,12 +64,11 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
   }
 }
 
-resource "google_spanner_database_iam_member" "helper_spanner_user" {
-  count    = var.deploy && var.use_spanner ? 1 : 0
-  instance = var.spanner_instance_id
-  database = var.spanner_database_id
-  role     = "roles/spanner.databaseUser"
-  member   = "serviceAccount:${google_service_account.helper_sa[0].email}"
+resource "google_project_iam_member" "helper_spanner_user" {
+  count   = var.deploy && var.use_spanner ? 1 : 0
+  project = var.project_id
+  role    = "roles/spanner.databaseUser"
+  member  = "serviceAccount:${google_service_account.helper_sa[0].email}"
 }
 
 
@@ -103,11 +102,6 @@ resource "google_bigquery_connection_iam_member" "helper_connection_user" {
   member        = "serviceAccount:${google_service_account.helper_sa[0].email}"
 }
 
-resource "google_service_account_iam_member" "helper_act_as_dataflow_sa" {
-  count              = var.deploy && var.bigquery_job_service_account != "" ? 1 : 0
-  service_account_id = "projects/${var.project_id}/serviceAccounts/${var.bigquery_job_service_account}"
-  role               = "roles/iam.serviceAccountTokenCreator"
-  member             = "serviceAccount:${google_service_account.helper_sa[0].email}"
-}
+
 
 

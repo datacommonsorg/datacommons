@@ -71,6 +71,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                       status: "STAGING"
                       latestVersion: '$${latest_version_gcs_path}'
                   result: staging_result
+                  next: check_bq_enabled
               - run_flex_template:
                   call: googleapis.dataflow.v1b3.projects.locations.flexTemplates.launch
                   args:
