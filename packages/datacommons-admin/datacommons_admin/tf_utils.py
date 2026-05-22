@@ -19,14 +19,14 @@ import subprocess
 import click
 
 
-TF_OUTPUT_INGESTION_HELPER_URI = "dcp_ingestion_helper_uri"
-TF_OUTPUT_ORCHESTRATOR_SERVICE_ACCOUNT_EMAIL = "dcp_orchestrator_service_account_email"
-TF_OUTPUT_SPANNER_INSTANCE_ID = "dcp_spanner_instance_id"
-TF_OUTPUT_SPANNER_DATABASE_ID = "dcp_spanner_database_id"
-TF_OUTPUT_CDC_DATA_JOB_NAME = "cdc_data_job_name"
+TF_OUTPUT_INGESTION_SERVICE_URL = "ingestion_service_url"
+TF_OUTPUT_INGESTION_WORKFLOW_SERVICE_ACCOUNT_EMAIL = "ingestion_workflow_service_account_email"
+TF_OUTPUT_SPANNER_INSTANCE_ID = "spanner_instance_id"
+TF_OUTPUT_SPANNER_DATABASE_ID = "spanner_database_id"
+TF_OUTPUT_INGESTION_PREP_JOB_NAME = "ingestion_prep_job_name"
 TF_OUTPUT_PROJECT_ID = "project_id"
 TF_OUTPUT_REGION = "region"
-TF_OUTPUT_WORKFLOW_NAME = "workflow_name"
+TF_OUTPUT_INGESTION_WORKFLOW_NAME = "ingestion_workflow_name"
 
 
 def get_terraform_output(key: str) -> str:
@@ -94,41 +94,41 @@ def get_terraform_output(key: str) -> str:
     return str(value)
 
 
-def get_dcp_ingestion_helper_uri() -> str:
-    """Convenience wrapper to fetch the dcp_ingestion_helper_uri Terraform output."""
-    return get_terraform_output(TF_OUTPUT_INGESTION_HELPER_URI)
+def get_ingestion_service_url() -> str:
+    """Convenience wrapper to fetch the ingestion_service_url Terraform output."""
+    return get_terraform_output(TF_OUTPUT_INGESTION_SERVICE_URL)
 
 
-def get_dcp_orchestrator_service_account_email() -> str:
-    """Convenience wrapper to fetch the dcp_orchestrator_service_account_email Terraform output."""
-    return get_terraform_output(TF_OUTPUT_ORCHESTRATOR_SERVICE_ACCOUNT_EMAIL)
+def get_ingestion_workflow_service_account_email() -> str:
+    """Convenience wrapper to fetch the ingestion_workflow_service_account_email Terraform output."""
+    return get_terraform_output(TF_OUTPUT_INGESTION_WORKFLOW_SERVICE_ACCOUNT_EMAIL)
 
 
-def get_dcp_spanner_instance_id() -> str:
-    """Convenience wrapper to fetch the dcp_spanner_instance_id Terraform output."""
+def get_spanner_instance_id() -> str:
+    """Convenience wrapper to fetch the spanner_instance_id Terraform output."""
     return get_terraform_output(TF_OUTPUT_SPANNER_INSTANCE_ID)
 
 
-def get_dcp_spanner_database_id() -> str:
-    """Convenience wrapper to fetch the dcp_spanner_database_id Terraform output."""
+def get_spanner_database_id() -> str:
+    """Convenience wrapper to fetch the spanner_database_id Terraform output."""
     return get_terraform_output(TF_OUTPUT_SPANNER_DATABASE_ID)
 
 
-def get_cdc_data_job_name() -> str:
-    """Convenience wrapper to fetch the cdc_data_job_name Terraform output."""
-    return get_terraform_output(TF_OUTPUT_CDC_DATA_JOB_NAME)
+def get_ingestion_prep_job_name() -> str:
+    """Convenience wrapper to fetch the ingestion_prep_job_name Terraform output."""
+    return get_terraform_output(TF_OUTPUT_INGESTION_PREP_JOB_NAME)
 
 
-def get_dcp_project_id() -> str:
+def get_project_id() -> str:
     """Convenience wrapper to fetch the project_id Terraform output."""
     return get_terraform_output(TF_OUTPUT_PROJECT_ID)
 
 
-def get_dcp_region() -> str:
+def get_region() -> str:
     """Convenience wrapper to fetch the region Terraform output."""
     return get_terraform_output(TF_OUTPUT_REGION)
 
 
-def get_dcp_workflow_name() -> str:
-    """Convenience wrapper to fetch the workflow_name Terraform output."""
-    return get_terraform_output(TF_OUTPUT_WORKFLOW_NAME)
+def get_ingestion_workflow_name() -> str:
+    """Convenience wrapper to fetch the ingestion_workflow_name Terraform output."""
+    return get_terraform_output(TF_OUTPUT_INGESTION_WORKFLOW_NAME)

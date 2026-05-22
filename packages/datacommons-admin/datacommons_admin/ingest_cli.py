@@ -17,11 +17,11 @@ import re
 
 from datacommons_admin.ingestion_job_client import IngestionJobClient
 from datacommons_admin.tf_utils import (
-    get_cdc_data_job_name,
-    get_dcp_orchestrator_service_account_email,
-    get_dcp_project_id,
-    get_dcp_region,
-    get_dcp_workflow_name,
+    get_ingestion_prep_job_name,
+    get_ingestion_workflow_service_account_email,
+    get_project_id,
+    get_region,
+    get_ingestion_workflow_name,
 )
 
 
@@ -35,18 +35,18 @@ def start() -> None:
     """Start a data ingestion job execution."""
     click.secho("Datacommons Admin Ingest Start", fg="cyan", bold=True)
     click.secho(
-        "Fetching Data Job Name and Orchestrator Service Account from Terraform outputs...",
+        "Fetching Data Job Name and Workflow Service Account from Terraform outputs...",
         fg="bright_black",
     )
 
-    job_name = get_cdc_data_job_name()
-    sa_email = get_dcp_orchestrator_service_account_email()
-    project_id = get_dcp_project_id()
-    region = get_dcp_region()
-    workflow_name = get_dcp_workflow_name()
+    job_name = get_ingestion_prep_job_name()
+    sa_email = get_ingestion_workflow_service_account_email()
+    project_id = get_project_id()
+    region = get_region()
+    workflow_name = get_ingestion_workflow_name()
 
     click.secho(f"Found Data Job Name: {job_name}", fg="green")
-    click.secho(f"Found Orchestrator Service Account: {sa_email}", fg="green")
+    click.secho(f"Found Workflow Service Account: {sa_email}", fg="green")
     click.secho(f"Found GCP Project ID: {project_id}", fg="green")
     click.secho(f"Found GCP Region: {region}", fg="green")
     click.secho(
@@ -100,17 +100,17 @@ def show_config() -> None:
     """Print the current ingestion job configuration (environment variables)."""
     click.secho("Datacommons Admin Ingest Show-Config", fg="cyan", bold=True)
     click.secho(
-        "Fetching Data Job Name and Orchestrator Service Account from Terraform outputs...",
+        "Fetching Data Job Name and Workflow Service Account from Terraform outputs...",
         fg="bright_black",
     )
 
-    job_name = get_cdc_data_job_name()
-    sa_email = get_dcp_orchestrator_service_account_email()
-    project_id = get_dcp_project_id()
-    region = get_dcp_region()
+    job_name = get_ingestion_prep_job_name()
+    sa_email = get_ingestion_workflow_service_account_email()
+    project_id = get_project_id()
+    region = get_region()
 
     click.secho(f"Found Data Job Name: {job_name}", fg="green")
-    click.secho(f"Found Orchestrator Service Account: {sa_email}", fg="green")
+    click.secho(f"Found Workflow Service Account: {sa_email}", fg="green")
     click.secho(f"Found GCP Project ID: {project_id}", fg="green")
     click.secho(f"Found GCP Region: {region}", fg="green")
     click.secho(

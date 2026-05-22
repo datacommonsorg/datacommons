@@ -41,7 +41,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
           try:
             call: http.post
             args:
-              url: '${var.ingestion_helper_uri}'
+              url: '${var.ingestion_helper_url}'
               auth:
                 type: OIDC
               body:
@@ -62,7 +62,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
               - set_import_staging:
                   call: http.post
                   args:
-                    url: '${var.ingestion_helper_uri}'
+                    url: '${var.ingestion_helper_url}'
                     auth:
                       type: OIDC
                     body:
@@ -122,7 +122,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
               - trigger_bq_federation:
                   call: http.post
                   args:
-                    url: '${var.ingestion_helper_uri}'
+                    url: '${var.ingestion_helper_url}'
                     auth:
                       type: OIDC
                     body:
@@ -132,7 +132,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
               - promote_version:
                   call: http.post
                   args:
-                    url: '${var.ingestion_helper_uri}'
+                    url: '${var.ingestion_helper_url}'
                     auth:
                       type: OIDC
                     body:
@@ -144,7 +144,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
               - update_ingestion_history_step:
                   call: http.post
                   args:
-                    url: '${var.ingestion_helper_uri}'
+                    url: '${var.ingestion_helper_url}'
                     auth:
                       type: OIDC
                     body:
@@ -165,7 +165,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
       - release_lock_step:
           call: http.post
           args:
-            url: '${var.ingestion_helper_uri}'
+            url: '${var.ingestion_helper_url}'
             auth:
               type: OIDC
             body:
