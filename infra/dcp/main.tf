@@ -40,7 +40,7 @@ resource "google_project_service" "apis" {
     "vpcaccess.googleapis.com",
     "artifactregistry.googleapis.com",
     "compute.googleapis.com"
-    ], var.enable_datacommons_service ? ["spanner.googleapis.com"] : [],
+    ], var.enable_datacommons_services ? ["spanner.googleapis.com"] : [],
     var.deploy_ingestion_workflow ? [
     "workflows.googleapis.com",
     "workflowexecutions.googleapis.com",
@@ -81,14 +81,14 @@ locals {
     max_slots         = var.bq_reservation_max_slots
   }
 
-  datacommons_service_config = {
-    enable               = var.enable_datacommons_service
-    image                = var.datacommons_service_image
-    name                 = var.datacommons_service_name
-    min_instances        = var.datacommons_service_min_instances
-    max_instances        = var.datacommons_service_max_instances
-    cpu                  = var.datacommons_service_cpu
-    memory               = var.datacommons_service_memory
+  datacommons_services_config = {
+    enable               = var.enable_datacommons_services
+    image                = var.datacommons_services_image
+    name                 = var.datacommons_services_name
+    min_instances        = var.datacommons_services_min_instances
+    max_instances        = var.datacommons_services_max_instances
+    cpu                  = var.datacommons_services_cpu
+    memory               = var.datacommons_services_memory
     google_analytics_tag = var.google_analytics_tag_id
     enable_mcp           = var.enable_mcp
     search_scope         = var.mcp_search_scope
@@ -142,7 +142,7 @@ module "stack" {
   global               = local.global_config
   spanner_config        = local.spanner_config
   bq_federation_config = local.bq_federation_config
-  datacommons_service_config = local.datacommons_service_config
+  datacommons_services_config = local.datacommons_services_config
   auth_config          = local.auth_config
   redis_config         = local.redis_config
   ingestion_config     = local.ingestion_config

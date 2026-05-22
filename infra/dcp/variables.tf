@@ -213,44 +213,44 @@ variable "ingestion_service_image" {
 # Serving Layer - Data Commons Service
 # =============================================================================
 
-variable "enable_datacommons_service" {
-  description = "Enable the main Data Commons service"
+variable "enable_datacommons_services" {
+  description = "Enable the main Data Commons services"
   type        = bool
   default     = true
 }
 
-variable "datacommons_service_image" {
-  description = "Docker image URL for the main Data Commons service"
+variable "datacommons_services_image" {
+  description = "Docker image URL for the main Data Commons services"
   type        = string
   default     = "gcr.io/datcom-ci/datacommons-services:latest"
 }
 
-variable "datacommons_service_name" {
-  description = "Cloud Run service name for the main Data Commons service"
+variable "datacommons_services_name" {
+  description = "Cloud Run service name for the main Data Commons services"
   type        = string
   default     = "datacommons-service"
 }
 
-variable "datacommons_service_min_instances" {
-  description = "Minimum number of instances for the Data Commons service"
+variable "datacommons_services_min_instances" {
+  description = "Minimum number of instances for the Data Commons services"
   type        = number
   default     = 1
 }
 
-variable "datacommons_service_max_instances" {
-  description = "Maximum number of instances for the Data Commons service"
+variable "datacommons_services_max_instances" {
+  description = "Maximum number of instances for the Data Commons services"
   type        = number
   default     = 3
 }
 
-variable "datacommons_service_cpu" {
-  description = "CPU limit for the Data Commons service container"
+variable "datacommons_services_cpu" {
+  description = "CPU limit for the Data Commons services container"
   type        = string
   default     = "4"
 }
 
-variable "datacommons_service_memory" {
-  description = "Memory limit for the Data Commons service container"
+variable "datacommons_services_memory" {
+  description = "Memory limit for the Data Commons services container"
   type        = string
   default     = "16G"
 }

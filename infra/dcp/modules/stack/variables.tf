@@ -29,7 +29,7 @@ variable "bq_federation_config" {
   })
 }
 
-variable "datacommons_service_config" {
+variable "datacommons_services_config" {
   type = object({
     enable               = bool
     image                = string

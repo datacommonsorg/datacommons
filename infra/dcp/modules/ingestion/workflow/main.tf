@@ -170,7 +170,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
           switch:
             - condition: '$${execution_error != null}'
               raise: '$${execution_error}'
-%{ if var.enable_datacommons_service }
+%{ if var.enable_datacommons_services }
       - restart_service:
           call: googleapis.run.v2.projects.locations.services.patch
           args:

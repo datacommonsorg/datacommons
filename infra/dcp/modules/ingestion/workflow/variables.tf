@@ -45,8 +45,8 @@ variable "enable_bq_federation" {
   default = false
 }
 
-variable "enable_datacommons_service" {
+variable "enable_datacommons_services" {
   type        = bool
-  description = "Flag to indicate if datacommons_service is enabled"
+  description = "Flag to indicate if datacommons_services is enabled"
   default     = true
 }

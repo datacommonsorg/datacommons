@@ -62,13 +62,13 @@ locals {
     }
   ]
 
-  datacommons_service_secrets = var.datacommons_service_config.enable ? concat([
+  datacommons_services_secrets = var.datacommons_services_config.enable ? concat([
     {
       name    = "DC_API_KEY"
       secret  = module.auth.dc_api_key_secret_id
       version = "latest"
     }
-    ], !var.datacommons_service_config.website_disable_google_maps_api ? [
+    ], !var.datacommons_services_config.website_disable_google_maps_api ? [
     {
       name    = "MAPS_API_KEY"
       secret  = module.auth.maps_api_key_secret_id
@@ -165,7 +165,7 @@ module "ingestion_workflow" {
   ingestion_runner_email = module.ingestion_dataflow.ingestion_runner_email
   orchestrator_email     = var.ingestion_config.deploy_workflow ? coalesce(module.ingestion_dataflow.orchestrator_email, "") : ""
   enable_bq_federation   = var.bq_federation_config.enable
-  enable_datacommons_service = var.datacommons_service_config.enable
+  enable_datacommons_services = var.datacommons_services_config.enable
 }
 
 
@@ -218,7 +218,7 @@ module "ingestion_preprocessing_job" {
   run_db_init                   = false
   use_spanner                   = true
   env_vars                      = local.cloud_run_shared_env_variables
-  secret_env_vars               = local.datacommons_service_secrets
+  secret_env_vars               = local.datacommons_services_secrets
   orchestrator_email            = coalesce(module.ingestion_dataflow.orchestrator_email, "")
 
   depends_on = [module.auth]
@@ -226,35 +226,35 @@ module "ingestion_preprocessing_job" {
 
 module "datacommons_services" {
   source = "../datacommons_services"
-  count  = var.datacommons_service_config.enable ? 1 : 0
+  count  = var.datacommons_services_config.enable ? 1 : 0
 
   project_id                        = var.global.project_id
   namespace                         = var.global.namespace
   region                            = var.global.region
   deletion_protection               = var.global.deletion_protection
-  dc_web_service_image              = var.datacommons_service_config.image
-  dc_web_service_cpu                = var.datacommons_service_config.cpu
-  dc_web_service_memory             = var.datacommons_service_config.memory
-  dc_web_service_min_instance_count = var.datacommons_service_config.min_instances
-  dc_web_service_max_instance_count = var.datacommons_service_config.max_instances
+  dc_web_service_image              = var.datacommons_services_config.image
+  dc_web_service_cpu                = var.datacommons_services_config.cpu
+  dc_web_service_memory             = var.datacommons_services_config.memory
+  dc_web_service_min_instance_count = var.datacommons_services_config.min_instances
+  dc_web_service_max_instance_count = var.datacommons_services_config.max_instances
   make_dc_web_service_public        = var.global.allow_unauthenticated_access
-  google_analytics_tag_id           = var.datacommons_service_config.google_analytics_tag
-  dc_search_scope                   = var.datacommons_service_config.search_scope
-  enable_mcp                        = var.datacommons_service_config.enable_mcp
+  google_analytics_tag_id           = var.datacommons_services_config.google_analytics_tag
+  dc_search_scope                   = var.datacommons_services_config.search_scope
+  enable_mcp                        = var.datacommons_services_config.enable_mcp
   prep_bucket_name                   = module.storage.ingestion_input_bucket_name
   service_account_email             = module.auth.service_account_email
   vpc_connector_id                  = var.redis_config.enable ? module.redis[0].connector_id : null
   use_spanner                       = true
   mysql_connection_name             = ""
   env_vars                          = local.cloud_run_shared_env_variables
-  secret_env_vars                   = local.datacommons_service_secrets
+  secret_env_vars                   = local.datacommons_services_secrets
 
   depends_on = [module.ingestion_preprocessing_job]
 }
 
 check "spanner_instance_id_provided" {
   assert {
-    condition     = !var.datacommons_service_config.enable || var.spanner_config.create_instance || var.spanner_config.instance_id != ""
+    condition     = !var.datacommons_services_config.enable || var.spanner_config.create_instance || var.spanner_config.instance_id != ""
     error_message = "spanner_instance_id must be provided when reusing an existing instance (create_spanner_instance = false)."
   }
 }
