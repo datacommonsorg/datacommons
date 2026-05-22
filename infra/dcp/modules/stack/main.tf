@@ -89,7 +89,6 @@ module "spanner" {
   database_id              = var.spanner_config.database_id
   processing_units         = var.spanner_config.processing_units
   deletion_protection      = var.global.deletion_protection
-  ingestion_helper_sa_email = coalesce(module.ingestion_dataflow.service_account_email, "")
   version_retention_period = var.spanner_config.version_retention_period
   enable_bigquery_connection       = var.spanner_config.enable_bigquery_connection
   bigquery_connection_name         = var.spanner_config.bigquery_connection_name
@@ -204,7 +203,6 @@ module "auth" {
   dc_api_key          = var.auth_config.google_datacommons_api_key
   maps_api_key        = var.auth_config.google_maps_api_key
   create_maps_key     = var.auth_config.create_maps_key
-  use_spanner         = true
 }
 
 

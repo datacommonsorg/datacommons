@@ -20,7 +20,3 @@ variable "create_maps_key" {
   default = true
 }
 
-variable "use_spanner" {
-  type    = bool
-  default = false
-}

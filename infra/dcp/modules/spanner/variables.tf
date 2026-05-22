@@ -35,11 +35,6 @@ variable "deletion_protection" {
   type = bool
 }
 
-variable "orchestrator_email" {
-  type        = string
-  description = "Email of the orchestrator service account"
-  default     = ""
-}
 
 variable "enable_bigquery_connection" {
   type        = bool
@@ -53,11 +48,6 @@ variable "bigquery_connection_name" {
   default     = "spanner_connection"
 }
 
-variable "ingestion_helper_sa_email" {
-  type        = string
-  description = "Email of the ingestion helper service account"
-  default     = ""
-}
 
 variable "version_retention_period" {
   type        = string
