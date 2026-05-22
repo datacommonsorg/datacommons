@@ -1,7 +1,7 @@
 locals {
   name_prefix           = var.namespace != "" ? "${var.namespace}-" : ""
-  effective_instance_id = var.create_instance ? (var.instance_id != "" ? "${local.name_prefix}${var.instance_id}" : "${local.name_prefix}dcp-instance") : var.instance_id
-  effective_database_id = var.create_database ? (var.database_id != "" ? "${local.name_prefix}${var.database_id}" : "${local.name_prefix}dcp-db") : var.database_id
+  effective_instance_id = var.create_instance ? (var.instance_id != "" ? "${local.name_prefix}${var.instance_id}" : "${local.name_prefix}dc-instance") : var.instance_id
+  effective_database_id = var.create_database ? (var.database_id != "" ? "${local.name_prefix}${var.database_id}" : "${local.name_prefix}dc-db") : var.database_id
 }
 
 resource "google_spanner_instance" "main" {
@@ -33,7 +33,7 @@ data "google_bigquery_default_service_account" "bq_sa" {
 resource "google_bigquery_connection" "spanner_connection" {
   count         = var.enable_bigquery_connection ? 1 : 0
   location      = var.region
-  connection_id = "${local.name_prefix}dcp-${var.bigquery_connection_name}"
+  connection_id = "${local.name_prefix}dc-${var.bigquery_connection_name}"
   description   = "Federated connection to Spanner for custom DC"
 
   cloud_spanner {

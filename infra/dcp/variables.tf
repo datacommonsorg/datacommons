@@ -70,7 +70,7 @@ variable "storage_create_artifacts_bucket" {
 }
 
 variable "storage_artifacts_bucket_name" {
-  description = "The name of the unified GCS bucket for artifacts (serving and ingestion)"
+  description = "The name of the unified GCS bucket for artifacts (serving and ingestion). If not provided, a name will be automatically generated following the pattern [namespace-]dc-artifacts-[project_id]"
   type        = string
   default     = ""
 }
@@ -86,9 +86,9 @@ variable "enable_redis" {
 }
 
 variable "redis_instance_name" {
-  description = "The name of the Redis instance"
+  description = "The name of the Redis instance. If not provided, a name will be automatically generated following the pattern [namespace-]dc-redis-instance"
   type        = string
-  default     = "dc-redis-instance"
+  default     = ""
 }
 
 variable "redis_memory_size_gb" {
@@ -156,15 +156,15 @@ variable "spanner_create_database" {
 }
 
 variable "spanner_instance_id" {
-  description = "The ID of the Spanner instance"
+  description = "The ID of the Spanner instance. If not provided, a name will be automatically generated following the pattern [namespace-]dc-instance"
   type        = string
   default     = ""
 }
 
 variable "spanner_database_id" {
-  description = "The ID of the Spanner database"
+  description = "The ID of the Spanner database. If not provided, a name will be automatically generated following the pattern [namespace-]dc-db"
   type        = string
-  default     = "dc-db"
+  default     = ""
 }
 
 variable "spanner_version_retention_period" {

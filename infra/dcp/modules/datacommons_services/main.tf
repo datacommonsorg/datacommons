@@ -27,7 +27,7 @@ resource "google_project_iam_member" "serving_sa_roles" {
 }
 
 resource "google_cloud_run_v2_service" "dc_web_service" {
-  name                = "${local.name_prefix}dcp-datacommons-service"
+  name                = "${local.name_prefix}dc-datacommons-service"
   location            = var.region
   deletion_protection = var.deletion_protection
 

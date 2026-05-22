@@ -4,7 +4,7 @@ locals {
 }
 
 resource "google_redis_instance" "redis_instance" {
-  name                    = "${local.name_prefix}${var.redis_instance_name}"
+  name                    = var.redis_instance_name != "" ? "${local.name_prefix}${var.redis_instance_name}" : "${local.name_prefix}dc-redis-instance"
   memory_size_gb          = var.redis_memory_size_gb
   tier                    = var.redis_tier
   region                  = var.region
