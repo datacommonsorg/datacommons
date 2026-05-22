@@ -51,9 +51,6 @@ variable "enable_mcp" {
   type = bool
 }
 
-variable "service_account_email" {
-  type = string
-}
 
 variable "vpc_connector_id" {
   type = string

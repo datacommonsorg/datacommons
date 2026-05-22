@@ -2,6 +2,30 @@ locals {
   name_prefix = var.namespace != "" ? "${var.namespace}-" : ""
 }
 
+resource "google_service_account" "serving_sa" {
+  account_id   = "${local.name_prefix}dc-srvs-sa"
+  display_name = "Data Commons Serving Service Account"
+}
+
+resource "google_project_iam_member" "serving_sa_roles" {
+  for_each = setsubtract(toset([
+    "roles/compute.networkViewer",
+    "roles/redis.editor",
+    "roles/cloudsql.admin",
+    "roles/storage.objectAdmin",
+    "roles/run.admin",
+    "roles/vpcaccess.user",
+    "roles/iam.serviceAccountUser",
+    "roles/secretmanager.secretAccessor",
+    "roles/spanner.databaseUser",
+    "roles/workflows.invoker"
+  ]), var.use_spanner ? [] : ["roles/spanner.databaseUser"])
+
+  project = var.project_id
+  member  = "serviceAccount:${google_service_account.serving_sa.email}"
+  role    = each.value
+}
+
 resource "google_cloud_run_v2_service" "dc_web_service" {
   name                = "${local.name_prefix}dcp-datacommons-service"
   location            = var.region
@@ -88,7 +112,7 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
       max_instance_count = var.dc_web_service_max_instance_count
     }
 
-    service_account = var.service_account_email
+    service_account = google_service_account.serving_sa.email
 
     dynamic "volumes" {
       for_each = var.use_spanner ? [] : [1]

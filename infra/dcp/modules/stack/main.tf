@@ -133,7 +133,7 @@ module "ingestion_preprocessing_job" {
   cpu                           = var.ingestion_config.preprocessing_job_cpu
   memory                        = var.ingestion_config.preprocessing_job_memory
   timeout                       = var.ingestion_config.preprocessing_job_timeout
-  service_account_email         = module.auth.service_account_email
+  service_account_email         = module.ingestion_dataflow.ingestion_runner_email
   vpc_connector_id              = var.redis_config.enable ? module.redis[0].connector_id : null
   bucket_name                   = module.storage.ingestion_input_bucket_name
   input_path                    = var.ingestion_config.input_path
@@ -243,7 +243,6 @@ module "datacommons_services" {
   dc_search_scope                   = var.datacommons_services_config.search_scope
   enable_mcp                        = var.datacommons_services_config.enable_mcp
   prep_bucket_name                   = module.storage.ingestion_input_bucket_name
-  service_account_email             = module.auth.service_account_email
   vpc_connector_id                  = var.redis_config.enable ? module.redis[0].connector_id : null
   use_spanner                       = true
   mysql_connection_name             = ""
@@ -269,9 +268,16 @@ resource "google_storage_bucket_iam_member" "dataflow_bucket_access" {
 
 # This is only needed to trigger the services restart to pick up the GCS embeddings change
 resource "google_service_account_iam_member" "ingestion_runner_act_as_sa" {
-  count              = var.ingestion_config.enable_ingestion ? 1 : 0
-  service_account_id = "projects/${var.global.project_id}/serviceAccounts/${module.auth.service_account_email}"
+  count              = var.ingestion_config.enable_ingestion && var.datacommons_services_config.enable ? 1 : 0
+  service_account_id = "projects/${var.global.project_id}/serviceAccounts/${module.datacommons_services[0].service_account_email}"
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:${module.ingestion_dataflow.ingestion_runner_email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "ingestion_runner_api_key_accessor" {
+  project   = var.global.project_id
+  secret_id = module.auth.dc_api_key_secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${module.ingestion_dataflow.ingestion_runner_email}"
 }
 
