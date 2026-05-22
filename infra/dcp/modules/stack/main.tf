@@ -168,6 +168,7 @@ module "ingestion_helper_service" {
   ingestion_bucket_name  = module.storage.artifacts_bucket_name
   image                  = var.ingestion_config.helper_service_image
   use_spanner            = var.spanner_config.enable
+  enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
 }
 
 

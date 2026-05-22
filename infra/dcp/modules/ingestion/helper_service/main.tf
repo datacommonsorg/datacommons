@@ -76,17 +76,13 @@ resource "google_storage_bucket_iam_member" "helper_bucket_access" {
   member = "serviceAccount:${google_service_account.helper_sa[0].email}"
 }
 
-resource "google_project_iam_member" "helper_bq_editor" {
-  count   = var.deploy ? 1 : 0
+resource "google_project_iam_member" "helper_bq_roles" {
+  for_each = toset(var.deploy && var.enable_bigquery_postprocessing ? [
+    "roles/bigquery.dataEditor",
+    "roles/bigquery.jobUser"
+  ] : [])
   project = var.project_id
-  role    = "roles/bigquery.dataEditor"
-  member  = "serviceAccount:${google_service_account.helper_sa[0].email}"
-}
-
-resource "google_project_iam_member" "helper_bq_job_user" {
-  count   = var.deploy ? 1 : 0
-  project = var.project_id
-  role    = "roles/bigquery.jobUser"
+  role    = each.value
   member  = "serviceAccount:${google_service_account.helper_sa[0].email}"
 }
 
