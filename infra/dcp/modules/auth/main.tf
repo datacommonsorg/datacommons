@@ -18,9 +18,10 @@ resource "google_secret_manager_secret_version" "dc_api_key_version" {
 
 resource "google_apikeys_key" "maps_api_key" {
   count        = var.maps_api_key == null && var.create_maps_key ? 1 : 0
-  name         = var.maps_api_key_name_override != "" ? var.maps_api_key_name_override : "${local.name_prefix}maps-key"
+  name         = var.maps_api_key_name_override != "" ? var.maps_api_key_name_override : "${local.name_prefix}dc-google-maps-key"
   display_name = "Maps API Key for ${var.namespace != "" ? var.namespace : "Data Commons"}"
   project      = var.project_id
+
 
 
   restrictions {
@@ -35,11 +36,12 @@ resource "google_apikeys_key" "maps_api_key" {
 
 resource "google_secret_manager_secret" "maps_api_key" {
   count     = (var.maps_api_key != null || var.create_maps_key) ? 1 : 0
-  secret_id = "${local.name_prefix}maps-api-key"
+  secret_id = "${local.name_prefix}dc-google-maps-api-key"
   replication {
     auto {}
   }
 }
+
 
 resource "google_secret_manager_secret_version" "maps_api_key_version" {
   count       = (var.maps_api_key != null || var.create_maps_key) ? 1 : 0
