@@ -61,7 +61,6 @@ locals {
     region                      = var.region
     namespace                   = var.namespace
     deletion_protection         = var.deletion_protection
-    allow_unauthenticated_access = var.allow_unauthenticated_access
   }
 
   spanner_config = {
@@ -88,10 +87,11 @@ locals {
     max_instances        = var.datacommons_services_max_instances
     cpu                  = var.datacommons_services_cpu
     memory               = var.datacommons_services_memory
-    google_analytics_tag = var.google_analytics_tag_id
-    enable_mcp           = var.enable_mcp
-    search_scope         = var.mcp_search_scope
-    instructions_dir     = var.mcp_instructions_dir
+    google_analytics_tag = var.datacommons_services_google_analytics_tag_id
+    enable_mcp           = var.datacommons_services_enable_mcp
+    search_scope         = var.datacommons_services_mcp_search_scope
+    instructions_path    = var.datacommons_services_mcp_instructions_path
+    allow_unauthenticated_access = var.datacommons_services_allow_unauthenticated_access
     website_disable_google_maps_api = var.datacommons_services_website_disable_google_maps_api
   }
 

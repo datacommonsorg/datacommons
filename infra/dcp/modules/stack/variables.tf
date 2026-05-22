@@ -4,7 +4,6 @@ variable "global" {
     region                      = string
     namespace                   = string
     deletion_protection         = bool
-    allow_unauthenticated_access = bool
   })
 }
 
@@ -46,7 +45,8 @@ variable "datacommons_services_config" {
     google_analytics_tag = string
     enable_mcp           = bool
     search_scope         = string
-    instructions_dir     = string
+    instructions_path    = string
+    allow_unauthenticated_access = bool
     website_disable_google_maps_api = bool
   })
 }

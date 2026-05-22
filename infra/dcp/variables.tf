@@ -25,12 +25,6 @@ variable "deletion_protection" {
   default     = false
 }
 
-variable "allow_unauthenticated_access" {
-  description = "Allow unauthenticated access to the public-facing services of the Data Commons Platform"
-  type        = bool
-  default     = false
-}
-
 variable "user_project_override" {
   description = "Set to true to specify a quota / billing project with billing_project_id. Default: true."
   type        = bool
@@ -44,7 +38,103 @@ variable "billing_project_id" {
 }
 
 # =============================================================================
-# Spanner Configuration
+# Auth Module
+# =============================================================================
+
+variable "auth_google_datacommons_api_key" {
+  description = "API key used to authenticate and connect to the remote Base Data Commons instance"
+  type        = string
+  default     = ""
+}
+
+variable "auth_google_maps_api_key" {
+  description = "Google Maps API key (used for place resolution)"
+  type        = string
+  default     = null
+}
+
+variable "auth_create_google_maps_api_key" {
+  description = "Create a new Google Maps API key if maps_api_key is not provided"
+  type        = bool
+  default     = true
+}
+
+# =============================================================================
+# Storage Module
+# =============================================================================
+
+variable "storage_create_artifacts_bucket" {
+  description = "Create a dedicated GCS bucket for Data Commons artifacts"
+  type        = bool
+  default     = true
+}
+
+variable "storage_artifacts_bucket_name" {
+  description = "The name of the unified GCS bucket for artifacts (serving and ingestion)"
+  type        = string
+  default     = ""
+}
+
+# =============================================================================
+# Redis Module
+# =============================================================================
+
+variable "enable_redis" {
+  description = "Enable a Memorystore Redis instance for caching"
+  type        = bool
+  default     = false
+}
+
+variable "redis_instance_name" {
+  description = "The name of the Redis instance"
+  type        = string
+  default     = "dc-redis-instance"
+}
+
+variable "redis_memory_size_gb" {
+  description = "The memory capacity of the Redis instance in GB"
+  type        = number
+  default     = 2
+}
+
+variable "redis_tier" {
+  description = "The service tier of the Redis instance (BASIC or STANDARD_HA)"
+  type        = string
+  default     = "STANDARD_HA"
+}
+
+variable "redis_location_id" {
+  description = "The primary zone where the Redis instance will be located"
+  type        = string
+  default     = "us-central1-a"
+}
+
+variable "redis_alternative_location_id" {
+  description = "The alternative zone for the failover Redis instance (required for STANDARD_HA tier)"
+  type        = string
+  default     = "us-central1-b"
+}
+
+variable "redis_replica_count" {
+  description = "The number of read replicas for the Redis instance"
+  type        = number
+  default     = 1
+}
+
+variable "redis_vpc_network_name" {
+  description = "VPC network name"
+  type        = string
+  default     = "default"
+}
+
+variable "redis_vpc_connector_cidr" {
+  description = "CIDR range for the VPC Access Connector"
+  type        = string
+  default     = "10.13.0.0/28"
+}
+
+# =============================================================================
+# Spanner Module
 # =============================================================================
 
 variable "enable_spanner" {
@@ -120,94 +210,7 @@ variable "spanner_bigquery_reservation_max_slots" {
 }
 
 # =============================================================================
-# Storage Configuration
-# =============================================================================
-
-variable "storage_create_artifacts_bucket" {
-  description = "Create a dedicated GCS bucket for Data Commons artifacts"
-  type        = bool
-  default     = true
-}
-
-variable "storage_artifacts_bucket_name" {
-  description = "The name of the unified GCS bucket for artifacts (serving and ingestion)"
-  type        = string
-  default     = ""
-}
-
-# =============================================================================
-# Ingestion Layer - Preprocessing Job
-# =============================================================================
-
-variable "ingestion_preprocessing_job_image" {
-  description = "Docker image URL for the data ingestion pre-processing job"
-  type        = string
-  default     = "gcr.io/datcom-ci/datacommons-data:latest"
-}
-
-variable "ingestion_preprocessing_job_cpu" {
-  description = "CPU limit for the pre-processing job container"
-  type        = string
-  default     = "8"
-}
-
-variable "ingestion_preprocessing_job_memory" {
-  description = "Memory limit for the pre-processing job container"
-  type        = string
-  default     = "32G"
-}
-
-variable "ingestion_preprocessing_job_timeout" {
-  description = "Request timeout for the pre-processing job"
-  type        = string
-  default     = "21600s"
-}
-
-
-variable "ingestion_input_path" {
-  description = "Path within the bucket where raw files are uploaded"
-  type        = string
-  default     = "ingestion/input/"
-}
-
-variable "ingestion_workflow_artifacts_path" {
-  description = "Path where pre-processed files are placed for the next stage"
-  type        = string
-  default     = "ingestion/internal/"
-}
-
-
-# =============================================================================
-# Ingestion Layer - Workflow & Helper Service
-# =============================================================================
-
-variable "enable_ingestion" {
-  description = "Enable the complete end-to-end Data Commons Ingestion workflow stack"
-  type        = bool
-  default     = true
-}
-
-
-variable "ingestion_workflow_enable_bigquery_postprocessing" {
-  description = "Enable BigQuery post-processing (aggregation) in the ingestion workflow"
-  type        = bool
-  default     = false
-}
-
-variable "ingestion_workflow_lock_acquisition_timeout" {
-  description = "Timeout for the ingestion lock in seconds"
-  type        = number
-  default     = 82800
-}
-
-variable "ingestion_helper_service_image" {
-  description = "Docker image URL for the ingestion support service"
-  type        = string
-  default     = "gcr.io/datcom-ci/datacommons-ingestion-helper:latest"
-}
-
-# =============================================================================
-# Serving Layer - Data Commons Service
+# Datacommons Services Module
 # =============================================================================
 
 variable "enable_datacommons_services" {
@@ -252,116 +255,110 @@ variable "datacommons_services_memory" {
   default     = "16G"
 }
 
+variable "datacommons_services_allow_unauthenticated_access" {
+  description = "Allow unauthenticated access to the public-facing services of the Data Commons Platform"
+  type        = bool
+  default     = false
+}
+
+variable "datacommons_services_google_analytics_tag_id" {
+  description = "Google Analytics tag ID for frontend usage tracking (only relevant if the website is deployed)"
+  type        = string
+  default     = null
+}
+
 variable "datacommons_services_website_disable_google_maps_api" {
   description = "Disable Google Maps integration for the website"
   type        = bool
   default     = false
 }
 
-# =============================================================================
-# Redis Configuration
-# =============================================================================
-
-variable "enable_redis" {
-  description = "Enable a Memorystore Redis instance for caching"
-  type        = bool
-  default     = false
-}
-
-variable "redis_instance_name" {
-  description = "The name of the Redis instance"
-  type        = string
-  default     = "dc-redis-instance"
-}
-
-variable "redis_memory_size_gb" {
-  description = "The memory capacity of the Redis instance in GB"
-  type        = number
-  default     = 2
-}
-
-variable "redis_tier" {
-  description = "The service tier of the Redis instance (BASIC or STANDARD_HA)"
-  type        = string
-  default     = "STANDARD_HA"
-}
-
-variable "redis_location_id" {
-  description = "The primary zone where the Redis instance will be located"
-  type        = string
-  default     = "us-central1-a"
-}
-
-variable "redis_alternative_location_id" {
-  description = "The alternative zone for the failover Redis instance (required for STANDARD_HA tier)"
-  type        = string
-  default     = "us-central1-b"
-}
-
-variable "redis_replica_count" {
-  description = "The number of read replicas for the Redis instance"
-  type        = number
-  default     = 1
-}
-
-# =============================================================================
-# Networking Configuration
-# =============================================================================
-
-variable "redis_vpc_network_name" {
-  description = "VPC network name"
-  type        = string
-  default     = "default"
-}
-
-variable "redis_vpc_connector_cidr" {
-  description = "CIDR range for the VPC Access Connector"
-  type        = string
-  default     = "10.13.0.0/28"
-}
-
-# =============================================================================
-# External Services & API Keys
-# =============================================================================
-
-variable "auth_google_datacommons_api_key" {
-  description = "API key used to authenticate and connect to the remote Base Data Commons instance"
-  type        = string
-  default     = ""
-}
-
-variable "auth_google_maps_api_key" {
-  description = "Google Maps API key (used for place resolution)"
-  type        = string
-  default     = null
-}
-
-variable "auth_create_google_maps_api_key" {
-  description = "Create a new Google Maps API key if maps_api_key is not provided"
-  type        = bool
-  default     = true
-}
-
-variable "google_analytics_tag_id" {
-  description = "Google Analytics tag ID for frontend usage tracking (only relevant if the website is deployed)"
-  type        = string
-  default     = null
-}
-
-variable "enable_mcp" {
+variable "datacommons_services_enable_mcp" {
   description = "Enable Model Context Protocol (MCP) support"
   type        = bool
   default     = true
 }
 
-variable "mcp_search_scope" {
+variable "datacommons_services_mcp_search_scope" {
   description = "Controls the datasets (base and/or custom) that are searched in response to AI queries"
   type        = string
   default     = "base_and_custom"
 }
 
-variable "mcp_instructions_dir" {
+variable "datacommons_services_mcp_instructions_path" {
   description = "Directory path for customized instructions for server tools and agents"
   type        = string
   default     = null
+}
+
+# =============================================================================
+# Ingestion - Preprocessing Job
+# =============================================================================
+
+variable "ingestion_preprocessing_job_image" {
+  description = "Docker image URL for the data ingestion pre-processing job"
+  type        = string
+  default     = "gcr.io/datcom-ci/datacommons-data:latest"
+}
+
+variable "ingestion_preprocessing_job_cpu" {
+  description = "CPU limit for the pre-processing job container"
+  type        = string
+  default     = "8"
+}
+
+variable "ingestion_preprocessing_job_memory" {
+  description = "Memory limit for the pre-processing job container"
+  type        = string
+  default     = "32G"
+}
+
+variable "ingestion_preprocessing_job_timeout" {
+  description = "Request timeout for the pre-processing job"
+  type        = string
+  default     = "21600s"
+}
+
+variable "ingestion_input_path" {
+  description = "Path within the bucket where raw files are uploaded"
+  type        = string
+  default     = "ingestion/input/"
+}
+
+# =============================================================================
+# Ingestion - Workflow
+# =============================================================================
+
+variable "enable_ingestion" {
+  description = "Enable the complete end-to-end Data Commons Ingestion workflow stack"
+  type        = bool
+  default     = true
+}
+
+variable "ingestion_workflow_lock_acquisition_timeout" {
+  description = "Timeout for the ingestion lock in seconds"
+  type        = number
+  default     = 82800
+}
+
+variable "ingestion_workflow_enable_bigquery_postprocessing" {
+  description = "Enable BigQuery post-processing (aggregation) in the ingestion workflow"
+  type        = bool
+  default     = false
+}
+
+variable "ingestion_workflow_artifacts_path" {
+  description = "Path where pre-processed files are placed for the next stage"
+  type        = string
+  default     = "ingestion/internal/"
+}
+
+# =============================================================================
+# Ingestion - Helper Service
+# =============================================================================
+
+variable "ingestion_helper_service_image" {
+  description = "Docker image URL for the ingestion support service"
+  type        = string
+  default     = "gcr.io/datcom-ci/datacommons-ingestion-helper:latest"
 }

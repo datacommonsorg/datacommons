@@ -221,7 +221,7 @@ module "datacommons_services" {
   dc_web_service_memory             = var.datacommons_services_config.memory
   dc_web_service_min_instance_count = var.datacommons_services_config.min_instances
   dc_web_service_max_instance_count = var.datacommons_services_config.max_instances
-  make_dc_web_service_public        = var.global.allow_unauthenticated_access
+  make_dc_web_service_public        = var.datacommons_services_config.allow_unauthenticated_access
   google_analytics_tag_id           = var.datacommons_services_config.google_analytics_tag
   dc_search_scope                   = var.datacommons_services_config.search_scope
   enable_mcp                        = var.datacommons_services_config.enable_mcp
