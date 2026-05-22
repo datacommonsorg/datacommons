@@ -149,23 +149,27 @@ module "ingestion_dataflow" {
   project_id            = var.global.project_id
   namespace             = var.global.namespace
   ingestion_bucket_name = module.storage.artifacts_bucket_name
+  use_spanner           = var.spanner_config.enable
 }
+
 
 module "ingestion_helper_service" {
   source = "../ingestion/helper_service"
 
-  deploy              = var.ingestion_config.enable_ingestion
-  project_id          = var.global.project_id
-  namespace           = var.global.namespace
-  region              = var.global.region
-  deletion_protection = var.global.deletion_protection
+  deploy                 = var.ingestion_config.enable_ingestion
+  project_id             = var.global.project_id
+  namespace              = var.global.namespace
+  region                 = var.global.region
+  deletion_protection    = var.global.deletion_protection
   # Use index [0] because module.spanner is conditional. Fallback to empty string if disabled.
   spanner_instance_id    = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
   spanner_database_id    = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
   bigquery_connection_id = var.spanner_config.enable ? module.spanner[0].bigquery_connection_id : ""
   ingestion_bucket_name  = module.storage.artifacts_bucket_name
   image                  = var.ingestion_config.helper_service_image
+  use_spanner            = var.spanner_config.enable
 }
+
 
 module "ingestion_workflow" {
   source = "../ingestion/workflow"

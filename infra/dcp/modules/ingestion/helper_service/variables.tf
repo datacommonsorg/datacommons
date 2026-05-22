@@ -39,3 +39,9 @@ variable "bigquery_connection_id" {
   type    = string
   default = ""
 }
+
+variable "use_spanner" {
+  type    = bool
+  default = true
+}
+
