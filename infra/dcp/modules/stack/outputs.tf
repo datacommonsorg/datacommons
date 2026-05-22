@@ -18,7 +18,7 @@ output "datacommons_service_name" {
 
 output "ingestion_workflow_id" {
   description = "ID of the ingestion Cloud Workflow"
-  value       = module.ingestion_workflow.ingestion_orchestrator_id
+  value       = module.ingestion_workflow.workflow_id
 }
 
 output "ingestion_bucket_url" {
@@ -28,7 +28,7 @@ output "ingestion_bucket_url" {
 
 output "ingestion_workflow_name" {
   description = "Name of the ingestion Cloud Workflow"
-  value       = module.ingestion_workflow.ingestion_orchestrator_name
+  value       = module.ingestion_workflow.workflow_name
 }
 
 output "ingestion_service_uri" {

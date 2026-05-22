@@ -1,8 +1,8 @@
-output "ingestion_orchestrator_id" {
+output "workflow_id" {
   value = var.deploy ? google_workflows_workflow.ingestion_orchestrator[0].id : null
 }
 
-output "ingestion_orchestrator_name" {
+output "workflow_name" {
   value = var.deploy ? google_workflows_workflow.ingestion_orchestrator[0].name : null
 }
 

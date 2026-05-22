@@ -40,7 +40,8 @@ locals {
     },
     {
       name  = "INGESTION_WORKFLOW_NAME"
-      value = coalesce(module.ingestion_workflow.ingestion_orchestrator_name, "")
+      # Fallback to empty string if ingestion is disabled and module output is null
+      value = module.ingestion_workflow.workflow_name != null ? module.ingestion_workflow.workflow_name : ""
     },
     {
       name  = "TEMP_LOCATION"
