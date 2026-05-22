@@ -350,7 +350,7 @@ variable "ingestion_workflow_enable_bigquery_postprocessing" {
 variable "ingestion_workflow_artifacts_path" {
   description = "Path where pre-processed files are placed for the next stage"
   type        = string
-  default     = "ingestion/internal/"
+  default     = "ingestion/internal"
 }
 
 # =============================================================================
