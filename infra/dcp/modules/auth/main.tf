@@ -1,6 +1,8 @@
 locals {
   name_prefix        = var.namespace != "" ? "${var.namespace}-" : ""
-  maps_api_key_value = var.maps_api_key != null ? var.maps_api_key : try(google_apikeys_key.maps_api_key[0].key_string, "")
+  # Temporary compile-time fix: Removed '[0]' index reference because 'google_apikeys_key.maps_api_key' count is commented out upstream.
+  # If upstream re-enables count in the future, restore the '[0]' list index reference here.
+  maps_api_key_value = var.maps_api_key != null ? var.maps_api_key : try(google_apikeys_key.maps_api_key.key_string, "")
 }
 
 
