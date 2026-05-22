@@ -250,10 +250,12 @@ module "datacommons_services" {
 
 check "spanner_instance_id_provided" {
   assert {
-    condition     = !var.datacommons_services_config.enable || var.spanner_config.create_instance || var.spanner_config.instance_id != ""
+    condition     = !var.spanner_config.enable || var.spanner_config.create_instance || var.spanner_config.instance_id != ""
     error_message = "spanner_instance_id must be provided when reusing an existing instance (create_spanner_instance = false)."
   }
 }
+
+
 
 # =============================================================================
 # Cross-Module IAM Bindings
