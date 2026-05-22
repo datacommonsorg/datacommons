@@ -20,7 +20,9 @@ import click
 
 
 TF_OUTPUT_INGESTION_SERVICE_URL = "ingestion_service_url"
-TF_OUTPUT_INGESTION_WORKFLOW_SERVICE_ACCOUNT_EMAIL = "ingestion_workflow_service_account_email"
+TF_OUTPUT_INGESTION_WORKFLOW_SERVICE_ACCOUNT_EMAIL = (
+    "ingestion_workflow_service_account_email"
+)
 TF_OUTPUT_SPANNER_INSTANCE_ID = "spanner_instance_id"
 TF_OUTPUT_SPANNER_DATABASE_ID = "spanner_database_id"
 TF_OUTPUT_INGESTION_PREP_JOB_NAME = "ingestion_prep_job_name"
