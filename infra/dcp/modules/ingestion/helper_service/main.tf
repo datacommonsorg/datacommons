@@ -64,8 +64,6 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
 resource "google_project_iam_member" "helper_spanner_user" {
   count   = var.deploy && var.use_spanner ? 1 : 0
   project = var.project_id
-  instance = var.spanner_instance_id
-  database = var.spanner_database_id
   role    = "roles/spanner.databaseUser"
   member  = "serviceAccount:${google_service_account.helper_sa[0].email}"
 }
