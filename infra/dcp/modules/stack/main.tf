@@ -168,6 +168,7 @@ module "ingestion_helper_service" {
   ingestion_bucket_name  = module.storage.artifacts_bucket_name
   image                  = var.ingestion_config.helper_service_image
   use_spanner            = var.spanner_config.enable
+  enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
 }
 
 
@@ -283,32 +284,7 @@ resource "google_service_account_iam_member" "ingestion_workflow_act_as_serving_
   member             = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
 
-resource "google_bigquery_connection_iam_member" "helper_connection_user" {
-  # Only create if ingestion is enabled, BQ connection is enabled, and Spanner is enabled!
-  count    = var.ingestion_config.enable_ingestion && var.spanner_config.enable_bigquery_connection && var.spanner_config.enable ? 1 : 0
-  project  = var.global.project_id
-  location = var.global.region
-  # Use index [0] because module.spanner is conditional.
-  connection_id = module.spanner[0].bigquery_connection_id
-  role          = "roles/bigquery.connectionUser"
-  member        = "serviceAccount:${module.ingestion_helper_service.service_account_email}"
-}
 
-resource "google_project_iam_member" "helper_bq_editor" {
-  # Grant access only if ingestion and bigquery postprocessing are enabled
-  count   = var.ingestion_config.enable_ingestion && var.ingestion_config.workflow_enable_bigquery_postprocessing ? 1 : 0
-  project = var.global.project_id
-  role    = "roles/bigquery.dataEditor"
-  member  = "serviceAccount:${module.ingestion_helper_service.service_account_email}"
-}
-
-resource "google_project_iam_member" "helper_bq_job_user" {
-  # Grant access only if ingestion and bigquery postprocessing are enabled
-  count   = var.ingestion_config.enable_ingestion && var.ingestion_config.workflow_enable_bigquery_postprocessing ? 1 : 0
-  project = var.global.project_id
-  role    = "roles/bigquery.jobUser"
-  member  = "serviceAccount:${module.ingestion_helper_service.service_account_email}"
-}
 
 resource "google_spanner_database_iam_member" "workflow_spanner_user" {
   # Only create if ingestion is enabled and Spanner is enabled!
@@ -368,6 +344,8 @@ resource "google_cloud_run_v2_service_iam_member" "workflow_serving_developer" {
   role     = "roles/run.developer"
   member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
+
+
 
 
 
