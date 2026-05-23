@@ -15,6 +15,7 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
   deletion_protection = var.deletion_protection
 
   template {
+    timeout = "600s"
     containers {
       image = var.image
 
@@ -54,6 +55,10 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
       env {
         name  = "GCS_BUCKET_ID"
         value = var.ingestion_bucket_name
+      }
+      env {
+        name  = "IS_BASE_DC"
+        value = "false"
       }
     }
 
