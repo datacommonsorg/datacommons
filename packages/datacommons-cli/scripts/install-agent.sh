@@ -30,9 +30,13 @@ main() {
     log_success "   DCP Agent Installation Completed Successfully!  "
     log_success "===================================================="
     log_info "Your workspace at '${TARGET_DIR}' is fully configured."
-    log_info "Please open your agentic assistant inside this workspace and ask:"
-    log_info "\"Help me set up my DCP instance\""
-    log_info "===================================================="
+    echo -e ""
+    echo -e "👉 ${YELLOW}WHAT TO DO NEXT:${NC}"
+    echo -e "   1. Open your agentic coding assistant inside this workspace folder."
+    echo -e "   2. Send this exact onboarding prompt to bootstrap the environment:"
+    echo -e "      ${GREEN}\"Help me set up my DCP instance\"${NC}"
+    echo -e ""
+    log_success "===================================================="
 }
 
 # ==========================================
@@ -102,7 +106,16 @@ resolve_target_dir() {
     local current_dir
     current_dir="$(pwd)"
     echo -e -n "${YELLOW}[INPUT]${NC} Where would you like to install the Data Commons agent? [Default: ${current_dir}]: "
-    read -r user_input
+    
+    # Read from TTY keyboard if available, otherwise fail loudly with manual instructions
+    if [ -c /dev/tty ] && [ -r /dev/tty ]; then
+        read -r user_input < /dev/tty
+    else
+        log_error "Interactive keyboard terminal (TTY) is blocked or unavailable."
+        log_info "To bypass this terminal warning block, please download and run the installer locally:"
+        log_info "  curl -sSfL \"${DCP_GITHUB_RAW_BASE}/packages/datacommons-cli/scripts/install-agent.sh\" -o install.sh && bash install.sh"
+        exit 1
+    fi
     
     # Use current directory if input is empty
     local target_path="${user_input:-${current_dir}}"

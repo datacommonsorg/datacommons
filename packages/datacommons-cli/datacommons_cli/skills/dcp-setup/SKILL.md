@@ -14,13 +14,14 @@ This skill guides an agentic coding assistant through the setup and provisioning
 > * Before executing *any* command, the agent must present the proposed command line to the user and ask for confirmation.
 > * **After executing any command**, the agent must immediately provide a clear, useful summary of exactly what was done, what resources were created/changed, and what status or outputs were returned.
 > * **GCP Console Deep-Links**: Whenever a resource is created, modified, or queried, the agent must **generously construct and print direct GCP Console deep-links** (such as Spanner database tables, GCS folder paths, Cloud Run metrics, Cloud Workflows executions, and Dataflow pipeline graphs) to enable the user to instantly inspect and audit the live resources by themselves at any time.
-> * **Active Progress Updates (Quiet Polling & Percent Spinner)**: During long-running operations (such as `terraform apply` or data ingestion pipelines), the agent must never go silent, but **must avoid noisy output**. Print only a **highly-condensed, 3-line progress block** using **Exponential Backoff Polling Heuristics** (checking at 10s, 20s, 40s, and then scaling up to a maximum quiet heartbeat of 60s for the remainder of the long-running job).
+> * **Active Progress Updates (Mandatory Heartbeat Feedback)**: During long-running operations (such as `terraform apply` or data ingestion pipelines), the agent must never go completely silent. **At every single heartbeat check (checking at 10s, 20s, 40s, and then scaling up to a maximum quiet heartbeat of 60s), the agent MUST output the highly-condensed 2-column progress table directly into the chat** to provide constant, reassuring visual feedback.
 >   * **Structured Progress Layout (Compact 2-Column Table)**: All progress checks must be formatted in a clean, headerless, 2-column Markdown table (with values wrapped in inline backticks to render as yellow/amber pills):
 >     | | |
 >     | :--- | :--- |
 >     | **Phase** | `Phase X/3: [Global Phase Name]` |
 >     | **Status** | `[Factual, highly-condensed numerical metrics/counters]` |
 >     | **Elapsed** | `[phase_time] (Total pipeline time: [total_ingestion_time])` |
+>   * **Silent Scheduler & Mandatory Timer Registration**: Schedulers are silent (do not print closing conversational filler like "Scheduling a 30-second timer now..."), but **the agent MUST strictly register a progress timer using the `schedule` tool at the end of every single turn** during background monitoring, and then immediately end its turn by calling no more tools. Doing so ensures the system reactively wakes the agent up in a new turn to push the next progress card automatically. **Never go to sleep without an active scheduled timer!**
 >   * **Unified Ingestion Phase Labeling**:
 >     * 🛠️ **Phase 1 of 3: Preprocessing Container**
 >       * *Sub-stage 1/3 (CSV Import)*: `Status: Sub-stage 1/3 - CSV Import: 62.6% (979 / 1,562 files processed)`
@@ -103,11 +104,11 @@ Before running the scaffold generator, the agent **MUST run discovery checks to 
 
 ### 2. Scaffolding Generation (Explicit Step)
 Once parameters are harvested, present the command and the inputs to the user:
-* *"I am going to run `uv run datacommons admin init` to generate your Terraform templates and set up your remote GCS state bucket. The parameters I will submit are Project: [project_id], Namespace: [namespace], and API Key: [api_key]. Do you approve?"*
+* *"I am going to run `uv run datacommons admin init` to generate your Terraform templates and set up your remote GCS state bucket. The parameters I will submit are Project ID: [project-id], Namespace: [namespace], and DC API Key: [dc-api-key]. Do you approve?"*
 * **Do not run the command in the background silently.** Run it with explicit inputs so that the command executes without prompting in the background:
   ```bash
   # Force inputs non-interactively to prevent silent background prompt automation
-  uv run datacommons admin init --project=[project_id] --namespace=[namespace] --key=[api_key] --auto-approve
+  uv run datacommons admin init --project-id=[project-id] --namespace=[namespace] --dc-api-key=[dc-api-key]
   ```
 
 ### 3. Variable Verification & Ingress Security Prompt
@@ -299,5 +300,5 @@ Show the user you are running automated health tests:
    * Cloud Run Service Logs
 3. **Instruct Transition**: Present the operational options and advise the user:
    > 🎉 **DCP Bootstrap Setup Complete!**
-   > Your Data Commons Platform is fully provisioned and serving custom data on `http://127.0.0.1:8080/`.
-   > For all future day-to-day modifications, schema upgrades, and ingestion runs, please load and execute the **`dcp-ops`** skill!
+   > Your Data Commons Platform is fully provisioned and serving custom data.
+   > For all future day-to-day data loads, schema modifications, and ingestion runs, please use the standard CLI: `datacommons admin ingest start`!
