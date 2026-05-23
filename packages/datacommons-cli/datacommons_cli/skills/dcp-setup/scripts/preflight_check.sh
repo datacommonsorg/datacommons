@@ -30,27 +30,45 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# 1. OS Detection
-OS_TYPE="$(uname -s)"
-log_info "Detected operating system: ${OS_TYPE}"
+# Main orchestrator (Table of Contents)
+main() {
+    log_info "Starting Data Commons Platform Setup Pre-flight checks..."
+    check_os_and_utilities
+    check_and_install_uv
+    check_and_install_terraform
+    check_gcloud_sdk
+    validate_gcp_context
+    verify_gcp_adc
+    log_success "DCP Setup Pre-flight validation completed successfully!"
+}
 
-if [[ "${OS_TYPE}" != "Darwin" && "${OS_TYPE}" != "Linux" ]]; then
-    log_error "Unsupported operating system: ${OS_TYPE}. This setup requires macOS or Linux."
-    exit 1
-fi
+# OS and Base Utilities Check
+check_os_and_utilities() {
+    OS_TYPE="$(uname -s)"
+    log_info "Detected operating system: ${OS_TYPE}"
 
-# Ensure base commands exist
-for cmd in curl unzip grep; do
-    if ! command -v "$cmd" &> /dev/null; then
-        log_error "Required system utility '$cmd' is missing. Please install it first."
+    if [[ "${OS_TYPE}" != "Darwin" && "${OS_TYPE}" != "Linux" ]]; then
+        log_error "Unsupported operating system: ${OS_TYPE}. This setup requires macOS or Linux."
         exit 1
     fi
-done
 
-# 2. Check & Install uv
-if command -v uv &> /dev/null; then
-    log_success "uv package manager is already installed: $(uv --version)"
-else
+    # Ensure base commands exist
+    for cmd in curl unzip grep; do
+        if ! command -v "$cmd" &> /dev/null; then
+            log_error "Required system utility '$cmd' is missing. Please install it first."
+            exit 1
+        fi
+    done
+    log_success "Operating system and core utilities verified successfully."
+}
+
+# Check & Install uv
+check_and_install_uv() {
+    if command -v uv &> /dev/null; then
+        log_success "uv package manager is already installed: $(uv --version)"
+        return 0
+    fi
+
     log_warning "uv is missing. Attempting standalone installation..."
     if curl -LsSf https://astral.sh/uv/install.sh | sh; then
         # Source the environment to update PATH immediately
@@ -70,13 +88,17 @@ else
         log_error "Failed to install uv. Please install it manually from https://astral.sh/uv"
         exit 1
     fi
-fi
+}
 
-# 3. Check & Install Terraform
-if command -v terraform &> /dev/null; then
-    log_success "Terraform is already installed: $(terraform -version | head -n 1)"
-else
+# Check & Install Terraform
+check_and_install_terraform() {
+    if command -v terraform &> /dev/null; then
+        log_success "Terraform is already installed: $(terraform -version | head -n 1)"
+        return 0
+    fi
+
     log_warning "Terraform is missing. Attempting installation..."
+    OS_TYPE="$(uname -s)"
     if [[ "${OS_TYPE}" == "Darwin" ]]; then
         if command -v brew &> /dev/null; then
             log_info "Using Homebrew to install Terraform..."
@@ -94,7 +116,7 @@ else
             log_info "Using APT to install Terraform..."
             sudo apt-get update && sudo apt-get install -y gnupg software-properties-common wget
             wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor | sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg > /dev/null
-            echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+            echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com \$(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
             sudo apt-get update && sudo apt-get install -y terraform
         else
             log_warning "APT package manager not found. Downloading standalone Terraform binary..."
@@ -114,40 +136,49 @@ else
         log_error "Terraform installation failed. Please install it manually."
         exit 1
     fi
-fi
+}
 
-# 4. Check & Guide gcloud SDK
-if command -v gcloud &> /dev/null; then
-    log_success "gcloud CLI is already installed: $(gcloud --version | head -n 1)"
-else
+# Check gcloud SDK
+check_gcloud_sdk() {
+    if command -v gcloud &> /dev/null; then
+        log_success "gcloud CLI is already installed: $(gcloud --version | head -n 1)"
+        return 0
+    fi
+
     log_error "gcloud CLI is missing."
     log_info "To proceed, please download and install Google Cloud SDK by running the following commands or visiting: https://cloud.google.com/sdk/docs/install"
+    OS_TYPE="$(uname -s)"
     if [[ "${OS_TYPE}" == "Darwin" ]]; then
         log_info "macOS command: brew install --cask google-cloud-sdk"
     elif [[ "${OS_TYPE}" == "Linux" ]]; then
         log_info "Linux quick-install: curl https://sdk.cloud.google.com | bash"
     fi
     exit 1
-fi
+}
 
-# 5. Validate active GCP project setting
-ACTIVE_PROJECT="$(gcloud config get-value project 2>/dev/null || echo "")"
-if [[ -z "${ACTIVE_PROJECT}" || "${ACTIVE_PROJECT}" == "(unset)" ]]; then
-    log_warning "No active GCP project is configured in gcloud."
-    log_info "Please set your project context using: gcloud config set project [PROJECT_ID]"
-else
-    log_success "Active GCP project context verified: ${ACTIVE_PROJECT}"
-fi
+# Validate Active GCP Project context
+validate_gcp_context() {
+    ACTIVE_PROJECT="$(gcloud config get-value project 2>/dev/null || echo "")"
+    if [[ -z "${ACTIVE_PROJECT}" || "${ACTIVE_PROJECT}" == "(unset)" ]]; then
+        log_warning "No active GCP project is configured in gcloud."
+        log_info "Please set your project context using: gcloud config set project [PROJECT_ID]"
+    else
+        log_success "Active GCP project context verified: ${ACTIVE_PROJECT}"
+    fi
+}
 
-# 6. Verify Authentication State
-log_info "Checking GCP authentication state..."
-if gcloud auth application-default print-access-token &> /dev/null; then
-    log_success "Active Application Default Credentials (ADC) verified."
-else
-    log_warning "No active Application Default Credentials (ADC) found."
-    log_info "Please login by running: gcloud auth application-default login"
-    log_info "Once authentication completes, re-run this pre-flight validation."
-    exit 2
-fi
+# Verify GCP Application Default Credentials
+verify_gcp_adc() {
+    log_info "Checking GCP authentication state..."
+    if gcloud auth application-default print-access-token &> /dev/null; then
+        log_success "Active Application Default Credentials (ADC) verified."
+    else
+        log_warning "No active Application Default Credentials (ADC) found."
+        log_info "Please login by running: gcloud auth application-default login"
+        log_info "Once authentication completes, re-run this pre-flight validation."
+        exit 2
+    fi
+}
 
-log_success "DCP Setup Pre-flight checks completed successfully!"
+# Execution Call (Must remain at the bottom of the script)
+main "$@"
