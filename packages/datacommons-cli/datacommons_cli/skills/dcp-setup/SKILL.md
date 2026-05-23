@@ -293,7 +293,7 @@ Show the user you are running automated health tests:
 
 ## Phase 8: Operations Handoff
 
-1. **Write Audit Log**: Append a record to `ops_audit_log.md` with timestamps, active project, and success statuses of the setup phases.
+1. **Write Audit Log**: Append a record to `dcp_audit_log.md` with timestamps, active project, and success statuses of the setup phases.
 2. **Provide Dashboard Links**: Output the direct GCP Console URLs for:
    * Spanner Database Console
    * Cloud Run Service Logs
