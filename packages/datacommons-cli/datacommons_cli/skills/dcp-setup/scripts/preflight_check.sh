@@ -98,6 +98,17 @@ check_and_install_terraform() {
     fi
 
     log_warning "Terraform is missing. Attempting installation..."
+    
+    # Dynamically detect CPU architecture and map to HashiCorp's naming standard
+    local arch
+    local tf_arch
+    arch="$(uname -m)"
+    case "${arch}" in
+        x86_64)        tf_arch="amd64" ;;
+        arm64|aarch64) tf_arch="arm64" ;;
+        *)             tf_arch="amd64" ;; # Fallback
+    esac
+    
     OS_TYPE="$(uname -s)"
     if [[ "${OS_TYPE}" == "Darwin" ]]; then
         if command -v brew &> /dev/null; then
@@ -105,8 +116,8 @@ check_and_install_terraform() {
             brew tap hashicorp/tap
             brew install hashicorp/tap/terraform
         else
-            log_warning "Homebrew not found. Downloading standalone Terraform binary..."
-            TF_URL="https://releases.hashicorp.com/terraform/1.8.0/terraform_1.8.0_darwin_amd64.zip"
+            log_warning "Homebrew not found. Downloading standalone Terraform binary (${tf_arch})..."
+            local TF_URL="https://releases.hashicorp.com/terraform/1.8.0/terraform_1.8.0_darwin_${tf_arch}.zip"
             curl -Lo /tmp/terraform.zip "${TF_URL}"
             unzip -o /tmp/terraform.zip -d /usr/local/bin/ || unzip -o /tmp/terraform.zip -d "$HOME/.local/bin/"
             rm /tmp/terraform.zip
@@ -119,8 +130,8 @@ check_and_install_terraform() {
             echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com \$(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
             sudo apt-get update && sudo apt-get install -y terraform
         else
-            log_warning "APT package manager not found. Downloading standalone Terraform binary..."
-            TF_URL="https://releases.hashicorp.com/terraform/1.8.0/terraform_1.8.0_linux_amd64.zip"
+            log_warning "APT package manager not found. Downloading standalone Terraform binary (${tf_arch})..."
+            local TF_URL="https://releases.hashicorp.com/terraform/1.8.0/terraform_1.8.0_linux_${tf_arch}.zip"
             curl -Lo /tmp/terraform.zip "${TF_URL}"
             mkdir -p "$HOME/.local/bin"
             unzip -o /tmp/terraform.zip -d "$HOME/.local/bin"

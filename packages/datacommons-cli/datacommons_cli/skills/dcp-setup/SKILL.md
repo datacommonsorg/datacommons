@@ -54,12 +54,10 @@ Verify the availability of `uv`, `terraform`, and `gcloud` by running version ch
     curl -LsSf https://astral.sh/uv/install.sh | sh
     ```
 
-* **Permanent Workspace CLI Installation**:
-  * Inform the user that a workspace-local virtual environment will be created to avoid slow `uvx` downlads.
-  * Ask for approval, then run:
+* **Workspace CLI Verification**:
+  * Confirm that the workspace-local virtual environment and CLI are fully functional by verifying the help output:
     ```bash
-    uv venv
-    uv pip install "git+https://github.com/datacommonsorg/datacommons.git@main#subdirectory=packages/datacommons-cli"
+    uv run datacommons --help
     ```
   * **Mandatory Tool Call**: For all subsequent steps, invoke the CLI instantly using `uv run datacommons` to prevent execution delays.
 

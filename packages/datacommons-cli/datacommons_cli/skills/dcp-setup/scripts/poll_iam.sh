@@ -29,63 +29,89 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-if [[ $# -lt 3 ]]; then
-    log_error "Usage: $0 <PROJECT_ID> <ORCHESTRATOR_SA_EMAIL> <ACTIVE_USER_EMAIL>"
-    exit 1
-fi
-
-PROJECT_ID="$1"
-SA_EMAIL="$2"
-USER_EMAIL="$3"
-
-log_info "Configuring IAM Service Account Impersonation bindings..."
-log_info "Project: ${PROJECT_ID}"
-log_info "Service Account: ${SA_EMAIL}"
-log_info "User: ${USER_EMAIL}"
-
-# Apply the binding
-if gcloud iam service-accounts add-iam-policy-binding "${SA_EMAIL}" \
-    --member="user:${USER_EMAIL}" \
-    --role="roles/iam.serviceAccountTokenCreator" \
-    --project="${PROJECT_ID}" &>/dev/null; then
-    log_success "Successfully applied Token Creator binding to service account!"
-else
-    log_error "Failed to bind roles/iam.serviceAccountTokenCreator on service account."
-    exit 1
-fi
-
-log_info "IAM permission changes submitted to GCP."
-log_info "Starting active verification loop (impersonation token polling)..."
-
-MAX_ATTEMPTS=16
-WAIT_INTERVAL=15
-SUCCESS=false
-
-for ((attempt=1; attempt<=MAX_ATTEMPTS; attempt++)); do
-    log_info "Attempt $attempt of $MAX_ATTEMPTS: Requesting access token via impersonation..."
+# Main orchestrator (Table of Contents)
+main() {
+    validate_args "$@"
     
-    # Redirect stderr to a temporary file to check for permission errors
-    ERR_OUT=$(mktemp)
+    local project_id="$1"
+    local sa_email="$2"
+    local user_email="$3"
     
-    if gcloud auth print-access-token --impersonate-service-account="${SA_EMAIL}" &>/dev/null 2>"${ERR_OUT}"; then
-        log_success "GCP impersonation propagated successfully! Access token generated."
-        SUCCESS=true
-        rm -f "${ERR_OUT}"
-        break
-    else
-        ERR_MSG=$(cat "${ERR_OUT}")
-        rm -f "${ERR_OUT}"
-        
-        log_warning "Permission propagation pending. Waiting ${WAIT_INTERVAL}s before retry..."
-        sleep ${WAIT_INTERVAL}
+    apply_policy_binding "${project_id}" "${sa_email}" "${user_email}"
+    poll_token_propagation "${sa_email}"
+}
+
+# Validate CLI Arguments
+validate_args() {
+    if [[ $# -lt 3 ]]; then
+        log_error "Usage: $0 <PROJECT_ID> <ORCHESTRATOR_SA_EMAIL> <ACTIVE_USER_EMAIL>"
+        exit 1
     fi
-done
+}
 
-if [ "$SUCCESS" = true ]; then
-    log_success "IAM bindings are completely propagated and active!"
-    exit 0
-else
-    log_error "IAM permissions failed to propagate within $((MAX_ATTEMPTS * WAIT_INTERVAL)) seconds."
-    log_error "Please manually verify that user has impersonation privileges on ${SA_EMAIL}."
-    exit 1
-fi
+# Apply IAM Impersonation Policy Binding
+apply_policy_binding() {
+    local project_id="$1"
+    local sa_email="$2"
+    local user_email="$3"
+    
+    log_info "Configuring IAM Service Account Impersonation bindings..."
+    log_info "Project: ${project_id}"
+    log_info "Service Account: ${sa_email}"
+    log_info "User: ${user_email}"
+    
+    if gcloud iam service-accounts add-iam-policy-binding "${sa_email}" \
+        --member="user:${user_email}" \
+        --role="roles/iam.serviceAccountTokenCreator" \
+        --project="${project_id}" &>/dev/null; then
+        log_success "Successfully applied Token Creator binding to service account!"
+    else
+        log_error "Failed to bind roles/iam.serviceAccountTokenCreator on service account."
+        exit 1
+    fi
+    
+    log_info "IAM permission changes submitted to GCP."
+}
+
+# Poll for IAM propagation until success
+poll_token_propagation() {
+    local sa_email="$1"
+    
+    log_info "Starting active verification loop (impersonation token polling)..."
+    
+    local max_attempts=16
+    local wait_interval=15
+    local success=false
+    
+    # Create a single temporary file outside the loop and ensure cleanup on exit
+    local err_out
+    err_out="$(mktemp)"
+    trap 'rm -f "${err_out}"' EXIT
+    
+    for ((attempt=1; attempt<=max_attempts; attempt++)); do
+        log_info "Attempt $attempt of $max_attempts: Requesting access token via impersonation..."
+        
+        if gcloud auth print-access-token --impersonate-service-account="${sa_email}" &>/dev/null 2>"${err_out}"; then
+            log_success "GCP impersonation propagated successfully! Access token generated."
+            success=true
+            break
+        else
+            local err_msg
+            err_msg="$(cat "${err_out}" | tr -d '\n')"
+            log_warning "Propagation pending (Details: ${err_msg}). Waiting ${wait_interval}s before retry..."
+            sleep ${wait_interval}
+        fi
+    done
+    
+    if [ "${success}" = true ]; then
+        log_success "IAM bindings are completely propagated and active!"
+        exit 0
+    else
+        log_error "IAM permissions failed to propagate within $((max_attempts * wait_interval)) seconds."
+        log_error "Please manually verify that user has impersonation privileges on ${sa_email}."
+        exit 1
+    fi
+}
+
+# Execution Trigger (Must remain at the bottom of the script)
+main "$@"

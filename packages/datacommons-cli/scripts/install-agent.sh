@@ -46,8 +46,9 @@ main() {
 load_env_overrides() {
     if [ -f .env ]; then
         echo "[INFO] Found local .env file. Sourcing environment overrides..."
-        # Export overrides while discarding comment lines and trailing spaces
-        export $(grep -v '^#' .env | xargs)
+        set -a
+        source .env
+        set +a
     fi
 }
 
@@ -242,8 +243,10 @@ initialize_python_env() {
         # Resolve relative package paths from local repository root
         uv pip install -e "${REPO_ROOT}/packages/datacommons-cli" -e "${REPO_ROOT}/packages/datacommons-admin"
     else
-        log_info "Installing datacommons CLI package from GitHub release..."
-        uv pip install "git+${DCP_GIT_REPO}@${DCP_GIT_BRANCH}#subdirectory=packages/datacommons-cli"
+        log_info "Installing datacommons CLI and admin packages from GitHub release..."
+        uv pip install \
+            "git+${DCP_GIT_REPO}@${DCP_GIT_BRANCH}#subdirectory=packages/datacommons-cli" \
+            "git+${DCP_GIT_REPO}@${DCP_GIT_BRANCH}#subdirectory=packages/datacommons-admin"
     fi
     
     log_success "Python virtual environment and CLI package successfully configured!"
