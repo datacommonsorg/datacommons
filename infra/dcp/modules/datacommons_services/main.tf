@@ -49,7 +49,7 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
         period_seconds    = 30
         failure_threshold = 30 # 30 * 30s = 15 minutes
         http_get {
-          path = "/healthz"
+          path = "/health"
           port = 8080
         }
       }
