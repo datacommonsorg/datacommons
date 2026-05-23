@@ -169,6 +169,11 @@ module "ingestion_helper_service" {
   image                  = var.ingestion_config.helper_service_image
   use_spanner            = var.spanner_config.enable
   enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
+
+  # Redis configuration for cache clearing
+  vpc_connector_id = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].connector_id : null
+  redis_host       = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
+  redis_port       = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
 }
 
 
@@ -186,6 +191,7 @@ module "ingestion_workflow" {
   enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
   enable_datacommons_services    = var.datacommons_services_config.enable
   ingestion_helper_service_name  = "${var.global.namespace != "" ? "${var.global.namespace}-" : ""}dc-ingestion-helper"
+  enable_redis_cache_clearing    = var.redis_config.enable
 
   depends_on = [module.ingestion_helper_service]
 }

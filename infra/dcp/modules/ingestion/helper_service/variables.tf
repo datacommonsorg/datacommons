@@ -51,3 +51,21 @@ variable "enable_bigquery_postprocessing" {
   default     = true
 }
 
+variable "vpc_connector_id" {
+  type        = string
+  description = "VPC access connector ID for Cloud Run"
+  default     = ""
+}
+
+variable "redis_host" {
+  type        = string
+  description = "Redis host IP"
+  default     = ""
+}
+
+variable "redis_port" {
+  type        = string
+  description = "Redis port"
+  default     = "6379"
+}
+
