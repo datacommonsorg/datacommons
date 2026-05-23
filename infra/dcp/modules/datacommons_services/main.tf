@@ -45,10 +45,11 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
       }
 
       startup_probe {
-        timeout_seconds   = 120
+        timeout_seconds   = 240
         period_seconds    = 30
-        failure_threshold = 6
-        tcp_socket {
+        failure_threshold = 30 # 30 * 30s = 15 minutes
+        http_get {
+          path = "/healthz"
           port = 8080
         }
       }
