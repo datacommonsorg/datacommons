@@ -13,7 +13,25 @@ This skill guides an agentic coding assistant through the setup and provisioning
 > * The agent must **NEVER** create or modify GCP resources (GCS buckets, Spanner, Cloud Run) without first explaining the exact proposed action and waiting for explicit verbal confirmation.
 > * Before executing *any* command, the agent must present the proposed command line to the user and ask for confirmation.
 > * **After executing any command**, the agent must immediately provide a clear, useful summary of exactly what was done, what resources were created/changed, and what status or outputs were returned.
-> * **GCP Console Deep-Links**: Whenever a resource is created or modified, the agent must construct and print the direct Google Cloud Console deep-links (e.g. GCS browser, Spanner console, Cloud Run dashboard) to enable instant user verification and audit.
+> * **GCP Console Deep-Links**: Whenever a resource is created, modified, or queried, the agent must **generously construct and print direct GCP Console deep-links** (such as Spanner database tables, GCS folder paths, Cloud Run metrics, Cloud Workflows executions, and Dataflow pipeline graphs) to enable the user to instantly inspect and audit the live resources by themselves at any time.
+> * **Active Progress Updates (Quiet Polling & Percent Spinner)**: During long-running operations (such as `terraform apply` or data ingestion pipelines), the agent must never go silent, but **must avoid noisy output**. Print only a **highly-condensed, 3-line progress block** using **Exponential Backoff Polling Heuristics** (checking at 10s, 20s, 40s, and then scaling up to a maximum quiet heartbeat of 60s for the remainder of the long-running job).
+>   * **Structured Progress Layout (Compact 2-Column Table)**: All progress checks must be formatted in a clean, headerless, 2-column Markdown table (with values wrapped in inline backticks to render as yellow/amber pills):
+>     | | |
+>     | :--- | :--- |
+>     | **Phase** | `Phase X/3: [Global Phase Name]` |
+>     | **Status** | `[Factual, highly-condensed numerical metrics/counters]` |
+>     | **Elapsed** | `[phase_time] (Total pipeline time: [total_ingestion_time])` |
+>   * **Unified Ingestion Phase Labeling**:
+>     * 🛠️ **Phase 1 of 3: Preprocessing Container**
+>       * *Sub-stage 1/3 (CSV Import)*: `Status: Sub-stage 1/3 - CSV Import: 62.6% (979 / 1,562 files processed)`
+>       * *Sub-stage 2/3 (Indexing)*: `Status: Sub-stage 2/3 - Database Indexing: Indexing 13.9M observations`
+>       * *Sub-stage 3/3 (Export)*: `Status: Sub-stage 3/3 - JSON-LD Export: Staging 13.98M observations. 41 Node & 318+ Observation shards completed`
+>     * 🔗 **Phase 2 of 3: Cloud Workflows Orchestration**
+>       * `Status: Container completed successfully. Workflows state machine orchestrating Dataflow trigger`
+>     * ⚡ **Phase 3 of 3: Dataflow Parallel Loader**
+>       * **Dynamic Spanner Ingest Heuristic**: Extract active mutation metrics: `gcloud beta dataflow metrics list [JOB_ID] --project=[PROJECT_ID] --region=[REGION]`. Look up `mutation_groups_write_success` (staged mutation count) and `spanner_write_latency_ms_MEAN` (average batch latency) and print: `Status: Written graph mutations: [mutation_count] successfully loaded to Spanner (mean batch latency: [latency]ms)`.
+>   * Only print a detailed block or link when a **major pipeline transition occurs** or upon final success/failure. **Silent Scheduler Rule**: When scheduling these background timers, the agent must never print redundant closing text (such as "The progress timer is active. I will stand by..."). Simply print the 3-line status update, call the `schedule` tool, and end the turn immediately.
+> * **Brevity & Tabular Formatting**: Infrastructure operations require absolute clarity. Avoid verbose, narrative, or flowery summaries. Present complex details (such as configuration changes, resource impacts, plans, or status reports) using clean markdown tables, bullet points, or short, direct facts. Keep narrative text blocks extremely concise.
 
 ---
 
@@ -94,7 +112,7 @@ Once parameters are harvested, present the command and the inputs to the user:
 
 ### 3. Variable Verification
 * Read `terraform.tfvars` and show the user the generated configuration variables.
-* Confirm if they want to make any manual adjustments (e.g., changing machine sizes or regions) before proceeding.
+* Confirm if the user wants to make any other manual adjustments (e.g., changing machine sizes or regions) before proceeding.
 
 ---
 
@@ -114,14 +132,44 @@ List the necessary APIs (Spanner, Cloud Run, Secret Manager, Artifact Registry) 
 gcloud services enable spanner.googleapis.com run.googleapis.com secretmanager.googleapis.com artifactregistry.googleapis.com cloudbuild.googleapis.com iamcredentials.googleapis.com
 ```
 
-### 3. Spanner Database Conflict Check
-* Run `gcloud spanner instances list --project=[PROJECT_ID]` to check if the configured `dcp_spanner_instance_id` already exists.
-* **If it exists, report immediately**:
-  > ⚠️ **Existing Spanner Instance Detected**: The instance ID `[dcp_spanner_instance_id]` already exists in GCP project `[project_id]`.
-  > * **Reusing** this instance may overwrite existing database tables.
-  > * **Creating a new one** requires modifying `terraform.tfvars` to use a unique instance ID.
-  >
-  > *Please tell me how you want to proceed: [Option A: Reuse Instance] or [Option B: Configure New Unique ID].*
+### 3. Spanner Instance Discovery & Proactive Configuration (Step 1)
+* **Mandatory Order**: This check must be executed and finalized *before* initiating the BigQuery check.
+* Run `gcloud spanner instances list --project=[PROJECT_ID]` to discover active Spanner resources in the project.
+* **If active Spanner instances are found**:
+  * Present the list clearly to the user in the chat:
+    > 🔍 **Active Spanner Instances Discovered**:
+    > I found these active Spanner instances in project `[project_id]`:
+    > 1. `dcp-shared-spanner-instance`
+    > 2. `dcp-instance-dev`
+    > ...
+    > Would you like to:
+    > * **Option A: Reuse an existing instance (Highly Recommended to save project capacity and costs)**? Please tell me which number/ID to use.
+    > * **Option B: Create a brand-new Spanner instance**? (Will generate `[namespace]-dc-instance` and increase project billing).
+  * **Action based on Choice**:
+    * **If Option A (Reuse)**: Ask the user if they approve, then automatically update `terraform.tfvars` to set `spanner_create_instance = false` and `spanner_instance_id = "[chosen_instance_id]"`. Inform the user once the file is updated.
+    * **If Option B (Create New)**:
+      * **Display Name Length Safety Check**: Calculate the resulting display name length: `${namespace}-${spanner_instance_id}`.
+      * If this length exceeds the GCP limit of **30 characters** (e.g., `dcp-keyurs-dcp-keyurs-dc-instance` is 34 characters):
+        * Prompt the user immediately with a warning and recommend a shortened `spanner_instance_id` like `dc-inst` so the resulting name (`[namespace]-dc-inst`) remains safe under 30 characters.
+      * Ask the user if they approve the verified setting, then automatically update `terraform.tfvars` to set `spanner_create_instance = true` and `spanner_instance_id = "[chosen_shortened_instance_id]"`. Inform the user once the file is updated.
+* **If no active Spanner instances are found**:
+  * Automatically update `terraform.tfvars` to set `spanner_create_instance = true` and `spanner_instance_id = "[namespace]-dc-inst"` to ensure a fresh database instance is provisioned cleanly and inform the user.
+
+* **Wait for Spanner configuration to be finalized and written before moving to the next step.**
+
+### 4. BigQuery Slot Reservation Conflict Check (Step 2)
+* **Mandatory Order**: Initiate this check *only* after the Spanner configuration above is fully completed and written to disk.
+* **Retrieve Target Region**: Parse the `region` variable from `terraform.tfvars` or `variables.tf` (defaulting to `us-central1` if it is commented out or blank). Use this string as the target `[REGION]` location.
+* Run a query to check for existing BigQuery reservations in that target region location:
+  ```bash
+  bq ls --reservation --project_id=[PROJECT_ID] --location=[REGION]
+  ```
+* **If a reservation named `default` already exists**:
+  * Present this discovery to the user and explain that we should reuse it to avoid conflicts and save slots.
+  * Upon user confirmation, write/append `spanner_create_bigquery_reservation = false` to `terraform.tfvars` and confirm the write to the user.
+* **If no `default` reservation is found**:
+  * Inform the user that no reservation was found, and ask if they want to create a new one (sets `spanner_create_bigquery_reservation = true`) or reuse a pre-existing default one if they know it exists.
+  * Write the selected value to `terraform.tfvars` and confirm.
 
 ---
 
@@ -144,12 +192,24 @@ Run `terraform plan` and output the changes to a temporary file. Parse this plan
 
 **Do not run `terraform apply` until the user reviews the Impact Report and replies with explicit verbal approval (e.g., "Yes", "Approve").**
 
-### 3. Apply Infrastructure Changes
+### 3. Apply Infrastructure Changes & Interactive Fail-safe
 Upon receiving approval, execute the deployment:
 ```bash
 terraform apply -auto-approve
 ```
-Display the outputs to the user, highlighting `data_bucket_name` and `cloud-run-service-name`.
+* **Transient GCP Propagation Fail-safe**:
+  * If the deployment fails due to transient GCP resource replication latency (e.g., `404 Instance/Database not found` or `409 Already exists` during IAM database user bindings):
+    * **Immediately inform the user of the failure** in the chat.
+    * Explain that this is a normal, expected GCP resource replication latency issue, and that the previous plan binary is now stale due to a partial apply.
+    * Prompt the user in the chat:
+      > 🔄 **GCP Resource Propagation Delay Detected**:
+      > The deployment hit a transient GCP replication delay. This is completely normal and expected.
+      > Since a partial apply occurred, our old plan is now stale. 
+      > * I will compile a fresh plan using `terraform plan -out=tfplan.binary` immediately.
+      > * I will then present the new short Impact Report of the remaining resources for your review.
+      > * Do you approve compiling the fresh plan and retrying?
+    * **Wait for the user's explicit verbal confirmation** before executing the new plan and apply sequence.
+* Display the final successful outputs to the user, highlighting `data_bucket_name` and `cloud-run-service-name`.
 
 ---
 
@@ -192,11 +252,13 @@ uv run datacommons admin init-db
 ```
 
 ### 3. Start the Ingestion Job
-Present the command to trigger the Cloud Run pipeline to ingest the data:
-```bash
-uv run datacommons admin ingest start
-```
-* **Provide Console Links**: Print the printed **Job Console Link** clearly in the chat so the user can watch the live logs in their browser console.
+* **Parameter-free Ingestion Warning**: Explain that the `ingest start` command is completely **parameter-free**. It dynamically resolves Cloud Run variables from Terraform outputs, and reads staged config files directly from GCS.
+* **Strict Command Constraint**: **NEVER** append flags like `--import-name` or `--import-list` (the pipeline handles this automatically).
+* Present the command and trigger:
+  ```bash
+  uv run datacommons admin ingest start
+  ```
+* **Provide Console Links**: Print the **Job Console Link** and **Workflow Console Link** clearly in the chat so the user can watch the live executions.
 
 ---
 

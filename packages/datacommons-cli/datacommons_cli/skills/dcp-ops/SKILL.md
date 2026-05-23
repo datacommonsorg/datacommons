@@ -12,7 +12,25 @@ This skill guides an agentic coding assistant through Day-2 administration, data
 > * The agent must **NEVER** silently automate or modify cloud resources (GCS, Spanner, Cloud Run) without explaining the exact proposed changes and waiting for explicit verbal confirmation.
 > * Before executing *any* command, the agent must present the proposed command line to the user and ask for confirmation.
 > * **After executing any command**, the agent must immediately provide a clear, useful summary of exactly what was done, what resources were changed, and what status or outputs were returned.
-> * **GCP Console Deep-Links**: Whenever a resource is created or modified, the agent must construct and print the direct Google Cloud Console deep-links (e.g. GCS browser, Spanner console, Cloud Run dashboard) to enable instant user verification and audit.
+> * **GCP Console Deep-Links**: Whenever a resource is created, modified, or queried, the agent must **generously construct and print direct GCP Console deep-links** (such as Spanner database tables, GCS folder paths, Cloud Run metrics, Cloud Workflows executions, and Dataflow pipeline graphs) to enable the user to instantly inspect and audit the live resources by themselves at any time.
+> * **Active Progress Updates (Quiet Polling & Percent Spinner)**: During long-running operations (such as `terraform apply` or data ingestion pipelines), the agent must never go silent, but **must avoid noisy output**. Print only a **highly-condensed, 3-line progress block** using **Exponential Backoff Polling Heuristics** (checking at 10s, 20s, 40s, and then scaling up to a maximum quiet heartbeat of 60s for the remainder of the long-running job).
+>   * **Structured Progress Layout (Compact 2-Column Table)**: All progress checks must be formatted in a clean, headerless, 2-column Markdown table (with values wrapped in inline backticks to render as yellow/amber pills):
+>     | | |
+>     | :--- | :--- |
+>     | **Phase** | `Phase X/3: [Global Phase Name]` |
+>     | **Status** | `[Factual, highly-condensed numerical metrics/counters]` |
+>     | **Elapsed** | `[phase_time] (Total pipeline time: [total_ingestion_time])` |
+>   * **Unified Ingestion Phase Labeling**:
+>     * 🛠️ **Phase 1 of 3: Preprocessing Container**
+>       * *Sub-stage 1/3 (CSV Import)*: `Status: Sub-stage 1/3 - CSV Import: 62.6% (979 / 1,562 files processed)`
+>       * *Sub-stage 2/3 (Indexing)*: `Status: Sub-stage 2/3 - Database Indexing: Indexing 13.9M observations`
+>       * *Sub-stage 3/3 (Export)*: `Status: Sub-stage 3/3 - JSON-LD Export: Staging 13.98M observations. 41 Node & 318+ Observation shards completed`
+>     * 🔗 **Phase 2 of 3: Cloud Workflows Orchestration**
+>       * `Status: Container completed successfully. Workflows state machine orchestrating Dataflow trigger`
+>     * ⚡ **Phase 3 of 3: Dataflow Parallel Loader**
+>       * **Dynamic Spanner Ingest Heuristic**: Extract active mutation metrics: `gcloud beta dataflow metrics list [JOB_ID] --project=[PROJECT_ID] --region=[REGION]`. Look up `mutation_groups_write_success` (staged mutation count) and `spanner_write_latency_ms_MEAN` (average batch latency) and print: `Status: Written graph mutations: [mutation_count] successfully loaded to Spanner (mean batch latency: [latency]ms)`.
+>   * Only print a detailed block or link when a **major pipeline transition occurs** or upon final success/failure. **Silent Scheduler Rule**: When scheduling these background timers, the agent must never print redundant closing text (such as "The progress timer is active. I will stand by..."). Simply print the 3-line status update, call the `schedule` tool, and end the turn immediately.
+> * **Brevity & Tabular Formatting**: Infrastructure operations require absolute clarity. Avoid verbose, narrative, or flowery summaries. Present complex details (such as configuration changes, resource impacts, plans, or status reports) using clean markdown tables, bullet points, or short, direct facts. Keep narrative text blocks extremely concise.
 > * Keep the user fully informed of background tasks (e.g., logs monitoring, proxy tunnels), providing direct console URLs for observability.
 
 ---
@@ -74,11 +92,13 @@ Use this workflow to copy new data files and trigger a new ingestion execution t
   ```
 
 ### 2. Trigger the Ingestion Pipeline
-* Explain that we are about to trigger the Cloud Run Ingestion Job, show the command, and ask for permission to execute:
+* **Parameter-free Ingestion Warning**: Explain that the `ingest start` command is completely **parameter-free**. It dynamically resolves variables from Terraform outputs and reads staged configurations directly from GCS.
+* **Strict Command Constraint**: **NEVER** append flags like `--import-name` or `--import-list` (handled automatically).
+* Present the command and trigger:
   ```bash
   uv run datacommons admin ingest start
   ```
-* **Provide Ingestion Logs Link**: Once executed, capture the **Job Console Link** from the logs and present it clearly in the chat so the user has direct observability in their browser console.
+* **Provide Observability Links**: Print both the **Job Console Link** and **Workflow Console Link** in the chat so the user has direct observability.
 
 ---
 
