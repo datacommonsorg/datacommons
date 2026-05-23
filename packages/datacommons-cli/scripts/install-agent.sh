@@ -8,14 +8,66 @@
 set -euo pipefail
 
 # ==========================================
-# Overridable Repository Settings (For dev branch & fork overrides)
+# Main Execution Sequence (Table of Contents)
 # ==========================================
-DCP_GIT_REPO="${DCP_GIT_REPO:-https://github.com/datacommonsorg/datacommons.git}"
-DCP_GIT_BRANCH="${DCP_GIT_BRANCH:-main}"
-DCP_GITHUB_RAW_BASE="${DCP_GITHUB_RAW_BASE:-https://raw.githubusercontent.com/datacommonsorg/datacommons}"
+
+main() {
+    load_env_overrides
+    resolve_repository_settings
+    setup_colors
+    
+    log_info "========================================="
+    log_info "   Data Commons Platform Agent Installer "
+    log_info "========================================="
+    
+    resolve_target_dir
+    detect_mode
+    deploy_skills
+    initialize_python_env
+    run_preflight_validation
+    
+    log_success "===================================================="
+    log_success "   DCP Agent Installation Completed Successfully!  "
+    log_success "===================================================="
+    log_info "Your workspace at '${TARGET_DIR}' is fully configured."
+    log_info "Please open your agentic assistant inside this workspace and ask:"
+    log_info "\"Help me set up my DCP instance\""
+    log_info "===================================================="
+}
 
 # ==========================================
-# 1. Initialization & Logging Functions
+# Local Environment Override Support
+# ==========================================
+
+load_env_overrides() {
+    if [ -f .env ]; then
+        echo "[INFO] Found local .env file. Sourcing environment overrides..."
+        # Export overrides while discarding comment lines and trailing spaces
+        export $(grep -v '^#' .env | xargs)
+    fi
+}
+
+# ==========================================
+# Repository Settings Resolution
+# ==========================================
+
+resolve_repository_settings() {
+    # Establish overridable Git repository defaults
+    DCP_GIT_REPO="${DCP_GIT_REPO:-https://github.com/datacommonsorg/datacommons.git}"
+    DCP_GIT_BRANCH="${DCP_GIT_BRANCH:-main}"
+
+    # Dynamically resolve the raw Github URL base based on the targeted fork and branch
+    if [[ "$DCP_GIT_REPO" =~ github\.com[:/]([^/]+)/([^/.]+)(\.git)?$ ]]; then
+        local git_owner="${BASH_REMATCH[1]}"
+        local git_name="${BASH_REMATCH[2]}"
+        DCP_GITHUB_RAW_BASE="${DCP_GITHUB_RAW_BASE:-https://raw.githubusercontent.com/${git_owner}/${git_name}/${DCP_GIT_BRANCH}}"
+    else
+        DCP_GITHUB_RAW_BASE="${DCP_GITHUB_RAW_BASE:-https://raw.githubusercontent.com/datacommonsorg/datacommons/${DCP_GIT_BRANCH}}"
+    fi
+}
+
+# ==========================================
+# Initialization & Logging Functions
 # ==========================================
 
 setup_colors() {
@@ -43,7 +95,7 @@ log_error() {
 }
 
 # ==========================================
-# 2. Target Directory Resolution
+# Target Directory Resolution
 # ==========================================
 
 resolve_target_dir() {
@@ -62,7 +114,7 @@ resolve_target_dir() {
 }
 
 # ==========================================
-# 3. Environment & Mode Detection
+# Environment & Mode Detection
 # ==========================================
 
 detect_mode() {
@@ -85,7 +137,7 @@ detect_mode() {
 }
 
 # ==========================================
-# 4. Skill Deployment (Local vs. Remote)
+# Skill Deployment (Local vs. Remote)
 # ==========================================
 
 copy_local_skills() {
@@ -101,7 +153,6 @@ copy_local_skills() {
     
     mkdir -p "${target_skills_dest}"
     cp -R "${local_skills_source}/dcp-setup" "${target_skills_dest}/"
-    cp -R "${local_skills_source}/dcp-ops" "${target_skills_dest}/"
     
     # Ensure scripts are marked executable
     chmod +x "${target_skills_dest}/dcp-setup/scripts/"*.sh 2>/dev/null || true
@@ -112,14 +163,13 @@ copy_local_skills() {
 download_remote_skills() {
     log_info "Downloading remote skill assets from GitHub..."
     
-    local github_raw_url="${DCP_GITHUB_RAW_BASE}/${DCP_GIT_BRANCH}/packages/datacommons-cli/datacommons_cli/skills"
+    local github_raw_url="${DCP_GITHUB_RAW_BASE}/packages/datacommons-cli/datacommons_cli/skills"
     local target_skills_dest="${TARGET_DIR}/.agent/skills"
     
     local files_to_fetch=(
         "dcp-setup/SKILL.md"
         "dcp-setup/scripts/preflight_check.sh"
         "dcp-setup/scripts/poll_iam.sh"
-        "dcp-ops/SKILL.md"
     )
     
     for file_path in "${files_to_fetch[@]}"; do
@@ -151,7 +201,7 @@ deploy_skills() {
 }
 
 # ==========================================
-# 5. Python Virtual Env & Package Setup
+# Python Virtual Env & Package Setup
 # ==========================================
 
 ensure_uv_installed() {
@@ -187,7 +237,7 @@ initialize_python_env() {
 }
 
 # ==========================================
-# 6. Pre-flight Orchestration
+# Pre-flight Orchestration
 # ==========================================
 
 run_preflight_validation() {
@@ -202,30 +252,5 @@ run_preflight_validation() {
     fi
 }
 
-# ==========================================
-# 7. Main Execution Sequence
-# ==========================================
-
-main() {
-    setup_colors
-    log_info "========================================="
-    log_info "   Data Commons Platform Agent Installer "
-    log_info "========================================="
-    
-    resolve_target_dir
-    detect_mode
-    deploy_skills
-    initialize_python_env
-    run_preflight_validation
-    
-    log_success "===================================================="
-    log_success "   DCP Agent Installation Completed Successfully!  "
-    log_success "===================================================="
-    log_info "Your workspace at '${TARGET_DIR}' is fully configured."
-    log_info "Please open your agentic assistant inside this workspace and ask:"
-    log_info "\"Help me set up my Data Commons\""
-    log_info "===================================================="
-}
-
-# Trigger Main
-main
+# Execution Trigger (Must remain at the bottom of the script)
+main "$@"
