@@ -110,8 +110,18 @@ Once parameters are harvested, present the command and the inputs to the user:
   uv run datacommons admin init --project=[project_id] --namespace=[namespace] --key=[api_key] --auto-approve
   ```
 
-### 3. Variable Verification
+### 3. Variable Verification & Ingress Security Prompt
 * Read `terraform.tfvars` and show the user the generated configuration variables.
+* **Interactive Ingress Security Choice (Mandatory Prompt)**:
+  * Ask the user explicitly in the chat: *"Would you like to make your Custom Data Commons website publicly accessible to the open internet (best for sharing and quick testing), or keep it private and secured behind IAM OIDC authentication (default, best for secure enterprise data)?"*
+  * **If Public is selected**: Locate `datacommons_services_allow_unauthenticated_access` inside `terraform.tfvars`, uncomment it, and set it to `true`.
+  * **If Private/Default is selected**: Ensure `datacommons_services_allow_unauthenticated_access` remains commented out or set to `false`.
+* **Explicit Google Maps API Key Choice Heuristic (Mandatory Prompt)**:
+  * The agent must inspect `terraform.tfvars` for Google Maps credentials.
+  * If `auth_google_maps_api_key` is set to `"TODO"` and `auth_create_google_maps_api_key` is set to `false`, the agent **must explicitly prompt the user in the chat**:
+    * *"A valid Google Maps API key is required for using Data Commons. How would you like to proceed?"*
+    * **Option 1: Use Existing Key**: Ask the user to provide their existing Maps API key string. Once provided, the agent must write it directly to `auth_google_maps_api_key` inside `terraform.tfvars`.
+    * **Option 2: Auto-generate restricted key**: Ask the user if they want Terraform to create a new restricted key natively. Once approved, the agent must write `auth_create_google_maps_api_key = true` and set `auth_google_maps_api_key = null` inside `terraform.tfvars` so Terraform provisions it securely.
 * Confirm if the user wants to make any other manual adjustments (e.g., changing machine sizes or regions) before proceeding.
 
 ---
