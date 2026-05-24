@@ -235,7 +235,7 @@ initialize_python_env() {
     ensure_uv_installed
     
     cd "${TARGET_DIR}"
-    uv venv
+    uv venv --clear
     
     # Install package in target virtual environment
     if [ "${DEV_MODE}" = true ]; then
