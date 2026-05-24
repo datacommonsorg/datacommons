@@ -122,6 +122,10 @@ Once parameters are harvested, present the command and the inputs to the user:
     * *"A valid Google Maps API key is required for using Data Commons. How would you like to proceed?"*
     * **Option 1: Use Existing Key**: Ask the user to provide their existing Maps API key string. Once provided, the agent must write it directly to `auth_google_maps_api_key` inside `terraform.tfvars`.
     * **Option 2: Auto-generate restricted key**: Ask the user if they want Terraform to create a new restricted key natively. Once approved, the agent must write `auth_create_google_maps_api_key = true` and set `auth_google_maps_api_key = null` inside `terraform.tfvars` so Terraform provisions it securely.
+* **BigQuery Post-Processing Check (Mandatory Safeguard)**:
+  * Verify the configuration of `ingestion_workflow_enable_bigquery_postprocessing` inside `terraform.tfvars`.
+  * **Mandatory Constraint**: Due to active upstream BigQuery federation and post-processing limitations, this variable **MUST be set to `false`** to ensure a stable and successful data ingestion execution.
+  * If it is missing, commented out, or set to `true`, the agent must explain this limitation to the user in the chat, ask for approval, and automatically write `ingestion_workflow_enable_bigquery_postprocessing = false` to `terraform.tfvars`.
 * Confirm if the user wants to make any other manual adjustments (e.g., changing machine sizes or regions) before proceeding.
 
 ---
