@@ -81,7 +81,7 @@ check_and_install_uv() {
         if command -v uv &> /dev/null; then
             log_success "uv was successfully installed: $(uv --version)"
         else
-            log_error "uv was installed but could not be found in PATH. Please restart your terminal and re-run."
+            log_error "uv was installed but could not be found in PATH. Please restart your terminal and re-run the installer command!"
             exit 1
         fi
     else
@@ -186,7 +186,7 @@ verify_gcp_adc() {
     else
         log_warning "No active Application Default Credentials (ADC) found."
         log_info "Please login by running: gcloud auth application-default login"
-        log_info "Once authentication completes, re-run this pre-flight validation."
+        log_info "Once authentication completes, please re-run the one-line installer command!"
         exit 2
     fi
 }
