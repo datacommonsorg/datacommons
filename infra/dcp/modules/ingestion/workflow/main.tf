@@ -110,20 +110,20 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
               - check_success:
                   switch:
                     - condition: '$${job_status.currentState == "JOB_STATE_DONE"}'
-                      next: %{if var.enable_bigquery_postprocessing}run_aggregations%{else}promote_version%{endif}
+                      next: %{if var.enable_bigquery_postprocessing}run_postprocessings%{else}promote_version%{endif}
               - fail_on_job_status:
                   raise: '$${ "Dataflow job failed with state: " + job_status.currentState }'
 %{if var.enable_bigquery_postprocessing}
-              - run_aggregations:
+              - run_postprocessings:
                   call: http.post
                   args:
                     url: '${var.ingestion_helper_url}'
                     auth:
                       type: OIDC
                     body:
-                      actionType: "run_aggregation"
+                      actionType: "run_postprocessing"
                       importList: '$${json.decode(input.importList)}'
-                  result: aggregation_result
+                  result: postprocessing_result
 %{endif}
               - promote_version:
                   call: http.post
