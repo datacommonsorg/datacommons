@@ -109,7 +109,7 @@ resolve_target_dir() {
     echo -e -n "${YELLOW}[INPUT]${NC} Where would you like to install the Data Commons agent? [Default: ${current_dir}]: "
     
     # Read from TTY keyboard if available, otherwise fail loudly with manual instructions
-    if tty -s && [ -c /dev/tty ] && [ -r /dev/tty ]; then
+    if true < /dev/tty 2>/dev/null && [ -c /dev/tty ] && [ -r /dev/tty ]; then
         read -r user_input < /dev/tty
     else
         log_error "Interactive keyboard terminal (TTY) is blocked or unavailable."
