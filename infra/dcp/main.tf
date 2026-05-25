@@ -57,10 +57,11 @@ resource "google_project_service" "apis" {
 
 locals {
   global_config = {
-    project_id          = var.project_id
-    region              = var.region
-    namespace           = var.namespace
-    deletion_protection = var.deletion_protection
+    project_id                    = var.project_id
+    region                        = var.region
+    namespace                     = var.namespace
+    stateful_deletion_protection  = var.stateful_deletion_protection
+    stateless_deletion_protection = var.stateless_deletion_protection
   }
 
   spanner_config = {

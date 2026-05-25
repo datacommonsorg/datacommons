@@ -9,7 +9,10 @@
 project_id = "$$PROJECT_ID$$"
 namespace  = "$$NAMESPACE$$"
 # region     = "us-central1"
-# deletion_protection = true # enable for production environments!
+# Protects resources that hold persistent data (Spanner, GCS). Enable in prod!
+# stateful_deletion_protection = false
+# Protects compute resources (Cloud Run, Workflows). Keep false for easy updates.
+# stateless_deletion_protection = false
 
 # =============================================================================
 # Auth Module

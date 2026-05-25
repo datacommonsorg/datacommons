@@ -110,11 +110,11 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
               - check_success:
                   switch:
                     - condition: '$${job_status.currentState == "JOB_STATE_DONE"}'
-                      next: %{if var.enable_bigquery_postprocessing}trigger_bq_federation%{else}promote_version%{endif}
+                      next: %{if var.enable_bigquery_postprocessing}run_aggregations%{else}promote_version%{endif}
               - fail_on_job_status:
                   raise: '$${ "Dataflow job failed with state: " + job_status.currentState }'
 %{if var.enable_bigquery_postprocessing}
-              - trigger_bq_federation:
+              - run_aggregations:
                   call: http.post
                   args:
                     url: '${var.ingestion_helper_url}'
@@ -123,7 +123,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                     body:
                       actionType: "run_aggregation"
                       importList: '$${json.decode(input.importList)}'
-                  result: bq_result
+                  result: aggregation_result
 %{endif}
               - promote_version:
                   call: http.post

@@ -19,8 +19,14 @@ variable "namespace" {
   default     = ""
 }
 
-variable "deletion_protection" {
-  description = "Enable deletion protection for resources (set to true for production)"
+variable "stateful_deletion_protection" {
+  description = "Enable deletion protection for stateful resources (Spanner, GCS) to prevent data loss."
+  type        = bool
+  default     = false
+}
+
+variable "stateless_deletion_protection" {
+  description = "Enable deletion protection for stateless resources (Cloud Run, Workflows)."
   type        = bool
   default     = false
 }
