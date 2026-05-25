@@ -233,12 +233,12 @@ ensure_uv_installed() {
 run_pip_install() {
     local err_log
     err_log="$(mktemp)"
-    trap 'rm -f "${err_log}"' EXIT
     
     # Run uv pip install and redirect standard error to log
     if ! uv pip install "$@" 2>"${err_log}"; then
         local err_msg
         err_msg="$(cat "${err_log}")"
+        rm -f "${err_log}"
         
         # Print the raw error to screen so the developer sees the original trace
         echo -e "${err_msg}" >&2
@@ -258,6 +258,9 @@ run_pip_install() {
         fi
         exit 1
     fi
+    
+    # Clean up temp file on success path
+    rm -f "${err_log}"
 }
 
 initialize_python_env() {
