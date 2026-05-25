@@ -45,7 +45,7 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
       }
 
       startup_probe {
-        timeout_seconds   = 240
+        timeout_seconds   = 29
         period_seconds    = 30
         failure_threshold = 30 # 30 * 30s = 15 minutes
         http_get {
