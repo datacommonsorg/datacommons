@@ -1,7 +1,10 @@
 variable "project_id" { type = string }
 variable "namespace" { type = string }
 variable "region" { type = string }
-variable "deletion_protection" { type = bool }
+variable "stateless_deletion_protection" {
+  type        = bool
+  description = "Enable deletion protection for stateless resources (Cloud Run Job) to prevent accidental deletion."
+}
 variable "image" { type = string }
 variable "cpu" { type = string }
 variable "memory" { type = string }

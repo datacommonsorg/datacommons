@@ -14,7 +14,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
   region              = var.region
   description         = "Triggers the Dataflow Flex Template Graph Ingestion Pipeline with runtime parameters"
   service_account     = google_service_account.workflow_sa[0].email
-  deletion_protection = var.deletion_protection
+  deletion_protection = var.stateless_deletion_protection
 
   source_contents = <<-EOF2
   main:

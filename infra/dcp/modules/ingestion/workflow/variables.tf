@@ -10,8 +10,9 @@ variable "region" {
   type = string
 }
 
-variable "deletion_protection" {
-  type = bool
+variable "stateless_deletion_protection" {
+  type        = bool
+  description = "Enable deletion protection for stateless resources (Workflows) to prevent accidental deletion."
 }
 
 variable "project_id" {

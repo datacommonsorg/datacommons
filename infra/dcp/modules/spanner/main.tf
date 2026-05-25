@@ -10,7 +10,7 @@ resource "google_spanner_instance" "main" {
   config           = "regional-${var.region}"
   display_name     = local.effective_instance_id
   processing_units = var.processing_units
-  force_destroy    = !var.deletion_protection
+  force_destroy    = !var.stateful_deletion_protection
   edition          = "ENTERPRISE"
 }
 
@@ -19,7 +19,7 @@ resource "google_spanner_database" "database" {
   instance = var.create_instance ? google_spanner_instance.main[0].name : local.effective_instance_id
   name     = local.effective_database_id
 
-  deletion_protection      = var.deletion_protection
+  deletion_protection      = var.stateful_deletion_protection
   version_retention_period = var.version_retention_period
 }
 

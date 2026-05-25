@@ -12,7 +12,7 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
   count               = var.deploy ? 1 : 0
   name                = "${local.name_prefix}dc-ingestion-helper"
   location            = var.region
-  deletion_protection = var.deletion_protection
+  deletion_protection = var.stateless_deletion_protection
 
   template {
     containers {

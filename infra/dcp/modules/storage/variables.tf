@@ -19,7 +19,8 @@ variable "region" {
   type = string
 }
 
-variable "deletion_protection" {
-  type = bool
+variable "stateful_deletion_protection" {
+  type        = bool
+  description = "Enable deletion protection for stateful resources (GCS) to prevent data loss."
 }
 
