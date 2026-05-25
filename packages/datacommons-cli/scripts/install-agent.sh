@@ -230,6 +230,36 @@ ensure_uv_installed() {
     fi
 }
 
+run_pip_install() {
+    local err_log
+    err_log="$(mktemp)"
+    trap 'rm -f "${err_log}"' EXIT
+    
+    # Run uv pip install and redirect standard error to log
+    if ! uv pip install "$@" 2>"${err_log}"; then
+        local err_msg
+        err_msg="$(cat "${err_log}")"
+        
+        # Print the raw error to screen so the developer sees the original trace
+        echo -e "${err_msg}" >&2
+        
+        # Check for index 401 credentials blocks
+        if [[ "${err_msg}" == *"401 Unauthorized"* || "${err_msg}" == *"credentials"* ]]; then
+            log_error "===================================================="
+            log_error "   Python Package Registry Authentication Failure!  "
+            log_error "===================================================="
+            log_warning "It seems that your Python package index or private registry credentials have expired (returned HTTP 401 Unauthorized)."
+            log_info "If you are running inside a corporate network with private mirrors:"
+            log_info "  1. Please refresh your SSO/corporate package manager login tokens."
+            log_info "  2. Once authenticated, please re-run this one-line installer command!"
+            log_error "===================================================="
+        else
+            log_error "Python package installation failed. Please check your Python environment and try again."
+        fi
+        exit 1
+    fi
+}
+
 initialize_python_env() {
     log_info "Provisioning Python virtual environment..."
     ensure_uv_installed
@@ -241,10 +271,10 @@ initialize_python_env() {
     if [ "${DEV_MODE}" = true ]; then
         log_info "Installing local datacommons CLI package in editable mode..."
         # Resolve relative package paths from local repository root
-        uv pip install -e "${REPO_ROOT}/packages/datacommons-cli" -e "${REPO_ROOT}/packages/datacommons-admin"
+        run_pip_install -e "${REPO_ROOT}/packages/datacommons-cli" -e "${REPO_ROOT}/packages/datacommons-admin"
     else
         log_info "Installing datacommons CLI and admin packages from GitHub release..."
-        uv pip install \
+        run_pip_install \
             "git+${DCP_GIT_REPO}@${DCP_GIT_BRANCH}#subdirectory=packages/datacommons-cli" \
             "git+${DCP_GIT_REPO}@${DCP_GIT_BRANCH}#subdirectory=packages/datacommons-admin"
     fi
