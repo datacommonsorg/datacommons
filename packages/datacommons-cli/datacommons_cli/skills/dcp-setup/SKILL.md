@@ -235,7 +235,7 @@ gcloud iam service-accounts add-iam-policy-binding [dcp_orchestrator_service_acc
 ```
 
 ### 2. Active IAM Propagation Polling (Safety Gate)
-Inform the user that GCP IAM replication can take a few minutes. Run a visible loop that checks impersonation status every 15 seconds, showing a progress indicator so the user knows the status.
+Inform the user that GCP IAM replication can take a few minutes. The agent **MUST** run a visible, non-blocking loop using the **Exponential Backoff Polling Heuristics** (checking at 10s, 20s, 40s, and then scaling up to a maximum quiet heartbeat of 60s), **outputting the compact, headerless 2-column progress table at every single heartbeat check** to show elapsed time, current state, and prevent redundant conversational filler.
 
 ---
 
