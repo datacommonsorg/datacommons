@@ -80,8 +80,18 @@ output "dcp_ingestion_workflow_name" {
   value = module.stack.ingestion_workflow_name
 }
 
+output "workflow_name" {
+  description = "Alias for ingestion_workflow_name to support external scripts"
+  value       = module.stack.ingestion_workflow_name
+}
+
 output "dcp_ingestion_prep_job_name" {
   value = module.stack.ingestion_prep_job_name
+}
+
+output "cdc_data_job_name" {
+  description = "Alias for ingestion_prep_job_name to support CDC scripts"
+  value       = module.stack.ingestion_prep_job_name
 }
 
 output "project_id" {

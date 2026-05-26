@@ -169,6 +169,7 @@ module "ingestion_helper_service" {
   image                  = var.ingestion_config.helper_service_image
   use_spanner            = var.spanner_config.enable
   enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
+  enable_bigquery_connection     = var.spanner_config.enable_bigquery_connection
 
   # Redis configuration for cache clearing
   vpc_connector_id = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].connector_id : null

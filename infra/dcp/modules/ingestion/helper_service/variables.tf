@@ -46,6 +46,12 @@ variable "use_spanner" {
   default = true
 }
 
+variable "enable_bigquery_connection" {
+  type        = bool
+  description = "Flag to enable BigQuery connection usage"
+  default     = false
+}
+
 variable "enable_bigquery_postprocessing" {
   type        = bool
   description = "Flag to enable BigQuery postprocessing"
