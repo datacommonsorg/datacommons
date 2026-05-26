@@ -35,6 +35,11 @@ output "ingestion_service_url" {
   value       = module.stack.ingestion_service_url
 }
 
+output "dcp_ingestion_helper_uri" {
+  description = "Alias for ingestion_service_url to support external scripts"
+  value       = module.stack.ingestion_service_url
+}
+
 output "ingestion_prep_job_name" {
   description = "Name of the data ingestion pre-processing job"
   value       = module.stack.ingestion_prep_job_name
