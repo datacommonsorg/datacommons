@@ -51,10 +51,10 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
             result: lock_result
           retry:
             predicate: '$${http.default_retry_predicate}'
-            max_retries: 60 # Approx 5 hours
+            max_retries: 20
             backoff:
-              initial_delay: 60
-              max_delay: 300 # Max 5 minutes retry interval
+              initial_delay: 300
+              max_delay: 600
               multiplier: 2
       - process_ingestion:
           try:
