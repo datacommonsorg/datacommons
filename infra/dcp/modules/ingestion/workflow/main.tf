@@ -51,10 +51,10 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
             result: lock_result
           retry:
             predicate: '$${http.default_retry_predicate}'
-            max_retries: 20
+            max_retries: 60 # Approx 5 hours
             backoff:
-              initial_delay: 300
-              max_delay: 600
+              initial_delay: 60
+              max_delay: 300 # Max 5 minutes retry interval
               multiplier: 2
       - process_ingestion:
           try:
@@ -110,15 +110,10 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
               - check_success:
                   switch:
                     - condition: '$${job_status.currentState == "JOB_STATE_DONE"}'
-                      next: check_bq_enabled
+                      next: %{if var.enable_bigquery_postprocessing}trigger_bq_federation%{else}promote_version%{endif}
               - fail_on_job_status:
                   raise: '$${ "Dataflow job failed with state: " + job_status.currentState }'
-              - check_bq_enabled:
-                  switch:
-                    - condition: ${var.enable_bigquery_postprocessing ? "true" : "false"}
-                      next: trigger_bq_federation
-                    - condition: true
-                      next: promote_version
+%{if var.enable_bigquery_postprocessing}
               - trigger_bq_federation:
                   call: http.post
                   args:
@@ -129,6 +124,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                       actionType: "run_aggregation"
                       importList: '$${json.decode(input.importList)}'
                   result: bq_result
+%{endif}
               - promote_version:
                   call: http.post
                   args:
@@ -186,6 +182,17 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
               template:
                 labels:
                   restarted-at: '$${string(int(sys.now()))}'
+%{if var.enable_redis_cache_clearing}
+      - clear_cache_step:
+          call: http.post
+          args:
+            url: '${var.ingestion_helper_url}'
+            auth:
+              type: OIDC
+            body:
+              actionType: "clear_redis_cache"
+          result: clear_cache_result
+%{endif}
 %{endif}
       - return_result:
           return: '$${launch_result}'

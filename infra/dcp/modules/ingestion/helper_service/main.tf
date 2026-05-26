@@ -15,6 +15,7 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
   deletion_protection = var.deletion_protection
 
   template {
+    timeout = "600s"
     containers {
       image = var.image
 
@@ -54,6 +55,26 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
       env {
         name  = "GCS_BUCKET_ID"
         value = var.ingestion_bucket_name
+      }
+      env {
+        name  = "IS_BASE_DC"
+        value = "false"
+      }
+      env {
+        name  = "REDIS_HOST"
+        value = var.redis_host
+      }
+      env {
+        name  = "REDIS_PORT"
+        value = var.redis_port
+      }
+    }
+
+    dynamic "vpc_access" {
+      for_each = var.vpc_connector_id != null && var.vpc_connector_id != "" ? [1] : []
+      content {
+        connector = var.vpc_connector_id
+        egress    = "PRIVATE_RANGES_ONLY"
       }
     }
 

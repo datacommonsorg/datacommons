@@ -46,3 +46,9 @@ variable "ingestion_helper_service_name" {
   description = "Name of the ingestion helper Cloud Run service"
   default     = ""
 }
+
+variable "enable_redis_cache_clearing" {
+  type        = bool
+  description = "Flag to enable Redis cache clearing"
+  default     = false
+}
