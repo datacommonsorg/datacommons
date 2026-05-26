@@ -28,7 +28,7 @@ resource "google_project_iam_member" "serving_sa_roles" {
 resource "google_cloud_run_v2_service" "dc_web_service" {
   name                = "${local.name_prefix}dc-datacommons-service"
   location            = var.region
-  deletion_protection = var.deletion_protection
+  deletion_protection = var.stateless_deletion_protection
 
   template {
     timeout = "300s"

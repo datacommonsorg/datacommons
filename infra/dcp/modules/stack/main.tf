@@ -92,7 +92,7 @@ module "spanner" {
   instance_id                        = var.spanner_config.instance_id
   database_id                        = var.spanner_config.database_id
   processing_units                   = var.spanner_config.processing_units
-  deletion_protection                = var.global.deletion_protection
+  stateful_deletion_protection       = var.global.stateful_deletion_protection
   version_retention_period           = var.spanner_config.version_retention_period
   enable_bigquery_connection         = var.spanner_config.enable_bigquery_connection
   bigquery_connection_name           = var.spanner_config.bigquery_connection_name
@@ -109,7 +109,7 @@ module "storage" {
   create_artifacts_bucket = var.storage_create_artifacts_bucket
   artifacts_bucket_name   = var.storage_artifacts_bucket_name
   region                  = var.global.region
-  deletion_protection     = var.global.deletion_protection
+  stateful_deletion_protection     = var.global.stateful_deletion_protection
 
   # Shared vars
   project_id = var.global.project_id
@@ -123,7 +123,7 @@ module "ingestion_preprocessing_job" {
   project_id              = var.global.project_id
   namespace               = var.global.namespace
   region                  = var.global.region
-  deletion_protection     = var.global.deletion_protection
+  stateless_deletion_protection     = var.global.stateless_deletion_protection
   image                   = var.ingestion_config.preprocessing_job_image
   cpu                     = var.ingestion_config.preprocessing_job_cpu
   memory                  = var.ingestion_config.preprocessing_job_memory
@@ -160,7 +160,7 @@ module "ingestion_helper_service" {
   project_id          = var.global.project_id
   namespace           = var.global.namespace
   region              = var.global.region
-  deletion_protection = var.global.deletion_protection
+  stateless_deletion_protection = var.global.stateless_deletion_protection
   # Use index [0] because module.spanner is conditional. Fallback to empty string if disabled.
   spanner_instance_id    = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
   spanner_database_id    = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
@@ -169,6 +169,7 @@ module "ingestion_helper_service" {
   image                  = var.ingestion_config.helper_service_image
   use_spanner            = var.spanner_config.enable
   enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
+  enable_bigquery_connection     = var.spanner_config.enable_bigquery_connection
 
   # Redis configuration for cache clearing
   vpc_connector_id = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].connector_id : null
@@ -183,7 +184,7 @@ module "ingestion_workflow" {
   deploy                         = var.ingestion_config.enable_ingestion
   namespace                      = var.global.namespace
   region                         = var.global.region
-  deletion_protection            = var.global.deletion_protection
+  stateless_deletion_protection            = var.global.stateless_deletion_protection
   project_id                     = var.global.project_id
   lock_acquisition_timeout       = var.ingestion_config.workflow_lock_acquisition_timeout
   ingestion_helper_url           = module.ingestion_helper_service.ingestion_helper_url
@@ -232,7 +233,7 @@ module "datacommons_services" {
   project_id              = var.global.project_id
   namespace               = var.global.namespace
   region                  = var.global.region
-  deletion_protection     = var.global.deletion_protection
+  stateless_deletion_protection     = var.global.stateless_deletion_protection
   image                   = var.datacommons_services_config.image
   cpu                     = var.datacommons_services_config.cpu
   memory                  = var.datacommons_services_config.memory

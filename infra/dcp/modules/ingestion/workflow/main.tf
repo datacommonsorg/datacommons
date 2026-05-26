@@ -14,7 +14,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
   region              = var.region
   description         = "Triggers the Dataflow Flex Template Graph Ingestion Pipeline with runtime parameters"
   service_account     = google_service_account.workflow_sa[0].email
-  deletion_protection = var.deletion_protection
+  deletion_protection = var.stateless_deletion_protection
 
   source_contents = <<-EOF2
   main:
@@ -110,20 +110,20 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
               - check_success:
                   switch:
                     - condition: '$${job_status.currentState == "JOB_STATE_DONE"}'
-                      next: %{if var.enable_bigquery_postprocessing}trigger_bq_federation%{else}promote_version%{endif}
+                      next: %{if var.enable_bigquery_postprocessing}run_postprocessings%{else}promote_version%{endif}
               - fail_on_job_status:
                   raise: '$${ "Dataflow job failed with state: " + job_status.currentState }'
 %{if var.enable_bigquery_postprocessing}
-              - trigger_bq_federation:
+              - run_postprocessings:
                   call: http.post
                   args:
                     url: '${var.ingestion_helper_url}'
                     auth:
                       type: OIDC
                     body:
-                      actionType: "run_aggregation"
+                      actionType: "run_postprocessing"
                       importList: '$${json.decode(input.importList)}'
-                  result: bq_result
+                  result: postprocessing_result
 %{endif}
               - promote_version:
                   call: http.post

@@ -12,7 +12,7 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
   count               = var.deploy ? 1 : 0
   name                = "${local.name_prefix}dc-ingestion-helper"
   location            = var.region
-  deletion_protection = var.deletion_protection
+  deletion_protection = var.stateless_deletion_protection
 
   template {
     timeout = "600s"
@@ -108,7 +108,7 @@ resource "google_project_iam_member" "helper_bq_roles" {
 }
 
 resource "google_bigquery_connection_iam_member" "helper_connection_user" {
-  count         = var.deploy && var.bigquery_connection_id != "" ? 1 : 0
+  count         = var.deploy && var.enable_bigquery_connection ? 1 : 0
   project       = var.project_id
   location      = var.region
   connection_id = var.bigquery_connection_id

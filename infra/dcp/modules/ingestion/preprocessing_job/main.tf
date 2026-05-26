@@ -10,7 +10,7 @@ resource "google_service_account" "preprocessing_sa" {
 resource "google_cloud_run_v2_job" "dc_data_job" {
   name                = "${local.name_prefix}dc-ingestion-preprocessing-job"
   location            = var.region
-  deletion_protection = var.deletion_protection
+  deletion_protection = var.stateless_deletion_protection
 
   template {
     template {

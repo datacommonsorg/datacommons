@@ -14,8 +14,9 @@ variable "region" {
   type = string
 }
 
-variable "deletion_protection" {
-  type = bool
+variable "stateless_deletion_protection" {
+  type        = bool
+  description = "Enable deletion protection for stateless resources (Cloud Run) to prevent accidental deletion."
 }
 
 variable "spanner_instance_id" {
@@ -43,6 +44,12 @@ variable "bigquery_connection_id" {
 variable "use_spanner" {
   type    = bool
   default = true
+}
+
+variable "enable_bigquery_connection" {
+  type        = bool
+  description = "Flag to enable BigQuery connection usage"
+  default     = false
 }
 
 variable "enable_bigquery_postprocessing" {

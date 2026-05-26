@@ -1,9 +1,10 @@
 variable "global" {
   type = object({
-    project_id          = string
-    region              = string
-    namespace           = string
-    deletion_protection = bool
+    project_id                    = string
+    region                        = string
+    namespace                     = string
+    stateful_deletion_protection  = bool
+    stateless_deletion_protection = bool
   })
 }
 

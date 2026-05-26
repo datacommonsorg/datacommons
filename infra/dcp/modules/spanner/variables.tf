@@ -33,8 +33,9 @@ variable "processing_units" {
   type = number
 }
 
-variable "deletion_protection" {
-  type = bool
+variable "stateful_deletion_protection" {
+  type        = bool
+  description = "Enable deletion protection for the Spanner database"
 }
 
 
