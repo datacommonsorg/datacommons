@@ -34,6 +34,7 @@ resource "google_project_service" "apis" {
     "apikeys.googleapis.com",
     "run.googleapis.com",
     "iam.googleapis.com",
+    "cloudresourcemanager.googleapis.com",
     "sqladmin.googleapis.com",
     "redis.googleapis.com",
     "secretmanager.googleapis.com",
