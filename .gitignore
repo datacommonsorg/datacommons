@@ -41,3 +41,5 @@ infra/dcp/.env
 AGENTS.md
 docs/plans
 docs/designs
+
+tmp/

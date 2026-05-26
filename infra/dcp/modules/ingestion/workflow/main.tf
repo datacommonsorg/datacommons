@@ -220,3 +220,11 @@ resource "google_project_iam_member" "workflow_run_viewer" {
   role    = "roles/run.viewer"
   member  = "serviceAccount:${google_service_account.workflow_sa[0].email}"
 }
+
+resource "google_cloud_run_v2_service_iam_member" "workflow_sa_service_developer" {
+  count    = var.deploy && var.enable_datacommons_services ? 1 : 0
+  location = var.region
+  name     = "${local.name_prefix}dc-datacommons-service"
+  role     = "roles/run.developer"
+  member   = "serviceAccount:${google_service_account.workflow_sa[0].email}"
+}

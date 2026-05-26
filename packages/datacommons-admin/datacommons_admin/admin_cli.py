@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from pathlib import Path
+import os
 import re
 import sys
 import urllib.request
@@ -30,8 +31,14 @@ from datacommons_admin.infra_templates import (
 
 
 DEFAULT_BUCKET_LOCATION = "US"
-GITHUB_RAW_BASE_URL = "https://raw.githubusercontent.com/datacommonsorg/datacommons"
-GITHUB_REPO_URL = "https://github.com/datacommonsorg/datacommons.git"
+# Overridable repository sources (allows developers to point to branches/forks)
+GITHUB_RAW_BASE_URL = os.getenv(
+    "DCP_GITHUB_RAW_BASE",
+    "https://raw.githubusercontent.com/datacommonsorg/datacommons",
+)
+GITHUB_REPO_URL = os.getenv(
+    "DCP_GIT_REPO", "https://github.com/datacommonsorg/datacommons.git"
+)
 
 
 def _get_default_bucket_name(namespace: str, project_id: str) -> str:
