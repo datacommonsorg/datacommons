@@ -11,7 +11,8 @@ This skill guides an agentic coding assistant through the setup and provisioning
 > **CRITICAL COMPLIANCE DIRECTIVE: USER CONTROL & TRANSPARENCY**
 > * The agent must **NEVER** silently automate or submit interactive inputs to CLI commands running in the background (no silent pipelines).
 > * The agent must **NEVER** create or modify GCP resources (GCS buckets, Spanner, Cloud Run) without first explaining the exact proposed action and waiting for explicit verbal confirmation.
-> * **Interactive Selection Gates (UI Recommendation)**: For all user approval gates, resource configuration decisions, and options (such as Spanner instance reuse, ingress privacy, and BigQuery slot reservations), the agent should leverage interactive UI selectors or structured multi-choice questionnaire tools (such as `ask_question` if supported by the platform) to present clean, selectable options in the client instead of requesting the user to manually type their response.
+> * **Interactive Selection Gates (Mandatory Tool Call)**: For all user approval gates, resource configuration decisions, and options (such as Spanner instance reuse, ingress privacy, and BigQuery slot reservations), **if the agent's active platform equips it with an interactive questionnaire tool (like `ask_question`), the agent MUST invoke that tool** to present the choices dynamically in the client UI instead of requesting the user to manually type their response. Only print plain text options if no such tool is supported by the active platform.
+> * **Clickable File Links (UX Requirement)**: Whenever referring to a local file or directory (such as `terraform.tfvars` or the project workspace folder), the agent **MUST** format it as a clickable Markdown link using its absolute file path: `[filename](file:///absolute/path/to/file)`. Never print plain-text filenames.
 > * Before executing *any* command, the agent must present the proposed command line to the user and ask for confirmation.
 > * **After executing any command**, the agent must immediately provide a clear, useful summary of exactly what was done, what resources were created/changed, and what status or outputs were returned.
 > * **GCP Console Deep-Links**: Whenever a resource is created, modified, or queried, the agent must **generously construct and print direct GCP Console deep-links** (such as Spanner database tables, GCS folder paths, Cloud Run metrics, Cloud Workflows executions, and Dataflow pipeline graphs) to enable the user to instantly inspect and audit the live resources by themselves at any time.
@@ -84,21 +85,23 @@ Verify the availability of `uv`, `terraform`, and `gcloud` by running version ch
 
 The agent must guide the user through the scaffolding phase with complete transparency, prompting for every parameter.
 
-### 1. Parameter Harvesting with Smart Environment Defaults
-Before running the scaffold generator, the agent **MUST run discovery checks to harvest environment defaults, and then present them to the user for explicit confirmation or modification**:
+### 1. Parameter Harvesting with Environment Defaults
+Before running the scaffold generator, the agent **MUST first run discovery checks to harvest default configuration settings, present them as a neat list, and prompt the user for their choice**:
 
-1. **GCP Project ID**:
-   * *Discovery*: Run `gcloud config get-value project 2>/dev/null`.
-   * *Prompt*: *"I detected that your active Google Cloud project context is set to `[detected_project_id]`. Would you like to use this project for deployment, or would you prefer to specify a different GCP project ID?"*
-2. **Namespace**:
-   * *Discovery*: Query system username (via `$USER`) or folder name.
-   * *Prompt*: *"What unique namespace identifier should we use for this environment? [Default: dcp-$USER]"*
-3. **Data Commons API Key**:
-   * *Discovery*: Check active environment variables (`echo $DC_API_KEY` or `$MIXER_API_KEY`).
-   * *Prompt*: If found: *"I detected a `DC_API_KEY` environment variable in your active session. Should I use this key, or would you like to provide a different one?"*
-   * If not found: *"I did not detect a `DC_API_KEY` in your active environment. Please provide a valid API Key from apikeys.datacommons.org (or let me know if we should use a dummy key 'fake-key' for this scaffolding phase)."*
+* **Environment Discoveries**:
+  1. **GCP Project ID**: Run `gcloud config get-value project 2>/dev/null`.
+  2. **Namespace**: Query system username (via `$USER`) or directory folder name.
+  3. **Data Commons API Key**: Check active environment variables (`echo $DC_API_KEY` or `$MIXER_API_KEY`).
 
-**Wait for the user's explicit confirmation or custom inputs for all three parameters.**
+* **Interactive Choice (UI Recommendation)**: Present the harvested defaults and explicitly prompt the user:
+  > *"Would you like to proceed with these default configuration settings, or would you prefer to customize specific variables?"*
+  * **Option A: Proceed with Defaults**: Directly write the defaults to `terraform.tfvars`, asking only for any required credentials that are missing (like a blank Project ID), and proceed straight to the dry-run plan.
+  * **Option B: Customize Specific Settings**: Sequentially prompt for Project ID, Custom Namespace overrides, and API Keys.
+
+* **Mandatory Context Block**: Before executing the scaffolding generator (or any major infrastructure phase), the agent **MUST** print a highly concise blockquote headered **`### Context`**, using empty blockquote lines (`>`) to ensure clean vertical formatting:
+  * **What**: What the step/command does.
+  * **Why**: Why this is architecturally necessary.
+  * **Where**: Where in their directory structure they can inspect or customize the resources.
 
 
 ### 2. Scaffolding Generation (Explicit Step)
@@ -113,15 +116,17 @@ Once parameters are harvested, present the command and the inputs to the user:
 ### 3. Variable Verification & Ingress Security Prompt
 * Read `terraform.tfvars` and show the user the generated configuration variables.
 * **Interactive Ingress Security Choice (Mandatory Prompt)**:
-  * Ask the user explicitly in the chat: *"Would you like to make your Custom Data Commons website publicly accessible to the open internet (best for sharing and quick testing), or keep it private and secured behind IAM OIDC authentication (default, best for secure enterprise data)?"*
-  * **If Public is selected**: Locate `datacommons_services_allow_unauthenticated_access` inside `terraform.tfvars`, uncomment it, and set it to `true`.
-  * **If Private/Default is selected**: Ensure `datacommons_services_allow_unauthenticated_access` remains commented out or set to `false`.
+  * Ask the user explicitly in the chat (leveraging the `ask_question` selection tool): *"Would you like to make your Custom Data Commons website publicly accessible to the open internet (best for sharing and quick testing), or keep it private and secured behind IAM OIDC authentication (default, best for secure enterprise data)?"*
+  * **Action & Approval Gate**: Once the choice is selected, **the agent must explain the changes, present the proposed modifications as a clean file diff block, ask for explicit verbal approval, and write the update to `terraform.tfvars` only upon receiving approval.**
+    * **If Public**: uncomment `datacommons_services_allow_unauthenticated_access = true`.
+    * **If Private/Default**: ensure it remains commented out or set to `false`.
 * **Explicit Google Maps API Key Choice Heuristic (Mandatory Prompt)**:
   * The agent must inspect `terraform.tfvars` for Google Maps credentials.
-  * If `auth_google_maps_api_key` is set to `"TODO"` and `auth_create_google_maps_api_key` is set to `false`, the agent **must explicitly prompt the user in the chat**:
+  * If `auth_google_maps_api_key` is set to `"TODO"` and `auth_create_google_maps_api_key` is set to `false`, the agent **must explicitly prompt the user in the chat (leveraging the `ask_question` tool)**:
     * *"A valid Google Maps API key is required for using Data Commons. How would you like to proceed?"*
-    * **Option 1: Use Existing Key**: Ask the user to provide their existing Maps API key string. Once provided, the agent must write it directly to `auth_google_maps_api_key` inside `terraform.tfvars`.
-    * **Option 2: Auto-generate restricted key**: Ask the user if they want Terraform to create a new restricted key natively. Once approved, the agent must write `auth_create_google_maps_api_key = true` and set `auth_google_maps_api_key = null` inside `terraform.tfvars` so Terraform provisions it securely.
+    * **Option 1: Use Existing Key**: Ask the user to provide their existing Maps API key string.
+    * **Option 2: Auto-generate restricted key**: Ask the user if they want Terraform to create a new restricted key natively.
+  * **Action & Approval Gate**: Once the option is selected, **the agent must explain the changes, present the proposed modifications as a clean file diff block, ask for explicit verbal approval, and write the variables to `terraform.tfvars` only upon receiving approval.**
 * Confirm if the user wants to make any other manual adjustments (e.g., changing machine sizes or regions) before proceeding.
 
 ---
@@ -131,54 +136,52 @@ Once parameters are harvested, present the command and the inputs to the user:
 Because the partner might deploy to a shared or pre-existing GCP project, the agent must actively identify and resolve resource conflicts, keeping the user fully informed.
 
 ### 1. GCP Project Verification
-Set the active project context and verify access:
-```bash
-gcloud config set project [PROJECT_ID]
-```
+* **Action & Approval Gate**: Explain that the active project context needs to be set to `[project-id]`. Present the proposed command, ask for explicit verbal approval, and execute **only** upon receiving approval:
+  ```bash
+  gcloud config set project [project-id]
+  ```
 
-### 2. Enable Required GCP APIs
-List the necessary APIs (Spanner, Cloud Run, Secret Manager, Artifact Registry) and ask for approval to enable them:
-```bash
-gcloud services enable spanner.googleapis.com run.googleapis.com secretmanager.googleapis.com artifactregistry.googleapis.com cloudbuild.googleapis.com iamcredentials.googleapis.com
-```
-
-### 3. Spanner Instance Discovery & Proactive Configuration (Step 1)
+### 2. Spanner Instance Discovery & Proactive Configuration (Step 1)
 * **Mandatory Order**: This check must be executed and finalized *before* initiating the BigQuery check.
-* Run `gcloud spanner instances list --project=[PROJECT_ID]` to discover active Spanner resources in the project.
+* **Action & Approval Gate**: Explain that we need to query active Spanner database instances on GCP to check for name conflicts or reuse opportunities. Present the proposed command, ask for explicit verbal approval, and execute **only** upon receiving approval:
+  ```bash
+  gcloud spanner instances list --project=[project-id]
+  ```
 * **If active Spanner instances are found**:
-  * Present the list clearly to the user in the chat:
+  * Present the list clearly to the user in the chat, and explicitly prompt them (leveraging the `ask_question` tool if available):
     > 🔍 **Active Spanner Instances Discovered**:
-    > I found these active Spanner instances in project `[project_id]`:
+    > I found these active Spanner instances in project `[project-id]`:
     > 1. `dcp-shared-spanner-instance`
     > 2. `dcp-instance-dev`
     > ...
     > Would you like to:
-    > * **Option A: Reuse an existing instance (Highly Recommended to save project capacity and costs)**? Please tell me which number/ID to use.
+    > * **Option A: Reuse an existing instance**? (Highly Recommended to save project capacity and costs).
     > * **Option B: Create a brand-new Spanner instance**? (Will generate `[namespace]-dc-instance` and increase project billing).
-  * **Action based on Choice**:
-    * **If Option A (Reuse)**: Ask the user if they approve, then automatically update `terraform.tfvars` to set `spanner_create_instance = false` and `spanner_instance_id = "[chosen_instance_id]"`. Inform the user once the file is updated.
+  * **Action & Approval Gate**: Once the option is selected, **the agent must explain the changes, present the proposed modifications as a clean file diff block, ask for explicit verbal approval, and write the update to `terraform.tfvars` only upon receiving approval.**
+    * **If Option A (Reuse)**: set `spanner_create_instance = false` and `spanner_instance_id = "[chosen_instance_id]"`.
     * **If Option B (Create New)**:
       * **Display Name Length Safety Check**: Calculate the resulting display name length: `${namespace}-${spanner_instance_id}`.
       * If this length exceeds the GCP limit of **30 characters** (e.g., `dcp-keyurs-dcp-keyurs-dc-instance` is 34 characters):
         * Prompt the user immediately with a warning and recommend a shortened `spanner_instance_id` like `dc-inst` so the resulting name (`[namespace]-dc-inst`) remains safe under 30 characters.
-      * Ask the user if they approve the verified setting, then automatically update `terraform.tfvars` to set `spanner_create_instance = true` and `spanner_instance_id = "[chosen_shortened_instance_id]"`. Inform the user once the file is updated.
+      * Once the shortened name is verified, present the proposed HCL diff block, ask for approval, and set `spanner_create_instance = true` and `spanner_instance_id = "[chosen_shortened_instance_id]"`.
 * **If no active Spanner instances are found**:
-  * Automatically update `terraform.tfvars` to set `spanner_create_instance = true` and `spanner_instance_id = "[namespace]-dc-inst"` to ensure a fresh database instance is provisioned cleanly and inform the user.
+  * **Action & Approval Gate**: Explain that a new database instance will be created. Present the proposed modifications as a clean file diff block, ask for explicit verbal approval, and write `spanner_create_instance = true` and `spanner_instance_id = "[namespace]-dc-inst"` to `terraform.tfvars` **only** upon receiving approval.
 
 * **Wait for Spanner configuration to be finalized and written before moving to the next step.**
 
-### 4. BigQuery Slot Reservation Conflict Check (Step 2)
+### 3. BigQuery Slot Reservation Conflict Check (Step 2)
 * **Mandatory Order**: Initiate this check *only* after the Spanner configuration above is fully completed and written to disk.
-* **Retrieve Target Region**: Parse the `region` variable from `terraform.tfvars` or `variables.tf` (defaulting to `us-central1` if it is commented out or blank). Use this string as the target `[REGION]` location.
-* Run a query to check for existing BigQuery reservations in that target region location:
+* **Retrieve Target Region**: Parse the `region` variable from `terraform.tfvars` or `variables.tf` (defaulting to `us-central1` if it is commented out or blank). Use this string as the target `[region]` location.
+* **Action & Approval Gate**: Explain that we need to check for existing BigQuery slot reservations in the target region to avoid provisioning conflicts. Present the proposed command, ask for explicit verbal approval, and execute **only** upon receiving approval:
   ```bash
-  bq ls --reservation --project_id=[PROJECT_ID] --location=[REGION]
+  bq ls --reservation --project_id=[project-id] --location=[region]
   ```
 * **If a reservation named `default` already exists**:
-  * Present this discovery to the user and explain that we should reuse it to avoid conflicts and save slots.
-  * Upon user confirmation, write/append `spanner_create_bigquery_reservation = false` to `terraform.tfvars` and confirm the write to the user.
+  * Present this discovery to the user and explain that we should reuse it to save slots.
+  * **Action & Approval Gate**: Present the proposed modifications as a clean file diff block, ask for explicit verbal approval, and write `spanner_create_bigquery_reservation = false` to `terraform.tfvars` **only** upon receiving approval.
 * **If no `default` reservation is found**:
-  * Inform the user that no reservation was found, and ask if they want to create a new one (sets `spanner_create_bigquery_reservation = true`) or reuse a pre-existing default one if they know it exists.
+  * Inform the user that no reservation was found, and ask if they want to create a new one or reuse an existing one.
+  * **Action & Approval Gate**: Once selected, present the proposed modifications as a clean file diff block, ask for explicit verbal approval, and write the variables to `terraform.tfvars` **only** upon receiving approval.
   * Write the selected value to `terraform.tfvars` and confirm.
 
 ---
@@ -202,24 +205,29 @@ Run `terraform plan` and output the changes to a temporary file. Parse this plan
 
 **Do not run `terraform apply` until the user reviews the Impact Report and replies with explicit verbal approval (e.g., "Yes", "Approve").**
 
-### 3. Apply Infrastructure Changes & Interactive Fail-safe
-Upon receiving approval, execute the deployment:
-```bash
-terraform apply -auto-approve
-```
-* **Transient GCP Propagation Fail-safe**:
-  * If the deployment fails due to transient GCP resource replication latency (e.g., `404 Instance/Database not found` or `409 Already exists` during IAM database user bindings):
-    * **Immediately inform the user of the failure** in the chat.
-    * Explain that this is a normal, expected GCP resource replication latency issue, and that the previous plan binary is now stale due to a partial apply.
-    * Prompt the user in the chat:
-      > 🔄 **GCP Resource Propagation Delay Detected**:
-      > The deployment hit a transient GCP replication delay. This is completely normal and expected.
-      > Since a partial apply occurred, our old plan is now stale. 
-      > * I will compile a fresh plan using `terraform plan -out=tfplan.binary` immediately.
-      > * I will then present the new short Impact Report of the remaining resources for your review.
-      > * Do you approve compiling the fresh plan and retrying?
-    * **Wait for the user's explicit verbal confirmation** before executing the new plan and apply sequence.
-* Display the final successful outputs to the user, highlighting `data_bucket_name` and `cloud-run-service-name`.
+### 3. User-Led Infrastructure Provisioning (Gate 2 Hand-Off)
+* **Strict Compliance Directive**: The agent **must never** execute `terraform apply` automatically or in the background. It must hand over execution control directly to the developer.
+* **Set Time and Component Expectations**: Explain to the developer that `terraform apply` is a long-running operation taking **10 to 15 minutes or longer** depending on the size of the custom dataset. Outline the physical execution phases:
+  * **Infrastructure Provisioning**: Creating the Spanner instance, Secret Manager secrets, and Cloud Run serving container/API gateway proxy revisions.
+  * **Data Pre-processing**: Spinning up the stager container to parse local CSV datasets, index observations into SQLite databases, and compile JSON-LD graph shards.
+  * **Parallel Database Seeding**: Triggering Cloud Workflows and deploying Apache Beam parallel Dataflow templates to load mutations and build Spanner indexes.
+* **Mandatory Context Block**: Print a highly concise blockquote headered **`### Context`**, using empty blockquote lines (`>`) to ensure clean vertical formatting:
+  * **What**: What `terraform apply` is creating.
+  * **Why**: Why this multi-layer cloud architecture is required to serve Custom Data Commons SPARQL queries securely and at scale.
+  * **Where**: Where they can review the module definitions in `/infra/dcp/modules/`.
+* **Instruct Execution**: Advise the developer to run this command in their terminal:
+  ```bash
+  terraform apply
+  ```
+
+### 4. Conditional Telemetry Tracking (Timing Guard)
+* **The Timing Guard**: The agent must **only** start telemetry after the developer has actively kicked off the command. It must ask:
+  > *"Please run `terraform apply` in your terminal. **Once you have actively kicked off the command**, you can steer my tracking in one of two ways:*
+  > * 📊 **If you want me to actively monitor progress**: Reply to me with **`\"Start monitoring\"`** and I will register background polling loops to track your GCS uploads, Workflows executions, and Dataflow Loader jobs reactively!
+  > * ⚙️ **If you prefer to run it independently**: Simply let me know **once the command has finished successfully** (so we can proceed to the verification steps), or **if you run into any issues** (so we can troubleshoot)."*
+* **Safety poller activation**:
+  * **If `"Start monitoring"` is requested**: Immediately register the `schedule` progress checking task.
+  * **Otherwise**: Go to sleep immediately without registering a timer, waiting for the user's next manual update.
 
 ---
 

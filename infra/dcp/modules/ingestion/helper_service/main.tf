@@ -87,7 +87,7 @@ resource "google_project_iam_member" "helper_bq_roles" {
 }
 
 resource "google_bigquery_connection_iam_member" "helper_connection_user" {
-  count         = var.deploy && var.bigquery_connection_id != "" ? 1 : 0
+  count         = var.deploy && var.enable_bigquery_postprocessing && var.use_spanner ? 1 : 0
   project       = var.project_id
   location      = var.region
   connection_id = var.bigquery_connection_id
