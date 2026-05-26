@@ -1,5 +1,5 @@
 steps:
-  - name: python:3.12-slim
+  - name: 'ghcr.io/astral-sh/uv:python3.12-trixie-slim'
     entrypoint: bash
     secretEnv: ['GH_TOKEN']
     env: ['NEW_VERSION=${_NEW_VERSION}']
@@ -33,10 +33,13 @@ steps:
         python3 -c "import glob, re; [open(f, 'w').write(re.sub(r'^__version__ = \".*\"', '__version__ = \"'\"$$NEW_VERSION\"'\"', content, flags=re.MULTILINE)) for f in glob.glob('packages/*/datacommons_*/version.py') for content in [open(f, 'r').read()]]"
         python3 -c "import re; [open('pyproject.toml', 'w').write(re.sub(r'^version = \".*\"', 'version = \"'\"$$NEW_VERSION\"'\"', content, flags=re.MULTILINE)) for content in [open('pyproject.toml', 'r').read()]]"
         
+        # Update Lockfile
+        uv lock
+
         # Commit & Push
-        git add pyproject.toml packages/*/datacommons_*/version.py
+        git add pyproject.toml packages/*/datacommons_*/version.py uv.lock
         git commit -m "chore: bump version to $$NEW_VERSION"
-        git push origin $$BRANCH_NAME
+        git push origin $$BRANCH_NAME --force
 
 
         # Create PR
