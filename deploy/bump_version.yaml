@@ -1,5 +1,5 @@
 steps:
-  - name: python:3.12-slim
+  - name: 'ghcr.io/astral-sh/uv:python3.12-trixie-slim'
     entrypoint: bash
     secretEnv: ['GH_TOKEN']
     env: ['NEW_VERSION=${_NEW_VERSION}']
@@ -34,7 +34,6 @@ steps:
         python3 -c "import re; [open('pyproject.toml', 'w').write(re.sub(r'^version = \".*\"', 'version = \"'\"$$NEW_VERSION\"'\"', content, flags=re.MULTILINE)) for content in [open('pyproject.toml', 'r').read()]]"
         
         # Update Lockfile
-        pip install uv
         uv lock
 
         # Commit & Push
