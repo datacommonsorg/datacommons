@@ -60,6 +60,22 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
         name  = "IS_BASE_DC"
         value = "false"
       }
+      env {
+        name  = "REDIS_HOST"
+        value = var.redis_host
+      }
+      env {
+        name  = "REDIS_PORT"
+        value = var.redis_port
+      }
+    }
+
+    dynamic "vpc_access" {
+      for_each = var.vpc_connector_id != null && var.vpc_connector_id != "" ? [1] : []
+      content {
+        connector = var.vpc_connector_id
+        egress    = "PRIVATE_RANGES_ONLY"
+      }
     }
 
     service_account = google_service_account.helper_sa[0].email
