@@ -50,9 +50,38 @@ output "ingestion_workflow_service_account_email" {
   value       = module.stack.ingestion_workflow_service_account_email
 }
 
+output "dcp_orchestrator_service_account_email" {
+  description = "Alias for ingestion_workflow_service_account_email to support external scripts"
+  value       = module.stack.ingestion_workflow_service_account_email
+}
+
 output "storage_artifacts_bucket_name" {
   description = "Name of the unified GCS bucket for artifacts"
   value       = module.stack.storage_artifacts_bucket_name
+}
+
+output "dcp_spanner_instance_id" {
+  value = module.stack.spanner_instance_id
+}
+
+output "dcp_spanner_database_id" {
+  value = module.stack.spanner_database_id
+}
+
+output "dcp_project_id" {
+  value = var.project_id
+}
+
+output "dcp_region" {
+  value = var.region
+}
+
+output "dcp_ingestion_workflow_name" {
+  value = module.stack.ingestion_workflow_name
+}
+
+output "dcp_ingestion_prep_job_name" {
+  value = module.stack.ingestion_prep_job_name
 }
 
 output "project_id" {
