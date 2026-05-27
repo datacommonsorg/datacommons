@@ -57,4 +57,5 @@ auth_google_datacommons_api_key = "$$DC_API_KEY$$"
 auth_create_google_maps_api_key = false
 auth_google_maps_api_key = "TODO"
 spanner_enable_bigquery_connection                = true
+spanner_enable_embedding_ingestion                = false
 ingestion_workflow_enable_bigquery_postprocessing = false

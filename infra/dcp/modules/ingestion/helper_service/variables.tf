@@ -58,6 +58,12 @@ variable "enable_bigquery_postprocessing" {
   default     = true
 }
 
+variable "enable_embedding_ingestion" {
+  type        = bool
+  description = "Flag to enable embedding ingestion"
+  default     = false
+}
+
 variable "vpc_connector_id" {
   type        = string
   description = "VPC access connector ID for Cloud Run"

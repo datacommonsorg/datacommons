@@ -36,6 +36,11 @@ variable "enable_bigquery_postprocessing" {
   default = false
 }
 
+variable "enable_embedding_ingestion" {
+  type    = bool
+  default = false
+}
+
 variable "enable_datacommons_services" {
   type        = bool
   description = "Flag to indicate if datacommons_services is enabled"

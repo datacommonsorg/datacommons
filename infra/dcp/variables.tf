@@ -191,6 +191,12 @@ variable "spanner_enable_bigquery_connection" {
   default     = true
 }
 
+variable "spanner_enable_embedding_ingestion" {
+  description = "Enable embedding ingestion in Spanner"
+  type        = bool
+  default     = false
+}
+
 variable "spanner_bigquery_connection_name" {
   description = "The name of the BigQuery external connection to Spanner"
   type        = string
