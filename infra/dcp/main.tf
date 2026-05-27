@@ -12,6 +12,10 @@ terraform {
       source  = "hashicorp/random"
       version = ">= 3.0"
     }
+    time = {
+      source  = "hashicorp/time"
+      version = ">= 0.7.0"
+    }
   }
 }
 
@@ -54,6 +58,14 @@ resource "google_project_service" "apis" {
 
   service            = each.key
   disable_on_destroy = false
+}
+
+resource "time_sleep" "wait_for_foundation" {
+  create_duration = "90s"
+
+  depends_on = [
+    google_project_service.apis
+  ]
 }
 
 locals {
@@ -149,5 +161,5 @@ module "stack" {
   redis_config                    = local.redis_config
   ingestion_config                = local.ingestion_config
 
-  depends_on = [google_project_service.apis]
+  foundation_dependency = time_sleep.wait_for_foundation.id
 }

@@ -19,3 +19,9 @@ variable "use_spanner" {
   default = true
 }
 
+variable "foundation_dependency" {
+  description = "An artificial dependency to delay resource creation until APIs are ready."
+  type        = any
+  default     = null
+}
+

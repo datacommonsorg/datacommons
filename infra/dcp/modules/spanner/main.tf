@@ -12,6 +12,8 @@ resource "google_spanner_instance" "main" {
   processing_units = var.processing_units
   force_destroy    = !var.stateful_deletion_protection
   edition          = "ENTERPRISE"
+
+  depends_on = [var.foundation_dependency]
 }
 
 resource "google_spanner_database" "database" {
@@ -51,12 +53,7 @@ resource "google_spanner_database_iam_member" "spanner_reader" {
   member   = "serviceAccount:${data.google_bigquery_default_service_account.bq_sa.email}"
 }
 
-resource "google_project_iam_member" "bq_sa_spanner_viewer" {
-  count   = var.enable_bigquery_connection ? 1 : 0
-  project = var.project_id
-  role    = "roles/spanner.viewer"
-  member  = "serviceAccount:${data.google_bigquery_default_service_account.bq_sa.email}"
-}
+
 
 
 # Create the BigQuery Reservation for Federation queries

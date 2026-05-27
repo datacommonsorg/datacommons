@@ -23,6 +23,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
       - init:
           assign:
             - project_id: '${var.project_id}'
+
             - workflow_id: '$${sys.get_env("GOOGLE_CLOUD_WORKFLOW_EXECUTION_ID")}'
             - version: '$${"version-" + string(int(sys.now()))}'
             - bucket_name: '$${text.split(input.tempLocation, "/")[2]}'
@@ -214,9 +215,4 @@ resource "google_cloud_run_v2_service_iam_member" "helper_invoker" {
   member   = "serviceAccount:${google_service_account.workflow_sa[0].email}"
 }
 
-resource "google_project_iam_member" "workflow_run_viewer" {
-  count   = var.deploy ? 1 : 0
-  project = var.project_id
-  role    = "roles/run.viewer"
-  member  = "serviceAccount:${google_service_account.workflow_sa[0].email}"
-}
+
