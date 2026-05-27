@@ -55,19 +55,9 @@ auth_google_datacommons_api_key = "$$DC_API_KEY$$"
 # Ingestion - Postprocessing
 # =============================================================================
 # Set to true to create a dedicated BigQuery reservation for federation queries.
-# 
-# NOTE: BigQuery reservations are project-wide per region. If managing multiple 
-# deployments in the SAME project & region:
-# - Set this to true for ONLY ONE deployment to create the reservation.
-# - Set this to false for all other deployments to share it.
-# 
-# CAUTION: Deleting this reservation will break post-processing for ALL deployments 
-# in the same project and region. To stop managing it in this deployment WITHOUT 
-# destroying it (so others can still use it), remove it from the state by running:
-#   terraform state rm module.stack.module.spanner[0].google_bigquery_reservation.default[0]
-#   terraform state rm module.stack.module.spanner[0].google_bigquery_reservation_assignment.project_assignment[0]
-# Then set spanner_create_bigquery_reservation = false in this deployment.
-# spanner_create_bigquery_reservation = true
+# Note: You only need one reservation per project per region. If you intend to 
+# deploy multiple environments in the same project, please carefully read the documentation.
+spanner_create_bigquery_reservation = true
 
 # =============================================================================
 # TEMP
