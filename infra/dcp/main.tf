@@ -53,7 +53,15 @@ resource "google_project_service" "apis" {
   ] : []))
 
   service            = each.key
-  disable_on_destroy = false
+  disable_on_destroy = true
+}
+
+resource "time_sleep" "wait_for_foundation" {
+  create_duration = "90s"
+
+  depends_on = [
+    google_project_service.apis
+  ]
 }
 
 locals {
