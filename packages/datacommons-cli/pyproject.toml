@@ -16,6 +16,7 @@ urls = {Homepage = "https://github.com/datacommonsorg/datacommons"}
 
 [project.scripts]
 datacommons = "datacommons_cli.cli:cli"
+datacommons-cli = "datacommons_cli.cli:cli"
 
 [build-system]
 requires = ["uv", "setuptools"]
