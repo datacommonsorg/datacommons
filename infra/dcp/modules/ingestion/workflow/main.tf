@@ -121,7 +121,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                     auth:
                       type: OIDC
                     body:
-                      actionType: "run_postprocessing"
+                      actionType: "run_aggregation"
                       importList: '$${json.decode(input.importList)}'
                   result: postprocessing_result
 %{endif}
