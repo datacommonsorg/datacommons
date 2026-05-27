@@ -40,8 +40,6 @@ auth_google_datacommons_api_key = "$$DC_API_KEY$$"
 # spanner_create_database = true
 # spanner_database_id     = "dc-db"
 
-
-
 # =============================================================================
 # Datacommons Services Module
 # =============================================================================
