@@ -22,6 +22,7 @@ import click
 from google.api_core import exceptions
 from google.cloud import storage
 
+from . import __version__
 from datacommons_admin.infra_templates import (
     BACKEND_TF_TEMPLATE,
     README_TEMPLATE,
@@ -381,7 +382,7 @@ def _setup_dcp_config_dir(
 )
 @click.option("--dc-api-key", default="", help="Data Commons API key.")
 @click.option(
-    "--ref", default="main", show_default=True, help="Git ref for module source."
+    "--ref", default=__version__, show_default=True, help="Git ref for module source."
 )
 @click.option(
     "--force", is_flag=True, help="Overwrite existing generated files if present."

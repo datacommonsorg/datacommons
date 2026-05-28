@@ -18,7 +18,7 @@ import click
 
 from datacommons_admin.admin_cli import admin as admin_cli
 
-from . import version
+from . import __version__
 
 
 def get_logo_color():
@@ -59,12 +59,12 @@ def cli_help() -> str:
         "    ╚═════╝   ╚═════╝"
     )
     styled_logo = click.style(logo, fg=get_logo_color(), bold=True)
-    version_str = click.style(f"v{version.__version__}", fg="bright_black")
+    version_str = click.style(f"v{__version__}", fg="bright_black")
     return f"{styled_logo}\n\nData Commons CLI {version_str}"
 
 
 @click.group(cls=CustomGroup, help=cli_help())
-@click.version_option(version=version.__version__, prog_name="Data Commons CLI")
+@click.version_option(version=__version__, prog_name="Data Commons CLI")
 def cli():
     """Data Commons CLI"""
     pass

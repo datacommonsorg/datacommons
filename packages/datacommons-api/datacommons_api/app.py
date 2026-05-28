@@ -15,12 +15,12 @@
 from fastapi import FastAPI
 
 from datacommons_api.endpoints.routers import node_router
-from . import version
+from . import __version__
 
 # FastAPI initialization
 app = FastAPI(
     title="Data Commons API",
-    version=version.__version__,
+    version=__version__,
     openapi_url="/openapi.json",
     docs_url="/docs",
     redoc_url="/redoc",
