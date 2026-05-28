@@ -91,7 +91,7 @@ locals {
     google_analytics_tag            = var.datacommons_services_google_analytics_tag_id
     enable_mcp                      = var.datacommons_services_enable_mcp
     search_scope                    = var.datacommons_services_mcp_search_scope
-    instructions_path               = var.datacommons_services_mcp_instructions_path
+    instructions_path               = var.datacommons_services_mcp_instructions_path != null ? trimsuffix(var.datacommons_services_mcp_instructions_path, "/") : null
     allow_unauthenticated_access    = var.datacommons_services_allow_unauthenticated_access
     website_disable_google_maps_api = var.datacommons_services_website_disable_google_maps_api
   }
@@ -120,8 +120,8 @@ locals {
     workflow_enable_bigquery_postprocessing = var.ingestion_workflow_enable_bigquery_postprocessing
 
     # Storage & Paths
-    input_path              = var.ingestion_input_path
-    workflow_artifacts_path = var.ingestion_workflow_artifacts_path
+    input_path              = trimsuffix(var.ingestion_input_path, "/")
+    workflow_artifacts_path = trimsuffix(var.ingestion_workflow_artifacts_path, "/")
 
     # Preprocessing Job
     preprocessing_job_image   = var.ingestion_preprocessing_job_image
