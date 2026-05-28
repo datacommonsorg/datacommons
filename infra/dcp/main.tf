@@ -120,7 +120,7 @@ locals {
     workflow_enable_bigquery_postprocessing = var.ingestion_workflow_enable_bigquery_postprocessing
 
     # Storage & Paths
-    input_path              = var.ingestion_input_path
+    input_path              = trimsuffix(var.ingestion_input_path, "/")
     workflow_artifacts_path = var.ingestion_workflow_artifacts_path
 
     # Preprocessing Job
