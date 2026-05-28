@@ -121,7 +121,7 @@ locals {
 
     # Storage & Paths
     input_path              = trimsuffix(var.ingestion_input_path, "/")
-    workflow_artifacts_path = trimsuffix(var.ingestion_workflow_artifacts_path, "/")
+    ingestion_artifacts_path = trimsuffix(var.ingestion_artifacts_path, "/")
 
     # Preprocessing Job
     preprocessing_job_image   = var.ingestion_preprocessing_job_image

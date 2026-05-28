@@ -54,7 +54,7 @@ resource "google_cloud_run_v2_job" "dc_data_job" {
         }
         env {
           name  = "GCS_OUTPUT_FOLDER"
-          value = var.workflow_artifacts_path
+          value = var.ingestion_artifacts_path
         }
         env {
           name  = "INPUT_DIR"
