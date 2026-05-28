@@ -26,16 +26,17 @@ def get_logo_color():
     colorterm = os.environ.get("COLORTERM", "").lower()
     if colorterm in ("truecolor", "24bit"):
         return (7, 81, 179)
-    
+
     term = os.environ.get("TERM", "").lower()
     if "256color" in term or colorterm:
         return 26  # Royal blue color index in 256-color palette
-        
+
     return "blue"
 
 
 class CustomGroup(click.Group):
     """Custom click.Group to preserve logo formatting and newlines in help text"""
+
     def format_help_text(self, ctx, formatter):
         if self.help:
             formatter.write_paragraph()

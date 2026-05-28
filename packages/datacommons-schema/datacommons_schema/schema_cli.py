@@ -6,16 +6,21 @@ from datacommons_schema.converters.mcf_to_jsonld import mcf_nodes_to_jsonld
 from datacommons_schema.parsers.mcf_parser import parse_mcf_string
 from . import version
 
+
 def cli_help() -> str:
     """Return help string for the CLI"""
     version_str = click.style(f"v{version.__version__}", fg="bright_black")
     return f"Data Commons Schema Parsing CLI {version_str}"
 
+
 @click.group(help=cli_help())
-@click.version_option(version=version.__version__, prog_name="Data Commons Schema Parsing CLI")
+@click.version_option(
+    version=version.__version__, prog_name="Data Commons Schema Parsing CLI"
+)
 def schema():
     """Data Commons Schema Parsing CLI"""
     pass
+
 
 @schema.command()
 @click.argument("mcf_file", type=click.Path(exists=True))

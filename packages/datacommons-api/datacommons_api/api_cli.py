@@ -31,6 +31,7 @@ def cli_help() -> str:
     version_str = click.style(f"v{version.__version__}", fg="bright_black")
     return f"Data Commons API CLI {version_str}"
 
+
 @click.group(help=cli_help())
 @click.version_option(version=version.__version__, prog_name="Data Commons API CLI")
 def api():
