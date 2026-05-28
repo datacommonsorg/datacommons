@@ -62,7 +62,7 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
       }
       env {
         name  = "ENABLE_EMBEDDINGS"
-        value = tostring(var.enable_embedding_ingestion)
+        value = var.enable_embedding_ingestion
       }
       env {
         name  = "REDIS_HOST"

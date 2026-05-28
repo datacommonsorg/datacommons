@@ -46,11 +46,13 @@ resource "google_project_service" "apis" {
       "workflows.googleapis.com",
       "workflowexecutions.googleapis.com",
       "dataflow.googleapis.com"
-      ] : [], var.spanner_enable_bigquery_connection ? [
+    ] : [],
+    var.spanner_enable_bigquery_connection ? [
       "bigqueryconnection.googleapis.com",
       "bigquery.googleapis.com",
       "bigqueryreservation.googleapis.com"
-  ] : []))
+    ] : [],
+    var.spanner_enable_embedding_ingestion ? ["aiplatform.googleapis.com"] : []))
 
   service            = each.key
   disable_on_destroy = false
