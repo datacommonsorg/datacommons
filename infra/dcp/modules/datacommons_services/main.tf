@@ -114,6 +114,8 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
     service_account = google_service_account.serving_sa.email
 
   }
+
+  depends_on = [google_project_iam_member.serving_sa_roles]
 }
 
 resource "google_cloud_run_v2_service_iam_member" "public_access" {
