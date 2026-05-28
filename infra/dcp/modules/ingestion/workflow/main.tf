@@ -26,7 +26,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
             - workflow_id: '$${sys.get_env("GOOGLE_CLOUD_WORKFLOW_EXECUTION_ID")}'
             - version: '$${"version-" + string(int(sys.now()))}'
             - bucket_name: '$${text.split(input.tempLocation, "/")[2]}'
-            - latest_version_gcs_path: '$${"gs://" + bucket_name + "/imports/" + input.importName + "/" + version}'
+            - latest_version_gcs_path: '$${"gs://" + bucket_name + "/${var.workflow_artifacts_path}/" + input.importName + "/" + version}'
             - execution_error: null
             - lock_timeout: ${var.lock_acquisition_timeout}
             - launch_params:

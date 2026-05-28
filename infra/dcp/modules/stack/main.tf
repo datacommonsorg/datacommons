@@ -45,7 +45,7 @@ locals {
     },
     {
       name  = "TEMP_LOCATION"
-      value = "gs://${module.storage.artifacts_bucket_name}/temp"
+      value = "gs://${module.storage.artifacts_bucket_name}/${var.ingestion_config.workflow_artifacts_path}/temp"
     },
     {
       name  = "PROJECT_ID"
@@ -193,6 +193,7 @@ module "ingestion_workflow" {
   enable_datacommons_services    = var.datacommons_services_config.enable
   ingestion_helper_service_name  = "${var.global.namespace != "" ? "${var.global.namespace}-" : ""}dc-ingestion-helper"
   enable_redis_cache_clearing    = var.redis_config.enable
+  workflow_artifacts_path        = var.ingestion_config.workflow_artifacts_path
 
   depends_on = [module.ingestion_helper_service]
 }
