@@ -110,14 +110,13 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
               - check_success:
                   switch:
                     - condition: '$${job_status.currentState == "JOB_STATE_DONE"}'
-                      next: %{ if var.enable_bigquery_postprocessing || var.enable_embedding_ingestion }run_optional_tasks%{ else }promote_version%{ endif }
+                      next: %{ if var.enable_bigquery_postprocessing && var.enable_embedding_ingestion }run_optional_tasks%{ else }%{ if var.enable_bigquery_postprocessing }run_postprocessings%{ else }%{ if var.enable_embedding_ingestion }run_embeddings%{ else }promote_version%{ endif }%{ endif }%{ endif }
               - fail_on_job_status:
                   raise: '$${ "Dataflow job failed with state: " + job_status.currentState }'
-%{ if var.enable_bigquery_postprocessing || var.enable_embedding_ingestion }
+%{ if var.enable_bigquery_postprocessing && var.enable_embedding_ingestion }
               - run_optional_tasks:
                   parallel:
                     branches:
-%{ if var.enable_bigquery_postprocessing }
                       - postprocessing:
                           steps:
                             - run_postprocessings:
@@ -130,8 +129,6 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                                     actionType: "run_aggregation"
                                     importList: '$${json.decode(input.importList)}'
                                 result: postprocessing_result
-%{ endif }
-%{ if var.enable_embedding_ingestion }
                       - embeddings:
                           steps:
                             - run_embeddings:
@@ -144,6 +141,30 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                                     actionType: "embedding_ingestion"
                                     importList: '$${json.decode(input.importList)}'
                                 result: embedding_result
+%{ else }
+%{ if var.enable_bigquery_postprocessing }
+              - run_postprocessings:
+                  call: http.post
+                  args:
+                    url: '${var.ingestion_helper_url}'
+                    auth:
+                      type: OIDC
+                    body:
+                      actionType: "run_aggregation"
+                      importList: '$${json.decode(input.importList)}'
+                  result: postprocessing_result
+%{ endif }
+%{ if var.enable_embedding_ingestion }
+              - run_embeddings:
+                  call: http.post
+                  args:
+                    url: '${var.ingestion_helper_url}'
+                    auth:
+                      type: OIDC
+                    body:
+                      actionType: "embedding_ingestion"
+                      importList: '$${json.decode(input.importList)}'
+                  result: embedding_result
 %{ endif }
 %{ endif }
               - promote_version:
