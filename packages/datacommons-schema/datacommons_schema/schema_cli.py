@@ -14,9 +14,7 @@ def cli_help() -> str:
 
 
 @click.group(help=cli_help())
-@click.version_option(
-    version=__version__, prog_name="Data Commons Schema Parsing CLI"
-)
+@click.version_option(version=__version__, prog_name="Data Commons Schema Parsing CLI")
 def schema():
     """Data Commons Schema Parsing CLI"""
     pass
