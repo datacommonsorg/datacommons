@@ -41,6 +41,11 @@ variable "enable_embedding_ingestion" {
   default = false
 }
 
+variable "embeddings_timeout" {
+  type    = number
+  default = 1800
+}
+
 variable "enable_datacommons_services" {
   type        = bool
   description = "Flag to indicate if datacommons_services is enabled"

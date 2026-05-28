@@ -140,6 +140,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                                   body:
                                     actionType: "embedding_ingestion"
                                     importList: '$${json.decode(input.importList)}'
+                                  timeout: ${var.embeddings_timeout}
                                 result: embedding_result
 %{ else }
 %{ if var.enable_bigquery_postprocessing }
@@ -164,6 +165,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                     body:
                       actionType: "embedding_ingestion"
                       importList: '$${json.decode(input.importList)}'
+                    timeout: ${var.embeddings_timeout}
                   result: embedding_result
 %{ endif }
 %{ endif }
