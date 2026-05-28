@@ -328,7 +328,7 @@ variable "ingestion_preprocessing_job_timeout" {
 variable "ingestion_input_path" {
   description = "Path within the bucket where raw files are uploaded"
   type        = string
-  default     = "ingestion/input/"
+  default     = "ingestion/input"
 }
 
 # =============================================================================
