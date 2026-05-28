@@ -98,3 +98,9 @@ variable "ingestion_config" {
     helper_service_image              = string
   })
 }
+
+variable "foundation_dependency" {
+  description = "An artificial dependency to delay resource creation until APIs are ready."
+  type        = any
+  default     = null
+}

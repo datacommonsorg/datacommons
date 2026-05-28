@@ -99,6 +99,7 @@ module "spanner" {
   create_bigquery_reservation        = var.spanner_config.create_bigquery_reservation
   bigquery_reservation_slot_capacity = var.spanner_config.bigquery_reservation_slot_capacity
   bigquery_reservation_max_slots     = var.spanner_config.bigquery_reservation_max_slots
+  foundation_dependency              = var.foundation_dependency
 }
 
 
@@ -114,6 +115,8 @@ module "storage" {
   # Shared vars
   project_id = var.global.project_id
   namespace  = var.global.namespace
+
+  foundation_dependency = var.foundation_dependency
 }
 
 module "ingestion_preprocessing_job" {
@@ -138,6 +141,7 @@ module "ingestion_preprocessing_job" {
   secret_env_vars         = local.datacommons_services_secrets
   dc_api_key_secret_id    = module.auth.dc_api_key_secret_id
   maps_api_key_secret_id  = module.auth.maps_api_key_secret_id
+  foundation_dependency   = var.foundation_dependency
 
   depends_on = [module.auth]
 }
@@ -150,6 +154,7 @@ module "ingestion_dataflow" {
   namespace             = var.global.namespace
   ingestion_bucket_name = module.storage.artifacts_bucket_name
   use_spanner           = var.spanner_config.enable
+  foundation_dependency = var.foundation_dependency
 }
 
 
@@ -249,6 +254,7 @@ module "datacommons_services" {
   use_spanner             = var.spanner_config.enable
   env_vars                = local.cloud_run_shared_env_variables
   secret_env_vars         = local.datacommons_services_secrets
+  foundation_dependency   = var.foundation_dependency
 
   depends_on = [module.ingestion_preprocessing_job]
 }
@@ -351,6 +357,81 @@ resource "google_cloud_run_v2_service_iam_member" "workflow_serving_developer" {
   role     = "roles/run.developer"
   member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
+
+data "google_bigquery_default_service_account" "bq_sa" {
+  project = var.global.project_id
+}
+
+resource "google_project_iam_member" "bq_sa_spanner_viewer" {
+  count   = var.spanner_config.enable && var.spanner_config.enable_bigquery_connection ? 1 : 0
+  project = var.global.project_id
+  role    = "roles/spanner.viewer"
+  member  = "serviceAccount:${data.google_bigquery_default_service_account.bq_sa.email}"
+}
+
+resource "google_project_iam_member" "serving_sa_roles" {
+  for_each = var.datacommons_services_config.enable ? setsubtract(toset([
+    "roles/compute.networkViewer",
+    "roles/redis.editor",
+    "roles/storage.objectViewer",
+    "roles/vpcaccess.user",
+    "roles/iam.serviceAccountUser",
+    "roles/secretmanager.secretAccessor",
+    "roles/spanner.databaseUser",
+    "roles/workflows.invoker"
+  ]), var.spanner_config.enable ? [] : ["roles/spanner.databaseUser"]) : []
+
+  project = var.global.project_id
+  member  = "serviceAccount:${module.datacommons_services[0].service_account_email}"
+  role    = each.value
+}
+
+resource "google_project_iam_member" "helper_spanner_user" {
+  count   = var.ingestion_config.enable_ingestion && var.spanner_config.enable ? 1 : 0
+  project = var.global.project_id
+  role    = "roles/spanner.databaseUser"
+  member  = "serviceAccount:${module.ingestion_helper_service.service_account_email}"
+}
+
+resource "google_project_iam_member" "helper_bq_roles" {
+  for_each = toset(var.ingestion_config.enable_ingestion && var.ingestion_config.workflow_enable_bigquery_postprocessing ? [
+    "roles/bigquery.dataEditor",
+    "roles/bigquery.jobUser"
+  ] : [])
+  project = var.global.project_id
+  role    = each.value
+  member  = "serviceAccount:${module.ingestion_helper_service.service_account_email}"
+}
+
+resource "google_project_iam_member" "workflow_run_viewer" {
+  count   = var.ingestion_config.enable_ingestion ? 1 : 0
+  project = var.global.project_id
+  role    = "roles/run.viewer"
+  member  = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
+resource "google_project_iam_member" "preprocessing_workflow_invoker" {
+  count   = var.ingestion_config.enable_ingestion ? 1 : 0
+  project = var.global.project_id
+  role    = "roles/workflows.invoker"
+  member  = "serviceAccount:${module.ingestion_preprocessing_job[0].service_account_email}"
+}
+
+resource "google_project_iam_member" "ingestion_spanner_user" {
+  count   = var.ingestion_config.enable_ingestion && var.spanner_config.enable ? 1 : 0
+  project = var.global.project_id
+  role    = "roles/spanner.databaseUser"
+  member  = "serviceAccount:${module.ingestion_dataflow.service_account_email}"
+}
+
+resource "google_project_iam_member" "dataflow_worker" {
+  count   = var.ingestion_config.enable_ingestion ? 1 : 0
+  project = var.global.project_id
+  role    = "roles/dataflow.worker"
+  member  = "serviceAccount:${module.ingestion_dataflow.service_account_email}"
+}
+
+
 
 
 

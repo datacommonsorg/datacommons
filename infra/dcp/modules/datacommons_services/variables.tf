@@ -101,3 +101,11 @@ variable "secret_env_vars" {
     version = string
   }))
 }
+
+variable "foundation_dependency" {
+  description = "An artificial dependency to delay resource creation until APIs are ready."
+  type        = any
+  default     = null
+}
+
+

@@ -5,25 +5,11 @@ locals {
 resource "google_service_account" "serving_sa" {
   account_id   = "${local.name_prefix}dc-srvs-sa"
   display_name = "Data Commons Serving Service Account"
+
+  depends_on = [var.foundation_dependency]
 }
 
-resource "google_project_iam_member" "serving_sa_roles" {
-  for_each = setsubtract(toset([
-    "roles/compute.networkViewer",
-    "roles/redis.editor",
-    "roles/storage.objectViewer",
-    "roles/vpcaccess.user",
-    # TODO: Review this overly broad permission.
-    "roles/iam.serviceAccountUser",
-    "roles/secretmanager.secretAccessor",
-    "roles/spanner.databaseUser",
-    "roles/workflows.invoker"
-  ]), var.use_spanner ? [] : ["roles/spanner.databaseUser"])
 
-  project = var.project_id
-  member  = "serviceAccount:${google_service_account.serving_sa.email}"
-  role    = each.value
-}
 
 resource "google_cloud_run_v2_service" "dc_web_service" {
   name                = "${local.name_prefix}dc-datacommons-service"
@@ -65,6 +51,8 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
         name  = "GCP_PROJECT_ID"
         value = var.project_id
       }
+
+
 
       dynamic "env" {
         for_each = var.secret_env_vars

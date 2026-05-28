@@ -7,23 +7,15 @@ resource "google_service_account" "dataflow_sa" {
   count        = var.deploy ? 1 : 0
   account_id   = "${local.name_prefix}dc-ing-df-sa"
   display_name = "Data Commons Ingestion Dataflow SA"
-}
 
-resource "google_project_iam_member" "ingestion_spanner_user" {
-  count   = var.deploy && var.use_spanner ? 1 : 0
-  project = var.project_id
-  role    = "roles/spanner.databaseUser"
-  member  = "serviceAccount:${google_service_account.dataflow_sa[0].email}"
+  depends_on = [var.foundation_dependency]
 }
 
 
 
-resource "google_project_iam_member" "dataflow_worker" {
-  count   = var.deploy ? 1 : 0
-  project = var.project_id
-  role    = "roles/dataflow.worker"
-  member  = "serviceAccount:${google_service_account.dataflow_sa[0].email}"
-}
+
+
+
 
 # This is only needed to trigger the services restart to pick up the GCS embeddings change
 

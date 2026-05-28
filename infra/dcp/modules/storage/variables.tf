@@ -24,3 +24,9 @@ variable "stateful_deletion_protection" {
   description = "Enable deletion protection for stateful resources (GCS) to prevent data loss."
 }
 
+variable "foundation_dependency" {
+  description = "An artificial dependency to delay resource creation until APIs are ready."
+  type        = any
+  default     = null
+}
+

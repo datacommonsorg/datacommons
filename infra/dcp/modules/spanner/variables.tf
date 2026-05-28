@@ -75,3 +75,9 @@ variable "bigquery_reservation_max_slots" {
   description = "Max slots for BigQuery reservation autoscale"
   default     = 400
 }
+
+variable "foundation_dependency" {
+  description = "An artificial dependency to delay resource creation until APIs are ready."
+  type        = any
+  default     = null
+}
