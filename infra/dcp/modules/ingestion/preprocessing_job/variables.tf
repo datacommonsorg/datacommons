@@ -12,7 +12,7 @@ variable "timeout" { type = string }
 variable "vpc_connector_id" { type = string }
 variable "bucket_name" { type = string }
 variable "input_path" { type = string }
-variable "workflow_artifacts_path" { type = string }
+variable "ingestion_artifacts_path" { type = string }
 variable "run_database_init" { type = bool }
 variable "use_spanner" { type = bool }
 
