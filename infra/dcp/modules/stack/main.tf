@@ -175,6 +175,7 @@ module "ingestion_helper_service" {
   vpc_connector_id = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].connector_id : null
   redis_host       = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
   redis_port       = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
+  ingestion_artifacts_path = var.ingestion_config.workflow_artifacts_path
 }
 
 
@@ -193,7 +194,7 @@ module "ingestion_workflow" {
   enable_datacommons_services    = var.datacommons_services_config.enable
   ingestion_helper_service_name  = "${var.global.namespace != "" ? "${var.global.namespace}-" : ""}dc-ingestion-helper"
   enable_redis_cache_clearing    = var.redis_config.enable
-  workflow_artifacts_path        = var.ingestion_config.workflow_artifacts_path
+  ingestion_artifacts_path       = var.ingestion_config.workflow_artifacts_path
 
   depends_on = [module.ingestion_helper_service]
 }
