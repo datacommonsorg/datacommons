@@ -57,6 +57,10 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
         value = var.ingestion_bucket_name
       }
       env {
+        name  = "GCS_OUTPUT_PREFIX"
+        value = var.ingestion_artifacts_path
+      }
+      env {
         name  = "IS_BASE_DC"
         value = "false"
       }

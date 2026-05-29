@@ -16,8 +16,6 @@ resource "google_project_iam_member" "ingestion_spanner_user" {
   member  = "serviceAccount:${google_service_account.dataflow_sa[0].email}"
 }
 
-
-
 resource "google_project_iam_member" "dataflow_worker" {
   count   = var.deploy ? 1 : 0
   project = var.project_id

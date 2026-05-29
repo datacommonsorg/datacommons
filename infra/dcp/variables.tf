@@ -206,7 +206,7 @@ variable "spanner_bigquery_connection_name" {
 variable "spanner_create_bigquery_reservation" {
   description = "Create a dedicated BigQuery reservation for federation queries"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "spanner_bigquery_reservation_slot_capacity" {
@@ -334,7 +334,7 @@ variable "ingestion_preprocessing_job_timeout" {
 variable "ingestion_input_path" {
   description = "Path within the bucket where raw files are uploaded"
   type        = string
-  default     = "ingestion/input/"
+  default     = "ingestion/input"
 }
 
 # =============================================================================
@@ -359,7 +359,7 @@ variable "ingestion_workflow_enable_bigquery_postprocessing" {
   default     = true
 }
 
-variable "ingestion_workflow_artifacts_path" {
+variable "ingestion_artifacts_path" {
   description = "Path where pre-processed files are placed for the next stage"
   type        = string
   default     = "ingestion/internal"

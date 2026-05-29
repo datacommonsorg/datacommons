@@ -16,6 +16,7 @@ urls = {Homepage = "https://github.com/datacommonsorg/datacommons"}
 
 [project.scripts]
 datacommons = "datacommons_cli.cli:cli"
+datacommons-cli = "datacommons_cli.cli:cli"
 
 [build-system]
 requires = ["uv", "setuptools"]
@@ -25,4 +26,4 @@ build-backend = "setuptools.build_meta"
 include-package-data = true
 
 [tool.setuptools.dynamic]
-version = {attr = "datacommons_cli.version.__version__"}
+version = {attr = "datacommons_cli.__version__"}

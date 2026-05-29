@@ -86,7 +86,7 @@ variable "ingestion_config" {
 
     # Storage & Paths
     input_path              = string
-    workflow_artifacts_path = string
+    ingestion_artifacts_path = string
 
     # Preprocessing Job
     preprocessing_job_image   = string
