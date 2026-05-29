@@ -415,7 +415,7 @@ def init(
     project_id: str,
     namespace: str,
     dc_api_key: str,
-    ref: str,
+    tf_git_ref: str,
     force: bool,
     tf_remote_state: bool,
     tf_state_bucket: str,
@@ -466,7 +466,7 @@ def init(
         resolved_bucket_name,
         resolved_tf_state_prefix,
         dc_api_key,
-        ref,
+        tf_git_ref,
         tf_remote_state,
     )
 
