@@ -52,7 +52,7 @@ resource "google_project_service" "apis" {
       "bigquery.googleapis.com",
       "bigqueryreservation.googleapis.com"
     ] : [],
-    var.spanner_enable_embedding_ingestion ? ["aiplatform.googleapis.com"] : []))
+    var.spanner_enable_embeddings ? ["aiplatform.googleapis.com"] : []))
 
   service            = each.key
   disable_on_destroy = false
@@ -76,7 +76,7 @@ locals {
     version_retention_period           = var.spanner_version_retention_period
     processing_units                   = var.spanner_processing_units
     enable_bigquery_connection         = var.spanner_enable_bigquery_connection
-    enable_embedding_ingestion         = var.spanner_enable_embedding_ingestion
+    enable_embeddings                  = var.spanner_enable_embeddings
     bigquery_connection_name           = var.spanner_bigquery_connection_name
     create_bigquery_reservation        = var.spanner_create_bigquery_reservation
     bigquery_reservation_slot_capacity = var.spanner_bigquery_reservation_slot_capacity

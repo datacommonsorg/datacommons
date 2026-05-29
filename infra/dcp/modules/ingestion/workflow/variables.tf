@@ -36,14 +36,16 @@ variable "enable_bigquery_postprocessing" {
   default = false
 }
 
-variable "enable_embedding_ingestion" {
-  type    = bool
-  default = false
+variable "enable_embeddings" {
+  type        = bool
+  description = "Enable embedding generation"
+  default     = false
 }
 
 variable "embeddings_timeout" {
-  type    = number
-  default = 1800
+  type        = number
+  description = "Timeout in seconds for ingestion helper service HTTP post"
+  default     = 1800
 }
 
 variable "enable_datacommons_services" {

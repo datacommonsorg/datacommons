@@ -191,8 +191,8 @@ variable "spanner_enable_bigquery_connection" {
   default     = true
 }
 
-variable "spanner_enable_embedding_ingestion" {
-  description = "Enable embedding ingestion in Spanner"
+variable "spanner_enable_embeddings" {
+  description = "Enable embedding generation in Spanner"
   type        = bool
   default     = false
 }
