@@ -100,12 +100,18 @@ datacommons admin [COMMAND] --help
 
 2. Change directories to the scaffolded directory (e.g. `cd prod`).
 
-3. Deploy using Terraform, then initialize and seed your Spanner database:
+3. Initialize and deploy your GCP infrastructure with Terraform:
+   ```bash
+   terraform init
+   terraform apply
+   ```
+
+4. Initialize and seed your Spanner database:
    ```bash
    datacommons admin init-db
    ```
 
-4. Trigger your first background data ingestion pipeline:
+5. Trigger the data ingestion pipeline:
    ```bash
    datacommons admin ingest start
    ```

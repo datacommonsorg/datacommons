@@ -382,7 +382,7 @@ def _setup_dcp_config_dir(
 )
 @click.option("--dc-api-key", default="", help="Data Commons API key.")
 @click.option(
-    "--ref", default=f"v{__version__}", show_default=True, help="Git ref for module source."
+    "--tf-git-ref", default=f"v{__version__}", show_default=True, help="Git ref for module source."
 )
 @click.option(
     "--force", is_flag=True, help="Overwrite existing generated files if present."
