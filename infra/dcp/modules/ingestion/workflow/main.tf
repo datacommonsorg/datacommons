@@ -1,8 +1,8 @@
 locals {
   name_prefix = var.namespace != "" ? "${var.namespace}-" : ""
-  postprocessing_step = var.enable_bigquery_postprocessing || var.enable_embeddings ? "ingestion_postprocessing" : "promote_version"
+  postprocessing_step = var.enable_bigquery_postprocessing || var.enable_embeddings_generation ? "ingestion_postprocessing" : "promote_version"
 
-  ingestion_postprocessing = var.enable_bigquery_postprocessing && var.enable_embeddings ? <<-EOT
+  ingestion_postprocessing = var.enable_bigquery_postprocessing && var.enable_embeddings_generation ? <<-EOT
               - ingestion_postprocessing:
                   parallel:
                     branches:
@@ -44,7 +44,7 @@ EOT
                       importList: '$${json.decode(input.importList)}'
                   result: postprocessing_result
 EOT
-  : (var.enable_embeddings ? <<-EOT
+  : (var.enable_embeddings_generation ? <<-EOT
               - ingestion_postprocessing:
                   call: http.post
                   args:

@@ -58,7 +58,7 @@ variable "enable_bigquery_postprocessing" {
   default     = true
 }
 
-variable "enable_embeddings" {
+variable "enable_embeddings_generation" {
   type        = bool
   description = "Flag to enable embedding generation"
   default     = false

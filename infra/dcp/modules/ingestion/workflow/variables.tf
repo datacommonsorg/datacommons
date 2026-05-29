@@ -36,7 +36,7 @@ variable "enable_bigquery_postprocessing" {
   default = false
 }
 
-variable "enable_embeddings" {
+variable "enable_embeddings_generation" {
   type        = bool
   description = "Enable embedding generation"
   default     = false
