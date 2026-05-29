@@ -376,3 +376,33 @@ def test_ingest_show_config_success(
     assert result.exit_code == 0
     assert "GCS_BUCKET: my-test-bucket" in result.output
     assert "API_KEY: [SECRET: secret-api-key]" in result.output
+
+
+@patch("datacommons_admin.admin_cli._get_github_templates")
+def test_init_uses_default_ref_v_prefixed(
+    mock_get_templates, runner: CliRunner, tmp_path: Path
+) -> None:
+    mock_get_templates.return_value = (
+        'variable "test" {}',
+        'module "stack" {\n  source = "./modules/stack"\n}',
+        'output "test" {}',
+        'project_id = "$$PROJECT_ID$$"\nnamespace  = "$$NAMESPACE$$"\n# cdc_dc_api_key = "$$DC_API_KEY$$"',
+    )
+    from datacommons_admin import __version__
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(
+            admin,
+            [
+                "init",
+                "--project-id",
+                "ref-project",
+                "--namespace",
+                "ref-ns",
+                "--dc-api-key",
+                "ref-key",
+                "--no-tf-remote-state",
+            ],
+        )
+        assert result.exit_code == 0
+        mock_get_templates.assert_called_once_with(f"v{__version__}")
+
