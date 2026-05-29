@@ -25,7 +25,7 @@
 > To execute administrative commands on your terminal, please download and install the main **[datacommons-cli](https://pypi.org/project/datacommons-cli/)** package:
 > 
 > ```bash
-> sudo pip install -H datacommons-cli
+> pip install --user datacommons-cli
 > # Or using uv
 > uv tool install datacommons-cli
 > ```

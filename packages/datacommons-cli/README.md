@@ -20,17 +20,33 @@ The **Data Commons Platform** provides the infrastructure to run your own privat
 
 Install the Data Commons CLI using `pip` or `uv`:
 
+### Install with `pip`
+
 ```bash
-sudo pip install -H datacommons-cli
+pip install --user datacommons-cli
 ```
 
-For a global installation using `uv` (which manages your PATH automatically):
+If the datacommons command is not found after installing, add Python's user-binary directory to your PATH:
+
+```
+export PATH="$PATH:$(python3 -m site --user-base)/bin"
+```
+
+### Install with `uv`
 
 ```bash
 uv tool install datacommons-cli
 ```
 
-Or execute it on-the-fly without installation using `uvx`:
+If the `datacommons` command is not found after installing, add the appropriate directory to your PATH:
+
+```
+export PATH="~/.local/bin:$PATH"
+```
+
+### With `uvx`
+
+Or execute `datacommons-cli` on-the-fly without installation using `uvx`:
 
 ```bash
 uvx datacommons-cli --help
