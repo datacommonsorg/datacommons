@@ -131,6 +131,16 @@ gcloud workflows run <namespace>-ingestion-orchestrator \
 *   `spannerDatabaseId`: The ID of your Spanner database.
 *   `importList`: A JSON string mapping the import logical name to the GCS path of the MCF file.
 
+### Step 3: (Alternative) Trigger via CLI
+
+If you are using the `datacommons` CLI, you can trigger the ingestion job more easily without constructing the JSON payload:
+
+```bash
+uv run datacommons admin ingest start --import <import_name>
+```
+
+This will use the `import_name` to find the corresponding configuration in your bucket and trigger the workflow.
+
 ### Modular Structure
 Stack composition is delegated to `modules/stack`, which manages smaller, dedicated sub-modules for various components of the Data Commons Platform.
 
