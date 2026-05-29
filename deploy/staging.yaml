@@ -23,7 +23,7 @@ steps:
       - |
         tag_version=$${TAG_NAME#v}
         echo "Updating version files to $tag_version"
-        python3 -c "import glob, re; [open(f, 'w').write(re.sub(r'^__version__ = \".*\"', '__version__ = \"'\"$tag_version\"'\"', content, flags=re.MULTILINE)) for f in glob.glob('packages/*/datacommons_*/__init__.py') for content in [open(f, 'r').read()]]"
+        python3 -c "import glob, re; [open(f, 'w').write(re.sub(r'^__version__ = [\"\'].*[\"\']', '__version__ = \"'\"$tag_version\"'\"', content, flags=re.MULTILINE)) for f in glob.glob('packages/*/datacommons_*/__init__.py') for content in [open(f, 'r').read()]]"
         python3 -c "import re; [open('pyproject.toml', 'w').write(re.sub(r'^version = \".*\"', 'version = \"'\"$tag_version\"'\"', content, flags=re.MULTILINE)) for content in [open('pyproject.toml', 'r').read()]]"
 
   # 2. Build and publish all Python packages to TestPyPI
