@@ -12,16 +12,63 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
 import click
 
 from datacommons_admin.admin_cli import admin as admin_cli
 
+from . import __version__
 
-@click.group()
+
+def get_logo_color():
+    """Determine the best logo color based on terminal capabilities"""
+    colorterm = os.environ.get("COLORTERM", "").lower()
+    if colorterm in ("truecolor", "24bit"):
+        return (7, 81, 179)
+
+    term = os.environ.get("TERM", "").lower()
+    if "256color" in term or colorterm:
+        return 26  # Royal blue color index in 256-color palette
+
+    return "blue"
+
+
+class CustomGroup(click.Group):
+    """Custom click.Group to preserve logo formatting and newlines in help text"""
+
+    def format_help_text(self, ctx, formatter):
+        if self.help:
+            formatter.write_paragraph()
+            with formatter.indentation():
+                for line in self.help.splitlines():
+                    if line:
+                        formatter.write(f"{' ' * formatter.current_indent}{line}\n")
+                    else:
+                        formatter.write("\n")
+
+
+def cli_help() -> str:
+    """Return help string for the CLI"""
+    logo = (
+        "    ██████╗   ██████╗\n"
+        "    ██╔══██╗ ██╔════╝\n"
+        "    ██║  ██║ ██║     \n"
+        "    ██║  ██║ ██║     \n"
+        "    ██████╔╝ ╚██████╗\n"
+        "    ╚═════╝   ╚═════╝"
+    )
+    styled_logo = click.style(logo, fg=get_logo_color(), bold=True)
+    version_str = click.style(f"v{__version__}", fg="bright_black")
+    return f"{styled_logo}\n\nData Commons CLI {version_str}"
+
+
+@click.group(cls=CustomGroup, help=cli_help())
+@click.version_option(version=__version__, prog_name="Data Commons CLI")
 def cli():
-    """Datacommons CLI suite"""
+    """Data Commons CLI"""
     pass
 
 
-# Add schema CLI commands to the main CLI
+# Add admin CLI commands to the main CLI
 cli.add_command(admin_cli)

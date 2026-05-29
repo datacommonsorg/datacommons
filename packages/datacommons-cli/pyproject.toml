@@ -26,4 +26,4 @@ build-backend = "setuptools.build_meta"
 include-package-data = true
 
 [tool.setuptools.dynamic]
-version = {attr = "datacommons_cli.version.__version__"}
+version = {attr = "datacommons_cli.__version__"}

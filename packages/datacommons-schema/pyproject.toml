@@ -41,4 +41,4 @@ requires = ["uv", "setuptools"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.dynamic]
-version = {attr = "datacommons_schema.version.__version__"}
+version = {attr = "datacommons_schema.__version__"}
