@@ -389,6 +389,7 @@ def test_init_uses_default_ref_v_prefixed(
         'project_id = "$$PROJECT_ID$$"\nnamespace  = "$$NAMESPACE$$"\n# cdc_dc_api_key = "$$DC_API_KEY$$"',
     )
     from datacommons_admin import __version__
+
     with runner.isolated_filesystem(temp_dir=tmp_path):
         result = runner.invoke(
             admin,
@@ -405,4 +406,3 @@ def test_init_uses_default_ref_v_prefixed(
         )
         assert result.exit_code == 0
         mock_get_templates.assert_called_once_with(f"v{__version__}")
-
