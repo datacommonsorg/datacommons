@@ -14,7 +14,7 @@ locals {
     },
     {
       name  = "OUTPUT_DIR"
-      value = "gs://${module.storage.artifacts_bucket_name}/${var.ingestion_config.ingestion_artifacts_path}"
+      value = "gs://${module.storage.artifacts_bucket_name}/${var.ingestion_config.workflow_artifacts_path}"
     },
     {
       name  = "FORCE_RESTART"
@@ -45,7 +45,7 @@ locals {
     },
     {
       name  = "TEMP_LOCATION"
-      value = "gs://${module.storage.artifacts_bucket_name}/${var.ingestion_config.ingestion_artifacts_path}/temp"
+      value = "gs://${module.storage.artifacts_bucket_name}/${var.ingestion_config.workflow_artifacts_path}/temp"
     },
     {
       name  = "PROJECT_ID"
@@ -131,7 +131,7 @@ module "ingestion_preprocessing_job" {
   vpc_connector_id        = var.redis_config.enable ? module.redis[0].connector_id : null
   bucket_name             = module.storage.artifacts_bucket_name
   input_path              = var.ingestion_config.input_path
-  ingestion_artifacts_path = var.ingestion_config.ingestion_artifacts_path
+  workflow_artifacts_path = var.ingestion_config.workflow_artifacts_path
   run_database_init       = false
   use_spanner             = true
   env_vars                = local.cloud_run_shared_env_variables
@@ -175,7 +175,7 @@ module "ingestion_helper_service" {
   vpc_connector_id = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].connector_id : null
   redis_host       = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
   redis_port       = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
-  ingestion_artifacts_path = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
+  ingestion_artifacts_path = "${var.ingestion_config.workflow_artifacts_path}/metadata"
 }
 
 
@@ -194,7 +194,7 @@ module "ingestion_workflow" {
   enable_datacommons_services    = var.datacommons_services_config.enable
   ingestion_helper_service_name  = "${var.global.namespace != "" ? "${var.global.namespace}-" : ""}dc-ingestion-helper"
   enable_redis_cache_clearing    = var.redis_config.enable
-  ingestion_artifacts_path       = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
+  ingestion_artifacts_path       = "${var.ingestion_config.workflow_artifacts_path}/metadata"
 
   depends_on = [module.ingestion_helper_service]
 }
@@ -327,6 +327,14 @@ resource "google_cloud_run_v2_job_iam_member" "workflow_pre_invoker" {
   location = var.global.region
   name     = module.ingestion_preprocessing_job[0].job_name
   role     = "roles/run.invoker"
+  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
+resource "google_cloud_run_v2_job_iam_member" "workflow_pre_developer" {
+  count    = var.ingestion_config.enable_ingestion ? 1 : 0
+  location = var.global.region
+  name     = module.ingestion_preprocessing_job[0].job_name
+  role     = "roles/run.developer"
   member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
 
