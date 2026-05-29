@@ -1,6 +1,6 @@
 locals {
-  name_prefix = var.namespace != "" ? "${var.namespace}-" : ""
-  postprocessing_step = var.enable_bigquery_postprocessing || var.enable_embeddings_generation ? "ingestion_postprocessing" : "promote_version"
+  name_prefix               = var.namespace != "" ? "${var.namespace}-" : ""
+  should_run_postprocessing = var.enable_bigquery_postprocessing || var.enable_embeddings_generation
 }
 
 resource "google_service_account" "workflow_sa" {
@@ -115,7 +115,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
               - check_success:
                   switch:
                     - condition: '$${job_status.currentState == "JOB_STATE_DONE"}'
-                      next: ${local.postprocessing_step}
+                      next: %{if local.should_run_postprocessing}ingestion_postprocessing%{else}promote_version%{endif}
               - fail_on_job_status:
                   raise: '$${ "Dataflow job failed with state: " + job_status.currentState }'
               - ingestion_postprocessing:
