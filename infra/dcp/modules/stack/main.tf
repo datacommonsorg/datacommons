@@ -170,6 +170,7 @@ module "ingestion_helper_service" {
   use_spanner            = var.spanner_config.enable
   enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
   enable_bigquery_connection     = var.spanner_config.enable_bigquery_connection
+  enable_embeddings_generation   = var.spanner_config.enable_embeddings_generation
 
   # Redis configuration for cache clearing
   vpc_connector_id = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].connector_id : null
@@ -191,6 +192,7 @@ module "ingestion_workflow" {
   ingestion_helper_url           = module.ingestion_helper_service.ingestion_helper_url
   dataflow_service_account_email = module.ingestion_dataflow.service_account_email
   enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
+  enable_embeddings_generation   = var.spanner_config.enable_embeddings_generation
   enable_datacommons_services    = var.datacommons_services_config.enable
   ingestion_helper_service_name  = "${var.global.namespace != "" ? "${var.global.namespace}-" : ""}dc-ingestion-helper"
   enable_redis_cache_clearing    = var.redis_config.enable

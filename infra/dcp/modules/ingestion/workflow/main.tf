@@ -1,5 +1,6 @@
 locals {
-  name_prefix = var.namespace != "" ? "${var.namespace}-" : ""
+  name_prefix               = var.namespace != "" ? "${var.namespace}-" : ""
+  should_run_postprocessing = var.enable_bigquery_postprocessing || var.enable_embeddings_generation
 }
 
 resource "google_service_account" "workflow_sa" {
@@ -29,6 +30,10 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
             - latest_version_gcs_path: '$${"gs://" + bucket_name + "/${var.ingestion_artifacts_path}/" + input.importName + "/" + version}'
             - execution_error: null
             - lock_timeout: ${var.lock_acquisition_timeout}
+            - run_embeddings: ${var.enable_embeddings_generation}
+            - run_postproc: ${var.enable_bigquery_postprocessing}
+            - postprocessing_result: null
+            - embedding_result: null
             - launch_params:
                 projectId: '$${project_id}'
                 spannerInstanceId: '$${input.spannerInstanceId}'
@@ -110,21 +115,53 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
               - check_success:
                   switch:
                     - condition: '$${job_status.currentState == "JOB_STATE_DONE"}'
-                      next: %{if var.enable_bigquery_postprocessing}run_postprocessings%{else}promote_version%{endif}
+                      next: %{if local.should_run_postprocessing}ingestion_postprocessing%{else}promote_version%{endif}
               - fail_on_job_status:
                   raise: '$${ "Dataflow job failed with state: " + job_status.currentState }'
-%{if var.enable_bigquery_postprocessing}
-              - run_postprocessings:
-                  call: http.post
-                  args:
-                    url: '${var.ingestion_helper_url}'
-                    auth:
-                      type: OIDC
-                    body:
-                      actionType: "run_aggregation"
-                      importList: '$${json.decode(input.importList)}'
-                  result: postprocessing_result
-%{endif}
+              - ingestion_postprocessing:
+                  parallel:
+                    shared: [postprocessing_result, embedding_result]
+                    branches:
+                      - postprocessing_branch:
+                          steps:
+                            - check_postproc_flag:
+                                switch:
+                                  - condition: '$${not run_postproc}'
+                                    next: end_postproc_branch
+                            - run_postprocessings:
+                                call: http.post
+                                args:
+                                  url: '${var.ingestion_helper_url}'
+                                  auth:
+                                    type: OIDC
+                                  body:
+                                    actionType: "run_aggregation"
+                                    importList: '$${json.decode(input.importList)}'
+                                result: postprocessing_result
+                            - end_postproc_branch:
+                                assign:
+                                  - dummy: true
+                      
+                      - embeddings_branch:
+                          steps:
+                            - check_embeddings_flag:
+                                switch:
+                                  - condition: '$${not run_embeddings}'
+                                    next: end_embeddings_branch
+                            - run_embeddings:
+                                call: http.post
+                                args:
+                                  url: '${var.ingestion_helper_url}'
+                                  auth:
+                                    type: OIDC
+                                  body:
+                                    actionType: "embedding_ingestion"
+                                    importList: '$${json.decode(input.importList)}'
+                                  timeout: ${var.embeddings_timeout}
+                                result: embedding_result
+                            - end_embeddings_branch:
+                                assign:
+                                  - dummy: true
               - promote_version:
                   call: http.post
                   args:
