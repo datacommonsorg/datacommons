@@ -31,8 +31,8 @@ def ingest() -> None:
 
 
 @ingest.command(name="start")
-@click.option("--import", "import_name", default=None, help="The name of the import to run.")
-def start(import_name) -> None:
+@click.option("--imports", "imports", default=None, help="The names of the imports to run (comma-separated).")
+def start(imports) -> None:
     """Start a data ingestion job execution."""
     click.secho("Datacommons Admin Ingest Start", fg="cyan", bold=True)
     click.secho(
@@ -61,7 +61,7 @@ def start(import_name) -> None:
         project_id=project_id,
         location=region,
     )
-    result = client.start_job(import_name=import_name)
+    result = client.start_job(imports=imports)
 
     click.secho("Successfully started ingestion job!", fg="green", bold=True)
     res_name = result.get("name") or result.get("metadata", {}).get("name")
