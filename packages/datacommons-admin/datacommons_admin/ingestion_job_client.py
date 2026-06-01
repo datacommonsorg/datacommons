@@ -58,7 +58,7 @@ class IngestionJobClient:
 
         self.session = AuthorizedSession(creds)
 
-    def start_job(self, imports: str = None) -> dict:
+    def start_job(self, imports: str | None = None) -> dict:
         """Starts an execution of the Cloud Run job."""
         url = f"https://run.googleapis.com/v2/{self.full_job_name}:run"
         
