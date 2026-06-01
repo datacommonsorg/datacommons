@@ -61,7 +61,7 @@ variable "enable_bigquery_postprocessing" {
 variable "enable_embeddings_generation" {
   type        = bool
   description = "Flag to enable embedding generation"
-  default     = false
+  default     = true
 }
 
 variable "vpc_connector_id" {

@@ -194,7 +194,7 @@ variable "spanner_enable_bigquery_connection" {
 variable "spanner_enable_embeddings_generation" {
   description = "Enable embedding generation in Spanner"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "spanner_bigquery_connection_name" {

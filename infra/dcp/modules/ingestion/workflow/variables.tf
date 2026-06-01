@@ -39,7 +39,7 @@ variable "enable_bigquery_postprocessing" {
 variable "enable_embeddings_generation" {
   type        = bool
   description = "Enable embedding generation"
-  default     = false
+  default     = true
 }
 
 variable "embeddings_timeout" {
