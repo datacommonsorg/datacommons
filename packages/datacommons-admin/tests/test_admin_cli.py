@@ -386,7 +386,7 @@ def test_init_uses_default_ref_v_prefixed(
         'variable "test" {}',
         'module "stack" {\n  source = "./modules/stack"\n}',
         'output "test" {}',
-        'project_id = "$$PROJECT_ID$$"\nnamespace  = "$$NAMESPACE$$"\n# cdc_dc_api_key = "$$DC_API_KEY$$"',
+        'project_id = "$$PROJECT_ID$$"\nnamespace  = "$$NAMESPACE$$"\n# dc_api_key = "$$DC_API_KEY$$"',
     )
     from datacommons_admin import __version__
 

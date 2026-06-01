@@ -136,7 +136,7 @@ gcloud workflows run <namespace>-ingestion-orchestrator \
 If you are using the `datacommons` CLI, you can trigger the ingestion job more easily without constructing the JSON payload:
 
 ```bash
-uv run datacommons admin ingest start --import <import_name>
+uv run datacommons admin ingest start --imports <import1>[,<import2>]
 ```
 
 This will use the `import_name` to find the corresponding configuration in your bucket and trigger the workflow.
