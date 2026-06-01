@@ -62,17 +62,19 @@ class IngestionJobClient:
         """Starts an execution of the Cloud Run job."""
         url = f"https://run.googleapis.com/v2/{self.full_job_name}:run"
         
-        json_payload = {}
+        args = ["--mode=dcpbridge"]
         if import_name:
-            json_payload = {
-                "overrides": {
-                    "containerOverrides": [
-                        {
-                            "args": [f"--import_name={import_name}"]
-                        }
-                    ]
-                }
+            args.append(f"--import_name={import_name}")
+            
+        json_payload = {
+            "overrides": {
+                "containerOverrides": [
+                    {
+                        "args": args
+                    }
+                ]
             }
+        }
             
         try:
             response = self.session.post(url, json=json_payload, timeout=300)
