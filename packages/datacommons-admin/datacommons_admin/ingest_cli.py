@@ -31,7 +31,12 @@ def ingest() -> None:
 
 
 @ingest.command(name="start")
-@click.option("--imports", "imports", default=None, help="The names of the imports to run (comma-separated).")
+@click.option(
+    "--imports",
+    "imports",
+    default=None,
+    help="The names of the imports to run (comma-separated).",
+)
 def start(imports: str | None = None) -> None:
     """Start a data ingestion job execution."""
     click.secho("Datacommons Admin Ingest Start", fg="cyan", bold=True)
