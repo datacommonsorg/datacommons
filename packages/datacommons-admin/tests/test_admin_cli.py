@@ -406,3 +406,51 @@ def test_init_uses_default_ref_v_prefixed(
         )
         assert result.exit_code == 0
         mock_get_templates.assert_called_once_with(f"v{__version__}")
+
+
+@patch("datacommons_admin.tf_utils.shutil.which")
+@patch("datacommons_admin.tf_utils.subprocess.run")
+@patch("datacommons_admin.ingestion_job_client.AuthorizedSession")
+@patch("datacommons_admin.ingestion_job_client.google.auth.default")
+def test_ingest_start_with_imports_success(
+    mock_auth_default: patch,
+    mock_session: patch,
+    mock_run: patch,
+    mock_which: patch,
+    runner: CliRunner,
+) -> None:
+    mock_which.return_value = "terraform"
+    from unittest.mock import MagicMock
+
+    mock_proc = MagicMock()
+    mock_proc.stdout = '{"ingestion_prep_job_name": {"value": "projects/mock-proj/locations/us-central1/jobs/mock-job"}, "ingestion_workflow_service_account_email": {"value": "mock-orch-sa@mock.com"}, "project_id": {"value": "mock-proj"}, "region": {"value": "us-central1"}, "ingestion_workflow_name": {"value": "mock-workflow"}}'
+    mock_run.return_value = mock_proc
+
+    mock_creds = MagicMock()
+    mock_auth_default.return_value = (mock_creds, "test-project")
+
+    mock_session_inst = MagicMock()
+    mock_resp = MagicMock()
+    mock_resp.ok = True
+    mock_resp.json.return_value = {
+        "name": "projects/mock-proj/locations/us-central1/operations/op-123"
+    }
+    mock_session_inst.post.return_value = mock_resp
+    mock_session.return_value = mock_session_inst
+
+    result = runner.invoke(admin, ["ingest", "start", "--imports", "oecd,doubleup"])
+    assert result.exit_code == 0
+    assert "Successfully started ingestion job!" in result.output
+    mock_session_inst.post.assert_called_once_with(
+        "https://run.googleapis.com/v2/projects/mock-proj/locations/us-central1/jobs/mock-job:run",
+        json={
+            "overrides": {
+                "containerOverrides": [
+                    {
+                        "args": ["--mode=dcpbridge", "--imports=oecd,doubleup"]
+                    }
+                ]
+            }
+        },
+        timeout=300,
+    )
