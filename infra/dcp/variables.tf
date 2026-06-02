@@ -197,6 +197,12 @@ variable "spanner_enable_embeddings_generation" {
   default     = true
 }
 
+variable "spanner_resolve_with_spanner_embeddings" {
+  description = "Enable resolving search queries with Spanner embeddings"
+  type        = bool
+  default     = true
+}
+
 variable "spanner_bigquery_connection_name" {
   description = "The name of the BigQuery external connection to Spanner"
   type        = string

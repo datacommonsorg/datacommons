@@ -62,6 +62,10 @@ locals {
     {
       name  = "USE_SPANNER_GRAPH"
       value = "true"
+    },
+    {
+      name  = "RESOLVE_WITH_SPANNER_EMBEDDINGS"
+      value = var.spanner_config.resolve_with_spanner_embeddings ? "true" : "false"
     }
   ]
 
