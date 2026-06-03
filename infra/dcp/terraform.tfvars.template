@@ -50,7 +50,7 @@ datacommons_services_allow_unauthenticated_access = true
 # =============================================================================
 # Ingestion - Preprocessing Job
 # =============================================================================
-ingestion_input_path = "ingestion/input"
+# ingestion_input_path = "ingestion/input"
 
 # =============================================================================
 # Ingestion - Postprocessing
