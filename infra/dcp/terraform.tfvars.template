@@ -37,6 +37,8 @@ auth_google_datacommons_api_key = "$$DC_API_KEY$$"
 # =============================================================================
 # Spanner Module
 # =============================================================================
+# To save resources, if you want have an existing Spanner instance you would
+# like to reuse, set this to true and provide the ID.
 spanner_create_instance = true
 # spanner_instance_id     = "your-existing-spanner-instance"
 # spanner_create_database = true
@@ -45,7 +47,7 @@ spanner_database_id     = "dc-db"
 # =============================================================================
 # Datacommons Services Module
 # =============================================================================
-datacommons_services_allow_unauthenticated_access = true
+# datacommons_services_allow_unauthenticated_access = false
 # datacommons_services_google_analytics_tag_id = "your-analytics-tag-id"
 
 # =============================================================================
@@ -60,8 +62,3 @@ datacommons_services_allow_unauthenticated_access = true
 # If you intend to deploy multiple environments in the same project, please
 # carefully read the documentation.
 spanner_create_bigquery_reservation = true
-
-# =============================================================================
-# TEMP
-# =============================================================================
-
