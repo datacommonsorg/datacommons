@@ -13,6 +13,7 @@ namespace  = "$$NAMESPACE$$"
 # stateful_deletion_protection = false
 # Protects compute resources (Cloud Run, Workflows). Keep false for easy updates.
 # stateless_deletion_protection = false
+# datacommons_services_google_analytics_tag_id = "your-analytics-tag-id"
 
 # =============================================================================
 # Auth Module
