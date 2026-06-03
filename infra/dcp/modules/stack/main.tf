@@ -79,6 +79,8 @@ locals {
     }
   ] : []) : []
 
+  # TODO: Get rid of this after GCS embeddings are removed.
+  # Output dir is different for preprocessing job because it has to write to /datacommons/ for Embeddings ingestion.
   preprocessing_env_variables = [
     for env in local.cloud_run_shared_env_variables :
     env.name == "OUTPUT_DIR" ? {
@@ -139,7 +141,7 @@ module "ingestion_preprocessing_job" {
   vpc_connector_id        = var.redis_config.enable ? module.redis[0].connector_id : null
   bucket_name             = module.storage.artifacts_bucket_name
   input_path              = var.ingestion_config.input_path
-  ingestion_artifacts_path = "${var.ingestion_config.ingestion_artifacts_path}/datacommons"
+  ingestion_artifacts_path = var.ingestion_config.ingestion_artifacts_path
   run_database_init       = false
   use_spanner             = true
   env_vars                = local.preprocessing_env_variables
