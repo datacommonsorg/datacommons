@@ -8,9 +8,9 @@
 # =============================================================================
 project_id = "$$PROJECT_ID$$"
 namespace  = "$$NAMESPACE$$"
-region     = "us-central1"
+# region     = "us-central1"
 # Protects resources that hold persistent data (Spanner, GCS). Enable in prod!
-stateful_deletion_protection = false
+# stateful_deletion_protection = false
 # Protects compute resources (Cloud Run, Workflows). Keep false for easy updates.
 stateless_deletion_protection = false
 
@@ -25,13 +25,13 @@ auth_google_maps_api_key = "your-maps-api-key"
 # =============================================================================
 # Storage Module
 # =============================================================================
-storage_create_artifacts_bucket = true
+# storage_create_artifacts_bucket = true
 # storage_artifacts_bucket_name   = "your-artifacts-bucket-name"
 
 # =============================================================================
 # Redis Module
 # =============================================================================
-enable_redis = false
+# enable_redis = false
 # redis_instance_name = "dc-redis-instance"
 
 # =============================================================================
@@ -39,7 +39,7 @@ enable_redis = false
 # =============================================================================
 spanner_create_instance = true
 # spanner_instance_id     = "your-existing-spanner-instance"
-spanner_create_database = true
+# spanner_create_database = true
 spanner_database_id     = "dc-db"
 
 # =============================================================================
@@ -51,7 +51,6 @@ datacommons_services_allow_unauthenticated_access = true
 # Ingestion - Preprocessing Job
 # =============================================================================
 ingestion_input_path = "ingestion/input"
-
 
 # =============================================================================
 # Ingestion - Postprocessing
