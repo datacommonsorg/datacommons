@@ -9,9 +9,12 @@
 project_id = "$$PROJECT_ID$$"
 namespace  = "$$NAMESPACE$$"
 # region     = "us-central1"
-# Protects resources that hold persistent data (Spanner, GCS). Enable in prod!
+# Deletion protection for stateful resources holding persistent data (e.g., Cloud Spanner, Cloud Storage).
+# Recommended to set to true in production environments to prevent accidental data loss.
 # stateful_deletion_protection = false
-# Protects compute resources (Cloud Run, Workflows). Keep false for easy updates.
+
+# Deletion protection for stateless resources (e.g., Cloud Run, Workflows).
+# Recommended to keep false in development and non-production environments to allow rapid updates.
 # stateless_deletion_protection = false
 
 # =============================================================================
@@ -21,46 +24,68 @@ namespace  = "$$NAMESPACE$$"
 auth_google_datacommons_api_key = "$$DC_API_KEY$$"
 
 # =============================================================================
-# Storage Module
-# =============================================================================
-# storage_create_artifacts_bucket = true
-# storage_artifacts_bucket_name   = "your-artifacts-bucket-name"
-
-# =============================================================================
 # Redis Module
 # =============================================================================
-# enable_redis = true
-# redis_instance_name = "dc-redis-instance"
+
+# Enable a Google Cloud Memorystore (Redis) instance for caching.
+# Redis is used to cache API and website responses, significantly improving performance.
+# enable_redis = false
 
 # =============================================================================
 # Spanner Module
 # =============================================================================
-# spanner_create_instance = true
+# Cloud Spanner database configuration.
+# Data Commons stores its structured knowledge graph data in Cloud Spanner.
+#
+# Choose one of the deployment patterns below:
+#
+# Pattern A: Create a database in an existing Spanner instance (Recommended Default)
+# Useful for sharing a single Spanner instance across multiple environments (e.g. dev, staging).
+# -----------------------------------------------------------------------------
+# spanner_create_instance = false
 # spanner_instance_id     = "your-existing-spanner-instance"
 # spanner_create_database = true
-# spanner_database_id     = "dc-db"
+# spanner_database_id     = "new-database-name" # Optional: defaults to "[namespace-]dc-db"
+#
+# Pattern B: Connect to an existing database in an existing Spanner instance
+# Useful when connecting to a database that is managed outside of this Terraform stack.
+# -----------------------------------------------------------------------------
+# spanner_create_instance = false
+# spanner_instance_id     = "your-existing-spanner-instance"
+# spanner_create_database = false
+# spanner_database_id     = "your-existing-database"
+#
+# Pattern C: Provision a brand-new Spanner instance and database
+# Useful for completely isolated environments or production setups.
+# -----------------------------------------------------------------------------
+# spanner_create_instance = true
+# spanner_instance_id     = "new-spanner-instance" # Optional: defaults to "[namespace-]dc-instance"
+# spanner_create_database = true
+# spanner_database_id     = "new-database-name"   # Optional: defaults to "[namespace-]dc-db"
+
 
 # =============================================================================
 # Datacommons Services Module
 # =============================================================================
-# datacommons_services_allow_unauthenticated_access = true
+# Controls whether the Data Commons API and frontend services are publicly accessible.
+# Set to true to allow unauthenticated public internet traffic to access the service.
+# Set to false (default) to restrict access (e.g., behind authentication, API gateways, or IAP).
+# datacommons_services_allow_unauthenticated_access = false
 
 # =============================================================================
 # Ingestion - Preprocessing Job
 # =============================================================================
+# The root directory path within the artifacts GCS bucket where raw ingestion data
+# files are uploaded for processing.
 # ingestion_input_path = "ingestion/input"
 
 
 # =============================================================================
 # Ingestion - Postprocessing
 # =============================================================================
-# Note: You must have only one capacity reservation per project per region. 
-# If you intend to deploy multiple environments in the same project, please
-# carefully read the documentation.
-spanner_create_bigquery_reservation = true
-
-# =============================================================================
-# TEMP
-# =============================================================================
-auth_create_google_maps_api_key = false
-auth_google_maps_api_key = "TODO"
+# Provision a dedicated BigQuery reservation (slot commitment) for Spanner federated queries.
+# This ensures query capacity for postprocessing / ingestion steps.
+#
+# NOTE: Only one reservation can exist per project per region. If deploying multiple environments 
+# (e.g. dev and prod) in the same GCP project, set this to false for the non-production environments.
+# spanner_create_bigquery_reservation = false
