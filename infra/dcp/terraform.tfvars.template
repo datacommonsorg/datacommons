@@ -13,7 +13,6 @@ namespace  = "$$NAMESPACE$$"
 # stateful_deletion_protection = false
 # Protects compute resources (Cloud Run, Workflows). Keep false for easy updates.
 # stateless_deletion_protection = false
-# datacommons_services_google_analytics_tag_id = "your-analytics-tag-id"
 
 # =============================================================================
 # Auth Module
@@ -47,6 +46,7 @@ spanner_database_id     = "dc-db"
 # Datacommons Services Module
 # =============================================================================
 datacommons_services_allow_unauthenticated_access = true
+# datacommons_services_google_analytics_tag_id = "your-analytics-tag-id"
 
 # =============================================================================
 # Ingestion - Preprocessing Job
