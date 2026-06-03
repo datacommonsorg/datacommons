@@ -41,7 +41,6 @@ auth_google_datacommons_api_key = "$$DC_API_KEY$$"
 # like to reuse, set this to false and provide the ID.
 spanner_create_instance = true
 # spanner_instance_id     = "your-existing-spanner-instance"
-# spanner_create_database = true
 spanner_database_id     = "dc-db"
 
 # =============================================================================
