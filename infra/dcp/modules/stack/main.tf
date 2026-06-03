@@ -78,6 +78,14 @@ locals {
       version = "latest"
     }
   ] : []) : []
+
+  preprocessing_env_variables = [
+    for env in local.cloud_run_shared_env_variables :
+    env.name == "OUTPUT_DIR" ? {
+      name  = "OUTPUT_DIR"
+      value = "${env.value}/datacommons"
+    } : env
+  ]
 }
 
 module "spanner" {
@@ -131,10 +139,10 @@ module "ingestion_preprocessing_job" {
   vpc_connector_id        = var.redis_config.enable ? module.redis[0].connector_id : null
   bucket_name             = module.storage.artifacts_bucket_name
   input_path              = var.ingestion_config.input_path
-  ingestion_artifacts_path = var.ingestion_config.ingestion_artifacts_path
+  ingestion_artifacts_path = "${var.ingestion_config.ingestion_artifacts_path}/datacommons"
   run_database_init       = false
   use_spanner             = true
-  env_vars                = local.cloud_run_shared_env_variables
+  env_vars                = local.preprocessing_env_variables
   secret_env_vars         = local.datacommons_services_secrets
   dc_api_key_secret_id    = module.auth.dc_api_key_secret_id
   maps_api_key_secret_id  = module.auth.maps_api_key_secret_id
