@@ -38,7 +38,7 @@ auth_google_datacommons_api_key = "$$DC_API_KEY$$"
 # Spanner Module
 # =============================================================================
 # To save resources, if you want have an existing Spanner instance you would
-# like to reuse, set this to true and provide the ID.
+# like to reuse, set this to false and provide the ID.
 spanner_create_instance = true
 # spanner_instance_id     = "your-existing-spanner-instance"
 # spanner_create_database = true
