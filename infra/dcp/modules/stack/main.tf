@@ -65,7 +65,7 @@ locals {
     },
     {
       name  = "RESOLVE_WITH_SPANNER_EMBEDDINGS"
-      value = var.spanner_config.resolve_with_spanner_embeddings ? "true" : "false"
+      value = (var.spanner_config.enable && var.spanner_config.resolve_with_spanner_embeddings) ? "true" : "false"
     }
   ]
 
