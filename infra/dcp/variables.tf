@@ -240,7 +240,7 @@ variable "enable_datacommons_services" {
 variable "datacommons_services_image" {
   description = "Docker image URL for the main Data Commons services"
   type        = string
-  default     = "gcr.io/datcom-ci/datacommons-services:xiaotest"
+  default     = "gcr.io/datcom-ci/datacommons-services:latest"
 }
 
 variable "datacommons_services_name" {
