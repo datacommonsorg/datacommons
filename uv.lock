@@ -398,7 +398,7 @@ dev = [{ name = "pytest", specifier = ">=9.0.2" }]
 
 [[package]]
 name = "datacommons-platform"
-version = "0.0.3"
+version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "datacommons-cli" },
