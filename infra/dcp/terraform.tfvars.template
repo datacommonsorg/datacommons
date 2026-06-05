@@ -53,7 +53,8 @@ spanner_create_instance = true
 # =============================================================================
 # Controls whether the Data Commons API and frontend services are publicly accessible.
 # Set to true to allow unauthenticated public internet traffic to access the service.
-# Set to false (default) to restrict access (e.g., behind authentication, API gateways, or IAP).
+# Set to false (default) to restrict access (e.g., behind authentication, API 
+# gateways, or IAP).
 datacommons_services_allow_unauthenticated_access = false
 
 # Track traffic and user interactions with your site using Google Analytics.
