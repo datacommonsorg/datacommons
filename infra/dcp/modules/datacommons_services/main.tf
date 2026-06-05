@@ -95,6 +95,10 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
         name  = "DC_INSTRUCTIONS_DIR"
         value = var.mcp_instructions_path != null ? "gs://${var.artifacts_bucket_name}/${var.mcp_instructions_path}" : ""
       }
+      env {
+        name  = "ENABLE_SPANNER_SEARCH_BACKEND"
+        value = var.resolve_with_spanner_embeddings ? "true" : "false"
+      }
     }
 
     dynamic "vpc_access" {

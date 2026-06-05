@@ -62,11 +62,7 @@ locals {
     {
       name  = "USE_SPANNER_GRAPH"
       value = "true"
-    },
-    {
-      name  = "RESOLVE_WITH_SPANNER_EMBEDDINGS"
-      value = (var.spanner_config.enable && var.spanner_config.resolve_with_spanner_embeddings) ? "true" : "false"
-    }
+    } 
   ]
 
   datacommons_services_secrets = var.datacommons_services_config.enable ? concat([
@@ -257,6 +253,7 @@ module "datacommons_services" {
   use_spanner             = var.spanner_config.enable
   env_vars                = local.cloud_run_shared_env_variables
   secret_env_vars         = local.datacommons_services_secrets
+  resolve_with_spanner_embeddings = var.datacommons_services_config.resolve_with_spanner_embeddings
 
   depends_on = [module.ingestion_preprocessing_job]
 }

@@ -77,7 +77,6 @@ locals {
     processing_units                   = var.spanner_processing_units
     enable_bigquery_connection         = var.spanner_enable_bigquery_connection
     enable_embeddings_generation       = var.spanner_enable_embeddings_generation
-    resolve_with_spanner_embeddings    = var.spanner_resolve_with_spanner_embeddings
     bigquery_connection_name           = var.spanner_bigquery_connection_name
     create_bigquery_reservation        = var.spanner_create_bigquery_reservation
     bigquery_reservation_slot_capacity = var.spanner_bigquery_reservation_slot_capacity
@@ -98,6 +97,7 @@ locals {
     instructions_path               = var.datacommons_services_mcp_instructions_path != null ? trimsuffix(var.datacommons_services_mcp_instructions_path, "/") : null
     allow_unauthenticated_access    = var.datacommons_services_allow_unauthenticated_access
     website_disable_google_maps_api = var.datacommons_services_website_disable_google_maps_api
+    resolve_with_spanner_embeddings = var.spanner_resolve_with_spanner_embeddings
   }
 
   auth_config = {

@@ -28,7 +28,6 @@ variable "spanner_config" {
     processing_units                   = number
     enable_bigquery_connection         = bool
     enable_embeddings_generation       = bool
-    resolve_with_spanner_embeddings    = bool
     bigquery_connection_name           = string
     create_bigquery_reservation        = bool
     bigquery_reservation_slot_capacity = number
@@ -51,6 +50,7 @@ variable "datacommons_services_config" {
     instructions_path               = string
     allow_unauthenticated_access    = bool
     website_disable_google_maps_api = bool
+    resolve_with_spanner_embeddings = bool
   })
 }
 
