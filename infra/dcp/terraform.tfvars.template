@@ -44,6 +44,7 @@ auth_google_datacommons_api_key = "$$DC_API_KEY$$"
 # Datacommons Services Module
 # =============================================================================
 # datacommons_services_allow_unauthenticated_access = true
+# datacommons_services_resolve_with_spanner_embeddings = true
 
 # =============================================================================
 # Ingestion - Preprocessing Job

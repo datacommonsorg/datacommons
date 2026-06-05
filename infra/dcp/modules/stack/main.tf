@@ -62,7 +62,7 @@ locals {
     {
       name  = "USE_SPANNER_GRAPH"
       value = "true"
-    } 
+    }
   ]
 
   datacommons_services_secrets = var.datacommons_services_config.enable ? concat([
