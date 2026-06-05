@@ -37,7 +37,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
             - embedding_result: null
             - sanitized_import: '$${text.replace_all(text.replace_all(text.to_lower(input.importName), "/", "-"), "_", "-")}'
             - import_name_len: '$${text.len(sanitized_import)}'
-            - substring_end: '$${if import_name_len < 35 then import_name_len else 35}'
+            - substring_end: '$${[35, import_name_len][int(import_name_len < 35)]}'
             - sanitized_short_import: '$${text.substring(sanitized_import, 0, substring_end)}'
             - dataflow_job_name: '$${"${local.clean_namespace_prefix}" + sanitized_short_import + "-" + string(int(sys.now()))}'
             - launch_params:
