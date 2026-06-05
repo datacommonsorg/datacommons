@@ -70,9 +70,11 @@ ingestion_input_path = "ingestion/input"
 # =============================================================================
 # Ingestion - Postprocessing
 # =============================================================================
-# Provisions a dedicated BigQuery reservation (slot commitment) for Spanner federated # queries (used internally to boost performance). This ensures query capacity for
+# Provisions a dedicated BigQuery reservation (slot commitment) for Spanner federated 
+# queries (used internally to boost performance). This ensures query capacity for
 # postprocessing / ingestion steps.
 #
-# NOTE: Only one reservation can exist per project per region. If deploying multiple 
-# environments (e.g. dev and prod) in the same GCP project, set this to false for all # subsequent deployments after the first one.
+# NOTE: Only one reservation can exist per GCP project per region. If you are deploying
+# multiple environments (e.g. dev and prod) in the same project, set this to
+# false for all other deployments.
 spanner_create_bigquery_reservation = true
