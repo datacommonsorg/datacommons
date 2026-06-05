@@ -57,8 +57,7 @@ git push origin v1.2.3rc1
 ```
 
 #### Production Release (Official PyPI)
-Create and push a release tag to automatically run the production pipeline:
-```bash
-git tag v1.2.3
-git push origin v1.2.3
-```
+Create a new Release in the GitHub Web UI. You can create the tag directly during the release setup to combine creation and tagging into one step, which triggers the production pipeline.
+
+
+
