@@ -1,6 +1,7 @@
 locals {
   name_prefix               = var.namespace != "" ? "${var.namespace}-" : ""
   should_run_postprocessing = var.enable_bigquery_postprocessing || var.enable_embeddings_generation
+  clean_namespace_prefix    = var.namespace != "" ? "${replace(lower(var.namespace), "_", "-")}-" : ""
 }
 
 resource "google_service_account" "workflow_sa" {
@@ -35,9 +36,10 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
             - postprocessing_result: null
             - embedding_result: null
             - sanitized_import: '$${text.replace_all(text.replace_all(text.to_lower(input.importName), "/", "-"), "_", "-")}'
-            - sanitized_short_import: '$${text.substring(sanitized_import, 0, 35)}'
-            - ns_prefix: '${replace(lower(var.namespace), "_", "-")}'
-            - dataflow_job_name: '$${ns_prefix + "-" + sanitized_short_import + "-" + string(int(sys.now()))}'
+            - import_name_len: '$${text.len(sanitized_import)}'
+            - substring_end: '$${import_name_len < 35 ? import_name_len : 35}'
+            - sanitized_short_import: '$${text.substring(sanitized_import, 0, substring_end)}'
+            - dataflow_job_name: '$${"${local.clean_namespace_prefix}" + sanitized_short_import + "-" + string(int(sys.now()))}'
             - launch_params:
                 projectId: '$${project_id}'
                 spannerInstanceId: '$${input.spannerInstanceId}'
