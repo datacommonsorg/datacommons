@@ -9,11 +9,13 @@
 project_id = "$$PROJECT_ID$$"
 namespace  = "$$NAMESPACE$$"
 region     = "us-central1"
+
 # Deletion protection for stateful resources holding persistent data 
 # (e.g., Cloud Spanner, Cloud Storage).
 # Recommended to set to true in production environments to prevent accidental 
 # data loss.
 stateful_deletion_protection = false
+
 # Deletion protection for stateless resources (e.g., Cloud Run, Workflows).
 # Recommended to keep false in development and non-production environments to
 # allow rapid updates.
@@ -73,7 +75,6 @@ ingestion_input_path = "ingestion/input"
 # Provisions a dedicated BigQuery reservation (slot commitment) for Spanner federated 
 # queries (used internally to boost performance). This ensures query capacity for
 # postprocessing / ingestion steps.
-#
 # NOTE: Only one reservation can exist per GCP project per region. If you are deploying
 # multiple environments (e.g. dev and prod) in the same project, set this to
 # false for all other deployments.
