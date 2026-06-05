@@ -63,7 +63,7 @@ datacommons_services_allow_unauthenticated_access = false
 # =============================================================================
 # Ingestion - Preprocessing Job
 # =============================================================================
-# The root directory path within the Cloud Storage bucket where raw ingestion data
+# The root directory path within the Cloud Storage bucket where raw data
 # files are uploaded for processing.
 ingestion_input_path = "ingestion/input"
 
