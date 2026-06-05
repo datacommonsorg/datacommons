@@ -11,7 +11,7 @@ namespace  = "$$NAMESPACE$$"
 region     = "us-central1"
 
 # Deletion protection for stateful resources holding persistent data 
-# (e.g., Cloud Spanner, Cloud Storage).
+# (Spanner and Cloud Storage).
 # Recommended to set to true in production environments to prevent accidental 
 # data loss.
 stateful_deletion_protection = false
@@ -55,8 +55,8 @@ spanner_create_instance = true
 # =============================================================================
 # Controls whether the Data Commons API and frontend services are publicly accessible.
 # Set to true to allow unauthenticated public internet traffic to access the service.
-# Set to false (default) to restrict access (e.g., behind authentication, API 
-# gateways, or Cloud Identity-Aware Proxy).
+# Set to false (default) to check for access permissions. For more information, see the 
+# Data Commons documentation.
 datacommons_services_allow_unauthenticated_access = false
 
 # Track traffic and user interactions with your site using Google Analytics.
@@ -76,6 +76,6 @@ ingestion_input_path = "ingestion/input"
 # queries (used internally to boost performance). This ensures query capacity for
 # postprocessing / ingestion steps.
 # NOTE: Only one reservation can exist per GCP project per region. If you are deploying
-# multiple environments (e.g. dev and prod) in the same project, set this to
-# false for all other deployments.
+# multiple environments (e.g. dev and prod) in the same project, set this to true for
+# one deployment, and false for all others. See Data Commons documentation for more details.
 spanner_create_bigquery_reservation = true
