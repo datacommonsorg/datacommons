@@ -34,6 +34,10 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
             - run_postproc: ${var.enable_bigquery_postprocessing}
             - postprocessing_result: null
             - embedding_result: null
+            - sanitized_import: '$${text.replace_all(text.replace_all(text.to_lower(input.importName), "/", "-"), "_", "-")}'
+            - sanitized_short_import: '$${text.substring(sanitized_import, 0, 35)}'
+            - ns_prefix: '${replace(lower(var.namespace), "_", "-")}'
+            - dataflow_job_name: '$${ns_prefix + "-" + sanitized_short_import + "-" + string(int(sys.now()))}'
             - launch_params:
                 projectId: '$${project_id}'
                 spannerInstanceId: '$${input.spannerInstanceId}'
@@ -83,7 +87,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                     location: '$${input.region}'
                     body:
                       launchParameter:
-                        jobName: '$${"${replace(lower(var.namespace), "_", "-")}-" + text.substring(text.replace_all(text.replace_all(text.to_lower(input.importName), "/", "-"), "_", "-"), 0, 35) + "-" + string(int(sys.now()))}'
+                        jobName: '$${dataflow_job_name}'
                         containerSpecGcsPath: 'gs://datcom-templates/templates/flex/ingestion.json'
                         parameters: '$${launch_params}'
                         environment:
