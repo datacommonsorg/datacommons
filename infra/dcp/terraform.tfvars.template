@@ -11,7 +11,8 @@ namespace  = "$$NAMESPACE$$"
 region     = "us-central1"
 # Deletion protection for stateful resources holding persistent data 
 # (e.g., Cloud Spanner, Cloud Storage).
-# Recommended to set to true in production environments to prevent accidental data loss.
+# Recommended to set to true in production environments to prevent accidental 
+# data loss.
 stateful_deletion_protection = false
 # Deletion protection for stateless resources (e.g., Cloud Run, Workflows).
 # Recommended to keep false in development and non-production environments to
@@ -21,7 +22,7 @@ stateless_deletion_protection = false
 # =============================================================================
 # Auth Module
 # =============================================================================
-# Get a free DC API Key at https://apikeys.datacommons.org (Required)
+# Get a free DC API Key at https://apikeys.datacommons.org (required)
 auth_google_datacommons_api_key = "$$DC_API_KEY$$"
 
 # =============================================================================
@@ -35,7 +36,8 @@ storage_create_artifacts_bucket = true
 # =============================================================================
 # Redis Module
 # =============================================================================
-# Cloud Memorystore (Redis) is used to cache API and website responses, significantly improving performance. You may want to set this to true in production.
+# Cloud Memorystore (Redis) is used to cache API and website responses, 
+# significantly improving performance. You may want to set this to true in production.
 enable_redis = false
 
 # =============================================================================
@@ -53,6 +55,8 @@ spanner_create_instance = true
 # Set to true to allow unauthenticated public internet traffic to access the service.
 # Set to false (default) to restrict access (e.g., behind authentication, API gateways, or IAP).
 datacommons_services_allow_unauthenticated_access = false
+
+# Track traffic and user interactions with your site using Google Analytics.
 # datacommons_services_google_analytics_tag_id = "your-analytics-tag-id"
 
 # =============================================================================
