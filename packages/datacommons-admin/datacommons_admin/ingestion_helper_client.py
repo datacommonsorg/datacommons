@@ -18,10 +18,6 @@ from google.auth.transport.requests import AuthorizedSession, Request
 from google.oauth2 import id_token
 
 
-ACTION_INITIALIZE_DATABASE = "initialize_database"
-ACTION_SEED_DATABASE = "seed_database"
-
-
 class IngestionHelperClient:
     """Client for interacting with the DCP Ingestion Helper Cloud Run service."""
 
@@ -59,9 +55,8 @@ class IngestionHelperClient:
 
         self.session = AuthorizedSession(creds)
 
-    def _call_endpoint(self, action_type: str) -> dict:
-        url = self.base_url
-        payload = {"actionType": action_type}
+    def _call_endpoint(self, path: str, payload: dict = None) -> dict:
+        url = f"{self.base_url}/{path.lstrip('/')}"
 
         try:
             response = self.session.post(url, json=payload, timeout=300)
@@ -84,6 +79,7 @@ class IngestionHelperClient:
                 error_data = response.json()
                 error_msg = (
                     error_data.get("message")
+                    or error_data.get("detail")
                     or error_data.get("error")
                     or response.text
                 )
@@ -101,8 +97,8 @@ class IngestionHelperClient:
 
     def initialize_database(self) -> dict:
         """Calls the initialize_database endpoint on the ingestion helper service."""
-        return self._call_endpoint(ACTION_INITIALIZE_DATABASE)
+        return self._call_endpoint("database/initialize")
 
     def seed_database(self) -> dict:
         """Calls the seed_database endpoint on the ingestion helper service."""
-        return self._call_endpoint(ACTION_SEED_DATABASE)
+        return self._call_endpoint("database/seed")
