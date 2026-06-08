@@ -57,8 +57,8 @@ git push origin v1.2.3rc1
 ```
 
 #### Production Release (Official PyPI)
-Create and push a release tag to automatically run the production pipeline:
-```bash
-git tag v1.2.3
-git push origin v1.2.3
-```
+Publish a new release on GitHub to automatically tag the repository and publish to PyPI:
+1. Go to [GitHub Releases](https://github.com/datacommonsorg/datacommons/releases) and click **Draft a new release**.
+2. Click **Choose a tag**, type your new version tag (e.g., `v1.2.3`), and select **Create new tag on publish**.
+3. Set target to `main`, add a title/description, and click **Publish release**.
+
