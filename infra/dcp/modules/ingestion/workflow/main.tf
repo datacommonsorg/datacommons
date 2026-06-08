@@ -1,6 +1,7 @@
 locals {
   name_prefix               = var.namespace != "" ? "${var.namespace}-" : ""
   should_run_postprocessing = var.enable_bigquery_postprocessing || var.enable_embeddings_generation
+  clean_namespace_prefix    = var.namespace != "" ? "${replace(lower(var.namespace), "_", "-")}-" : ""
 }
 
 resource "google_service_account" "workflow_sa" {
@@ -34,6 +35,11 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
             - run_postproc: ${var.enable_bigquery_postprocessing}
             - postprocessing_result: null
             - embedding_result: null
+            - sanitized_import: '$${text.replace_all(text.replace_all(text.to_lower(input.importName), "/", "-"), "_", "-")}'
+            - import_name_len: '$${len(sanitized_import)}'
+            - substring_end: '$${if(import_name_len < 35, import_name_len, 35)}'
+            - sanitized_short_import: '$${text.substring(sanitized_import, 0, substring_end)}'
+            - dataflow_job_name: '$${"${local.clean_namespace_prefix}" + sanitized_short_import + "-" + string(int(sys.now()))}'
             - launch_params:
                 projectId: '$${project_id}'
                 spannerInstanceId: '$${input.spannerInstanceId}'
@@ -83,7 +89,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                     location: '$${input.region}'
                     body:
                       launchParameter:
-                        jobName: '$${"${replace(lower(var.namespace), "_", "-")}-" + text.substring(text.replace_all(text.to_lower(input.importName), "_", "-"), 0, 35) + "-" + string(int(sys.now()))}'
+                        jobName: '$${dataflow_job_name}'
                         containerSpecGcsPath: 'gs://datcom-templates/templates/flex/ingestion.json'
                         parameters: '$${launch_params}'
                         environment:

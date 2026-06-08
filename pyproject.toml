@@ -1,6 +1,6 @@
 [project]
 name = "datacommons-platform"
-version = "0.0.3"
+version = "1.0.0"
 description = 'The Data Commons Platform is an open source semantic graph database for modeling, querying, and analyzing interconnected data.'
 readme = "README.md"
 requires-python = ">=3.11"

@@ -333,6 +333,14 @@ resource "google_cloud_run_v2_job_iam_member" "workflow_pre_invoker" {
   member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
 
+resource "google_cloud_run_v2_job_iam_member" "workflow_pre_developer" {
+  count    = var.ingestion_config.enable_ingestion ? 1 : 0
+  location = var.global.region
+  name     = module.ingestion_preprocessing_job[0].job_name
+  role     = "roles/run.developer"
+  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
 resource "google_storage_bucket_iam_member" "preprocessing_bucket_access" {
   count  = var.ingestion_config.enable_ingestion ? 1 : 0
   bucket = module.storage.artifacts_bucket_name
