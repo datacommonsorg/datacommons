@@ -96,7 +96,7 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
         value = var.mcp_instructions_path != null ? "gs://${var.artifacts_bucket_name}/${var.mcp_instructions_path}" : ""
       }
       env {
-        name  = "ENABLE_SPANNER_SEARCH_BACKEND"
+        name  = "RESOLVE_WITH_SPANNER_EMBEDDINGS"
         value = var.resolve_with_spanner_embeddings ? "true" : "false"
       }
     }
