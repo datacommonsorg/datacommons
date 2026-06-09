@@ -1,0 +1,42 @@
+name: Auto-Draft Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  draft-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check if version bump commit
+        id: check-bump
+        run: |
+          commit_msg=$(git log -1 --pretty=%B)
+          echo "Commit message: $commit_msg"
+          if [[ "$commit_msg" =~ ^chore:\ bump\ version\ to\ ([0-9]+\.[0-9]+\.[0-9]+(rc[0-9]+)?)$ ]]; then
+            version="${BASH_REMATCH[1]}"
+            echo "is_bump=true" >> $GITHUB_OUTPUT
+            echo "version=$version" >> $GITHUB_OUTPUT
+            echo "Detected version bump to: $version"
+          else
+            echo "is_bump=false" >> $GITHUB_OUTPUT
+            echo "Not a version bump commit."
+          fi
+
+      - name: Create Draft Release
+        if: steps.check-bump.outputs.is_bump == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.check-bump.outputs.version }}
+          name: v${{ steps.check-bump.outputs.version }}
+          draft: true
+          prerelease: ${{ contains(steps.check-bump.outputs.version, 'rc') }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
