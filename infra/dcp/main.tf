@@ -97,6 +97,7 @@ locals {
     instructions_path               = var.datacommons_services_mcp_instructions_path != null ? trimsuffix(var.datacommons_services_mcp_instructions_path, "/") : null
     allow_unauthenticated_access    = var.datacommons_services_allow_unauthenticated_access
     website_disable_google_maps_api = var.datacommons_services_website_disable_google_maps_api
+    resolve_with_spanner_embeddings = var.datacommons_services_resolve_with_spanner_embeddings
   }
 
   auth_config = {
