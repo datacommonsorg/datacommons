@@ -57,10 +57,10 @@ git push origin v1.2.3rc1
 ```
 
 #### Production Release (Official PyPI)
-Publish a new release on GitHub to automatically tag the repository and publish to PyPI:
-1. Go to [GitHub Releases](https://github.com/datacommonsorg/datacommons/releases) and click **Draft a new release**.
-2. Click **Choose a tag**, type your new version tag (e.g., `v1.2.3`), and select **Create new tag on publish** (this must match the version specified in the `bump_version.yaml` workflow in Step 1).
-3. Set target to `main`, set the Release title to your version tag (e.g., `v1.2.3`), click **Generate release notes** to automatically populate the description, and click **Publish release**.
+Once the version-bump Pull Request is merged into `main`, a draft release will be automatically created on GitHub with compiled release notes:
+1. Go to [GitHub Releases](https://github.com/datacommonsorg/datacommons/releases).
+2. Locate the auto-drafted release (e.g., `v1.2.3`) matching the newly bumped version.
+3. Click **Edit** (pencil icon), review the generated release notes, and click **Publish release** to tag the repository and trigger the production publishing pipeline.
 
 
 
