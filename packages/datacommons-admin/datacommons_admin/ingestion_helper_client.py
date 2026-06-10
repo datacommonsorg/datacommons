@@ -77,12 +77,19 @@ class IngestionHelperClient:
         if not response.ok:
             try:
                 error_data = response.json()
-                error_msg = (
-                    error_data.get("message")
-                    or error_data.get("detail")
-                    or error_data.get("error")
-                    or response.text
-                )
+                detail = error_data.get('detail')
+                if isinstance(detail, list):
+                    error_msg = ', '.join([
+                        f"{'.'.join(str(loc) for loc in err.get('loc', []))}: {err.get('msg')}"
+                        for err in detail if isinstance(err, dict)
+                    ]) or str(detail)
+                else:
+                    error_msg = (
+                        error_data.get('message')
+                        or (str(detail) if detail is not None else None)
+                        or error_data.get('error')
+                        or response.text
+                    )
             except Exception:
                 error_msg = response.text
 
