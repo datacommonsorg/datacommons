@@ -502,7 +502,7 @@ def _setup_ingestion_client() -> Tuple[Any, str, str]:
     click.secho(f"Found ingestion service URL: {url}", fg="green")
     click.secho(f"Found ingestion workflow service account: {sa_email}", fg="green")
     click.secho(
-        f"Found Spanner instance ID: {instance_id} / Database ID: {database_id}",
+        f"Found Spanner instance ID: {instance_id} / database ID: {database_id}",
         fg="green",
     )
 
