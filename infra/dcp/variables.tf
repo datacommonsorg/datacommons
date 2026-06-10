@@ -303,6 +303,12 @@ variable "datacommons_services_mcp_instructions_path" {
   default     = null
 }
 
+variable "datacommons_services_resolve_with_spanner_embeddings" {
+  description = "Enable resolving search queries with Spanner embeddings"
+  type        = bool
+  default     = false
+}
+
 # =============================================================================
 # Ingestion - Preprocessing Job
 # =============================================================================

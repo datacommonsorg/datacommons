@@ -67,6 +67,10 @@ variable "mcp_instructions_path" {
   default     = null
 }
 
+variable "resolve_with_spanner_embeddings" {
+  type    = bool
+}
+
 # =============================================================================
 # Infrastructure References
 # =============================================================================

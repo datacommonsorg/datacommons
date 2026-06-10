@@ -50,6 +50,7 @@ variable "datacommons_services_config" {
     instructions_path               = string
     allow_unauthenticated_access    = bool
     website_disable_google_maps_api = bool
+    resolve_with_spanner_embeddings = bool
   })
 }
 
