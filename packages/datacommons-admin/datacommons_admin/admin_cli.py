@@ -475,7 +475,7 @@ def init(
         fg="green",
     )
     click.secho(
-        f"Refer to documentation for more info and next steps.",
+        "Refer to documentation for more info and next steps.",
         fg="green",
     )
 
