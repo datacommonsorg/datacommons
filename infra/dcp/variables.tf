@@ -378,5 +378,5 @@ variable "ingestion_artifacts_path" {
 variable "ingestion_helper_service_image" {
   description = "Docker image URL for the ingestion support service"
   type        = string
-  default     = "gcr.io/datcom-ci/datacommons-ingestion-helper:1.0.0"
+  default     = "gcr.io/datcom-ci/datacommons-ingestion-helper:xiaotest"
 }
