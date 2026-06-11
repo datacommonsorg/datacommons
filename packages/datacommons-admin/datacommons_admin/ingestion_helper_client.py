@@ -107,8 +107,8 @@ class IngestionHelperClient:
 
     def initialize_database(self) -> dict:
         """Calls the initialize_database endpoint on the ingestion helper service."""
-        return self._call_endpoint("database/initialize")
+        return self._call_endpoint("database/initialize", payload={})
 
     def seed_database(self) -> dict:
         """Calls the seed_database endpoint on the ingestion helper service."""
-        return self._call_endpoint("database/seed")
+        return self._call_endpoint("database/seed", payload={})
