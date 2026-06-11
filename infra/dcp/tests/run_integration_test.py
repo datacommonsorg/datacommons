@@ -65,7 +65,7 @@ def run_command(args: list[str], cwd: Path | None = None, check: bool = True) ->
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run end-to-end DCP integration test.")
-    parser.add_argument("--project-id", default="datcom-website-dev", help="GCP project ID to test in")
+    parser.add_argument("--project-id", default="datcom-ci", help="GCP project ID to test in")
     parser.add_argument("--region", default="us-central1", help="GCP region to deploy in")
     parser.add_argument("--namespace", default=None, help="Custom namespace (defaults to itest-XXXX)")
     parser.add_argument("--services-image", default=None, help="Override default serving services container image")
