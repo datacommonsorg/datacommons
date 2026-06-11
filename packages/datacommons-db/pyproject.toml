@@ -19,7 +19,7 @@ classifiers = [
 dependencies = [
   "sqlalchemy",
   "sqlalchemy-spanner",
-  "google-cloud-spanner",
+  "google-cloud-spanner>=3.67.0",
   "setuptools<=80.0.0", # Pin version to <=80 to avoid https://stackoverflow.com/questions/76043689/pkg-resources-is-deprecated-as-an-api
 ]
 
