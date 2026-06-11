@@ -73,6 +73,7 @@ def main() -> None:
     parser.add_argument("--helper-image", default=None, help="Override default helper service image")
     parser.add_argument("--keep-sandbox", action="store_true", help="Do not destroy sandbox on completion/failure")
     parser.add_argument("--dc-api-key", default="", help="Optional Google Data Commons API Key")
+    parser.add_argument("--tf-git-ref", default=None, help="GCP Terraform templates git ref (e.g. branch, commit, tag)")
 
     args = parser.parse_args()
 
@@ -107,6 +108,9 @@ def main() -> None:
         # Always pass a dc-api-key to bypass interactive console prompts in automated runs
         dc_key = args.dc_api_key or "dummy-key-for-test"
         init_args.extend(["--dc-api-key", dc_key])
+
+        if args.tf_git_ref:
+            init_args.extend(["--tf-git-ref", args.tf_git_ref])
 
         run_command(init_args, cwd=workspace_dir)
         sandbox_dir = workspace_dir / namespace
