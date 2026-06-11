@@ -256,9 +256,13 @@ resource "google_project_iam_member" "workflow_run_viewer" {
 
 data "google_client_openid_userinfo" "me" {}
 
+locals {
+  deployer_email = try(data.google_client_openid_userinfo.me.email, "")
+}
+
 resource "google_service_account_iam_member" "deployer_impersonation" {
-  count              = var.deploy ? 1 : 0
+  count              = var.deploy && local.deployer_email != "" && local.deployer_email != null ? 1 : 0
   service_account_id = google_service_account.workflow_sa[0].name
   role               = "roles/iam.serviceAccountTokenCreator"
-  member             = "user:${data.google_client_openid_userinfo.me.email}"
+  member             = "user:${local.deployer_email}"
 }
