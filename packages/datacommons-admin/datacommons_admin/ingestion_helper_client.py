@@ -57,12 +57,9 @@ class IngestionHelperClient:
 
     def _call_endpoint(self, path: str, payload: dict = None) -> dict:
         url = f"{self.base_url}/{path.lstrip('/')}"
-        import json
-        data_str = json.dumps(payload) if payload is not None else "{}"
 
         try:
-            headers = {"Content-Type": "application/json"}
-            response = self.session.post(url, data=data_str, headers=headers, timeout=300)
+            response = self.session.post(url, json=payload, timeout=300)
         except Exception as e:
             msg = f"Network or authentication error connecting to Ingestion Helper service at {url}: {e}"
             if self.service_account_email:
