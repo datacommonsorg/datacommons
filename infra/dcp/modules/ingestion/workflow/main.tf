@@ -52,11 +52,10 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
           try:
             call: http.post
             args:
-              url: '${var.ingestion_helper_url}'
+              url: '${var.ingestion_helper_url}/database/lock/acquire'
               auth:
                 type: OIDC
               body:
-                actionType: "acquire_ingestion_lock"
                 workflowId: '$${workflow_id}'
                 timeout: '$${lock_timeout}'
             result: lock_result
@@ -73,11 +72,10 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
               - set_import_staging:
                   call: http.post
                   args:
-                    url: '${var.ingestion_helper_url}'
+                    url: '${var.ingestion_helper_url}/imports/status'
                     auth:
                       type: OIDC
                     body:
-                      actionType: "update_import_status"
                       importName: '$${input.importName}'
                       status: "STAGING"
                       latestVersion: '$${latest_version_gcs_path}'
@@ -137,11 +135,10 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                             - run_postprocessings:
                                 call: http.post
                                 args:
-                                  url: '${var.ingestion_helper_url}'
+                                  url: '${var.ingestion_helper_url}/aggregation/run'
                                   auth:
                                     type: OIDC
                                   body:
-                                    actionType: "run_aggregation"
                                     importList: '$${json.decode(input.importList)}'
                                 result: postprocessing_result
                             - end_postproc_branch:
@@ -157,12 +154,11 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                             - run_embeddings:
                                 call: http.post
                                 args:
-                                  url: '${var.ingestion_helper_url}'
+                                  url: '${var.ingestion_helper_url}/embeddings/ingest'
                                   auth:
                                     type: OIDC
                                   body:
-                                    actionType: "embedding_ingestion"
-                                    importList: '$${json.decode(input.importList)}'
+                                    enableEmbeddings: true
                                   timeout: ${var.embeddings_timeout}
                                 result: embedding_result
                             - end_embeddings_branch:
@@ -171,11 +167,10 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
               - promote_version:
                   call: http.post
                   args:
-                    url: '${var.ingestion_helper_url}'
+                    url: '${var.ingestion_helper_url}/imports/version'
                     auth:
                       type: OIDC
                     body:
-                      actionType: "update_import_version"
                       importName: '$${input.importName}'
                       version: '$${version}'
                       comment: '$${"Auto-promoted by workflow " + workflow_id}'
@@ -183,17 +178,15 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
               - update_ingestion_history_step:
                   call: http.post
                   args:
-                    url: '${var.ingestion_helper_url}'
+                    url: '${var.ingestion_helper_url}/imports/ingestion-status'
                     auth:
                       type: OIDC
                     body:
-                      actionType: "update_ingestion_status"
                       workflowId: '$${workflow_id}'
                       jobId: '$${job_id}'
                       status: 'SUCCESS'
                       importList:
                         - importName: '$${input.importName}'
-                          latestVersion: '$${version}'
                   result: history_result
           except:
             as: e
@@ -204,11 +197,10 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
       - release_lock_step:
           call: http.post
           args:
-            url: '${var.ingestion_helper_url}'
+            url: '${var.ingestion_helper_url}/database/lock/release'
             auth:
               type: OIDC
             body:
-              actionType: "release_ingestion_lock"
               workflowId: '$${workflow_id}'
           result: release_lock_result
       - fail_workflow:
@@ -229,11 +221,9 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
       - clear_cache_step:
           call: http.post
           args:
-            url: '${var.ingestion_helper_url}'
+            url: '${var.ingestion_helper_url}/cache/clear'
             auth:
               type: OIDC
-            body:
-              actionType: "clear_redis_cache"
           result: clear_cache_result
 %{endif}
 %{endif}
