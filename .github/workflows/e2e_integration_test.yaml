@@ -1,0 +1,86 @@
+name: E2E Integration Test
+
+on:
+  schedule:
+    # Run nightly at midnight UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    # Allow manual execution from the GitHub Actions UI
+    inputs:
+      services_image:
+        description: 'Override serving services container image (optional)'
+        required: false
+        type: string
+      ingestion_helper_image:
+        description: 'Override helper service container image (optional)'
+        required: false
+        type: string
+      preprocessing_image:
+        description: 'Override data preprocessing image (optional)'
+        required: false
+        type: string
+
+permissions:
+  contents: 'read'
+  id-token: 'write' # Required for Workload Identity Federation
+
+jobs:
+  integration-test:
+    name: Run GCP Sandbox Integration Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      # 1. Authenticate to Google Cloud
+      # Configure Workload Identity Federation secrets in your repo settings:
+      # GCP_WIF_PROVIDER: projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/POOL_ID/providers/PROVIDER_ID
+      # GCP_WIF_SA_EMAIL: sa-name@datcom-ci.iam.gserviceaccount.com
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_WIF_SA_EMAIL }}
+
+      # 2. Set up Google Cloud SDK (gcloud CLI)
+      - name: Set up GCP Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: datcom-ci
+
+      # 3. Install uv and Python
+      - name: Install uv and Set up Python
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+
+      # 4. Install dependencies
+      - name: Install Dependencies
+        run: uv sync --locked
+
+      # 5. Run E2E Sandbox Integration Test
+      # If GCP_WIF_SA_EMAIL does not have a real DC API Key, the script falls back to using "dummy-key-for-test".
+      - name: Execute E2E Integration Test
+        env:
+          DC_API_KEY: ${{ secrets.DC_API_KEY }}
+        run: |
+          # Build arguments list
+          ARGS="--project-id datcom-ci"
+          
+          # Inject image overrides if manually triggered with inputs
+          if [ "${{ github.event.inputs.services_image }}" != "" ]; then
+            ARGS="$ARGS --services-image ${{ github.event.inputs.services_image }}"
+          fi
+          if [ "${{ github.event.inputs.ingestion_helper_image }}" != "" ]; then
+            ARGS="$ARGS --helper-image ${{ github.event.inputs.ingestion_helper_image }}"
+          fi
+          if [ "${{ github.event.inputs.preprocessing_image }}" != "" ]; then
+            ARGS="$ARGS --preprocessing-image ${{ github.event.inputs.preprocessing_image }}"
+          fi
+          if [ "$DC_API_KEY" != "" ]; then
+            ARGS="$ARGS --dc-api-key $DC_API_KEY"
+          fi
+          
+          # Execute the test runner
+          uv run python3 infra/dcp/tests/run_integration_test.py $ARGS
