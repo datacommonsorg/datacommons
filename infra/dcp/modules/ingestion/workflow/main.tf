@@ -262,8 +262,8 @@ locals {
 }
 
 resource "google_service_account_iam_member" "deployer_impersonation" {
-  count              = var.deploy && local.deployer_email != "" && local.deployer_email != null ? 1 : 0
+  count              = var.deploy ? 1 : 0
   service_account_id = google_service_account.workflow_sa[0].name
   role               = "roles/iam.serviceAccountTokenCreator"
-  member             = "user:${local.deployer_email}"
+  member             = local.deployer_email != "" && local.deployer_email != null ? "user:${local.deployer_email}" : "serviceAccount:${google_service_account.workflow_sa[0].email}"
 }
