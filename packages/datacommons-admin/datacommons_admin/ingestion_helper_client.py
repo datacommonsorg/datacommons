@@ -57,9 +57,12 @@ class IngestionHelperClient:
 
     def _call_endpoint(self, path: str, payload: dict = None) -> dict:
         url = f"{self.base_url}/{path.lstrip('/')}"
+        import json
+        data_str = json.dumps(payload) if payload is not None else "{}"
 
         try:
-            response = self.session.post(url, json=payload, timeout=300)
+            headers = {"Content-Type": "application/json"}
+            response = self.session.post(url, data=data_str, headers=headers, timeout=300)
         except Exception as e:
             msg = f"Network or authentication error connecting to Ingestion Helper service at {url}: {e}"
             if self.service_account_email:
@@ -107,8 +110,8 @@ class IngestionHelperClient:
 
     def initialize_database(self) -> dict:
         """Calls the initialize_database endpoint on the ingestion helper service."""
-        return self._call_endpoint("database/initialize", payload={})
+        return self._call_endpoint("database/initialize")
 
     def seed_database(self) -> dict:
         """Calls the seed_database endpoint on the ingestion helper service."""
-        return self._call_endpoint("database/seed", payload={})
+        return self._call_endpoint("database/seed")
