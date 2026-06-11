@@ -426,14 +426,14 @@ def init(
     click.secho("Data Commons Admin Init", fg="cyan", bold=True)
 
     # 1. Project Configs
-    click.secho("\n[Project Configuration]", fg="cyan", bold=True)
+    click.secho("\n[Project configuration]", fg="cyan", bold=True)
     click.secho("Configuring project settings...", fg="bright_black")
     resolved_project_id, resolved_namespace, target_dir = _resolve_project_config(
         project_id, namespace, force
     )
 
     # 2. Terraform Setup
-    click.secho("\n[Terraform Backend Setup]", fg="cyan", bold=True)
+    click.secho("\n[Terraform backend setup]", fg="cyan", bold=True)
     click.secho("Configuring backend for Terraform state...", fg="bright_black")
     if not tf_remote_state:
         click.echo("  Using local backend for Terraform state.")
@@ -457,7 +457,7 @@ def init(
     )
 
     # 3. DCP config dir setup
-    click.secho("\n[DCP Configuration]", fg="cyan", bold=True)
+    click.secho("\n[DCP configuration]", fg="cyan", bold=True)
     click.secho("Setting up configuration files...", fg="bright_black")
     _setup_dcp_config_dir(
         target_dir,
@@ -475,14 +475,14 @@ def init(
         fg="green",
     )
     click.secho(
-        f"Refer to {resolved_namespace}/README.md for more info and next steps.",
+        "Refer to documentation for more info and next steps.",
         fg="green",
     )
 
 
 def _setup_ingestion_client() -> Tuple[Any, str, str]:
     click.secho(
-        "Fetching Ingestion Service URL, Workflow Service Account, and Spanner details from Terraform outputs...",
+        "Fetching ingestion service URL, workflow service account, and Spanner details from Terraform outputs...",
         fg="bright_black",
     )
 
@@ -499,10 +499,10 @@ def _setup_ingestion_client() -> Tuple[Any, str, str]:
     instance_id = get_spanner_instance_id()
     database_id = get_spanner_database_id()
 
-    click.secho(f"Found Ingestion Service URL: {url}", fg="green")
-    click.secho(f"Found Ingestion Workflow Service Account: {sa_email}", fg="green")
+    click.secho(f"Found ingestion service URL: {url}", fg="green")
+    click.secho(f"Found ingestion workflow service account: {sa_email}", fg="green")
     click.secho(
-        f"Found Spanner Database Instance: {instance_id} / Database ID: {database_id}",
+        f"Found Spanner instance ID: {instance_id} / database ID: {database_id}",
         fg="green",
     )
 
