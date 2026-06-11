@@ -85,8 +85,7 @@ def main() -> None:
 
     log_step(f"Starting Integration Test with namespace: {namespace}")
 
-    root_dir = Path(__file__).resolve().parent
-    workspace_dir = root_dir / f"workspace-{namespace}"
+    workspace_dir = Path(f"/tmp/workspace-{namespace}")
 
     # Ensure clean workspace start
     if workspace_dir.exists():
