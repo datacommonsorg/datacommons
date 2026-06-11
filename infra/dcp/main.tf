@@ -20,10 +20,6 @@ provider "google" {
   region                = var.region
   user_project_override = var.user_project_override
   billing_project       = var.billing_project_id != null ? var.billing_project_id : var.project_id
-  scopes = [
-    "https://www.googleapis.com/auth/cloud-platform",
-    "https://www.googleapis.com/auth/userinfo.email"
-  ]
 }
 
 provider "google-beta" {
@@ -31,10 +27,6 @@ provider "google-beta" {
   region                = var.region
   user_project_override = var.user_project_override
   billing_project       = var.billing_project_id != null ? var.billing_project_id : var.project_id
-  scopes = [
-    "https://www.googleapis.com/auth/cloud-platform",
-    "https://www.googleapis.com/auth/userinfo.email"
-  ]
 }
 
 resource "google_project_service" "apis" {
