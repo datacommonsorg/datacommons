@@ -253,3 +253,12 @@ resource "google_project_iam_member" "workflow_run_viewer" {
   role    = "roles/run.viewer"
   member  = "serviceAccount:${google_service_account.workflow_sa[0].email}"
 }
+
+data "google_client_openid_userinfo" "me" {}
+
+resource "google_service_account_iam_member" "deployer_impersonation" {
+  count              = var.deploy ? 1 : 0
+  service_account_id = google_service_account.workflow_sa[0].name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "user:${data.google_client_openid_userinfo.me.email}"
+}
