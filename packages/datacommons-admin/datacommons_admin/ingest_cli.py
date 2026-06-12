@@ -12,16 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import click
 import re
+
+import click
 
 from datacommons_admin.ingestion_job_client import IngestionJobClient
 from datacommons_admin.tf_utils import (
     get_ingestion_prep_job_name,
+    get_ingestion_workflow_name,
     get_ingestion_workflow_service_account_email,
     get_project_id,
     get_region,
-    get_ingestion_workflow_name,
+    get_tfvars_api_key,
 )
 
 
@@ -40,6 +42,59 @@ def ingest() -> None:
 def start(imports: str | None = None) -> None:
     """Start a data ingestion job execution."""
     click.secho("Datacommons Admin Ingest Start", fg="cyan", bold=True)
+
+    api_key = get_tfvars_api_key()
+    if api_key:
+        if api_key in ["dummy-key-for-test", "YOUR_API_KEY_HERE"]:
+            click.secho(
+                "\n[!] WARNING: The Data Commons API Key in your terraform.tfvars is set to a dummy value ('dummy-key-for-test').",
+                fg="yellow",
+                bold=True,
+            )
+            click.secho(
+                "The background ingestion job will fail to resolve place codes and crash.",
+                fg="yellow",
+            )
+            click.secho(
+                "Please set 'auth_google_datacommons_api_key' to your actual key in terraform.tfvars, run 'terraform apply', and try again.",
+                fg="yellow",
+            )
+            if not click.confirm("Do you want to start the ingestion anyway?"):
+                raise click.ClickException("Aborted by user due to dummy API key.")
+        else:
+            import requests
+
+            click.secho(
+                "Validating Data Commons API Key against api.datacommons.org...",
+                fg="bright_black",
+            )
+            try:
+                response = requests.post(
+                    "https://api.datacommons.org/v2/node",
+                    json={"nodes": ["country/USA"], "property": "->name"},
+                    headers={"x-api-key": api_key},
+                    timeout=5,
+                )
+                if response.status_code == 200:
+                    click.secho("API Key validated successfully.", fg="green")
+                elif response.status_code == 401:
+                    click.secho(
+                        "\n[!] ERROR: The Data Commons API Key in your terraform.tfvars was rejected by the server (HTTP 401 Unauthorized).",
+                        fg="red",
+                        bold=True,
+                    )
+                    click.secho(
+                        "Ingestion cannot proceed with an invalid API Key.", fg="red"
+                    )
+                    raise click.ClickException(
+                        "Invalid API key. Please check your terraform.tfvars."
+                    )
+            except requests.RequestException:
+                click.secho(
+                    "Warning: Could not connect to api.datacommons.org to validate key. Skipping validation.",
+                    fg="yellow",
+                )
+
     click.secho(
         "Fetching Data Job Name and Workflow Service Account from Terraform outputs...",
         fg="bright_black",
