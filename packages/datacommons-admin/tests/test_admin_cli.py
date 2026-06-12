@@ -15,10 +15,9 @@
 from pathlib import Path
 from unittest.mock import patch
 
-from click.testing import CliRunner
 import pytest
-
-from datacommons_admin.admin_cli import admin, init
+from click.testing import CliRunner
+from datacommons_admin.admin_cli import admin
 
 
 @pytest.fixture
@@ -452,3 +451,34 @@ def test_ingest_start_with_imports_success(
         },
         timeout=300,
     )
+
+
+def test_get_tfvars_api_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from datacommons_admin.tf_utils import get_tfvars_api_key
+
+    # 1. Test no terraform.tfvars
+    monkeypatch.chdir(tmp_path)
+    assert get_tfvars_api_key() is None
+
+    # 2. Test simple key layout
+    tfvars = tmp_path / "terraform.tfvars"
+    tfvars.write_text('auth_google_datacommons_api_key = "my-test-key-1"')
+    assert get_tfvars_api_key() == "my-test-key-1"
+
+    # 3. Test inline comment and extra spaces
+    tfvars.write_text(
+        '  auth_google_datacommons_api_key = "my-test-key-2"  # inline comment here\n'
+    )
+    assert get_tfvars_api_key() == "my-test-key-2"
+
+    # 4. Test double-slash inline comment
+    tfvars.write_text('auth_google_datacommons_api_key = "my-test-key-3" // comment')
+    assert get_tfvars_api_key() == "my-test-key-3"
+
+    # 5. Test single-quoted key
+    tfvars.write_text("auth_google_datacommons_api_key = 'my-test-key-4'")
+    assert get_tfvars_api_key() == "my-test-key-4"
+
+    # 6. Test short key name (dc_api_key)
+    tfvars.write_text('dc_api_key = "my-test-key-5"')
+    assert get_tfvars_api_key() == "my-test-key-5"
