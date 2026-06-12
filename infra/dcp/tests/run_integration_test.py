@@ -72,7 +72,7 @@ def main() -> None:
     parser.add_argument("--preprocessing-image", default=None, help="Override default data preprocessing image")
     parser.add_argument("--helper-image", default=None, help="Override default helper service image")
     parser.add_argument("--keep-sandbox", action="store_true", help="Do not destroy sandbox on completion/failure")
-    parser.add_argument("--dc-api-key", default="", help="Optional Google Data Commons API Key")
+    parser.add_argument("--dc-api-key", default=os.environ.get("DC_API_KEY", ""), help="Optional Google Data Commons API Key")
     parser.add_argument("--tf-git-ref", default=None, help="GCP Terraform templates git ref (e.g. branch, commit, tag)")
 
     args = parser.parse_args()
