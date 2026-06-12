@@ -56,6 +56,8 @@ class IngestionHelperClient:
         self.session = AuthorizedSession(creds)
 
     def _call_endpoint(self, path: str, payload: dict = None) -> dict:
+        if payload is None:
+            payload = {}
         url = f"{self.base_url}/{path.lstrip('/')}"
 
         try:
