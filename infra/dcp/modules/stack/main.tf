@@ -78,6 +78,16 @@ locals {
       version = "latest"
     }
   ] : []) : []
+
+  # TODO: Get rid of this after GCS embeddings are removed.
+  # Output dir is different for preprocessing job because it has to write to /datacommons/ for Embeddings ingestion.
+  preprocessing_env_variables = [
+    for env in local.cloud_run_shared_env_variables :
+    env.name == "OUTPUT_DIR" ? {
+      name  = "OUTPUT_DIR"
+      value = "${env.value}/datacommons"
+    } : env
+  ]
 }
 
 module "spanner" {
@@ -134,7 +144,7 @@ module "ingestion_preprocessing_job" {
   ingestion_artifacts_path = var.ingestion_config.ingestion_artifacts_path
   run_database_init       = false
   use_spanner             = true
-  env_vars                = local.cloud_run_shared_env_variables
+  env_vars                = local.preprocessing_env_variables
   secret_env_vars         = local.datacommons_services_secrets
   dc_api_key_secret_id    = module.auth.dc_api_key_secret_id
   maps_api_key_secret_id  = module.auth.maps_api_key_secret_id
