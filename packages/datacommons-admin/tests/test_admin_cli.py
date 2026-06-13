@@ -15,10 +15,9 @@
 from pathlib import Path
 from unittest.mock import patch
 
-from click.testing import CliRunner
 import pytest
-
-from datacommons_admin.admin_cli import admin, init
+from click.testing import CliRunner
+from datacommons_admin.admin_cli import admin
 
 
 @pytest.fixture
@@ -289,8 +288,8 @@ def test_seed_db_success(
 
 @patch("datacommons_admin.tf_utils.shutil.which")
 @patch("datacommons_admin.tf_utils.subprocess.run")
-@patch("datacommons_admin.ingestion_job_client.AuthorizedSession")
-@patch("datacommons_admin.ingestion_job_client.google.auth.default")
+@patch("datacommons_admin.ingestion_helper_client.AuthorizedSession")
+@patch("datacommons_admin.ingestion_helper_client.google.auth.default")
 def test_ingest_start_success(
     mock_auth_default: patch,
     mock_session: patch,
@@ -302,7 +301,7 @@ def test_ingest_start_success(
     from unittest.mock import MagicMock
 
     mock_proc = MagicMock()
-    mock_proc.stdout = '{"ingestion_prep_job_name": {"value": "projects/mock-proj/locations/us-central1/jobs/mock-job"}, "ingestion_workflow_service_account_email": {"value": "mock-orch-sa@mock.com"}, "project_id": {"value": "mock-proj"}, "region": {"value": "us-central1"}, "ingestion_workflow_name": {"value": "mock-workflow"}}'
+    mock_proc.stdout = '{"ingestion_service_url": {"value": "https://mock-helper"}, "ingestion_prep_job_name": {"value": "projects/mock-proj/locations/us-central1/jobs/mock-job"}, "ingestion_workflow_service_account_email": {"value": "mock-orch-sa@mock.com"}, "project_id": {"value": "mock-proj"}, "region": {"value": "us-central1"}, "ingestion_workflow_name": {"value": "mock-workflow"}}'
     mock_run.return_value = mock_proc
 
     mock_creds = MagicMock()
@@ -312,7 +311,7 @@ def test_ingest_start_success(
     mock_resp = MagicMock()
     mock_resp.ok = True
     mock_resp.json.return_value = {
-        "name": "projects/mock-proj/locations/us-central1/operations/op-123"
+        "operationName": "projects/mock-proj/locations/us-central1/operations/op-123"
     }
     mock_session_inst.post.return_value = mock_resp
     mock_session.return_value = mock_session_inst
@@ -410,8 +409,8 @@ def test_init_uses_default_ref_v_prefixed(
 
 @patch("datacommons_admin.tf_utils.shutil.which")
 @patch("datacommons_admin.tf_utils.subprocess.run")
-@patch("datacommons_admin.ingestion_job_client.AuthorizedSession")
-@patch("datacommons_admin.ingestion_job_client.google.auth.default")
+@patch("datacommons_admin.ingestion_helper_client.AuthorizedSession")
+@patch("datacommons_admin.ingestion_helper_client.google.auth.default")
 def test_ingest_start_with_imports_success(
     mock_auth_default: patch,
     mock_session: patch,
@@ -423,7 +422,7 @@ def test_ingest_start_with_imports_success(
     from unittest.mock import MagicMock
 
     mock_proc = MagicMock()
-    mock_proc.stdout = '{"ingestion_prep_job_name": {"value": "projects/mock-proj/locations/us-central1/jobs/mock-job"}, "ingestion_workflow_service_account_email": {"value": "mock-orch-sa@mock.com"}, "project_id": {"value": "mock-proj"}, "region": {"value": "us-central1"}, "ingestion_workflow_name": {"value": "mock-workflow"}}'
+    mock_proc.stdout = '{"ingestion_service_url": {"value": "https://mock-helper"}, "ingestion_prep_job_name": {"value": "projects/mock-proj/locations/us-central1/jobs/mock-job"}, "ingestion_workflow_service_account_email": {"value": "mock-orch-sa@mock.com"}, "project_id": {"value": "mock-proj"}, "region": {"value": "us-central1"}, "ingestion_workflow_name": {"value": "mock-workflow"}}'
     mock_run.return_value = mock_proc
 
     mock_creds = MagicMock()
@@ -433,7 +432,7 @@ def test_ingest_start_with_imports_success(
     mock_resp = MagicMock()
     mock_resp.ok = True
     mock_resp.json.return_value = {
-        "name": "projects/mock-proj/locations/us-central1/operations/op-123"
+        "operationName": "projects/mock-proj/locations/us-central1/operations/op-123"
     }
     mock_session_inst.post.return_value = mock_resp
     mock_session.return_value = mock_session_inst
@@ -442,13 +441,41 @@ def test_ingest_start_with_imports_success(
     assert result.exit_code == 0
     assert "Successfully started ingestion job!" in result.output
     mock_session_inst.post.assert_called_once_with(
-        "https://run.googleapis.com/v2/projects/mock-proj/locations/us-central1/jobs/mock-job:run",
+        "https://mock-helper/ingestion/start",
         json={
-            "overrides": {
-                "containerOverrides": [
-                    {"args": ["--mode=dcpbridge", "--imports=oecd,doubleup"]}
-                ]
-            }
+            "jobName": "projects/mock-proj/locations/us-central1/jobs/mock-job",
+            "imports": "oecd,doubleup",
         },
         timeout=300,
     )
+
+
+def test_get_tfvars_api_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from datacommons_admin.tf_utils import get_tfvars_api_key
+
+    # 1. Test no terraform.tfvars
+    monkeypatch.chdir(tmp_path)
+    assert get_tfvars_api_key() is None
+
+    # 2. Test simple key layout
+    tfvars = tmp_path / "terraform.tfvars"
+    tfvars.write_text('auth_google_datacommons_api_key = "my-test-key-1"')
+    assert get_tfvars_api_key() == "my-test-key-1"
+
+    # 3. Test inline comment and extra spaces
+    tfvars.write_text(
+        '  auth_google_datacommons_api_key = "my-test-key-2"  # inline comment here\n'
+    )
+    assert get_tfvars_api_key() == "my-test-key-2"
+
+    # 4. Test double-slash inline comment
+    tfvars.write_text('auth_google_datacommons_api_key = "my-test-key-3" // comment')
+    assert get_tfvars_api_key() == "my-test-key-3"
+
+    # 5. Test single-quoted key
+    tfvars.write_text("auth_google_datacommons_api_key = 'my-test-key-4'")
+    assert get_tfvars_api_key() == "my-test-key-4"
+
+    # 6. Test short key name (dc_api_key)
+    tfvars.write_text('dc_api_key = "my-test-key-5"')
+    assert get_tfvars_api_key() == "my-test-key-5"
