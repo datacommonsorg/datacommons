@@ -1,0 +1,100 @@
+[
+  {
+    "name": "Average Age of Frogs",
+    "subject_id": "Average_Age_Frog",
+    "types": [
+      "StatisticalVariable"
+    ],
+    "value": "Average Age of Frogs"
+  },
+  {
+    "name": "Count of Green Frogs",
+    "subject_id": "Count_Frog_Green",
+    "types": [
+      "StatisticalVariable"
+    ],
+    "value": "Count of Green Frogs"
+  },
+  {
+    "name": "Count of Trumal Person",
+    "subject_id": "Count_Person_Trumal",
+    "types": [
+      "StatisticalVariable"
+    ],
+    "value": "Count of Trumal Person"
+  },
+  {
+    "name": "StatVarGroup",
+    "subject_id": "StatVarGroup",
+    "types": [
+      "Class"
+    ],
+    "value": "StatVarGroup"
+  },
+  {
+    "name": "StatVarObservation",
+    "subject_id": "StatVarObservation",
+    "types": [
+      "Class"
+    ],
+    "value": "StatVarObservation"
+  },
+  {
+    "name": "StatisticalVariable",
+    "subject_id": "StatisticalVariable",
+    "types": [
+      "Class"
+    ],
+    "value": "StatisticalVariable"
+  },
+  {
+    "name": "Topic",
+    "subject_id": "Topic",
+    "types": [
+      "Class"
+    ],
+    "value": "Topic"
+  },
+  {
+    "name": "Canada",
+    "subject_id": "country/CAN",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "Canada"
+  },
+  {
+    "name": "United States of America",
+    "subject_id": "country/USA",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "United States of America"
+  },
+  {
+    "name": "Data Commons Variables",
+    "subject_id": "dc/g/Root",
+    "types": [
+      "StatVarGroup"
+    ],
+    "value": "dc/g/Root"
+  },
+  {
+    "name": "Statistics",
+    "subject_id": "dc/topic/Root",
+    "types": [
+      "Topic"
+    ],
+    "value": "dc/topic/Root"
+  },
+  {
+    "name": "Number of Frogs",
+    "subject_id": "number_of_frogs",
+    "types": [
+      "StatisticalVariable"
+    ],
+    "value": "Number of Frogs"
+  }
+]

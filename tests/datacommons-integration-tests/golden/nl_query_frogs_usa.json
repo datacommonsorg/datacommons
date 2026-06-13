@@ -1,0 +1,220 @@
+{
+  "client": "default",
+  "config": {
+    "categories": [
+      {
+        "blocks": [
+          {
+            "columns": [
+              {
+                "tiles": [
+                  {
+                    "statVarKey": [
+                      "number_of_frogs"
+                    ],
+                    "title": "Number_Of_Frogs in United States of America",
+                    "type": "LINE"
+                  }
+                ]
+              },
+              {
+                "tiles": [
+                  {
+                    "description": "Number_Of_Frogs in United States of America",
+                    "statVarKey": [
+                      "number_of_frogs"
+                    ],
+                    "title": "Number_Of_Frogs in United States of America",
+                    "type": "HIGHLIGHT"
+                  }
+                ]
+              }
+            ],
+            "denom": "Count_Person",
+            "title": "Number_Of_Frogs"
+          }
+        ],
+        "statVarSpec": {
+          "number_of_frogs": {
+            "name": "number_of_frogs",
+            "statVar": "number_of_frogs"
+          }
+        }
+      }
+    ],
+    "metadata": {
+      "placeDcid": [
+        "country/USA"
+      ]
+    }
+  },
+  "context": [
+    {
+      "answerPlaces": [],
+      "classifications": [
+        {
+          "contained_in_place_type": "State",
+          "had_default_type": false,
+          "type": 4
+        }
+      ],
+      "entities": [],
+      "insightCtx": {
+        "chartType": null,
+        "childEntityType": "State",
+        "classifications": [
+          {
+            "contained_in_place_type": "State",
+            "had_default_type": false,
+            "type": 4
+          }
+        ],
+        "comparisonEntities": [],
+        "comparisonVariables": [],
+        "dc": "main",
+        "disableExploreMore": "",
+        "entities": [
+          "country/USA"
+        ],
+        "maxCharts": null,
+        "maxTopicSvs": null,
+        "maxTopics": null,
+        "nonPlaceEntities": [],
+        "properties": [],
+        "sessionId": "007_999999999",
+        "skipRelatedThings": false,
+        "variables": [
+          "number_of_frogs"
+        ]
+      },
+      "llm_resp": {},
+      "placeFallback": {
+        "newPlace": {
+          "country": "country/USA",
+          "dcid": "country/USA",
+          "name": "United States of America",
+          "place_type": "Country"
+        },
+        "newStr": "United States of America",
+        "origPlace": {
+          "country": "country/USA",
+          "dcid": "country/USA",
+          "name": "United States of America",
+          "place_type": "Country"
+        },
+        "origStr": "states in United States of America",
+        "origType": "State"
+      },
+      "places": [
+        {
+          "country": "country/USA",
+          "dcid": "country/USA",
+          "name": "United States of America",
+          "place_type": "Country"
+        }
+      ],
+      "properties": [],
+      "query": "Number of frogs in United States of America",
+      "query_type": 1,
+      "ranked_charts": [
+        {
+          "chart_type": 0,
+          "chart_vars": {
+            "description": "",
+            "event": null,
+            "growth_direction": null,
+            "growth_ranking_type": null,
+            "is_topic_peer_group": false,
+            "orig_sv_map": {
+              "number_of_frogs": [
+                "number_of_frogs"
+              ]
+            },
+            "props": [],
+            "skip_map_for_ranking": false,
+            "skip_overview_for_entity_answer": false,
+            "source_topic": "",
+            "svpg_id": "",
+            "svs": [
+              "number_of_frogs"
+            ],
+            "title": "",
+            "title_suffix": ""
+          },
+          "entities": [],
+          "event": null,
+          "info_message": "",
+          "place_type": "State",
+          "places": [
+            {
+              "country": "country/USA",
+              "dcid": "country/USA",
+              "name": "United States of America",
+              "place_type": "Country"
+            }
+          ],
+          "props": [],
+          "ranking_types": [],
+          "sv_place_latest_date": {
+            "number_of_frogs": {
+              "country/USA": ""
+            }
+          },
+          "svs": [
+            "number_of_frogs"
+          ]
+        }
+      ],
+      "session_id": "007_999999999",
+      "svs": [
+        "number_of_frogs"
+      ]
+    }
+  ],
+  "entities": [],
+  "pastSourceContext": "United States of America",
+  "place": {
+    "dcid": "country/USA",
+    "name": "United States of America",
+    "place_type": "Country"
+  },
+  "placeFallback": {
+    "newPlace": {
+      "country": "country/USA",
+      "dcid": "country/USA",
+      "name": "United States of America",
+      "place_type": "Country"
+    },
+    "newStr": "United States of America",
+    "origPlace": {
+      "country": "country/USA",
+      "dcid": "country/USA",
+      "name": "United States of America",
+      "place_type": "Country"
+    },
+    "origStr": "states in United States of America",
+    "origType": "State"
+  },
+  "placeSource": "DEFAULT",
+  "places": [
+    {
+      "dcid": "country/USA",
+      "name": "United States of America",
+      "place_type": "Country"
+    }
+  ],
+  "relatedThings": {
+    "childPlaces": {},
+    "childTopics": [],
+    "exploreMore": {},
+    "mainTopics": [],
+    "parentPlaces": [],
+    "parentTopics": [],
+    "peerPlaces": [],
+    "peerTopics": []
+  },
+  "svSource": "CURRENT_QUERY",
+  "userMessages": [
+    "Sorry, there were no relevant statistics for states in United States of America. See results for United States of America."
+  ]
+}

@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  spanner:
+    image: gcr.io/cloud-spanner-emulator/emulator@sha256:caf1bd24c081e005837b5977bae5a250e25cb4da9f25ec1abc91936ad67e4de2
+    container_name: itest-spanner
+    ports:
+      - "${SPANNER_GRPC_PORT:-9010}:9010"
+      - "${SPANNER_REST_PORT:-9020}:9020"
+    networks:
+      - test-network
+  gcs:
+    image: fsouza/fake-gcs-server:1.47.8
+    container_name: itest-gcs
+    ports:
+      - "9099:9099"
+    command: -scheme http -port 9099
+    networks:
+      - test-network
+
+
+  ingestion-helper:
+    # Use latest helper to align with services development.
+    image: ${HELPER_IMAGE:-gcr.io/datcom-ci/datacommons-ingestion-helper:latest}
+    container_name: itest-ingestion-helper
+    ports:
+      - "${HELPER_PORT:-8081}:8080"
+    volumes:
+      - ./spanner_client.py:/app/clients/spanner.py
+      - ./spanner_client.py:/app/spanner_client.py
+    environment:
+      - PORT=8080
+      - SPANNER_EMULATOR_HOST=spanner:9010
+      - STORAGE_EMULATOR_HOST=http://gcs:9099
+      - OUTPUT_DIR=gs://test-bucket/output
+      - PROJECT_ID=test-project
+      - SPANNER_PROJECT_ID=test-project
+      - SPANNER_INSTANCE_ID=test-instance
+      - SPANNER_DATABASE_ID=test-db
+      - SPANNER_GRAPH_DATABASE_ID=test-db
+    depends_on:
+      - spanner
+    networks:
+      - test-network
+    extra_hosts:
+      - "metadata.google.internal:127.0.0.1"
+
+
+  website:
+    # Use latest services to run tests on head code.
+    image: ${SERVICES_IMAGE:-gcr.io/datcom-ci/datacommons-services:latest}
+    container_name: itest-website
+    ports:
+      - "${WEBSITE_PORT:-8082}:8080"
+    volumes:
+      - ./spanner_client.py:/workspace/spanner_client.py
+    environment:
+      - PORT=8080
+      - SPANNER_EMULATOR_HOST=spanner:9010
+      - STORAGE_EMULATOR_HOST=http://gcs:9099
+      - OUTPUT_DIR=gs://test-bucket/output
+      - PROJECT_ID=test-project
+      - GCP_PROJECT_ID=test-project
+      - GCP_SPANNER_INSTANCE_ID=test-instance
+      - GCP_SPANNER_DATABASE_NAME=test-db
+      - USE_SPANNER_GRAPH=true
+      - DC_SEARCH_SCOPE=custom_only
+      - DC_API_KEY=dummy-key
+      - MAPS_API_KEY=dummy-maps-key
+      - DC_API_ROOT=
+      - ENABLE_MODEL=true
+      - NL_SERVICE_ROOT_URL=http://mock-nl-server:6060
+    depends_on:
+      - spanner
+      - mock-nl-server
+    networks:
+      - test-network
+    extra_hosts:
+      - "metadata.google.internal:127.0.0.1"
+
+  mock-nl-server:
+    image: python:3.11-slim
+    container_name: itest-mock-nl-server
+    volumes:
+      - ./mock_nl_server.py:/app/mock_nl_server.py
+    command: python /app/mock_nl_server.py
+    networks:
+      - test-network
+
+networks:
+  test-network:
+    name: itest-net
+    driver: bridge

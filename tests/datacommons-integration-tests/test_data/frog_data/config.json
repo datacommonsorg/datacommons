@@ -1,0 +1,18 @@
+{
+  "importName": "Trumal_Import",
+  "groupStatVarsByProperty": true,
+  "inputFiles": {
+    "observations.csv": {
+      "entityType": "Country",
+      "provenance": "Test Provenance"
+    }
+  },
+  "sources": {
+    "Test Source": {
+      "url": "http://example.com",
+      "provenances": {
+        "Test Provenance": "http://example.com/provenance"
+      }
+    }
+  }
+}

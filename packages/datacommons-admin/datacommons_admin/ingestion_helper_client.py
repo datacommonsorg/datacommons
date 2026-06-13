@@ -14,6 +14,7 @@
 
 import click
 import google.auth
+import requests
 from google.auth.transport.requests import AuthorizedSession, Request
 from google.oauth2 import id_token
 
@@ -25,6 +26,13 @@ class IngestionHelperClient:
         self.base_url = base_url.rstrip("/")
         self.auth_req = Request()
         self.service_account_email = service_account_email
+
+        # Bypass GCP authentication for local development and emulated runs (e.g. Docker Compose).
+        # This allows offline development and local integration testing without throwing
+        # GCP credential discovery/signing errors or requiring active internet access.
+        if "localhost" in self.base_url or "127.0.0.1" in self.base_url:
+            self.session = requests.Session()
+            return
 
         base_credentials, _ = google.auth.default()
 
@@ -51,7 +59,7 @@ class IngestionHelperClient:
                 raise click.ClickException(
                     f"Failed to fetch ID token for {self.base_url}: {e}\n"
                     "Please ensure you are authenticated or provide a service account to impersonate."
-                )
+                ) from e  # noqa: BLE001
 
         self.session = AuthorizedSession(creds)
 
@@ -60,11 +68,11 @@ class IngestionHelperClient:
 
         try:
             response = self.session.post(url, json=payload, timeout=300)
-        except Exception as e:
+        except requests.exceptions.RequestException as e:
             msg = f"Network or authentication error connecting to Ingestion Helper service at {url}: {e}"
             if self.service_account_email:
                 msg += f"\nFailed to impersonate {self.service_account_email}. Please ensure your GCP user account has the 'Service Account Token Creator' (roles/iam.serviceAccountTokenCreator) IAM role."
-            raise click.ClickException(msg)
+            raise click.ClickException(msg) from e
 
         if response.status_code == 401:
             raise click.ClickException(
@@ -93,7 +101,7 @@ class IngestionHelperClient:
                         or error_data.get("error")
                         or response.text
                     )
-            except Exception:
+            except ValueError:
                 error_msg = response.text
 
             raise click.ClickException(
@@ -102,7 +110,7 @@ class IngestionHelperClient:
 
         try:
             return response.json()
-        except Exception:
+        except ValueError:
             return {"status": "success", "message": response.text}
 
     def initialize_database(self) -> dict:
