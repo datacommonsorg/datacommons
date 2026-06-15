@@ -316,7 +316,7 @@ variable "datacommons_services_resolve_with_spanner_embeddings" {
 variable "ingestion_preprocessing_job_image" {
   description = "Docker image URL for the data ingestion pre-processing job"
   type        = string
-  default     = "gcr.io/datcom-ci/datacommons-data:1.0.0"
+  default     = "gcr.io/datcom-ci/datacommons-data:latest"
 }
 
 variable "ingestion_preprocessing_job_cpu" {
