@@ -154,6 +154,20 @@ def main() -> None:
         sandbox_dir = workspace_dir / namespace
         log_success(f"Sandbox created at {sandbox_dir}")
 
+        # Overwrite remote github scaffolding with local workspace files to test local modifications offline
+        local_infra_dir = Path(__file__).resolve().parent.parent
+        log_step(f"Replacing remote scaffolding with local workspace templates from {local_infra_dir}...")
+        shutil.copy(local_infra_dir / "variables.tf", sandbox_dir / "variables.tf")
+        shutil.copy(local_infra_dir / "outputs.tf", sandbox_dir / "outputs.tf")
+        shutil.copy(local_infra_dir / "main.tf", sandbox_dir / "main.tf")
+        
+        local_modules_dir = local_infra_dir / "modules"
+        sandbox_modules_dir = sandbox_dir / "modules"
+        if sandbox_modules_dir.exists():
+            shutil.rmtree(sandbox_modules_dir)
+        shutil.copytree(local_modules_dir, sandbox_modules_dir)
+        log_success("Successfully configured local scaffolding override.")
+
         # 2. Add tfvars overrides (e.g. downscale Spanner to save costs, inject image overrides)
         log_step("Configuring terraform.tfvars overrides...")
         tfvars_path = sandbox_dir / "terraform.tfvars"
