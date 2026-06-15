@@ -187,6 +187,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                       status: 'SUCCESS'
                       importList:
                         - importName: '$${input.importName}'
+                          latestVersion: '$${version}'
                   result: history_result
           except:
             as: e
