@@ -17,7 +17,6 @@ import re
 import click
 
 from datacommons_admin.ingestion_helper_client import IngestionHelperClient
-from datacommons_admin.ingestion_job_client import IngestionJobClient
 from datacommons_admin.tf_utils import (
     get_ingestion_prep_job_name,
     get_ingestion_service_url,
@@ -70,7 +69,7 @@ def start(imports: str | None = None) -> None:
         helper_url,
         service_account_email=sa_email,
     )
-    result = client.start_ingestion(job_name, imports=imports)
+    result = client.start_ingestion(imports=imports)
 
     click.secho("Successfully started ingestion job!", fg="green", bold=True)
     res_name = (
@@ -118,27 +117,28 @@ def show_config() -> None:
         fg="bright_black",
     )
 
+    helper_url = get_ingestion_service_url()
     job_name = get_ingestion_prep_job_name()
     sa_email = get_ingestion_workflow_service_account_email()
     project_id = get_project_id()
     region = get_region()
 
+    click.secho(f"Found Ingestion Helper URL: {helper_url}", fg="green")
     click.secho(f"Found Data Job Name: {job_name}", fg="green")
     click.secho(f"Found Workflow Service Account: {sa_email}", fg="green")
     click.secho(f"Found GCP Project ID: {project_id}", fg="green")
     click.secho(f"Found GCP Region: {region}", fg="green")
     click.secho(
-        f"Fetching configuration for Cloud Run job '{job_name}'...",
+        f"Fetching configuration for Cloud Run job '{job_name}' via Ingestion Helper...",
         fg="bright_black",
     )
 
-    client = IngestionJobClient(
-        job_name,
+    client = IngestionHelperClient(
+        helper_url,
         service_account_email=sa_email,
-        project_id=project_id,
-        location=region,
     )
-    env_vars = client.get_config()
+    result = client.get_job_config()
+    env_vars = result.get("config", [])
 
     click.secho("\nCurrent Ingestion Job Configuration:", fg="cyan", bold=True)
     if not env_vars:

@@ -132,33 +132,3 @@ def get_region() -> str:
 def get_ingestion_workflow_name() -> str:
     """Convenience wrapper to fetch the ingestion_workflow_name Terraform output."""
     return get_terraform_output(TF_OUTPUT_INGESTION_WORKFLOW_NAME)
-
-
-def get_tfvars_api_key() -> str | None:
-    """Parses `terraform.tfvars` in the current working directory and returns the Data Commons API key if defined."""
-    from pathlib import Path
-
-    tfvars_path = Path.cwd() / "terraform.tfvars"
-    if not tfvars_path.exists():
-        return None
-
-    try:
-        content = tfvars_path.read_text()
-        for raw_line in content.splitlines():
-            # Strip inline comments (e.g., # or //)
-            line = raw_line.split("#", 1)[0].split("//", 1)[0].strip()
-            if not line:
-                continue
-            if "=" in line:
-                parts = line.split("=", 1)
-                k = parts[0].strip()
-                v = parts[1].strip()
-                if (v.startswith('"') and v.endswith('"')) or (
-                    v.startswith("'") and v.endswith("'")
-                ):
-                    v = v[1:-1].strip()
-                if k in ["auth_google_datacommons_api_key", "dc_api_key"]:
-                    return v
-    except (OSError, ValueError):
-        return None
-    return None
