@@ -69,3 +69,29 @@ variable "ingestion_artifacts_path" {
   type        = string
   description = "Path where pre-processed files are placed for the next stage"
 }
+
+variable "dataflow_ip_configuration" {
+  type        = string
+  description = <<-EOT
+    IP configuration for Dataflow workers. Set to WORKER_IP_PRIVATE for
+    environments where an org policy (compute.vmExternalIpAccess) restricts
+    VMs from obtaining external IPs. Requires Private Google Access and
+    Cloud NAT on the target subnet.
+    Valid values: WORKER_IP_UNSPECIFIED, WORKER_IP_PUBLIC, WORKER_IP_PRIVATE.
+    See: https://cloud.google.com/dataflow/docs/reference/rest/v1b3/projects.locations.flexTemplates/launch#FlexTemplateRuntimeEnvironment
+  EOT
+  default     = "WORKER_IP_UNSPECIFIED"
+  validation {
+    condition     = contains(["WORKER_IP_UNSPECIFIED", "WORKER_IP_PUBLIC", "WORKER_IP_PRIVATE"], var.dataflow_ip_configuration)
+    error_message = "Must be one of: WORKER_IP_UNSPECIFIED, WORKER_IP_PUBLIC, WORKER_IP_PRIVATE."
+  }
+}
+
+variable "dataflow_subnetwork" {
+  type        = string
+  description = <<-EOT
+    Subnetwork for Dataflow workers. Required when dataflow_ip_configuration
+    is WORKER_IP_PRIVATE. Format: regions/{region}/subnetworks/{subnetwork}.
+  EOT
+  default     = ""
+}

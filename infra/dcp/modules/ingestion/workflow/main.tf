@@ -94,6 +94,12 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                           serviceAccountEmail: '${var.dataflow_service_account_email}'
                           tempLocation: '$${input.tempLocation}'
                           stagingLocation: '$${input.tempLocation}'
+%{if var.dataflow_ip_configuration != "WORKER_IP_UNSPECIFIED"}
+                          ipConfiguration: '${var.dataflow_ip_configuration}'
+%{endif}
+%{if var.dataflow_subnetwork != ""}
+                          subnetwork: '${var.dataflow_subnetwork}'
+%{endif}
                   result: launch_result
               - get_job_id:
                   assign:
