@@ -12,23 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pathlib import Path
 import re
 import sys
 import urllib.request
-from typing import Any, Tuple
+from pathlib import Path
+from typing import Any
 
 import click
 from google.api_core import exceptions
 from google.cloud import storage
 
-from . import __version__
 from datacommons_admin.infra_templates import (
     BACKEND_TF_TEMPLATE,
     README_TEMPLATE,
     REMOTE_STATE_TEMPLATE,
 )
 
+from . import __version__
 
 DEFAULT_BUCKET_LOCATION = "US"
 GITHUB_RAW_BASE_URL = "https://raw.githubusercontent.com/datacommonsorg/datacommons"
@@ -95,7 +95,7 @@ def _create_and_configure_bucket(
     new_bucket.iam_configuration.uniform_bucket_level_access_enabled = True
     new_bucket.versioning_enabled = True
     new_bucket.patch()
-    click.secho(f"  Enabling versioning...", fg="bright_black")
+    click.secho("  Enabling versioning...", fg="bright_black")
     click.secho("  Configuring bucket IAM policy...", fg="bright_black")
     policy = new_bucket.get_iam_policy(requested_policy_version=3)
     policy["roles/storage.objectAdmin"].add(f"projectEditor:{project_id}")
@@ -145,8 +145,7 @@ def _ensure_bucket_ready(
             storage_client, bucket_name, project_id, location
         ):
             return True
-        else:
-            _abort_bucket_setup(is_default)
+        _abort_bucket_setup(is_default)
 
 
 def _configure_remote_state(
@@ -247,7 +246,7 @@ def _validate_namespace(ns: str) -> Tuple[bool, str]:
 
 def _resolve_project_config(
     project_id: str, namespace: str, force: bool
-) -> Tuple[str, str, Path]:
+) -> tuple[str, str, Path]:
     """Resolves project ID and namespace, and determines target directory."""
     if project_id:
         _log_resolved_value("Project ID", project_id, is_default=False)
@@ -503,19 +502,19 @@ def init(
     )
 
 
-def _setup_ingestion_client() -> Tuple[Any, str, str]:
+def _setup_ingestion_client() -> tuple[Any, str, str]:
     click.secho(
         "Fetching ingestion service URL, workflow service account, and Spanner details from Terraform outputs...",
         fg="bright_black",
     )
 
+    from datacommons_admin.ingestion_helper_client import IngestionHelperClient
     from datacommons_admin.tf_utils import (
         get_ingestion_service_url,
         get_ingestion_workflow_service_account_email,
-        get_spanner_instance_id,
         get_spanner_database_id,
+        get_spanner_instance_id,
     )
-    from datacommons_admin.ingestion_helper_client import IngestionHelperClient
 
     url = get_ingestion_service_url()
     sa_email = get_ingestion_workflow_service_account_email()
