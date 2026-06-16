@@ -59,5 +59,5 @@ jobs:
       #   HELPER_IMAGE: gcr.io/datcom-ci/datacommons-ingestion-helper:v1.2.3rc1
       #   SERVICES_IMAGE: gcr.io/datcom-ci/datacommons-services:v1.2.3rc1
       - name: Run hermetic integration test
-        run: uv run pytest tests/datacommons-integration-tests/run_local_integration_test.py
+        run: uv run pytest -s tests/datacommons-integration-tests/run_local_integration_test.py
 

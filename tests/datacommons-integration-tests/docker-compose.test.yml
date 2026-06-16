@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   spanner:
     image: gcr.io/cloud-spanner-emulator/emulator@sha256:caf1bd24c081e005837b5977bae5a250e25cb4da9f25ec1abc91936ad67e4de2
@@ -22,12 +20,14 @@ services:
   ingestion-helper:
     # Use latest helper to align with services development.
     image: ${HELPER_IMAGE:-gcr.io/datcom-ci/datacommons-ingestion-helper:latest}
+    platform: linux/amd64
     container_name: itest-ingestion-helper
     ports:
       - "${HELPER_PORT:-8081}:8080"
     volumes:
       - ./spanner_client.py:/app/clients/spanner.py
-      - ./spanner_client.py:/app/spanner_client.py
+      - ./storage.pb:/app/clients/storage.pb
+      - ./schema.sql:/app/clients/schema.sql
     environment:
       - PORT=8080
       - SPANNER_EMULATOR_HOST=spanner:9010
@@ -49,6 +49,7 @@ services:
   website:
     # Use latest services to run tests on head code.
     image: ${SERVICES_IMAGE:-gcr.io/datcom-ci/datacommons-services:latest}
+    platform: linux/amd64
     container_name: itest-website
     ports:
       - "${WEBSITE_PORT:-8082}:8080"

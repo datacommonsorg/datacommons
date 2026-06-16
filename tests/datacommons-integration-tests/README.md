@@ -21,6 +21,9 @@ SERVICES_IMAGE=gcr.io/datcom-ci/datacommons-services:stable \
 uv run pytest tests/datacommons-integration-tests/run_local_integration_test.py
 ```
 
+> [!TIP]
+> You can pass the `-s` flag to pytest (e.g., `uv run pytest -s ...`) to stream stdout and stderr directly to your console. This is highly useful for viewing real-time startup/teardown and execution logs from Docker Compose and the individual containers (Ingestion Helper, Website backend, etc.).
+
 ### Golden File Contract Testing
 
 The integration tests assert database states and API responses against saved **Golden Files** inside `tests/datacommons-integration-tests/golden/`.

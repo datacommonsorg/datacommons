@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # Copyright 2026 Google LLC.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -87,6 +86,33 @@ def run_command(
         raise e
 
 
+def check_docker_environment() -> None:
+    """Checks if Docker is installed and the Docker daemon is running."""
+    try:
+        # Run docker info to verify that the docker command is available
+        # and that the daemon is responsive.
+        res = subprocess.run(  # noqa: S603
+            ["docker", "info"],  # noqa: S607
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if res.returncode != 0:
+            err_msg = (
+                "ERROR: Docker daemon is not running or not reachable.\n"
+                "Please start Docker Desktop or ensure the Docker service is running."
+            )
+            if res.stderr:
+                err_msg += f"\nDetails:\n{res.stderr.strip()}"
+            pytest.exit(err_msg, returncode=1)
+    except FileNotFoundError:
+        pytest.exit(
+            "ERROR: 'docker' CLI not found.\n"
+            "Please install Docker (e.g. Docker Desktop) before running integration tests.",
+            returncode=1,
+        )
+
+
 def wait_for_service(
     url: str,
     name: str,
@@ -172,6 +198,7 @@ def seed_gcs_emulator():
 @pytest.fixture(scope="module")
 def docker_stack(services_image, helper_image, keep_containers):
     """Fixture to spin up and tear down emulated service container stack."""
+    check_docker_environment()
     root_dir = Path(__file__).resolve().parent
     compose_file = root_dir / "docker-compose.test.yml"
 
