@@ -59,3 +59,8 @@ output "region" {
   description = "The GCP region where resources are deployed"
   value       = var.region
 }
+
+output "ingestion_input_path" {
+  description = "The GCS root directory where input data files are stored."
+  value       = var.ingestion_input_path
+}
