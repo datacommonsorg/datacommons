@@ -96,6 +96,7 @@ class SpannerClient:
         location: str = None,
         model_id: str = None,
         lock_id: str = "global_ingestion_lock",
+        **kwargs,
     ) -> None:
         """Initializes a Spanner client and connects to a specific database."""
         client_options = {"api_endpoint": "spanner.googleapis.com"}

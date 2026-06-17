@@ -18,8 +18,9 @@ services:
 
 
   ingestion-helper:
-    # Use latest helper to align with services development.
-    image: ${HELPER_IMAGE:-gcr.io/datcom-ci/datacommons-ingestion-helper:latest}
+    # Use stable because ingestion-helper images are flipped between stable and latest.
+    # Should move back to using latest after fix.
+    image: ${HELPER_IMAGE:-gcr.io/datcom-ci/datacommons-ingestion-helper:stable}
     platform: linux/amd64
     container_name: itest-ingestion-helper
     ports:
