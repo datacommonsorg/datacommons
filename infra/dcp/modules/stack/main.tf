@@ -62,6 +62,10 @@ locals {
     {
       name  = "USE_SPANNER_GRAPH"
       value = "true"
+    },
+    {
+      name  = "ENABLE_SPANNER_EMBEDDINGS"
+      value = var.datacommons_services_config.resolve_with_spanner_embeddings ? "true" : "false"
     }
   ]
 
