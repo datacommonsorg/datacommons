@@ -1,0 +1,50 @@
+[
+  {
+    "facet_id": "custom_facet",
+    "import_name": "Trumal_Import",
+    "observation_about": "country/CAN",
+    "variable_measured": "Average_Age_Frog"
+  },
+  {
+    "facet_id": "custom_facet",
+    "import_name": "Trumal_Import",
+    "observation_about": "country/CAN",
+    "variable_measured": "Count_Frog_Green"
+  },
+  {
+    "facet_id": "custom_facet",
+    "import_name": "Trumal_Import",
+    "observation_about": "country/CAN",
+    "variable_measured": "Count_Person_Trumal"
+  },
+  {
+    "facet_id": "custom_facet",
+    "import_name": "Trumal_Import",
+    "observation_about": "country/CAN",
+    "variable_measured": "number_of_frogs"
+  },
+  {
+    "facet_id": "custom_facet",
+    "import_name": "Trumal_Import",
+    "observation_about": "country/USA",
+    "variable_measured": "Average_Age_Frog"
+  },
+  {
+    "facet_id": "custom_facet",
+    "import_name": "Trumal_Import",
+    "observation_about": "country/USA",
+    "variable_measured": "Count_Frog_Green"
+  },
+  {
+    "facet_id": "custom_facet",
+    "import_name": "Trumal_Import",
+    "observation_about": "country/USA",
+    "variable_measured": "Count_Person_Trumal"
+  },
+  {
+    "facet_id": "custom_facet",
+    "import_name": "Trumal_Import",
+    "observation_about": "country/USA",
+    "variable_measured": "number_of_frogs"
+  }
+]
