@@ -247,11 +247,24 @@ def _resolve_project_config(
         raise click.ClickException("GCP project ID must not be empty.")
 
     resolved_namespace = namespace.strip()
+    if resolved_namespace and len(resolved_namespace) > 16:
+        raise click.ClickException(
+            f"Namespace '{resolved_namespace}' is too long ({len(resolved_namespace)} characters). "
+            "It must be 16 characters or less to comply with Google Cloud Service Account ID limits."
+        )
+
     while True:
         if not resolved_namespace:
             resolved_namespace = _prompt("Namespace", type=str).strip()
             if not resolved_namespace:
                 click.secho("Error: Namespace must not be empty.", fg="red")
+                continue
+            if len(resolved_namespace) > 16:
+                click.secho(
+                    f"Error: Namespace must be 16 characters or less (currently {len(resolved_namespace)} characters).",
+                    fg="red",
+                )
+                resolved_namespace = ""
                 continue
 
         target_dir = Path.cwd() / resolved_namespace
