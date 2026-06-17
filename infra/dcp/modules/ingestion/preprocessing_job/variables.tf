@@ -46,5 +46,5 @@ variable "maps_api_key_secret_id" {
 variable "enable_spanner_embeddings" {
   type        = bool
   description = "Whether to enable Spanner embeddings generation (and skip GCS embeddings in preprocessing)"
-  default     = false
+  default     = true
 }
