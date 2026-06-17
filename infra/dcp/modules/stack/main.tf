@@ -62,10 +62,6 @@ locals {
     {
       name  = "USE_SPANNER_GRAPH"
       value = "true"
-    },
-    {
-      name  = "ENABLE_SPANNER_EMBEDDINGS"
-      value = var.datacommons_services_config.resolve_with_spanner_embeddings ? "true" : "false"
     }
   ]
 
@@ -138,6 +134,7 @@ module "ingestion_preprocessing_job" {
   ingestion_artifacts_path = var.ingestion_config.ingestion_artifacts_path
   run_database_init       = false
   use_spanner             = true
+  enable_spanner_embeddings = var.datacommons_services_config.resolve_with_spanner_embeddings
   env_vars                = local.cloud_run_shared_env_variables
   secret_env_vars         = local.datacommons_services_secrets
   dc_api_key_secret_id    = module.auth.dc_api_key_secret_id
