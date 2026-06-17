@@ -60,6 +60,10 @@ resource "google_cloud_run_v2_job" "dc_data_job" {
           name  = "INPUT_DIR"
           value = "gs://${var.bucket_name}/${var.input_path}"
         }
+        env {
+          name  = "ENABLE_SPANNER_EMBEDDINGS"
+          value = var.enable_spanner_embeddings ? "true" : "false"
+        }
 
       }
       dynamic "vpc_access" {
