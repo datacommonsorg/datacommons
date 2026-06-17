@@ -326,7 +326,7 @@ def test_ingest_start_success(
     )
     assert "Operation ID: op-123" in result.output
     assert (
-        "Job Console Link: https://console.cloud.google.com/run/jobs/details/us-central1/mock-job/executions?project=mock-proj"
+        "Job console link: https://console.cloud.google.com/run/jobs/details/us-central1/mock-job/executions?project=mock-proj"
         in result.output
     )
 
