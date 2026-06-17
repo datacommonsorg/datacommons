@@ -112,3 +112,21 @@ class IngestionHelperClient:
     def seed_database(self) -> dict:
         """Calls the seed_database endpoint on the ingestion helper service."""
         return self._call_endpoint("database/seed")
+
+    def start_ingestion(
+        self, job_name: str | None = None, imports: str | None = None
+    ) -> dict:
+        """Calls the ingestion/start endpoint on the ingestion helper service."""
+        payload = {}
+        if job_name:
+            payload["jobName"] = job_name
+        if imports:
+            payload["imports"] = imports
+        return self._call_endpoint("ingestion/start", payload=payload)
+
+    def get_job_config(self, job_name: str | None = None) -> dict:
+        """Calls the ingestion/config endpoint on the ingestion helper service to get environment variables."""
+        payload = {}
+        if job_name:
+            payload["jobName"] = job_name
+        return self._call_endpoint("ingestion/config", payload=payload)
