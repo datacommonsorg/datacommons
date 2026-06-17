@@ -303,8 +303,9 @@ variable "datacommons_services_mcp_instructions_path" {
   default     = null
 }
 
+# TODO remove this variable to only resolve on spanner embeddings
 variable "datacommons_services_resolve_with_spanner_embeddings" {
-  description = "Enable resolving search queries with Spanner embeddings"
+  description = "Enable resolving search queries with Spanner embeddings. Requires Spanner to be enabled (enable_spanner = true)."
   type        = bool
   default     = true
 }
