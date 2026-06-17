@@ -453,14 +453,15 @@ def test_spanner_observations(generate_golden):
 
     with database.snapshot() as snapshot:
         results = snapshot.execute_sql(
-            "SELECT observation_about, variable_measured, facet_id, import_name FROM Observation ORDER BY observation_about, variable_measured"
+            "SELECT entity1, variable_measured, facet_id, value, date FROM Observation ORDER BY entity1, variable_measured, date"
         )
         obs = [
             {
-                "observation_about": row[0],
+                "entity1": row[0],
                 "variable_measured": row[1],
                 "facet_id": row[2],
-                "import_name": row[3],
+                "value": row[3],
+                "date": row[4],
             }
             for row in results
         ]
