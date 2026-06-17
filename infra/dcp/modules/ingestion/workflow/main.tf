@@ -88,7 +88,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                     body:
                       launchParameter:
                         jobName: '$${dataflow_job_name}'
-                        containerSpecGcsPath: 'gs://datcom-templates/templates/flex/ingestion.json'
+                        containerSpecGcsPath: 'gs://datcom-templates/templates/flex/ingestion-latest.json'
                         parameters: '$${launch_params}'
                         environment:
                           serviceAccountEmail: '${var.dataflow_service_account_email}'
