@@ -48,9 +48,53 @@ While running with `--keep-containers`, you can access:
 
 ## Custom Feature Flags
 
-Local integration tests run with the Spanner multi-entity schema enabled by default in the Mixer backend. This is controlled by mounting [custom_feature_flags.yaml](file:///usr/local/google/home/yiyuanc/datacommons/tests/datacommons-integration-tests/custom_feature_flags.yaml) inside the `website` container at `/workspace/deploy/featureflags/custom.yaml`.
+Local integration tests run with the Spanner multi-entity schema enabled by default in the Mixer backend. This is controlled by mounting [custom_feature_flags.yaml](./custom_feature_flags.yaml) inside the `website` container at `/workspace/deploy/featureflags/custom.yaml`.
 
 The container entrypoint detects the environment variable `RESOLVE_WITH_SPANNER_EMBEDDINGS=true` (defined in `docker-compose.test.yml`) and starts Mixer using these flags.
 
 You can modify the flags inside `custom_feature_flags.yaml` if you need to tweak the Mixer server configuration for local debugging.
+
+---
+
+## GCP Sandbox Integration Tests
+
+In addition to local emulated tests, this package includes a script to run automated, end-to-end integration tests on **real GCP sandbox resources**. This validates Terraform scaffolding, GCS transfers, Spanner database seeding, Cloud Workflow executions, and Cloud Run web server APIs.
+
+### Running the GCP Tests
+
+To run the GCP integration test suite (requires authenticated GCP CLI access):
+```bash
+python3 tests/datacommons-integration-tests/run_gcp_integration_test.py \
+    --project-id <YOUR_GCP_PROJECT_ID> \
+    --dc-api-key "YOUR_GOOGLE_DATA_COMMONS_API_KEY"
+```
+
+Alternatively, you can pass the API key via an environment variable:
+```bash
+DC_API_KEY="YOUR_API_KEY" python3 tests/datacommons-integration-tests/run_gcp_integration_test.py \
+    --project-id <YOUR_GCP_PROJECT_ID>
+```
+
+### Script Arguments
+
+*   `--project-id`: The Google Cloud Project ID where the sandbox resources should be provisioned (default: `datcom-ci`).
+*   `--dc-api-key`: Google Data Commons API Key needed to authenticate and configure sandbox clients.
+*   `--region`: The GCP region to deploy resources (default: `us-central1`).
+*   `--namespace`: Custom naming namespace for resources (default: randomized `itest-XXXX`).
+*   `--keep-sandbox`: Do not destroy sandbox GCP resources on completion/failure. Useful for debugging active instances.
+*   `--reuse-sandbox`: Reuse existing local workspace and GCP sandbox resources if they exist. Requires passing a persistent, custom `--namespace` (e.g. `--namespace itest-9611`) and having run with `--keep-sandbox` in the previous run.
+*   `--tf-git-ref`: Git reference branch/tag/commit for the GCP Terraform templates repository (default: `main`).
+*   `--services-image`, `--preprocessing-image`, `--helper-image`: Override container image tags deployed during provisioning.
+
+### E2E Verification Stages & Philosophy
+
+Once the GCP sandbox stack is up and seeded with dataset MCFs, the script triggers the entire API verification suite concurrently. This validates three core capabilities of the deployed Data Commons Platform backend:
+
+*   **Stage A: V2 Observations & Custom Data Retrieval**
+    *   *Philosophy:* Validates E2E query routing and data loading for both standard and custom variables. It queries base DC SDG indicators to verify backward compatibility with global schemas, and asserts observations values on custom seeded frog metrics to verify local database mapping and seeding.
+*   **Stage B: V2 Bulk Group Info & Hierarchy Resolution**
+    *   *Philosophy:* Verifies category tree resolution and variable grouping APIs. This validates that the serving container's Mixer component correctly processes unconstrained hierarchy crawls and handles location constraints (e.g. comparing available variables for USA vs Vatican City) without backend lookup errors.
+*   **Stage C: V2 Embeddings & Natural Language Resolution**
+    *   *Philosophy:* Validates custom search index and embeddings generation. This checks that the Ingestion Helper successfully generated vector coordinates from custom MCs, loaded them into Spanner, and that the Resolver can map natural language queries (like "frogs") back to these custom database entities.
+
 
