@@ -233,9 +233,15 @@ def _validate_namespace(ns: str) -> Tuple[bool, str]:
     if not ns:
         return False, "Namespace must not be empty."
     if len(ns) > 16:
-        return False, f"Namespace must be 16 characters or less (currently {len(ns)} characters)."
+        return (
+            False,
+            f"Namespace must be 16 characters or less (currently {len(ns)} characters).",
+        )
     if not re.match(r"^[a-z]([-a-z0-9]*[a-z0-9])?$", ns):
-        return False, "Namespace must start with a lowercase letter, end with a lowercase letter or number, and contain only lowercase alphanumeric characters and dashes."
+        return (
+            False,
+            "Namespace must start with a lowercase letter, end with a lowercase letter or number, and contain only lowercase alphanumeric characters and dashes.",
+        )
     return True, ""
 
 

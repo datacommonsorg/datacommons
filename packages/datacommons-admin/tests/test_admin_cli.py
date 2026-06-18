@@ -256,7 +256,6 @@ def test_init_db_success_no_details(
     assert "Successfully seeded Spanner database" in result.output
 
 
-
 @patch("datacommons_admin.tf_utils.shutil.which")
 @patch("datacommons_admin.tf_utils.subprocess.run")
 @patch("datacommons_admin.ingestion_helper_client.AuthorizedSession")
