@@ -70,6 +70,11 @@ locals {
       name    = "DC_API_KEY"
       secret  = module.auth.dc_api_key_secret_id
       version = "latest"
+    },
+    {
+      name    = "MIXER_API_KEY"
+      secret  = module.auth.dc_api_key_secret_id
+      version = "latest"
     }
     ], !var.datacommons_services_config.website_disable_google_maps_api ? [
     {

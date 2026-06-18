@@ -83,8 +83,64 @@ def run_command(
 # =============================================================================
 
 
-def setup_workspace(workspace_dir: Path) -> None:
-    """Ensure clean scratch workspace directories exist."""
+def setup_workspace(workspace_dir: Path, namespace: str) -> None:
+    """Ensure clean scratch workspace directories exist.
+    Tries to destroy resources first if tfstate is present to avoid leakage.
+    """
+    sandbox_dir = workspace_dir / namespace
+    if sandbox_dir.exists() and (sandbox_dir / "terraform.tfstate").exists():
+        has_resources = False
+        try:
+            with open(sandbox_dir / "terraform.tfstate", encoding="utf-8") as f:
+                state_data = json.load(f)
+                if state_data.get("resources"):
+                    has_resources = True
+        except Exception:
+            # If we fail to parse, assume resources might exist to be safe
+            has_resources = True
+
+        if has_resources:
+            logging.info(
+                f">>> [STEP] Existing active sandbox '{namespace}' detected with provisioned resources."
+            )
+            logging.info(
+                ">>> [STEP] Attempting to clean up existing GCP resources first..."
+            )
+            try:
+                # We need to run terraform init and destroy
+                run_command(["terraform", "init"], cwd=sandbox_dir)
+                run_command(["terraform", "destroy", "-auto-approve"], cwd=sandbox_dir)
+                logging.info("[SUCCESS] Existing resources cleaned up successfully.")
+            except Exception as e:
+                logging.error(f"[ERROR] Failed to destroy existing resources: {e}")
+                is_ci = bool(
+                    os.environ.get("CLOUDBUILD_BUILD_ID")
+                    or os.environ.get("GITHUB_ACTIONS")
+                )
+                if is_ci:
+                    raise RuntimeError(
+                        f"Aborting to prevent resource leakage. Clean up resources for namespace '{namespace}' manually."
+                    )
+                else:
+                    print(
+                        f"\n[!] WARNING: Deleting this directory will permanently orphan these resources in GCP.",
+                        flush=True,
+                    )
+                    try:
+                        resp = (
+                            input(
+                                "Do you want to force delete the local workspace and proceed? [y/N]: "
+                            )
+                            .strip()
+                            .lower()
+                        )
+                        if resp not in ["y", "yes"]:
+                            print("Aborted by user.", flush=True)
+                            sys.exit(1)
+                    except (KeyboardInterrupt, EOFError):
+                        print("\nAborted.", flush=True)
+                        sys.exit(1)
+
     if workspace_dir.exists():
         shutil.rmtree(workspace_dir, onerror=remove_readonly)
     workspace_dir.mkdir(parents=True)
@@ -239,8 +295,8 @@ def upload_dataset_to_gcs(bucket_name: str, frog_data_dir: Path) -> None:
 
 
 def run_database_schema_setup(workspace_root: Path, sandbox_dir: Path) -> None:
-    """Initializes schemas in Spanner using the dcp admin CLI."""
-    log_step("Initializing Spanner schemas...")
+    """Initializes and seeds the Spanner database using the dcp admin CLI."""
+    log_step("Initializing and seeding Spanner database...")
     run_command(
         [
             "uv",
@@ -250,11 +306,10 @@ def run_database_schema_setup(workspace_root: Path, sandbox_dir: Path) -> None:
             "datacommons",
             "admin",
             "init-db",
-            "--init-only",
         ],
         cwd=sandbox_dir,
     )
-    log_success("Spanner schema initialized successfully")
+    log_success("Spanner database initialized and seeded successfully")
 
 
 def trigger_and_poll_workflow(
@@ -433,17 +488,35 @@ def run_serving_proxy_tests(service_name: str, region: str, project_id: str) -> 
     time.sleep(5)
 
     try:
-        # Fetch default landing page
+        # Fetch default landing page with retry loop to allow cold-start / warmup
         url = f"http://127.0.0.1:{test_port}/"
-        logging.info(f"Curling proxy url: {url}")
+        max_retries = 12
+        retry_interval = 10
+        connected = False
 
-        with urllib.request.urlopen(url, timeout=10) as response:
-            status_code = response.getcode()
-            log_success(f"Proxy returned status code: {status_code}")
-            if status_code not in [200, 301, 302]:
-                raise RuntimeError(
-                    f"Expected HTTP 200 or redirection, got {status_code}"
+        for i in range(max_retries):
+            logging.info(f"Curling proxy url (attempt {i+1}/{max_retries}): {url}")
+            try:
+                with urllib.request.urlopen(url, timeout=10) as response:
+                    status_code = response.getcode()
+                    if status_code in [200, 301, 302]:
+                        log_success(f"Proxy returned success status code: {status_code}")
+                        connected = True
+                        break
+                    else:
+                        logging.warning(
+                            f"Proxy returned unexpected status code: {status_code}. Retrying in {retry_interval}s..."
+                        )
+            except Exception as e:
+                logging.warning(
+                    f"Connection attempt failed: {e}. Retrying in {retry_interval}s..."
                 )
+            time.sleep(retry_interval)
+
+        if not connected:
+            raise RuntimeError(
+                f"Failed to connect to Cloud Run serving endpoint via local proxy after {max_retries * retry_interval}s."
+            )
 
         # Query API to verify the ingested data is queryable (tests the latest snapshot behavior)
         api_url = f"http://127.0.0.1:{test_port}/api/node/triples/out/Count_Frog_Green"
@@ -533,6 +606,56 @@ def run_terraform_destroy(sandbox_dir: Path, workspace_dir: Path) -> None:
 
 
 # =============================================================================
+# API Key Resolver
+# =============================================================================
+
+
+def resolve_api_key(project_id: str, cli_key: str) -> str:
+    """Resolves the Data Commons API key.
+
+    1. Returns cli_key if provided.
+    2. Returns env variable DC_API_KEY if set.
+    3. Programmatically reads the latest version of the global secret 'dc-api-key'
+       from GCP Secret Manager for the given project_id.
+    """
+    if cli_key:
+        return cli_key
+
+    env_key = os.environ.get("DC_API_KEY")
+    if env_key:
+        log_success("Successfully resolved active API key from environment variable (DC_API_KEY)")
+        return env_key
+
+    logging.info("API Key not provided. Resolving 'dc-api-key' from Secret Manager...")
+    try:
+        proc = subprocess.run(
+            [
+                "gcloud",
+                "secrets",
+                "versions",
+                "access",
+                "latest",
+                "--secret",
+                "dc-api-key",
+                "--project",
+                project_id,
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        resolved_key = proc.stdout.strip()
+        log_success("Successfully resolved active API key from Secret Manager")
+        return resolved_key
+    except Exception as err:
+        logging.warning(
+            f"Failed to read 'dc-api-key' secret from Secret Manager: {err}"
+        )
+
+    return ""
+
+
+# =============================================================================
 # Main Orchestrator
 # =============================================================================
 
@@ -560,7 +683,7 @@ def main() -> None:
         default="gcr.io/datcom-ci/datacommons-data:latest",
         help="Override default data preprocessing image",
     )
-    # Use stable helper tag by default until stable/local pushes are fixed for ingestion (similar to local docker-compose).
+    # Use stable helper tag by default until stable/local pushes are fixed for ingestion (aligning with the default in tests/datacommons-integration-tests/docker-compose.test.yml).
     parser.add_argument(
         "--helper-image",
         default="gcr.io/datcom-ci/datacommons-ingestion-helper:stable",
@@ -601,10 +724,16 @@ def main() -> None:
 
     try:
         # 1. Setup workspace
-        setup_workspace(workspace_dir)
+        setup_workspace(workspace_dir, namespace)
 
         # 2. Initialize configuration via CLI and setup overrides
-        dc_key = args.dc_api_key or "dummy-key-for-test"
+        dc_key = resolve_api_key(args.project_id, args.dc_api_key)
+        if not dc_key:
+            raise RuntimeError(
+                "Data Commons API Key must be provided (either via --dc-api-key flag, "
+                "DC_API_KEY environment variable, or 'dc-api-key' Secret in GCP Secret Manager)."
+            )
+
         sandbox_dir = initialize_sandbox_scaffolding(
             workspace_root=workspace_root,
             workspace_dir=workspace_dir,
