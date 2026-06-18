@@ -380,3 +380,19 @@ variable "ingestion_helper_service_image" {
   type        = string
   default     = "gcr.io/datcom-ci/datacommons-ingestion-helper:1.0.0"
 }
+
+# =============================================================================
+# Ingestion - Dataflow Network Configuration
+# =============================================================================
+
+variable "ingestion_dataflow_ip_configuration" {
+  description = "IP configuration for Dataflow workers (WORKER_IP_UNSPECIFIED, WORKER_IP_PUBLIC, WORKER_IP_PRIVATE). Set to WORKER_IP_PRIVATE when a compute.vmExternalIpAccess org policy restricts VMs from obtaining external IPs."
+  type        = string
+  default     = "WORKER_IP_UNSPECIFIED"
+}
+
+variable "ingestion_dataflow_subnetwork" {
+  description = "Subnetwork for Dataflow workers. Required when ingestion_dataflow_ip_configuration is WORKER_IP_PRIVATE. Format: regions/{region}/subnetworks/{subnetwork}."
+  type        = string
+  default     = ""
+}

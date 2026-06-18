@@ -136,6 +136,10 @@ locals {
     # Workflow & Helper Service
     workflow_lock_acquisition_timeout = var.ingestion_workflow_lock_acquisition_timeout
     helper_service_image              = var.ingestion_helper_service_image
+
+    # Dataflow Network Configuration
+    dataflow_ip_configuration = var.ingestion_dataflow_ip_configuration
+    dataflow_subnetwork       = var.ingestion_dataflow_subnetwork
   }
 }
 

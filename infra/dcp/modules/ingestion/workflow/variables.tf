@@ -94,4 +94,16 @@ variable "dataflow_subnetwork" {
     is WORKER_IP_PRIVATE. Format: regions/{region}/subnetworks/{subnetwork}.
   EOT
   default     = ""
+
+  validation {
+    condition     = var.dataflow_subnetwork == "" || can(regex("regions/[a-zA-Z0-9-]+/subnetworks/[a-zA-Z0-9-]+$", var.dataflow_subnetwork))
+    error_message = "dataflow_subnetwork must be in the format 'regions/{region}/subnetworks/{subnetwork}' or a full self-link ending with that format."
+  }
+}
+
+check "dataflow_private_ip_requires_subnetwork" {
+  assert {
+    condition     = var.dataflow_ip_configuration != "WORKER_IP_PRIVATE" || var.dataflow_subnetwork != ""
+    error_message = "dataflow_subnetwork must be specified when dataflow_ip_configuration is WORKER_IP_PRIVATE."
+  }
 }
