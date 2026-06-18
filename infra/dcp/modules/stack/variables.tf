@@ -98,5 +98,11 @@ variable "ingestion_config" {
     # Workflow & Helper Service
     workflow_lock_acquisition_timeout = number
     helper_service_image              = string
+
+    # Dataflow network configuration
+    # Use WORKER_IP_PRIVATE when a compute.vmExternalIpAccess org policy
+    # blocks Dataflow workers from obtaining external IPs.
+    dataflow_ip_configuration = optional(string, "WORKER_IP_UNSPECIFIED")
+    dataflow_subnetwork       = optional(string, "")
   })
 }

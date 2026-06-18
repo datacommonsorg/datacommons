@@ -198,6 +198,8 @@ module "ingestion_workflow" {
   ingestion_helper_service_name  = "${var.global.namespace != "" ? "${var.global.namespace}-" : ""}dc-ingestion-helper"
   enable_redis_cache_clearing    = var.redis_config.enable
   ingestion_artifacts_path       = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
+  dataflow_ip_configuration      = var.ingestion_config.dataflow_ip_configuration
+  dataflow_subnetwork            = var.ingestion_config.dataflow_subnetwork
 
   depends_on = [module.ingestion_helper_service]
 }
