@@ -62,15 +62,9 @@ class IngestionJobClient:
         """Starts an execution of the Cloud Run job."""
         url = f"https://run.googleapis.com/v2/{self.full_job_name}:run"
 
-        args = []
+        container_override = {"env": [{"name": "DATA_RUN_MODE", "value": "dcpbridge"}]}
         if imports:
-            args.append(f"--imports={imports}")
-
-        container_override = {
-            "env": [{"name": "DATA_RUN_MODE", "value": "dcpbridge"}]
-        }
-        if args:
-            container_override["args"] = args
+            container_override["args"] = [f"--imports={imports}"]
 
         json_payload = {"overrides": {"containerOverrides": [container_override]}}
 
