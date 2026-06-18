@@ -446,7 +446,10 @@ def test_ingest_start_with_imports_success(
         json={
             "overrides": {
                 "containerOverrides": [
-                    {"args": ["--mode=dcpbridge", "--imports=oecd,doubleup"]}
+                    {
+                        "env": [{"name": "DATA_RUN_MODE", "value": "dcpbridge"}],
+                        "args": ["--imports=oecd,doubleup"],
+                    }
                 ]
             }
         },
