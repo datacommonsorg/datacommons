@@ -229,6 +229,22 @@ def admin() -> None:
     """Manage a Data Commons Platform instance in Google Cloud"""
 
 
+def _validate_namespace(ns: str) -> Tuple[bool, str]:
+    if not ns:
+        return False, "Namespace must not be empty."
+    if len(ns) > 16:
+        return (
+            False,
+            f"Namespace must be 16 characters or less (currently {len(ns)} characters).",
+        )
+    if not re.match(r"^[a-z]([-a-z0-9]*[a-z0-9])?$", ns):
+        return (
+            False,
+            "Namespace must start with a lowercase letter, end with a lowercase letter or number, and contain only lowercase alphanumeric characters and dashes.",
+        )
+    return True, ""
+
+
 def _resolve_project_config(
     project_id: str, namespace: str, force: bool
 ) -> Tuple[str, str, Path]:
@@ -247,11 +263,18 @@ def _resolve_project_config(
         raise click.ClickException("GCP project ID must not be empty.")
 
     resolved_namespace = namespace.strip()
+    if resolved_namespace:
+        is_valid, err_msg = _validate_namespace(resolved_namespace)
+        if not is_valid:
+            raise click.ClickException(err_msg)
+
     while True:
         if not resolved_namespace:
             resolved_namespace = _prompt("Namespace", type=str).strip()
-            if not resolved_namespace:
-                click.secho("Error: Namespace must not be empty.", fg="red")
+            is_valid, err_msg = _validate_namespace(resolved_namespace)
+            if not is_valid:
+                click.secho(f"Error: {err_msg}", fg="red")
+                resolved_namespace = ""
                 continue
 
         target_dir = Path.cwd() / resolved_namespace
