@@ -18,16 +18,14 @@ services:
 
 
   ingestion-helper:
-    # Use latest helper to align with services development.
-    image: ${HELPER_IMAGE:-gcr.io/datcom-ci/datacommons-ingestion-helper:latest}
+    # Use stable helper for now; we plan to migrate back to latest later.
+    image: ${HELPER_IMAGE:-gcr.io/datcom-ci/datacommons-ingestion-helper:stable}
     platform: linux/amd64
     container_name: itest-ingestion-helper
     ports:
       - "${HELPER_PORT:-8081}:8080"
     volumes:
       - ./spanner_client.py:/app/clients/spanner.py
-      - ./storage.pb:/app/clients/storage.pb
-      - ./schema.sql:/app/clients/schema.sql
     environment:
       - PORT=8080
       - SPANNER_EMULATOR_HOST=spanner:9010
@@ -55,11 +53,13 @@ services:
       - "${WEBSITE_PORT:-8082}:8080"
     volumes:
       - ./spanner_client.py:/workspace/spanner_client.py
+      - ./custom_feature_flags.yaml:/workspace/deploy/featureflags/custom.yaml
     environment:
       - PORT=8080
       - SPANNER_EMULATOR_HOST=spanner:9010
       - STORAGE_EMULATOR_HOST=http://gcs:9099
       - OUTPUT_DIR=gs://test-bucket/output
+      - RESOLVE_WITH_SPANNER_EMBEDDINGS=true
       - PROJECT_ID=test-project
       - GCP_PROJECT_ID=test-project
       - GCP_SPANNER_INSTANCE_ID=test-instance

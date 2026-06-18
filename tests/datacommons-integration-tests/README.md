@@ -45,3 +45,12 @@ While running with `--keep-containers`, you can access:
 - **GCS Emulator (fake-gcs-server)**: `localhost:9099`
 - **Ingestion Helper**: `localhost:8081`
 - **Website Backend**: `localhost:8082`
+
+## Custom Feature Flags
+
+Local integration tests run with the Spanner multi-entity schema enabled by default in the Mixer backend. This is controlled by mounting [custom_feature_flags.yaml](file:///usr/local/google/home/yiyuanc/datacommons/tests/datacommons-integration-tests/custom_feature_flags.yaml) inside the `website` container at `/workspace/deploy/featureflags/custom.yaml`.
+
+The container entrypoint detects the environment variable `RESOLVE_WITH_SPANNER_EMBEDDINGS=true` (defined in `docker-compose.test.yml`) and starts Mixer using these flags.
+
+You can modify the flags inside `custom_feature_flags.yaml` if you need to tweak the Mixer server configuration for local debugging.
+

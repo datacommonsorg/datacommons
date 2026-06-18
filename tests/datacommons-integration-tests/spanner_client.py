@@ -1,4 +1,4 @@
-# ruff: noqa: LOG015, G004, BLE001, PERF401, E402, ARG002, ANN204, PTH118, PTH119, PTH120, PTH123
+# ruff: noqa: LOG015, G004, BLE001, PERF401, E402, ARG002, ANN204, ANN401, PTH118, PTH119, PTH120, PTH123
 # Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,6 +16,7 @@
 import logging
 import os
 from datetime import UTC, datetime
+from typing import Any
 
 from google.cloud import spanner
 from google.cloud.spanner_admin_database_v1.types import UpdateDatabaseDdlRequest
@@ -26,57 +27,7 @@ from jinja2 import Template
 logging.getLogger().setLevel(logging.INFO)
 
 
-from google.protobuf import descriptor_pb2
-from google.protobuf.descriptor_pool import DescriptorPool
-from google.protobuf.message_factory import GetMessageClass
-
-# Define the dynamic Observations protobuf message class once at module initialization
-_fd = descriptor_pb2.FileDescriptorProto()
-_fd.name = "storage.proto"
-_fd.package = "org.datacommons.proto"
-
-# Define the internal map entry representation for map<string, string>
-_map_entry = _fd.message_type.add()
-_map_entry.name = "Observations_ValuesEntry"
-_map_entry.options.map_entry = True
-
-_key_field = _map_entry.field.add()
-_key_field.name = "key"
-_key_field.number = 1
-_key_field.type = descriptor_pb2.FieldDescriptorProto.TYPE_STRING
-_key_field.label = descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL
-
-_value_field = _map_entry.field.add()
-_value_field.name = "value"
-_value_field.number = 2
-_value_field.type = descriptor_pb2.FieldDescriptorProto.TYPE_STRING
-_value_field.label = descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL
-
-# Define the main Observations message class
-_msg = _fd.message_type.add()
-_msg.name = "Observations"
-
-_map_field = _msg.field.add()
-_map_field.name = "values"
-_map_field.number = 1
-_map_field.label = descriptor_pb2.FieldDescriptorProto.LABEL_REPEATED
-_map_field.type = descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE
-_map_field.type_name = ".org.datacommons.proto.Observations_ValuesEntry"
-
-_pool = DescriptorPool()
-_pool.Add(_fd)
-_ObservationsClass = GetMessageClass(
-    _pool.FindMessageTypeByName("org.datacommons.proto.Observations")
-)
-
-
-def _serialize_observations(values: dict[str, str]) -> bytes:
-    import base64
-
-    obs = _ObservationsClass()
-    for k, v in sorted(values.items()):
-        obs.values[k] = v
-    return base64.b64encode(obs.SerializeToString())
+import json
 
 
 class SpannerClient:
@@ -86,6 +37,7 @@ class SpannerClient:
     """
 
     _EMBEDDING_MODEL_PATH = "//aiplatform.googleapis.com/projects/{project}/locations/{location}/publishers/google/models/{model}"
+    _DEFAULT_MODELS = [{"name": "NodeEmbeddingModel", "endpoint": "text-embedding-005"}]
 
     def __init__(
         self,
@@ -96,6 +48,11 @@ class SpannerClient:
         location: str = None,
         model_id: str = None,
         lock_id: str = "global_ingestion_lock",
+        models: list[dict] = None,
+        embedding_space: int = 768,
+        embedding_table: str = "NodeEmbedding",
+        embedding_index: str = "NodeEmbeddingIndex",
+        **kwargs: Any,
     ) -> None:
         """Initializes a Spanner client and connects to a specific database."""
         client_options = {"api_endpoint": "spanner.googleapis.com"}
@@ -132,13 +89,25 @@ class SpannerClient:
         self.location = location
         self.model_id = model_id
         self.lock_id = lock_id
+        self.embedding_space = embedding_space
+        self.embedding_table = embedding_table
+        self.embedding_index = embedding_index
 
-    def _get_embeddings_endpoint(self) -> str:
+        if not models:
+            models = self._DEFAULT_MODELS
+
+        self.models = []
+        for model in models:
+            name = model["name"]
+            endpoint = self._get_embeddings_endpoint(model["endpoint"])
+            self.models.append({"name": name, "endpoint": endpoint})
+
+    def _get_embeddings_endpoint(self, model: str = None) -> str:
         """Returns the parameterized embedding model endpoint."""
         return self._EMBEDDING_MODEL_PATH.format(
             project=self.project_id,
             location=self.location or "us-central1",
-            model=self.model_id or "text-embedding-005",
+            model=model or self.model_id or "text-embedding-005",
         )
 
     def acquire_lock(self, workflow_id: str, timeout: int) -> bool:
@@ -643,7 +612,11 @@ class SpannerClient:
             schema_content = "\n".join(schema_lines)
 
             schema_content = Template(schema_content).render(
-                embeddings_endpoint=embeddings_endpoint
+                embeddings_endpoint=embeddings_endpoint,
+                models=self.models,
+                embedding_space=self.embedding_space,
+                embedding_table=self.embedding_table,
+                embedding_index=self.embedding_index,
             )
 
             if os.environ.get("SPANNER_EMULATOR_HOST"):
@@ -674,30 +647,20 @@ class SpannerClient:
             logging.error(f"Failed to read schema file: {e}")
             raise
 
-        proto_path = os.path.join(os.path.dirname(__file__), "storage.pb")
-        logging.info(f"Reading proto descriptors from {proto_path}")
-        try:
-            with open(proto_path, "rb") as f:
-                proto_descriptors_bytes = f.read()
-        except Exception as e:
-            logging.error(f"Failed to read proto descriptors file: {e}")
-            raise
-
         database_path = self.database.name
-        logging.info(f"Updating DDL for {database_path} with protos")
+        logging.info(f"Updating DDL for {database_path}")
 
         try:
             admin_client = self.spanner_client.database_admin_api
             request = UpdateDatabaseDdlRequest(
                 database=database_path,
                 statements=ddl_statements,
-                proto_descriptors=proto_descriptors_bytes,
             )
             operation = admin_client.update_database_ddl(request=request)
             operation.result()
-            logging.info("Database initialized successfully with protos.")
+            logging.info("Database initialized successfully.")
         except Exception as e:
-            logging.error(f"Failed to update DDL with protos: {e}")
+            logging.error(f"Failed to update DDL: {e}")
             raise
 
     def seed_database(self):
@@ -838,128 +801,97 @@ class SpannerClient:
             )
             seed_counts["edges"] = len(edges)
 
-            # 3. Seed Observation Table
-            obs_facet = "custom_facet"
-            observations = [
+            # 3. Seed TimeSeries and Observation Tables
+            ts_values = []
+            obs_values = []
+
+            # Facet JSON definition
+            facet_json = json.dumps(
+                {
+                    "provenance": "http://example.com/provenance",
+                    "observationPeriod": "",
+                    "unit": "",
+                    "measurementMethod": "",
+                }
+            )
+
+            # Raw observation data to seed
+            raw_data = [
                 # USA
                 (
                     "country/USA",
                     "Count_Person_Trumal",
-                    obs_facet,
-                    _serialize_observations({"2025": "4000", "2026": "5000"}),
-                    "Trumal_Import",
-                    "http://example.com/provenance",
-                    "http://example.com/provenance",
-                    False,
+                    {"2025": "4000", "2026": "5000"},
                 ),
-                (
-                    "country/USA",
-                    "number_of_frogs",
-                    obs_facet,
-                    _serialize_observations({"2025": "40000", "2026": "42000"}),
-                    "Trumal_Import",
-                    "http://example.com/provenance",
-                    "http://example.com/provenance",
-                    False,
-                ),
-                (
-                    "country/USA",
-                    "Count_Frog_Green",
-                    obs_facet,
-                    _serialize_observations({"2025": "30000", "2026": "32000"}),
-                    "Trumal_Import",
-                    "http://example.com/provenance",
-                    "http://example.com/provenance",
-                    False,
-                ),
-                (
-                    "country/USA",
-                    "Average_Age_Frog",
-                    obs_facet,
-                    _serialize_observations({"2025": "2.5", "2026": "2.7"}),
-                    "Trumal_Import",
-                    "http://example.com/provenance",
-                    "http://example.com/provenance",
-                    False,
-                ),
+                ("country/USA", "number_of_frogs", {"2025": "40000", "2026": "42000"}),
+                ("country/USA", "Count_Frog_Green", {"2025": "30000", "2026": "32000"}),
+                ("country/USA", "Average_Age_Frog", {"2025": "2.5", "2026": "2.7"}),
                 # CAN
-                (
-                    "country/CAN",
-                    "Count_Person_Trumal",
-                    obs_facet,
-                    _serialize_observations({"2025": "800", "2026": "1000"}),
-                    "Trumal_Import",
-                    "http://example.com/provenance",
-                    "http://example.com/provenance",
-                    False,
-                ),
-                (
-                    "country/CAN",
-                    "number_of_frogs",
-                    obs_facet,
-                    _serialize_observations({"2025": "10000", "2026": "12000"}),
-                    "Trumal_Import",
-                    "http://example.com/provenance",
-                    "http://example.com/provenance",
-                    False,
-                ),
-                (
-                    "country/CAN",
-                    "Count_Frog_Green",
-                    obs_facet,
-                    _serialize_observations({"2025": "8000", "2026": "9000"}),
-                    "Trumal_Import",
-                    "http://example.com/provenance",
-                    "http://example.com/provenance",
-                    False,
-                ),
-                (
-                    "country/CAN",
-                    "Average_Age_Frog",
-                    obs_facet,
-                    _serialize_observations({"2025": "3.0", "2026": "3.2"}),
-                    "Trumal_Import",
-                    "http://example.com/provenance",
-                    "http://example.com/provenance",
-                    False,
-                ),
+                ("country/CAN", "Count_Person_Trumal", {"2025": "800", "2026": "1000"}),
+                ("country/CAN", "number_of_frogs", {"2025": "10000", "2026": "12000"}),
+                ("country/CAN", "Count_Frog_Green", {"2025": "8000", "2026": "9000"}),
+                ("country/CAN", "Average_Age_Frog", {"2025": "3.0", "2026": "3.2"}),
             ]
-            obs_columns = [
-                "observation_about",
-                "variable_measured",
-                "facet_id",
-                "observation_period",
-                "measurement_method",
-                "unit",
-                "scaling_factor",
-                "observations",
-                "import_name",
-                "provenance_url",
-                "provenance",
-                "is_dc_aggregate",
-            ]
-            full_observations = []
-            for obs in observations:
-                full_observations.append(
+
+            for entity, var, points in raw_data:
+                facet_id = "custom_facet"
+                extra_entities_id = ""
+
+                # Entities JSON field
+                entities_json = json.dumps({"entity1": entity})
+
+                # TimeSeries row
+                ts_values.append(
                     (
-                        obs[0],  # observation_about
-                        obs[1],  # variable_measured
-                        obs[2],  # facet_id
-                        "",  # observation_period
-                        "",  # measurement_method
-                        "",  # unit
-                        "",  # scaling_factor
-                        obs[3],  # observations
-                        obs[4],  # import_name
-                        obs[5],  # provenance_url
-                        obs[6],  # provenance
-                        obs[7],  # is_dc_aggregate
+                        var,
+                        extra_entities_id,
+                        facet_id,
+                        entities_json,
+                        facet_json,
+                        spanner.COMMIT_TIMESTAMP,
                     )
                 )
+
+                # Observation child rows
+                for date, val in points.items():
+                    obs_values.append(
+                        (
+                            var,
+                            entity,
+                            extra_entities_id,
+                            facet_id,
+                            date,
+                            val,
+                            spanner.COMMIT_TIMESTAMP,
+                        )
+                    )
+
+            # Insert TimeSeries first, then interleaved Observation
+            ts_columns = [
+                "variable_measured",
+                "extra_entities_id",
+                "facet_id",
+                "entities",
+                "facet",
+                "last_update_timestamp",
+            ]
             transaction.insert_or_update(
-                table="Observation", columns=obs_columns, values=full_observations
+                table="TimeSeries", columns=ts_columns, values=ts_values
             )
-            seed_counts["observations"] = len(observations)
+
+            obs_columns = [
+                "variable_measured",
+                "entity1",
+                "extra_entities_id",
+                "facet_id",
+                "date",
+                "value",
+                "last_update_timestamp",
+            ]
+            transaction.insert_or_update(
+                table="Observation", columns=obs_columns, values=obs_values
+            )
+            seed_counts["observations"] = len(obs_values)
 
         try:
             self.database.run_in_transaction(_seed)

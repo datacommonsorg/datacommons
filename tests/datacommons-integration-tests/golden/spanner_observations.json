@@ -1,50 +1,114 @@
 [
   {
+    "date": "2025",
+    "entity1": "country/CAN",
     "facet_id": "custom_facet",
-    "import_name": "Trumal_Import",
-    "observation_about": "country/CAN",
+    "value": "3.0",
     "variable_measured": "Average_Age_Frog"
   },
   {
+    "date": "2026",
+    "entity1": "country/CAN",
     "facet_id": "custom_facet",
-    "import_name": "Trumal_Import",
-    "observation_about": "country/CAN",
+    "value": "3.2",
+    "variable_measured": "Average_Age_Frog"
+  },
+  {
+    "date": "2025",
+    "entity1": "country/CAN",
+    "facet_id": "custom_facet",
+    "value": "8000",
     "variable_measured": "Count_Frog_Green"
   },
   {
+    "date": "2026",
+    "entity1": "country/CAN",
     "facet_id": "custom_facet",
-    "import_name": "Trumal_Import",
-    "observation_about": "country/CAN",
+    "value": "9000",
+    "variable_measured": "Count_Frog_Green"
+  },
+  {
+    "date": "2025",
+    "entity1": "country/CAN",
+    "facet_id": "custom_facet",
+    "value": "800",
     "variable_measured": "Count_Person_Trumal"
   },
   {
+    "date": "2026",
+    "entity1": "country/CAN",
     "facet_id": "custom_facet",
-    "import_name": "Trumal_Import",
-    "observation_about": "country/CAN",
+    "value": "1000",
+    "variable_measured": "Count_Person_Trumal"
+  },
+  {
+    "date": "2025",
+    "entity1": "country/CAN",
+    "facet_id": "custom_facet",
+    "value": "10000",
     "variable_measured": "number_of_frogs"
   },
   {
+    "date": "2026",
+    "entity1": "country/CAN",
     "facet_id": "custom_facet",
-    "import_name": "Trumal_Import",
-    "observation_about": "country/USA",
+    "value": "12000",
+    "variable_measured": "number_of_frogs"
+  },
+  {
+    "date": "2025",
+    "entity1": "country/USA",
+    "facet_id": "custom_facet",
+    "value": "2.5",
     "variable_measured": "Average_Age_Frog"
   },
   {
+    "date": "2026",
+    "entity1": "country/USA",
     "facet_id": "custom_facet",
-    "import_name": "Trumal_Import",
-    "observation_about": "country/USA",
+    "value": "2.7",
+    "variable_measured": "Average_Age_Frog"
+  },
+  {
+    "date": "2025",
+    "entity1": "country/USA",
+    "facet_id": "custom_facet",
+    "value": "30000",
     "variable_measured": "Count_Frog_Green"
   },
   {
+    "date": "2026",
+    "entity1": "country/USA",
     "facet_id": "custom_facet",
-    "import_name": "Trumal_Import",
-    "observation_about": "country/USA",
+    "value": "32000",
+    "variable_measured": "Count_Frog_Green"
+  },
+  {
+    "date": "2025",
+    "entity1": "country/USA",
+    "facet_id": "custom_facet",
+    "value": "4000",
     "variable_measured": "Count_Person_Trumal"
   },
   {
+    "date": "2026",
+    "entity1": "country/USA",
     "facet_id": "custom_facet",
-    "import_name": "Trumal_Import",
-    "observation_about": "country/USA",
+    "value": "5000",
+    "variable_measured": "Count_Person_Trumal"
+  },
+  {
+    "date": "2025",
+    "entity1": "country/USA",
+    "facet_id": "custom_facet",
+    "value": "40000",
+    "variable_measured": "number_of_frogs"
+  },
+  {
+    "date": "2026",
+    "entity1": "country/USA",
+    "facet_id": "custom_facet",
+    "value": "42000",
     "variable_measured": "number_of_frogs"
   }
 ]
