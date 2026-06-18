@@ -686,7 +686,7 @@ def main() -> None:
     # Use stable helper tag by default until stable/local pushes are fixed for ingestion (aligning with the default in tests/datacommons-integration-tests/docker-compose.test.yml).
     parser.add_argument(
         "--helper-image",
-        default="gcr.io/datcom-ci/datacommons-ingestion-helper:stable",
+        default="gcr.io/datcom-ci/datacommons-ingestion-helper:latest",
         help="Override default helper service image",
     )
     parser.add_argument(
