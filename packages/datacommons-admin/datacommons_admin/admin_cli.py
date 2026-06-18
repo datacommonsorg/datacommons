@@ -517,8 +517,9 @@ def _run_seed_db(client: Any, instance_id: str, database_id: str) -> None:
     )
     result = client.seed_database()
     click.secho("Successfully seeded Spanner database!", fg="green", bold=True)
-    if result.get("message"):
-        click.secho(f"Details: {result['message']}", fg="bright_black")
+    message = result.get("message")
+    if message:
+        click.secho(f"Details: {message}", fg="bright_black")
 
 
 @admin.command(name="init-db")
@@ -537,8 +538,9 @@ def init_db(init_only: bool) -> None:
     result = client.initialize_database()
 
     click.secho("Successfully initialized Spanner database!", fg="green", bold=True)
-    if result.get("message"):
-        click.secho(f"Details: {result['message']}", fg="bright_black")
+    message = result.get("message")
+    if message:
+        click.secho(f"Details: {message}", fg="bright_black")
 
     if not init_only:
         _run_seed_db(client, instance_id, database_id)
