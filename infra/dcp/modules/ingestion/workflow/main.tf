@@ -48,6 +48,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                 tempLocation: '$${input.tempLocation}'
                 stagingLocation: '$${input.tempLocation}'
                 forceCombineNodes: 'true'
+                isBaseDc: 'false'
       - acquire_lock:
           try:
             call: http.post
