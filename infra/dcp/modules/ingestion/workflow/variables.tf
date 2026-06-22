@@ -107,3 +107,16 @@ check "dataflow_private_ip_requires_subnetwork" {
     error_message = "dataflow_subnetwork must be specified when dataflow_ip_configuration is WORKER_IP_PRIVATE."
   }
 }
+
+variable "dataflow_template_gcs_path" {
+  type        = string
+  description = "GCS path to the Dataflow Flex Template container spec"
+  default     = "gs://datcom-templates/templates/flex/ingestion-dacf16d.json"
+  nullable    = false
+
+  validation {
+    condition     = can(regex("^gs://.+[.]json$", var.dataflow_template_gcs_path))
+    error_message = "The dataflow_template_gcs_path must be a valid GCS path starting with 'gs://' and ending with '.json'."
+  }
+}
+
