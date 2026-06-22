@@ -397,3 +397,14 @@ variable "ingestion_dataflow_subnetwork" {
   type        = string
   default     = ""
 }
+
+# =============================================================================
+# Ingestion - Dataflow Template Configuration
+# =============================================================================
+
+variable "ingestion_dataflow_template_gcs_path" {
+  description = "GCS path to the Dataflow Flex Template container spec. If not provided (null), defaults to the stable template defined in the workflow module (modules/ingestion/workflow/variables.tf)."
+  type        = string
+  default     = null
+}
+
