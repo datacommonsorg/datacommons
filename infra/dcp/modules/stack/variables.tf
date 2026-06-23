@@ -38,7 +38,7 @@ variable "spanner_config" {
 variable "datacommons_services_config" {
   type = object({
     enable                          = bool
-    image                           = string
+    image                           = optional(string)
     name                            = string
     min_instances                   = number
     max_instances                   = number
@@ -90,14 +90,14 @@ variable "ingestion_config" {
     ingestion_artifacts_path = string
 
     # Preprocessing Job
-    preprocessing_job_image   = string
+    preprocessing_job_image   = optional(string)
     preprocessing_job_cpu     = string
     preprocessing_job_memory  = string
     preprocessing_job_timeout = string
 
     # Workflow & Helper Service
     workflow_lock_acquisition_timeout = number
-    helper_service_image              = string
+    helper_service_image              = optional(string)
 
     # Dataflow network configuration
     # Use WORKER_IP_PRIVATE when a compute.vmExternalIpAccess org policy

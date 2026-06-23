@@ -111,7 +111,7 @@ check "dataflow_private_ip_requires_subnetwork" {
 variable "dataflow_template_gcs_path" {
   type        = string
   description = "GCS path to the Dataflow Flex Template container spec"
-  default     = "gs://datcom-templates/templates/flex/ingestion-dacf16d.json"
+  default     = "gs://datcom-templates/templates/flex/ingestion-1.1.0.json"
   nullable    = false
 
   validation {

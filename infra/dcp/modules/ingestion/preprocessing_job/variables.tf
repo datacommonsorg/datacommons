@@ -5,7 +5,12 @@ variable "stateless_deletion_protection" {
   type        = bool
   description = "Enable deletion protection for stateless resources (Cloud Run Job) to prevent accidental deletion."
 }
-variable "image" { type = string }
+variable "image" {
+  type        = string
+  default     = "gcr.io/datcom-ci/datacommons-data:1.1.0"
+  nullable    = false
+  description = "Docker image URL for the data ingestion pre-processing job"
+}
 variable "cpu" { type = string }
 variable "memory" { type = string }
 variable "timeout" { type = string }
