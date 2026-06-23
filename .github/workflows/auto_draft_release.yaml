@@ -19,7 +19,7 @@ jobs:
         run: |
           commit_msg=$(git log -1 --pretty=%B)
           echo "Commit message: $commit_msg"
-          if [[ "$commit_msg" =~ ^chore:\ bump\ version\ to\ ([0-9]+\.[0-9]+\.[0-9]+(rc[0-9]+)?)$ ]]; then
+          if [[ "$commit_msg" =~ ^chore:\ bump\ version\ to\ ([0-9]+\.[0-9]+\.[0-9]+(rc[0-9]+)?) ]]; then
             version="${BASH_REMATCH[1]}"
             echo "is_bump=true" >> $GITHUB_OUTPUT
             echo "version=$version" >> $GITHUB_OUTPUT
