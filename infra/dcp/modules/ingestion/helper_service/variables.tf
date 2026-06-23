@@ -32,8 +32,7 @@ variable "ingestion_bucket_name" {
 }
 
 variable "image" {
-  type    = string
-  default = "gcr.io/datcom-ci/datacommons-ingestion-helper:1.0.0"
+  type = string
 }
 
 variable "bigquery_connection_id" {

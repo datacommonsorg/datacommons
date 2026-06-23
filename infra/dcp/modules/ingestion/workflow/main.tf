@@ -48,6 +48,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                 tempLocation: '$${input.tempLocation}'
                 stagingLocation: '$${input.tempLocation}'
                 forceCombineNodes: 'true'
+                isBaseDc: 'false'
       - build_lists:
           for:
             value: imp
@@ -115,7 +116,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                     body:
                       launchParameter:
                         jobName: '$${dataflow_job_name}'
-                        containerSpecGcsPath: 'gs://datcom-templates/templates/flex/ingestion-stable.json'
+                        containerSpecGcsPath: '${var.dataflow_template_gcs_path}'
                         parameters: '$${launch_params}'
                         environment:
                           serviceAccountEmail: '${var.dataflow_service_account_email}'

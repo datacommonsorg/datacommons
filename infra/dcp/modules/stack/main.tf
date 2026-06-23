@@ -200,6 +200,7 @@ module "ingestion_workflow" {
   ingestion_artifacts_path       = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
   dataflow_ip_configuration      = var.ingestion_config.dataflow_ip_configuration
   dataflow_subnetwork            = var.ingestion_config.dataflow_subnetwork
+  dataflow_template_gcs_path     = var.ingestion_config.dataflow_template_gcs_path
 
   depends_on = [module.ingestion_helper_service]
 }
