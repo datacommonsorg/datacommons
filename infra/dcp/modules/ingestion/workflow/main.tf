@@ -28,18 +28,18 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
             - workflow_id: '$${sys.get_env("GOOGLE_CLOUD_WORKFLOW_EXECUTION_ID")}'
             - version: '$${"version-" + string(int(sys.now()))}'
             - bucket_name: '$${text.split(input.tempLocation, "/")[2]}'
-            - latest_version_gcs_path: '$${"gs://" + bucket_name + "/${var.ingestion_artifacts_path}/" + input.importName + "/" + version}'
             - execution_error: null
             - lock_timeout: ${var.lock_acquisition_timeout}
             - run_embeddings: ${var.enable_embeddings_generation}
             - run_postproc: ${var.enable_bigquery_postprocessing}
             - postprocessing_result: null
             - embedding_result: null
-            - sanitized_import: '$${text.replace_all(text.replace_all(text.to_lower(input.importName), "/", "-"), "_", "-")}'
-            - import_name_len: '$${len(sanitized_import)}'
-            - substring_end: '$${if(import_name_len < 35, import_name_len, 35)}'
-            - sanitized_short_import: '$${text.substring(sanitized_import, 0, substring_end)}'
-            - dataflow_job_name: '$${"${local.clean_namespace_prefix}" + sanitized_short_import + "-" + string(int(sys.now()))}'
+            - decoded_imports: '$${json.decode(input.importList)}'
+            - num_imports: '$${len(decoded_imports)}'
+            - combined_import_name: ""
+            - imports_status_list: []
+            - imports_history_list: []
+            - imports_version_list: []
             - launch_params:
                 projectId: '$${project_id}'
                 spannerInstanceId: '$${input.spannerInstanceId}'
@@ -49,6 +49,34 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                 stagingLocation: '$${input.tempLocation}'
                 forceCombineNodes: 'true'
                 isBaseDc: 'false'
+      - build_lists:
+          for:
+            value: imp
+            in: $${decoded_imports}
+            steps:
+              - append_lists:
+                  assign:
+                    - item_gcs_path: '$${"gs://" + bucket_name + "/${var.ingestion_artifacts_path}/" + imp.importName + "/" + version}'
+                    - status_item: {}
+                    - status_item.importName: '$${imp.importName}'
+                    - status_item.latestVersion: '$${item_gcs_path}'
+                    - status_item.graphPath: '$${imp.graphPath}'
+                    - status_item.status: "STAGING"
+                    - history_item: {}
+                    - history_item.importName: '$${imp.importName}'
+                    - history_item.latestVersion: '$${version}'
+                    - imports_status_list: '$${list.concat(imports_status_list, status_item)}'
+                    - imports_history_list: '$${list.concat(imports_history_list, history_item)}'
+                    - imports_version_list: '$${list.concat(imports_version_list, imp.importName)}'
+                    - clean_item: '$${text.replace_all(text.replace_all(text.to_lower(imp.importName), "/", "-"), "_", "-")}'
+                    - join_prefix: '$${if(combined_import_name == "", "", "-")}'
+                    - combined_import_name: '$${combined_import_name + join_prefix + clean_item}'
+      - set_dataflow_job_name:
+          assign:
+            - import_name_len: '$${len(combined_import_name)}'
+            - substring_end: '$${if(import_name_len < 35, import_name_len, 35)}'
+            - sanitized_short_import: '$${text.substring(combined_import_name, 0, substring_end)}'
+            - dataflow_job_name: '$${"${local.clean_namespace_prefix}" + sanitized_short_import + "-" + string(int(sys.now()))}'
       - acquire_lock:
           try:
             call: http.post
@@ -77,9 +105,8 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                     auth:
                       type: OIDC
                     body:
-                      importName: '$${input.importName}'
+                      imports: '$${imports_status_list}'
                       status: "STAGING"
-                      latestVersion: '$${latest_version_gcs_path}'
                   result: staging_result
               - run_flex_template:
                   call: googleapis.dataflow.v1b3.projects.locations.flexTemplates.launch
@@ -178,7 +205,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                     auth:
                       type: OIDC
                     body:
-                      importName: '$${input.importName}'
+                      imports: '$${imports_version_list}'
                       version: '$${version}'
                       comment: '$${"Auto-promoted by workflow " + workflow_id}'
                   result: promote_result
@@ -192,9 +219,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                       workflowId: '$${workflow_id}'
                       jobId: '$${job_id}'
                       status: 'SUCCESS'
-                      importList:
-                        - importName: '$${input.importName}'
-                          latestVersion: '$${version}'
+                      importList: '$${imports_history_list}'
                   result: history_result
           except:
             as: e
