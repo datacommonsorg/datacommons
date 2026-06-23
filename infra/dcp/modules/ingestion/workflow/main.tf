@@ -36,13 +36,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
             - embedding_result: null
             - decoded_imports: '$${json.decode(input.importList)}'
             - num_imports: '$${len(decoded_imports)}'
-            - first_import_name: '$${decoded_imports[0].importName}'
-            - sanitized_import: '$${text.replace_all(text.replace_all(text.to_lower(first_import_name), "/", "-"), "_", "-")}'
-            - import_name_len: '$${len(sanitized_import)}'
-            - substring_end: '$${if(import_name_len < 30, import_name_len, 30)}'
-            - sanitized_short_import: '$${text.substring(sanitized_import, 0, substring_end)}'
-            - suffix: '$${if(num_imports > 1, "-multi", "")}'
-            - dataflow_job_name: '$${"${local.clean_namespace_prefix}" + sanitized_short_import + suffix + "-" + string(int(sys.now()))}'
+            - combined_import_name: ""
             - imports_status_list: []
             - imports_history_list: []
             - imports_version_list: []
@@ -62,9 +56,26 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
               - append_lists:
                   assign:
                     - item_gcs_path: '$${"gs://" + bucket_name + "/${var.ingestion_artifacts_path}/" + imp.importName + "/" + version}'
-                    - imports_status_list: '$${list.concat(imports_status_list, [{"importName": imp.importName, "latestVersion": item_gcs_path, "graphPath": imp.graphPath}])}'
-                    - imports_history_list: '$${list.concat(imports_history_list, [{"importName": imp.importName, "latestVersion": version}])}'
-                    - imports_version_list: '$${list.concat(imports_version_list, [imp.importName])}'
+                    - status_item: {}
+                    - status_item.importName: '$${imp.importName}'
+                    - status_item.latestVersion: '$${item_gcs_path}'
+                    - status_item.graphPath: '$${imp.graphPath}'
+                    - status_item.status: "STAGING"
+                    - history_item: {}
+                    - history_item.importName: '$${imp.importName}'
+                    - history_item.latestVersion: '$${version}'
+                    - imports_status_list: '$${list.concat(imports_status_list, status_item)}'
+                    - imports_history_list: '$${list.concat(imports_history_list, history_item)}'
+                    - imports_version_list: '$${list.concat(imports_version_list, imp.importName)}'
+                    - clean_item: '$${text.replace_all(text.replace_all(text.to_lower(imp.importName), "/", "-"), "_", "-")}'
+                    - join_prefix: '$${if(combined_import_name == "", "", "-")}'
+                    - combined_import_name: '$${combined_import_name + join_prefix + clean_item}'
+      - set_dataflow_job_name:
+          assign:
+            - import_name_len: '$${len(combined_import_name)}'
+            - substring_end: '$${if(import_name_len < 35, import_name_len, 35)}'
+            - sanitized_short_import: '$${text.substring(combined_import_name, 0, substring_end)}'
+            - dataflow_job_name: '$${"${local.clean_namespace_prefix}" + sanitized_short_import + "-" + string(int(sys.now()))}'
       - acquire_lock:
           try:
             call: http.post
