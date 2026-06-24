@@ -95,6 +95,10 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
         name  = "DC_INSTRUCTIONS_DIR"
         value = var.mcp_instructions_path != null ? "gs://${var.artifacts_bucket_name}/${var.mcp_instructions_path}" : ""
       }
+      env {
+        name  = "RESOLVE_WITH_SPANNER_EMBEDDINGS"
+        value = var.resolve_with_spanner_embeddings ? "true" : "false"
+      }
     }
 
     dynamic "vpc_access" {
@@ -114,6 +118,8 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
     service_account = google_service_account.serving_sa.email
 
   }
+
+  depends_on = [google_project_iam_member.serving_sa_roles]
 }
 
 resource "google_cloud_run_v2_service_iam_member" "public_access" {

@@ -22,4 +22,4 @@ build-backend = "setuptools.build_meta"
 include-package-data = true
 
 [tool.setuptools.dynamic]
-version = {attr = "datacommons_admin.version.__version__"}
+version = {attr = "datacommons_admin.__version__"}

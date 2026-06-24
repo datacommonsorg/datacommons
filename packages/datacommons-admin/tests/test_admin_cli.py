@@ -34,7 +34,7 @@ def test_init_success_with_options(
         'variable "test" {}',
         'module "stack" {\n  source = "./modules/stack"\n}',
         'output "test" {}',
-        'project_id = "$$PROJECT_ID$$"\nnamespace  = "$$NAMESPACE$$"\n# cdc_dc_api_key = "$$DC_API_KEY$$"',
+        'project_id = "$$PROJECT_ID$$"\nnamespace  = "$$NAMESPACE$$"\n# dc_api_key = "$$DC_API_KEY$$"',
     )
     with runner.isolated_filesystem(temp_dir=tmp_path):
         result = runner.invoke(
@@ -74,7 +74,7 @@ def test_init_success_with_prompts(
         'variable "test" {}',
         'module "stack" {\n  source = "./modules/stack"\n}',
         'output "test" {}',
-        'project_id = "$$PROJECT_ID$$"\nnamespace  = "$$NAMESPACE$$"\n# cdc_dc_api_key = "$$DC_API_KEY$$"',
+        'project_id = "$$PROJECT_ID$$"\nnamespace  = "$$NAMESPACE$$"\n# dc_api_key = "$$DC_API_KEY$$"',
     )
     with runner.isolated_filesystem(temp_dir=tmp_path):
         result = runner.invoke(
@@ -99,7 +99,7 @@ def test_init_existing_folder_force(
         'variable "test" {}',
         'module "stack" {\n  source = "./modules/stack"\n}',
         'output "test" {}',
-        'project_id = "$$PROJECT_ID$$"\nnamespace  = "$$NAMESPACE$$"\n# cdc_dc_api_key = "$$DC_API_KEY$$"',
+        'project_id = "$$PROJECT_ID$$"\nnamespace  = "$$NAMESPACE$$"\n# dc_api_key = "$$DC_API_KEY$$"',
     )
     with runner.isolated_filesystem(temp_dir=tmp_path):
         existing_dir = Path.cwd() / "existing-ns"
@@ -136,7 +136,7 @@ def test_init_remote_state(
         'variable "test" {}',
         'module "stack" {\n  source = "./modules/stack"\n}',
         'output "test" {}',
-        'project_id = "$$PROJECT_ID$$"\nnamespace  = "$$NAMESPACE$$"\n# cdc_dc_api_key = "$$DC_API_KEY$$"',
+        'project_id = "$$PROJECT_ID$$"\nnamespace  = "$$NAMESPACE$$"\n# dc_api_key = "$$DC_API_KEY$$"',
     )
     mock_configure.return_value = "mock-bucket-name"
 
@@ -217,6 +217,42 @@ def test_init_db_success(
     result = runner.invoke(admin, ["init-db"])
     assert result.exit_code == 0
     assert "Successfully initialized Spanner database" in result.output
+    assert "Details: DB Initialized" in result.output
+    assert "Successfully seeded Spanner database" in result.output
+
+
+@patch("datacommons_admin.tf_utils.shutil.which")
+@patch("datacommons_admin.tf_utils.subprocess.run")
+@patch("datacommons_admin.ingestion_helper_client.AuthorizedSession")
+@patch("datacommons_admin.ingestion_helper_client.google.auth.default")
+def test_init_db_success_no_details(
+    mock_auth_default: patch,
+    mock_session: patch,
+    mock_run: patch,
+    mock_which: patch,
+    runner: CliRunner,
+) -> None:
+    mock_which.return_value = "terraform"
+    from unittest.mock import MagicMock
+
+    mock_proc = MagicMock()
+    mock_proc.stdout = '{"ingestion_service_url": {"value": "https://mock-helper"}, "ingestion_workflow_service_account_email": {"value": "mock-orch-sa@mock.com"}, "spanner_instance_id": {"value": "mock-instance"}, "spanner_database_id": {"value": "mock-db"}}'
+    mock_run.return_value = mock_proc
+
+    mock_creds = MagicMock()
+    mock_auth_default.return_value = (mock_creds, "test-project")
+
+    mock_session_inst = MagicMock()
+    mock_resp = MagicMock()
+    mock_resp.ok = True
+    mock_resp.json.return_value = {"status": "success", "message": None}
+    mock_session_inst.post.return_value = mock_resp
+    mock_session.return_value = mock_session_inst
+
+    result = runner.invoke(admin, ["init-db"])
+    assert result.exit_code == 0
+    assert "Successfully initialized Spanner database" in result.output
+    assert "Details:" not in result.output
     assert "Successfully seeded Spanner database" in result.output
 
 
@@ -326,7 +362,7 @@ def test_ingest_start_success(
     )
     assert "Operation ID: op-123" in result.output
     assert (
-        "Job Console Link: https://console.cloud.google.com/run/jobs/details/us-central1/mock-job/executions?project=mock-proj"
+        "Job console link: https://console.cloud.google.com/run/jobs/details/us-central1/mock-job/executions?project=mock-proj"
         in result.output
     )
 
@@ -376,3 +412,82 @@ def test_ingest_show_config_success(
     assert result.exit_code == 0
     assert "GCS_BUCKET: my-test-bucket" in result.output
     assert "API_KEY: [SECRET: secret-api-key]" in result.output
+
+
+@patch("datacommons_admin.admin_cli._get_github_templates")
+def test_init_uses_default_ref_v_prefixed(
+    mock_get_templates, runner: CliRunner, tmp_path: Path
+) -> None:
+    mock_get_templates.return_value = (
+        'variable "test" {}',
+        'module "stack" {\n  source = "./modules/stack"\n}',
+        'output "test" {}',
+        'project_id = "$$PROJECT_ID$$"\nnamespace  = "$$NAMESPACE$$"\n# dc_api_key = "$$DC_API_KEY$$"',
+    )
+    from datacommons_admin import __version__
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(
+            admin,
+            [
+                "init",
+                "--project-id",
+                "ref-project",
+                "--namespace",
+                "ref-ns",
+                "--dc-api-key",
+                "ref-key",
+                "--no-tf-remote-state",
+            ],
+        )
+        assert result.exit_code == 0
+        mock_get_templates.assert_called_once_with(f"v{__version__}")
+
+
+@patch("datacommons_admin.tf_utils.shutil.which")
+@patch("datacommons_admin.tf_utils.subprocess.run")
+@patch("datacommons_admin.ingestion_job_client.AuthorizedSession")
+@patch("datacommons_admin.ingestion_job_client.google.auth.default")
+def test_ingest_start_with_imports_success(
+    mock_auth_default: patch,
+    mock_session: patch,
+    mock_run: patch,
+    mock_which: patch,
+    runner: CliRunner,
+) -> None:
+    mock_which.return_value = "terraform"
+    from unittest.mock import MagicMock
+
+    mock_proc = MagicMock()
+    mock_proc.stdout = '{"ingestion_prep_job_name": {"value": "projects/mock-proj/locations/us-central1/jobs/mock-job"}, "ingestion_workflow_service_account_email": {"value": "mock-orch-sa@mock.com"}, "project_id": {"value": "mock-proj"}, "region": {"value": "us-central1"}, "ingestion_workflow_name": {"value": "mock-workflow"}}'
+    mock_run.return_value = mock_proc
+
+    mock_creds = MagicMock()
+    mock_auth_default.return_value = (mock_creds, "test-project")
+
+    mock_session_inst = MagicMock()
+    mock_resp = MagicMock()
+    mock_resp.ok = True
+    mock_resp.json.return_value = {
+        "name": "projects/mock-proj/locations/us-central1/operations/op-123"
+    }
+    mock_session_inst.post.return_value = mock_resp
+    mock_session.return_value = mock_session_inst
+
+    result = runner.invoke(admin, ["ingest", "start", "--imports", "oecd,doubleup"])
+    assert result.exit_code == 0
+    assert "Successfully started ingestion job!" in result.output
+    mock_session_inst.post.assert_called_once_with(
+        "https://run.googleapis.com/v2/projects/mock-proj/locations/us-central1/jobs/mock-job:run",
+        json={
+            "overrides": {
+                "containerOverrides": [
+                    {
+                        "env": [{"name": "DATA_RUN_MODE", "value": "dcpbridge"}],
+                        "args": ["--imports=oecd,doubleup"],
+                    }
+                ]
+            }
+        },
+        timeout=300,
+    )

@@ -14,7 +14,7 @@ locals {
     },
     {
       name  = "OUTPUT_DIR"
-      value = "gs://${module.storage.artifacts_bucket_name}/${var.ingestion_config.workflow_artifacts_path}"
+      value = "gs://${module.storage.artifacts_bucket_name}/${var.ingestion_config.ingestion_artifacts_path}"
     },
     {
       name  = "FORCE_RESTART"
@@ -45,7 +45,7 @@ locals {
     },
     {
       name  = "TEMP_LOCATION"
-      value = "gs://${module.storage.artifacts_bucket_name}/temp"
+      value = "gs://${module.storage.artifacts_bucket_name}/${var.ingestion_config.ingestion_artifacts_path}/temp"
     },
     {
       name  = "PROJECT_ID"
@@ -131,9 +131,10 @@ module "ingestion_preprocessing_job" {
   vpc_connector_id        = var.redis_config.enable ? module.redis[0].connector_id : null
   bucket_name             = module.storage.artifacts_bucket_name
   input_path              = var.ingestion_config.input_path
-  workflow_artifacts_path = var.ingestion_config.workflow_artifacts_path
+  ingestion_artifacts_path = var.ingestion_config.ingestion_artifacts_path
   run_database_init       = false
   use_spanner             = true
+  enable_spanner_embeddings = var.datacommons_services_config.resolve_with_spanner_embeddings
   env_vars                = local.cloud_run_shared_env_variables
   secret_env_vars         = local.datacommons_services_secrets
   dc_api_key_secret_id    = module.auth.dc_api_key_secret_id
@@ -170,11 +171,13 @@ module "ingestion_helper_service" {
   use_spanner            = var.spanner_config.enable
   enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
   enable_bigquery_connection     = var.spanner_config.enable_bigquery_connection
+  enable_embeddings_generation   = var.spanner_config.enable_embeddings_generation
 
   # Redis configuration for cache clearing
   vpc_connector_id = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].connector_id : null
   redis_host       = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
   redis_port       = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
+  ingestion_artifacts_path = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
 }
 
 
@@ -190,9 +193,14 @@ module "ingestion_workflow" {
   ingestion_helper_url           = module.ingestion_helper_service.ingestion_helper_url
   dataflow_service_account_email = module.ingestion_dataflow.service_account_email
   enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
+  enable_embeddings_generation   = var.spanner_config.enable_embeddings_generation
   enable_datacommons_services    = var.datacommons_services_config.enable
   ingestion_helper_service_name  = "${var.global.namespace != "" ? "${var.global.namespace}-" : ""}dc-ingestion-helper"
   enable_redis_cache_clearing    = var.redis_config.enable
+  ingestion_artifacts_path       = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
+  dataflow_ip_configuration      = var.ingestion_config.dataflow_ip_configuration
+  dataflow_subnetwork            = var.ingestion_config.dataflow_subnetwork
+  dataflow_template_gcs_path     = var.ingestion_config.dataflow_template_gcs_path
 
   depends_on = [module.ingestion_helper_service]
 }
@@ -249,6 +257,7 @@ module "datacommons_services" {
   use_spanner             = var.spanner_config.enable
   env_vars                = local.cloud_run_shared_env_variables
   secret_env_vars         = local.datacommons_services_secrets
+  resolve_with_spanner_embeddings = var.datacommons_services_config.resolve_with_spanner_embeddings
 
   depends_on = [module.ingestion_preprocessing_job]
 }
@@ -325,6 +334,14 @@ resource "google_cloud_run_v2_job_iam_member" "workflow_pre_invoker" {
   location = var.global.region
   name     = module.ingestion_preprocessing_job[0].job_name
   role     = "roles/run.invoker"
+  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
+resource "google_cloud_run_v2_job_iam_member" "workflow_pre_developer" {
+  count    = var.ingestion_config.enable_ingestion ? 1 : 0
+  location = var.global.region
+  name     = module.ingestion_preprocessing_job[0].job_name
+  role     = "roles/run.developer"
   member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
 

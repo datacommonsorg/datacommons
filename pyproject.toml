@@ -1,6 +1,6 @@
 [project]
 name = "datacommons-platform"
-version = "0.0.2"
+version = "1.1.0"
 description = 'The Data Commons Platform is an open source semantic graph database for modeling, querying, and analyzing interconnected data.'
 readme = "README.md"
 requires-python = ">=3.11"
@@ -37,6 +37,7 @@ test = [
 ]
 
 
+
 [project.urls]
 Documentation = "https://github.com/datacommonsorg/datacommons#readme"
 Issues = "https://github.com/datacommonsorg/datacommons/issues"
@@ -48,9 +49,13 @@ datacommons-db = { workspace = true }
 datacommons-schema = { workspace = true }
 datacommons-cli = { workspace = true }
 datacommons-admin = { workspace = true }
+datacommons-integration-tests = { workspace = true }
 
 [tool.uv.workspace]
-members = ["packages/*"]
+members = [
+    "packages/*",
+    "tests/*",
+]
 
 [tool.coverage.run]
 source = ["datacommons"]
@@ -120,6 +125,13 @@ extend-ignore = [
     "ANN202", # Ignore missing return types in private test functions
     "PLR2004"
 ]
+"tests/**/*.py" = [
+    "S101",   # Allow using `assert` in pytests
+    "ANN001", # Ignore missing type annotations in test files
+    "ANN201", # Ignore missing return types in public test functions
+    "ANN202", # Ignore missing return types in private test functions
+    "PLR2004"
+]
 
 # Explicitly define PyPI as the default index
 [[tool.uv.index]]
@@ -132,3 +144,6 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools]
 # Tell setuptools this is a meta-package and to stop looking for code
 packages = []
+
+[tool.pytest.ini_options]
+testpaths = ["packages"]

@@ -5,14 +5,19 @@ variable "stateless_deletion_protection" {
   type        = bool
   description = "Enable deletion protection for stateless resources (Cloud Run Job) to prevent accidental deletion."
 }
-variable "image" { type = string }
+variable "image" {
+  type        = string
+  default     = "gcr.io/datcom-ci/datacommons-data:1.1.0"
+  nullable    = false
+  description = "Docker image URL for the data ingestion pre-processing job"
+}
 variable "cpu" { type = string }
 variable "memory" { type = string }
 variable "timeout" { type = string }
 variable "vpc_connector_id" { type = string }
 variable "bucket_name" { type = string }
 variable "input_path" { type = string }
-variable "workflow_artifacts_path" { type = string }
+variable "ingestion_artifacts_path" { type = string }
 variable "run_database_init" { type = bool }
 variable "use_spanner" { type = bool }
 
@@ -41,4 +46,10 @@ variable "maps_api_key_secret_id" {
   type        = string
   description = "Secret ID for Maps API key"
   default     = ""
+}
+
+variable "enable_spanner_embeddings" {
+  type        = bool
+  description = "Whether to enable Spanner embeddings generation (and skip GCS embeddings in preprocessing)"
+  default     = true
 }

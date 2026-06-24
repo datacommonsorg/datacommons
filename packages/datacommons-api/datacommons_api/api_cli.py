@@ -20,14 +20,22 @@ from datacommons_api.core.config import get_config, initialize_config
 from datacommons_api.core.logging import get_logger, setup_logging
 from datacommons_db.session import get_session
 from datacommons_api.services.graph_service import GraphService
+from . import __version__
 
 setup_logging()
 logger = get_logger(__name__)
 
 
-@click.group()
+def cli_help() -> str:
+    """Return help string for the CLI"""
+    version_str = click.style(f"v{__version__}", fg="bright_black")
+    return f"Data Commons API CLI {version_str}"
+
+
+@click.group(help=cli_help())
+@click.version_option(version=__version__, prog_name="Data Commons API CLI")
 def api():
-    """Data Commons API CLI suite"""
+    """Data Commons API CLI"""
     pass
 
 

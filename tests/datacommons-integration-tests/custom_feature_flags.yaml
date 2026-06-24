@@ -1,0 +1,12 @@
+# This file overrides Mixer feature flags for local integration tests.
+# It is mounted as '/workspace/deploy/featureflags/custom.yaml' inside the website container,
+# which gets activated when RESOLVE_WITH_SPANNER_EMBEDDINGS=true is set in the environment.
+#
+# Doing this enables testing the new schema layout without changing production website code.
+flags:
+  # Force Mixer to query using the new TimeSeries and Observation tables
+  UseMultiEntitySchema: true
+  # Disable remote/legacy embeddings resolution for local tests
+  EnableEmbeddingsResolver: false
+  # Enable Spanner-based local embeddings search
+  EnableSpannerSearchEmbeddings: true

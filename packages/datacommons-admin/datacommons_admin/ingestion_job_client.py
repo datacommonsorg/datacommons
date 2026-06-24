@@ -58,11 +58,18 @@ class IngestionJobClient:
 
         self.session = AuthorizedSession(creds)
 
-    def start_job(self) -> dict:
+    def start_job(self, imports: str | None = None) -> dict:
         """Starts an execution of the Cloud Run job."""
         url = f"https://run.googleapis.com/v2/{self.full_job_name}:run"
+
+        container_override = {"env": [{"name": "DATA_RUN_MODE", "value": "dcpbridge"}]}
+        if imports:
+            container_override["args"] = [f"--imports={imports}"]
+
+        json_payload = {"overrides": {"containerOverrides": [container_override]}}
+
         try:
-            response = self.session.post(url, json={}, timeout=300)
+            response = self.session.post(url, json=json_payload, timeout=300)
         except Exception as e:
             msg = f"Network or authentication error connecting to Cloud Run Admin API at {url}: {e}"
             if self.service_account_email:

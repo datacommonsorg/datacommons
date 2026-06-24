@@ -8,65 +8,74 @@
 # =============================================================================
 project_id = "$$PROJECT_ID$$"
 namespace  = "$$NAMESPACE$$"
-# region     = "us-central1"
-# Protects resources that hold persistent data (Spanner, GCS). Enable in prod!
-# stateful_deletion_protection = false
-# Protects compute resources (Cloud Run, Workflows). Keep false for easy updates.
-# stateless_deletion_protection = false
+region     = "us-central1"
+
+# Deletion protection for stateful resources holding persistent data 
+# (Spanner and Cloud Storage).
+# Recommended to set to true in production environments to prevent accidental 
+# data loss.
+stateful_deletion_protection = false
+
+# Deletion protection for stateless resources (e.g., Cloud Run, Workflows).
+# Recommended to keep false in development and non-production environments to
+# allow rapid updates.
+stateless_deletion_protection = false
 
 # =============================================================================
 # Auth Module
 # =============================================================================
-# Get a free DC API Key at https://apikeys.datacommons.org (Required)
+# Get a free DC API Key at https://apikeys.datacommons.org (required)
 auth_google_datacommons_api_key = "$$DC_API_KEY$$"
 
 # =============================================================================
 # Storage Module
 # =============================================================================
-# storage_create_artifacts_bucket = true
-# storage_artifacts_bucket_name   = "your-artifacts-bucket-name"
+# If you have an existing storage bucket you want to reuse, set this to false,
+# and provide the name.
+storage_create_artifacts_bucket = true
+# storage_artifacts_bucket_name   = "existing-artifacts-bucket-name"
 
 # =============================================================================
 # Redis Module
 # =============================================================================
-# enable_redis = true
-# redis_instance_name = "dc-redis-instance"
+# Cloud Memorystore (Redis) is used to cache API and website responses, 
+# significantly improving performance. You may want to set this to true in production.
+enable_redis = false
 
 # =============================================================================
 # Spanner Module
 # =============================================================================
-# spanner_create_instance = true
-# spanner_instance_id     = "your-existing-spanner-instance"
-# spanner_create_database = true
-# spanner_database_id     = "dc-db"
+# To save resources, if you want have an existing Spanner instance you would
+# like to reuse, set this to false and provide the ID.
+spanner_create_instance = true
+# spanner_instance_id     = "existing-spanner-instance"
 
 # =============================================================================
 # Datacommons Services Module
 # =============================================================================
-# datacommons_services_allow_unauthenticated_access = true
+# Controls whether the Data Commons API and frontend services are publicly accessible.
+# Set to true to allow unauthenticated public internet traffic to access the service.
+# Set to false (default) to check for access permissions. For more information, see the 
+# Data Commons documentation.
+datacommons_services_allow_unauthenticated_access = false
+
+# Track traffic and user interactions with your site using Google Analytics.
+# datacommons_services_google_analytics_tag_id = "your-analytics-tag-id"
 
 # =============================================================================
 # Ingestion - Preprocessing Job
 # =============================================================================
-# ingestion_input_path = "ingestion/input"
-
+# The root directory path within the Cloud Storage bucket where raw data
+# files are uploaded for processing.
+ingestion_input_path = "ingestion/input"
 
 # =============================================================================
 # Ingestion - Postprocessing
 # =============================================================================
-# This is needed for running BigQuery federated queries against the Spanner data. 
-# Set this to true for ONLY ONE deployment per project/region to create a dedicated reservation. 
-# Set to false for all other deployments in the same region and project to share it. 
-# Once you have created the reservation, do the following to remove it from 
-# Terraform state but preserve the reservation:
-# 
-# 1. Run `terraform state rm module.stack.module.spanner[0].google_bigquery_reservation.default[0]`
-# 2. Run `terraform state rm module.stack.module.spanner[0].google_bigquery_reservation_assignment.project_assignment[0]`
-# 3. Set spanner_create_bigquery_reservation = false in the current terraform.tfvars and re-apply.
+# Provisions a dedicated BigQuery reservation (slot commitment) for Spanner federated 
+# queries (used internally to boost performance). This ensures query capacity for
+# postprocessing / ingestion steps.
+# NOTE: Only one reservation can exist per GCP project per region. If you are deploying
+# multiple environments (e.g. dev and prod) in the same project, set this to true for
+# one deployment, and false for all others. See Data Commons documentation for more details.
 spanner_create_bigquery_reservation = true
-
-# =============================================================================
-# TEMP
-# =============================================================================
-auth_create_google_maps_api_key = false
-auth_google_maps_api_key = "TODO"

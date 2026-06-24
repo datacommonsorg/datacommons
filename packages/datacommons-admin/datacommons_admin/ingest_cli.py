@@ -31,11 +31,17 @@ def ingest() -> None:
 
 
 @ingest.command(name="start")
-def start() -> None:
+@click.option(
+    "--imports",
+    "imports",
+    default=None,
+    help="The names of the imports to run (comma-separated).",
+)
+def start(imports: str | None = None) -> None:
     """Start a data ingestion job execution."""
     click.secho("Datacommons Admin Ingest Start", fg="cyan", bold=True)
     click.secho(
-        "Fetching Data Job Name and Workflow Service Account from Terraform outputs...",
+        "Fetching data job name and workflow service account from Terraform outputs...",
         fg="bright_black",
     )
 
@@ -45,10 +51,10 @@ def start() -> None:
     region = get_region()
     workflow_name = get_ingestion_workflow_name()
 
-    click.secho(f"Found Data Job Name: {job_name}", fg="green")
-    click.secho(f"Found Workflow Service Account: {sa_email}", fg="green")
-    click.secho(f"Found GCP Project ID: {project_id}", fg="green")
-    click.secho(f"Found GCP Region: {region}", fg="green")
+    click.secho(f"Found data job: {job_name}", fg="green")
+    click.secho(f"Found workflow service account: {sa_email}", fg="green")
+    click.secho(f"Found GCP project ID: {project_id}", fg="green")
+    click.secho(f"Found GCP region: {region}", fg="green")
     click.secho(
         f"Starting Cloud Run job '{job_name}' via Admin API (this may take a few moments)...",
         fg="bright_black",
@@ -60,7 +66,7 @@ def start() -> None:
         project_id=project_id,
         location=region,
     )
-    result = client.start_job()
+    result = client.start_job(imports=imports)
 
     click.secho("Successfully started ingestion job!", fg="green", bold=True)
     res_name = result.get("name") or result.get("metadata", {}).get("name")
@@ -78,12 +84,12 @@ def start() -> None:
 
             click.secho("Operation ID: ", fg="cyan", bold=True, nl=False)
             click.secho(operation_id, fg="green")
-            click.secho("Job Console Link: ", fg="cyan", bold=True, nl=False)
+            click.secho("Job console link: ", fg="cyan", bold=True, nl=False)
             click.secho(job_url, fg="blue", underline=True)
         else:
             click.secho(f"Resource details: {res_name}", fg="bright_black")
 
-        click.secho("\n[!] Note on Ingestion Completion", fg="yellow", bold=True)
+        click.secho("\n[!] Note on ingestion completion", fg="yellow", bold=True)
         click.secho(
             "This job triggers a Cloud Workflow that runs in the background.\n"
             "Check the Workflows console below to verify full completion.",
@@ -100,7 +106,7 @@ def show_config() -> None:
     """Print the current ingestion job configuration (environment variables)."""
     click.secho("Datacommons Admin Ingest Show-Config", fg="cyan", bold=True)
     click.secho(
-        "Fetching Data Job Name and Workflow Service Account from Terraform outputs...",
+        "Fetching data job name and workflow service account from Terraform outputs...",
         fg="bright_black",
     )
 
@@ -109,10 +115,10 @@ def show_config() -> None:
     project_id = get_project_id()
     region = get_region()
 
-    click.secho(f"Found Data Job Name: {job_name}", fg="green")
-    click.secho(f"Found Workflow Service Account: {sa_email}", fg="green")
-    click.secho(f"Found GCP Project ID: {project_id}", fg="green")
-    click.secho(f"Found GCP Region: {region}", fg="green")
+    click.secho(f"Found data job: {job_name}", fg="green")
+    click.secho(f"Found workflow service account: {sa_email}", fg="green")
+    click.secho(f"Found GCP project ID: {project_id}", fg="green")
+    click.secho(f"Found GCP region: {region}", fg="green")
     click.secho(
         f"Fetching configuration for Cloud Run job '{job_name}'...",
         fg="bright_black",
@@ -126,7 +132,7 @@ def show_config() -> None:
     )
     env_vars = client.get_config()
 
-    click.secho("\nCurrent Ingestion Job Configuration:", fg="cyan", bold=True)
+    click.secho("\nCurrent ingestion job configuration:", fg="cyan", bold=True)
     if not env_vars:
         click.secho("No environment variables configured.", fg="yellow")
     else:

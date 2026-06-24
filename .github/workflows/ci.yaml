@@ -36,3 +36,28 @@ jobs:
         run: |
           # Enable parallel test execution
           uv run pytest
+
+#  hermetic-integration-test:
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: Checkout repository
+#        uses: actions/checkout@v5
+#
+#      - name: Install uv and set the Python version
+#        uses: astral-sh/setup-uv@v6
+#        with:
+#          python-version: "3.12"
+#
+#      - name: Install dependencies
+#        run: uv sync --locked
+#
+#      # Runs the integration tests using Docker Compose.
+#      # Note: By default, this pulls the `stable` image tags defined in docker-compose.test.yml.
+#      # To validate against a specific releasing version or pinned tag (e.g. during a release candidate build),
+#      # you can override the target images by setting the env variables, for example:
+#      # env:
+#      #   HELPER_IMAGE: gcr.io/datcom-ci/datacommons-ingestion-helper:v1.2.3rc1
+#      #   SERVICES_IMAGE: gcr.io/datcom-ci/datacommons-services:v1.2.3rc1
+#      - name: Run hermetic integration test
+#        run: uv run pytest -s tests/datacommons-integration-tests/run_local_integration_test.py
+

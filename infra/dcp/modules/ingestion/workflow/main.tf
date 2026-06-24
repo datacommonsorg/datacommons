@@ -1,5 +1,7 @@
 locals {
-  name_prefix = var.namespace != "" ? "${var.namespace}-" : ""
+  name_prefix               = var.namespace != "" ? "${var.namespace}-" : ""
+  should_run_postprocessing = var.enable_bigquery_postprocessing || var.enable_embeddings_generation
+  clean_namespace_prefix    = var.namespace != "" ? "${replace(lower(var.namespace), "_", "-")}-" : ""
 }
 
 resource "google_service_account" "workflow_sa" {
@@ -26,9 +28,18 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
             - workflow_id: '$${sys.get_env("GOOGLE_CLOUD_WORKFLOW_EXECUTION_ID")}'
             - version: '$${"version-" + string(int(sys.now()))}'
             - bucket_name: '$${text.split(input.tempLocation, "/")[2]}'
-            - latest_version_gcs_path: '$${"gs://" + bucket_name + "/imports/" + input.importName + "/" + version}'
             - execution_error: null
             - lock_timeout: ${var.lock_acquisition_timeout}
+            - run_embeddings: ${var.enable_embeddings_generation}
+            - run_postproc: ${var.enable_bigquery_postprocessing}
+            - postprocessing_result: null
+            - embedding_result: null
+            - decoded_imports: '$${json.decode(input.importList)}'
+            - num_imports: '$${len(decoded_imports)}'
+            - combined_import_name: ""
+            - imports_status_list: []
+            - imports_history_list: []
+            - imports_version_list: []
             - launch_params:
                 projectId: '$${project_id}'
                 spannerInstanceId: '$${input.spannerInstanceId}'
@@ -37,15 +48,43 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                 tempLocation: '$${input.tempLocation}'
                 stagingLocation: '$${input.tempLocation}'
                 forceCombineNodes: 'true'
+                isBaseDc: 'false'
+      - build_lists:
+          for:
+            value: imp
+            in: $${decoded_imports}
+            steps:
+              - append_lists:
+                  assign:
+                    - item_gcs_path: '$${"gs://" + bucket_name + "/${var.ingestion_artifacts_path}/" + imp.importName + "/" + version}'
+                    - status_item: {}
+                    - status_item.importName: '$${imp.importName}'
+                    - status_item.latestVersion: '$${item_gcs_path}'
+                    - status_item.graphPath: '$${imp.graphPath}'
+                    - status_item.status: "STAGING"
+                    - history_item: {}
+                    - history_item.importName: '$${imp.importName}'
+                    - history_item.latestVersion: '$${version}'
+                    - imports_status_list: '$${list.concat(imports_status_list, status_item)}'
+                    - imports_history_list: '$${list.concat(imports_history_list, history_item)}'
+                    - imports_version_list: '$${list.concat(imports_version_list, imp.importName)}'
+                    - clean_item: '$${text.replace_all(text.replace_all(text.to_lower(imp.importName), "/", "-"), "_", "-")}'
+                    - join_prefix: '$${if(combined_import_name == "", "", "-")}'
+                    - combined_import_name: '$${combined_import_name + join_prefix + clean_item}'
+      - set_dataflow_job_name:
+          assign:
+            - import_name_len: '$${len(combined_import_name)}'
+            - substring_end: '$${if(import_name_len < 35, import_name_len, 35)}'
+            - sanitized_short_import: '$${text.substring(combined_import_name, 0, substring_end)}'
+            - dataflow_job_name: '$${"${local.clean_namespace_prefix}" + sanitized_short_import + "-" + string(int(sys.now()))}'
       - acquire_lock:
           try:
             call: http.post
             args:
-              url: '${var.ingestion_helper_url}'
+              url: '${var.ingestion_helper_url}/database/lock/acquire'
               auth:
                 type: OIDC
               body:
-                actionType: "acquire_ingestion_lock"
                 workflowId: '$${workflow_id}'
                 timeout: '$${lock_timeout}'
             result: lock_result
@@ -62,14 +101,12 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
               - set_import_staging:
                   call: http.post
                   args:
-                    url: '${var.ingestion_helper_url}'
+                    url: '${var.ingestion_helper_url}/imports/status'
                     auth:
                       type: OIDC
                     body:
-                      actionType: "update_import_status"
-                      importName: '$${input.importName}'
+                      imports: '$${imports_status_list}'
                       status: "STAGING"
-                      latestVersion: '$${latest_version_gcs_path}'
                   result: staging_result
               - run_flex_template:
                   call: googleapis.dataflow.v1b3.projects.locations.flexTemplates.launch
@@ -78,13 +115,19 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                     location: '$${input.region}'
                     body:
                       launchParameter:
-                        jobName: '$${"${replace(lower(var.namespace), "_", "-")}-" + text.substring(text.replace_all(text.to_lower(input.importName), "_", "-"), 0, 35) + "-" + string(int(sys.now()))}'
-                        containerSpecGcsPath: 'gs://datcom-templates/templates/flex/ingestion.json'
+                        jobName: '$${dataflow_job_name}'
+                        containerSpecGcsPath: '${var.dataflow_template_gcs_path}'
                         parameters: '$${launch_params}'
                         environment:
                           serviceAccountEmail: '${var.dataflow_service_account_email}'
                           tempLocation: '$${input.tempLocation}'
                           stagingLocation: '$${input.tempLocation}'
+%{if var.dataflow_ip_configuration != "WORKER_IP_UNSPECIFIED"}
+                          ipConfiguration: '${var.dataflow_ip_configuration}'
+%{endif}
+%{if var.dataflow_subnetwork != ""}
+                          subnetwork: '${var.dataflow_subnetwork}'
+%{endif}
                   result: launch_result
               - get_job_id:
                   assign:
@@ -110,47 +153,73 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
               - check_success:
                   switch:
                     - condition: '$${job_status.currentState == "JOB_STATE_DONE"}'
-                      next: %{if var.enable_bigquery_postprocessing}run_postprocessings%{else}promote_version%{endif}
+                      next: %{if local.should_run_postprocessing}ingestion_postprocessing%{else}promote_version%{endif}
               - fail_on_job_status:
                   raise: '$${ "Dataflow job failed with state: " + job_status.currentState }'
-%{if var.enable_bigquery_postprocessing}
-              - run_postprocessings:
-                  call: http.post
-                  args:
-                    url: '${var.ingestion_helper_url}'
-                    auth:
-                      type: OIDC
-                    body:
-                      actionType: "run_aggregation"
-                      importList: '$${json.decode(input.importList)}'
-                  result: postprocessing_result
-%{endif}
+              - ingestion_postprocessing:
+                  parallel:
+                    shared: [postprocessing_result, embedding_result]
+                    branches:
+                      - postprocessing_branch:
+                          steps:
+                            - check_postproc_flag:
+                                switch:
+                                  - condition: '$${not run_postproc}'
+                                    next: end_postproc_branch
+                            - run_postprocessings:
+                                call: http.post
+                                args:
+                                  url: '${var.ingestion_helper_url}/aggregation/run'
+                                  auth:
+                                    type: OIDC
+                                  body:
+                                    importList: '$${json.decode(input.importList)}'
+                                result: postprocessing_result
+                            - end_postproc_branch:
+                                assign:
+                                  - dummy: true
+                      
+                      - embeddings_branch:
+                          steps:
+                            - check_embeddings_flag:
+                                switch:
+                                  - condition: '$${not run_embeddings}'
+                                    next: end_embeddings_branch
+                            - run_embeddings:
+                                call: http.post
+                                args:
+                                  url: '${var.ingestion_helper_url}/embeddings/ingest'
+                                  auth:
+                                    type: OIDC
+                                  body:
+                                    enableEmbeddings: true
+                                  timeout: ${var.embeddings_timeout}
+                                result: embedding_result
+                            - end_embeddings_branch:
+                                assign:
+                                  - dummy: true
               - promote_version:
                   call: http.post
                   args:
-                    url: '${var.ingestion_helper_url}'
+                    url: '${var.ingestion_helper_url}/imports/version'
                     auth:
                       type: OIDC
                     body:
-                      actionType: "update_import_version"
-                      importName: '$${input.importName}'
+                      imports: '$${imports_version_list}'
                       version: '$${version}'
                       comment: '$${"Auto-promoted by workflow " + workflow_id}'
                   result: promote_result
               - update_ingestion_history_step:
                   call: http.post
                   args:
-                    url: '${var.ingestion_helper_url}'
+                    url: '${var.ingestion_helper_url}/imports/ingestion-status'
                     auth:
                       type: OIDC
                     body:
-                      actionType: "update_ingestion_status"
                       workflowId: '$${workflow_id}'
                       jobId: '$${job_id}'
                       status: 'SUCCESS'
-                      importList:
-                        - importName: '$${input.importName}'
-                          latestVersion: '$${version}'
+                      importList: '$${imports_history_list}'
                   result: history_result
           except:
             as: e
@@ -161,11 +230,10 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
       - release_lock_step:
           call: http.post
           args:
-            url: '${var.ingestion_helper_url}'
+            url: '${var.ingestion_helper_url}/database/lock/release'
             auth:
               type: OIDC
             body:
-              actionType: "release_ingestion_lock"
               workflowId: '$${workflow_id}'
           result: release_lock_result
       - fail_workflow:
@@ -186,11 +254,9 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
       - clear_cache_step:
           call: http.post
           args:
-            url: '${var.ingestion_helper_url}'
+            url: '${var.ingestion_helper_url}/cache/clear'
             auth:
               type: OIDC
-            body:
-              actionType: "clear_redis_cache"
           result: clear_cache_result
 %{endif}
 %{endif}

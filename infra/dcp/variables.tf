@@ -191,6 +191,12 @@ variable "spanner_enable_bigquery_connection" {
   default     = true
 }
 
+variable "spanner_enable_embeddings_generation" {
+  description = "Enable embedding generation in Spanner"
+  type        = bool
+  default     = true
+}
+
 variable "spanner_bigquery_connection_name" {
   description = "The name of the BigQuery external connection to Spanner"
   type        = string
@@ -226,9 +232,9 @@ variable "enable_datacommons_services" {
 }
 
 variable "datacommons_services_image" {
-  description = "Docker image URL for the main Data Commons services"
+  description = "Docker image URL for the main Data Commons services. If not provided (null), defaults to the stable image defined in the services module (modules/datacommons_services/variables.tf)."
   type        = string
-  default     = "gcr.io/datcom-ci/datacommons-services:latest"
+  default     = null
 }
 
 variable "datacommons_services_name" {
@@ -297,14 +303,21 @@ variable "datacommons_services_mcp_instructions_path" {
   default     = null
 }
 
+# TODO(shixiao): Remove this variable to only resolve on spanner embeddings
+variable "datacommons_services_resolve_with_spanner_embeddings" {
+  description = "Enable resolving search queries with Spanner embeddings. Requires Spanner to be enabled (enable_spanner = true)."
+  type        = bool
+  default     = true
+}
+
 # =============================================================================
 # Ingestion - Preprocessing Job
 # =============================================================================
 
 variable "ingestion_preprocessing_job_image" {
-  description = "Docker image URL for the data ingestion pre-processing job"
+  description = "Docker image URL for the data ingestion pre-processing job. If not provided (null), defaults to the stable image defined in the preprocessing module (modules/ingestion/preprocessing_job/variables.tf)."
   type        = string
-  default     = "gcr.io/datcom-ci/datacommons-data:latest"
+  default     = null
 }
 
 variable "ingestion_preprocessing_job_cpu" {
@@ -353,7 +366,7 @@ variable "ingestion_workflow_enable_bigquery_postprocessing" {
   default     = true
 }
 
-variable "ingestion_workflow_artifacts_path" {
+variable "ingestion_artifacts_path" {
   description = "Path where pre-processed files are placed for the next stage"
   type        = string
   default     = "ingestion/internal"
@@ -364,7 +377,34 @@ variable "ingestion_workflow_artifacts_path" {
 # =============================================================================
 
 variable "ingestion_helper_service_image" {
-  description = "Docker image URL for the ingestion support service"
+  description = "Docker image URL for the ingestion support service. If not provided (null), defaults to the stable image defined in the helper service module (modules/ingestion/helper_service/variables.tf)."
   type        = string
-  default     = "gcr.io/datcom-ci/datacommons-ingestion-helper:latest"
+  default     = null
 }
+
+# =============================================================================
+# Ingestion - Dataflow Network Configuration
+# =============================================================================
+
+variable "ingestion_dataflow_ip_configuration" {
+  description = "IP configuration for Dataflow workers (WORKER_IP_UNSPECIFIED, WORKER_IP_PUBLIC, WORKER_IP_PRIVATE). Set to WORKER_IP_PRIVATE when a compute.vmExternalIpAccess org policy restricts VMs from obtaining external IPs."
+  type        = string
+  default     = "WORKER_IP_UNSPECIFIED"
+}
+
+variable "ingestion_dataflow_subnetwork" {
+  description = "Subnetwork for Dataflow workers. Required when ingestion_dataflow_ip_configuration is WORKER_IP_PRIVATE. Format: regions/{region}/subnetworks/{subnetwork}."
+  type        = string
+  default     = ""
+}
+
+# =============================================================================
+# Ingestion - Dataflow Template Configuration
+# =============================================================================
+
+variable "ingestion_dataflow_template_gcs_path" {
+  description = "GCS path to the Dataflow Flex Template container spec. If not provided (null), defaults to the stable template defined in the workflow module (modules/ingestion/workflow/variables.tf)."
+  type        = string
+  default     = null
+}
+

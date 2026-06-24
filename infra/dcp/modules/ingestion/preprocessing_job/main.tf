@@ -54,20 +54,17 @@ resource "google_cloud_run_v2_job" "dc_data_job" {
         }
         env {
           name  = "GCS_OUTPUT_FOLDER"
-          value = var.workflow_artifacts_path
+          value = var.ingestion_artifacts_path
         }
         env {
           name  = "INPUT_DIR"
           value = "gs://${var.bucket_name}/${var.input_path}"
         }
-
-        dynamic "env" {
-          for_each = var.use_spanner ? [1] : []
-          content {
-            name  = "DATA_RUN_MODE"
-            value = "dcpbridge"
-          }
+        env {
+          name  = "ENABLE_SPANNER_EMBEDDINGS"
+          value = var.enable_spanner_embeddings ? "true" : "false"
         }
+
       }
       dynamic "vpc_access" {
         for_each = var.vpc_connector_id != null && var.vpc_connector_id != "" ? [1] : []

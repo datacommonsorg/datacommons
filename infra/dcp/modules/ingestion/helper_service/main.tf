@@ -15,7 +15,7 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
   deletion_protection = var.stateless_deletion_protection
 
   template {
-    timeout = "600s"
+    timeout = "1800s"
     containers {
       image = var.image
 
@@ -57,8 +57,16 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
         value = var.ingestion_bucket_name
       }
       env {
+        name  = "GCS_OUTPUT_PREFIX"
+        value = var.ingestion_artifacts_path
+      }
+      env {
         name  = "IS_BASE_DC"
         value = "false"
+      }
+      env {
+        name  = "ENABLE_EMBEDDINGS"
+        value = var.enable_embeddings_generation
       }
       env {
         name  = "REDIS_HOST"
