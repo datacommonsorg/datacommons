@@ -21,7 +21,6 @@ triggers the ingestion workflow, and verifies Mixer/Website APIs.
 """
 
 import argparse
-import concurrent.futures
 import json
 import logging
 import os
@@ -280,13 +279,8 @@ def configure_tfvars(sandbox_dir: Path, overrides: dict[str, str | int | bool]) 
     log_success("Added tfvars overrides")
 
 
-def run_terraform_apply(sandbox_dir: Path) -> dict[str, str]:
-    """Runs terraform init, apply, and extracts parsed outputs."""
-    log_step("Provisioning infrastructure via Terraform (this can take 5-7 minutes)...")
-    run_command(["terraform", "init"], cwd=sandbox_dir, retries=3)
-    run_command(["terraform", "apply", "-auto-approve"], cwd=sandbox_dir, retries=3)
-    log_success("Terraform provisioning completed successfully")
-
+def get_terraform_outputs(sandbox_dir: Path) -> dict[str, str]:
+    """Retrieves and parses current Terraform outputs."""
     log_step("Retrieving Terraform outputs...")
     tf_out_proc = run_command(["terraform", "output", "-json"], cwd=sandbox_dir)
     tf_outputs = json.loads(tf_out_proc.stdout)
@@ -301,6 +295,15 @@ def run_terraform_apply(sandbox_dir: Path) -> dict[str, str]:
     for key, val in outputs.items():
         log_success(f"{key.replace('_', ' ').title()}: {val}")
     return outputs
+
+
+def run_terraform_apply(sandbox_dir: Path) -> dict[str, str]:
+    """Runs terraform init, apply, and extracts parsed outputs."""
+    log_step("Provisioning infrastructure via Terraform (this can take 5-7 minutes)...")
+    run_command(["terraform", "init"], cwd=sandbox_dir, retries=3)
+    run_command(["terraform", "apply", "-auto-approve"], cwd=sandbox_dir, retries=3)
+    log_success("Terraform provisioning completed successfully")
+    return get_terraform_outputs(sandbox_dir)
 
 
 def upload_dataset_to_gcs(bucket_name: str, wages_data_dir: Path) -> None:
@@ -335,6 +338,7 @@ def upload_dataset_to_gcs(bucket_name: str, wages_data_dir: Path) -> None:
             retries=3,
         )
     log_success("Uploaded dataset to GCS")
+
 
 
 def run_database_schema_setup(workspace_root: Path, sandbox_dir: Path) -> None:
@@ -374,6 +378,8 @@ def trigger_and_poll_workflow(
             "admin",
             "ingest",
             "start",
+            "--imports",
+            "toy-frog",
         ],
         cwd=sandbox_dir,
     )
@@ -514,122 +520,8 @@ def verify_spanner_records(
         )
 
 
-def check_api_endpoint(
-    test_name: str,
-    test_port: int,
-    path: str,
-    headers: dict[str, str] | None = None,
-    verify_json_fn=None,
-) -> None:
-    """Helper function to run an HTTP API request and verify status_code and JSON response."""
-    url = f"http://127.0.0.1:{test_port}{path}"
-    logging.info(f"Running {test_name}: {url}")
-    req = urllib.request.Request(url)
-    if headers:
-        for k, v in headers.items():
-            req.add_header(k, v)
-    with urllib.request.urlopen(req, timeout=15) as response:
-        status_code = response.getcode()
-        if status_code != 200:
-            raise RuntimeError(f"{test_name} failed with status code {status_code}")
-        resp_body = response.read().decode("utf-8")
-        log_success(f"{test_name} passed (HTTP 200)")
-        if verify_json_fn:
-            resp_json = json.loads(resp_body)
-            verify_json_fn(resp_json)
+# Note: API verifications and assertions have been moved to pytest suites in tests/datacommons-integration-tests/suites/
 
-
-# Helper verifiers for wages data responses.
-
-
-def verify_wages_obs(resp: dict) -> None:
-    """Verifies observation response values for average_annual_wage."""
-    by_var = resp.get("byVariable", {})
-    if "average_annual_wage" not in by_var:
-        raise ValueError(
-            f"Expected variable 'average_annual_wage' in response, got: {resp}"
-        )
-    by_entity = by_var["average_annual_wage"].get("byEntity", {})
-    if "country/USA" not in by_entity or "country/CAN" not in by_entity:
-        raise ValueError(
-            f"Expected entities 'country/USA' and 'country/CAN', got: {by_entity.keys()}"
-        )
-    for entity_dcid, entity_data in by_entity.items():
-        facets = entity_data.get("orderedFacets", [])
-        if not facets:
-            raise ValueError(
-                f"Expected orderedFacets list for {entity_dcid}, got: {entity_data}"
-            )
-        observations = facets[0].get("observations", [])
-        if not observations:
-            raise ValueError(
-                f"Expected observations list for {entity_dcid}, got: {entity_data}"
-            )
-
-
-def verify_wages_resolve(resp: dict) -> None:
-    """Verifies indicator resolution response candidates match expected wages variables."""
-    entities = resp.get("entities", [])
-    if not entities:
-        raise ValueError(f"Expected non-empty 'entities' list, got: {resp}")
-    node_res = entities[0]
-    if node_res.get("node") != "wages":
-        raise ValueError(f"Expected resolved node for 'wages', got: {node_res}")
-    candidates = node_res.get("candidates", [])
-    if not candidates:
-        raise ValueError(f"Expected resolved candidates for 'wages', got: {node_res}")
-    has_sv = any(
-        c.get("dcid") in ("average_annual_wage", "gender_wage_gap") for c in candidates
-    )
-    if not has_sv:
-        raise ValueError(
-            f"Expected resolved candidate to match 'average_annual_wage' or 'gender_wage_gap', got: {candidates}"
-        )
-
-
-API_VERIFICATION_STAGES = {
-    "Stage A: V2 Observations API": [
-        {
-            "name": "Test 1: V2 Multi-entity Observation (SDG)",
-            "path": "/core/api/v2/observation?select=variable&select=entity&select=date&select=value&variable.dcids=undata/sdg/IT_MOB_OWN.SEX--_T&entity.dcids=country/IND&entity.dcids=country/USA",
-            "headers": {"X-Use-Multi-Entity-Schema": "true"},
-        },
-        {
-            "name": "Test 2: Verify Wages Data (Custom Data)",
-            "path": "/core/api/v2/observation?select=variable&select=entity&select=date&select=value&variable.dcids=average_annual_wage&entity.dcids=country/USA&entity.dcids=country/CAN",
-            "headers": {"X-Use-Multi-Entity-Schema": "true"},
-            "verify_json_fn": verify_wages_obs,
-        },
-    ],
-    "Stage B: V2 Bulk Group Info API": [
-        {
-            "name": "Test 3a: V2 Bulk Variable Group Info (Unconstrained)",
-            "path": "/core/api/v2/bulk/info/variable-group?nodes=dc/g/undata/SDG_1.5.1",
-            "headers": {"X-Use-Multi-Entity-Schema": "true"},
-        },
-        {
-            "name": "Test 3b: V2 Bulk Variable Group Info (Constrained by USA)",
-            "path": "/core/api/v2/bulk/info/variable-group?nodes=dc/g/undata/SDG_1.5.1&constrained_entities=country/USA",
-            "headers": {"X-Use-Multi-Entity-Schema": "true"},
-        },
-        {
-            "name": "Test 3c: V2 Bulk Variable Group Info (Constrained by VAT)",
-            "path": "/core/api/v2/bulk/info/variable-group?nodes=dc/g/undata/SDG_1.5.1&constrained_entities=country/VAT",
-            "headers": {"X-Use-Multi-Entity-Schema": "true"},
-        },
-    ],
-    "Stage C: V2 Embeddings & Resolve API": [
-        {
-            "name": "Test 4: V2 Resolve - Indicator resolver (Food Waste)",
-            "path": "/core/api/v2/resolve?nodes=food%20waste&resolver=indicator&target=custom_only",
-        },
-        {
-            "name": "Test 5: V2 Resolve - Indicator resolver (Wages)",
-            "path": "/core/api/v2/resolve?nodes=wages&resolver=indicator&target=custom_only",
-            "verify_json_fn": verify_wages_resolve,
-        },
-    ],
-}
 
 
 def run_serving_proxy_tests(service_name: str, region: str, project_id: str) -> None:
@@ -703,61 +595,18 @@ def run_serving_proxy_tests(service_name: str, region: str, project_id: str) -> 
                 f"Failed to fetch a warm container instance containing the typeOf StatisticalVariable mapping after {max_retries * retry_interval}s."
             )
 
-        # Run API verification tests in parallel.
-        all_tests = []
-        for stage_name, tests in API_VERIFICATION_STAGES.items():
-            for t in tests:
-                t_copy = t.copy()
-                t_copy["stage"] = stage_name
-                all_tests.append(t_copy)
-
-        def run_single_test(t: dict) -> tuple[str, str, bool, str | None]:
-            try:
-                check_api_endpoint(
-                    test_name=t["name"],
-                    test_port=test_port,
-                    path=t["path"],
-                    headers=t.get("headers"),
-                    verify_json_fn=t.get("verify_json_fn"),
-                )
-                return (t["name"], t["stage"], True, None)
-            except Exception as test_err:
-                logging.error(f"[FAILURE] {t['name']} failed: {test_err}")
-                return (t["name"], t["stage"], False, str(test_err))
-
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=len(all_tests)
-        ) as executor:
-            futures = {executor.submit(run_single_test, t): t for t in all_tests}
-            results = [
-                future.result() for future in concurrent.futures.as_completed(futures)
-            ]
-
-        # Group and print results by stage.
-        by_stage: dict[str, list[tuple[str, bool, str | None]]] = {}
-        for name, stage, success, err in results:
-            by_stage.setdefault(stage, []).append((name, success, err))
-
-        print("\n" + "=" * 65)
-        print("                 API VERIFICATION SUMMARY REPORT")
-        print("=" * 65)
-        failed = False
-        for stage, stage_results in sorted(by_stage.items()):
-            print(f"\n{stage}:")
-            for name, success, err in sorted(stage_results):
-                status = "[PASSED]" if success else "[FAILED]"
-                print(f"  {status:<8} {name}")
-                if not success:
-                    print(f"           Error: {err}")
-                    failed = True
-        print("\n" + "=" * 65)
-
-        if failed:
-            raise RuntimeError(
-                "One or more E2E serving verification tests failed. See report details above."
-            )
-
-        log_success("All parallel verification tests completed successfully!")
+        # Run pytest E2E suites against the proxy port
+        pytest_cmd = [
+            "uv",
+            "run",
+            "pytest",
+            "tests/datacommons-integration-tests/suites/",
+            "--target-url",
+            f"http://127.0.0.1:{test_port}",
+        ]
+        log_step(f"Running pytest suites: {' '.join(pytest_cmd)}")
+        run_command(pytest_cmd, check=True)
+        log_success("All pytest verification suites passed successfully!")
 
     except Exception as e:
         console_url = f"https://console.cloud.google.com/run/detail/{region}/{service_name}/logs?project={project_id}"
@@ -885,6 +734,11 @@ def main() -> None:
         help="Do not destroy sandbox on completion/failure",
     )
     parser.add_argument(
+        "--reuse-sandbox",
+        action="store_true",
+        help="Skip terraform provision/destroy steps and reuse existing sandbox workspace",
+    )
+    parser.add_argument(
         "--dc-api-key",
         default=os.environ.get("DC_API_KEY", ""),
         help="Optional Google Data Commons API Key",
@@ -918,61 +772,74 @@ def main() -> None:
     sandbox_dir = None
 
     try:
-        # 1. Setup workspace
-        setup_workspace(workspace_dir, namespace)
+        if args.reuse_sandbox:
+            if not args.namespace:
+                raise RuntimeError(
+                    "Namespace must be specified when using --reuse-sandbox (e.g. --namespace itest-XXXX)"
+                )
+            sandbox_dir = workspace_dir / namespace
+            if not sandbox_dir.exists():
+                raise RuntimeError(f"Sandbox directory does not exist: {sandbox_dir}")
+            log_step(f"Reusing existing sandbox namespace: {namespace}")
+            outputs = get_terraform_outputs(sandbox_dir)
+        else:
+            # 1. Setup workspace
+            setup_workspace(workspace_dir, namespace)
 
-        # 1b. Validate local MCF schema syntax before deploying expensive cloud resources
-        root_dir = Path(__file__).resolve().parent.parent.parent
-        wages_data_dir = root_dir / "samples" / "OECD_wage_data"
-        validate_mcf_file(wages_data_dir / "average_annual_wage.mcf")
-        validate_mcf_file(wages_data_dir / "gender_wage_gap.mcf")
+            # 1b. Validate local MCF schema syntax before deploying expensive cloud resources
+            root_dir = Path(__file__).resolve().parent.parent.parent
+            wages_data_dir = root_dir / "samples" / "OECD_wage_data"
+            validate_mcf_file(wages_data_dir / "average_annual_wage.mcf")
+            validate_mcf_file(wages_data_dir / "gender_wage_gap.mcf")
 
-        # 2. Initialize configuration via CLI and setup overrides
-        dc_key = resolve_api_key(args.project_id, args.dc_api_key)
-        if not dc_key:
-            raise RuntimeError(
-                "Data Commons API Key must be provided (either via --dc-api-key flag, "
-                "DC_API_KEY environment variable, or 'dc-api-key' Secret in GCP Secret Manager)."
+
+            # 2. Initialize configuration via CLI and setup overrides
+            dc_key = resolve_api_key(args.project_id, args.dc_api_key)
+            if not dc_key:
+                raise RuntimeError(
+                    "Data Commons API Key must be provided (either via --dc-api-key flag, "
+                    "DC_API_KEY environment variable, or 'dc-api-key' Secret in GCP Secret Manager)."
+                )
+
+            sandbox_dir = initialize_sandbox_scaffolding(
+                workspace_root=workspace_root,
+                workspace_dir=workspace_dir,
+                project_id=args.project_id,
+                namespace=namespace,
+                dc_api_key=dc_key,
+                tf_git_ref=args.tf_git_ref,
+                tf_state_bucket=args.tf_state_bucket,
             )
 
-        sandbox_dir = initialize_sandbox_scaffolding(
-            workspace_root=workspace_root,
-            workspace_dir=workspace_dir,
-            project_id=args.project_id,
-            namespace=namespace,
-            dc_api_key=dc_key,
-            tf_git_ref=args.tf_git_ref,
-            tf_state_bucket=args.tf_state_bucket,
-        )
+            # 3. Configure tfvars overrides
+            tfvars_overrides: dict[str, str | int | bool] = {
+                "spanner_create_instance": False,
+                "spanner_instance_id": "dcp-integration-test-shared-instance",
+                "spanner_create_database": True,
+                "spanner_create_bigquery_reservation": False,
+                "datacommons_services_min_instances": 1,
+                "datacommons_services_max_instances": 1,
+            }
+            if args.services_image:
+                tfvars_overrides["datacommons_services_image"] = args.services_image
+            if args.preprocessing_image:
+                tfvars_overrides["ingestion_preprocessing_job_image"] = (
+                    args.preprocessing_image
+                )
+            if args.helper_image:
+                tfvars_overrides["ingestion_helper_service_image"] = args.helper_image
 
-        # 3. Configure tfvars overrides
-        tfvars_overrides: dict[str, str | int | bool] = {
-            "spanner_create_instance": False,
-            "spanner_instance_id": "dcp-integration-test-shared-instance",
-            "spanner_create_database": True,
-            "spanner_create_bigquery_reservation": False,
-            "datacommons_services_min_instances": 1,
-            "datacommons_services_max_instances": 1,
-        }
-        if args.services_image:
-            tfvars_overrides["datacommons_services_image"] = args.services_image
-        if args.preprocessing_image:
-            tfvars_overrides["ingestion_preprocessing_job_image"] = (
-                args.preprocessing_image
-            )
-        if args.helper_image:
-            tfvars_overrides["ingestion_helper_service_image"] = args.helper_image
+            configure_tfvars(sandbox_dir, tfvars_overrides)
 
-        configure_tfvars(sandbox_dir, tfvars_overrides)
-
-        # 4. Provision Infrastructure (Terraform Apply)
-        terraform_provisioned = True
-        outputs = run_terraform_apply(sandbox_dir)
+            # 4. Provision Infrastructure (Terraform Apply)
+            terraform_provisioned = True
+            outputs = run_terraform_apply(sandbox_dir)
 
         # 5. Locate and upload OECD Wages Dataset files to GCS
         root_dir = Path(__file__).resolve().parent.parent.parent
         wages_data_dir = root_dir / "samples" / "OECD_wage_data"
         upload_dataset_to_gcs(outputs["bucket_name"], wages_data_dir)
+
 
         # 6. Initialize Spanner DB Schemas
         run_database_schema_setup(workspace_root, sandbox_dir)
@@ -986,11 +853,12 @@ def main() -> None:
             workflow_name=outputs["workflow_name"],
         )
 
-        # 8. Query Spanner to verify data was loaded
+        # 8. Query Spanner to verify data was loaded (Mock datasets add 65 rows)
         verify_spanner_records(
             project_id=args.project_id,
             spanner_database=outputs["spanner_database"],
             spanner_instance=outputs["spanner_instance"],
+            min_expected_rows=60,
         )
 
         # 9. Run Proxy verification to test the serving layers
