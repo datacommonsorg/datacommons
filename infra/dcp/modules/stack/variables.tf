@@ -27,6 +27,7 @@ variable "spanner_config" {
     version_retention_period           = string
     processing_units                   = number
     enable_bigquery_connection         = bool
+    enable_embeddings_generation       = bool
     bigquery_connection_name           = string
     create_bigquery_reservation        = bool
     bigquery_reservation_slot_capacity = number
@@ -37,7 +38,7 @@ variable "spanner_config" {
 variable "datacommons_services_config" {
   type = object({
     enable                          = bool
-    image                           = string
+    image                           = optional(string)
     name                            = string
     min_instances                   = number
     max_instances                   = number
@@ -49,6 +50,7 @@ variable "datacommons_services_config" {
     instructions_path               = string
     allow_unauthenticated_access    = bool
     website_disable_google_maps_api = bool
+    resolve_with_spanner_embeddings = bool
   })
 }
 
@@ -84,17 +86,24 @@ variable "ingestion_config" {
     workflow_enable_bigquery_postprocessing = bool
 
     # Storage & Paths
-    input_path              = string
-    workflow_artifacts_path = string
+    input_path               = string
+    ingestion_artifacts_path = string
 
     # Preprocessing Job
-    preprocessing_job_image   = string
+    preprocessing_job_image   = optional(string)
     preprocessing_job_cpu     = string
     preprocessing_job_memory  = string
     preprocessing_job_timeout = string
 
     # Workflow & Helper Service
     workflow_lock_acquisition_timeout = number
-    helper_service_image              = string
+    helper_service_image              = optional(string)
+
+    # Dataflow network configuration
+    # Use WORKER_IP_PRIVATE when a compute.vmExternalIpAccess org policy
+    # blocks Dataflow workers from obtaining external IPs.
+    dataflow_ip_configuration  = optional(string, "WORKER_IP_UNSPECIFIED")
+    dataflow_subnetwork        = optional(string, "")
+    dataflow_template_gcs_path = optional(string)
   })
 }

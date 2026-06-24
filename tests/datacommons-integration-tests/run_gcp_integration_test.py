@@ -1,0 +1,1020 @@
+#!/usr/bin/env python3
+# ruff: noqa: ANN401, ARG001, PTH101, PTH123, FBT001, FBT002, S603, S607, S310, S311, S108, BLE001, LOG015, G004
+# Copyright 2026 Google LLC.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Automated system integration test script for Data Commons Platform sandboxes.
+
+This script provisions a GCP sandbox, seeds custom MCF schema and CSV datasets,
+triggers the ingestion workflow, and verifies Mixer/Website APIs.
+"""
+
+import argparse
+import concurrent.futures
+import json
+import logging
+import os
+import random
+import shutil
+import subprocess
+import sys
+import time
+import urllib.request
+from pathlib import Path
+from typing import Any
+
+# Configure standard console logging format
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%H:%M:%S",
+)
+
+
+def log_step(msg: str) -> None:
+    logging.info(f">>> [STEP] {msg}")
+
+
+def log_success(msg: str) -> None:
+    logging.info(f"[SUCCESS] {msg}")
+
+
+def log_error(msg: str) -> None:
+    logging.error(f"[ERROR] {msg}")
+
+
+def remove_readonly(func: Any, path: str, excinfo: Any) -> None:
+    import stat
+
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
+
+def run_command(
+    args: list[str],
+    cwd: Path | None = None,
+    check: bool = True,
+    retries: int = 1,
+    retry_delay: float = 2.0,
+) -> subprocess.CompletedProcess:
+    logging.info(f"Running command: {' '.join(args)} (cwd: {cwd or Path.cwd()})")
+    for attempt in range(retries):
+        try:
+            return subprocess.run(
+                args, cwd=cwd, check=check, text=True, capture_output=True
+            )
+        except subprocess.CalledProcessError as e:
+            if attempt < retries - 1:
+                logging.warning(
+                    f"Command failed (attempt {attempt + 1}/{retries}). Retrying in {retry_delay}s... Error: {e}"
+                )
+                time.sleep(retry_delay)
+                continue
+            logging.error(f"--- COMMAND FAILED: {' '.join(args)} ---")
+            if e.stdout:
+                logging.error(f"STDOUT:\n{e.stdout}")
+            if e.stderr:
+                logging.error(f"STDERR:\n{e.stderr}")
+            logging.error("---------------------------------------")
+            raise e
+
+    raise RuntimeError(
+        f"Command execution loop finished without executing subprocess.run (retries={retries})"
+    )
+
+
+# =============================================================================
+# Lifecycle Stage Implementations
+# =============================================================================
+
+
+def validate_mcf_file(mcf_path: Path) -> None:
+    """Validates the syntax of local MCF file using datacommons_schema parser."""
+    log_step(f"Validating local MCF schema file: {mcf_path.name}")
+    try:
+        # Import dynamically since the package is inside workspace virtual environment
+        from datacommons_schema.parsers.mcf_parser import parse_mcf
+
+        with open(mcf_path, encoding="utf-8") as f:
+            nodes = list(parse_mcf(f))
+        if not nodes:
+            raise RuntimeError(
+                f"MCF file {mcf_path.name} was successfully parsed but returned 0 nodes."
+            )
+        log_success(f"MCF schema is syntactically valid (parsed {len(nodes)} nodes)")
+    except Exception as e:
+        raise RuntimeError(
+            f"MCF syntax validation failed for {mcf_path.name}: {e}"
+        ) from e
+
+
+def setup_workspace(workspace_dir: Path, namespace: str) -> None:
+    """Ensure clean scratch workspace directories exist.
+    Tries to destroy resources first if tfstate is present to avoid leakage.
+    """
+    sandbox_dir = workspace_dir / namespace
+    if sandbox_dir.exists() and (sandbox_dir / "terraform.tfstate").exists():
+        has_resources = False
+        try:
+            with open(sandbox_dir / "terraform.tfstate", encoding="utf-8") as f:
+                state_data = json.load(f)
+                if state_data.get("resources"):
+                    has_resources = True
+        except Exception:
+            # If we fail to parse, assume resources might exist to be safe
+            has_resources = True
+
+        if has_resources:
+            logging.info(
+                f">>> [STEP] Existing active sandbox '{namespace}' detected with provisioned resources."
+            )
+            logging.info(
+                ">>> [STEP] Attempting to clean up existing GCP resources first..."
+            )
+            try:
+                # We need to run terraform init and destroy
+                run_command(["terraform", "init"], cwd=sandbox_dir)
+                run_command(["terraform", "destroy", "-auto-approve"], cwd=sandbox_dir)
+                logging.info("[SUCCESS] Existing resources cleaned up successfully.")
+            except Exception as e:
+                logging.error(f"[ERROR] Failed to destroy existing resources: {e}")
+                is_ci = bool(
+                    os.environ.get("CLOUDBUILD_BUILD_ID")
+                    or os.environ.get("GITHUB_ACTIONS")
+                )
+                if is_ci:
+                    raise RuntimeError(
+                        f"Aborting to prevent resource leakage. Clean up resources for namespace '{namespace}' manually."
+                    ) from e
+                print(
+                    "\n[!] WARNING: Deleting this directory will permanently orphan these resources in GCP.",
+                    flush=True,
+                )
+                try:
+                    resp = (
+                        input(
+                            "Do you want to force delete the local workspace and proceed? [y/N]: "
+                        )
+                        .strip()
+                        .lower()
+                    )
+                    if resp not in ["y", "yes"]:
+                        print("Aborted by user.", flush=True)
+                        sys.exit(1)
+                except (KeyboardInterrupt, EOFError):
+                    print("\nAborted.", flush=True)
+                    sys.exit(1)
+
+    if workspace_dir.exists():
+        shutil.rmtree(workspace_dir, onerror=remove_readonly)
+    workspace_dir.mkdir(parents=True)
+
+
+def initialize_sandbox_scaffolding(
+    workspace_root: Path,
+    workspace_dir: Path,
+    project_id: str,
+    namespace: str,
+    dc_api_key: str,
+    tf_git_ref: str,
+    tf_state_bucket: str = "",
+) -> Path:
+    """Runs dcp admin CLI to initialize configuration, then overrides with local infra files."""
+    log_step("Initializing test sandbox directory...")
+    init_args = [
+        "uv",
+        "run",
+        "--project",
+        str(workspace_root),
+        "datacommons",
+        "admin",
+        "init",
+        "--project-id",
+        project_id,
+        "--namespace",
+        namespace,
+        "--dc-api-key",
+        dc_api_key,
+    ]
+    if tf_state_bucket:
+        init_args.extend(["--tf-remote-state", "--tf-state-bucket", tf_state_bucket])
+    else:
+        init_args.append("--no-tf-remote-state")
+
+    if tf_git_ref:
+        init_args.extend(["--tf-git-ref", tf_git_ref])
+
+    run_command(init_args, cwd=workspace_dir)
+    sandbox_dir = workspace_dir / namespace
+    log_success(f"Sandbox created at {sandbox_dir}")
+
+    # Overwrite remote github scaffolding with local workspace files to test local modifications offline
+    local_infra_dir = workspace_root / "infra" / "dcp"
+    log_step(
+        f"Replacing remote scaffolding with local workspace templates from {local_infra_dir}..."
+    )
+    shutil.copy(local_infra_dir / "variables.tf", sandbox_dir / "variables.tf")
+    shutil.copy(local_infra_dir / "outputs.tf", sandbox_dir / "outputs.tf")
+    shutil.copy(local_infra_dir / "main.tf", sandbox_dir / "main.tf")
+
+    local_modules_dir = local_infra_dir / "modules"
+    sandbox_modules_dir = sandbox_dir / "modules"
+    if sandbox_modules_dir.exists():
+        shutil.rmtree(sandbox_modules_dir, onerror=remove_readonly)
+    shutil.copytree(local_modules_dir, sandbox_modules_dir)
+    log_success("Successfully configured local scaffolding override.")
+    return sandbox_dir
+
+
+def configure_tfvars(sandbox_dir: Path, overrides: dict[str, str | int | bool]) -> None:
+    """Reads existing HCL tfvars file, strips overridden keys, and appends overrides."""
+    log_step("Configuring terraform.tfvars overrides...")
+    tfvars_path = sandbox_dir / "terraform.tfvars"
+
+    # Read existing tfvars content
+    lines = []
+    if tfvars_path.exists():
+        with open(tfvars_path, encoding="utf-8") as f:
+            lines = f.readlines()
+
+    # Parse and strip keys that we want to override
+    new_lines = []
+    override_keys = set(overrides.keys())
+    for line in lines:
+        stripped = line.strip()
+        # Skip commented lines or empty lines
+        if not stripped or stripped.startswith("#"):
+            new_lines.append(line)
+            continue
+        # Split on '=' to find the key name
+        if "=" in stripped:
+            key = stripped.split("=")[0].strip()
+            if key in override_keys:
+                # Skip this line; it will be appended below with the override value
+                continue
+        new_lines.append(line)
+
+    new_lines.append("\n# Integration Test Resource Allocations\n")
+    for key, val in overrides.items():
+        if isinstance(val, bool):
+            formatted_val = str(val).lower()
+        elif isinstance(val, int):
+            formatted_val = str(val)
+        else:
+            formatted_val = f'"{val}"'
+        new_lines.append(f"{key} = {formatted_val}\n")
+
+    with open(tfvars_path, "w", encoding="utf-8") as f:
+        f.writelines(new_lines)
+    log_success("Added tfvars overrides")
+
+
+def run_terraform_apply(sandbox_dir: Path) -> dict[str, str]:
+    """Runs terraform init, apply, and extracts parsed outputs."""
+    log_step("Provisioning infrastructure via Terraform (this can take 5-7 minutes)...")
+    run_command(["terraform", "init"], cwd=sandbox_dir, retries=3)
+    run_command(["terraform", "apply", "-auto-approve"], cwd=sandbox_dir, retries=3)
+    log_success("Terraform provisioning completed successfully")
+
+    log_step("Retrieving Terraform outputs...")
+    tf_out_proc = run_command(["terraform", "output", "-json"], cwd=sandbox_dir)
+    tf_outputs = json.loads(tf_out_proc.stdout)
+
+    outputs = {
+        "bucket_name": tf_outputs["storage_artifacts_bucket_name"]["value"],
+        "spanner_instance": tf_outputs["spanner_instance_id"]["value"],
+        "spanner_database": tf_outputs["spanner_database_id"]["value"],
+        "workflow_name": tf_outputs["ingestion_workflow_name"]["value"],
+        "service_name": tf_outputs["datacommons_service_name"]["value"],
+    }
+    for key, val in outputs.items():
+        log_success(f"{key.replace('_', ' ').title()}: {val}")
+    return outputs
+
+
+def upload_dataset_to_gcs(bucket_name: str, frog_data_dir: Path) -> None:
+    """Verifies test files and uploads observations, schema, and configs to GCS."""
+    log_step(f"Uploading files to GCS bucket: gs://{bucket_name}/ingestion/input/...")
+
+    csv_path = frog_data_dir / "observations.csv"
+    mcf_path = frog_data_dir / "schema.mcf"
+    config_path = frog_data_dir / "config.json"
+
+    if not (csv_path.exists() and mcf_path.exists() and config_path.exists()):
+        raise FileNotFoundError(f"Frog Dataset files not found under {frog_data_dir}")
+
+    log_success("Located Frog Dataset files locally")
+
+    for filename, remote_dest in [
+        ("observations.csv", "observations.csv"),
+        ("schema.mcf", "schema.mcf"),
+        ("config.json", "config.json"),
+    ]:
+        local_path = frog_data_dir / filename
+        run_command(
+            [
+                "gcloud",
+                "storage",
+                "cp",
+                str(local_path),
+                f"gs://{bucket_name}/ingestion/input/{remote_dest}",
+            ],
+            retries=3,
+        )
+    log_success("Uploaded dataset to GCS")
+
+
+def run_database_schema_setup(workspace_root: Path, sandbox_dir: Path) -> None:
+    """Initializes and seeds the Spanner database using the dcp admin CLI."""
+    log_step("Initializing and seeding Spanner database...")
+    run_command(
+        [
+            "uv",
+            "run",
+            "--project",
+            str(workspace_root),
+            "datacommons",
+            "admin",
+            "init-db",
+        ],
+        cwd=sandbox_dir,
+    )
+    log_success("Spanner database initialized and seeded successfully")
+
+
+def trigger_and_poll_workflow(
+    workspace_root: Path,
+    sandbox_dir: Path,
+    project_id: str,
+    region: str,
+    workflow_name: str,
+) -> None:
+    """Triggers workflows using dcp admin and polls executions until SUCCEEDED."""
+    log_step("Starting ingestion workflow...")
+    run_command(
+        [
+            "uv",
+            "run",
+            "--project",
+            str(workspace_root),
+            "datacommons",
+            "admin",
+            "ingest",
+            "start",
+        ],
+        cwd=sandbox_dir,
+    )
+    log_success("Workflow ingestion run triggered")
+
+    log_step("Polling workflow execution status...")
+    workflow_state = "ACTIVE"
+    workflow_execution_name = None
+    timeout_seconds = 900  # 15 minutes max
+    poll_interval = 20
+    elapsed = 0
+
+    while (
+        workflow_state in ["ACTIVE", "RUNNING", "PENDING"] and elapsed < timeout_seconds
+    ):
+        time.sleep(poll_interval)
+        elapsed += poll_interval
+
+        # Fetch latest workflow execution status
+        wf_args = [
+            "gcloud",
+            "workflows",
+            "executions",
+            "list",
+            workflow_name,
+            "--project",
+            project_id,
+            "--location",
+            region,
+            "--limit",
+            "1",
+            "--format",
+            "json",
+        ]
+        wf_proc = run_command(wf_args, check=False)
+
+        try:
+            executions = json.loads(wf_proc.stdout)
+            if executions:
+                workflow_state = executions[0].get("state")
+                workflow_execution_name = executions[0].get("name")
+                logging.info(f"  [Poll {elapsed}s] Workflow status: {workflow_state}")
+            else:
+                logging.info(
+                    f"  [Poll {elapsed}s] No active workflow executions found yet."
+                )
+        except Exception as e:
+            logging.error(f"  [Poll {elapsed}s] Error parsing workflow status: {e}")
+
+    if workflow_state != "SUCCEEDED":
+        if workflow_execution_name:
+            log_workflow_failure_details(workflow_execution_name)
+        raise RuntimeError(
+            f"Workflow failed to complete successfully. Final state: {workflow_state}"
+        )
+
+    log_success("Workflow finished successfully!")
+
+
+def log_workflow_failure_details(workflow_execution_name: str) -> None:
+    """Helper to fetch and print details on workflow errors."""
+    parts = workflow_execution_name.split("/")
+    if len(parts) >= 8:
+        project_id = parts[1]
+        region = parts[3]
+        workflow_name = parts[5]
+        execution_id = parts[7]
+        console_url = f"https://console.cloud.google.com/workflows/workflow/{region}/{workflow_name}/execution/{execution_id}?project={project_id}"
+        logging.error(f"GCP Console Workflow Execution Link:\n  {console_url}\n")
+
+    log_step(
+        f"Workflow execution failed. Retrieving execution logs from GCP: {workflow_execution_name}..."
+    )
+    desc_args = [
+        "gcloud",
+        "workflows",
+        "executions",
+        "describe",
+        workflow_execution_name,
+        "--format",
+        "json",
+    ]
+    desc_proc = run_command(desc_args, check=False)
+    if desc_proc.stdout:
+        try:
+            desc_json = json.loads(desc_proc.stdout)
+            error_details = desc_json.get("error")
+            if error_details:
+                logging.error(
+                    "=================== GCP WORKFLOW ERROR DETAILS ==================="
+                )
+                logging.error(json.dumps(error_details, indent=2))
+                logging.error(
+                    "=================================================================="
+                )
+            else:
+                logging.error(
+                    f"No error details found in execution output. Full describe output:\n{desc_proc.stdout}"
+                )
+        except Exception as parse_err:
+            logging.error(
+                f"Failed to parse workflow description response: {parse_err}\nRaw output:\n{desc_proc.stdout}"
+            )
+
+
+def verify_spanner_records(
+    project_id: str,
+    spanner_database: str,
+    spanner_instance: str,
+    min_expected_rows: int = 8,
+) -> None:
+    """Verifies that the database contains at least min_expected_rows observations."""
+    log_step("Verifying Spanner data insertion...")
+    span_args = [
+        "gcloud",
+        "spanner",
+        "databases",
+        "execute-sql",
+        spanner_database,
+        "--instance",
+        spanner_instance,
+        "--project",
+        project_id,
+        "--sql",
+        "SELECT COUNT(*) FROM Observation",
+        "--format",
+        "json",
+    ]
+    span_proc = run_command(span_args)
+
+    db_results = json.loads(span_proc.stdout)
+    rows_count = int(db_results.get("rows", [["0"]])[0][0])
+    log_success(f"Query returned {rows_count} observations in Spanner database")
+
+    if rows_count < min_expected_rows:
+        raise RuntimeError(
+            f"Expected at least {min_expected_rows} observations, but found {rows_count} in Spanner."
+        )
+
+
+def check_api_endpoint(
+    test_name: str,
+    test_port: int,
+    path: str,
+    headers: dict[str, str] | None = None,
+    verify_json_fn=None,
+) -> None:
+    """Helper function to run an HTTP API request and verify status_code and JSON response."""
+    url = f"http://127.0.0.1:{test_port}{path}"
+    logging.info(f"Running {test_name}: {url}")
+    req = urllib.request.Request(url)
+    if headers:
+        for k, v in headers.items():
+            req.add_header(k, v)
+    with urllib.request.urlopen(req, timeout=15) as response:
+        status_code = response.getcode()
+        if status_code != 200:
+            raise RuntimeError(f"{test_name} failed with status code {status_code}")
+        resp_body = response.read().decode("utf-8")
+        log_success(f"{test_name} passed (HTTP 200)")
+        if verify_json_fn:
+            resp_json = json.loads(resp_body)
+            verify_json_fn(resp_json)
+
+
+# Helper verifiers for toy frog data responses.
+
+
+def verify_frog_obs(resp: dict) -> None:
+    """Verifies observation response values for number_of_frogs."""
+    by_var = resp.get("byVariable", {})
+    if "number_of_frogs" not in by_var:
+        raise ValueError(
+            f"Expected variable 'number_of_frogs' in response, got: {resp}"
+        )
+    by_entity = by_var["number_of_frogs"].get("byEntity", {})
+    if "country/USA" not in by_entity or "country/CAN" not in by_entity:
+        raise ValueError(
+            f"Expected entities 'country/USA' and 'country/CAN', got: {by_entity.keys()}"
+        )
+    for entity_dcid, entity_data in by_entity.items():
+        facets = entity_data.get("orderedFacets", [])
+        if not facets:
+            raise ValueError(
+                f"Expected orderedFacets list for {entity_dcid}, got: {entity_data}"
+            )
+        observations = facets[0].get("observations", [])
+        if not observations:
+            raise ValueError(
+                f"Expected observations list for {entity_dcid}, got: {entity_data}"
+            )
+
+
+def verify_frog_resolve(resp: dict) -> None:
+    """Verifies indicator resolution response candidates match expected frog variables."""
+    entities = resp.get("entities", [])
+    if not entities:
+        raise ValueError(f"Expected non-empty 'entities' list, got: {resp}")
+    node_res = entities[0]
+    if node_res.get("node") != "frogs":
+        raise ValueError(f"Expected resolved node for 'frogs', got: {node_res}")
+    candidates = node_res.get("candidates", [])
+    if not candidates:
+        raise ValueError(f"Expected resolved candidates for 'frogs', got: {node_res}")
+    has_sv = any(
+        c.get("dcid") in ("number_of_frogs", "Count_Frog_Green") for c in candidates
+    )
+    if not has_sv:
+        raise ValueError(
+            f"Expected resolved candidate to match 'number_of_frogs' or 'Count_Frog_Green', got: {candidates}"
+        )
+
+
+API_VERIFICATION_STAGES = {
+    "Stage A: V2 Observations API": [
+        {
+            "name": "Test 1: V2 Multi-entity Observation (SDG)",
+            "path": "/core/api/v2/observation?select=variable&select=entity&select=date&select=value&variable.dcids=undata/sdg/IT_MOB_OWN.SEX--_T&entity.dcids=country/IND&entity.dcids=country/USA",
+            "headers": {"X-Use-Multi-Entity-Schema": "true"},
+        },
+        {
+            "name": "Test 2: Verify Toy Frog Data (Custom Data)",
+            "path": "/core/api/v2/observation?select=variable&select=entity&select=date&select=value&variable.dcids=number_of_frogs&entity.dcids=country/USA&entity.dcids=country/CAN",
+            "headers": {"X-Use-Multi-Entity-Schema": "true"},
+            "verify_json_fn": verify_frog_obs,
+        },
+    ],
+    "Stage B: V2 Bulk Group Info API": [
+        {
+            "name": "Test 3a: V2 Bulk Variable Group Info (Unconstrained)",
+            "path": "/core/api/v2/bulk/info/variable-group?nodes=dc/g/undata/SDG_1.5.1",
+            "headers": {"X-Use-Multi-Entity-Schema": "true"},
+        },
+        {
+            "name": "Test 3b: V2 Bulk Variable Group Info (Constrained by USA)",
+            "path": "/core/api/v2/bulk/info/variable-group?nodes=dc/g/undata/SDG_1.5.1&constrained_entities=country/USA",
+            "headers": {"X-Use-Multi-Entity-Schema": "true"},
+        },
+        {
+            "name": "Test 3c: V2 Bulk Variable Group Info (Constrained by VAT)",
+            "path": "/core/api/v2/bulk/info/variable-group?nodes=dc/g/undata/SDG_1.5.1&constrained_entities=country/VAT",
+            "headers": {"X-Use-Multi-Entity-Schema": "true"},
+        },
+    ],
+    "Stage C: V2 Embeddings & Resolve API": [
+        {
+            "name": "Test 4: V2 Resolve - Indicator resolver (Food Waste)",
+            "path": "/core/api/v2/resolve?nodes=food%20waste&resolver=indicator&target=custom_only",
+        },
+        {
+            "name": "Test 5: V2 Resolve - Indicator resolver (Frogs)",
+            "path": "/core/api/v2/resolve?nodes=frogs&resolver=indicator&target=custom_only",
+            "verify_json_fn": verify_frog_resolve,
+        },
+    ],
+}
+
+
+def run_serving_proxy_tests(service_name: str, region: str, project_id: str) -> None:
+    """Binds local port proxy to the Cloud Run service and runs HTTP API curls."""
+    log_step("Testing Cloud Run serving endpoint via local proxy...")
+    test_port = 18080
+    proxy_proc = subprocess.Popen(
+        [
+            "gcloud",
+            "run",
+            "services",
+            "proxy",
+            service_name,
+            "--region",
+            region,
+            "--project",
+            project_id,
+            "--port",
+            str(test_port),
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    # Give proxy process 5 seconds to bind to port
+    time.sleep(5)
+
+    try:
+        # Fetch direct V2 Node endpoint with retry loop to allow cold-start, warmup, and container rollover
+        api_url = f"http://127.0.0.1:{test_port}/core/api/v2/node?nodes=Count_Frog_Green&property=-%3E*"
+        max_retries = 18  # Allow up to 3 minutes for rolling update replication
+        retry_interval = 10
+        connected = False
+
+        for i in range(max_retries):
+            logging.info(
+                f"Checking proxy V2 API for typeOf StatisticalVariable (attempt {i + 1}/{max_retries}): {api_url}"
+            )
+            try:
+                with urllib.request.urlopen(api_url, timeout=10) as response:
+                    status_code = response.getcode()
+                    if status_code == 200:
+                        resp_data = json.loads(response.read().decode("utf-8"))
+                        data = resp_data.get("data", {}).get("Count_Frog_Green", {})
+                        arcs = data.get("arcs", {})
+                        types = arcs.get("typeOf", {}).get("nodes", [])
+                        has_sv = any(
+                            t.get("dcid") == "StatisticalVariable" for t in types
+                        )
+                        if has_sv:
+                            log_success(
+                                f"Proxy V2 API successfully returned typeOf StatisticalVariable on attempt {i + 1}!"
+                            )
+                            connected = True
+                            break
+                        logging.warning(
+                            f"Proxy V2 API returned 200, but typeOf is missing (mismatch/warmup). Response: {resp_data}. Retrying in {retry_interval}s..."
+                        )
+                    else:
+                        logging.warning(
+                            f"Proxy V2 API returned unexpected status code: {status_code}. Retrying in {retry_interval}s..."
+                        )
+            except Exception as e:
+                logging.warning(
+                    f"Connection attempt failed: {e}. Retrying in {retry_interval}s..."
+                )
+            time.sleep(retry_interval)
+
+        if not connected:
+            raise RuntimeError(
+                f"Failed to fetch a warm container instance containing the typeOf StatisticalVariable mapping after {max_retries * retry_interval}s."
+            )
+
+        # Run API verification tests in parallel.
+        all_tests = []
+        for stage_name, tests in API_VERIFICATION_STAGES.items():
+            for t in tests:
+                t_copy = t.copy()
+                t_copy["stage"] = stage_name
+                all_tests.append(t_copy)
+
+        def run_single_test(t: dict) -> tuple[str, str, bool, str | None]:
+            try:
+                check_api_endpoint(
+                    test_name=t["name"],
+                    test_port=test_port,
+                    path=t["path"],
+                    headers=t.get("headers"),
+                    verify_json_fn=t.get("verify_json_fn"),
+                )
+                return (t["name"], t["stage"], True, None)
+            except Exception as test_err:
+                logging.error(f"[FAILURE] {t['name']} failed: {test_err}")
+                return (t["name"], t["stage"], False, str(test_err))
+
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=len(all_tests)
+        ) as executor:
+            futures = {executor.submit(run_single_test, t): t for t in all_tests}
+            results = [
+                future.result() for future in concurrent.futures.as_completed(futures)
+            ]
+
+        # Group and print results by stage.
+        by_stage: dict[str, list[tuple[str, bool, str | None]]] = {}
+        for name, stage, success, err in results:
+            by_stage.setdefault(stage, []).append((name, success, err))
+
+        print("\n" + "=" * 65)
+        print("                 API VERIFICATION SUMMARY REPORT")
+        print("=" * 65)
+        failed = False
+        for stage, stage_results in sorted(by_stage.items()):
+            print(f"\n{stage}:")
+            for name, success, err in sorted(stage_results):
+                status = "[PASSED]" if success else "[FAILED]"
+                print(f"  {status:<8} {name}")
+                if not success:
+                    print(f"           Error: {err}")
+                    failed = True
+        print("\n" + "=" * 65)
+
+        if failed:
+            raise RuntimeError(
+                "One or more E2E serving verification tests failed. See report details above."
+            )
+
+        log_success("All parallel verification tests completed successfully!")
+
+    except Exception as e:
+        console_url = f"https://console.cloud.google.com/run/detail/{region}/{service_name}/logs?project={project_id}"
+        logging.error(
+            f"\n--- SERVING TEST FAILURE DIAGNOSTICS ---\n"
+            f"GCP Cloud Run Service Console Link:\n"
+            f"  {console_url}\n"
+            f"-----------------------------------------\n"
+        )
+        raise e
+    finally:
+        logging.info("Terminating proxy subprocess...")
+        proxy_proc.terminate()
+        proxy_proc.wait()
+
+
+def run_terraform_destroy(sandbox_dir: Path, workspace_dir: Path) -> None:
+    """Destroys Terraform GCP sandbox resources and removes scratch workspace folders."""
+    log_step("Cleaning up GCP sandbox resources (Terraform Destroy)...")
+    try:
+        run_command(
+            ["terraform", "destroy", "-auto-approve"],
+            cwd=sandbox_dir,
+            check=False,
+            retries=3,
+        )
+        log_success("GCP resources destroyed")
+
+        # Delete local directories
+        shutil.rmtree(workspace_dir, onerror=remove_readonly)
+        log_success("Temporary local workspaces deleted")
+    except Exception as cleanup_err:
+        log_error(f"Failed to clean up resources cleanly: {cleanup_err}")
+
+
+# =============================================================================
+# API Key Resolver
+# =============================================================================
+
+
+def resolve_api_key(project_id: str, cli_key: str) -> str:
+    """Resolves the Data Commons API key.
+
+    1. Returns cli_key if provided.
+    2. Returns env variable DC_API_KEY if set.
+    3. Programmatically reads the latest version of the global secret 'dc-api-key'
+       from GCP Secret Manager for the given project_id.
+    """
+    if cli_key:
+        return cli_key
+
+    env_key = os.environ.get("DC_API_KEY")
+    if env_key:
+        log_success(
+            "Successfully resolved active API key from environment variable (DC_API_KEY)"
+        )
+        return env_key
+
+    logging.info("API Key not provided. Resolving 'dc-api-key' from Secret Manager...")
+    try:
+        proc = subprocess.run(
+            [
+                "gcloud",
+                "secrets",
+                "versions",
+                "access",
+                "latest",
+                "--secret",
+                "dc-api-key",
+                "--project",
+                project_id,
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        resolved_key = proc.stdout.strip()
+        log_success("Successfully resolved active API key from Secret Manager")
+        return resolved_key
+    except Exception as err:
+        logging.warning(
+            f"Failed to read 'dc-api-key' secret from Secret Manager: {err}"
+        )
+
+    return ""
+
+
+# =============================================================================
+# Main Orchestrator
+# =============================================================================
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Run end-to-end DCP integration test.")
+    parser.add_argument(
+        "--project-id", default="datcom-ci", help="GCP project ID to test in"
+    )
+    parser.add_argument(
+        "--region", default="us-central1", help="GCP region to deploy in"
+    )
+    parser.add_argument(
+        "--namespace",
+        default=None,
+        help="Custom namespace (defaults to itest-XXXX)",
+    )
+    parser.add_argument(
+        "--services-image",
+        default="gcr.io/datcom-ci/datacommons-services:latest",
+        help="Override default serving services container image",
+    )
+    parser.add_argument(
+        "--preprocessing-image",
+        default="gcr.io/datcom-ci/datacommons-data:latest",
+        help="Override default data preprocessing image",
+    )
+    # Use stable helper tag by default until stable/local pushes are fixed for ingestion (aligning with the default in tests/datacommons-integration-tests/docker-compose.test.yml).
+    parser.add_argument(
+        "--helper-image",
+        default="gcr.io/datcom-ci/datacommons-ingestion-helper:stable",
+        help="Override default helper service image",
+    )
+    parser.add_argument(
+        "--keep-sandbox",
+        action="store_true",
+        help="Do not destroy sandbox on completion/failure",
+    )
+    parser.add_argument(
+        "--dc-api-key",
+        default=os.environ.get("DC_API_KEY", ""),
+        help="Optional Google Data Commons API Key",
+    )
+    parser.add_argument(
+        "--tf-git-ref",
+        default="main",
+        help="GCP Terraform templates git ref (e.g. branch, commit, tag)",
+    )
+    parser.add_argument(
+        "--tf-state-bucket",
+        default="tf-state-dcp-test-datcom-ci",
+        help="GCS bucket for remote Terraform state (pass empty string to keep state local)",
+    )
+
+    args = parser.parse_args()
+
+    # Generate random namespace if not provided
+    namespace = args.namespace
+    if not namespace:
+        rand_suffix = f"{random.randint(1000, 9999)}"
+        namespace = f"itest-{rand_suffix}"
+
+    log_step(f"Starting Integration Test with namespace: {namespace}")
+
+    workspace_dir = Path(f"/tmp/workspace-{namespace}")
+    workspace_root = Path(__file__).resolve().parent.parent.parent
+
+    # Track lifecycle state for cleanups
+    terraform_provisioned = False
+    sandbox_dir = None
+
+    try:
+        # 1. Setup workspace
+        setup_workspace(workspace_dir, namespace)
+
+        # 1b. Validate local MCF schema syntax before deploying expensive cloud resources
+        frog_data_dir = Path(__file__).resolve().parent / "test_data" / "frog_data"
+        validate_mcf_file(frog_data_dir / "schema.mcf")
+
+        # 2. Initialize configuration via CLI and setup overrides
+        dc_key = resolve_api_key(args.project_id, args.dc_api_key)
+        if not dc_key:
+            raise RuntimeError(
+                "Data Commons API Key must be provided (either via --dc-api-key flag, "
+                "DC_API_KEY environment variable, or 'dc-api-key' Secret in GCP Secret Manager)."
+            )
+
+        sandbox_dir = initialize_sandbox_scaffolding(
+            workspace_root=workspace_root,
+            workspace_dir=workspace_dir,
+            project_id=args.project_id,
+            namespace=namespace,
+            dc_api_key=dc_key,
+            tf_git_ref=args.tf_git_ref,
+            tf_state_bucket=args.tf_state_bucket,
+        )
+
+        # 3. Configure tfvars overrides
+        tfvars_overrides: dict[str, str | int | bool] = {
+            "spanner_create_instance": False,
+            "spanner_instance_id": "dcp-integration-test-shared-instance",
+            "spanner_create_database": True,
+            "spanner_create_bigquery_reservation": False,
+            "datacommons_services_min_instances": 1,
+            "datacommons_services_max_instances": 1,
+        }
+        if args.services_image:
+            tfvars_overrides["datacommons_services_image"] = args.services_image
+        if args.preprocessing_image:
+            tfvars_overrides["ingestion_preprocessing_job_image"] = (
+                args.preprocessing_image
+            )
+        if args.helper_image:
+            tfvars_overrides["ingestion_helper_service_image"] = args.helper_image
+
+        configure_tfvars(sandbox_dir, tfvars_overrides)
+
+        # 4. Provision Infrastructure (Terraform Apply)
+        terraform_provisioned = True
+        outputs = run_terraform_apply(sandbox_dir)
+
+        # 5. Locate and upload Frog Dataset files to GCS
+        frog_data_dir = Path(__file__).resolve().parent / "test_data" / "frog_data"
+        upload_dataset_to_gcs(outputs["bucket_name"], frog_data_dir)
+
+        # 6. Initialize Spanner DB Schemas
+        run_database_schema_setup(workspace_root, sandbox_dir)
+
+        # 7. Start Ingestion Job & Poll execution state
+        trigger_and_poll_workflow(
+            workspace_root=workspace_root,
+            sandbox_dir=sandbox_dir,
+            project_id=args.project_id,
+            region=args.region,
+            workflow_name=outputs["workflow_name"],
+        )
+
+        # 8. Query Spanner to verify data was loaded
+        verify_spanner_records(
+            project_id=args.project_id,
+            spanner_database=outputs["spanner_database"],
+            spanner_instance=outputs["spanner_instance"],
+        )
+
+        # 9. Run Proxy verification to test the serving layers
+        run_serving_proxy_tests(
+            service_name=outputs["service_name"],
+            region=args.region,
+            project_id=args.project_id,
+        )
+
+        log_success("=== GCP INTEGRATION TEST PASSED SUCCESSFULLY ===")
+
+    except Exception as e:
+        log_error(f"Integration Test failed: {e}")
+        # Re-raise to trigger sys.exit(1)
+        raise e
+
+    finally:
+        # 10. Cleanup provisioned GCP Sandbox
+        if terraform_provisioned and sandbox_dir:
+            if args.keep_sandbox:
+                log_step(
+                    f"Keeping GCP Sandbox intact for debugging: namespace={namespace}"
+                )
+            else:
+                run_terraform_destroy(sandbox_dir, workspace_dir)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception:
+        sys.exit(1)

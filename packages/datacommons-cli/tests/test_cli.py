@@ -12,4 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "0.0.2"
+from click.testing import CliRunner
+from datacommons_cli.cli import cli, __version__
+
+
+def test_cli_version() -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli, ["--version"])
+    assert result.exit_code == 0
+    assert f"Data Commons CLI, version {__version__}" in result.output
+
+
+def test_cli_help() -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli, ["--help"])
+    assert result.exit_code == 0
+    assert "Data Commons CLI" in result.output

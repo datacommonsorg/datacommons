@@ -22,6 +22,7 @@ import click
 from google.api_core import exceptions
 from google.cloud import storage
 
+from . import __version__
 from datacommons_admin.infra_templates import (
     BACKEND_TF_TEMPLATE,
     README_TEMPLATE,
@@ -228,6 +229,22 @@ def admin() -> None:
     """Manage a Data Commons Platform instance in Google Cloud"""
 
 
+def _validate_namespace(ns: str) -> Tuple[bool, str]:
+    if not ns:
+        return False, "Namespace must not be empty."
+    if len(ns) > 16:
+        return (
+            False,
+            f"Namespace must be 16 characters or less (currently {len(ns)} characters).",
+        )
+    if not re.match(r"^[a-z]([-a-z0-9]*[a-z0-9])?$", ns):
+        return (
+            False,
+            "Namespace must start with a lowercase letter, end with a lowercase letter or number, and contain only lowercase alphanumeric characters and dashes.",
+        )
+    return True, ""
+
+
 def _resolve_project_config(
     project_id: str, namespace: str, force: bool
 ) -> Tuple[str, str, Path]:
@@ -246,11 +263,18 @@ def _resolve_project_config(
         raise click.ClickException("GCP project ID must not be empty.")
 
     resolved_namespace = namespace.strip()
+    if resolved_namespace:
+        is_valid, err_msg = _validate_namespace(resolved_namespace)
+        if not is_valid:
+            raise click.ClickException(err_msg)
+
     while True:
         if not resolved_namespace:
             resolved_namespace = _prompt("Namespace", type=str).strip()
-            if not resolved_namespace:
-                click.secho("Error: Namespace must not be empty.", fg="red")
+            is_valid, err_msg = _validate_namespace(resolved_namespace)
+            if not is_valid:
+                click.secho(f"Error: {err_msg}", fg="red")
+                resolved_namespace = ""
                 continue
 
         target_dir = Path.cwd() / resolved_namespace
@@ -381,7 +405,10 @@ def _setup_dcp_config_dir(
 )
 @click.option("--dc-api-key", default="", help="Data Commons API key.")
 @click.option(
-    "--ref", default="main", show_default=True, help="Git ref for module source."
+    "--tf-git-ref",
+    default=f"v{__version__}",
+    show_default=True,
+    help="Git ref for module source.",
 )
 @click.option(
     "--force", is_flag=True, help="Overwrite existing generated files if present."
@@ -411,7 +438,7 @@ def init(
     project_id: str,
     namespace: str,
     dc_api_key: str,
-    ref: str,
+    tf_git_ref: str,
     force: bool,
     tf_remote_state: bool,
     tf_state_bucket: str,
@@ -422,14 +449,14 @@ def init(
     click.secho("Data Commons Admin Init", fg="cyan", bold=True)
 
     # 1. Project Configs
-    click.secho("\n[Project Configuration]", fg="cyan", bold=True)
+    click.secho("\n[Project configuration]", fg="cyan", bold=True)
     click.secho("Configuring project settings...", fg="bright_black")
     resolved_project_id, resolved_namespace, target_dir = _resolve_project_config(
         project_id, namespace, force
     )
 
     # 2. Terraform Setup
-    click.secho("\n[Terraform Backend Setup]", fg="cyan", bold=True)
+    click.secho("\n[Terraform backend setup]", fg="cyan", bold=True)
     click.secho("Configuring backend for Terraform state...", fg="bright_black")
     if not tf_remote_state:
         click.echo("  Using local backend for Terraform state.")
@@ -453,7 +480,7 @@ def init(
     )
 
     # 3. DCP config dir setup
-    click.secho("\n[DCP Configuration]", fg="cyan", bold=True)
+    click.secho("\n[DCP configuration]", fg="cyan", bold=True)
     click.secho("Setting up configuration files...", fg="bright_black")
     _setup_dcp_config_dir(
         target_dir,
@@ -462,7 +489,7 @@ def init(
         resolved_bucket_name,
         resolved_tf_state_prefix,
         dc_api_key,
-        ref,
+        tf_git_ref,
         tf_remote_state,
     )
 
@@ -471,14 +498,14 @@ def init(
         fg="green",
     )
     click.secho(
-        f"Refer to {resolved_namespace}/README.md for more info and next steps.",
+        "Refer to documentation for more info and next steps.",
         fg="green",
     )
 
 
 def _setup_ingestion_client() -> Tuple[Any, str, str]:
     click.secho(
-        "Fetching Ingestion Service URL, Workflow Service Account, and Spanner details from Terraform outputs...",
+        "Fetching ingestion service URL, workflow service account, and Spanner details from Terraform outputs...",
         fg="bright_black",
     )
 
@@ -495,10 +522,10 @@ def _setup_ingestion_client() -> Tuple[Any, str, str]:
     instance_id = get_spanner_instance_id()
     database_id = get_spanner_database_id()
 
-    click.secho(f"Found Ingestion Service URL: {url}", fg="green")
-    click.secho(f"Found Ingestion Workflow Service Account: {sa_email}", fg="green")
+    click.secho(f"Found ingestion service URL: {url}", fg="green")
+    click.secho(f"Found ingestion workflow service account: {sa_email}", fg="green")
     click.secho(
-        f"Found Spanner Database Instance: {instance_id} / Database ID: {database_id}",
+        f"Found Spanner instance ID: {instance_id} / database ID: {database_id}",
         fg="green",
     )
 
@@ -513,8 +540,9 @@ def _run_seed_db(client: Any, instance_id: str, database_id: str) -> None:
     )
     result = client.seed_database()
     click.secho("Successfully seeded Spanner database!", fg="green", bold=True)
-    if "message" in result:
-        click.secho(f"Details: {result['message']}", fg="bright_black")
+    message = result.get("message")
+    if message:
+        click.secho(f"Details: {message}", fg="bright_black")
 
 
 @admin.command(name="init-db")
@@ -533,8 +561,9 @@ def init_db(init_only: bool) -> None:
     result = client.initialize_database()
 
     click.secho("Successfully initialized Spanner database!", fg="green", bold=True)
-    if "message" in result:
-        click.secho(f"Details: {result['message']}", fg="bright_black")
+    message = result.get("message")
+    if message:
+        click.secho(f"Details: {message}", fg="bright_black")
 
     if not init_only:
         _run_seed_db(client, instance_id, database_id)

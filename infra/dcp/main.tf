@@ -46,11 +46,13 @@ resource "google_project_service" "apis" {
       "workflows.googleapis.com",
       "workflowexecutions.googleapis.com",
       "dataflow.googleapis.com"
-      ] : [], var.spanner_enable_bigquery_connection ? [
+    ] : [],
+    var.spanner_enable_bigquery_connection ? [
       "bigqueryconnection.googleapis.com",
       "bigquery.googleapis.com",
       "bigqueryreservation.googleapis.com"
-  ] : []))
+    ] : [],
+    var.spanner_enable_embeddings_generation ? ["aiplatform.googleapis.com"] : []))
 
   service            = each.key
   disable_on_destroy = false
@@ -74,6 +76,7 @@ locals {
     version_retention_period           = var.spanner_version_retention_period
     processing_units                   = var.spanner_processing_units
     enable_bigquery_connection         = var.spanner_enable_bigquery_connection
+    enable_embeddings_generation       = var.spanner_enable_embeddings_generation
     bigquery_connection_name           = var.spanner_bigquery_connection_name
     create_bigquery_reservation        = var.spanner_create_bigquery_reservation
     bigquery_reservation_slot_capacity = var.spanner_bigquery_reservation_slot_capacity
@@ -91,9 +94,10 @@ locals {
     google_analytics_tag            = var.datacommons_services_google_analytics_tag_id
     enable_mcp                      = var.datacommons_services_enable_mcp
     search_scope                    = var.datacommons_services_mcp_search_scope
-    instructions_path               = var.datacommons_services_mcp_instructions_path
+    instructions_path               = var.datacommons_services_mcp_instructions_path != null ? trimsuffix(var.datacommons_services_mcp_instructions_path, "/") : null
     allow_unauthenticated_access    = var.datacommons_services_allow_unauthenticated_access
     website_disable_google_maps_api = var.datacommons_services_website_disable_google_maps_api
+    resolve_with_spanner_embeddings = var.datacommons_services_resolve_with_spanner_embeddings
   }
 
   auth_config = {
@@ -120,8 +124,8 @@ locals {
     workflow_enable_bigquery_postprocessing = var.ingestion_workflow_enable_bigquery_postprocessing
 
     # Storage & Paths
-    input_path              = var.ingestion_input_path
-    workflow_artifacts_path = var.ingestion_workflow_artifacts_path
+    input_path              = trimsuffix(var.ingestion_input_path, "/")
+    ingestion_artifacts_path = trimsuffix(var.ingestion_artifacts_path, "/")
 
     # Preprocessing Job
     preprocessing_job_image   = var.ingestion_preprocessing_job_image
@@ -132,6 +136,11 @@ locals {
     # Workflow & Helper Service
     workflow_lock_acquisition_timeout = var.ingestion_workflow_lock_acquisition_timeout
     helper_service_image              = var.ingestion_helper_service_image
+
+    # Dataflow Network Configuration
+    dataflow_ip_configuration  = var.ingestion_dataflow_ip_configuration
+    dataflow_subnetwork        = var.ingestion_dataflow_subnetwork
+    dataflow_template_gcs_path = var.ingestion_dataflow_template_gcs_path
   }
 }
 

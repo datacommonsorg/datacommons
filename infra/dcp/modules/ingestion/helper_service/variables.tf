@@ -32,8 +32,10 @@ variable "ingestion_bucket_name" {
 }
 
 variable "image" {
-  type    = string
-  default = "gcr.io/datcom-ci/datacommons-ingestion-helper:latest"
+  type        = string
+  default     = "gcr.io/datcom-ci/datacommons-ingestion-helper:1.1.0"
+  nullable    = false
+  description = "Docker image URL for the ingestion support service"
 }
 
 variable "bigquery_connection_id" {
@@ -58,6 +60,11 @@ variable "enable_bigquery_postprocessing" {
   default     = true
 }
 
+variable "enable_embeddings_generation" {
+  type        = bool
+  description = "Flag to enable embedding generation"
+}
+
 variable "vpc_connector_id" {
   type        = string
   description = "VPC access connector ID for Cloud Run"
@@ -74,5 +81,10 @@ variable "redis_port" {
   type        = string
   description = "Redis port"
   default     = "6379"
+}
+
+variable "ingestion_artifacts_path" {
+  type        = string
+  description = "Path where pre-processed files are placed for the next stage"
 }
 
