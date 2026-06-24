@@ -1,24 +1,31 @@
 {
-  "importName": "OECD_wage_data",
-  "inputFiles": {
-    "average_annual_wage.csv": {
-      "entityType": "Country",
-      "provenance": "OECD average annual wages",
-      "format": "variablePerRow"
+  
+  "inputFiles": [
+    {
+      "pattern": "schema.mcf",
+      "provenance": "dcid:OECDGenderWageGap"
     },
-    "gender_wage_gap.csv": {
-      "entityType": "Country",
-      "provenance": "OECD gender wage gap",
-      "format": "variablePerRow"
-    }
-  },
-  "sources": {
-    "oecd.org": {
-      "url": "https://oecd.org",
-      "provenances": {
-        "OECD average annual wages": "https://www.oecd.org/en/data/indicators/average-annual-wages.html",
-        "OECD gender wage gap": "https://www.oecd.org/en/data/indicators/gender-wage-gap.html"
+    {
+      "pattern": "gender_wage_gap.csv",
+      "provenance": "dcid:OECDGenderWageGap",
+      "columnMappings": { 
+        "dcid:observationAbout": "entity",
+        "dcid:variableMeasured": "variable",
+        "dcid:observationDate": "date",
+        "dcid:value": "value",
+        "dcid:unit": "unit"
+      }
+    },
+    {
+      "pattern": "average_annual_wage.csv",
+      "provenance": "dcid:OECDWages",
+      "columnMappings": { 
+        "dcid:observationAbout": "entity",
+        "dcid:variableMeasured": "variable",
+        "dcid:observationDate": "date",
+        "dcid:value": "value",
+        "dcid:unit": "unit"
       }
     }
-  }
+  ]
 }
