@@ -60,20 +60,30 @@ You can modify the flags inside `custom_feature_flags.yaml` if you need to tweak
 
 In addition to local emulated tests, this package includes a script to run automated, end-to-end integration tests on **real GCP sandbox resources**. This validates Terraform scaffolding, GCS transfers, Spanner database seeding, Cloud Workflow executions, and Cloud Run web server APIs.
 
-### Running the GCP Tests
+### Execution Modes
 
-To run the GCP integration test suite (requires authenticated GCP CLI access):
-```bash
-python3 tests/datacommons-integration-tests/run_gcp_integration_test.py \
-    --project-id <YOUR_GCP_PROJECT_ID> \
-    --dc-api-key "YOUR_GOOGLE_DATA_COMMONS_API_KEY"
-```
+The GCP integration runner supports two execution modes:
 
-Alternatively, you can pass the API key via an environment variable:
-```bash
-DC_API_KEY="YOUR_API_KEY" python3 tests/datacommons-integration-tests/run_gcp_integration_test.py \
-    --project-id <YOUR_GCP_PROJECT_ID>
-```
+#### 1. Heavy Mode (Full Provisioning & E2E Validation)
+Pulls the latest templates, provisions a completely new isolated sandbox stack in GCP via Terraform (Spanner DB, GCS bucket, Cloud Workflows, and Cloud Run service), performs ingestion, runs the tests, and destroys the sandbox on completion (unless `--keep-sandbox` is specified).
+* **Usage:**
+  ```bash
+  python3 tests/datacommons-integration-tests/gcp_test_runner.py \
+      --project-id datcom-ci \
+      --dc-api-key "YOUR_API_KEY"
+  ```
+
+#### 2. Lightweight Mode (Fast Debugging Loop)
+Skips the slow Terraform setup and teardown stages entirely. It reads resource configurations from an existing `/tmp/workspace-<namespace>` directory, clears the database tables, re-uploads local test data files, triggers the ingestion workflow, and runs `pytest`. This reduces iteration time **from 10+ minutes down to 1-2 minutes**.
+* **Usage:**
+  1. First, create a persistent sandbox and keep it alive:
+     ```bash
+     python3 tests/datacommons-integration-tests/gcp_test_runner.py --namespace my-debug-sandbox --keep-sandbox
+     ```
+  2. Run subsequent test runs in lightweight mode:
+     ```bash
+     python3 tests/datacommons-integration-tests/gcp_test_runner.py --namespace my-debug-sandbox --reuse-sandbox
+     ```
 
 ### Script Arguments
 
@@ -91,10 +101,8 @@ DC_API_KEY="YOUR_API_KEY" python3 tests/datacommons-integration-tests/run_gcp_in
 Once the GCP sandbox stack is up and seeded with dataset MCFs, the script triggers the entire API verification suite concurrently. This validates three core capabilities of the deployed Data Commons Platform backend:
 
 *   **Stage A: V2 Observations & Custom Data Retrieval**
-    *   *Philosophy:* Validates E2E query routing and data loading for both standard and custom variables. It queries base DC SDG indicators to verify backward compatibility with global schemas, and asserts observations values on custom seeded frog metrics to verify local database mapping and seeding.
-*   **Stage B: V2 Bulk Group Info & Hierarchy Resolution**
-    *   *Philosophy:* Verifies category tree resolution and variable grouping APIs. This validates that the serving container's Mixer component correctly processes unconstrained hierarchy crawls and handles location constraints (e.g. comparing available variables for USA vs Vatican City) without backend lookup errors.
-*   **Stage C: V2 Embeddings & Natural Language Resolution**
-    *   *Philosophy:* Validates custom search index and embeddings generation. This checks that the Ingestion Helper successfully generated vector coordinates from custom MCs, loaded them into Spanner, and that the Resolver can map natural language queries (like "frogs") back to these custom database entities.
+    *   *Philosophy:* Validates E2E query routing and data loading for custom variables. It asserts observations values on custom seeded frog metrics to verify local database mapping, loading, and seeding.
+*   **Stage B: V2 Embeddings & Natural Language Resolution**
+    *   *Philosophy:* Validates custom search index and embeddings generation. This checks that the Ingestion Helper successfully generated vector coordinates from custom MCFs, loaded them into Spanner, and that the Resolver can map natural language queries (like "frogs") back to these custom database entities.
 
 
