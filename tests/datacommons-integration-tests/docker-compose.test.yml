@@ -5,6 +5,7 @@ services:
     ports:
       - "${SPANNER_GRPC_PORT:-9010}:9010"
       - "${SPANNER_REST_PORT:-9020}:9020"
+    command: ["./gateway_main", "--hostname", "0.0.0.0", "--disable_query_null_filtered_index_check"]
     networks:
       - test-network
   gcs:
