@@ -1,0 +1,27 @@
+# Example docker-compose override file to run real local NLP (CPU-based MiniLM).
+# To use:
+#   cp docker-compose.override.yml.example docker-compose.override.yml
+#
+services:
+  website:
+    environment:
+      - NL_SERVICE_ROOT_URL=http://nl-service:6060
+    depends_on:
+      - spanner
+      - nl-service
+
+  nl-service:
+    image: gcr.io/datcom-ci/datacommons-nl:latest
+    container_name: itest-nl-service
+    volumes:
+      - ~/.config/gcloud:/root/.config/gcloud
+      - ./local_env.yaml:/datacommons/nl/env.yaml
+      - ../../website/deploy/helm_charts/dc_website/nl/catalog.yaml:/datacommons/nl/catalog.yaml
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/root/.config/gcloud/application_default_credentials.json
+      - GCP_PROJECT_ID=<YOUR_GCP_PROJECT_ID>
+      - NUM_WORKERS=1
+    networks:
+      - test-network
+    extra_hosts:
+      - "metadata.google.internal:127.0.0.1"
