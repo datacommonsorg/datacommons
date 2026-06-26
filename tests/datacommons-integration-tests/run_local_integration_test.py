@@ -473,8 +473,13 @@ def test_spanner_observations(generate_golden):
 def test_website_semantic_nl_query(generate_golden):
     """Verify that Mixer fulfills NL queries using the seeded Spanner graph."""
     url = f"http://localhost:{WEBSITE_PORT}/api/explore/detect-and-fulfill"
+    # CAVEAT / WORKAROUND:
+    # Cloud Spanner Emulator does not support vector indexes or ANN search queries
+    # (APPROX_COSINE_DISTANCE), failing query compilation with validation errors.
+    # We bypass it for local integration tests by disabling Spanner vector search.
+    # IMPORTANT: Real GCP-based integration tests must cover this active vector search path.
     resp = requests.post(
-        f"{url}?q=Number+of+frogs+in+United+States+of+America",
+        f"{url}?q=Number+of+frogs+in+United+States+of+America&disable_feature=use_v2_resolve_for_nl_search_vars",
         json={"contextHistory": []},
         timeout=120,
     )
