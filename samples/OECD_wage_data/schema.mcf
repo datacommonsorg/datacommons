@@ -1,8 +1,3 @@
-Node: dcid:OECDSource
-typeOf: dcid:Source
-name: "OECD"
-url: "https://oecd.org"
-
 Node: dcid:OECDGroup
 typeOf: dcid:StatVarGroup
 name: "OECD"
@@ -11,7 +6,7 @@ specializationOf: dcid:dc/g/Root
 Node: dcid:OECDWages
 typeOf: dcid:Provenance
 name: "OECD Average Annual Wages"
-source: dcid:OECDSource
+source: dcid:dc/s/OrganisationForEconomicCo-operationAndDevelopmentOecd
 url: "https://www.oecd.org/en/data/indicators/average-annual-wages.html"
 
 Node: dcid:average_annual_wage
@@ -26,7 +21,7 @@ memberOf: dcid:OECDGroup
 Node: dcid:OECDGenderWageGap
 typeOf: dcid:Provenance
 name: "OECD Gender Wage Gap"
-source: dcid:OECDSource
+source: dcid:dc/s/OrganisationForEconomicCo-operationAndDevelopmentOecd
 url: "https://www.oecd.org/en/data/indicators/gender-wage-gap.html"
 
 Node: dcid:gender_wage_gap
