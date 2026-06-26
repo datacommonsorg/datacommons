@@ -1,0 +1,9 @@
+Node: dcid:FrogSource
+typeOf: dcs:Source
+name: "Frog Census Bureau"
+url: "http://example.com"
+
+Node: dcid:FrogProvenance
+typeOf: dcs:Provenance
+name: "Frog Census Dataset"
+sourceLink: dcid:FrogSource

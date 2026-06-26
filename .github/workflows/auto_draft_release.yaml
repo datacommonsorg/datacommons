@@ -6,13 +6,14 @@ on:
       - main
 
 jobs:
-  draft-release:
+  check-bump:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    outputs:
+      is_bump: ${{ steps.check-bump.outputs.is_bump }}
+      version: ${{ steps.check-bump.outputs.version }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Check if version bump commit
         id: check-bump
@@ -29,14 +30,68 @@ jobs:
             echo "Not a version bump commit."
           fi
 
+  gcp-integration-test:
+    needs: check-bump
+    if: needs.check-bump.outputs.is_bump == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_WIF_SA_EMAIL }}
+
+      - name: Set up GCP Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: datcom-ci
+
+      - name: Install uv and Set up Python
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install Dependencies
+        run: uv sync --locked
+
+      - name: Run GCP Integration Test
+        env:
+          DC_API_KEY: ${{ secrets.DC_API_KEY }}
+        run: |
+          TAG="${{ needs.check-bump.outputs.version }}"
+          
+          uv run python3 tests/datacommons-integration-tests/gcp_test_runner.py \
+            --project-id datcom-ci \
+            --services-image "gcr.io/datcom-ci/datacommons-services:$TAG" \
+            --preprocessing-image "gcr.io/datcom-ci/datacommons-data:$TAG" \
+            --helper-image "gcr.io/datcom-ci/datacommons-ingestion-helper:$TAG" \
+            --dc-api-key "$DC_API_KEY"
+
+  draft-release:
+    needs: [check-bump, gcp-integration-test]
+    if: needs.check-bump.outputs.is_bump == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
       - name: Create Draft Release
-        if: steps.check-bump.outputs.is_bump == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.check-bump.outputs.version }}
-          name: v${{ steps.check-bump.outputs.version }}
+          tag_name: v${{ needs.check-bump.outputs.version }}
+          name: v${{ needs.check-bump.outputs.version }}
           draft: true
-          prerelease: ${{ contains(steps.check-bump.outputs.version, 'rc') }}
+          prerelease: ${{ contains(needs.check-bump.outputs.version, 'rc') }}
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

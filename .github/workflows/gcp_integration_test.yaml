@@ -1,0 +1,92 @@
+name: GCP Sandbox Integration Test
+
+on:
+  schedule:
+    # Run daily at 02:00 UTC (tests latest images)
+    - cron: '0 2 * * *'
+  release:
+    types: [published]
+  workflow_dispatch:
+    # Allow manual trigger via GitHub UI with optional tag override
+    inputs:
+      version_tag:
+        description: 'Image tag to test (e.g. latest, stable, 1.1.0). If empty, defaults to latest.'
+        required: false
+        type: string
+        default: 'latest'
+      confirm_resource_cost:
+        description: 'Type "yes" to authorize the high GCP sandbox resource cost of this run.'
+        required: true
+        type: string
+        default: 'no'
+
+permissions:
+  contents: 'read'
+  id-token: 'write'
+
+jobs:
+  gcp-integration-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Confirmation (Manual Runs Only)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          CONFIRMATION="${{ github.event.inputs.confirm_resource_cost }}"
+          if [ "${CONFIRMATION,,}" != "yes" ]; then
+            echo "Error: High-cost execution confirmation was not authorized (must type 'yes')."
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_WIF_SA_EMAIL }}
+
+      - name: Set up GCP Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: datcom-ci
+
+      - name: Install uv and Set up Python
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install Dependencies
+        run: uv sync --locked
+
+      - name: Determine Image Tag
+        id: image-tag
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            # Strip 'v' prefix if present (e.g. v1.1.1 -> 1.1.1)
+            RAW_TAG="${{ github.event.release.tag_name }}"
+            TAG="${RAW_TAG#v}"
+            echo "Using release image tag: $TAG"
+            echo "tag=$TAG" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.version_tag }}"
+            echo "Using manual input image tag: $TAG"
+            echo "tag=$TAG" >> $GITHUB_OUTPUT
+          else
+            echo "Using default cron image tag: latest"
+            echo "tag=latest" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run GCP Integration Test
+        env:
+          DC_API_KEY: ${{ secrets.DC_API_KEY }}
+        run: |
+          TAG="${{ steps.image-tag.outputs.tag }}"
+          
+          uv run python3 tests/datacommons-integration-tests/gcp_test_runner.py \
+            --project-id datcom-ci \
+            --services-image "gcr.io/datcom-ci/datacommons-services:$TAG" \
+            --preprocessing-image "gcr.io/datcom-ci/datacommons-data:$TAG" \
+            --helper-image "gcr.io/datcom-ci/datacommons-ingestion-helper:$TAG" \
+            --dc-api-key "$DC_API_KEY"
+
