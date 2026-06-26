@@ -1,4 +1,0 @@
-Node: dcid:OECDGroup
-typeOf: dcid:StatVarGroup
-name: "OECD"
-specializationOf: dcid:dc/g/Root
