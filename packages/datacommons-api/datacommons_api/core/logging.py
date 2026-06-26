@@ -34,6 +34,7 @@ logger.info("Hello, world!")
 """
 
 import logging
+import re
 import sys
 from datetime import datetime
 
@@ -67,11 +68,40 @@ class _AnsiColoredFormatter(logging.Formatter):
         dt = datetime.fromtimestamp(record.created).astimezone()
         return dt.strftime(datefmt or self._datefmt)
 
+    def _sanitize_text(self, text: str) -> str:
+        # 1. URL parameters: Match "?key=..." or "&key=..." or "?api_key=..." or "&api_key=..."
+        # We use a capturing group for the key name so we can preserve it.
+        sanitized = re.sub(
+            r"(?i)(?<=[?&])(key|api_key)=[^&\s]+",
+            r"\1=[REDACTED]",
+            text,
+        )
+        # 2. Explicit labels: Match "api_key=..."
+        sanitized = re.sub(
+            r"(?i)(\bapi_key=)[^\s\"',;\[\]]+",
+            r"\1[REDACTED]",
+            sanitized,
+        )
+        # 3. Standalone keys (length >= 20 to protect short variable names/data keys)
+        sanitized = re.sub(
+            r"(?i)(\bkey=)[^\s\"',;\[\]]{20,}",
+            r"\1[REDACTED]",
+            sanitized,
+        )
+        return sanitized
+
     def format(self, record):
         # inject color into record.levelname
         color = _LEVEL_COLORS.get(record.levelname, "")
+        orig_levelname = record.levelname
         record.levelname = f"{color}{record.levelname}{_RESET}"
-        return super().format(record)
+        try:
+            formatted_msg = super().format(record)
+        finally:
+            record.levelname = (
+                orig_levelname  # Restore original to prevent side effects
+            )
+        return self._sanitize_text(formatted_msg)
 
 
 def setup_logging(

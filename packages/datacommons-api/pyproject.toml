@@ -18,6 +18,7 @@ dependencies = [
   "datacommons-schema",
   "sqlalchemy-spanner>=1.17.2",
   "python-dotenv>=1.2.1",
+  "requests>=2.31.0",
 ]
 
 [project.scripts]
@@ -26,6 +27,8 @@ datacommons-api = "datacommons_api.api_cli:api"
 [dependency-groups]
 dev = [
     "pytest>=9.0.2",
+    "httpx>=0.24.0",
+    "pytest-asyncio>=0.23.0",
 ]
 
 [build-system]
