@@ -323,3 +323,74 @@ You should see the:
   ]
 }
 ```
+
+
+## API Key Configuration & Diagnostics
+
+The Data Commons API server requires a valid `DC_API_KEY` to authenticate federated queries to the central Data Commons API backend (`api.datacommons.org`). This section describes how to configure the key, how the server handles errors, and how to monitor the server's health status.
+
+### 1. Configuration Environment Variables
+
+You can configure the server's API key behavior using the following environment variables:
+
+| Environment Variable | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `DC_API_KEY` | String | None | The Google API key used to authenticate requests to the central Data Commons API (`api.datacommons.org`). |
+| `DC_API_KEY_OPTIONAL` | Boolean | `false` | If set to `true`, the server is allowed to boot even if `DC_API_KEY` is missing or empty. If a key *is* provided, it will still be validated on startup. Useful for local offline development. |
+| `DC_API_KEY_STRICT_VALIDATION` | Boolean | `false` | If set to `true`, the server will fail-fast and halt startup if the central API is unreachable (network timeout or 5xx error). By default (Resilient Fail-Open), the server will log a warning, boot in degraded mode, and attempt background re-validation. |
+
+### 2. Runtime Error Handling & Propagation
+
+If a federated request to `api.datacommons.org` fails with a credential error at runtime, the server intercepts it and returns a standardized, secure JSON response with an appropriate HTTP status code. The server's sensitive API key is completely redacted from all tracebacks and logs.
+
+#### Standardized Error Payload (HTTP 401 / 403)
+```json
+{
+  "error": "Unauthorized",
+  "message": "The Data Commons API server key is invalid or expired. Please contact the administrator.",
+  "code": "API_KEY_UNAUTHORIZED"
+}
+```
+
+*   **HTTP 401 (API_KEY_UNAUTHORIZED):** Returned when the configured `DC_API_KEY` is invalid, expired, or deactivated.
+*   **HTTP 403 (API_KEY_FORBIDDEN):** Returned when the configured `DC_API_KEY` lacks permissions to access the requested resource.
+
+### 3. Health & Status Diagnostics (`/healthz`)
+
+The server exposes a detailed health check endpoint at `/healthz` (with a hidden alias at `/status`). This endpoint returns the server's overall status, degraded state, and detailed API key health:
+
+#### Healthy State (HTTP 200 OK)
+Returned when the API key has been successfully verified (or when the key check was bypassed because `DC_API_KEY_OPTIONAL=true` and no key was provided):
+```json
+{
+  "status": "healthy",
+  "degraded": false,
+  "api_key_status": "verified"
+}
+```
+
+#### Degraded Warning State (HTTP 200 OK)
+Returned when the server booted successfully but the central API was unreachable due to transient network issues:
+```json
+{
+  "status": "degraded",
+  "degraded": true,
+  "api_key_status": "unverified",
+  "critical": false,
+  "message": "Data Commons API key is unverified due to network issues. Operating in degraded fail-open mode."
+}
+```
+*Note: A background worker runs in a non-blocking thread, retrying validation every 1 minute. If validation succeeds later, the server automatically exits degraded mode.*
+
+#### Unhealthy / Outage State (HTTP 503 Service Unavailable)
+Returned if the API key is confirmed to be invalid (401/403) or if the background re-validation worker has failed continuously for **30 minutes** (indicating a persistent network outage or misconfiguration):
+```json
+{
+  "status": "unhealthy",
+  "degraded": true,
+  "api_key_status": "invalid",
+  "critical": true,
+  "message": "Data Commons API key validation has failed continuously. Spanner queries remain available."
+}
+```
+*Use this endpoint in Kubernetes liveness/readiness probes or load-balancer health checks to trigger automated alerts and rollbacks.*
