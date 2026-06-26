@@ -1,0 +1,14 @@
+Node: dcid:OECDGenderWageGap
+typeOf: dcid:Provenance
+name: "OECD Gender Wage Gap"
+source: dcid:dc/s/OrganisationForEconomicCo-operationAndDevelopmentOecd
+url: "https://www.oecd.org/en/data/indicators/gender-wage-gap.html"
+
+Node: dcid:gender_wage_gap
+typeOf: dcid:StatisticalVariable
+name: "Gender wage gap"
+description: "Percentage difference between median earnings of men and women relative to median earnings of men"
+populationType: dcid:Person
+measuredProperty: dcid:wagesAnnual
+statType: dcid:medianValue
+memberOf: dcid:OECDGroup
