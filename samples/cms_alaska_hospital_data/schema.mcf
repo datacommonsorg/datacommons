@@ -1,0 +1,69 @@
+Node: dcid:AlaskaHospitals
+typeOf: dcid:StatVarGroup
+name: "Alaska Hospitals"
+specializationOf: dcid:dc/g/Root
+
+Node: dcid:CMS
+typeOf: dcid:Source
+name: "Center for Medicare and Medicaid Services"
+url: "https://data.cms.gov"
+
+Node: dcid:UnplannedHospitalVisits
+typeOf: dcid:Provenance
+source: dcid:CMS
+name: "Unplanned Alaska hospital visits"
+url: "https://data.cms.gov/provider-data/dataset/632h-zaca"
+
+Node: dcid:EDAC_30_AMI_TOTAL
+typeOf: dcid:StatisticalVariable
+name: "Count of heart attack patients"
+description: "Per-hospital total number of heart attack patients"
+populationType: dcid:Person
+measuredProperty: dcid:count
+statType: dcid:measuredValue
+memberOf: dcid:AlaskaHospitals
+
+Node: dcid:EDAC_30_AMI_RETURN
+typeOf: dcid:StatisticalVariable
+name: "Count of heart attack patients returned"
+description: "Per-hospital number of heart attack patients returned unplanned in a 30-day period"
+populationType: dcid:Person
+measuredProperty: dcid:count
+statType: dcid:measuredValue
+memberOf: dcid:AlaskaHospitals
+
+Node: dcid:EDAC_30_HF_TOTAL
+typeOf: dcid:StatisticalVariable
+name: "Count of heart failure patients"
+description: "Per-hospital number of heart failure patients"
+populationType: dcid:Person
+measuredProperty: dcid:count
+statType: dcid:measuredValue
+memberOf: dcid:AlaskaHospitals
+
+Node: dcid:EDAC_30_HF_RETURN
+typeOf: dcid:StatisticalVariable
+name: "Count of heart failure patients returned"
+description: "Per-hospital number of heart failure patients returned unplanned in a 30-day period"
+populationType: dcid:Person
+measuredProperty: dcid:count
+statType: dcid:measuredValue
+memberOf: dcid:AlaskaHospitals
+
+Node: dcid:EDAC_30_PN_TOTAL
+typeOf: dcid:StatisticalVariable
+name: "Count of pneumonia patients"
+description: "Per-hospital number of pneumonia patients"
+populationType: dcid:Person
+measuredProperty: dcid:count
+statType: dcid:measuredValue
+memberOf: dcid:AlaskaHospitals
+
+Node: dcid:EDAC_30_PN_RETURN
+typeOf: dcid:StatisticalVariable
+name: "Count of pneumonia patients returned"
+description: "Per-hospital number of pneumonia patients returned unplanned in a 30-day period"
+populationType: dcid:Person
+measuredProperty: dcid:count
+statType: dcid:measuredValue
+memberOf: dcid:AlaskaHospitals
