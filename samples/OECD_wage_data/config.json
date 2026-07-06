@@ -1,7 +1,7 @@
 {
   "inputFiles": [
     {
-      "pattern": "{gender_wage_gap.csv,schema.mcf}",
+      "pattern": "gender_wage_gap.*",
       "provenance": "dcid:OECDGenderWageGap",
       "columnMappings": {
         "dcid:observationAbout": "entity",
@@ -12,7 +12,7 @@
       }
     },
     {
-      "pattern": "{average_annual_wage.csv,schema.mcf}",
+      "pattern": "average_annual_wage.*",
       "provenance": "dcid:OECDWages",
       "columnMappings": {
         "dcid:observationAbout": "entity",
