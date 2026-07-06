@@ -411,6 +411,6 @@ variable "ingestion_dataflow_template_gcs_path" {
 variable "ingestion_enable_unique_history_records" {
   description = "Enable unique ingestion history records tracking (v2 schema)"
   type        = bool
-  default     = false
+  default     = true
 }
 

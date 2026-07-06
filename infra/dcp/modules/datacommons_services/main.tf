@@ -99,6 +99,10 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
         name  = "RESOLVE_WITH_SPANNER_EMBEDDINGS"
         value = var.resolve_with_spanner_embeddings ? "true" : "false"
       }
+      env {
+        name  = "ENABLE_UNIQUE_HISTORY_RECORDS"
+        value = var.enable_unique_history_records ? "true" : "false"
+      }
     }
 
     dynamic "vpc_access" {

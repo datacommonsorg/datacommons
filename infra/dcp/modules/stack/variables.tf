@@ -51,6 +51,7 @@ variable "datacommons_services_config" {
     allow_unauthenticated_access    = bool
     website_disable_google_maps_api = bool
     resolve_with_spanner_embeddings = bool
+    enable_unique_history_records   = bool
   })
 }
 
@@ -105,6 +106,6 @@ variable "ingestion_config" {
     dataflow_ip_configuration  = optional(string, "WORKER_IP_UNSPECIFIED")
     dataflow_subnetwork        = optional(string, "")
     dataflow_template_gcs_path = optional(string)
-    enable_unique_history_records = optional(bool, false)
+    enable_unique_history_records = bool 
   })
 }

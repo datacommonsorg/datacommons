@@ -74,6 +74,12 @@ variable "resolve_with_spanner_embeddings" {
   type    = bool
 }
 
+variable "enable_unique_history_records" {
+  type        = bool
+  description = "Flag to enable unique ingestion runs (v2 schema) in mixer"
+  default     = true
+}
+
 # =============================================================================
 # Infrastructure References
 # =============================================================================

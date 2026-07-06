@@ -259,6 +259,7 @@ module "datacommons_services" {
   env_vars                = local.cloud_run_shared_env_variables
   secret_env_vars         = local.datacommons_services_secrets
   resolve_with_spanner_embeddings = var.datacommons_services_config.resolve_with_spanner_embeddings
+  enable_unique_history_records   = var.datacommons_services_config.enable_unique_history_records
 
   depends_on = [module.ingestion_preprocessing_job]
 }
