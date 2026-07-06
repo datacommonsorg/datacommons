@@ -16,7 +16,7 @@ import re
 import sys
 import urllib.request
 from pathlib import Path
-from typing import Any
+from typing import Any, Tuple
 
 import click
 from google.api_core import exceptions
