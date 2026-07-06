@@ -76,6 +76,11 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
         name  = "REDIS_PORT"
         value = var.redis_port
       }
+      env {
+        name  = "ENABLE_UNIQUE_INGESTION_RUNS"
+        value = var.enable_unique_history_records ? "true" : "false"
+        # Temporary variable to control changes to the ingestion history table. To be deleted after migration complete.
+      }
     }
 
     dynamic "vpc_access" {

@@ -105,5 +105,6 @@ variable "ingestion_config" {
     dataflow_ip_configuration  = optional(string, "WORKER_IP_UNSPECIFIED")
     dataflow_subnetwork        = optional(string, "")
     dataflow_template_gcs_path = optional(string)
+    enable_unique_history_records = optional(bool, false)
   })
 }

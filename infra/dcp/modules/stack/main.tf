@@ -172,6 +172,7 @@ module "ingestion_helper_service" {
   enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
   enable_bigquery_connection     = var.spanner_config.enable_bigquery_connection
   enable_embeddings_generation   = var.spanner_config.enable_embeddings_generation
+  enable_unique_history_records  = var.ingestion_config.enable_unique_history_records
 
   # Redis configuration for cache clearing
   vpc_connector_id = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].connector_id : null

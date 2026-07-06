@@ -279,6 +279,18 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                     stage: '$${current_stage}'
                     job_id: '$${default(job_id, null)}'
                     import_list: '$${imports_history_list}'
+              - update_ingestion_status_failure:
+                  call: http.post
+                  args:
+                    url: '${var.ingestion_helper_url}/imports/ingestion-status'
+                    auth:
+                      type: OIDC
+                    body:
+                      workflowId: '$${workflow_id}'
+                      jobId: '$${default(job_id, "N/A")}'
+                      status: 'RETRY'
+                      importList: '$${imports_history_list}'
+                  result: history_result
               - capture_error:
                   assign:
                     - execution_error: '$${e}'

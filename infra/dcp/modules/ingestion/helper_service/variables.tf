@@ -88,3 +88,9 @@ variable "ingestion_artifacts_path" {
   description = "Path where pre-processed files are placed for the next stage"
 }
 
+variable "enable_unique_history_records" {
+  type        = bool
+  description = "Flag to enable unique ingestion history records (v2 schema)"
+  default     = false
+}
+

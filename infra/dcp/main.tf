@@ -141,6 +141,7 @@ locals {
     dataflow_ip_configuration  = var.ingestion_dataflow_ip_configuration
     dataflow_subnetwork        = var.ingestion_dataflow_subnetwork
     dataflow_template_gcs_path = var.ingestion_dataflow_template_gcs_path
+    enable_unique_history_records = var.ingestion_enable_unique_history_records
   }
 }
 
