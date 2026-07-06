@@ -101,7 +101,7 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
       }
       env {
         name  = "ENABLE_UNIQUE_HISTORY_RECORDS"
-        value = var.enable_unique_history_records ? "true" : "false"
+        value = "true"
       }
     }
 

@@ -172,7 +172,6 @@ module "ingestion_helper_service" {
   enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
   enable_bigquery_connection     = var.spanner_config.enable_bigquery_connection
   enable_embeddings_generation   = var.spanner_config.enable_embeddings_generation
-  enable_unique_history_records  = var.ingestion_config.enable_unique_history_records
 
   # Redis configuration for cache clearing
   vpc_connector_id = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].connector_id : null
@@ -259,7 +258,6 @@ module "datacommons_services" {
   env_vars                = local.cloud_run_shared_env_variables
   secret_env_vars         = local.datacommons_services_secrets
   resolve_with_spanner_embeddings = var.datacommons_services_config.resolve_with_spanner_embeddings
-  enable_unique_history_records   = var.datacommons_services_config.enable_unique_history_records
 
   depends_on = [module.ingestion_preprocessing_job]
 }
