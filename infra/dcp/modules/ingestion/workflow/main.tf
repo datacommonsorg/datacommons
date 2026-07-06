@@ -30,6 +30,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
             - bucket_name: '$${text.split(input.tempLocation, "/")[2]}'
             - execution_error: null
             - current_stage: "dataflow"
+            - job_id: null
             - lock_timeout: ${var.lock_acquisition_timeout}
             - run_embeddings: ${var.enable_embeddings_generation}
             - run_postproc: ${var.enable_bigquery_postprocessing}
@@ -277,7 +278,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                     workflow_id: '$${workflow_id}'
                     status: 'FAILURE'
                     stage: '$${current_stage}'
-                    job_id: '$${default(job_id, null)}'
+                    job_id: '$${job_id}'
                     import_list: '$${imports_history_list}'
               - update_ingestion_status_failure:
                   call: http.post
@@ -287,7 +288,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                       type: OIDC
                     body:
                       workflowId: '$${workflow_id}'
-                      jobId: '$${default(job_id, "N/A")}'
+                      jobId: '$${if(job_id != null, job_id, "N/A")}'
                       status: 'RETRY'
                       importList: '$${imports_history_list}'
                   result: history_result
