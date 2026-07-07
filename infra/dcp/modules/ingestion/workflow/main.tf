@@ -79,24 +79,36 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
             - substring_end: '$${if(import_name_len < 35, import_name_len, 35)}'
             - sanitized_short_import: '$${text.substring(combined_import_name, 0, substring_end)}'
             - dataflow_job_name: '$${"${local.clean_namespace_prefix}" + sanitized_short_import + "-" + string(int(sys.now()))}'
-      - acquire_lock:
-          try:
-            call: http.post
-            args:
-              url: '${var.ingestion_helper_url}/database/lock/acquire'
-              auth:
-                type: OIDC
-              body:
-                workflowId: '$${workflow_id}'
-                timeout: '$${lock_timeout}'
-            result: lock_result
-          retry:
-            predicate: '$${http.default_retry_predicate}'
-            max_retries: 60 # Approx 5 hours
-            backoff:
-              initial_delay: 60
-              max_delay: 300 # Max 5 minutes retry interval
-              multiplier: 2
+      - acquire_lock_loop:
+          steps:
+            - try_acquire:
+                try:
+                  call: http.post
+                  args:
+                    url: '${var.ingestion_helper_url}/database/lock/acquire'
+                    auth:
+                      type: OIDC
+                    body:
+                      workflowId: '$${workflow_id}'
+                      timeout: '$${lock_timeout}'
+                  result: lock_result
+                except:
+                  as: e
+                  steps:
+                    - handle_lock_busy:
+                        switch:
+                          # The helper service returns HTTP 400 when lock is already held
+                          - condition: '$${default(map.get(e, "code"), 0) == 400}'
+                            next: wait_for_lock
+                    - unhandled_error:
+                        raise: $${e}
+            - lock_acquired_success:
+                next: update_history_pending
+            - wait_for_lock:
+                call: sys.sleep
+                args:
+                  seconds: 120 # Poll every 2 minutes
+                next: acquire_lock_loop
       - update_history_pending:
           call: update_history
           args:
