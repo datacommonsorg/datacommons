@@ -47,12 +47,6 @@ variable "embeddings_timeout" {
   default     = 1800
 }
 
-variable "enable_datacommons_services" {
-  type        = bool
-  description = "Flag to indicate if datacommons_services is enabled"
-  default     = true
-}
-
 variable "ingestion_helper_service_name" {
   type        = string
   description = "Name of the ingestion helper Cloud Run service"

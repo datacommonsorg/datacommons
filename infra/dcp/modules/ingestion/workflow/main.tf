@@ -308,16 +308,6 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
           switch:
             - condition: '$${execution_error != null}'
               raise: '$${execution_error}'
-%{if var.enable_datacommons_services}
-      - restart_service:
-          call: googleapis.run.v2.projects.locations.services.patch
-          args:
-            name: "projects/${var.project_id}/locations/${var.region}/services/${local.name_prefix}dc-datacommons-service"
-            updateMask: "template.labels"
-            body:
-              template:
-                labels:
-                  restarted-at: '$${string(int(sys.now()))}'
 %{if var.enable_redis_cache_clearing}
       - clear_cache_step:
           call: http.post
@@ -326,7 +316,6 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
             auth:
               type: OIDC
           result: clear_cache_result
-%{endif}
 %{endif}
       - return_result:
           return: '$${launch_result}'
@@ -365,11 +354,4 @@ resource "google_cloud_run_v2_service_iam_member" "helper_invoker" {
   name     = var.ingestion_helper_service_name
   role     = "roles/run.invoker"
   member   = "serviceAccount:${google_service_account.workflow_sa[0].email}"
-}
-
-resource "google_project_iam_member" "workflow_run_viewer" {
-  count   = var.deploy ? 1 : 0
-  project = var.project_id
-  role    = "roles/run.viewer"
-  member  = "serviceAccount:${google_service_account.workflow_sa[0].email}"
 }
