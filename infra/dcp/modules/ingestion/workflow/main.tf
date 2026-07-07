@@ -29,6 +29,8 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
             - version: '$${"version-" + string(int(sys.now()))}'
             - bucket_name: '$${text.split(input.tempLocation, "/")[2]}'
             - execution_error: null
+            - current_stage: "dataflow"
+            - job_id: null
             - lock_timeout: ${var.lock_acquisition_timeout}
             - run_embeddings: ${var.enable_embeddings_generation}
             - run_postproc: ${var.enable_bigquery_postprocessing}
@@ -95,6 +97,14 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
               initial_delay: 60
               max_delay: 300 # Max 5 minutes retry interval
               multiplier: 2
+      - update_history_pending:
+          call: update_history
+          args:
+            workflow_id: '$${workflow_id}'
+            status: 'PENDING'
+            stage: 'dataflow'
+            job_id: null
+            import_list: '$${imports_history_list}'
       - process_ingestion:
           try:
             steps:
@@ -132,6 +142,14 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
               - get_job_id:
                   assign:
                     - job_id: '$${launch_result.job.id}'
+              - update_history_running:
+                  call: update_history
+                  args:
+                    workflow_id: '$${workflow_id}'
+                    status: 'RUNNING'
+                    stage: 'dataflow'
+                    job_id: '$${job_id}'
+                    import_list: null
               - poll_job:
                   steps:
                     - get_status:
@@ -153,51 +171,73 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
               - check_success:
                   switch:
                     - condition: '$${job_status.currentState == "JOB_STATE_DONE"}'
-                      next: %{if local.should_run_postprocessing}ingestion_postprocessing%{else}promote_version%{endif}
+                      next: update_history_dataflow_success
+              - update_history_dataflow_success:
+                  call: update_history
+                  args:
+                    workflow_id: '$${workflow_id}'
+                    status: 'SUCCESS'
+                    stage: 'dataflow'
+                    job_id: '$${job_id}'
+                    import_list: '$${imports_history_list}'
+                  next: %{if local.should_run_postprocessing}ingestion_postprocessing%{else}promote_version%{endif}
               - fail_on_job_status:
                   raise: '$${ "Dataflow job failed with state: " + job_status.currentState }'
               - ingestion_postprocessing:
-                  parallel:
-                    shared: [postprocessing_result, embedding_result]
-                    branches:
-                      - postprocessing_branch:
-                          steps:
-                            - check_postproc_flag:
-                                switch:
-                                  - condition: '$${not run_postproc}'
-                                    next: end_postproc_branch
-                            - run_postprocessings:
-                                call: http.post
-                                args:
-                                  url: '${var.ingestion_helper_url}/aggregation/run'
-                                  auth:
-                                    type: OIDC
-                                  body:
-                                    importList: '$${json.decode(input.importList)}'
-                                result: postprocessing_result
-                            - end_postproc_branch:
-                                assign:
-                                  - dummy: true
-                      
-                      - embeddings_branch:
-                          steps:
-                            - check_embeddings_flag:
-                                switch:
-                                  - condition: '$${not run_embeddings}'
-                                    next: end_embeddings_branch
-                            - run_embeddings:
-                                call: http.post
-                                args:
-                                  url: '${var.ingestion_helper_url}/embeddings/ingest'
-                                  auth:
-                                    type: OIDC
-                                  body:
-                                    enableEmbeddings: true
-                                  timeout: ${var.embeddings_timeout}
-                                result: embedding_result
-                            - end_embeddings_branch:
-                                assign:
-                                  - dummy: true
+                  steps:
+                    - set_stage_postproc:
+                        assign:
+                          - current_stage: "postprocessing"
+                    - update_history_postproc_running:
+                        call: update_history
+                        args:
+                          workflow_id: '$${workflow_id}'
+                          status: 'RUNNING'
+                          stage: 'postprocessing'
+                          job_id: null
+                          import_list: null
+                    - run_postprocessing_parallel:
+                        parallel:
+                          shared: [postprocessing_result, embedding_result]
+                          branches:
+                            - postprocessing_branch:
+                                steps:
+                                  - check_postproc_flag:
+                                      switch:
+                                        - condition: '$${not run_postproc}'
+                                          next: end_postproc_branch
+                                  - run_postprocessings:
+                                      call: http.post
+                                      args:
+                                        url: '${var.ingestion_helper_url}/aggregation/run'
+                                        auth:
+                                          type: OIDC
+                                        body:
+                                          importList: '$${json.decode(input.importList)}'
+                                      result: postprocessing_result
+                                  - end_postproc_branch:
+                                      assign:
+                                        - dummy: true
+                            
+                            - embeddings_branch:
+                                steps:
+                                  - check_embeddings_flag:
+                                      switch:
+                                        - condition: '$${not run_embeddings}'
+                                          next: end_embeddings_branch
+                                  - run_embeddings:
+                                      call: http.post
+                                      args:
+                                        url: '${var.ingestion_helper_url}/embeddings/ingest'
+                                        auth:
+                                          type: OIDC
+                                        body:
+                                          enableEmbeddings: true
+                                        timeout: ${var.embeddings_timeout}
+                                      result: embedding_result
+                                  - end_embeddings_branch:
+                                      assign:
+                                        - dummy: true
               - promote_version:
                   call: http.post
                   args:
@@ -221,9 +261,37 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
                       status: 'SUCCESS'
                       importList: '$${imports_history_list}'
                   result: history_result
+              - update_history_postproc_success:
+                  call: update_history
+                  args:
+                    workflow_id: '$${workflow_id}'
+                    status: 'SUCCESS'
+                    stage: null
+                    job_id: null
+                    import_list: null
           except:
             as: e
             steps:
+              - update_history_failure:
+                  call: update_history
+                  args:
+                    workflow_id: '$${workflow_id}'
+                    status: 'FAILURE'
+                    stage: '$${current_stage}'
+                    job_id: '$${job_id}'
+                    import_list: '$${imports_history_list}'
+              - update_ingestion_status_failure:
+                  call: http.post
+                  args:
+                    url: '${var.ingestion_helper_url}/imports/ingestion-status'
+                    auth:
+                      type: OIDC
+                    body:
+                      workflowId: '$${workflow_id}'
+                      jobId: '$${if(job_id != null, job_id, "N/A")}'
+                      status: 'RETRY'
+                      importList: '$${imports_history_list}'
+                  result: history_result
               - capture_error:
                   assign:
                     - execution_error: '$${e}'
@@ -262,6 +330,25 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
 %{endif}
       - return_result:
           return: '$${launch_result}'
+
+  update_history:
+    params: [workflow_id, status, stage, job_id, import_list]
+    steps:
+      - call_helper:
+          call: http.post
+          args:
+            url: '${var.ingestion_helper_url}/imports/ingestion-history'
+            auth:
+              type: OIDC
+            body:
+              workflowId: $${workflow_id}
+              status: $${status}
+              stage: $${stage}
+              jobId: $${job_id}
+              importList: $${import_list}
+          result: res
+      - return_result:
+          return: $${res}
   EOF2
 }
 

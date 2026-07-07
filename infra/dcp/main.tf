@@ -52,7 +52,7 @@ resource "google_project_service" "apis" {
       "bigquery.googleapis.com",
       "bigqueryreservation.googleapis.com"
     ] : [],
-    var.spanner_enable_embeddings_generation ? ["aiplatform.googleapis.com"] : []))
+  var.spanner_enable_embeddings_generation ? ["aiplatform.googleapis.com"] : []))
 
   service            = each.key
   disable_on_destroy = false
@@ -124,7 +124,7 @@ locals {
     workflow_enable_bigquery_postprocessing = var.ingestion_workflow_enable_bigquery_postprocessing
 
     # Storage & Paths
-    input_path              = trimsuffix(var.ingestion_input_path, "/")
+    input_path               = trimsuffix(var.ingestion_input_path, "/")
     ingestion_artifacts_path = trimsuffix(var.ingestion_artifacts_path, "/")
 
     # Preprocessing Job
@@ -138,9 +138,9 @@ locals {
     helper_service_image              = var.ingestion_helper_service_image
 
     # Dataflow Network Configuration
-    dataflow_ip_configuration  = var.ingestion_dataflow_ip_configuration
-    dataflow_subnetwork        = var.ingestion_dataflow_subnetwork
-    dataflow_template_gcs_path = var.ingestion_dataflow_template_gcs_path
+    dataflow_ip_configuration     = var.ingestion_dataflow_ip_configuration
+    dataflow_subnetwork           = var.ingestion_dataflow_subnetwork
+    dataflow_template_gcs_path    = var.ingestion_dataflow_template_gcs_path
   }
 }
 

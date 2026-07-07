@@ -87,4 +87,3 @@ variable "ingestion_artifacts_path" {
   type        = string
   description = "Path where pre-processed files are placed for the next stage"
 }
-
