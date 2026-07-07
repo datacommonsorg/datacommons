@@ -1,0 +1,398 @@
+main:
+  params: [input]
+  steps:
+    - init:
+        assign:
+          - project_id: '${project_id}'
+          - workflow_id: '$${sys.get_env("GOOGLE_CLOUD_WORKFLOW_EXECUTION_ID")}'
+          - version: '$${"version-" + string(int(sys.now()))}'
+          - bucket_name: '$${text.split(input.tempLocation, "/")[2]}'
+          - execution_error: null
+          - postprocessing_result: null
+          - embedding_result: null
+          - current_stage: "dataflow"
+          - job_id: null
+          - lock_timeout: ${lock_acquisition_timeout}
+          - lock_retries: 0
+          - max_lock_retries: $${int(lock_timeout / 120)}
+          - run_embeddings: ${enable_embeddings_generation}
+          - run_postproc: ${enable_bigquery_postprocessing}
+          - decoded_imports: '$${json.decode(input.importList)}'
+          - num_imports: '$${len(decoded_imports)}'
+          - combined_import_name: ""
+          - imports_status_list: []
+          - imports_history_list: []
+          - imports_version_list: []
+          - launch_params:
+              projectId: '$${project_id}'
+              spannerInstanceId: '$${input.spannerInstanceId}'
+              spannerDatabaseId: '$${input.spannerDatabaseId}'
+              importList: '$${input.importList}'
+              tempLocation: '$${input.tempLocation}'
+              stagingLocation: '$${input.tempLocation}'
+              forceCombineNodes: 'true'
+              isBaseDc: 'false'
+    - build_lists:
+        for:
+          value: imp
+          in: $${decoded_imports}
+          steps:
+            - append_lists:
+                assign:
+                  - item_gcs_path: '$${"gs://" + bucket_name + "/${ingestion_artifacts_path}/" + imp.importName + "/" + version}'
+                  - status_item: { importName: '$${imp.importName}', latestVersion: '$${item_gcs_path}', graphPath: '$${imp.graphPath}', status: "STAGING" }
+                  - history_item: { importName: '$${imp.importName}', latestVersion: '$${version}' }
+                  - imports_status_list: '$${list.concat(imports_status_list, status_item)}'
+                  - imports_history_list: '$${list.concat(imports_history_list, history_item)}'
+                  - imports_version_list: '$${list.concat(imports_version_list, imp.importName)}'
+                  - clean_item: '$${text.replace_all(text.replace_all(text.to_lower(imp.importName), "/", "-"), "_", "-")}'
+                  - join_prefix: '$${if(combined_import_name == "", "", "-")}'
+                  - combined_import_name: '$${combined_import_name + join_prefix + clean_item}'
+    - set_dataflow_job_name:
+        assign:
+          - import_name_len: '$${len(combined_import_name)}'
+          - substring_end: '$${if(import_name_len < 35, import_name_len, 35)}'
+          - sanitized_short_import: '$${text.substring(combined_import_name, 0, substring_end)}'
+          - dataflow_job_name: '$${"${clean_namespace_prefix}" + sanitized_short_import + "-" + string(int(sys.now()))}'
+    
+    - try_acquire_lock:
+        try:
+          call: http.post
+          args:
+            url: '${ingestion_helper_url}/database/lock/acquire'
+            auth:
+              type: OIDC
+            body:
+              workflowId: '$${workflow_id}'
+              timeout: '$${lock_timeout}'
+          result: lock_result
+        except:
+          as: e
+          steps:
+            - handle_lock_busy:
+                switch:
+                  - condition: '$${default(map.get(e, "code"), 0) == 400 and lock_retries < max_lock_retries}'
+                    next: increment_retries_and_wait
+            - unhandled_error:
+                raise: $${e}
+    - lock_acquired_success:
+        next: update_history_pending
+    - increment_retries_and_wait:
+        assign:
+          - lock_retries: $${lock_retries + 1}
+    - wait_for_lock:
+        call: sys.sleep
+        args:
+          seconds: 120
+        next: try_acquire_lock
+
+    - update_history_pending:
+        call: update_history
+        args:
+          workflow_id: '$${workflow_id}'
+          status: 'PENDING'
+          stage: 'dataflow'
+          job_id: null
+          import_list: '$${imports_history_list}'
+
+    - process_ingestion:
+        try:
+          steps:
+            - set_staging:
+                call: http.post
+                args:
+                  url: '${ingestion_helper_url}/imports/status'
+                  auth:
+                    type: OIDC
+                  body:
+                    imports: '$${imports_status_list}'
+                    status: 'STAGING'
+            
+            - launch_dataflow:
+                call: launch_and_poll_dataflow
+                args:
+                  job_name: '$${dataflow_job_name}'
+                  launch_params: '$${launch_params}'
+                  temp_location: '$${input.tempLocation}'
+                  region: '$${input.region}'
+                  workflow_id: '$${workflow_id}'
+                result: dataflow_res
+            
+            - assign_job_id:
+                assign:
+                  - job_id: '$${dataflow_res.job_id}'
+                  - launch_result: '$${dataflow_res.launch_result}'
+
+            - update_history_dataflow_success:
+                call: update_history
+                args:
+                  workflow_id: '$${workflow_id}'
+                  status: 'SUCCESS'
+                  stage: 'dataflow'
+                  job_id: '$${job_id}'
+                  import_list: '$${imports_history_list}'
+
+            - set_stage_postproc:
+                assign:
+                  - current_stage: "postprocessing"
+
+            - update_history_postproc_running:
+                call: update_history
+                args:
+                  workflow_id: '$${workflow_id}'
+                  status: 'RUNNING'
+                  stage: 'postprocessing'
+                  job_id: null
+                  import_list: null
+
+            - run_postprocessing_parallel:
+                parallel:
+                  shared: [postprocessing_result, embedding_result]
+                  branches:
+                    - postprocessing_branch:
+                        steps:
+                          - call_postproc:
+                              call: run_postprocessing_job
+                              args:
+                                run_flag: '$${run_postproc}'
+                                import_list: '$${decoded_imports}'
+                              result: postprocessing_result
+                    - embeddings_branch:
+                        steps:
+                          - call_embeddings:
+                              call: run_embeddings_job
+                              args:
+                                run_flag: '$${run_embeddings}'
+                              result: embedding_result
+
+            - promote_version_step:
+                call: http.post
+                args:
+                  url: '${ingestion_helper_url}/imports/version'
+                  auth:
+                    type: OIDC
+                  body:
+                    imports: '$${imports_version_list}'
+                    version: '$${version}'
+                    comment: '$${"Auto-promoted by workflow " + workflow_id}'
+            
+            - update_ingestion_status_success:
+                call: update_ingestion_status
+                args:
+                  workflow_id: '$${workflow_id}'
+                  job_id: '$${job_id}'
+                  status: 'SUCCESS'
+                  import_list: '$${imports_history_list}'
+
+            - update_history_postproc_success:
+                call: update_history
+                args:
+                  workflow_id: '$${workflow_id}'
+                  status: 'SUCCESS'
+                  stage: null
+                  job_id: null
+                  import_list: null
+
+        except:
+          as: e
+          steps:
+            - update_history_failure:
+                call: update_history
+                args:
+                  workflow_id: '$${workflow_id}'
+                  status: 'FAILURE'
+                  stage: '$${current_stage}'
+                  job_id: '$${job_id}'
+                  import_list: '$${imports_history_list}'
+            - update_ingestion_status_failure:
+                call: update_ingestion_status
+                args:
+                  workflow_id: '$${workflow_id}'
+                  job_id: '$${if(job_id != null, job_id, "N/A")}'
+                  status: 'RETRY'
+                  import_list: '$${imports_history_list}'
+            - capture_error:
+                assign:
+                  - execution_error: '$${e}'
+    
+    - release_lock_step:
+        call: http.post
+        args:
+          url: '${ingestion_helper_url}/database/lock/release'
+          auth:
+            type: OIDC
+          body:
+            workflowId: '$${workflow_id}'
+
+    - fail_workflow:
+        switch:
+          - condition: '$${execution_error != null}'
+            raise: '$${execution_error}'
+
+%{ if enable_redis_cache_clearing }
+    - clear_cache_step:
+        call: http.post
+        args:
+          url: '${ingestion_helper_url}/cache/clear'
+          auth:
+            type: OIDC
+%{ endif }
+
+    - return_result:
+        return: '$${launch_result}'
+
+
+# --- Subworkflows ---
+
+update_history:
+  params: [workflow_id, status, stage, job_id, import_list]
+  steps:
+    - call_update_history_api:
+        call: http.post
+        args:
+          url: '${ingestion_helper_url}/imports/ingestion-history'
+          auth:
+            type: OIDC
+          body:
+            workflowId: $${workflow_id}
+            status: $${status}
+            stage: $${stage}
+            jobId: $${job_id}
+            importList: $${import_list}
+        result: res
+    - return_result:
+        return: $${res}
+
+update_ingestion_status:
+  params: [workflow_id, job_id, status, import_list]
+  steps:
+    - call_update_ingestion_status_api:
+        call: http.post
+        args:
+          url: '${ingestion_helper_url}/imports/ingestion-status'
+          auth:
+            type: OIDC
+          body:
+            workflowId: $${workflow_id}
+            jobId: $${job_id}
+            status: $${status}
+            importList: $${import_list}
+    - return_result:
+        return: true
+
+run_postprocessing_job:
+  params: [run_flag, import_list]
+  steps:
+    - check_flag:
+        switch:
+          - condition: $${not run_flag}
+            return: null
+    - run_agg:
+        call: http.post
+        args:
+          url: '${ingestion_helper_url}/aggregation/run'
+          auth:
+            type: OIDC
+          body:
+            importList: $${import_list}
+        result: res
+    - return_result:
+        return: $${res}
+
+run_embeddings_job:
+  params: [run_flag]
+  steps:
+    - check_flag:
+        switch:
+          - condition: $${not run_flag}
+            return: null
+    - run_embed:
+        call: http.post
+        args:
+          url: '${ingestion_helper_url}/embeddings/ingest'
+          auth:
+            type: OIDC
+          timeout: ${embeddings_timeout}
+          body:
+            enableEmbeddings: true
+        result: res
+    - return_result:
+        return: $${res}
+
+launch_and_poll_dataflow:
+  params: [job_name, launch_params, temp_location, region, workflow_id]
+  steps:
+    - build_environment:
+        assign:
+          - env_map:
+              serviceAccountEmail: '${dataflow_service_account_email}'
+              tempLocation: $${temp_location}
+              stagingLocation: $${temp_location}
+%{ if dataflow_ip_configuration != "WORKER_IP_UNSPECIFIED" }
+    - inject_ip:
+        assign:
+          - env_map.ipConfiguration: '${dataflow_ip_configuration}'
+%{ endif }
+%{ if dataflow_subnetwork != "" }
+    - inject_subnetwork:
+        assign:
+          - env_map.subnetwork: '${dataflow_subnetwork}'
+%{ endif }
+    
+    - run_flex_template:
+        call: googleapis.dataflow.v1b3.projects.locations.flexTemplates.launch
+        args:
+          projectId: '${project_id}'
+          location: $${region}
+          body:
+            launchParameter:
+              jobName: $${job_name}
+              containerSpecGcsPath: '${dataflow_template_gcs_path}'
+              parameters: $${launch_params}
+              environment: $${env_map}
+        result: launch_result
+    
+    - get_job_id:
+        assign:
+          - job_id: $${launch_result.job.id}
+    
+    - update_history_running:
+        call: update_history
+        args:
+          workflow_id: $${workflow_id}
+          status: 'RUNNING'
+          stage: 'dataflow'
+          job_id: $${job_id}
+          import_list: null
+          
+    - poll_job:
+        steps:
+          - get_status:
+              call: googleapis.dataflow.v1b3.projects.locations.jobs.get
+              args:
+                projectId: '${project_id}'
+                location: $${region}
+                jobId: $${job_id}
+              result: job_status
+          - check_terminal:
+              switch:
+                - condition: '$${job_status.currentState in ["JOB_STATE_DONE", "JOB_STATE_FAILED", "JOB_STATE_CANCELLED", "JOB_STATE_UPDATED", "JOB_STATE_DRAINED"]}'
+                  next: check_success
+          - wait_for_dataflow:
+              call: sys.sleep
+              args:
+                seconds: 60
+              next: poll_job
+    
+    - check_success:
+        switch:
+          - condition: '$${job_status.currentState == "JOB_STATE_DONE"}'
+            next: return_success
+    
+    - fail_on_job_status:
+        raise: '$${ "Dataflow job failed with state: " + job_status.currentState }'
+        
+    - return_success:
+        return:
+          job_id: $${job_id}
+          launch_result: $${launch_result}
