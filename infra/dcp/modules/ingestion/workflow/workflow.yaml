@@ -96,10 +96,14 @@ main:
         try:
           steps:
             - set_staging:
-                call: set_import_status
+                call: http.post
                 args:
-                  imports: '$${imports_status_list}'
-                  status: 'STAGING'
+                  url: '${ingestion_helper_url}/imports/status'
+                  auth:
+                    type: OIDC
+                  body:
+                    imports: '$${imports_status_list}'
+                    status: 'STAGING'
             
             - launch_dataflow:
                 call: launch_and_poll_dataflow
@@ -159,11 +163,15 @@ main:
                               result: embedding_result
 
             - promote_version_step:
-                call: promote_import_version
+                call: http.post
                 args:
-                  imports: '$${imports_version_list}'
-                  version: '$${version}'
-                  comment: '$${"Auto-promoted by workflow " + workflow_id}'
+                  url: '${ingestion_helper_url}/imports/version'
+                  auth:
+                    type: OIDC
+                  body:
+                    imports: '$${imports_version_list}'
+                    version: '$${version}'
+                    comment: '$${"Auto-promoted by workflow " + workflow_id}'
             
             - update_ingestion_status_success:
                 call: update_ingestion_status
@@ -251,37 +259,6 @@ update_history:
         result: res
     - return_result:
         return: $${res}
-
-set_import_status:
-  params: [imports, status]
-  steps:
-    - call_set_status_api:
-        call: http.post
-        args:
-          url: '${ingestion_helper_url}/imports/status'
-          auth:
-            type: OIDC
-          body:
-            imports: $${imports}
-            status: $${status}
-    - return_result:
-        return: true
-
-promote_import_version:
-  params: [imports, version, comment]
-  steps:
-    - call_promote_api:
-        call: http.post
-        args:
-          url: '${ingestion_helper_url}/imports/version'
-          auth:
-            type: OIDC
-          body:
-            imports: $${imports}
-            version: $${version}
-            comment: $${comment}
-    - return_result:
-        return: true
 
 update_ingestion_status:
   params: [workflow_id, job_id, status, import_list]
