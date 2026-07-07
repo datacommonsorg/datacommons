@@ -101,7 +101,6 @@ module "spanner" {
   bigquery_reservation_max_slots     = var.spanner_config.bigquery_reservation_max_slots
 }
 
-
 module "storage" {
   source = "../storage"
 
@@ -153,7 +152,6 @@ module "ingestion_dataflow" {
   use_spanner           = var.spanner_config.enable
 }
 
-
 module "ingestion_helper_service" {
   source = "../ingestion/helper_service"
 
@@ -203,8 +201,6 @@ module "ingestion_workflow" {
 
   depends_on = [module.ingestion_helper_service]
 }
-
-
 
 module "redis" {
   source = "../redis"
@@ -276,8 +272,6 @@ check "datacommons_api_key_provided" {
 }
 
 
-
-
 # =============================================================================
 # Cross-Module IAM Bindings
 # =============================================================================
@@ -289,20 +283,12 @@ resource "google_storage_bucket_iam_member" "dataflow_bucket_access" {
   member = "serviceAccount:${module.ingestion_dataflow.service_account_email}"
 }
 
-
-
-
-
-
-
 resource "google_storage_bucket_iam_member" "workflow_bucket_access" {
   count  = var.ingestion_config.enable_ingestion ? 1 : 0
   bucket = module.storage.artifacts_bucket_name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
-
-
 
 resource "google_storage_bucket_iam_member" "preprocessing_bucket_access" {
   count  = var.ingestion_config.enable_ingestion ? 1 : 0
@@ -311,17 +297,9 @@ resource "google_storage_bucket_iam_member" "preprocessing_bucket_access" {
   member = "serviceAccount:${module.ingestion_preprocessing_job[0].service_account_email}"
 }
 
-
-
 resource "google_project_iam_member" "workflow_dataflow_developer" {
   count   = var.ingestion_config.enable_ingestion ? 1 : 0
   project = var.global.project_id
   role    = "roles/dataflow.developer"
   member  = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
-
-
-
-
-
-
