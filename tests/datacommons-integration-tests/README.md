@@ -60,10 +60,9 @@ The emulator is started with `--disable_query_null_filtered_index_check`. Requir
 * **Heuristic Bypass Limitation:** Appending `disable_feature=use_v2_resolve_for_nl_search_vars` disables database-level vector index queries to bypass the emulator limits. **IMPORTANT:** This is a test-only workaround. To ensure that the actual production database index lookup and vector resolving code paths are verified before release, you must run the GCP sandbox integration tests (`run_gcp_integration_test.py`), which cover the active production vector path against a real GCP Spanner instance.
 
 ### Manual Verification of Local NL Search
-1. **Boot containers & seed GCS emulator:**
+1. **Boot containers:**
    ```bash
-   docker compose -f docker-compose.test.yml up -d spanner gcs
-   ./setup_emulators.sh
+   docker compose -f tests/datacommons-integration-tests/docker-compose.test.yml up -d spanner gcs
    ```
 2. **Seed Spanner and boot remaining services:**
    ```bash
@@ -82,7 +81,7 @@ The emulator is started with `--disable_query_null_filtered_index_check`. Requir
 * **Option B: Local Real NLP Service Container (CPU/MiniLM):** Run the official model server container locally on CPU using the HuggingFace `all-MiniLM-L6-v2` model:
   1. Enable the override configuration:
      ```bash
-     cp docker-compose.override.yml.example docker-compose.override.yml
+     cp tests/datacommons-integration-tests/docker-compose.override.yml.example tests/datacommons-integration-tests/docker-compose.override.yml
      ```
   2. Set your GCP project ID in `docker-compose.override.yml`:
      ```yaml
@@ -90,8 +89,7 @@ The emulator is started with `--disable_query_null_filtered_index_check`. Requir
      ```
   3. Start the containers using the override:
      ```bash
-     docker compose -f docker-compose.test.yml -f docker-compose.override.yml up -d
-     ./setup_emulators.sh
+     docker compose -f tests/datacommons-integration-tests/docker-compose.test.yml -f tests/datacommons-integration-tests/docker-compose.override.yml up -d
      uv run pytest tests/datacommons-integration-tests/run_local_integration_test.py --keep-containers
      ```
      *(Note: the automated pytest asserts will fail due to real vs. mock output differences, but the local stack will remain running and fully operational for custom testing)*.

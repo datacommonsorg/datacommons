@@ -13,7 +13,9 @@ services:
     container_name: itest-gcs
     ports:
       - "9099:9099"
-    command: -scheme http -port 9099
+    command: -scheme http -port 9099 -data /data
+    volumes:
+      - ./gcs_seed:/data
     networks:
       - test-network
 

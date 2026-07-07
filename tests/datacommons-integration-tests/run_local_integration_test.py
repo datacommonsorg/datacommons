@@ -164,31 +164,6 @@ def call_helper(action_type: str) -> dict:
         ) from e  # noqa: BLE001
 
 
-def seed_gcs_emulator():
-    """Create test-bucket and upload dummy catalog yaml to mock GCS emulator."""
-    print(">>> Seeding fake GCS emulator bucket and catalogs...", flush=True)
-    try:
-        # 1. Create bucket
-        resp = requests.post(
-            "http://localhost:9099/storage/v1/b?project=test-project",
-            json={"name": "test-bucket"},
-            timeout=5,
-        )
-        resp.raise_for_status()
-
-        # 2. Upload dummy custom_catalog.yaml
-        dummy_catalog = "version: '1'\nmodels: {}\nindexes: {}\n"
-        upload_resp = requests.post(
-            "http://localhost:9099/upload/storage/v1/b/test-bucket/o?uploadType=media&name=output/datacommons/nl/embeddings/custom_catalog.yaml",
-            data=dummy_catalog,
-            headers={"Content-Type": "application/x-yaml"},
-            timeout=5,
-        )
-        upload_resp.raise_for_status()
-        print("  GCS emulator successfully seeded.", flush=True)
-    except Exception as e:
-        raise RuntimeError(f"Failed to seed GCS emulator: {e}") from e  # noqa: BLE001
-
 
 # =============================================================================
 # Pytest Orchestration Fixture
@@ -254,8 +229,6 @@ def docker_stack(services_image, helper_image, keep_containers):
                 "http://localhost:9099/storage/v1/b?project=test-project",
                 "GCS emulator",
             )
-
-            seed_gcs_emulator()
 
             # 4. Create database instance
             print(
