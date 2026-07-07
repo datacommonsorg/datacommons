@@ -8,6 +8,8 @@ main:
           - version: '$${"version-" + string(int(sys.now()))}'
           - bucket_name: '$${text.split(input.tempLocation, "/")[2]}'
           - execution_error: null
+          - postprocessing_result: null
+          - embedding_result: null
           - current_stage: "dataflow"
           - job_id: null
           - lock_timeout: ${lock_acquisition_timeout}
