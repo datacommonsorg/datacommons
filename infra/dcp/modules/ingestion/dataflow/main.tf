@@ -22,16 +22,6 @@ resource "google_project_iam_member" "dataflow_worker" {
   role    = "roles/dataflow.worker"
   member  = "serviceAccount:${google_service_account.dataflow_sa[0].email}"
 }
-
-# This is only needed to trigger the services restart to pick up the GCS embeddings change
-
-resource "google_service_account_iam_member" "service_account_user" {
-  count              = var.deploy ? 1 : 0
-  service_account_id = google_service_account.dataflow_sa[0].name
-  role               = "roles/iam.serviceAccountUser"
-  member             = "serviceAccount:${google_service_account.dataflow_sa[0].email}"
-}
-
 data "google_project" "project" {
   project_id = var.project_id
 }
