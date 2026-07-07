@@ -13,6 +13,8 @@ main:
           - current_stage: "dataflow"
           - job_id: null
           - lock_timeout: ${lock_acquisition_timeout}
+          - lock_retries: 0
+          - max_lock_retries: $${int(lock_timeout / 120)}
           - run_embeddings: ${enable_embeddings_generation}
           - run_postproc: ${enable_bigquery_postprocessing}
           - decoded_imports: '$${json.decode(input.importList)}'
@@ -53,35 +55,36 @@ main:
           - sanitized_short_import: '$${text.substring(combined_import_name, 0, substring_end)}'
           - dataflow_job_name: '$${"${clean_namespace_prefix}" + sanitized_short_import + "-" + string(int(sys.now()))}'
     
-    - acquire_lock_loop:
-        steps:
-          - try_acquire:
-              try:
-                call: http.post
-                args:
-                  url: '${ingestion_helper_url}/database/lock/acquire'
-                  auth:
-                    type: OIDC
-                  body:
-                    workflowId: '$${workflow_id}'
-                    timeout: '$${lock_timeout}'
-                result: lock_result
-              except:
-                as: e
-                steps:
-                  - handle_lock_busy:
-                      switch:
-                        - condition: '$${default(map.get(e, "code"), 0) == 400}'
-                          next: wait_for_lock
-                  - unhandled_error:
-                      raise: $${e}
-          - lock_acquired_success:
-              next: update_history_pending
-          - wait_for_lock:
-              call: sys.sleep
-              args:
-                seconds: 120
-              next: acquire_lock_loop
+    - try_acquire_lock:
+        try:
+          call: http.post
+          args:
+            url: '${ingestion_helper_url}/database/lock/acquire'
+            auth:
+              type: OIDC
+            body:
+              workflowId: '$${workflow_id}'
+              timeout: '$${lock_timeout}'
+          result: lock_result
+        except:
+          as: e
+          steps:
+            - handle_lock_busy:
+                switch:
+                  - condition: '$${default(map.get(e, "code"), 0) == 400 and lock_retries < max_lock_retries}'
+                    next: increment_retries_and_wait
+            - unhandled_error:
+                raise: $${e}
+    - lock_acquired_success:
+        next: update_history_pending
+    - increment_retries_and_wait:
+        assign:
+          - lock_retries: $${lock_retries + 1}
+    - wait_for_lock:
+        call: sys.sleep
+        args:
+          seconds: 120
+        next: try_acquire_lock
 
     - update_history_pending:
         call: update_history
