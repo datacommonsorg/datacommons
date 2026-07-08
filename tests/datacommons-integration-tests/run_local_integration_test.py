@@ -19,6 +19,7 @@ seeding, and semantic query serving endpoints against emulators. It uses
 the requests library for standard HTTP client operations.
 """
 
+import json
 import os
 import subprocess
 import sys
@@ -27,6 +28,7 @@ from pathlib import Path
 
 import pytest
 import requests
+from google.cloud import spanner
 
 # Import patch_credentials to apply Spanner emulator monkeypatches to the host-side test runner
 sys.path.append(str(Path(__file__).resolve().parent))
@@ -196,10 +198,6 @@ def seed_gcs_emulator() -> None:
 
 def seed_local_spanner() -> None:
     """Directly seed the Spanner emulator with the pre-processed wages dataset from JSON."""
-    import json
-    from pathlib import Path
-
-    from google.cloud import spanner
 
     os.environ["SPANNER_EMULATOR_HOST"] = f"localhost:{SPANNER_GRPC_PORT}"
 
