@@ -20,7 +20,7 @@ main:
           - decoded_imports: '$${json.decode(input.importList)}'
           - num_imports: '$${len(decoded_imports)}'
           - combined_import_name: ""
-          - prep_job_name: '${clean_namespace_prefix}dc-ingestion-preprocessing-job'
+          - prep_job_name: '${preprocessing_job_name}'
           - comma_separated_imports: ""
           - imports_status_list: []
           - imports_history_list: []

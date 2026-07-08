@@ -39,11 +39,6 @@ locals {
       value = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
     },
     {
-      name = "INGESTION_WORKFLOW_NAME"
-      # Fallback to empty string if ingestion is disabled and module output is null
-      value = module.ingestion_workflow.workflow_name != null ? module.ingestion_workflow.workflow_name : ""
-    },
-    {
       name  = "TEMP_LOCATION"
       value = "gs://${module.storage.artifacts_bucket_name}/${var.ingestion_config.ingestion_artifacts_path}/temp"
     },
@@ -198,6 +193,7 @@ module "ingestion_workflow" {
   dataflow_ip_configuration      = var.ingestion_config.dataflow_ip_configuration
   dataflow_subnetwork            = var.ingestion_config.dataflow_subnetwork
   dataflow_template_gcs_path     = var.ingestion_config.dataflow_template_gcs_path
+  preprocessing_job_name         = var.ingestion_config.enable_ingestion ? module.ingestion_preprocessing_job[0].job_name : ""
 
   depends_on = [module.ingestion_helper_service]
 }
@@ -250,7 +246,12 @@ module "datacommons_services" {
   artifacts_bucket_name           = module.storage.artifacts_bucket_name
   vpc_connector_id                = var.redis_config.enable ? module.redis[0].connector_id : null
   use_spanner                     = var.spanner_config.enable
-  env_vars                        = local.cloud_run_shared_env_variables
+  env_vars = concat(local.cloud_run_shared_env_variables, [
+    {
+      name  = "INGESTION_WORKFLOW_NAME"
+      value = module.ingestion_workflow.workflow_name != null ? module.ingestion_workflow.workflow_name : ""
+    }
+  ])
   secret_env_vars                 = local.datacommons_services_secrets
   resolve_with_spanner_embeddings = var.datacommons_services_config.resolve_with_spanner_embeddings
 
