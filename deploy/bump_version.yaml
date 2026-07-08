@@ -29,15 +29,24 @@ steps:
         git checkout -b $$BRANCH_NAME
 
         # Update Version Files
-        echo "Updating __init__.py files and root pyproject.toml to $$NEW_VERSION"
-        python3 -c "import glob, re; [open(f, 'w').write(re.sub(r'^__version__ = [\"\'].*[\"\']', '__version__ = \"'\"$$NEW_VERSION\"'\"', content, flags=re.MULTILINE)) for f in glob.glob('packages/*/datacommons_*/__init__.py') for content in [open(f, 'r').read()]]"
-        python3 -c "import re; [open('pyproject.toml', 'w').write(re.sub(r'^version = \".*\"', 'version = \"'\"$$NEW_VERSION\"'\"', content, flags=re.MULTILINE)) for content in [open('pyproject.toml', 'r').read()]]"
+        OLD_VERSION=$$(cat VERSION)
+        echo "Updating root VERSION file to $$NEW_VERSION"
+        echo "$$NEW_VERSION" > VERSION
+        for pkg in packages/*; do
+          if [ -d "$$pkg" ]; then
+            echo "Updating $$pkg/VERSION to $$NEW_VERSION"
+            echo "$$NEW_VERSION" > "$$pkg/VERSION"
+          fi
+        done
+
+        # Update Terraform variables
+        find infra/dcp -type f -name "*.tf" -exec sed -i "s/$$OLD_VERSION/$$NEW_VERSION/g" {} +
         
         # Update Lockfile
         uv lock
 
         # Commit & Push
-        git add pyproject.toml packages/*/datacommons_*/__init__.py uv.lock
+        git add VERSION packages/*/VERSION infra/dcp/ uv.lock
         git commit -m "chore: bump version to $$NEW_VERSION"
         git push origin $$BRANCH_NAME --force
 
