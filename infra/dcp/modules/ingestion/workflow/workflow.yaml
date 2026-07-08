@@ -7,6 +7,7 @@ main:
           - workflow_id: '$${sys.get_env("GOOGLE_CLOUD_WORKFLOW_EXECUTION_ID")}'
           - version: '$${"version-" + string(int(sys.now()))}'
           - bucket_name: '$${text.split(input.tempLocation, "/")[2]}'
+          - temp_path_prefix: '$${text.replace_all(input.tempLocation, "gs://" + bucket_name + "/", "")}'
           - execution_error: null
           - postprocessing_result: null
           - embedding_result: null
@@ -73,7 +74,7 @@ main:
         call: googleapis.storage.v1.objects.get
         args:
           bucket: '$${bucket_name}'
-          object: '$${"datacommons/ingestion_records/" + workflow_id + ".json"}'
+          object: '$${temp_path_prefix + "/datacommons/ingestion_records/" + workflow_id + ".json"}'
           alt: 'media'
         result: handshake_data
 
