@@ -19,13 +19,17 @@ seeding, and semantic query serving endpoints against emulators. It uses
 the requests library for standard HTTP client operations.
 """
 
+import difflib
 import json
 import os
+import socket
 import subprocess
 import sys
 import time
+import urllib.parse
 from pathlib import Path
 
+import grpc
 import pytest
 import requests
 from google.cloud import spanner
@@ -43,8 +47,6 @@ def get_port(env_var: str, default: int) -> int:
     val = os.getenv(env_var)
     if val:
         return int(val)
-    # Check if default port is free
-    import socket
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
@@ -171,7 +173,7 @@ def call_helper(action_type: str) -> dict:
 
 
 def seed_gcs_emulator() -> None:
-    """Create test-bucket and upload dummy catalog yaml to mock GCS emulator."""
+    """Create test-bucket and upload dummy catalog yaml and wages dataset to mock GCS emulator."""
     print(">>> Seeding fake GCS emulator bucket and catalogs...", flush=True)
     try:
         # 1. Create bucket
@@ -191,93 +193,36 @@ def seed_gcs_emulator() -> None:
             timeout=5,
         )
         upload_resp.raise_for_status()
+
+        # 3. Upload OECD wages files for local ingestion run
+        wages_dir = Path(__file__).resolve().parents[2] / "samples" / "OECD_wage_data"
+        files_to_upload = [
+            "average_annual_wage.csv",
+            "average_annual_wage.mcf",
+            "gender_wage_gap.csv",
+            "gender_wage_gap.mcf",
+            "config.json",
+        ]
+        for filename in files_to_upload:
+            file_path = wages_dir / filename
+            with file_path.open("rb") as f:
+                data = f.read()
+            content_type = (
+                "application/json"
+                if filename.endswith(".json")
+                else "application/octet-stream"
+            )
+            upload_resp = requests.post(
+                f"http://localhost:9099/upload/storage/v1/b/test-bucket/o?uploadType=media&name=ingestion/input/wages/{filename}",
+                data=data,
+                headers={"Content-Type": content_type},
+                timeout=5,
+            )
+            upload_resp.raise_for_status()
+
         print("  GCS emulator successfully seeded.", flush=True)
     except Exception as e:
         raise RuntimeError(f"Failed to seed GCS emulator: {e}") from e  # noqa: BLE001
-
-
-def seed_local_spanner() -> None:
-    """Directly seed the Spanner emulator with the pre-processed wages dataset from JSON."""
-
-    os.environ["SPANNER_EMULATOR_HOST"] = f"localhost:{SPANNER_GRPC_PORT}"
-
-    print(">>> Directly seeding Spanner emulator from JSON rows file...", flush=True)
-    spanner_client = spanner.Client(project=PROJECT_ID)
-    instance = spanner_client.instance(INSTANCE_ID)
-    database = instance.database(DATABASE_ID)
-
-    # Load JSON rows
-    json_path = (
-        Path(__file__).resolve().parent / "test_data" / "wages_spanner_rows.json"
-    )
-    with json_path.open(encoding="utf-8") as f:
-        spanner_data = json.load(f)
-
-    def _seed_tx(transaction):
-        # 1. Seed Nodes
-        subjects = [row[0] for row in spanner_data["Node"]["values"]]
-        sql = "SELECT subject_id FROM Node WHERE subject_id IN UNNEST(@subjects)"
-        params = {"subjects": subjects}
-        param_types = {
-            "subjects": spanner.param_types.Array(spanner.param_types.STRING)
-        }
-        existing = set()
-        for row in transaction.execute_sql(sql, params, param_types):
-            existing.add(row[0])
-
-        node_rows = []
-        for val in spanner_data["Node"]["values"]:
-            if val[0] not in existing:
-                row_data = list(val)
-                if row_data[4] == "__COMMIT_TIMESTAMP__":
-                    row_data[4] = spanner.COMMIT_TIMESTAMP
-                node_rows.append(tuple(row_data))
-
-        if node_rows:
-            transaction.insert(
-                table="Node", columns=spanner_data["Node"]["columns"], values=node_rows
-            )
-
-        # 2. Seed Edges
-        edge_rows = [tuple(row) for row in spanner_data["Edge"]["values"]]
-        if edge_rows:
-            transaction.insert_or_update(
-                table="Edge", columns=spanner_data["Edge"]["columns"], values=edge_rows
-            )
-
-        # 3. Seed TimeSeries
-        ts_rows = []
-        for val in spanner_data["TimeSeries"]["values"]:
-            row_data = list(val)
-            if row_data[5] == "__COMMIT_TIMESTAMP__":
-                row_data[5] = spanner.COMMIT_TIMESTAMP
-            ts_rows.append(tuple(row_data))
-        if ts_rows:
-            transaction.insert_or_update(
-                table="TimeSeries",
-                columns=spanner_data["TimeSeries"]["columns"],
-                values=ts_rows,
-            )
-
-        # 4. Seed Observations
-        obs_rows = []
-        for val in spanner_data["Observation"]["values"]:
-            row_data = list(val)
-            if row_data[6] == "__COMMIT_TIMESTAMP__":
-                row_data[6] = spanner.COMMIT_TIMESTAMP
-            obs_rows.append(tuple(row_data))
-        if obs_rows:
-            transaction.insert_or_update(
-                table="Observation",
-                columns=spanner_data["Observation"]["columns"],
-                values=obs_rows,
-            )
-
-    database.run_in_transaction(_seed_tx)
-    print(
-        ">>> Local test dataset seeded successfully directly via Spanner API from JSON rows.",
-        flush=True,
-    )
 
 
 # =============================================================================
@@ -287,12 +232,11 @@ def seed_local_spanner() -> None:
 
 def wait_for_spanner(timeout_secs: int = 90) -> None:
     """Waits for Spanner gRPC endpoint to become ready."""
-    import grpc
+
     from google.api_core.exceptions import GoogleAPICallError
-    from google.cloud import spanner
 
     print("Waiting for Spanner gRPC endpoint to be ready...", flush=True)
-    os.environ["SPANNER_EMULATOR_HOST"] = f"localhost:{SPANNER_GRPC_PORT}"
+    os.environ["SPANNER_EMULATOR_HOST"] = f"127.0.0.1:{SPANNER_GRPC_PORT}"
     start_time = time.time()
     while time.time() - start_time < timeout_secs:
         try:
@@ -307,9 +251,8 @@ def wait_for_spanner(timeout_secs: int = 90) -> None:
 
 def create_spanner_db() -> None:
     """Creates Spanner instance and database using client library via gRPC."""
-    from google.cloud import spanner
 
-    os.environ["SPANNER_EMULATOR_HOST"] = f"localhost:{SPANNER_GRPC_PORT}"
+    os.environ["SPANNER_EMULATOR_HOST"] = f"127.0.0.1:{SPANNER_GRPC_PORT}"
     print(
         f">>> Creating Spanner instance {INSTANCE_ID} and database {DATABASE_ID} via gRPC client...",
         flush=True,
@@ -330,6 +273,182 @@ def create_spanner_db() -> None:
     print("  Spanner database created.", flush=True)
 
 
+def check_and_compile_java_loader_if_needed(
+    import_repo_dir: str, jar_path: Path, compose_env: dict[str, str]
+) -> None:
+    """Detects if Java source files are newer than the compiled JAR and auto-rebuilds via Maven container."""
+    pipeline_dir = Path(import_repo_dir) / "pipeline"
+    if not pipeline_dir.exists():
+        return
+
+    # If JAR does not exist at all, we don't compile (we fallback to container default)
+    if not jar_path.exists():
+        return
+
+    jar_mtime = jar_path.stat().st_mtime
+    rebuild = False
+    for path in pipeline_dir.rglob("*.java"):
+        if path.stat().st_mtime > jar_mtime:
+            print(
+                f"  [Auto-Rebuild] Detected newer Java source: {path.name}", flush=True
+            )
+            rebuild = True
+            break
+
+    if rebuild:
+        print(
+            ">>> Java source files are newer than compiled JAR. Automatically compiling...",
+            flush=True,
+        )
+        try:
+            # We compile using Maven Docker container so no host Java installation is required
+            run_command(
+                [
+                    "docker",
+                    "run",
+                    "--rm",
+                    "-v",
+                    f"{import_repo_dir}:/workspace",
+                    "-w",
+                    "/workspace",
+                    "maven:3.9.6-eclipse-temurin-17",
+                    "mvn",
+                    "clean",
+                    "package",
+                    "-pl",
+                    "pipeline/ingestion",
+                    "-am",
+                    "-DskipTests",
+                ],
+                env=compose_env,
+            )
+            print(">>> Java auto-compilation completed successfully!", flush=True)
+        except Exception as e:  # noqa: BLE001
+            print(
+                f"WARNING: Java auto-compilation failed. Falling back to existing JAR. Error: {e}",
+                flush=True,
+            )
+
+
+def run_spanner_loader(compose_env: dict[str, str]) -> None:
+    """Run the real Java Dataflow Spanner Loader container locally under DirectRunner."""
+    print(">>> Running local Java Spanner Loader pipeline...", flush=True)
+
+    try:
+        resp = requests.get(
+            "http://localhost:9099/storage/v1/b/test-bucket/o", timeout=10
+        )
+        resp.raise_for_status()
+        items = [item["name"] for item in resp.json().get("items", [])]
+    except Exception as e:
+        raise RuntimeError(f"Failed to query GCS emulator: {e}") from e
+
+    # Extract output directories like output/jsonld/<timestamp_dir>/<import_name>/
+    jsonld_blobs = [
+        name for name in items if "output/jsonld/" in name and name.endswith(".jsonld")
+    ]
+    import_dirs = set()
+    for name in jsonld_blobs:
+        parts = name.split("/")
+        if len(parts) >= 5:
+            import_dirs.add("/".join(parts[:4]))
+
+    if not import_dirs:
+        raise ValueError("No generated JSON-LD files found in GCS emulator.")
+
+    import_list = []
+    for d in import_dirs:
+        import_name = d.split("/")[-1]
+        import_list.append(
+            {"importName": import_name, "graphPath": f"gs://test-bucket/{d}/*.jsonld"}
+        )
+
+    print(f"  Found import directories: {list(import_dirs)}", flush=True)
+
+    # Dummy PKCS8 encoded key, not used anywhere else except avoid errors.
+    dummy_key = (
+        "-----BEGIN"
+        " FAKE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC3\n-----END"
+        " FAKE KEY-----\n"
+    )
+
+    dummy_creds = {
+        "type": "service_account",
+        "project_id": "default",
+        "private_key_id": "dummy",
+        "private_key": dummy_key,
+        "client_email": "dummy@default.iam.gserviceaccount.com",
+        "client_id": "1234567890",
+    }
+    root_dir = Path(__file__).resolve().parent
+    dummy_creds_path = root_dir / "dummy_credentials.json"
+    with dummy_creds_path.open("w") as f:
+        json.dump(dummy_creds, f)
+
+    # Resolve the import repository directory (relative default of sibling directory)
+    import_repo_dir = os.environ.get("IMPORT_REPO_DIR") or str(
+        Path(__file__).resolve().parents[3] / "import"
+    )
+    jar_path = (
+        Path(import_repo_dir)
+        / "pipeline/ingestion/target/ingestion-bundled-0.1-SNAPSHOT.jar"
+    )
+
+    # Automatically check and rebuild JAR if Java files changed
+    check_and_compile_java_loader_if_needed(import_repo_dir, jar_path, compose_env)
+
+    jar_mount = []
+    if jar_path.exists() and jar_path.is_file():
+        print(f"  Detected local compiled Java JAR, mounting: {jar_path}", flush=True)
+        jar_mount = ["-v", f"{jar_path}:/app/ingestion-bundled.jar"]
+    else:
+        print("  No local JAR detected. Falling back to container default.", flush=True)
+
+    try:
+        # 3. Execute the Java Beam pipeline container inside the compose network 'itest-net'
+        # pointing to GCS and Spanner emulators
+        cmd = [
+            "docker",
+            "run",
+            "--rm",
+            "--entrypoint",
+            "java",
+            "--network",
+            "itest-net",
+            "-e",
+            "GOOGLE_APPLICATION_CREDENTIALS=/app/dummy_credentials.json",
+            "-e",
+            "SPANNER_EMULATOR_HOST=spanner:15000",
+            "-e",
+            "GOOGLE_CLOUD_SPANNER_MULTIPLEXED_SESSIONS=TRUE",
+            "-e",
+            "GOOGLE_CLOUD_SPANNER_MULTIPLEXED_SESSIONS_FOR_RW=TRUE",
+            "-v",
+            f"{dummy_creds_path}:/app/dummy_credentials.json",
+        ]
+        if jar_mount:
+            cmd.extend(jar_mount)
+        cmd.extend(
+            [
+                "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion:1.1.0",
+                "-jar",
+                "/app/ingestion-bundled.jar",
+                "--runner=DirectRunner",
+                "--projectId=default",
+                "--spannerInstanceId=default",
+                "--spannerDatabaseId=test-db",
+                "--emulatorHost=spanner:15000",
+                "--gcsEndpoint=http://gcs:9099/storage/v1",
+                f"--importList={json.dumps(import_list)}",
+            ]
+        )
+        run_command(cmd, env=compose_env)
+    finally:
+        # Clean up temporary credentials file
+        if dummy_creds_path.exists():
+            dummy_creds_path.unlink()
+
+
 @pytest.fixture(scope="module")
 def docker_stack(services_image, helper_image, keep_containers):
     """Fixture to spin up and tear down emulated service container stack."""
@@ -342,6 +461,47 @@ def docker_stack(services_image, helper_image, keep_containers):
         compose_env["SERVICES_IMAGE"] = services_image
     if helper_image:
         compose_env["HELPER_IMAGE"] = helper_image
+
+    dc_api_key = os.environ.get("DC_API_KEY")
+    if not dc_api_key:
+        print(
+            ">>> DC_API_KEY environment variable not set. Attempting to fetch 'dc-api-key' secret from datcom-ci project using local gcloud...",
+            flush=True,
+        )
+        try:
+            proc = subprocess.run(
+                [  # noqa: S607
+                    "gcloud",
+                    "secrets",
+                    "versions",
+                    "access",
+                    "latest",
+                    "--secret",
+                    "dc-api-key",
+                    "--project",
+                    "datcom-ci",
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            dc_api_key = proc.stdout.strip()
+            print(
+                ">>> Successfully fetched 'dc-api-key' from Secret Manager.",
+                flush=True,
+            )
+        except Exception as e:  # noqa: BLE001
+            print(
+                f">>> WARNING: Failed to fetch 'dc-api-key' from GCP Secret Manager: {e}",
+                flush=True,
+            )
+            print(
+                ">>> The pipeline will use 'dummy-key' which might cause 401 errors during ingestion.",
+                flush=True,
+            )
+
+    if dc_api_key:
+        compose_env["DC_API_KEY"] = dc_api_key
 
     # Pass configuration port mappings into compose runner
     compose_env["WEBSITE_PORT"] = str(WEBSITE_PORT)
@@ -426,10 +586,28 @@ def docker_stack(services_image, helper_image, keep_containers):
             if seed_res.get("status") not in ("success", "OK", "SUCCESS"):
                 raise RuntimeError(f"Database seeding failed: {seed_res}")
 
-            # Seeding custom variables and observations directly into Spanner emulator
-            seed_local_spanner()
+            # Run local ingestion processor container (simulates local Dataflow Beam run)
+            print(
+                ">>> Running local Apache Beam data ingestion processor...", flush=True
+            )
+            run_command(
+                [
+                    "docker",
+                    "compose",
+                    "-f",
+                    str(compose_file),
+                    "run",
+                    "--rm",
+                    "ingestion-processor",
+                ],
+                env=compose_env,
+            )
+
+            # Load the generated GCS JSON-LD files directly into Spanner using the Java Beam template
+            run_spanner_loader(compose_env)
 
             # 8. Boot Website container
+
             print(">>> Starting serving Website container...", flush=True)
             run_command(
                 ["docker", "compose", "-f", str(compose_file), "up", "-d", "website"],
@@ -480,8 +658,6 @@ def docker_stack(services_image, helper_image, keep_containers):
 def assert_golden(
     actual_data: any, golden_filename: str, *, generate_golden: bool
 ) -> None:
-    import difflib
-    import json
 
     golden_dir = Path(__file__).resolve().parent / "golden"
     golden_path = golden_dir / golden_filename
@@ -517,7 +693,6 @@ def assert_golden(
 @pytest.mark.usefixtures("docker_stack")
 def test_spanner_node_seeding(generate_golden):
     """Verify that Spanner contains the base seeded triples and Node rows."""
-    from google.cloud import spanner
 
     # Configure client to query the local Spanner emulator
     os.environ["SPANNER_EMULATOR_HOST"] = f"localhost:{SPANNER_GRPC_PORT}"
@@ -553,7 +728,6 @@ def test_website_serving_home():
 @pytest.mark.usefixtures("docker_stack")
 def test_spanner_observations(generate_golden):
     """Verify that Spanner contains the correct observations from the seeded OECD wages dataset."""
-    from google.cloud import spanner
 
     os.environ["SPANNER_EMULATOR_HOST"] = f"localhost:{SPANNER_GRPC_PORT}"
 
@@ -581,10 +755,6 @@ def test_spanner_observations(generate_golden):
 
 @pytest.mark.usefixtures("docker_stack")
 def test_website_semantic_nl_query(generate_golden):
-    """Verify that Mixer fulfills NL queries using the seeded Spanner graph."""
-    import urllib.parse
-
-    from google.cloud import spanner
 
     os.environ["SPANNER_EMULATOR_HOST"] = f"localhost:{SPANNER_GRPC_PORT}"
 

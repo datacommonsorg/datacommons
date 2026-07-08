@@ -13,12 +13,38 @@ services:
     container_name: itest-gcs
     ports:
       - "9099:9099"
-    command: -scheme http -port 9099 -data /data
+    command: -scheme http -port 9099 -data /data -external-url http://gcs:9099
     volumes:
       - ./gcs_seed:/data
     networks:
       - test-network
 
+  ingestion-processor:
+    image: ${PROCESSOR_IMAGE:-gcr.io/datcom-ci/datacommons-data:latest}
+    platform: linux/amd64
+    container_name: itest-ingestion-processor
+    volumes:
+      - ./patch_credentials.py:/app/patch/sitecustomize.py
+      - ${IMPORT_REPO_DIR:-../../../import}/simple:/workspace/import/simple
+    environment:
+      - PYTHONPATH=/app/patch
+      - SPANNER_EMULATOR_HOST=spanner:${SPANNER_INTERNAL_GRPC_PORT:-15000}
+      - STORAGE_EMULATOR_HOST=http://gcs:9099
+      - DC_API_KEY=${DC_API_KEY:-dummy-key}
+      - INPUT_DIR=gs://test-bucket/ingestion/input
+      - OUTPUT_DIR=gs://test-bucket/output
+    working_dir: /workspace/import/simple
+    entrypoint: ["python3", "-m", "stats.main"]
+    command: >
+      --input_dir=gs://test-bucket/ingestion/input
+      --output_dir=gs://test-bucket/output
+      --mode=dcpbridge
+      --imports=wages
+    depends_on:
+      - spanner
+      - gcs
+    networks:
+      - test-network
 
   ingestion-helper:
     image: ${HELPER_IMAGE:-gcr.io/datcom-ci/datacommons-ingestion-helper:latest}
