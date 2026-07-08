@@ -25,6 +25,8 @@ import sys
 import time
 from pathlib import Path
 
+import grpc
+from google.cloud import spanner
 import pytest
 import requests
 
@@ -57,8 +59,8 @@ SPANNER_REST_PORT = get_port("SPANNER_REST_PORT", 9020)
 SPANNER_GRPC_PORT = get_port("SPANNER_GRPC_PORT", 9010)
 MOCK_NL_PORT = get_port("MOCK_NL_PORT", 6060)
 
-PROJECT_ID = os.getenv("SPANNER_PROJECT_ID", "test-project")
-INSTANCE_ID = os.getenv("SPANNER_INSTANCE_ID", "test-instance")
+PROJECT_ID = os.getenv("SPANNER_PROJECT_ID", "default")
+INSTANCE_ID = os.getenv("SPANNER_INSTANCE_ID", "default")
 DATABASE_ID = os.getenv("SPANNER_DATABASE_ID", "test-db")
 
 # =============================================================================
@@ -144,6 +146,49 @@ def wait_for_service(
     raise RuntimeError(f"{name} failed to start within {timeout_secs} seconds.")
 
 
+def wait_for_spanner(timeout_secs: int = 90) -> None:
+    """Waits for Spanner gRPC endpoint to become ready."""
+
+    from google.api_core.exceptions import GoogleAPICallError
+
+    print("Waiting for Spanner gRPC endpoint to be ready...", flush=True)
+    os.environ["SPANNER_EMULATOR_HOST"] = f"127.0.0.1:{SPANNER_GRPC_PORT}"
+    start_time = time.time()
+    while time.time() - start_time < timeout_secs:
+        try:
+            client = spanner.Client(project=PROJECT_ID)
+            list(client.list_instances())
+            print("  Spanner is ready!", flush=True)
+            return
+        except (GoogleAPICallError, grpc.RpcError):
+            time.sleep(0.5)
+    raise RuntimeError(f"Spanner failed to start within {timeout_secs} seconds.")
+
+
+def create_spanner_db() -> None:
+    """Creates Spanner instance and database using client library via gRPC."""
+
+    os.environ["SPANNER_EMULATOR_HOST"] = f"127.0.0.1:{SPANNER_GRPC_PORT}"
+    print(
+        f">>> Creating Spanner instance {INSTANCE_ID} and database {DATABASE_ID} via gRPC client...",
+        flush=True,
+    )
+    client = spanner.Client(project=PROJECT_ID)
+    instance = client.instance(
+        INSTANCE_ID,
+        configuration_name=f"projects/{PROJECT_ID}/instanceConfigs/emulator-config",
+        node_count=1,
+    )
+    if not instance.exists():
+        op = instance.create()
+        op.result(timeout=30)
+    database = instance.database(DATABASE_ID)
+    if not database.exists():
+        op = database.create()
+        op.result(timeout=30)
+    print("  Spanner database created.", flush=True)
+
+
 def call_helper(action_type: str) -> dict:
     path = (
         "database/initialize"
@@ -218,11 +263,8 @@ def docker_stack(services_image, helper_image, keep_containers):
                 env=compose_env,
             )
 
-            # 3. Wait for Spanner Emulator REST API
-            wait_for_service(
-                f"http://localhost:{SPANNER_REST_PORT}/v1/projects/{PROJECT_ID}/instances",
-                "Spanner emulator",
-            )
+            # 3. Wait for Spanner Emulator ready
+            wait_for_spanner()
 
             # Wait for GCS Emulator ready
             wait_for_service(
@@ -231,31 +273,7 @@ def docker_stack(services_image, helper_image, keep_containers):
             )
 
             # 4. Create database instance
-            print(
-                f">>> Creating Spanner {INSTANCE_ID}/{DATABASE_ID} in emulator...",
-                flush=True,
-            )
-            inst_resp = requests.post(
-                f"http://localhost:{SPANNER_REST_PORT}/v1/projects/{PROJECT_ID}/instances",
-                json={
-                    "instanceId": INSTANCE_ID,
-                    "instance": {
-                        "name": f"projects/{PROJECT_ID}/instances/{INSTANCE_ID}",
-                        "config": "projects/test-project/instanceConfigs/emulator-config",
-                        "displayName": "Test Instance",
-                        "nodeCount": 1,
-                    },
-                },
-                timeout=30,
-            )
-            inst_resp.raise_for_status()
-
-            db_resp = requests.post(
-                f"http://localhost:{SPANNER_REST_PORT}/v1/projects/{PROJECT_ID}/instances/{INSTANCE_ID}/databases",
-                json={"createStatement": f"CREATE DATABASE `{DATABASE_ID}`"},
-                timeout=30,
-            )
-            db_resp.raise_for_status()
+            create_spanner_db()
 
             # 5. Boot Ingestion Helper
             print(">>> Starting Ingestion Helper container...", flush=True)
