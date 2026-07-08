@@ -25,7 +25,6 @@ services:
     container_name: itest-ingestion-processor
     volumes:
       - ./patch_credentials.py:/app/patch/sitecustomize.py
-      - ${IMPORT_REPO_DIR:-../../../import}/simple:/workspace/import/simple
     environment:
       - PYTHONPATH=/app/patch
       - SPANNER_EMULATOR_HOST=spanner:${SPANNER_INTERNAL_GRPC_PORT:-15000}
