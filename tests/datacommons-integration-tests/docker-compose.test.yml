@@ -1,10 +1,11 @@
 services:
   spanner:
-    image: gcr.io/cloud-spanner-emulator/emulator@sha256:caf1bd24c081e005837b5977bae5a250e25cb4da9f25ec1abc91936ad67e4de2
+    image: ${SPANNER_IMAGE:-us-docker.pkg.dev/spanner-omni/images/spanner-omni:2026.r1-beta.2}
     container_name: itest-spanner
     ports:
-      - "${SPANNER_GRPC_PORT:-9010}:9010"
-      - "${SPANNER_REST_PORT:-9020}:9020"
+      - "${SPANNER_GRPC_PORT:-9010}:${SPANNER_INTERNAL_GRPC_PORT:-15000}"
+      - "${SPANNER_REST_PORT:-9020}:${SPANNER_INTERNAL_REST_PORT:-15020}"
+    command: ${SPANNER_COMMAND:-start-single-server}
     networks:
       - test-network
   gcs:
@@ -12,7 +13,9 @@ services:
     container_name: itest-gcs
     ports:
       - "9099:9099"
-    command: -scheme http -port 9099
+    command: -scheme http -port 9099 -data /data
+    volumes:
+      - ./gcs_seed:/data
     networks:
       - test-network
 
@@ -24,23 +27,22 @@ services:
     ports:
       - "${HELPER_PORT:-8081}:8080"
     volumes:
-      - ./spanner_client.py:/app/clients/spanner.py
+      - ./patch_credentials.py:/app/patch/sitecustomize.py
     environment:
+      - PYTHONPATH=/app/patch
       - PORT=8080
-      - SPANNER_EMULATOR_HOST=spanner:9010
+      - SPANNER_EMULATOR_HOST=spanner:${SPANNER_INTERNAL_GRPC_PORT:-15000}
       - STORAGE_EMULATOR_HOST=http://gcs:9099
       - OUTPUT_DIR=gs://test-bucket/output
-      - PROJECT_ID=test-project
-      - SPANNER_PROJECT_ID=test-project
-      - SPANNER_INSTANCE_ID=test-instance
+      - PROJECT_ID=default
+      - SPANNER_PROJECT_ID=default
+      - SPANNER_INSTANCE_ID=default
       - SPANNER_DATABASE_ID=test-db
       - SPANNER_GRAPH_DATABASE_ID=test-db
     depends_on:
       - spanner
     networks:
       - test-network
-    extra_hosts:
-      - "metadata.google.internal:127.0.0.1"
 
 
   website:
@@ -51,17 +53,16 @@ services:
     ports:
       - "${WEBSITE_PORT:-8082}:8080"
     volumes:
-      - ./spanner_client.py:/workspace/spanner_client.py
       - ./custom_feature_flags.yaml:/workspace/deploy/featureflags/custom.yaml
     environment:
       - PORT=8080
-      - SPANNER_EMULATOR_HOST=spanner:9010
+      - SPANNER_EMULATOR_HOST=spanner:${SPANNER_INTERNAL_GRPC_PORT:-15000}
       - STORAGE_EMULATOR_HOST=http://gcs:9099
       - OUTPUT_DIR=gs://test-bucket/output
       - RESOLVE_WITH_SPANNER_EMBEDDINGS=true
-      - PROJECT_ID=test-project
-      - GCP_PROJECT_ID=test-project
-      - GCP_SPANNER_INSTANCE_ID=test-instance
+      - PROJECT_ID=default
+      - GCP_PROJECT_ID=default
+      - GCP_SPANNER_INSTANCE_ID=default
       - GCP_SPANNER_DATABASE_NAME=test-db
       - USE_SPANNER_GRAPH=true
       - DC_SEARCH_SCOPE=custom_only
@@ -75,8 +76,6 @@ services:
       - mock-nl-server
     networks:
       - test-network
-    extra_hosts:
-      - "metadata.google.internal:127.0.0.1"
 
   mock-nl-server:
     image: python:3.11-slim

@@ -28,6 +28,10 @@ from pathlib import Path
 import pytest
 import requests
 
+# Import patch_credentials to apply Spanner emulator monkeypatches to the host-side test runner
+sys.path.append(str(Path(__file__).resolve().parent))
+import patch_credentials  # noqa: F401
+
 # =============================================================================
 # Parameterized Configuration Constants
 # =============================================================================
@@ -57,8 +61,8 @@ SPANNER_REST_PORT = get_port("SPANNER_REST_PORT", 9020)
 SPANNER_GRPC_PORT = get_port("SPANNER_GRPC_PORT", 9010)
 MOCK_NL_PORT = get_port("MOCK_NL_PORT", 6060)
 
-PROJECT_ID = os.getenv("SPANNER_PROJECT_ID", "test-project")
-INSTANCE_ID = os.getenv("SPANNER_INSTANCE_ID", "test-instance")
+PROJECT_ID = os.getenv("SPANNER_PROJECT_ID", "default")
+INSTANCE_ID = os.getenv("SPANNER_INSTANCE_ID", "default")
 DATABASE_ID = os.getenv("SPANNER_DATABASE_ID", "test-db")
 
 # =============================================================================
@@ -164,7 +168,7 @@ def call_helper(action_type: str) -> dict:
         ) from e  # noqa: BLE001
 
 
-def seed_gcs_emulator():
+def seed_gcs_emulator() -> None:
     """Create test-bucket and upload dummy catalog yaml to mock GCS emulator."""
     print(">>> Seeding fake GCS emulator bucket and catalogs...", flush=True)
     try:
@@ -190,9 +194,142 @@ def seed_gcs_emulator():
         raise RuntimeError(f"Failed to seed GCS emulator: {e}") from e  # noqa: BLE001
 
 
+def seed_local_spanner() -> None:
+    """Directly seed the Spanner emulator with the pre-processed wages dataset from JSON."""
+    import json
+    from pathlib import Path
+
+    from google.cloud import spanner
+
+    os.environ["SPANNER_EMULATOR_HOST"] = f"localhost:{SPANNER_GRPC_PORT}"
+
+    print(">>> Directly seeding Spanner emulator from JSON rows file...", flush=True)
+    spanner_client = spanner.Client(project=PROJECT_ID)
+    instance = spanner_client.instance(INSTANCE_ID)
+    database = instance.database(DATABASE_ID)
+
+    # Load JSON rows
+    json_path = (
+        Path(__file__).resolve().parent / "test_data" / "wages_spanner_rows.json"
+    )
+    with json_path.open(encoding="utf-8") as f:
+        spanner_data = json.load(f)
+
+    def _seed_tx(transaction):
+        # 1. Seed Nodes
+        subjects = [row[0] for row in spanner_data["Node"]["values"]]
+        sql = "SELECT subject_id FROM Node WHERE subject_id IN UNNEST(@subjects)"
+        params = {"subjects": subjects}
+        param_types = {
+            "subjects": spanner.param_types.Array(spanner.param_types.STRING)
+        }
+        existing = set()
+        for row in transaction.execute_sql(sql, params, param_types):
+            existing.add(row[0])
+
+        node_rows = []
+        for val in spanner_data["Node"]["values"]:
+            if val[0] not in existing:
+                row_data = list(val)
+                if row_data[4] == "__COMMIT_TIMESTAMP__":
+                    row_data[4] = spanner.COMMIT_TIMESTAMP
+                node_rows.append(tuple(row_data))
+
+        if node_rows:
+            transaction.insert(
+                table="Node", columns=spanner_data["Node"]["columns"], values=node_rows
+            )
+
+        # 2. Seed Edges
+        edge_rows = [tuple(row) for row in spanner_data["Edge"]["values"]]
+        if edge_rows:
+            transaction.insert_or_update(
+                table="Edge", columns=spanner_data["Edge"]["columns"], values=edge_rows
+            )
+
+        # 3. Seed TimeSeries
+        ts_rows = []
+        for val in spanner_data["TimeSeries"]["values"]:
+            row_data = list(val)
+            if row_data[5] == "__COMMIT_TIMESTAMP__":
+                row_data[5] = spanner.COMMIT_TIMESTAMP
+            ts_rows.append(tuple(row_data))
+        if ts_rows:
+            transaction.insert_or_update(
+                table="TimeSeries",
+                columns=spanner_data["TimeSeries"]["columns"],
+                values=ts_rows,
+            )
+
+        # 4. Seed Observations
+        obs_rows = []
+        for val in spanner_data["Observation"]["values"]:
+            row_data = list(val)
+            if row_data[6] == "__COMMIT_TIMESTAMP__":
+                row_data[6] = spanner.COMMIT_TIMESTAMP
+            obs_rows.append(tuple(row_data))
+        if obs_rows:
+            transaction.insert_or_update(
+                table="Observation",
+                columns=spanner_data["Observation"]["columns"],
+                values=obs_rows,
+            )
+
+    database.run_in_transaction(_seed_tx)
+    print(
+        ">>> Local test dataset seeded successfully directly via Spanner API from JSON rows.",
+        flush=True,
+    )
+
+
 # =============================================================================
 # Pytest Orchestration Fixture
 # =============================================================================
+
+
+def wait_for_spanner(timeout_secs: int = 90) -> None:
+    """Waits for Spanner gRPC endpoint to become ready."""
+    import grpc
+    from google.api_core.exceptions import GoogleAPICallError
+    from google.cloud import spanner
+
+    print("Waiting for Spanner gRPC endpoint to be ready...", flush=True)
+    os.environ["SPANNER_EMULATOR_HOST"] = f"localhost:{SPANNER_GRPC_PORT}"
+    start_time = time.time()
+    while time.time() - start_time < timeout_secs:
+        try:
+            client = spanner.Client(project=PROJECT_ID)
+            list(client.list_instances())
+            print("  Spanner is ready!", flush=True)
+            return
+        except (GoogleAPICallError, grpc.RpcError):
+            time.sleep(0.5)
+    raise RuntimeError(f"Spanner failed to start within {timeout_secs} seconds.")
+
+
+def create_spanner_db() -> None:
+    """Creates Spanner instance and database using client library via gRPC."""
+    from google.cloud import spanner
+
+    os.environ["SPANNER_EMULATOR_HOST"] = f"localhost:{SPANNER_GRPC_PORT}"
+    print(
+        f">>> Creating Spanner instance {INSTANCE_ID} and database {DATABASE_ID} via gRPC client...",
+        flush=True,
+    )
+    client = spanner.Client(project=PROJECT_ID)
+    instance = client.instance(
+        INSTANCE_ID,
+        configuration_name=f"projects/{PROJECT_ID}/instanceConfigs/emulator-config",
+        node_count=1,
+    )
+    if not instance.exists():
+        op = instance.create()
+        op.result(timeout=30)
+    database = instance.database(DATABASE_ID)
+    if not database.exists():
+        op = database.create()
+        op.result(timeout=30)
+    print("  Spanner database created.", flush=True)
 
 
 @pytest.fixture(scope="module")
@@ -243,46 +380,18 @@ def docker_stack(services_image, helper_image, keep_containers):
                 env=compose_env,
             )
 
-            # 3. Wait for Spanner Emulator REST API
-            wait_for_service(
-                f"http://localhost:{SPANNER_REST_PORT}/v1/projects/{PROJECT_ID}/instances",
-                "Spanner emulator",
-            )
+            # 3. Wait for Spanner Emulator ready
+            wait_for_spanner()
 
             # Wait for GCS Emulator ready
             wait_for_service(
                 "http://localhost:9099/storage/v1/b?project=test-project",
                 "GCS emulator",
             )
-
             seed_gcs_emulator()
 
             # 4. Create database instance
-            print(
-                f">>> Creating Spanner {INSTANCE_ID}/{DATABASE_ID} in emulator...",
-                flush=True,
-            )
-            inst_resp = requests.post(
-                f"http://localhost:{SPANNER_REST_PORT}/v1/projects/{PROJECT_ID}/instances",
-                json={
-                    "instanceId": INSTANCE_ID,
-                    "instance": {
-                        "name": f"projects/{PROJECT_ID}/instances/{INSTANCE_ID}",
-                        "config": "projects/test-project/instanceConfigs/emulator-config",
-                        "displayName": "Test Instance",
-                        "nodeCount": 1,
-                    },
-                },
-                timeout=30,
-            )
-            inst_resp.raise_for_status()
-
-            db_resp = requests.post(
-                f"http://localhost:{SPANNER_REST_PORT}/v1/projects/{PROJECT_ID}/instances/{INSTANCE_ID}/databases",
-                json={"createStatement": f"CREATE DATABASE `{DATABASE_ID}`"},
-                timeout=30,
-            )
-            db_resp.raise_for_status()
+            create_spanner_db()
 
             # 5. Boot Ingestion Helper
             print(">>> Starting Ingestion Helper container...", flush=True)
@@ -305,7 +414,7 @@ def docker_stack(services_image, helper_image, keep_containers):
                 "Ingestion Helper",
                 method="GET",
                 expected_statuses=(200,),
-                timeout_secs=60,
+                timeout_secs=120,
             )
 
             # 7. Run DDL schema and seeding
@@ -318,6 +427,9 @@ def docker_stack(services_image, helper_image, keep_containers):
             seed_res = call_helper("seed_database")
             if seed_res.get("status") not in ("success", "OK", "SUCCESS"):
                 raise RuntimeError(f"Database seeding failed: {seed_res}")
+
+            # Seeding custom variables and observations directly into Spanner emulator
+            seed_local_spanner()
 
             # 8. Boot Website container
             print(">>> Starting serving Website container...", flush=True)
@@ -442,7 +554,7 @@ def test_website_serving_home():
 
 @pytest.mark.usefixtures("docker_stack")
 def test_spanner_observations(generate_golden):
-    """Verify that Spanner contains the correct observations from the seeded frog dataset."""
+    """Verify that Spanner contains the correct observations from the seeded OECD wages dataset."""
     from google.cloud import spanner
 
     os.environ["SPANNER_EMULATOR_HOST"] = f"localhost:{SPANNER_GRPC_PORT}"
@@ -472,6 +584,33 @@ def test_spanner_observations(generate_golden):
 @pytest.mark.usefixtures("docker_stack")
 def test_website_semantic_nl_query(generate_golden):
     """Verify that Mixer fulfills NL queries using the seeded Spanner graph."""
+    import urllib.parse
+
+    from google.cloud import spanner
+
+    os.environ["SPANNER_EMULATOR_HOST"] = f"localhost:{SPANNER_GRPC_PORT}"
+
+    # Fetch a statistical variable name dynamically from Spanner Node table to stay schema agnostic
+    client = spanner.Client(project=PROJECT_ID)
+    instance = client.instance(INSTANCE_ID)
+    database = instance.database(DATABASE_ID)
+
+    stat_var_name = "Average annual wage"
+    with database.snapshot() as snapshot:
+        results = snapshot.execute_sql(
+            "SELECT name FROM Node WHERE 'StatisticalVariable' IN UNNEST(types) LIMIT 1"
+        )
+        for row in results:
+            if row[0]:
+                stat_var_name = row[0]
+                break
+
+    print(
+        f"\n>>> Running semantic NL query for: '{stat_var_name} in United States of America'",
+        flush=True,
+    )
+    query_str = urllib.parse.quote(f"{stat_var_name} in United States of America")
+
     url = f"http://localhost:{WEBSITE_PORT}/api/explore/detect-and-fulfill"
     # CAVEAT / WORKAROUND:
     # Cloud Spanner Emulator does not support vector indexes or ANN search queries
@@ -479,7 +618,7 @@ def test_website_semantic_nl_query(generate_golden):
     # We bypass it for local integration tests by disabling Spanner vector search.
     # IMPORTANT: Real GCP-based integration tests must cover this active vector search path.
     resp = requests.post(
-        f"{url}?q=Number+of+frogs+in+United+States+of+America&disable_feature=use_v2_resolve_for_nl_search_vars",
+        f"{url}?q={query_str}&disable_feature=use_v2_resolve_for_nl_search_vars",
         json={"contextHistory": []},
         timeout=120,
     )
@@ -492,9 +631,7 @@ def test_website_semantic_nl_query(generate_golden):
     # Strip dynamic debug field if it exists
     response_body.pop("debug", None)
 
-    assert_golden(
-        response_body, "nl_query_frogs_usa.json", generate_golden=generate_golden
-    )
+    assert_golden(response_body, "nl_query_usa.json", generate_golden=generate_golden)
 
 
 # =============================================================================

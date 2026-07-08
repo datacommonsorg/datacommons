@@ -1,27 +1,27 @@
 [
   {
-    "name": "Average Age of Frogs",
-    "subject_id": "Average_Age_Frog",
+    "name": "OECD Gender Wage Gap",
+    "subject_id": "OECDGenderWageGap",
     "types": [
-      "StatisticalVariable"
+      "Provenance"
     ],
-    "value": "Average Age of Frogs"
+    "value": "OECD Gender Wage Gap"
   },
   {
-    "name": "Count of Green Frogs",
-    "subject_id": "Count_Frog_Green",
+    "name": "OECD",
+    "subject_id": "OECDGroup",
     "types": [
-      "StatisticalVariable"
+      "StatVarGroup"
     ],
-    "value": "Count of Green Frogs"
+    "value": "OECD"
   },
   {
-    "name": "Count of Trumal Person",
-    "subject_id": "Count_Person_Trumal",
+    "name": "OECD Average Annual Wages",
+    "subject_id": "OECDWages",
     "types": [
-      "StatisticalVariable"
+      "Provenance"
     ],
-    "value": "Count of Trumal Person"
+    "value": "OECD Average Annual Wages"
   },
   {
     "name": "StatVarGroup",
@@ -56,6 +56,50 @@
     "value": "Topic"
   },
   {
+    "name": "Average annual wage",
+    "subject_id": "average_annual_wage",
+    "types": [
+      "StatisticalVariable"
+    ],
+    "value": "Average annual wage"
+  },
+  {
+    "name": "AUS",
+    "subject_id": "country/AUS",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "AUS"
+  },
+  {
+    "name": "AUT",
+    "subject_id": "country/AUT",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "AUT"
+  },
+  {
+    "name": "BEL",
+    "subject_id": "country/BEL",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "BEL"
+  },
+  {
+    "name": "BGR",
+    "subject_id": "country/BGR",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "BGR"
+  },
+  {
     "name": "Canada",
     "subject_id": "country/CAN",
     "types": [
@@ -63,6 +107,348 @@
       "Place"
     ],
     "value": "Canada"
+  },
+  {
+    "name": "CHE",
+    "subject_id": "country/CHE",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "CHE"
+  },
+  {
+    "name": "CHL",
+    "subject_id": "country/CHL",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "CHL"
+  },
+  {
+    "name": "COL",
+    "subject_id": "country/COL",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "COL"
+  },
+  {
+    "name": "CRI",
+    "subject_id": "country/CRI",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "CRI"
+  },
+  {
+    "name": "CYP",
+    "subject_id": "country/CYP",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "CYP"
+  },
+  {
+    "name": "CZE",
+    "subject_id": "country/CZE",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "CZE"
+  },
+  {
+    "name": "DEU",
+    "subject_id": "country/DEU",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "DEU"
+  },
+  {
+    "name": "DNK",
+    "subject_id": "country/DNK",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "DNK"
+  },
+  {
+    "name": "ESP",
+    "subject_id": "country/ESP",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "ESP"
+  },
+  {
+    "name": "EST",
+    "subject_id": "country/EST",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "EST"
+  },
+  {
+    "name": "FIN",
+    "subject_id": "country/FIN",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "FIN"
+  },
+  {
+    "name": "FRA",
+    "subject_id": "country/FRA",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "FRA"
+  },
+  {
+    "name": "GBR",
+    "subject_id": "country/GBR",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "GBR"
+  },
+  {
+    "name": "GRC",
+    "subject_id": "country/GRC",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "GRC"
+  },
+  {
+    "name": "HRV",
+    "subject_id": "country/HRV",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "HRV"
+  },
+  {
+    "name": "HUN",
+    "subject_id": "country/HUN",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "HUN"
+  },
+  {
+    "name": "IRL",
+    "subject_id": "country/IRL",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "IRL"
+  },
+  {
+    "name": "ISL",
+    "subject_id": "country/ISL",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "ISL"
+  },
+  {
+    "name": "ISR",
+    "subject_id": "country/ISR",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "ISR"
+  },
+  {
+    "name": "ITA",
+    "subject_id": "country/ITA",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "ITA"
+  },
+  {
+    "name": "JPN",
+    "subject_id": "country/JPN",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "JPN"
+  },
+  {
+    "name": "KOR",
+    "subject_id": "country/KOR",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "KOR"
+  },
+  {
+    "name": "LTU",
+    "subject_id": "country/LTU",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "LTU"
+  },
+  {
+    "name": "LUX",
+    "subject_id": "country/LUX",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "LUX"
+  },
+  {
+    "name": "LVA",
+    "subject_id": "country/LVA",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "LVA"
+  },
+  {
+    "name": "MEX",
+    "subject_id": "country/MEX",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "MEX"
+  },
+  {
+    "name": "MLT",
+    "subject_id": "country/MLT",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "MLT"
+  },
+  {
+    "name": "NLD",
+    "subject_id": "country/NLD",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "NLD"
+  },
+  {
+    "name": "NOR",
+    "subject_id": "country/NOR",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "NOR"
+  },
+  {
+    "name": "NZL",
+    "subject_id": "country/NZL",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "NZL"
+  },
+  {
+    "name": "OECD",
+    "subject_id": "country/OECD",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "OECD"
+  },
+  {
+    "name": "POL",
+    "subject_id": "country/POL",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "POL"
+  },
+  {
+    "name": "PRT",
+    "subject_id": "country/PRT",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "PRT"
+  },
+  {
+    "name": "ROU",
+    "subject_id": "country/ROU",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "ROU"
+  },
+  {
+    "name": "SVK",
+    "subject_id": "country/SVK",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "SVK"
+  },
+  {
+    "name": "SVN",
+    "subject_id": "country/SVN",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "SVN"
+  },
+  {
+    "name": "SWE",
+    "subject_id": "country/SWE",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "SWE"
+  },
+  {
+    "name": "TUR",
+    "subject_id": "country/TUR",
+    "types": [
+      "Country",
+      "Place"
+    ],
+    "value": "TUR"
   },
   {
     "name": "United States of America",
@@ -90,11 +476,11 @@
     "value": "dc/topic/Root"
   },
   {
-    "name": "Number of Frogs",
-    "subject_id": "number_of_frogs",
+    "name": "Gender wage gap",
+    "subject_id": "gender_wage_gap",
     "types": [
       "StatisticalVariable"
     ],
-    "value": "Number of Frogs"
+    "value": "Gender wage gap"
   }
 ]
