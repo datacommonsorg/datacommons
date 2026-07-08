@@ -17,19 +17,19 @@ main:
           - max_lock_retries: $${int(lock_timeout / 120)}
           - run_embeddings: ${enable_embeddings_generation}
           - run_postproc: ${enable_bigquery_postprocessing}
-          - decoded_imports: '$${json.decode(input.importList)}'
+          - decoded_imports: '$${json.decode(default(map.get(input, "importList"), "[]"))}'
           - num_imports: '$${len(decoded_imports)}'
           - combined_import_name: ""
           - prep_job_name: '${preprocessing_job_name}'
-          - comma_separated_imports: ""
+          - comma_separated_imports: '$${default(map.get(input, "imports"), "")}'
           - imports_status_list: []
           - imports_history_list: []
           - imports_version_list: []
           - launch_params:
               projectId: '$${project_id}'
-              spannerInstanceId: '$${input.spannerInstanceId}'
-              spannerDatabaseId: '$${input.spannerDatabaseId}'
-              importList: '$${input.importList}'
+              spannerInstanceId: '$${default(map.get(input, "spannerInstanceId"), "")}'
+              spannerDatabaseId: '$${default(map.get(input, "spannerDatabaseId"), "")}'
+              importList: '$${default(map.get(input, "importList"), "")}'
               tempLocation: '$${input.tempLocation}'
               stagingLocation: '$${input.tempLocation}'
               forceCombineNodes: 'true'
