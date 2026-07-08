@@ -20,6 +20,8 @@ main:
           - decoded_imports: '$${json.decode(input.importList)}'
           - num_imports: '$${len(decoded_imports)}'
           - combined_import_name: ""
+          - prep_job_name: '${clean_namespace_prefix}dc-ingestion-preprocessing-job'
+          - comma_separated_imports: ""
           - imports_status_list: []
           - imports_history_list: []
           - imports_version_list: []
@@ -48,6 +50,7 @@ main:
                   - clean_item: '$${text.replace_all(text.replace_all(text.to_lower(imp.importName), "/", "-"), "_", "-")}'
                   - join_prefix: '$${if(combined_import_name == "", "", "-")}'
                   - combined_import_name: '$${combined_import_name + join_prefix + clean_item}'
+                  - comma_separated_imports: '$${if(comma_separated_imports == "", imp.importName, comma_separated_imports + "," + imp.importName)}'
     - set_dataflow_job_name:
         assign:
           - import_name_len: '$${len(combined_import_name)}'
@@ -108,6 +111,29 @@ main:
                     imports: '$${imports_status_list}'
                     status: 'STAGING'
             
+            - run_preprocessing:
+                call: launch_and_poll_preprocessing_job
+                args:
+                  job_name: '$${prep_job_name}'
+                  workflow_id: '$${workflow_id}'
+                  temp_location: '$${input.tempLocation}'
+                  imports_arg: '$${comma_separated_imports}'
+                  region: '$${input.region}'
+                  project_id: '${project_id}'
+                result: prep_res
+
+            - read_handshake_file:
+                call: googleapis.storage.v1.objects.get
+                args:
+                  bucket: '$${bucket_name}'
+                  object: '$${"datacommons/ingestion_records/" + workflow_id + ".json"}'
+                  alt: 'media'
+                result: handshake_data
+
+            - update_launch_params:
+                assign:
+                  - launch_params.importList: '$${handshake_data.importList}'
+
             - launch_dataflow:
                 call: launch_and_poll_dataflow
                 args:
@@ -396,3 +422,55 @@ launch_and_poll_dataflow:
         return:
           job_id: $${job_id}
           launch_result: $${launch_result}
+
+launch_and_poll_preprocessing_job:
+  params: [job_name, workflow_id, temp_location, imports_arg, region, project_id]
+  steps:
+    - run_cloud_run_job:
+        call: googleapis.run.v2.projects.locations.jobs.run
+        args:
+          name: '$${"projects/" + project_id + "/locations/" + region + "/jobs/" + job_name}'
+          body:
+            overrides:
+              containerOverrides:
+                - env:
+                    - name: 'WORKFLOW_EXECUTION_ID'
+                      value: '$${workflow_id}'
+                    - name: 'TEMP_LOCATION'
+                      value: '$${temp_location}'
+                    - name: 'DATA_RUN_MODE'
+                      value: 'dcpbridge'
+                  args: ['$${"--imports=" + imports_arg}']
+        result: run_res
+
+    - assign_execution_name:
+        assign:
+          - execution_name: '$${run_res.metadata.name}'
+          
+    - poll_execution:
+        steps:
+          - get_execution:
+              call: googleapis.run.v2.projects.locations.jobs.executions.get
+              args:
+                name: '$${execution_name}'
+              result: exec_status
+          - check_exec_terminal:
+              switch:
+                - condition: '$${default(map.get(exec_status, "succeededCount"), 0) > 0 or default(map.get(exec_status, "failedCount"), 0) > 0 or default(map.get(exec_status, "cancelledCount"), 0) > 0}'
+                  next: check_exec_success
+          - wait_for_execution:
+              call: sys.sleep
+              args:
+                seconds: 30
+              next: poll_execution
+              
+    - check_exec_success:
+        switch:
+          - condition: '$${default(map.get(exec_status, "succeededCount"), 0) > 0}'
+            next: return_success
+            
+    - fail_on_exec_status:
+        raise: '$${"Preprocessing Cloud Run job failed or was cancelled: " + exec_status.name}'
+        
+    - return_success:
+        return: '$${exec_status}'

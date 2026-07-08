@@ -71,7 +71,7 @@ variable "mcp_instructions_path" {
 }
 
 variable "resolve_with_spanner_embeddings" {
-  type    = bool
+  type = bool
 }
 
 # =============================================================================
