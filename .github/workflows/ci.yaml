@@ -43,6 +43,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      - name: Checkout import repository
+        uses: actions/checkout@v5
+        with:
+          repository: datacommonsorg/import
+          path: import
+
       - name: Install uv and set the Python version
         uses: astral-sh/setup-uv@v6
         with:
@@ -61,6 +67,8 @@ jobs:
       #   HELPER_IMAGE: gcr.io/datcom-ci/datacommons-ingestion-helper:v1.2.3rc1
       #   SERVICES_IMAGE: gcr.io/datcom-ci/datacommons-services:v1.2.3rc1
       - name: Run hermetic integration test
+        env:
+          IMPORT_REPO_DIR: ${{ github.workspace }}/import
         run: uv run pytest -s tests/datacommons-integration-tests/run_local_integration_test.py
 
 
