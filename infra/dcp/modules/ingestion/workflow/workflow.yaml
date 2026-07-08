@@ -74,7 +74,7 @@ main:
         call: googleapis.storage.v1.objects.get
         args:
           bucket: '$${bucket_name}'
-          object: '$${temp_path_prefix + "/datacommons/ingestion_records/" + workflow_id + ".json"}'
+          object: '$${text.url_encode(temp_path_prefix + "/datacommons/ingestion_records/" + workflow_id + ".json")}'
           alt: 'media'
         result: handshake_data
 
