@@ -58,6 +58,33 @@ main:
           - sanitized_short_import: '$${text.substring(combined_import_name, 0, substring_end)}'
           - dataflow_job_name: '$${"${clean_namespace_prefix}" + sanitized_short_import + "-" + string(int(sys.now()))}'
     
+    - run_preprocessing:
+        call: launch_and_poll_preprocessing_job
+        args:
+          job_name: '$${prep_job_name}'
+          workflow_id: '$${workflow_id}'
+          temp_location: '$${input.tempLocation}'
+          imports_arg: '$${comma_separated_imports}'
+          region: '$${input.region}'
+          project_id: '${project_id}'
+        result: prep_res
+
+    - read_handshake_file:
+        call: googleapis.storage.v1.objects.get
+        args:
+          bucket: '$${bucket_name}'
+          object: '$${"datacommons/ingestion_records/" + workflow_id + ".json"}'
+          alt: 'media'
+        result: handshake_data
+
+    - update_launch_params:
+        assign:
+          - launch_params.spannerInstanceId: '$${handshake_data.spannerInstanceId}'
+          - launch_params.spannerDatabaseId: '$${handshake_data.spannerDatabaseId}'
+          - launch_params.importList: '$${handshake_data.importList}'
+          - launch_params.tempLocation: '$${handshake_data.tempLocation}'
+          - launch_params.stagingLocation: '$${handshake_data.tempLocation}'
+
     - try_acquire_lock:
         try:
           call: http.post
@@ -110,29 +137,6 @@ main:
                   body:
                     imports: '$${imports_status_list}'
                     status: 'STAGING'
-            
-            - run_preprocessing:
-                call: launch_and_poll_preprocessing_job
-                args:
-                  job_name: '$${prep_job_name}'
-                  workflow_id: '$${workflow_id}'
-                  temp_location: '$${input.tempLocation}'
-                  imports_arg: '$${comma_separated_imports}'
-                  region: '$${input.region}'
-                  project_id: '${project_id}'
-                result: prep_res
-
-            - read_handshake_file:
-                call: googleapis.storage.v1.objects.get
-                args:
-                  bucket: '$${bucket_name}'
-                  object: '$${"datacommons/ingestion_records/" + workflow_id + ".json"}'
-                  alt: 'media'
-                result: handshake_data
-
-            - update_launch_params:
-                assign:
-                  - launch_params.importList: '$${handshake_data.importList}'
 
             - launch_dataflow:
                 call: launch_and_poll_dataflow
