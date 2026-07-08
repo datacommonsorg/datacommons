@@ -29,14 +29,24 @@ steps:
         git checkout -b $$BRANCH_NAME
 
         # Update Version Files
+        OLD_VERSION=$$(cat VERSION)
         echo "Updating root VERSION file to $$NEW_VERSION"
         echo "$$NEW_VERSION" > VERSION
+        for pkg in packages/*; do
+          if [ -d "$$pkg" ]; then
+            echo "Updating $$pkg/VERSION to $$NEW_VERSION"
+            echo "$$NEW_VERSION" > "$$pkg/VERSION"
+          fi
+        done
+
+        # Update Terraform variables
+        find infra/dcp -type f -name "*.tf" -exec sed -i "s/$$OLD_VERSION/$$NEW_VERSION/g" {} +
         
         # Update Lockfile
         uv lock
 
         # Commit & Push
-        git add VERSION uv.lock
+        git add VERSION packages/*/VERSION infra/dcp/ uv.lock
         git commit -m "chore: bump version to $$NEW_VERSION"
         git push origin $$BRANCH_NAME --force
 
