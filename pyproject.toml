@@ -1,6 +1,6 @@
 [project]
 name = "datacommons-platform"
-version = "1.1.0"
+dynamic = ["version"]
 description = 'The Data Commons Platform is an open source semantic graph database for modeling, querying, and analyzing interconnected data.'
 readme = "README.md"
 requires-python = ">=3.11"
@@ -144,6 +144,9 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools]
 # Tell setuptools this is a meta-package and to stop looking for code
 packages = []
+
+[tool.setuptools.dynamic]
+version = {file = "VERSION"}
 
 [tool.pytest.ini_options]
 testpaths = ["packages"]
