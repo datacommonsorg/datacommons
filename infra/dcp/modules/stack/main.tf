@@ -342,3 +342,10 @@ resource "google_project_iam_member" "workflow_dataflow_developer" {
   role    = "roles/dataflow.developer"
   member  = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
+
+resource "google_project_iam_member" "workflow_run_viewer" {
+  count   = var.ingestion_config.enable_ingestion ? 1 : 0
+  project = var.global.project_id
+  role    = "roles/run.viewer"
+  member  = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
