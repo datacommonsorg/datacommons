@@ -178,7 +178,9 @@ try:
                 res[e] = e
         return res
 
-    def patched_resolve_entities(entities, entity_type=None, property_name="description"):
+    def patched_resolve_entities(
+        entities, entity_type=None, property_name="description"
+    ):
         res = {}
         for e in entities:
             if e == "country/USA":
