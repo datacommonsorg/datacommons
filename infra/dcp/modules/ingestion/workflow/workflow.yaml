@@ -40,7 +40,7 @@ main:
           - condition: '$${default(map.get(input, "importList"), "") != ""}'
             assign:
               - decoded_imports: '$${json.decode(input.importList)}'
-          - condition: '$${default(map.get(input, "imports"), []) != []}'
+          - condition: '$${len(default(map.get(input, "imports"), [])) > 0}'
             steps:
               - init_decoded:
                   assign:
