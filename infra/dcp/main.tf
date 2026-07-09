@@ -59,6 +59,8 @@ resource "google_project_service" "apis" {
 }
 
 locals {
+  dcp_version = chomp(file("${path.module}/../../VERSION"))
+
   global_config = {
     project_id                    = var.project_id
     region                        = var.region
@@ -85,7 +87,7 @@ locals {
 
   datacommons_services_config = {
     enable                          = var.enable_datacommons_services
-    image                           = var.datacommons_services_image
+    image                           = coalesce(var.datacommons_services_image, "gcr.io/datcom-ci/datacommons-services:${local.dcp_version}")
     name                            = var.datacommons_services_name
     min_instances                   = var.datacommons_services_min_instances
     max_instances                   = var.datacommons_services_max_instances
@@ -128,19 +130,19 @@ locals {
     ingestion_artifacts_path = trimsuffix(var.ingestion_artifacts_path, "/")
 
     # Preprocessing Job
-    preprocessing_job_image   = var.ingestion_preprocessing_job_image
+    preprocessing_job_image   = coalesce(var.ingestion_preprocessing_job_image, "gcr.io/datcom-ci/datacommons-data:${local.dcp_version}")
     preprocessing_job_cpu     = var.ingestion_preprocessing_job_cpu
     preprocessing_job_memory  = var.ingestion_preprocessing_job_memory
     preprocessing_job_timeout = var.ingestion_preprocessing_job_timeout
 
     # Workflow & Helper Service
     workflow_lock_acquisition_timeout = var.ingestion_workflow_lock_acquisition_timeout
-    helper_service_image              = var.ingestion_helper_service_image
+    helper_service_image              = coalesce(var.ingestion_helper_service_image, "gcr.io/datcom-ci/datacommons-ingestion-helper:${local.dcp_version}")
 
     # Dataflow Network Configuration
     dataflow_ip_configuration     = var.ingestion_dataflow_ip_configuration
     dataflow_subnetwork           = var.ingestion_dataflow_subnetwork
-    dataflow_template_gcs_path    = var.ingestion_dataflow_template_gcs_path
+    dataflow_template_gcs_path    = coalesce(var.ingestion_dataflow_template_gcs_path, "gs://datcom-templates/templates/flex/ingestion-${local.dcp_version}.json")
   }
 }
 

@@ -33,7 +33,6 @@ variable "ingestion_bucket_name" {
 
 variable "image" {
   type        = string
-  default     = "gcr.io/datcom-ci/datacommons-ingestion-helper:1.1.0"
   nullable    = false
   description = "Docker image URL for the ingestion support service"
 }
