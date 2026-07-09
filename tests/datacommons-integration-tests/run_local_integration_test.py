@@ -280,9 +280,6 @@ def create_spanner_db() -> None:
     print("  Spanner database created.", flush=True)
 
 
-
-
-
 def run_spanner_loader(compose_env: dict[str, str]) -> None:
     """Run the real Java Dataflow Spanner Loader container locally under DirectRunner."""
     print(">>> Running local Java Spanner Loader pipeline...", flush=True)
@@ -317,7 +314,6 @@ def run_spanner_loader(compose_env: dict[str, str]) -> None:
         )
 
     print(f"  Found import directories: {list(import_dirs)}", flush=True)
-
 
     try:
         # 3. Execute the Java Beam pipeline container inside the compose network 'itest-net'

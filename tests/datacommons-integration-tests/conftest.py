@@ -32,7 +32,9 @@ def pytest_addoption(parser):
         "--helper-image", default=None, help="Override default helper service image"
     )
     parser.addoption(
-        "--ingestion-image", default=None, help="Override default Java ingestion loader image"
+        "--ingestion-image",
+        default=None,
+        help="Override default Java ingestion loader image",
     )
     parser.addoption(
         "--keep-containers",
