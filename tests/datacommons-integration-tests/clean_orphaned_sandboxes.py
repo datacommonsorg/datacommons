@@ -20,7 +20,6 @@ and execute 'terraform destroy' for orphaned namespaces.
 """
 
 import argparse
-import os
 import re
 import shutil
 import subprocess
@@ -28,10 +27,14 @@ import sys
 from pathlib import Path
 
 
-def run_command(args: list[str], cwd: Path | None = None, check: bool = True) -> subprocess.CompletedProcess:
+def run_command(
+    args: list[str], cwd: Path | None = None, *, check: bool = True
+) -> subprocess.CompletedProcess:
     print(f"Running command: {' '.join(args)} (cwd: {cwd or Path.cwd()})", flush=True)
     try:
-        return subprocess.run(args, cwd=cwd, check=check, text=True, capture_output=True)
+        return subprocess.run(  # noqa: S603
+            args, cwd=cwd, check=check, text=True, capture_output=True
+        )
     except subprocess.CalledProcessError as e:
         print(f"--- COMMAND FAILED: {' '.join(args)} ---", file=sys.stderr)
         if e.stdout:
@@ -46,9 +49,9 @@ def get_active_namespaces(tf_state_bucket: str) -> list[str]:
     """Lists all prefixes (namespaces) in GCS tf-state-bucket."""
     print(f"Listing active states in gs://{tf_state_bucket}/terraform/state/...")
     try:
-        proc = run_command([
-            "gcloud", "storage", "ls", f"gs://{tf_state_bucket}/terraform/state/"
-        ])
+        proc = run_command(
+            ["gcloud", "storage", "ls", f"gs://{tf_state_bucket}/terraform/state/"]
+        )
         namespaces = []
         # Expected format: gs://bucket-name/terraform/state/itest-XXXX/
         pattern = rf"gs://{re.escape(tf_state_bucket)}/terraform/state/([^/]+)/"
@@ -56,34 +59,36 @@ def get_active_namespaces(tf_state_bucket: str) -> list[str]:
             match = re.match(pattern, line.strip())
             if match:
                 namespaces.append(match.group(1))
-        return sorted(list(set(namespaces)))
-    except Exception as e:
+        return sorted(set(namespaces))
+    except Exception as e:  # noqa: BLE001
         print(f"Error listing state directories: {e}", file=sys.stderr)
         return []
 
 
-def destroy_sandbox(project_id: str, tf_state_bucket: str, namespace: str, workspace_root: Path) -> bool:
+def destroy_sandbox(
+    project_id: str, tf_state_bucket: str, namespace: str, workspace_root: Path
+) -> bool:
     """Reconstructs local state and executes terraform destroy."""
-    print(f"\n=====================================================================")
+    print("\n=====================================================================")
     print(f" DESTROYING SANDBOX: namespace={namespace} in project={project_id}")
-    print(f"=====================================================================")
-    
-    workspace_dir = Path(f"/tmp/workspace-purge-{namespace}")
+    print("=====================================================================")
+
+    workspace_dir = Path(f"/tmp/workspace-purge-{namespace}")  # noqa: S108
     sandbox_dir = workspace_dir / namespace
-    
+
     try:
         # Create directories
         if workspace_dir.exists():
             shutil.rmtree(workspace_dir)
         sandbox_dir.mkdir(parents=True)
-        
+
         # Copy local infra modules & configs
         local_infra_dir = workspace_root / "infra" / "dcp"
         shutil.copy(local_infra_dir / "variables.tf", sandbox_dir / "variables.tf")
         shutil.copy(local_infra_dir / "outputs.tf", sandbox_dir / "outputs.tf")
         shutil.copy(local_infra_dir / "main.tf", sandbox_dir / "main.tf")
         shutil.copytree(local_infra_dir / "modules", sandbox_dir / "modules")
-        
+
         # Construct backend.tf
         backend_content = f"""terraform {{
   backend "gcs" {{
@@ -93,7 +98,7 @@ def destroy_sandbox(project_id: str, tf_state_bucket: str, namespace: str, works
 }}
 """
         (sandbox_dir / "backend.tf").write_text(backend_content, encoding="utf-8")
-        
+
         # Construct terraform.tfvars
         tfvars_content = f"""project_id = "{project_id}"
 namespace = "{namespace}"
@@ -105,32 +110,39 @@ datacommons_services_min_instances = 1
 datacommons_services_max_instances = 1
 """
         (sandbox_dir / "terraform.tfvars").write_text(tfvars_content, encoding="utf-8")
-        
+
         # Init & Destroy
         run_command(["terraform", "init"], cwd=sandbox_dir)
         run_command(["terraform", "destroy", "-auto-approve"], cwd=sandbox_dir)
-        
+
         # Delete state file in GCS
         print(f"Removing GCS state files for namespace {namespace}...")
-        run_command([
-            "gcloud", "storage", "rm", "--recursive", 
-            f"gs://{tf_state_bucket}/terraform/state/{namespace}/"
-        ])
-        
+        run_command(
+            [
+                "gcloud",
+                "storage",
+                "rm",
+                "--recursive",
+                f"gs://{tf_state_bucket}/terraform/state/{namespace}/",
+            ]
+        )
+
         print(f"Successfully destroyed sandbox resources for namespace: {namespace}")
         return True
-        
-    except Exception as e:
+
+    except Exception as e:  # noqa: BLE001
         print(f"Failed to destroy sandbox {namespace}: {e}", file=sys.stderr)
         return False
-        
+
     finally:
         if workspace_dir.exists():
             shutil.rmtree(workspace_dir)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Purge orphaned GCP sandbox integration test resources.")
+    parser = argparse.ArgumentParser(
+        description="Purge orphaned GCP sandbox integration test resources."
+    )
     parser.add_argument(
         "--project-id", default="datcom-ci", help="GCP project ID (default: datcom-ci)"
     )
@@ -154,43 +166,50 @@ def main() -> None:
         action="store_true",
         help="Destroy all active namespaces found in the state bucket",
     )
-    
+
     args = parser.parse_args()
     workspace_root = Path(__file__).resolve().parent.parent.parent
-    
+
     # 1. Fetch active namespaces
     active_namespaces = get_active_namespaces(args.tf_state_bucket)
     if not active_namespaces:
         print("No active integration test state namespaces found in GCS.")
         return
-        
+
     print(f"Active namespaces found ({len(active_namespaces)}):")
     for ns in active_namespaces:
         print(f"  - {ns}")
-        
+
     if args.list:
         return
-        
+
     # 2. Determine target namespaces
     targets = []
     if args.namespace:
         if args.namespace not in active_namespaces:
-            print(f"Error: Namespace '{args.namespace}' was not found in GCS.", file=sys.stderr)
+            print(
+                f"Error: Namespace '{args.namespace}' was not found in GCS.",
+                file=sys.stderr,
+            )
             sys.exit(1)
         targets = [args.namespace]
     elif args.all:
         targets = active_namespaces
     else:
-        print("\nSpecify either --namespace <name>, --all, or --list. See --help for details.")
+        print(
+            "\nSpecify either --namespace <name>, --all, or --list. See --help for details."
+        )
         sys.exit(1)
-        
+
     # 3. Confirm destroy
-    print(f"\nWARNING: This will permanently destroy all resources associated with the following namespaces: {', '.join(targets)}")
+    print(
+        f"\nWARNING: This will permanently destroy all resources associated with the following namespaces: {', '.join(targets)}"
+    )
     confirm = input("Are you sure you want to proceed? [y/N]: ").strip().lower()
     if confirm not in ["y", "yes"]:
         print("Aborted.")
         sys.exit(0)
-        
+
     # 4. Run destroys
     successes = 0
     failures = 0
@@ -199,10 +218,10 @@ def main() -> None:
             successes += 1
         else:
             failures += 1
-            
-    print(f"\n=====================================================================")
-    print(f" PURGE SUMMARY")
-    print(f"=====================================================================")
+
+    print("\n=====================================================================")
+    print(" PURGE SUMMARY")
+    print("=====================================================================")
     print(f"  Successes: {successes}")
     print(f"  Failures:  {failures}")
     if failures > 0:
