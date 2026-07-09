@@ -22,6 +22,11 @@ the ingestion helper service (inside the import repository).
 import os
 import sys
 
+# =========================================================================
+# TEMPORARY SPANNER EMULATOR PATCH BLOCK START
+# TODO(cleanup): Delete this entire Spanner patch block once the import
+# repository PR for Spanner emulator support is merged and released.
+# =========================================================================
 try:
     import google.cloud.spanner_admin_database_v1
     import grpc
@@ -99,6 +104,9 @@ try:
         sys.modules["clients.spanner"].DatabaseAdminClient = InsecureDatabaseAdminClient
 except ModuleNotFoundError:
     pass
+# =========================================================================
+# TEMPORARY SPANNER EMULATOR PATCH BLOCK END
+# =========================================================================
 
 try:
     import fs_gcsfs

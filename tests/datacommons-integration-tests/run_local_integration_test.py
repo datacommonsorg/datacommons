@@ -378,7 +378,11 @@ def run_spanner_loader(compose_env: dict[str, str]) -> None:
 
     print(f"  Found import directories: {list(import_dirs)}", flush=True)
 
-    # Dummy PKCS8 encoded key, not used anywhere else except avoid errors.
+    # =========================================================================
+    # TEMPORARY LOCAL EMULATOR SETUP BLOCK START
+    # TODO(cleanup): Delete this entire setup block and simplify the docker run
+    # command below once the official Java loader image has emulator support.
+    # =========================================================================
     dummy_key = (
         "-----BEGIN"
         " FAKE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC3\n-----END"
@@ -416,6 +420,9 @@ def run_spanner_loader(compose_env: dict[str, str]) -> None:
         jar_mount = ["-v", f"{jar_path}:/app/ingestion-bundled.jar"]
     else:
         print("  No local JAR detected. Falling back to container default.", flush=True)
+    # =========================================================================
+    # TEMPORARY LOCAL EMULATOR SETUP BLOCK END
+    # =========================================================================
 
     try:
         # 3. Execute the Java Beam pipeline container inside the compose network 'itest-net'
@@ -429,7 +436,7 @@ def run_spanner_loader(compose_env: dict[str, str]) -> None:
             "--network",
             "itest-net",
             "-e",
-            "GOOGLE_APPLICATION_CREDENTIALS=/app/dummy_credentials.json",
+            "GOOGLE_APPLICATION_CREDENTIALS=/app/dummy_credentials.json",  # TODO(cleanup): Delete
             "-e",
             "SPANNER_EMULATOR_HOST=spanner:15000",
             "-e",
@@ -437,9 +444,9 @@ def run_spanner_loader(compose_env: dict[str, str]) -> None:
             "-e",
             "GOOGLE_CLOUD_SPANNER_MULTIPLEXED_SESSIONS_FOR_RW=TRUE",
             "-v",
-            f"{dummy_creds_path}:/app/dummy_credentials.json",
+            f"{dummy_creds_path}:/app/dummy_credentials.json",  # TODO(cleanup): Delete
         ]
-        if jar_mount:
+        if jar_mount:  # TODO(cleanup): Delete
             cmd.extend(jar_mount)
         cmd.extend(
             [

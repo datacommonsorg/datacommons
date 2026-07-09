@@ -43,6 +43,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      # TODO(cleanup): Remove this checkout step once the official Java loader image
+      # is updated and released with Spanner emulator support natively.
       - name: Checkout import repository
         uses: actions/checkout@v5
         with:
