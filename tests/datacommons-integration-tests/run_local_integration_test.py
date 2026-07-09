@@ -29,7 +29,6 @@ import time
 import urllib.parse
 from pathlib import Path
 
-import grpc
 import pytest
 import requests
 from google.cloud import spanner
@@ -252,7 +251,7 @@ def wait_for_spanner(timeout_secs: int = 90) -> None:
             with socket.create_connection(("127.0.0.1", SPANNER_GRPC_PORT), timeout=1):
                 print("  Spanner is ready!", flush=True)
                 return
-        except (ConnectionRefusedError, socket.timeout):
+        except (TimeoutError, ConnectionRefusedError):
             time.sleep(0.5)
     raise RuntimeError(f"Spanner failed to start within {timeout_secs} seconds.")
 
@@ -340,9 +339,13 @@ def run_spanner_loader(compose_env: dict[str, str]) -> None:
             "-e",
             "NO_GCE_CHECK=true",
         ]
+        ingestion_image = compose_env.get(
+            "INGESTION_IMAGE",
+            "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion:latest",
+        )
         cmd.extend(
             [
-                "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion:1e1b0f8",
+                ingestion_image,
                 "-cp",
                 "/template/*",
                 "org.datacommons.ingestion.pipeline.GraphIngestionPipeline",
@@ -361,7 +364,7 @@ def run_spanner_loader(compose_env: dict[str, str]) -> None:
 
 
 @pytest.fixture(scope="module")
-def docker_stack(services_image, helper_image, keep_containers):
+def docker_stack(services_image, helper_image, ingestion_image, keep_containers):
     """Fixture to spin up and tear down emulated service container stack."""
     check_docker_environment()
     root_dir = Path(__file__).resolve().parent
@@ -372,6 +375,8 @@ def docker_stack(services_image, helper_image, keep_containers):
         compose_env["SERVICES_IMAGE"] = services_image
     if helper_image:
         compose_env["HELPER_IMAGE"] = helper_image
+    if ingestion_image:
+        compose_env["INGESTION_IMAGE"] = ingestion_image
 
     dc_api_key = os.environ.get("DC_API_KEY")
     if not dc_api_key:
