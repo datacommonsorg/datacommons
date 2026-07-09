@@ -51,54 +51,41 @@ def start(imports: str | None = None) -> None:
     region = get_region()
     workflow_name = get_ingestion_workflow_name()
 
-    click.secho(f"Found data job: {job_name}", fg="green")
+    click.secho(f"Found workflow: {workflow_name}", fg="green")
     click.secho(f"Found workflow service account: {sa_email}", fg="green")
     click.secho(f"Found GCP project ID: {project_id}", fg="green")
     click.secho(f"Found GCP region: {region}", fg="green")
     click.secho(
-        f"Starting Cloud Run job '{job_name}' via Admin API (this may take a few moments)...",
+        f"Starting Cloud Workflow '{workflow_name}' via Executions API (this may take a few moments)...",
         fg="bright_black",
     )
 
     client = IngestionJobClient(
-        job_name,
+        workflow_name=workflow_name,
+        job_name=job_name,
         service_account_email=sa_email,
         project_id=project_id,
         location=region,
     )
-    result = client.start_job(imports=imports)
+    result = client.start_workflow(imports=imports)
 
-    click.secho("Successfully started ingestion job!", fg="green", bold=True)
-    res_name = result.get("name") or result.get("metadata", {}).get("name")
+    click.secho("Successfully started ingestion workflow!", fg="green", bold=True)
+    res_name = result.get("name")
 
     if res_name:
-        op_pattern = r"projects/([^/]+)/locations/([^/]+)/operations/([^/]+)"
-        op_match = re.match(op_pattern, res_name)
+        exec_pattern = r"projects/([^/]+)/locations/([^/]+)/workflows/([^/]+)/executions/([^/]+)"
+        exec_match = re.match(exec_pattern, res_name)
 
-        if op_match:
-            click.secho(f"Operation details: {res_name}", fg="bright_black")
-            resp_project_id, location, operation_id = op_match.groups()
+        if exec_match:
+            resp_project_id, location, wf_name, exec_id = exec_match.groups()
+            execution_url = f"https://console.cloud.google.com/workflows/workflow/{location}/{wf_name}/executions/view/{exec_id}?project={resp_project_id}"
 
-            short_job_name = job_name.split("/")[-1] if "/" in job_name else job_name
-            job_url = f"https://console.cloud.google.com/run/jobs/details/{location}/{short_job_name}/executions?project={resp_project_id}"
-
-            click.secho("Operation ID: ", fg="cyan", bold=True, nl=False)
-            click.secho(operation_id, fg="green")
-            click.secho("Job console link: ", fg="cyan", bold=True, nl=False)
-            click.secho(job_url, fg="blue", underline=True)
+            click.secho("Execution ID: ", fg="cyan", bold=True, nl=False)
+            click.secho(exec_id, fg="green")
+            click.secho("Execution console link: ", fg="cyan", bold=True, nl=False)
+            click.secho(execution_url, fg="blue", underline=True)
         else:
-            click.secho(f"Resource details: {res_name}", fg="bright_black")
-
-        click.secho("\n[!] Note on ingestion completion", fg="yellow", bold=True)
-        click.secho(
-            "This job triggers a Cloud Workflow that runs in the background.\n"
-            "Check the Workflows console below to verify full completion.",
-            fg="yellow",
-        )
-
-        workflow_url = f"https://console.cloud.google.com/workflows/workflow/{region}/{workflow_name}/executions?project={project_id}"
-        click.secho("Workflow Console Link: ", fg="cyan", bold=True, nl=False)
-        click.secho(workflow_url, fg="blue", underline=True)
+            click.secho(f"Execution resource path: {res_name}", fg="bright_black")
 
 
 @ingest.command(name="show-config")

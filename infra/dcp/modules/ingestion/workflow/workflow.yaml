@@ -18,11 +18,11 @@ main:
           - max_lock_retries: $${int(lock_timeout / 120)}
           - run_embeddings: ${enable_embeddings_generation}
           - run_postproc: ${enable_bigquery_postprocessing}
-          - decoded_imports: '$${json.decode(default(map.get(input, "importList"), "[]"))}'
-          - num_imports: '$${len(decoded_imports)}'
+          - decoded_imports: []
+          - num_imports: 0
           - combined_import_name: ""
           - prep_job_name: '${preprocessing_job_name}'
-          - comma_separated_imports: '$${default(map.get(input, "imports"), "")}'
+          - comma_separated_imports: ""
           - imports_status_list: []
           - imports_history_list: []
           - imports_version_list: []
@@ -35,6 +35,30 @@ main:
               stagingLocation: '$${input.tempLocation}'
               forceCombineNodes: 'true'
               isBaseDc: 'false'
+    - normalize_imports:
+        switch:
+          - condition: '$${default(map.get(input, "importList"), "") != ""}'
+            assign:
+              - decoded_imports: '$${json.decode(input.importList)}'
+          - condition: '$${default(map.get(input, "imports"), []) != []}'
+            steps:
+              - init_decoded:
+                  assign:
+                    - decoded_imports: []
+              - build_decoded_loop:
+                  for:
+                    value: imp_str
+                    in: '$${input.imports}'
+                    steps:
+                      - add_to_decoded:
+                          assign:
+                            - decoded_imports: '$${list.concat(decoded_imports, {"importName": imp_str, "graphPath": ""})}'
+          - condition: true
+            assign:
+              - decoded_imports: []
+    - set_num_imports:
+        assign:
+          - num_imports: '$${len(decoded_imports)}'
     - build_lists:
         for:
           value: imp

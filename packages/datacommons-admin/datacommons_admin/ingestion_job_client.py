@@ -12,33 +12,47 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import click
 import google.auth
 from google.auth.transport.requests import AuthorizedSession
 
 
 class IngestionJobClient:
-    """Client for interacting with Cloud Run Admin API to manage CDC data ingestion jobs."""
+    """Client for interacting with Cloud Workflows and Cloud Run Admin APIs to manage CDC data ingestion."""
 
     def __init__(
         self,
         job_name: str,
+        workflow_name: str = None,
         service_account_email: str = None,
         project_id: str = None,
         location: str = None,
     ) -> None:
         self.service_account_email = service_account_email
+        self.project_id = project_id
+        self.location = location
         base_credentials, _ = google.auth.default()
 
+        if workflow_name:
+            if not workflow_name.startswith("projects/"):
+                if not project_id:
+                    raise click.ClickException(
+                        "Project ID must be provided via Terraform outputs or as an argument when workflow name is not a full resource name."
+                    )
+                if not location:
+                    raise click.ClickException(
+                        "Location must be provided via Terraform outputs or as an argument when workflow name is not a full resource name."
+                    )
+                self.full_workflow_name = (
+                    f"projects/{project_id}/locations/{location}/workflows/{workflow_name}"
+                )
+            else:
+                self.full_workflow_name = workflow_name
+        else:
+            self.full_workflow_name = None
+
         if not job_name.startswith("projects/"):
-            if not project_id:
-                raise click.ClickException(
-                    "Project ID must be provided via Terraform outputs or as an argument when job name is not a full resource name."
-                )
-            if not location:
-                raise click.ClickException(
-                    "Location must be provided via Terraform outputs or as an argument when job name is not a full resource name."
-                )
             self.full_job_name = (
                 f"projects/{project_id}/locations/{location}/jobs/{job_name}"
             )
@@ -58,27 +72,57 @@ class IngestionJobClient:
 
         self.session = AuthorizedSession(creds)
 
-    def start_job(self, imports: str | None = None) -> dict:
-        """Starts an execution of the Cloud Run job."""
-        url = f"https://run.googleapis.com/v2/{self.full_job_name}:run"
+    def start_workflow(self, imports: str | None = None) -> dict:
+        """Starts an execution of the Cloud Workflow."""
+        if not self.full_workflow_name:
+            raise click.ClickException(
+                "Workflow name must be provided to start a workflow execution."
+            )
 
-        container_override = {"env": [{"name": "DATA_RUN_MODE", "value": "dcpbridge"}]}
+        # 1. Fetch Cloud Run job configuration to get default bucket, region, etc.
+        env_vars = self.get_config()
+        env_dict = {env["name"]: env.get("value") for env in env_vars if "name" in env}
+
+        temp_location = env_dict.get("TEMP_LOCATION")
+        spanner_instance = env_dict.get("GCP_SPANNER_INSTANCE_ID")
+        spanner_database = env_dict.get("GCP_SPANNER_DATABASE_NAME")
+        region = env_dict.get("REGION", self.location)
+
+        if not temp_location:
+            raise click.ClickException(
+                "TEMP_LOCATION not found in preprocessing job environment configuration."
+            )
+
+        # 2. Parse imports argument
+        imports_list = []
         if imports:
-            container_override["args"] = [f"--imports={imports}"]
+            imports_list = [imp.strip() for imp in imports.split(",") if imp.strip()]
 
-        json_payload = {"overrides": {"containerOverrides": [container_override]}}
+        # 3. Construct payload argument (must be a JSON string)
+        argument_dict = {
+            "tempLocation": temp_location,
+            "spannerInstanceId": spanner_instance or "",
+            "spannerDatabaseId": spanner_database or "",
+            "region": region,
+            "imports": imports_list
+        }
+
+        url = f"https://workflowexecutions.googleapis.com/v1/{self.full_workflow_name}/executions"
+        json_payload = {
+            "argument": json.dumps(argument_dict)
+        }
 
         try:
             response = self.session.post(url, json=json_payload, timeout=300)
         except Exception as e:
-            msg = f"Network or authentication error connecting to Cloud Run Admin API at {url}: {e}"
+            msg = f"Network or authentication error connecting to Workflow Executions API at {url}: {e}"
             if self.service_account_email:
                 msg += f"\nFailed to impersonate {self.service_account_email}. Please ensure your GCP user account has the 'Service Account Token Creator' (roles/iam.serviceAccountTokenCreator) IAM role."
             raise click.ClickException(msg)
 
         if response.status_code == 401:
             raise click.ClickException(
-                f"HTTP 401 Unauthorized when calling Cloud Run Admin API at {url}.\n"
+                f"HTTP 401 Unauthorized when calling Workflow Executions API at {url}.\n"
                 "Your GCP credentials were rejected. Please verify your authentication.\n"
                 "To re-authenticate, run:\n"
                 "  gcloud auth application-default login"
@@ -96,7 +140,7 @@ class IngestionJobClient:
                 error_msg = response.text
 
             raise click.ClickException(
-                f"Cloud Run Admin API returned HTTP {response.status_code}: {error_msg}"
+                f"Workflow Executions API returned HTTP {response.status_code}: {error_msg}"
             )
 
         try:

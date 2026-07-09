@@ -345,24 +345,42 @@ def test_ingest_start_success(
     mock_auth_default.return_value = (mock_creds, "test-project")
 
     mock_session_inst = MagicMock()
+    
+    # Mock GET for get_config
+    mock_get_resp = MagicMock()
+    mock_get_resp.ok = True
+    mock_get_resp.json.return_value = {
+        "template": {
+            "template": {
+                "containers": [
+                    {
+                        "env": [
+                            {"name": "TEMP_LOCATION", "value": "gs://mock-bucket/temp"},
+                            {"name": "GCP_SPANNER_INSTANCE_ID", "value": "mock-instance"},
+                            {"name": "GCP_SPANNER_DATABASE_NAME", "value": "mock-db"},
+                            {"name": "REGION", "value": "us-central1"},
+                        ]
+                    }
+                ]
+            }
+        }
+    }
+    mock_session_inst.get.return_value = mock_get_resp
+
     mock_resp = MagicMock()
     mock_resp.ok = True
     mock_resp.json.return_value = {
-        "name": "projects/mock-proj/locations/us-central1/operations/op-123"
+        "name": "projects/mock-proj/locations/us-central1/workflows/mock-workflow/executions/exec-123"
     }
     mock_session_inst.post.return_value = mock_resp
     mock_session.return_value = mock_session_inst
 
     result = runner.invoke(admin, ["ingest", "start"])
     assert result.exit_code == 0
-    assert "Successfully started ingestion job!" in result.output
+    assert "Successfully started ingestion workflow!" in result.output
+    assert "Execution ID: exec-123" in result.output
     assert (
-        "Operation details: projects/mock-proj/locations/us-central1/operations/op-123"
-        in result.output
-    )
-    assert "Operation ID: op-123" in result.output
-    assert (
-        "Job console link: https://console.cloud.google.com/run/jobs/details/us-central1/mock-job/executions?project=mock-proj"
+        "Execution console link: https://console.cloud.google.com/workflows/workflow/us-central1/mock-workflow/executions/view/exec-123?project=mock-proj"
         in result.output
     )
 
@@ -466,28 +484,52 @@ def test_ingest_start_with_imports_success(
     mock_auth_default.return_value = (mock_creds, "test-project")
 
     mock_session_inst = MagicMock()
+    
+    # Mock GET for get_config
+    mock_get_resp = MagicMock()
+    mock_get_resp.ok = True
+    mock_get_resp.json.return_value = {
+        "template": {
+            "template": {
+                "containers": [
+                    {
+                        "env": [
+                            {"name": "TEMP_LOCATION", "value": "gs://mock-bucket/temp"},
+                            {"name": "GCP_SPANNER_INSTANCE_ID", "value": "mock-instance"},
+                            {"name": "GCP_SPANNER_DATABASE_NAME", "value": "mock-db"},
+                            {"name": "REGION", "value": "us-central1"},
+                        ]
+                    }
+                ]
+            }
+        }
+    }
+    mock_session_inst.get.return_value = mock_get_resp
+
     mock_resp = MagicMock()
     mock_resp.ok = True
     mock_resp.json.return_value = {
-        "name": "projects/mock-proj/locations/us-central1/operations/op-123"
+        "name": "projects/mock-proj/locations/us-central1/workflows/mock-workflow/executions/exec-123"
     }
     mock_session_inst.post.return_value = mock_resp
     mock_session.return_value = mock_session_inst
 
     result = runner.invoke(admin, ["ingest", "start", "--imports", "oecd,doubleup"])
     assert result.exit_code == 0
-    assert "Successfully started ingestion job!" in result.output
-    mock_session_inst.post.assert_called_once_with(
-        "https://run.googleapis.com/v2/projects/mock-proj/locations/us-central1/jobs/mock-job:run",
-        json={
-            "overrides": {
-                "containerOverrides": [
-                    {
-                        "env": [{"name": "DATA_RUN_MODE", "value": "dcpbridge"}],
-                        "args": ["--imports=oecd,doubleup"],
-                    }
-                ]
-            }
-        },
-        timeout=300,
-    )
+    assert "Successfully started ingestion workflow!" in result.output
+    
+    import json
+    expected_arg = {
+        "tempLocation": "gs://mock-bucket/temp",
+        "spannerInstanceId": "mock-instance",
+        "spannerDatabaseId": "mock-db",
+        "region": "us-central1",
+        "imports": ["oecd", "doubleup"]
+    }
+    
+    # Verify the API was called with the correct argument
+    called_args = mock_session_inst.post.call_args[1]
+    assert called_args["timeout"] == 300
+    called_payload = called_args["json"]
+    assert "argument" in called_payload
+    assert json.loads(called_payload["argument"]) == expected_arg
