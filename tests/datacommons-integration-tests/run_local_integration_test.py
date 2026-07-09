@@ -80,17 +80,28 @@ def run_command(
     *,
     check: bool = True,
     env: dict | None = None,
+    capture_output: bool = True,
 ) -> subprocess.CompletedProcess:
     try:
+        if capture_output:
+            return subprocess.run(  # noqa: S603
+                args,
+                cwd=cwd,
+                check=check,
+                text=True,
+                env=env,
+                capture_output=True,
+            )
         return subprocess.run(  # noqa: S603
-            args, cwd=cwd, check=check, text=True, env=env, capture_output=True
+            args, cwd=cwd, check=check, text=True, env=env
         )
     except subprocess.CalledProcessError as e:
         print(f"Command failed: {' '.join(args)}", file=sys.stderr)
-        if e.stdout:
-            print(f"Stdout:\n{e.stdout}", file=sys.stderr)
-        if e.stderr:
-            print(f"Stderr:\n{e.stderr}", file=sys.stderr)
+        if capture_output:
+            if e.stdout:
+                print(f"Stdout:\n{e.stdout}", file=sys.stderr)
+            if e.stderr:
+                print(f"Stderr:\n{e.stderr}", file=sys.stderr)
         raise e
 
 
@@ -233,16 +244,12 @@ def seed_gcs_emulator() -> None:
 def wait_for_spanner(timeout_secs: int = 90) -> None:
     """Waits for Spanner gRPC endpoint to become ready."""
 
-    import socket
-
     print("Waiting for Spanner gRPC endpoint to be ready...", flush=True)
     os.environ["SPANNER_EMULATOR_HOST"] = f"127.0.0.1:{SPANNER_GRPC_PORT}"
     start_time = time.time()
     while time.time() - start_time < timeout_secs:
         try:
-            with socket.create_connection(
-                ("127.0.0.1", SPANNER_GRPC_PORT), timeout=1
-            ):
+            with socket.create_connection(("127.0.0.1", SPANNER_GRPC_PORT), timeout=1):
                 print("  Spanner is ready!", flush=True)
                 return
         except (ConnectionRefusedError, socket.timeout):
@@ -282,19 +289,23 @@ def check_and_compile_java_loader_if_needed(
     if not pipeline_dir.exists():
         return
 
-    # If JAR does not exist at all, we don't compile (we fallback to container default)
-    if not jar_path.exists():
-        return
-
-    jar_mtime = jar_path.stat().st_mtime
     rebuild = False
-    for path in pipeline_dir.rglob("*.java"):
-        if path.stat().st_mtime > jar_mtime:
-            print(
-                f"  [Auto-Rebuild] Detected newer Java source: {path.name}", flush=True
-            )
-            rebuild = True
-            break
+    if not jar_path.exists():
+        print(
+            "  [Auto-Compile] No compiled JAR found. Compiling from source...",
+            flush=True,
+        )
+        rebuild = True
+    else:
+        jar_mtime = jar_path.stat().st_mtime
+        for path in pipeline_dir.rglob("*.java"):
+            if path.stat().st_mtime > jar_mtime:
+                print(
+                    f"  [Auto-Rebuild] Detected newer Java source: {path.name}",
+                    flush=True,
+                )
+                rebuild = True
+                break
 
     if rebuild:
         print(
@@ -322,6 +333,7 @@ def check_and_compile_java_loader_if_needed(
                     "-DskipTests",
                 ],
                 env=compose_env,
+                capture_output=False,
             )
             print(">>> Java auto-compilation completed successfully!", flush=True)
         except Exception as e:  # noqa: BLE001
@@ -443,7 +455,7 @@ def run_spanner_loader(compose_env: dict[str, str]) -> None:
                 f"--importList={json.dumps(import_list)}",
             ]
         )
-        run_command(cmd, env=compose_env)
+        run_command(cmd, env=compose_env, capture_output=False)
     finally:
         # Clean up temporary credentials file
         if dummy_creds_path.exists():
