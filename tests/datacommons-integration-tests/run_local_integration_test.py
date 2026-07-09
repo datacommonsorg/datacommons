@@ -26,9 +26,9 @@ import time
 from pathlib import Path
 
 import grpc
-from google.cloud import spanner
 import pytest
 import requests
+from google.cloud import spanner
 
 # =============================================================================
 # Parameterized Configuration Constants
@@ -207,7 +207,6 @@ def call_helper(action_type: str) -> dict:
         raise RuntimeError(
             f"HTTP call to Ingestion Helper failed for action {action_type}: {e}"
         ) from e  # noqa: BLE001
-
 
 
 # =============================================================================
