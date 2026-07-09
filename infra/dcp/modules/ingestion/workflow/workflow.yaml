@@ -52,7 +52,10 @@ main:
                     steps:
                       - add_to_decoded:
                           assign:
-                            - decoded_imports: '$${list.concat(decoded_imports, {"importName": imp_str, "graphPath": ""})}'
+                            - new_item:
+                                importName: '$${imp_str}'
+                                graphPath: ""
+                            - decoded_imports: '$${list.concat(decoded_imports, new_item)}'
           - condition: true
             assign:
               - decoded_imports: []
