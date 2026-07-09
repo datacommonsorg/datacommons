@@ -19,10 +19,10 @@ services:
     networks:
       - test-network
 
-  ingestion-processor:
+  datacommons-data-processor:
     image: ${PROCESSOR_IMAGE:-gcr.io/datcom-ci/datacommons-data:latest}
     platform: linux/amd64
-    container_name: itest-ingestion-processor
+    container_name: itest-datacommons-data-processor
     volumes:
       - ./patch_credentials.py:/app/patch/sitecustomize.py
     environment:
@@ -68,6 +68,8 @@ services:
       - spanner
     networks:
       - test-network
+    extra_hosts:
+      - "metadata.google.internal:127.0.0.1"
 
 
   website:
@@ -78,8 +80,10 @@ services:
     ports:
       - "${WEBSITE_PORT:-8082}:8080"
     volumes:
+      - ./patch_credentials.py:/workspace/patch/sitecustomize.py
       - ./custom_feature_flags.yaml:/workspace/deploy/featureflags/custom.yaml
     environment:
+      - PYTHONPATH=/workspace/patch
       - PORT=8080
       - SPANNER_EMULATOR_HOST=spanner:${SPANNER_INTERNAL_GRPC_PORT:-15000}
       - STORAGE_EMULATOR_HOST=http://gcs:9099
@@ -101,6 +105,8 @@ services:
       - mock-nl-server
     networks:
       - test-network
+    extra_hosts:
+      - "metadata.google.internal:127.0.0.1"
 
   mock-nl-server:
     image: python:3.11-slim

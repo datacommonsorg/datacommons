@@ -3,6 +3,6 @@
 #   cp docker-compose.override.yml.example docker-compose.override.yml
 #
 services:
-  ingestion-processor:
+  datacommons-data-processor:
     volumes:
       - ${IMPORT_REPO_DIR:-../../../import}/simple:/workspace/import/simple

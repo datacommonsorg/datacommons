@@ -598,7 +598,7 @@ def docker_stack(services_image, helper_image, keep_containers):
                     str(compose_file),
                     "run",
                     "--rm",
-                    "ingestion-processor",
+                    "datacommons-data-processor",
                 ],
                 env=compose_env,
             )

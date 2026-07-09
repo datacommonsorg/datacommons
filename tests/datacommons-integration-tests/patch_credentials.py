@@ -102,7 +102,20 @@ except ModuleNotFoundError:
 
 try:
     import fs_gcsfs
+    from google.auth.credentials import AnonymousCredentials
     from google.cloud import storage
+
+    original_storage_client_init = storage.Client.__init__
+
+    def patched_storage_client_init(self, *args, **kwargs):
+        emulator_host = os.getenv("STORAGE_EMULATOR_HOST")
+        if emulator_host:
+            kwargs["credentials"] = AnonymousCredentials()
+            if "project" not in kwargs or not kwargs["project"]:
+                kwargs["project"] = "test-project"
+        original_storage_client_init(self, *args, **kwargs)
+
+    storage.Client.__init__ = patched_storage_client_init
 
     original_bucket_get_blob = storage.Bucket.get_blob
     original_makedir = fs_gcsfs._gcsfs.GCSFS.makedir
