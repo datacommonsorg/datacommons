@@ -1,0 +1,5 @@
+default_indexes:
+  - medium_ft
+enabled_indexes:
+  - medium_ft
+enable_reranking: false
