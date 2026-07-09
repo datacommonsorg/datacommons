@@ -281,66 +281,7 @@ def create_spanner_db() -> None:
     print("  Spanner database created.", flush=True)
 
 
-def check_and_compile_java_loader_if_needed(
-    import_repo_dir: str, jar_path: Path, compose_env: dict[str, str]
-) -> None:
-    """Detects if Java source files are newer than the compiled JAR and auto-rebuilds via Maven container."""
-    pipeline_dir = Path(import_repo_dir) / "pipeline"
-    if not pipeline_dir.exists():
-        return
 
-    rebuild = False
-    if not jar_path.exists():
-        print(
-            "  [Auto-Compile] No compiled JAR found. Compiling from source...",
-            flush=True,
-        )
-        rebuild = True
-    else:
-        jar_mtime = jar_path.stat().st_mtime
-        for path in pipeline_dir.rglob("*.java"):
-            if path.stat().st_mtime > jar_mtime:
-                print(
-                    f"  [Auto-Rebuild] Detected newer Java source: {path.name}",
-                    flush=True,
-                )
-                rebuild = True
-                break
-
-    if rebuild:
-        print(
-            ">>> Java source files are newer than compiled JAR. Automatically compiling...",
-            flush=True,
-        )
-        try:
-            # We compile using Maven Docker container so no host Java installation is required
-            run_command(
-                [
-                    "docker",
-                    "run",
-                    "--rm",
-                    "-v",
-                    f"{import_repo_dir}:/workspace",
-                    "-w",
-                    "/workspace",
-                    "maven:3.9.6-eclipse-temurin-17",
-                    "mvn",
-                    "clean",
-                    "package",
-                    "-pl",
-                    "pipeline/ingestion",
-                    "-am",
-                    "-DskipTests",
-                ],
-                env=compose_env,
-                capture_output=False,
-            )
-            print(">>> Java auto-compilation completed successfully!", flush=True)
-        except Exception as e:  # noqa: BLE001
-            print(
-                f"WARNING: Java auto-compilation failed. Falling back to existing JAR. Error: {e}",
-                flush=True,
-            )
 
 
 def run_spanner_loader(compose_env: dict[str, str]) -> None:
@@ -378,51 +319,6 @@ def run_spanner_loader(compose_env: dict[str, str]) -> None:
 
     print(f"  Found import directories: {list(import_dirs)}", flush=True)
 
-    # =========================================================================
-    # TEMPORARY LOCAL EMULATOR SETUP BLOCK START
-    # TODO(cleanup): Delete this entire setup block and simplify the docker run
-    # command below once the official Java loader image has emulator support.
-    # =========================================================================
-    dummy_key = (
-        "-----BEGIN"
-        " FAKE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC3\n-----END"
-        " FAKE KEY-----\n"
-    )
-
-    dummy_creds = {
-        "type": "service_account",
-        "project_id": "default",
-        "private_key_id": "dummy",
-        "private_key": dummy_key,
-        "client_email": "dummy@default.iam.gserviceaccount.com",
-        "client_id": "1234567890",
-    }
-    root_dir = Path(__file__).resolve().parent
-    dummy_creds_path = root_dir / "dummy_credentials.json"
-    with dummy_creds_path.open("w") as f:
-        json.dump(dummy_creds, f)
-
-    # Resolve the import repository directory (relative default of sibling directory)
-    import_repo_dir = os.environ.get("IMPORT_REPO_DIR") or str(
-        Path(__file__).resolve().parents[3] / "import"
-    )
-    jar_path = (
-        Path(import_repo_dir)
-        / "pipeline/ingestion/target/ingestion-bundled-0.1-SNAPSHOT.jar"
-    )
-
-    # Automatically check and rebuild JAR if Java files changed
-    check_and_compile_java_loader_if_needed(import_repo_dir, jar_path, compose_env)
-
-    jar_mount = []
-    if jar_path.exists() and jar_path.is_file():
-        print(f"  Detected local compiled Java JAR, mounting: {jar_path}", flush=True)
-        jar_mount = ["-v", f"{jar_path}:/app/ingestion-bundled.jar"]
-    else:
-        print("  No local JAR detected. Falling back to container default.", flush=True)
-    # =========================================================================
-    # TEMPORARY LOCAL EMULATOR SETUP BLOCK END
-    # =========================================================================
 
     try:
         # 3. Execute the Java Beam pipeline container inside the compose network 'itest-net'
@@ -436,23 +332,20 @@ def run_spanner_loader(compose_env: dict[str, str]) -> None:
             "--network",
             "itest-net",
             "-e",
-            "GOOGLE_APPLICATION_CREDENTIALS=/app/dummy_credentials.json",  # TODO(cleanup): Delete
-            "-e",
             "SPANNER_EMULATOR_HOST=spanner:15000",
             "-e",
             "GOOGLE_CLOUD_SPANNER_MULTIPLEXED_SESSIONS=TRUE",
             "-e",
             "GOOGLE_CLOUD_SPANNER_MULTIPLEXED_SESSIONS_FOR_RW=TRUE",
-            "-v",
-            f"{dummy_creds_path}:/app/dummy_credentials.json",  # TODO(cleanup): Delete
+            "-e",
+            "NO_GCE_CHECK=true",
         ]
-        if jar_mount:  # TODO(cleanup): Delete
-            cmd.extend(jar_mount)
         cmd.extend(
             [
-                "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion:1.1.0",
-                "-jar",
-                "/app/ingestion-bundled.jar",
+                "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion:1e1b0f8",
+                "-cp",
+                "/template/*",
+                "org.datacommons.ingestion.pipeline.GraphIngestionPipeline",
                 "--runner=DirectRunner",
                 "--projectId=default",
                 "--spannerInstanceId=default",
@@ -464,9 +357,7 @@ def run_spanner_loader(compose_env: dict[str, str]) -> None:
         )
         run_command(cmd, env=compose_env, capture_output=False)
     finally:
-        # Clean up temporary credentials file
-        if dummy_creds_path.exists():
-            dummy_creds_path.unlink()
+        pass
 
 
 @pytest.fixture(scope="module")
