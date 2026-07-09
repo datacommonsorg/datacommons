@@ -59,7 +59,7 @@ resource "google_project_service" "apis" {
 }
 
 locals {
-  dcp_version = chomp(file("${path.module}/../../VERSION"))
+  dcp_version = "1.1.0"
 
   global_config = {
     project_id                    = var.project_id
