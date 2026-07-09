@@ -154,4 +154,54 @@ try:
 except ModuleNotFoundError:
     pass
 
+try:
+    for p in ["/workspace/import/simple", os.getcwd()]:
+        if p not in sys.path:
+            sys.path.append(p)
+
+    from util import dc_client
+
+    def patched_get_property_of_entities(entities, property_name):
+        res = {}
+        for e in entities:
+            if "name" in property_name:
+                if e == "country/USA":
+                    res[e] = "United States of America"
+                else:
+                    res[e] = e
+            elif "typeOf" in property_name:
+                if e.startswith("country/") or e.startswith("geoId/"):
+                    res[e] = "Country"
+                else:
+                    res[e] = e
+            else:
+                res[e] = e
+        return res
+
+    def patched_resolve_entities(entities, entity_type=None, property_name="description"):
+        res = {}
+        for e in entities:
+            if e == "country/USA":
+                res[e] = "United States of America"
+            else:
+                res[e] = e
+        return res
+
+    def patched_get_entities_of_type(entity_type, next_token=None):
+        return {}, ""
+
+    def patched_resolve_entity_type(entity_dcids):
+        if len(entity_dcids) == 1:
+            e = entity_dcids[0]
+            if e.startswith("country/") or e.startswith("geoId/"):
+                return "Country"
+        return ""
+
+    dc_client.get_property_of_entities = patched_get_property_of_entities
+    dc_client.resolve_entities = patched_resolve_entities
+    dc_client.get_entities_of_type = patched_get_entities_of_type
+    dc_client.resolve_entity_type = patched_resolve_entity_type
+except (ImportError, ModuleNotFoundError):
+    pass
+
 __version__ = "0.0.0-dev"

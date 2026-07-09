@@ -233,18 +233,19 @@ def seed_gcs_emulator() -> None:
 def wait_for_spanner(timeout_secs: int = 90) -> None:
     """Waits for Spanner gRPC endpoint to become ready."""
 
-    from google.api_core.exceptions import GoogleAPICallError
+    import socket
 
     print("Waiting for Spanner gRPC endpoint to be ready...", flush=True)
     os.environ["SPANNER_EMULATOR_HOST"] = f"127.0.0.1:{SPANNER_GRPC_PORT}"
     start_time = time.time()
     while time.time() - start_time < timeout_secs:
         try:
-            client = spanner.Client(project=PROJECT_ID)
-            list(client.list_instances())
-            print("  Spanner is ready!", flush=True)
-            return
-        except (GoogleAPICallError, grpc.RpcError):
+            with socket.create_connection(
+                ("127.0.0.1", SPANNER_GRPC_PORT), timeout=1
+            ):
+                print("  Spanner is ready!", flush=True)
+                return
+        except (ConnectionRefusedError, socket.timeout):
             time.sleep(0.5)
     raise RuntimeError(f"Spanner failed to start within {timeout_secs} seconds.")
 
