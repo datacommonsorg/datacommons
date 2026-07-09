@@ -6,11 +6,11 @@ This repository implements lockstep versioning and automated CI/CD workflows usi
 
 ## 1. Lockstep Versioning
 
-All tracked packages (`packages/datacommons-admin` and `packages/datacommons-cli`) and the root project share the identical version number. 
+All tracked packages (under `packages/`) and the root project share an identical version number. 
 
-Version changes are managed via automated inline replacements in:
-* `__version__` within package `version.py` files (`packages/*/datacommons_*/version.py`).
-* `version` within the root [pyproject.toml](../pyproject.toml).
+Version changes are single-sourced via the root [VERSION](../VERSION) file:
+* **Build-time:** Sub-packages resolve their version dynamically via a symlinked `VERSION` file in their directory.
+* **Runtime:** Sub-packages resolve their `__version__` attribute dynamically using `importlib.metadata.version()`.
 
 ---
 
@@ -33,8 +33,9 @@ Automated builds are powered by **Google Cloud Build** in two distinct release t
 ## 3. Release Workflows
 
 ### Step 1: Bump Version & Prepare PR
-Run a manual Cloud Build job to create the automated version-bump branch and Pull Request:
 
+#### Recommended: Automated via Cloud Build
+Trigger the Cloud Build job to automatically create a version-bump branch and GitHub Pull Request:
 ```bash
 gcloud builds submit \
   --config deploy/bump_version.yaml \
@@ -42,9 +43,13 @@ gcloud builds submit \
   --project="datcom-ci" \
   .
 ```
+1. Go to GitHub and locate the auto-created PR (e.g., `chore: bump version to <new_version>`).
+2. Review, approve, and merge the PR into `main`.
 
-1. Review the generated Pull Request (e.g., `chore: bump version to <new_version>`).
-2. Approve and merge the PR into `main`.
+#### Alternative: Manual Local Bump (Not Recommended)
+1. Update the version string in [VERSION](../VERSION) (e.g., `1.2.3`).
+2. Run `uv lock && uv sync` to update the lockfile and sync package installations.
+3. Commit `VERSION` and `uv.lock`, push to a new branch, and create a Pull Request against `main`.
 
 ### Step 2: Cut a Release
 Once the version PR is merged into `main`:
@@ -63,4 +68,4 @@ Once the version-bump Pull Request is merged into `main`, a draft release will b
 3. Click **Edit** (pencil icon), review the generated release notes, and click **Publish release** to tag the repository and trigger the production publishing pipeline.
 
 > [!WARNING]
-> The tag published via the GitHub Release must match the version configured in the `bump_version.yaml` workflow to prevent deployment failures or version mismatches.
+> The tag published via the GitHub Release (or git command line) must match the version configured in the [VERSION](../VERSION) file to prevent deployment failures or version mismatches.

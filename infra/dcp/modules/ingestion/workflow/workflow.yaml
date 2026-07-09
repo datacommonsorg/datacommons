@@ -160,6 +160,7 @@ main:
                   auth:
                     type: OIDC
                   body:
+                    workflowId: '$${workflow_id}'
                     imports: '$${imports_status_list}'
                     status: 'STAGING'
 
@@ -227,6 +228,7 @@ main:
                   auth:
                     type: OIDC
                   body:
+                    workflowId: '$${workflow_id}'
                     imports: '$${imports_version_list}'
                     version: '$${version}'
                     comment: '$${"Auto-promoted by workflow " + workflow_id}'

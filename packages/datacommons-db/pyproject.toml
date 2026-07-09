@@ -38,4 +38,4 @@ requires = ["uv", "setuptools"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.dynamic]
-version = {attr = "datacommons_db.__version__"}
+version = {file = "VERSION"}
