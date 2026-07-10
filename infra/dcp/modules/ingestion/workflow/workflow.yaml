@@ -51,8 +51,13 @@ main:
                     in: '$${input.imports}'
                     steps:
                       - add_to_decoded:
-                          assign:
-                            - decoded_imports: '$${list.concat(decoded_imports, [json.decode("{\"importName\":\"" + imp_str + "\",\"graphPath\":\"\"}")] )}'
+                          switch:
+                            - condition: '$${len(decoded_imports) == 0}'
+                              assign:
+                                - decoded_imports: '$${json.decode("[{\"importName\":\"" + imp_str + "\",\"graphPath\":\"\"}]")}'
+                            - condition: true
+                              assign:
+                                - decoded_imports: '$${list.concat(decoded_imports, json.decode("[{\"importName\":\"" + imp_str + "\",\"graphPath\":\"\"}]") )}'
           - condition: true
             assign:
               - decoded_imports: []
