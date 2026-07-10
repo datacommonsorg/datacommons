@@ -159,6 +159,31 @@ try:
 
     storage.Bucket.get_blob = patched_bucket_get_blob
     fs_gcsfs._gcsfs.GCSFS.makedir = patched_makedir
+
+    if not os.getenv("PORT"):
+        for p in ["/import/simple", "/workspace/import/simple", os.getcwd()]:
+            if p not in sys.path:
+                sys.path.append(p)
+
+        try:
+            from util import filesystem
+            original_open_dir = filesystem.Dir.open_dir
+
+            def patched_open_dir(self, path):
+                full_gcs_path = self.full_path(path)
+                if isinstance(full_gcs_path, str) and full_gcs_path.startswith("gs://"):
+                    try:
+                        gcs_rel_path = full_gcs_path.split("://", 1)[1].split("/", 1)[1]
+                        if not gcs_rel_path.endswith("/"):
+                            gcs_rel_path += "/"
+                        created_dirs.add(gcs_rel_path)
+                    except (IndexError, NameError):
+                        pass
+                return original_open_dir(self, path)
+
+            filesystem.Dir.open_dir = patched_open_dir
+        except (ImportError, ModuleNotFoundError):
+            pass
 except ModuleNotFoundError:
     pass
 
