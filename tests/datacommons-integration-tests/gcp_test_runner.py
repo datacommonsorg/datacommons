@@ -340,7 +340,6 @@ def upload_dataset_to_gcs(bucket_name: str, wages_data_dir: Path) -> None:
     log_success("Uploaded dataset to GCS")
 
 
-
 def run_database_schema_setup(workspace_root: Path, sandbox_dir: Path) -> None:
     """Initializes and seeds the Spanner database using the dcp admin CLI."""
     log_step("Initializing and seeding Spanner database...")
@@ -521,7 +520,6 @@ def verify_spanner_records(
 
 
 # Note: API verifications and assertions have been moved to pytest suites in tests/datacommons-integration-tests/suites/
-
 
 
 def run_serving_proxy_tests(service_name: str, region: str, project_id: str) -> None:
@@ -782,7 +780,6 @@ def main() -> None:
             validate_mcf_file(wages_data_dir / "average_annual_wage.mcf")
             validate_mcf_file(wages_data_dir / "gender_wage_gap.mcf")
 
-
             # 2. Initialize configuration via CLI and setup overrides
             dc_key = resolve_api_key(args.project_id, args.dc_api_key)
             if not dc_key:
@@ -813,7 +810,6 @@ def main() -> None:
             if args.dcp_version:
                 tfvars_overrides["dcp_version"] = args.dcp_version
 
-
             configure_tfvars(sandbox_dir, tfvars_overrides)
 
             # 4. Provision Infrastructure (Terraform Apply)
@@ -824,7 +820,6 @@ def main() -> None:
         root_dir = Path(__file__).resolve().parent.parent.parent
         wages_data_dir = root_dir / "samples" / "OECD_wage_data"
         upload_dataset_to_gcs(outputs["bucket_name"], wages_data_dir)
-
 
         # 6. Initialize Spanner DB Schemas
         run_database_schema_setup(workspace_root, sandbox_dir)

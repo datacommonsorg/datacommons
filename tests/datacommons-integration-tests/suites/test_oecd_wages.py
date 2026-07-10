@@ -26,16 +26,24 @@ def test_verify_wages_data(target_url, api_client):
     resp = api_client(target_url, path, headers={"X-Use-Multi-Entity-Schema": "true"})
 
     by_var = resp.get("byVariable", {})
-    assert "average_annual_wage" in by_var, f"Expected variable 'average_annual_wage' in response, got: {resp}"
+    assert "average_annual_wage" in by_var, (
+        f"Expected variable 'average_annual_wage' in response, got: {resp}"
+    )
 
     by_entity = by_var["average_annual_wage"].get("byEntity", {})
-    assert "country/USA" in by_entity and "country/CAN" in by_entity, f"Expected entities 'country/USA' and 'country/CAN', got: {by_entity.keys()}"
+    assert "country/USA" in by_entity, f"Expected entity 'country/USA' in response, got: {by_entity.keys()}"
+    assert "country/CAN" in by_entity, f"Expected entity 'country/CAN' in response, got: {by_entity.keys()}"
+
 
     for entity_dcid, entity_data in by_entity.items():
         facets = entity_data.get("orderedFacets", [])
-        assert facets, f"Expected orderedFacets list for {entity_dcid}, got: {entity_data}"
+        assert facets, (
+            f"Expected orderedFacets list for {entity_dcid}, got: {entity_data}"
+        )
         observations = facets[0].get("observations", [])
-        assert observations, f"Expected observations list for {entity_dcid}, got: {entity_data}"
+        assert observations, (
+            f"Expected observations list for {entity_dcid}, got: {entity_data}"
+        )
 
 
 def test_v2_bulk_variable_group_info_unconstrained(target_url, api_client):
@@ -58,7 +66,9 @@ def test_v2_bulk_variable_group_info_constrained_vat(target_url, api_client):
 
 def test_v2_resolve_indicator_food_waste(target_url, api_client):
     """Test 4: V2 Resolve - Indicator resolver (Food Waste)"""
-    path = "/core/api/v2/resolve?nodes=food%20waste&resolver=indicator&target=custom_only"
+    path = (
+        "/core/api/v2/resolve?nodes=food%20waste&resolver=indicator&target=custom_only"
+    )
     api_client(target_url, path)
 
 
@@ -71,7 +81,9 @@ def test_v2_resolve_indicator_wages(target_url, api_client):
     assert entities, f"Expected non-empty 'entities' list, got: {resp}"
 
     node_res = entities[0]
-    assert node_res.get("node") == "wages", f"Expected resolved node for 'wages', got: {node_res}"
+    assert node_res.get("node") == "wages", (
+        f"Expected resolved node for 'wages', got: {node_res}"
+    )
 
     candidates = node_res.get("candidates", [])
     assert candidates, f"Expected resolved candidates for 'wages', got: {node_res}"
@@ -79,4 +91,6 @@ def test_v2_resolve_indicator_wages(target_url, api_client):
     has_sv = any(
         c.get("dcid") in ("average_annual_wage", "gender_wage_gap") for c in candidates
     )
-    assert has_sv, f"Expected resolved candidate to match 'average_annual_wage' or 'gender_wage_gap', got: {candidates}"
+    assert has_sv, (
+        f"Expected resolved candidate to match 'average_annual_wage' or 'gender_wage_gap', got: {candidates}"
+    )
