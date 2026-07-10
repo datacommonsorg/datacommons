@@ -67,11 +67,17 @@ main:
             - append_lists:
                 assign:
                   - item_gcs_path: '$${"gs://" + bucket_name + "/${ingestion_artifacts_path}/" + imp.importName + "/" + version}'
-                  - status_item: { importName: '$${imp.importName}', latestVersion: '$${item_gcs_path}', graphPath: '$${imp.graphPath}', status: "STAGING" }
-                  - history_item: { importName: '$${imp.importName}', latestVersion: '$${version}' }
-                  - imports_status_list: '$${list.concat(imports_status_list, status_item)}'
-                  - imports_history_list: '$${list.concat(imports_history_list, history_item)}'
-                  - imports_version_list: '$${list.concat(imports_version_list, imp.importName)}'
+                  - status_item: {}
+                  - status_item.importName: '$${imp.importName}'
+                  - status_item.latestVersion: '$${item_gcs_path}'
+                  - status_item.graphPath: '$${imp.graphPath}'
+                  - status_item.status: "STAGING"
+                  - history_item: {}
+                  - history_item.importName: '$${imp.importName}'
+                  - history_item.latestVersion: '$${version}'
+                  - imports_status_list: '$${list.concat(imports_status_list, [status_item])}'
+                  - imports_history_list: '$${list.concat(imports_history_list, [history_item])}'
+                  - imports_version_list: '$${list.concat(imports_version_list, [imp.importName])}'
                   - clean_item: '$${text.replace_all(text.replace_all(text.to_lower(imp.importName), "/", "-"), "_", "-")}'
                   - join_prefix: '$${if(combined_import_name == "", "", "-")}'
                   - combined_import_name: '$${combined_import_name + join_prefix + clean_item}'
