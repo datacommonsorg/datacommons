@@ -58,43 +58,32 @@ You can modify the flags inside `custom_feature_flags.yaml` if you need to tweak
 
 ## GCP Sandbox Integration Tests
 
-In addition to local emulated tests, this package includes a script to run automated, end-to-end integration tests on **real GCP sandbox resources**. This validates Terraform scaffolding, GCS transfers, Spanner database seeding, Cloud Workflow executions, and Cloud Run web server APIs.
+In addition to local emulated tests, this package includes a script to run automated, end-to-end integration tests on GCP real resources. This validates Terraform scaffolding, GCS, Spanner database seeding, Cloud Workflow executions, and Cloud Run web server APIs.
 
 ### Running the GCP Tests
 
 To run the GCP integration test suite (requires authenticated GCP CLI access):
 ```bash
-python3 tests/datacommons-integration-tests/run_gcp_integration_test.py \
+uv run python tests/datacommons-integration-tests/run_gcp_integration_test.py \
     --project-id <YOUR_GCP_PROJECT_ID> \
     --dc-api-key "YOUR_GOOGLE_DATA_COMMONS_API_KEY"
 ```
 
 Alternatively, you can pass the API key via an environment variable:
 ```bash
-DC_API_KEY="YOUR_API_KEY" python3 tests/datacommons-integration-tests/run_gcp_integration_test.py \
+DC_API_KEY="YOUR_API_KEY" uv run python tests/datacommons-integration-tests/run_gcp_integration_test.py \
     --project-id <YOUR_GCP_PROJECT_ID>
 ```
 
 ### Script Arguments
+*   `--project-id`: GCP Project ID (default: `datcom-ci`).
+*   `--dc-api-key`: Data Commons API Key.
+*   `--region`: GCP region (default: `us-central1`).
+*   `--namespace`: Custom resource naming namespace (default: randomized `itest-XXXX`).
+*   `--keep-sandbox`: Do not destroy sandbox GCP resources on completion (useful for debugging).
+*   `--reuse-sandbox`: Reuse existing sandbox resources (requires passing persistent `--namespace` and having run with `--keep-sandbox` previously).
+*   `--tf-git-ref`: Git reference for the Terraform templates repository (default: `main`).
+*   `--services-image`, `--preprocessing-image`, `--helper-image`: Override container images deployed during provisioning.
 
-*   `--project-id`: The Google Cloud Project ID where the sandbox resources should be provisioned (default: `datcom-ci`).
-*   `--dc-api-key`: Google Data Commons API Key needed to authenticate and configure sandbox clients.
-*   `--region`: The GCP region to deploy resources (default: `us-central1`).
-*   `--namespace`: Custom naming namespace for resources (default: randomized `itest-XXXX`).
-*   `--keep-sandbox`: Do not destroy sandbox GCP resources on completion/failure. Useful for debugging active instances.
-*   `--reuse-sandbox`: Reuse existing local workspace and GCP sandbox resources if they exist. Requires passing a persistent, custom `--namespace` (e.g. `--namespace itest-9611`) and having run with `--keep-sandbox` in the previous run.
-*   `--tf-git-ref`: Git reference branch/tag/commit for the GCP Terraform templates repository (default: `main`).
-*   `--services-image`, `--preprocessing-image`, `--helper-image`: Override container image tags deployed during provisioning.
-
-### E2E Verification Stages & Philosophy
-
-Once the GCP sandbox stack is up and seeded with dataset MCFs, the script triggers the entire API verification suite concurrently. This validates three core capabilities of the deployed Data Commons Platform backend:
-
-*   **Stage A: V2 Observations & Custom Data Retrieval**
-    *   *Philosophy:* Validates E2E query routing and data loading for both standard and custom variables. It queries base DC SDG indicators to verify backward compatibility with global schemas, and asserts observations values on custom seeded frog metrics to verify local database mapping and seeding.
-*   **Stage B: V2 Bulk Group Info & Hierarchy Resolution**
-    *   *Philosophy:* Verifies category tree resolution and variable grouping APIs. This validates that the serving container's Mixer component correctly processes unconstrained hierarchy crawls and handles location constraints (e.g. comparing available variables for USA vs Vatican City) without backend lookup errors.
-*   **Stage C: V2 Embeddings & Natural Language Resolution**
-    *   *Philosophy:* Validates custom search index and embeddings generation. This checks that the Ingestion Helper successfully generated vector coordinates from custom MCs, loaded them into Spanner, and that the Resolver can map natural language queries (like "frogs") back to these custom database entities.
 
 

@@ -32,6 +32,11 @@ def pytest_addoption(parser):
         "--helper-image", default=None, help="Override default helper service image"
     )
     parser.addoption(
+        "--ingestion-image",
+        default=None,
+        help="Override default Java ingestion loader image",
+    )
+    parser.addoption(
         "--keep-containers",
         action="store_true",
         help="Do not tear down containers on completion/failure",
@@ -56,6 +61,11 @@ def services_image(request):
 @pytest.fixture(scope="session")
 def helper_image(request):
     return request.config.getoption("--helper-image")
+
+
+@pytest.fixture(scope="session")
+def ingestion_image(request):
+    return request.config.getoption("--ingestion-image")
 
 
 @pytest.fixture(scope="session")

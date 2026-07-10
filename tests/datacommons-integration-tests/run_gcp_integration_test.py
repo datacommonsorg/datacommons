@@ -303,32 +303,34 @@ def run_terraform_apply(sandbox_dir: Path) -> dict[str, str]:
     return outputs
 
 
-def upload_dataset_to_gcs(bucket_name: str, frog_data_dir: Path) -> None:
+def upload_dataset_to_gcs(bucket_name: str, wages_data_dir: Path) -> None:
     """Verifies test files and uploads observations, schema, and configs to GCS."""
     log_step(f"Uploading files to GCS bucket: gs://{bucket_name}/ingestion/input/...")
 
-    csv_path = frog_data_dir / "observations.csv"
-    mcf_path = frog_data_dir / "schema.mcf"
-    config_path = frog_data_dir / "config.json"
+    files_to_upload = [
+        "average_annual_wage.csv",
+        "average_annual_wage.mcf",
+        "gender_wage_gap.csv",
+        "gender_wage_gap.mcf",
+        "config.json",
+    ]
 
-    if not (csv_path.exists() and mcf_path.exists() and config_path.exists()):
-        raise FileNotFoundError(f"Frog Dataset files not found under {frog_data_dir}")
+    for filename in files_to_upload:
+        local_path = wages_data_dir / filename
+        if not local_path.exists():
+            raise FileNotFoundError(f"Required dataset file not found: {local_path}")
 
-    log_success("Located Frog Dataset files locally")
+    log_success("Located OECD Wages Dataset files locally")
 
-    for filename, remote_dest in [
-        ("observations.csv", "observations.csv"),
-        ("schema.mcf", "schema.mcf"),
-        ("config.json", "config.json"),
-    ]:
-        local_path = frog_data_dir / filename
+    for filename in files_to_upload:
+        local_path = wages_data_dir / filename
         run_command(
             [
                 "gcloud",
                 "storage",
                 "cp",
                 str(local_path),
-                f"gs://{bucket_name}/ingestion/input/{remote_dest}",
+                f"gs://{bucket_name}/ingestion/input/{filename}",
             ],
             retries=3,
         )
@@ -537,17 +539,17 @@ def check_api_endpoint(
             verify_json_fn(resp_json)
 
 
-# Helper verifiers for toy frog data responses.
+# Helper verifiers for wages data responses.
 
 
-def verify_frog_obs(resp: dict) -> None:
-    """Verifies observation response values for number_of_frogs."""
+def verify_wages_obs(resp: dict) -> None:
+    """Verifies observation response values for average_annual_wage."""
     by_var = resp.get("byVariable", {})
-    if "number_of_frogs" not in by_var:
+    if "average_annual_wage" not in by_var:
         raise ValueError(
-            f"Expected variable 'number_of_frogs' in response, got: {resp}"
+            f"Expected variable 'average_annual_wage' in response, got: {resp}"
         )
-    by_entity = by_var["number_of_frogs"].get("byEntity", {})
+    by_entity = by_var["average_annual_wage"].get("byEntity", {})
     if "country/USA" not in by_entity or "country/CAN" not in by_entity:
         raise ValueError(
             f"Expected entities 'country/USA' and 'country/CAN', got: {by_entity.keys()}"
@@ -565,23 +567,23 @@ def verify_frog_obs(resp: dict) -> None:
             )
 
 
-def verify_frog_resolve(resp: dict) -> None:
-    """Verifies indicator resolution response candidates match expected frog variables."""
+def verify_wages_resolve(resp: dict) -> None:
+    """Verifies indicator resolution response candidates match expected wages variables."""
     entities = resp.get("entities", [])
     if not entities:
         raise ValueError(f"Expected non-empty 'entities' list, got: {resp}")
     node_res = entities[0]
-    if node_res.get("node") != "frogs":
-        raise ValueError(f"Expected resolved node for 'frogs', got: {node_res}")
+    if node_res.get("node") != "wages":
+        raise ValueError(f"Expected resolved node for 'wages', got: {node_res}")
     candidates = node_res.get("candidates", [])
     if not candidates:
-        raise ValueError(f"Expected resolved candidates for 'frogs', got: {node_res}")
+        raise ValueError(f"Expected resolved candidates for 'wages', got: {node_res}")
     has_sv = any(
-        c.get("dcid") in ("number_of_frogs", "Count_Frog_Green") for c in candidates
+        c.get("dcid") in ("average_annual_wage", "gender_wage_gap") for c in candidates
     )
     if not has_sv:
         raise ValueError(
-            f"Expected resolved candidate to match 'number_of_frogs' or 'Count_Frog_Green', got: {candidates}"
+            f"Expected resolved candidate to match 'average_annual_wage' or 'gender_wage_gap', got: {candidates}"
         )
 
 
@@ -593,10 +595,10 @@ API_VERIFICATION_STAGES = {
             "headers": {"X-Use-Multi-Entity-Schema": "true"},
         },
         {
-            "name": "Test 2: Verify Toy Frog Data (Custom Data)",
-            "path": "/core/api/v2/observation?select=variable&select=entity&select=date&select=value&variable.dcids=number_of_frogs&entity.dcids=country/USA&entity.dcids=country/CAN",
+            "name": "Test 2: Verify Wages Data (Custom Data)",
+            "path": "/core/api/v2/observation?select=variable&select=entity&select=date&select=value&variable.dcids=average_annual_wage&entity.dcids=country/USA&entity.dcids=country/CAN",
             "headers": {"X-Use-Multi-Entity-Schema": "true"},
-            "verify_json_fn": verify_frog_obs,
+            "verify_json_fn": verify_wages_obs,
         },
     ],
     "Stage B: V2 Bulk Group Info API": [
@@ -622,9 +624,9 @@ API_VERIFICATION_STAGES = {
             "path": "/core/api/v2/resolve?nodes=food%20waste&resolver=indicator&target=custom_only",
         },
         {
-            "name": "Test 5: V2 Resolve - Indicator resolver (Frogs)",
-            "path": "/core/api/v2/resolve?nodes=frogs&resolver=indicator&target=custom_only",
-            "verify_json_fn": verify_frog_resolve,
+            "name": "Test 5: V2 Resolve - Indicator resolver (Wages)",
+            "path": "/core/api/v2/resolve?nodes=wages&resolver=indicator&target=custom_only",
+            "verify_json_fn": verify_wages_resolve,
         },
     ],
 }
@@ -657,7 +659,7 @@ def run_serving_proxy_tests(service_name: str, region: str, project_id: str) -> 
 
     try:
         # Fetch direct V2 Node endpoint with retry loop to allow cold-start, warmup, and container rollover
-        api_url = f"http://127.0.0.1:{test_port}/core/api/v2/node?nodes=Count_Frog_Green&property=-%3E*"
+        api_url = f"http://127.0.0.1:{test_port}/core/api/v2/node?nodes=average_annual_wage&property=-%3E*"
         max_retries = 18  # Allow up to 3 minutes for rolling update replication
         retry_interval = 10
         connected = False
@@ -671,7 +673,7 @@ def run_serving_proxy_tests(service_name: str, region: str, project_id: str) -> 
                     status_code = response.getcode()
                     if status_code == 200:
                         resp_data = json.loads(response.read().decode("utf-8"))
-                        data = resp_data.get("data", {}).get("Count_Frog_Green", {})
+                        data = resp_data.get("data", {}).get("average_annual_wage", {})
                         arcs = data.get("arcs", {})
                         types = arcs.get("typeOf", {}).get("nodes", [])
                         has_sv = any(
@@ -920,8 +922,10 @@ def main() -> None:
         setup_workspace(workspace_dir, namespace)
 
         # 1b. Validate local MCF schema syntax before deploying expensive cloud resources
-        frog_data_dir = Path(__file__).resolve().parent / "test_data" / "frog_data"
-        validate_mcf_file(frog_data_dir / "schema.mcf")
+        root_dir = Path(__file__).resolve().parent.parent.parent
+        wages_data_dir = root_dir / "samples" / "OECD_wage_data"
+        validate_mcf_file(wages_data_dir / "average_annual_wage.mcf")
+        validate_mcf_file(wages_data_dir / "gender_wage_gap.mcf")
 
         # 2. Initialize configuration via CLI and setup overrides
         dc_key = resolve_api_key(args.project_id, args.dc_api_key)
@@ -965,9 +969,10 @@ def main() -> None:
         terraform_provisioned = True
         outputs = run_terraform_apply(sandbox_dir)
 
-        # 5. Locate and upload Frog Dataset files to GCS
-        frog_data_dir = Path(__file__).resolve().parent / "test_data" / "frog_data"
-        upload_dataset_to_gcs(outputs["bucket_name"], frog_data_dir)
+        # 5. Locate and upload OECD Wages Dataset files to GCS
+        root_dir = Path(__file__).resolve().parent.parent.parent
+        wages_data_dir = root_dir / "samples" / "OECD_wage_data"
+        upload_dataset_to_gcs(outputs["bucket_name"], wages_data_dir)
 
         # 6. Initialize Spanner DB Schemas
         run_database_schema_setup(workspace_root, sandbox_dir)

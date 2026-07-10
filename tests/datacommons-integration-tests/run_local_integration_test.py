@@ -19,14 +19,23 @@ seeding, and semantic query serving endpoints against emulators. It uses
 the requests library for standard HTTP client operations.
 """
 
+import difflib
+import json
 import os
+import socket
 import subprocess
 import sys
 import time
+import urllib.parse
 from pathlib import Path
 
 import pytest
 import requests
+from google.cloud import spanner
+
+# Import patch_credentials to apply Spanner emulator monkeypatches to the host-side test runner
+sys.path.append(str(Path(__file__).resolve().parent))
+import patch_credentials  # noqa: F401
 
 # =============================================================================
 # Parameterized Configuration Constants
@@ -37,8 +46,6 @@ def get_port(env_var: str, default: int) -> int:
     val = os.getenv(env_var)
     if val:
         return int(val)
-    # Check if default port is free
-    import socket
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
@@ -57,8 +64,8 @@ SPANNER_REST_PORT = get_port("SPANNER_REST_PORT", 9020)
 SPANNER_GRPC_PORT = get_port("SPANNER_GRPC_PORT", 9010)
 MOCK_NL_PORT = get_port("MOCK_NL_PORT", 6060)
 
-PROJECT_ID = os.getenv("SPANNER_PROJECT_ID", "test-project")
-INSTANCE_ID = os.getenv("SPANNER_INSTANCE_ID", "test-instance")
+PROJECT_ID = os.getenv("SPANNER_PROJECT_ID", "default")
+INSTANCE_ID = os.getenv("SPANNER_INSTANCE_ID", "default")
 DATABASE_ID = os.getenv("SPANNER_DATABASE_ID", "test-db")
 
 # =============================================================================
@@ -72,17 +79,28 @@ def run_command(
     *,
     check: bool = True,
     env: dict | None = None,
+    capture_output: bool = True,
 ) -> subprocess.CompletedProcess:
     try:
+        if capture_output:
+            return subprocess.run(  # noqa: S603
+                args,
+                cwd=cwd,
+                check=check,
+                text=True,
+                env=env,
+                capture_output=True,
+            )
         return subprocess.run(  # noqa: S603
-            args, cwd=cwd, check=check, text=True, env=env, capture_output=True
+            args, cwd=cwd, check=check, text=True, env=env
         )
     except subprocess.CalledProcessError as e:
         print(f"Command failed: {' '.join(args)}", file=sys.stderr)
-        if e.stdout:
-            print(f"Stdout:\n{e.stdout}", file=sys.stderr)
-        if e.stderr:
-            print(f"Stderr:\n{e.stderr}", file=sys.stderr)
+        if capture_output:
+            if e.stdout:
+                print(f"Stdout:\n{e.stdout}", file=sys.stderr)
+            if e.stderr:
+                print(f"Stderr:\n{e.stderr}", file=sys.stderr)
         raise e
 
 
@@ -164,8 +182,8 @@ def call_helper(action_type: str) -> dict:
         ) from e  # noqa: BLE001
 
 
-def seed_gcs_emulator():
-    """Create test-bucket and upload dummy catalog yaml to mock GCS emulator."""
+def seed_gcs_emulator() -> None:
+    """Create test-bucket and upload dummy catalog yaml and wages dataset to mock GCS emulator."""
     print(">>> Seeding fake GCS emulator bucket and catalogs...", flush=True)
     try:
         # 1. Create bucket
@@ -185,6 +203,33 @@ def seed_gcs_emulator():
             timeout=5,
         )
         upload_resp.raise_for_status()
+
+        # 3. Upload OECD wages files for local ingestion run
+        wages_dir = Path(__file__).resolve().parents[2] / "samples" / "OECD_wage_data"
+        files_to_upload = [
+            "average_annual_wage.csv",
+            "average_annual_wage.mcf",
+            "gender_wage_gap.csv",
+            "gender_wage_gap.mcf",
+            "config.json",
+        ]
+        for filename in files_to_upload:
+            file_path = wages_dir / filename
+            with file_path.open("rb") as f:
+                data = f.read()
+            content_type = (
+                "application/json"
+                if filename.endswith(".json")
+                else "application/octet-stream"
+            )
+            upload_resp = requests.post(
+                f"http://localhost:9099/upload/storage/v1/b/test-bucket/o?uploadType=media&name=ingestion/input/wages/{filename}",
+                data=data,
+                headers={"Content-Type": content_type},
+                timeout=5,
+            )
+            upload_resp.raise_for_status()
+
         print("  GCS emulator successfully seeded.", flush=True)
     except Exception as e:
         raise RuntimeError(f"Failed to seed GCS emulator: {e}") from e  # noqa: BLE001
@@ -195,8 +240,127 @@ def seed_gcs_emulator():
 # =============================================================================
 
 
+def wait_for_spanner(timeout_secs: int = 90) -> None:
+    """Waits for Spanner gRPC endpoint to become ready."""
+
+    print("Waiting for Spanner gRPC endpoint to be ready...", flush=True)
+    os.environ["SPANNER_EMULATOR_HOST"] = f"127.0.0.1:{SPANNER_GRPC_PORT}"
+    start_time = time.time()
+    while time.time() - start_time < timeout_secs:
+        try:
+            with socket.create_connection(("127.0.0.1", SPANNER_GRPC_PORT), timeout=1):
+                print("  Spanner is ready!", flush=True)
+                return
+        except (TimeoutError, ConnectionRefusedError):
+            time.sleep(0.5)
+    raise RuntimeError(f"Spanner failed to start within {timeout_secs} seconds.")
+
+
+def create_spanner_db() -> None:
+    """Creates Spanner instance and database using client library via gRPC."""
+
+    os.environ["SPANNER_EMULATOR_HOST"] = f"127.0.0.1:{SPANNER_GRPC_PORT}"
+    print(
+        f">>> Creating Spanner instance {INSTANCE_ID} and database {DATABASE_ID} via gRPC client...",
+        flush=True,
+    )
+    client = spanner.Client(project=PROJECT_ID)
+    instance = client.instance(
+        INSTANCE_ID,
+        configuration_name=f"projects/{PROJECT_ID}/instanceConfigs/emulator-config",
+        node_count=1,
+    )
+    if not instance.exists():
+        op = instance.create()
+        op.result(timeout=30)
+    database = instance.database(DATABASE_ID)
+    if not database.exists():
+        op = database.create()
+        op.result(timeout=30)
+    print("  Spanner database created.", flush=True)
+
+
+def run_spanner_loader(compose_env: dict[str, str]) -> None:
+    """Run the real Java Dataflow Spanner Loader container locally under DirectRunner."""
+    print(">>> Running local Java Spanner Loader pipeline...", flush=True)
+
+    try:
+        resp = requests.get(
+            "http://localhost:9099/storage/v1/b/test-bucket/o", timeout=10
+        )
+        resp.raise_for_status()
+        items = [item["name"] for item in resp.json().get("items", [])]
+    except Exception as e:
+        raise RuntimeError(f"Failed to query GCS emulator: {e}") from e
+
+    # Extract output directories like output/jsonld/<timestamp_dir>/<import_name>/
+    jsonld_blobs = [
+        name for name in items if "output/jsonld/" in name and name.endswith(".jsonld")
+    ]
+    import_dirs = set()
+    for name in jsonld_blobs:
+        parts = name.split("/")
+        if len(parts) >= 5:
+            import_dirs.add("/".join(parts[:4]))
+
+    if not import_dirs:
+        raise ValueError("No generated JSON-LD files found in GCS emulator.")
+
+    import_list = []
+    for d in import_dirs:
+        import_name = d.split("/")[-1]
+        import_list.append(
+            {"importName": import_name, "graphPath": f"gs://test-bucket/{d}/*.jsonld"}
+        )
+
+    print(f"  Found import directories: {list(import_dirs)}", flush=True)
+
+    try:
+        # 3. Execute the Java Beam pipeline container inside the compose network 'itest-net'
+        # pointing to GCS and Spanner emulators
+        cmd = [
+            "docker",
+            "run",
+            "--rm",
+            "--entrypoint",
+            "java",
+            "--network",
+            "itest-net",
+            "-e",
+            "SPANNER_EMULATOR_HOST=spanner:15000",
+            "-e",
+            "GOOGLE_CLOUD_SPANNER_MULTIPLEXED_SESSIONS=TRUE",
+            "-e",
+            "GOOGLE_CLOUD_SPANNER_MULTIPLEXED_SESSIONS_FOR_RW=TRUE",
+            "-e",
+            "NO_GCE_CHECK=true",
+        ]
+        ingestion_image = compose_env.get(
+            "INGESTION_IMAGE",
+            "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion:latest",
+        )
+        cmd.extend(
+            [
+                ingestion_image,
+                "-cp",
+                "/template/*",
+                "org.datacommons.ingestion.pipeline.GraphIngestionPipeline",
+                "--runner=DirectRunner",
+                "--projectId=default",
+                "--spannerInstanceId=default",
+                "--spannerDatabaseId=test-db",
+                "--emulatorHost=spanner:15000",
+                "--gcsEndpoint=http://gcs:9099/storage/v1",
+                f"--importList={json.dumps(import_list)}",
+            ]
+        )
+        run_command(cmd, env=compose_env, capture_output=False)
+    finally:
+        pass
+
+
 @pytest.fixture(scope="module")
-def docker_stack(services_image, helper_image, keep_containers):
+def docker_stack(services_image, helper_image, ingestion_image, keep_containers):
     """Fixture to spin up and tear down emulated service container stack."""
     check_docker_environment()
     root_dir = Path(__file__).resolve().parent
@@ -207,6 +371,49 @@ def docker_stack(services_image, helper_image, keep_containers):
         compose_env["SERVICES_IMAGE"] = services_image
     if helper_image:
         compose_env["HELPER_IMAGE"] = helper_image
+    if ingestion_image:
+        compose_env["INGESTION_IMAGE"] = ingestion_image
+
+    dc_api_key = os.environ.get("DC_API_KEY")
+    if not dc_api_key:
+        print(
+            ">>> DC_API_KEY environment variable not set. Attempting to fetch 'dc-api-key' secret from datcom-ci project using local gcloud...",
+            flush=True,
+        )
+        try:
+            proc = subprocess.run(
+                [  # noqa: S607
+                    "gcloud",
+                    "secrets",
+                    "versions",
+                    "access",
+                    "latest",
+                    "--secret",
+                    "dc-api-key",
+                    "--project",
+                    "datcom-ci",
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            dc_api_key = proc.stdout.strip()
+            print(
+                ">>> Successfully fetched 'dc-api-key' from Secret Manager.",
+                flush=True,
+            )
+        except Exception as e:  # noqa: BLE001
+            print(
+                f">>> WARNING: Failed to fetch 'dc-api-key' from GCP Secret Manager: {e}",
+                flush=True,
+            )
+            print(
+                ">>> The pipeline will use 'dummy-key' which might cause 401 errors during ingestion.",
+                flush=True,
+            )
+
+    if dc_api_key:
+        compose_env["DC_API_KEY"] = dc_api_key
 
     # Pass configuration port mappings into compose runner
     compose_env["WEBSITE_PORT"] = str(WEBSITE_PORT)
@@ -243,46 +450,18 @@ def docker_stack(services_image, helper_image, keep_containers):
                 env=compose_env,
             )
 
-            # 3. Wait for Spanner Emulator REST API
-            wait_for_service(
-                f"http://localhost:{SPANNER_REST_PORT}/v1/projects/{PROJECT_ID}/instances",
-                "Spanner emulator",
-            )
+            # 3. Wait for Spanner Emulator ready
+            wait_for_spanner()
 
             # Wait for GCS Emulator ready
             wait_for_service(
                 "http://localhost:9099/storage/v1/b?project=test-project",
                 "GCS emulator",
             )
-
             seed_gcs_emulator()
 
             # 4. Create database instance
-            print(
-                f">>> Creating Spanner {INSTANCE_ID}/{DATABASE_ID} in emulator...",
-                flush=True,
-            )
-            inst_resp = requests.post(
-                f"http://localhost:{SPANNER_REST_PORT}/v1/projects/{PROJECT_ID}/instances",
-                json={
-                    "instanceId": INSTANCE_ID,
-                    "instance": {
-                        "name": f"projects/{PROJECT_ID}/instances/{INSTANCE_ID}",
-                        "config": "projects/test-project/instanceConfigs/emulator-config",
-                        "displayName": "Test Instance",
-                        "nodeCount": 1,
-                    },
-                },
-                timeout=30,
-            )
-            inst_resp.raise_for_status()
-
-            db_resp = requests.post(
-                f"http://localhost:{SPANNER_REST_PORT}/v1/projects/{PROJECT_ID}/instances/{INSTANCE_ID}/databases",
-                json={"createStatement": f"CREATE DATABASE `{DATABASE_ID}`"},
-                timeout=30,
-            )
-            db_resp.raise_for_status()
+            create_spanner_db()
 
             # 5. Boot Ingestion Helper
             print(">>> Starting Ingestion Helper container...", flush=True)
@@ -305,7 +484,7 @@ def docker_stack(services_image, helper_image, keep_containers):
                 "Ingestion Helper",
                 method="GET",
                 expected_statuses=(200,),
-                timeout_secs=60,
+                timeout_secs=120,
             )
 
             # 7. Run DDL schema and seeding
@@ -319,7 +498,28 @@ def docker_stack(services_image, helper_image, keep_containers):
             if seed_res.get("status") not in ("success", "OK", "SUCCESS"):
                 raise RuntimeError(f"Database seeding failed: {seed_res}")
 
+            # Run local ingestion processor container (simulates local Dataflow Beam run)
+            print(
+                ">>> Running local Apache Beam data ingestion processor...", flush=True
+            )
+            run_command(
+                [
+                    "docker",
+                    "compose",
+                    "-f",
+                    str(compose_file),
+                    "run",
+                    "--rm",
+                    "datacommons-data-processor",
+                ],
+                env=compose_env,
+            )
+
+            # Load the generated GCS JSON-LD files directly into Spanner using the Java Beam template
+            run_spanner_loader(compose_env)
+
             # 8. Boot Website container
+
             print(">>> Starting serving Website container...", flush=True)
             run_command(
                 ["docker", "compose", "-f", str(compose_file), "up", "-d", "website"],
@@ -370,8 +570,6 @@ def docker_stack(services_image, helper_image, keep_containers):
 def assert_golden(
     actual_data: any, golden_filename: str, *, generate_golden: bool
 ) -> None:
-    import difflib
-    import json
 
     golden_dir = Path(__file__).resolve().parent / "golden"
     golden_path = golden_dir / golden_filename
@@ -407,7 +605,6 @@ def assert_golden(
 @pytest.mark.usefixtures("docker_stack")
 def test_spanner_node_seeding(generate_golden):
     """Verify that Spanner contains the base seeded triples and Node rows."""
-    from google.cloud import spanner
 
     # Configure client to query the local Spanner emulator
     os.environ["SPANNER_EMULATOR_HOST"] = f"localhost:{SPANNER_GRPC_PORT}"
@@ -442,8 +639,7 @@ def test_website_serving_home():
 
 @pytest.mark.usefixtures("docker_stack")
 def test_spanner_observations(generate_golden):
-    """Verify that Spanner contains the correct observations from the seeded frog dataset."""
-    from google.cloud import spanner
+    """Verify that Spanner contains the correct observations from the seeded OECD wages dataset."""
 
     os.environ["SPANNER_EMULATOR_HOST"] = f"localhost:{SPANNER_GRPC_PORT}"
 
@@ -471,7 +667,30 @@ def test_spanner_observations(generate_golden):
 
 @pytest.mark.usefixtures("docker_stack")
 def test_website_semantic_nl_query(generate_golden):
-    """Verify that Mixer fulfills NL queries using the seeded Spanner graph."""
+
+    os.environ["SPANNER_EMULATOR_HOST"] = f"localhost:{SPANNER_GRPC_PORT}"
+
+    # Fetch a statistical variable name dynamically from Spanner Node table to stay schema agnostic
+    client = spanner.Client(project=PROJECT_ID)
+    instance = client.instance(INSTANCE_ID)
+    database = instance.database(DATABASE_ID)
+
+    stat_var_name = "Average annual wage"
+    with database.snapshot() as snapshot:
+        results = snapshot.execute_sql(
+            "SELECT name FROM Node WHERE 'StatisticalVariable' IN UNNEST(types) LIMIT 1"
+        )
+        for row in results:
+            if row[0]:
+                stat_var_name = row[0]
+                break
+
+    print(
+        f"\n>>> Running semantic NL query for: '{stat_var_name} in United States of America'",
+        flush=True,
+    )
+    query_str = urllib.parse.quote(f"{stat_var_name} in United States of America")
+
     url = f"http://localhost:{WEBSITE_PORT}/api/explore/detect-and-fulfill"
     # CAVEAT / WORKAROUND:
     # Cloud Spanner Emulator does not support vector indexes or ANN search queries
@@ -479,7 +698,7 @@ def test_website_semantic_nl_query(generate_golden):
     # We bypass it for local integration tests by disabling Spanner vector search.
     # IMPORTANT: Real GCP-based integration tests must cover this active vector search path.
     resp = requests.post(
-        f"{url}?q=Number+of+frogs+in+United+States+of+America&disable_feature=use_v2_resolve_for_nl_search_vars",
+        f"{url}?q={query_str}&disable_feature=use_v2_resolve_for_nl_search_vars",
         json={"contextHistory": []},
         timeout=120,
     )
@@ -492,9 +711,7 @@ def test_website_semantic_nl_query(generate_golden):
     # Strip dynamic debug field if it exists
     response_body.pop("debug", None)
 
-    assert_golden(
-        response_body, "nl_query_frogs_usa.json", generate_golden=generate_golden
-    )
+    assert_golden(response_body, "nl_query_usa.json", generate_golden=generate_golden)
 
 
 # =============================================================================

@@ -44,18 +44,18 @@ logger = logging.getLogger("mock_nl_server")
 
 # Default query mappings
 DEFAULT_MAPPINGS = {
-    "number of frogs in united states of america": {
-        "SV": ["number_of_frogs"],
+    "average annual wage in united states of america": {
+        "SV": ["average_annual_wage"],
         "CosineScore": [0.9],
         "SV_to_Sentences": {
-            "number_of_frogs": [{"sentence": "Number of frogs", "score": 0.9}]
+            "average_annual_wage": [{"sentence": "Average annual wage", "score": 0.9}]
         },
     },
-    "average age of frogs": {
-        "SV": ["Average_Age_Frog"],
+    "gender wage gap in united states of america": {
+        "SV": ["gender_wage_gap"],
         "CosineScore": [0.9],
         "SV_to_Sentences": {
-            "Average_Age_Frog": [{"sentence": "Average age of frog", "score": 0.9}]
+            "gender_wage_gap": [{"sentence": "Gender wage gap", "score": 0.9}]
         },
     },
 }
@@ -125,10 +125,10 @@ class MockNLServerHandler(BaseHTTPRequestHandler):
                 cleaned_q = q.lower().strip().rstrip("?")
                 if cleaned_q in mappings:
                     query_results[q] = mappings[cleaned_q]
-                elif "frog" in cleaned_q:
-                    # Fallback keyword matching for frog queries
+                elif "wage" in cleaned_q:
+                    # Fallback keyword matching for wage queries
                     query_results[q] = mappings.get(
-                        "number of frogs in united states of america"
+                        "average annual wage in united states of america"
                     )
                 else:
                     # Fallback for unrecognized queries
