@@ -24,8 +24,8 @@ prediction APIs inside the hermetic/credentials-free docker integration test sta
   weights at test runtime which introduces flakiness and violates offline-hermeticity.
 
 Thus, we spin up this lightweight 0-dependency mock server in python to intercept
-NL search requests (like "Number of frogs") and map them to seeded Spanner variables
-(like "number_of_frogs"). This allows us to test the happy path end-to-end (querying
+NL search requests (like "Average annual wage") and map them to seeded Spanner variables
+(like "average_annual_wage"). This allows us to test the happy path end-to-end (querying
 spanner and asserting observation charts) without real model serving infrastructure.
 
 TODO: Remove this mock server and use a proper local SentenceTransformers
