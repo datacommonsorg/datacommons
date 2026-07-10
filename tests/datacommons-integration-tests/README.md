@@ -87,15 +87,6 @@ Skips the slow Terraform setup and teardown stages entirely. It reads resource c
 
 
 ### Script Arguments
-*   `--project-id`: GCP Project ID (default: `datcom-ci`).
-*   `--dc-api-key`: Data Commons API Key.
-*   `--region`: GCP region (default: `us-central1`).
-*   `--namespace`: Custom resource naming namespace (default: randomized `itest-XXXX`).
-*   `--keep-sandbox`: Do not destroy sandbox GCP resources on completion (useful for debugging).
-*   `--reuse-sandbox`: Reuse existing sandbox resources (requires passing persistent `--namespace` and having run with `--keep-sandbox` previously).
-*   `--tf-git-ref`: Git reference for the Terraform templates repository (default: `main`).
-*   `--services-image`, `--preprocessing-image`, `--helper-image`: Override container images deployed during provisioning.
-
 *   `--project-id`: The Google Cloud Project ID where the sandbox resources should be provisioned (default: `datcom-ci`).
 *   `--dc-api-key`: Google Data Commons API Key needed to authenticate and configure sandbox clients.
 *   `--region`: The GCP region to deploy resources (default: `us-central1`).
@@ -103,7 +94,8 @@ Skips the slow Terraform setup and teardown stages entirely. It reads resource c
 *   `--keep-sandbox`: Do not destroy sandbox GCP resources on completion/failure. Useful for debugging active instances.
 *   `--reuse-sandbox`: Reuse existing local workspace and GCP sandbox resources if they exist. Requires passing a persistent, custom `--namespace` (e.g. `--namespace itest-9611`) and having run with `--keep-sandbox` in the previous run.
 *   `--tf-git-ref`: Git reference branch/tag/commit for the GCP Terraform templates repository (default: `main`).
-*   `--services-image`, `--preprocessing-image`, `--helper-image`: Override container image tags deployed during provisioning.
+*   `--dcp-version`: Override default DCP version (controls all images and templates) (default: `latest`).
+
 
 ### E2E Verification Stages & Philosophy
 

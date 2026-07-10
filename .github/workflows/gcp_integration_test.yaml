@@ -85,8 +85,7 @@ jobs:
           
           uv run python3 tests/datacommons-integration-tests/gcp_test_runner.py \
             --project-id datcom-ci \
-            --services-image "gcr.io/datcom-ci/datacommons-services:$TAG" \
-            --preprocessing-image "gcr.io/datcom-ci/datacommons-data:$TAG" \
-            --helper-image "gcr.io/datcom-ci/datacommons-ingestion-helper:$TAG" \
+            --dcp-version "$TAG" \
             --dc-api-key "$DC_API_KEY"
+
 

@@ -713,21 +713,11 @@ def main() -> None:
         help="Custom namespace (defaults to itest-XXXX)",
     )
     parser.add_argument(
-        "--services-image",
-        default="gcr.io/datcom-ci/datacommons-services:latest",
-        help="Override default serving services container image",
+        "--dcp-version",
+        default="latest",
+        help="Override default DCP version (controls all images and templates)",
     )
-    parser.add_argument(
-        "--preprocessing-image",
-        default="gcr.io/datcom-ci/datacommons-data:latest",
-        help="Override default data preprocessing image",
-    )
-    # Use stable helper tag by default until stable/local pushes are fixed for ingestion (aligning with the default in tests/datacommons-integration-tests/docker-compose.test.yml).
-    parser.add_argument(
-        "--helper-image",
-        default="gcr.io/datcom-ci/datacommons-ingestion-helper:stable",
-        help="Override default helper service image",
-    )
+
     parser.add_argument(
         "--keep-sandbox",
         action="store_true",
@@ -820,14 +810,9 @@ def main() -> None:
                 "datacommons_services_min_instances": 1,
                 "datacommons_services_max_instances": 1,
             }
-            if args.services_image:
-                tfvars_overrides["datacommons_services_image"] = args.services_image
-            if args.preprocessing_image:
-                tfvars_overrides["ingestion_preprocessing_job_image"] = (
-                    args.preprocessing_image
-                )
-            if args.helper_image:
-                tfvars_overrides["ingestion_helper_service_image"] = args.helper_image
+            if args.dcp_version:
+                tfvars_overrides["dcp_version"] = args.dcp_version
+
 
             configure_tfvars(sandbox_dir, tfvars_overrides)
 
