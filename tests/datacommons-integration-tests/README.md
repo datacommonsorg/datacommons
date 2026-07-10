@@ -60,30 +60,51 @@ You can modify the flags inside `custom_feature_flags.yaml` if you need to tweak
 
 In addition to local emulated tests, this package includes a script to run automated, end-to-end integration tests on GCP real resources. This validates Terraform scaffolding, GCS, Spanner database seeding, Cloud Workflow executions, and Cloud Run web server APIs.
 
-### Running the GCP Tests
+### Execution Modes
 
-To run the GCP integration test suite (requires authenticated GCP CLI access):
-```bash
-uv run python tests/datacommons-integration-tests/run_gcp_integration_test.py \
-    --project-id <YOUR_GCP_PROJECT_ID> \
-    --dc-api-key "YOUR_GOOGLE_DATA_COMMONS_API_KEY"
-```
+The GCP integration runner supports two execution modes:
 
-Alternatively, you can pass the API key via an environment variable:
-```bash
-DC_API_KEY="YOUR_API_KEY" uv run python tests/datacommons-integration-tests/run_gcp_integration_test.py \
-    --project-id <YOUR_GCP_PROJECT_ID>
-```
+#### 1. Heavy Mode (Full Provisioning & E2E Validation)
+Pulls the latest templates, provisions a completely new isolated sandbox stack in GCP via Terraform (Spanner DB, GCS bucket, Cloud Workflows, and Cloud Run service), performs ingestion, runs the tests, and destroys the sandbox on completion (unless `--keep-sandbox` is specified).
+* **Usage:**
+  ```bash
+  uv run python tests/datacommons-integration-tests/gcp_test_runner.py \
+      --project-id datcom-ci \
+      --dc-api-key "YOUR_API_KEY"
+  ```
+
+#### 2. Lightweight Mode (Fast Debugging Loop)
+Skips the slow Terraform setup and teardown stages entirely. It reads resource configurations from an existing `/tmp/workspace-<namespace>` directory, clears the database tables, re-uploads local test data files, triggers the ingestion workflow, and runs `pytest`. This reduces iteration time **from 10+ minutes down to 1-2 minutes**.
+* **Usage:**
+  1. First, create a persistent sandbox and keep it alive:
+     ```bash
+     uv run python tests/datacommons-integration-tests/gcp_test_runner.py --namespace my-debug-sandbox --keep-sandbox
+     ```
+  2. Run subsequent test runs in lightweight mode:
+     ```bash
+     uv run python tests/datacommons-integration-tests/gcp_test_runner.py --namespace my-debug-sandbox --reuse-sandbox
+     ```
+
 
 ### Script Arguments
-*   `--project-id`: GCP Project ID (default: `datcom-ci`).
-*   `--dc-api-key`: Data Commons API Key.
-*   `--region`: GCP region (default: `us-central1`).
-*   `--namespace`: Custom resource naming namespace (default: randomized `itest-XXXX`).
-*   `--keep-sandbox`: Do not destroy sandbox GCP resources on completion (useful for debugging).
-*   `--reuse-sandbox`: Reuse existing sandbox resources (requires passing persistent `--namespace` and having run with `--keep-sandbox` previously).
-*   `--tf-git-ref`: Git reference for the Terraform templates repository (default: `main`).
-*   `--services-image`, `--preprocessing-image`, `--helper-image`: Override container images deployed during provisioning.
+*   `--project-id`: The Google Cloud Project ID where the sandbox resources should be provisioned (default: `datcom-ci`).
+*   `--dc-api-key`: Google Data Commons API Key needed to authenticate and configure sandbox clients.
+*   `--region`: The GCP region to deploy resources (default: `us-central1`).
+*   `--namespace`: Custom naming namespace for resources (default: randomized `itest-XXXX`).
+*   `--keep-sandbox`: Do not destroy sandbox GCP resources on completion/failure. Useful for debugging active instances.
+*   `--reuse-sandbox`: Reuse existing local workspace and GCP sandbox resources if they exist. Requires passing a persistent, custom `--namespace` (e.g. `--namespace itest-9611`) and having run with `--keep-sandbox` in the previous run.
+*   `--tf-git-ref`: Git reference branch/tag/commit for the GCP Terraform templates repository (default: `main`).
+*   `--dcp-version`: Override default DCP version (controls all images and templates) (default: `latest`).
+
+
+### E2E Verification Stages & Philosophy
+
+Once the GCP sandbox stack is up and seeded with dataset MCFs, the script triggers the entire API verification suite concurrently. This validates three core capabilities of the deployed Data Commons Platform backend:
+
+*   **Stage A: V2 Observations & Custom Data Retrieval**
+    *   *Philosophy:* Validates E2E query routing and data loading for custom variables. It asserts observations values on custom seeded OECD wages metrics to verify local database mapping, loading, and seeding.
+*   **Stage B: V2 Embeddings & Natural Language Resolution**
+    *   *Philosophy:* Validates custom search index and embeddings generation. This checks that the Ingestion Helper successfully generated vector coordinates from custom MCFs, loaded them into Spanner, and that the Resolver can map natural language queries (like "wages") back to these custom database entities.
 
 
 
