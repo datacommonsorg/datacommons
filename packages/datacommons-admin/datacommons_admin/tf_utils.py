@@ -18,7 +18,6 @@ import subprocess
 
 import click
 
-
 TF_OUTPUT_INGESTION_SERVICE_URL = "ingestion_service_url"
 TF_OUTPUT_INGESTION_WORKFLOW_SERVICE_ACCOUNT_EMAIL = (
     "ingestion_workflow_service_account_email"
@@ -40,7 +39,7 @@ def get_terraform_output(key: str) -> str:
 
     try:
         result = subprocess.run(
-            ["terraform", "output", "-json"],
+            ["terraform", "output", "-json"],  # noqa: S607
             capture_output=True,
             text=True,
             check=True,
@@ -49,14 +48,14 @@ def get_terraform_output(key: str) -> str:
         raise click.ClickException(
             f"Failed to run 'terraform output'. Are you in an initialized Terraform deployment directory?\n"
             f"Error details: {e.stderr.strip() or e.stdout.strip()}"
-        )
+        ) from e
 
     try:
         outputs = json.loads(result.stdout)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
         raise click.ClickException(
             "Failed to parse 'terraform output -json'. The output was not valid JSON."
-        )
+        ) from e
 
     if not outputs:
         from pathlib import Path
@@ -73,11 +72,10 @@ def get_terraform_output(key: str) -> str:
                 f"No Terraform outputs found in '{cwd}'.\n"
                 "Please navigate to your initialized DCP Terraform directory (e.g., 'cd my-namespace') and ensure 'terraform apply' has been run."
             )
-        else:
-            raise click.ClickException(
-                f"No Terraform outputs found in '{cwd}'.\n"
-                "Please ensure you have successfully run 'terraform apply' to generate the deployment state."
-            )
+        raise click.ClickException(
+            f"No Terraform outputs found in '{cwd}'.\n"
+            "Please ensure you have successfully run 'terraform apply' to generate the deployment state."
+        )
 
     if key not in outputs:
         from pathlib import Path
