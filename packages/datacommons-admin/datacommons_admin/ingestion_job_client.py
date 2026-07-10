@@ -34,16 +34,22 @@ class IngestionJobClient:
         self.location = location
         base_credentials, _ = google.auth.default()
 
+        need_project_and_location = (
+            (workflow_name and not workflow_name.startswith("projects/")) or
+            (job_name and not job_name.startswith("projects/"))
+        )
+        if need_project_and_location:
+            if not project_id:
+                raise click.ClickException(
+                    "Project ID must be provided via Terraform outputs or as an argument."
+                )
+            if not location:
+                raise click.ClickException(
+                    "Location must be provided via Terraform outputs or as an argument."
+                )
+
         if workflow_name:
             if not workflow_name.startswith("projects/"):
-                if not project_id:
-                    raise click.ClickException(
-                        "Project ID must be provided via Terraform outputs or as an argument when workflow name is not a full resource name."
-                    )
-                if not location:
-                    raise click.ClickException(
-                        "Location must be provided via Terraform outputs or as an argument when workflow name is not a full resource name."
-                    )
                 self.full_workflow_name = (
                     f"projects/{project_id}/locations/{location}/workflows/{workflow_name}"
                 )

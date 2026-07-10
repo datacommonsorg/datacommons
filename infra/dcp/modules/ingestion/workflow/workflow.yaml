@@ -55,7 +55,7 @@ main:
                             - new_item:
                                 importName: '$${imp_str}'
                                 graphPath: ""
-                            - decoded_imports: '$${list.concat(decoded_imports, new_item)}'
+                            - decoded_imports: '$${list.concat(decoded_imports, [new_item])}'
           - condition: true
             assign:
               - decoded_imports: []
@@ -101,7 +101,7 @@ main:
         call: googleapis.storage.v1.objects.get
         args:
           bucket: '$${bucket_name}'
-          object: '$${text.url_encode(temp_path_prefix + "/datacommons/ingestion_records/" + workflow_id + ".json")}'
+          object: '$${temp_path_prefix + "/datacommons/ingestion_records/" + workflow_id + ".json"}'
           alt: 'media'
         result: handshake_data
 
@@ -456,6 +456,14 @@ launch_and_poll_dataflow:
 launch_and_poll_preprocessing_job:
   params: [job_name, workflow_id, temp_location, imports_arg, region, project_id]
   steps:
+    - init_args:
+        assign:
+          - container_args: []
+    - set_args:
+        switch:
+          - condition: '$${imports_arg != ""}'
+            assign:
+              - container_args: ['$${"--imports=" + imports_arg}']
     - run_cloud_run_job:
         call: googleapis.run.v2.projects.locations.jobs.run
         args:
@@ -470,7 +478,7 @@ launch_and_poll_preprocessing_job:
                       value: '$${temp_location}'
                     - name: 'DATA_RUN_MODE'
                       value: 'dcpbridge'
-                  args: ['$${"--imports=" + imports_arg}']
+                  args: '$${container_args}'
         result: run_res
 
     - assign_execution_name:
