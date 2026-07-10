@@ -10,9 +10,9 @@
                 "tiles": [
                   {
                     "statVarKey": [
-                      "number_of_frogs"
+                      "average_annual_wage"
                     ],
-                    "title": "Number_Of_Frogs in United States of America",
+                    "title": "Average Annual Wage in United States of America",
                     "type": "LINE"
                   }
                 ]
@@ -20,24 +20,25 @@
               {
                 "tiles": [
                   {
-                    "description": "Number_Of_Frogs in United States of America",
+                    "description": "Average Annual Wage in United States of America",
                     "statVarKey": [
-                      "number_of_frogs"
+                      "average_annual_wage"
                     ],
-                    "title": "Number_Of_Frogs in United States of America",
+                    "title": "Average Annual Wage in United States of America",
                     "type": "HIGHLIGHT"
                   }
                 ]
               }
             ],
             "denom": "Count_Person",
-            "title": "Number_Of_Frogs"
+            "description": "Annual rates paid per employee in full-time equivalent unit in the total economy.",
+            "title": "Average Annual Wage"
           }
         ],
         "statVarSpec": {
-          "number_of_frogs": {
-            "name": "number_of_frogs",
-            "statVar": "number_of_frogs"
+          "average_annual_wage": {
+            "name": "Average annual wage",
+            "statVar": "average_annual_wage"
           }
         }
       }
@@ -84,7 +85,7 @@
         "sessionId": "007_999999999",
         "skipRelatedThings": false,
         "variables": [
-          "number_of_frogs"
+          "average_annual_wage"
         ]
       },
       "llm_resp": {},
@@ -114,7 +115,7 @@
         }
       ],
       "properties": [],
-      "query": "Number of frogs in United States of America",
+      "query": "Average annual wage in United States of America",
       "query_type": 1,
       "ranked_charts": [
         {
@@ -126,8 +127,8 @@
             "growth_ranking_type": null,
             "is_topic_peer_group": false,
             "orig_sv_map": {
-              "number_of_frogs": [
-                "number_of_frogs"
+              "average_annual_wage": [
+                "average_annual_wage"
               ]
             },
             "props": [],
@@ -136,7 +137,7 @@
             "source_topic": "",
             "svpg_id": "",
             "svs": [
-              "number_of_frogs"
+              "average_annual_wage"
             ],
             "title": "",
             "title_suffix": ""
@@ -156,18 +157,18 @@
           "props": [],
           "ranking_types": [],
           "sv_place_latest_date": {
-            "number_of_frogs": {
+            "average_annual_wage": {
               "country/USA": ""
             }
           },
           "svs": [
-            "number_of_frogs"
+            "average_annual_wage"
           ]
         }
       ],
       "session_id": "007_999999999",
       "svs": [
-        "number_of_frogs"
+        "average_annual_wage"
       ]
     }
   ],

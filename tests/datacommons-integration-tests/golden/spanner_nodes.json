@@ -1,27 +1,69 @@
 [
   {
-    "name": "Average Age of Frogs",
-    "subject_id": "Average_Age_Frog",
-    "types": [
-      "StatisticalVariable"
-    ],
-    "value": "Average Age of Frogs"
+    "name": "",
+    "subject_id": "Annual rates pai:B6bETuBs05/fIp/9iZA4visxwBM7FD+/5SfBW9dhMY8=",
+    "types": [],
+    "value": "Annual rates paid per employee in full-time equivalent unit in the total economy."
   },
   {
-    "name": "Count of Green Frogs",
-    "subject_id": "Count_Frog_Green",
-    "types": [
-      "StatisticalVariable"
-    ],
-    "value": "Count of Green Frogs"
+    "name": "",
+    "subject_id": "Average annual w:y/F3wzEuFCMKpWrxvhYrNcRG/7YuaDq6iGNGCOaJAqE=",
+    "types": [],
+    "value": "Average annual wage"
   },
   {
-    "name": "Count of Trumal Person",
-    "subject_id": "Count_Person_Trumal",
+    "name": "",
+    "subject_id": "Gender wage gap:/vNxzV+Gf37b75Fz4x0ai/Ffef8LdDhEUFf7m4msb4k=",
+    "types": [],
+    "value": "Gender wage gap"
+  },
+  {
+    "name": "",
+    "subject_id": "OECD Average Ann:rSLAXuhyx0+Wmrh9x0yAUZHLqtd6T/HKCKsNg5uDMSA=",
+    "types": [],
+    "value": "OECD Average Annual Wages"
+  },
+  {
+    "name": "",
+    "subject_id": "OECD Gender Wage:kd5OGuW/pxow5H3NFDsD+zBsjSkV6VNaqGA+0dumSLI=",
+    "types": [],
+    "value": "OECD Gender Wage Gap"
+  },
+  {
+    "name": "",
+    "subject_id": "OECD:h51azc2lGm8bAOv+d1E9mxn1dEmchnmX7h+2sfpt27A=",
+    "types": [],
+    "value": "OECD"
+  },
+  {
+    "name": "OECD Gender Wage Gap",
+    "subject_id": "OECDGenderWageGap",
     "types": [
-      "StatisticalVariable"
+      "Provenance"
     ],
-    "value": "Count of Trumal Person"
+    "value": "OECDGenderWageGap"
+  },
+  {
+    "name": "OECD",
+    "subject_id": "OECDGroup",
+    "types": [
+      "StatVarGroup"
+    ],
+    "value": "OECDGroup"
+  },
+  {
+    "name": "OECD Average Annual Wages",
+    "subject_id": "OECDWages",
+    "types": [
+      "Provenance"
+    ],
+    "value": "OECDWages"
+  },
+  {
+    "name": "",
+    "subject_id": "Percentage diffe:vx715aOoBMpv8RE4iNgaFo5ea54uLi7eR9DUEm8Z59s=",
+    "types": [],
+    "value": "Percentage difference between median earnings of men and women relative to median earnings of men"
   },
   {
     "name": "StatVarGroup",
@@ -56,22 +98,364 @@
     "value": "Topic"
   },
   {
-    "name": "Canada",
-    "subject_id": "country/CAN",
+    "name": "Average annual wage",
+    "subject_id": "average_annual_wage",
     "types": [
-      "Country",
-      "Place"
+      "StatisticalVariable"
     ],
-    "value": "Canada"
+    "value": "average_annual_wage"
   },
   {
-    "name": "United States of America",
+    "name": "country/AUS",
+    "subject_id": "country/AUS",
+    "types": [
+      "Country"
+    ],
+    "value": "country/AUS"
+  },
+  {
+    "name": "country/AUT",
+    "subject_id": "country/AUT",
+    "types": [
+      "Country"
+    ],
+    "value": "country/AUT"
+  },
+  {
+    "name": "country/BEL",
+    "subject_id": "country/BEL",
+    "types": [
+      "Country"
+    ],
+    "value": "country/BEL"
+  },
+  {
+    "name": "country/BGR",
+    "subject_id": "country/BGR",
+    "types": [
+      "Country"
+    ],
+    "value": "country/BGR"
+  },
+  {
+    "name": "country/CAN",
+    "subject_id": "country/CAN",
+    "types": [
+      "Country"
+    ],
+    "value": "country/CAN"
+  },
+  {
+    "name": "country/CHE",
+    "subject_id": "country/CHE",
+    "types": [
+      "Country"
+    ],
+    "value": "country/CHE"
+  },
+  {
+    "name": "country/CHL",
+    "subject_id": "country/CHL",
+    "types": [
+      "Country"
+    ],
+    "value": "country/CHL"
+  },
+  {
+    "name": "country/COL",
+    "subject_id": "country/COL",
+    "types": [
+      "Country"
+    ],
+    "value": "country/COL"
+  },
+  {
+    "name": "country/CRI",
+    "subject_id": "country/CRI",
+    "types": [
+      "Country"
+    ],
+    "value": "country/CRI"
+  },
+  {
+    "name": "country/CYP",
+    "subject_id": "country/CYP",
+    "types": [
+      "Country"
+    ],
+    "value": "country/CYP"
+  },
+  {
+    "name": "country/CZE",
+    "subject_id": "country/CZE",
+    "types": [
+      "Country"
+    ],
+    "value": "country/CZE"
+  },
+  {
+    "name": "country/DEU",
+    "subject_id": "country/DEU",
+    "types": [
+      "Country"
+    ],
+    "value": "country/DEU"
+  },
+  {
+    "name": "country/DNK",
+    "subject_id": "country/DNK",
+    "types": [
+      "Country"
+    ],
+    "value": "country/DNK"
+  },
+  {
+    "name": "country/ESP",
+    "subject_id": "country/ESP",
+    "types": [
+      "Country"
+    ],
+    "value": "country/ESP"
+  },
+  {
+    "name": "country/EST",
+    "subject_id": "country/EST",
+    "types": [
+      "Country"
+    ],
+    "value": "country/EST"
+  },
+  {
+    "name": "country/FIN",
+    "subject_id": "country/FIN",
+    "types": [
+      "Country"
+    ],
+    "value": "country/FIN"
+  },
+  {
+    "name": "country/FRA",
+    "subject_id": "country/FRA",
+    "types": [
+      "Country"
+    ],
+    "value": "country/FRA"
+  },
+  {
+    "name": "country/GBR",
+    "subject_id": "country/GBR",
+    "types": [
+      "Country"
+    ],
+    "value": "country/GBR"
+  },
+  {
+    "name": "country/GRC",
+    "subject_id": "country/GRC",
+    "types": [
+      "Country"
+    ],
+    "value": "country/GRC"
+  },
+  {
+    "name": "country/HRV",
+    "subject_id": "country/HRV",
+    "types": [
+      "Country"
+    ],
+    "value": "country/HRV"
+  },
+  {
+    "name": "country/HUN",
+    "subject_id": "country/HUN",
+    "types": [
+      "Country"
+    ],
+    "value": "country/HUN"
+  },
+  {
+    "name": "country/IRL",
+    "subject_id": "country/IRL",
+    "types": [
+      "Country"
+    ],
+    "value": "country/IRL"
+  },
+  {
+    "name": "country/ISL",
+    "subject_id": "country/ISL",
+    "types": [
+      "Country"
+    ],
+    "value": "country/ISL"
+  },
+  {
+    "name": "country/ISR",
+    "subject_id": "country/ISR",
+    "types": [
+      "Country"
+    ],
+    "value": "country/ISR"
+  },
+  {
+    "name": "country/ITA",
+    "subject_id": "country/ITA",
+    "types": [
+      "Country"
+    ],
+    "value": "country/ITA"
+  },
+  {
+    "name": "country/JPN",
+    "subject_id": "country/JPN",
+    "types": [
+      "Country"
+    ],
+    "value": "country/JPN"
+  },
+  {
+    "name": "country/KOR",
+    "subject_id": "country/KOR",
+    "types": [
+      "Country"
+    ],
+    "value": "country/KOR"
+  },
+  {
+    "name": "country/LTU",
+    "subject_id": "country/LTU",
+    "types": [
+      "Country"
+    ],
+    "value": "country/LTU"
+  },
+  {
+    "name": "country/LUX",
+    "subject_id": "country/LUX",
+    "types": [
+      "Country"
+    ],
+    "value": "country/LUX"
+  },
+  {
+    "name": "country/LVA",
+    "subject_id": "country/LVA",
+    "types": [
+      "Country"
+    ],
+    "value": "country/LVA"
+  },
+  {
+    "name": "country/MEX",
+    "subject_id": "country/MEX",
+    "types": [
+      "Country"
+    ],
+    "value": "country/MEX"
+  },
+  {
+    "name": "country/MLT",
+    "subject_id": "country/MLT",
+    "types": [
+      "Country"
+    ],
+    "value": "country/MLT"
+  },
+  {
+    "name": "country/NLD",
+    "subject_id": "country/NLD",
+    "types": [
+      "Country"
+    ],
+    "value": "country/NLD"
+  },
+  {
+    "name": "country/NOR",
+    "subject_id": "country/NOR",
+    "types": [
+      "Country"
+    ],
+    "value": "country/NOR"
+  },
+  {
+    "name": "country/NZL",
+    "subject_id": "country/NZL",
+    "types": [
+      "Country"
+    ],
+    "value": "country/NZL"
+  },
+  {
+    "name": "country/OECD",
+    "subject_id": "country/OECD",
+    "types": [
+      "Country"
+    ],
+    "value": "country/OECD"
+  },
+  {
+    "name": "country/POL",
+    "subject_id": "country/POL",
+    "types": [
+      "Country"
+    ],
+    "value": "country/POL"
+  },
+  {
+    "name": "country/PRT",
+    "subject_id": "country/PRT",
+    "types": [
+      "Country"
+    ],
+    "value": "country/PRT"
+  },
+  {
+    "name": "country/ROU",
+    "subject_id": "country/ROU",
+    "types": [
+      "Country"
+    ],
+    "value": "country/ROU"
+  },
+  {
+    "name": "country/SVK",
+    "subject_id": "country/SVK",
+    "types": [
+      "Country"
+    ],
+    "value": "country/SVK"
+  },
+  {
+    "name": "country/SVN",
+    "subject_id": "country/SVN",
+    "types": [
+      "Country"
+    ],
+    "value": "country/SVN"
+  },
+  {
+    "name": "country/SWE",
+    "subject_id": "country/SWE",
+    "types": [
+      "Country"
+    ],
+    "value": "country/SWE"
+  },
+  {
+    "name": "country/TUR",
+    "subject_id": "country/TUR",
+    "types": [
+      "Country"
+    ],
+    "value": "country/TUR"
+  },
+  {
+    "name": "country/USA",
     "subject_id": "country/USA",
     "types": [
-      "Country",
-      "Place"
+      "Country"
     ],
-    "value": "United States of America"
+    "value": "country/USA"
   },
   {
     "name": "Data Commons Variables",
@@ -82,19 +466,29 @@
     "value": "dc/g/Root"
   },
   {
-    "name": "Statistics",
-    "subject_id": "dc/topic/Root",
-    "types": [
-      "Topic"
-    ],
-    "value": "dc/topic/Root"
-  },
-  {
-    "name": "Number of Frogs",
-    "subject_id": "number_of_frogs",
+    "name": "Gender wage gap",
+    "subject_id": "gender_wage_gap",
     "types": [
       "StatisticalVariable"
     ],
-    "value": "Number of Frogs"
+    "value": "gender_wage_gap"
+  },
+  {
+    "name": "",
+    "subject_id": "https://www.oecd:WBp2TQT2uabEYlVBRVdBNTuAg8ZhVQtfJf1bi+05Dig=",
+    "types": [],
+    "value": "https://www.oecd.org/en/data/indicators/gender-wage-gap.html"
+  },
+  {
+    "name": "",
+    "subject_id": "https://www.oecd:iK01NDHwHHRCY8/vuIX5p90jvp7EDZ3G2GBJE50zajo=",
+    "types": [],
+    "value": "https://www.oecd.org/en/data/indicators/average-annual-wages.html"
+  },
+  {
+    "name": "",
+    "subject_id": "st=medianValue,m:pXrHQIX3jL01Pk9TWioc82tK+BrWAmJ2gpmuytqaEtA=",
+    "types": [],
+    "value": "st=medianValue,mp=wagesAnnual,pt=Person"
   }
 ]
