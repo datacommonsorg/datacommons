@@ -77,8 +77,8 @@ def start(imports: str | None = None) -> None:
         exec_match = re.match(exec_pattern, res_name)
 
         if exec_match:
-            resp_project_id, location, wf_name, exec_id = exec_match.groups()
-            execution_url = f"https://console.cloud.google.com/workflows/workflow/{location}/{wf_name}/executions/view/{exec_id}?project={resp_project_id}"
+            _, location, wf_name, exec_id = exec_match.groups()
+            execution_url = f"https://console.cloud.google.com/workflows/workflow/{location}/{wf_name}/execution/{exec_id}/summary?project={project_id}"
 
             click.secho("Execution ID: ", fg="cyan", bold=True, nl=False)
             click.secho(exec_id, fg="green")

@@ -107,11 +107,7 @@ main:
 
     - update_launch_params:
         assign:
-          - launch_params.spannerInstanceId: '$${handshake_data.spannerInstanceId}'
-          - launch_params.spannerDatabaseId: '$${handshake_data.spannerDatabaseId}'
           - launch_params.importList: '$${handshake_data.importList}'
-          - launch_params.tempLocation: '$${handshake_data.tempLocation}'
-          - launch_params.stagingLocation: '$${handshake_data.tempLocation}'
 
     - try_acquire_lock:
         try:

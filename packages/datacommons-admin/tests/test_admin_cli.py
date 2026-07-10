@@ -380,7 +380,7 @@ def test_ingest_start_success(
     assert "Successfully started ingestion workflow!" in result.output
     assert "Execution ID: exec-123" in result.output
     assert (
-        "Execution console link: https://console.cloud.google.com/workflows/workflow/us-central1/mock-workflow/executions/view/exec-123?project=mock-proj"
+        "Execution console link: https://console.cloud.google.com/workflows/workflow/us-central1/mock-workflow/execution/exec-123/summary?project=mock-proj"
         in result.output
     )
 
