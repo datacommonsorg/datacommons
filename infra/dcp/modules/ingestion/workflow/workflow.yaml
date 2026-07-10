@@ -59,6 +59,10 @@ main:
           - condition: true
             assign:
               - decoded_imports: []
+    - log_decoded:
+        call: sys.log
+        args:
+          data: '$${"DEBUG: decoded_imports = " + string(decoded_imports)}'
     - set_num_imports:
         assign:
           - num_imports: '$${len(decoded_imports)}'
