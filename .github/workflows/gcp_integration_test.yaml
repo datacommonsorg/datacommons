@@ -2,8 +2,9 @@ name: GCP Sandbox Integration Test
 
 on:
   schedule:
-    # Run daily at 02:00 UTC (tests latest images)
-    - cron: '0 2 * * *'
+    # Run weekdays (Monday through Thursday) at 02:00 UTC (tests latest images)
+    - cron: '0 2 * * 1-4'
+
   release:
     types: [published]
   workflow_dispatch:
