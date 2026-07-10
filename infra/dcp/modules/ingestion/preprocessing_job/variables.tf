@@ -7,7 +7,6 @@ variable "stateless_deletion_protection" {
 }
 variable "image" {
   type        = string
-  default     = "gcr.io/datcom-ci/datacommons-data:1.1.0"
   nullable    = false
   description = "Docker image URL for the data ingestion pre-processing job"
 }

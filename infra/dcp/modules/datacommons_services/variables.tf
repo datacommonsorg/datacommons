@@ -23,7 +23,6 @@ variable "stateless_deletion_protection" {
 # =============================================================================
 variable "image" {
   type        = string
-  default     = "gcr.io/datcom-ci/datacommons-services:1.1.0"
   nullable    = false
   description = "Docker image URL for the main Data Commons services"
 }
