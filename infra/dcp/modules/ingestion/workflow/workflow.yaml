@@ -72,21 +72,25 @@ main:
             - append_lists:
                 assign:
                   - item_gcs_path: '$${"gs://" + bucket_name + "/${ingestion_artifacts_path}/" + imp.importName + "/" + version}'
-                  - status_item: {}
-                  - status_item.importName: '$${imp.importName}'
-                  - status_item.latestVersion: '$${item_gcs_path}'
-                  - status_item.graphPath: '$${imp.graphPath}'
-                  - status_item.status: "STAGING"
-                  - history_item: {}
-                  - history_item.importName: '$${imp.importName}'
-                  - history_item.latestVersion: '$${version}'
-                  - imports_status_list: '$${list.concat(imports_status_list, [status_item])}'
-                  - imports_history_list: '$${list.concat(imports_history_list, [history_item])}'
-                  - imports_version_list: '$${list.concat(imports_version_list, [imp.importName])}'
+                  - new_status_list: '$${json.decode("[{\"importName\":\"" + imp.importName + "\",\"latestVersion\":\"" + item_gcs_path + "\",\"graphPath\":\"" + imp.graphPath + "\",\"status\":\"STAGING\"}]")}'
+                  - new_history_list: '$${json.decode("[{\"importName\":\"" + imp.importName + "\",\"latestVersion\":\"" + version + "\"}]")}'
+                  - new_version_list: '$${json.decode("[\"" + imp.importName + "\"]")}'
                   - clean_item: '$${text.replace_all(text.replace_all(text.to_lower(imp.importName), "/", "-"), "_", "-")}'
                   - join_prefix: '$${if(combined_import_name == "", "", "-")}'
                   - combined_import_name: '$${combined_import_name + join_prefix + clean_item}'
                   - comma_separated_imports: '$${if(comma_separated_imports == "", imp.importName, comma_separated_imports + "," + imp.importName)}'
+            - merge_lists:
+                switch:
+                  - condition: '$${len(imports_status_list) == 0}'
+                    assign:
+                      - imports_status_list: '$${new_status_list}'
+                      - imports_history_list: '$${new_history_list}'
+                      - imports_version_list: '$${new_version_list}'
+                  - condition: true
+                    assign:
+                      - imports_status_list: '$${list.concat(imports_status_list, new_status_list)}'
+                      - imports_history_list: '$${list.concat(imports_history_list, new_history_list)}'
+                      - imports_version_list: '$${list.concat(imports_version_list, new_version_list)}'
     - set_dataflow_job_name:
         assign:
           - import_name_len: '$${len(combined_import_name)}'
@@ -109,7 +113,7 @@ main:
         call: googleapis.storage.v1.objects.get
         args:
           bucket: '$${bucket_name}'
-          object: '$${temp_path_prefix + "/datacommons/ingestion_records/" + workflow_id + ".json"}'
+          object: '$${text.url_encode(temp_path_prefix + "/datacommons/ingestion_records/" + workflow_id + ".json")}'
           alt: 'media'
         result: handshake_data
 
