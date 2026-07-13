@@ -7,6 +7,7 @@ main:
           - workflow_id: '$${sys.get_env("GOOGLE_CLOUD_WORKFLOW_EXECUTION_ID")}'
           - version: '$${"version-" + string(int(sys.now()))}'
           - bucket_name: '$${text.split(input.tempLocation, "/")[2]}'
+          - temp_path_prefix: '$${text.replace_all(input.tempLocation, "gs://" + bucket_name + "/", "")}'
           - execution_error: null
           - postprocessing_result: null
           - embedding_result: null
@@ -17,21 +18,52 @@ main:
           - max_lock_retries: $${int(lock_timeout / 120)}
           - run_embeddings: ${enable_embeddings_generation}
           - run_postproc: ${enable_bigquery_postprocessing}
-          - decoded_imports: '$${json.decode(input.importList)}'
-          - num_imports: '$${len(decoded_imports)}'
+          - decoded_imports: []
+          - num_imports: 0
           - combined_import_name: ""
+          - prep_job_name: '${preprocessing_job_name}'
+          - comma_separated_imports: ""
           - imports_status_list: []
           - imports_history_list: []
           - imports_version_list: []
           - launch_params:
               projectId: '$${project_id}'
-              spannerInstanceId: '$${input.spannerInstanceId}'
-              spannerDatabaseId: '$${input.spannerDatabaseId}'
-              importList: '$${input.importList}'
+              spannerInstanceId: '$${default(map.get(input, "spannerInstanceId"), "")}'
+              spannerDatabaseId: '$${default(map.get(input, "spannerDatabaseId"), "")}'
+              importList: '$${default(map.get(input, "importList"), "")}'
               tempLocation: '$${input.tempLocation}'
               stagingLocation: '$${input.tempLocation}'
               forceCombineNodes: 'true'
               isBaseDc: 'false'
+    - normalize_imports:
+        switch:
+          - condition: '$${default(map.get(input, "importList"), "") != ""}'
+            assign:
+              - decoded_imports: '$${json.decode(input.importList)}'
+          - condition: '$${len(default(map.get(input, "imports"), [])) > 0}'
+            steps:
+              - init_decoded:
+                  assign:
+                    - decoded_imports: []
+              - build_decoded_loop:
+                  for:
+                    value: imp_str
+                    in: '$${input.imports}'
+                    steps:
+                      - add_to_decoded:
+                          switch:
+                            - condition: '$${len(decoded_imports) == 0}'
+                              assign:
+                                - decoded_imports: '$${json.decode("[{\"importName\":\"" + imp_str + "\",\"graphPath\":\"\"}]")}'
+                            - condition: true
+                              assign:
+                                - decoded_imports: '$${list.concat(decoded_imports, json.decode("[{\"importName\":\"" + imp_str + "\",\"graphPath\":\"\"}]") )}'
+          - condition: true
+            assign:
+              - decoded_imports: []
+    - set_num_imports:
+        assign:
+          - num_imports: '$${len(decoded_imports)}'
     - build_lists:
         for:
           value: imp
@@ -40,14 +72,25 @@ main:
             - append_lists:
                 assign:
                   - item_gcs_path: '$${"gs://" + bucket_name + "/${ingestion_artifacts_path}/" + imp.importName + "/" + version}'
-                  - status_item: { importName: '$${imp.importName}', latestVersion: '$${item_gcs_path}', graphPath: '$${imp.graphPath}', status: "STAGING" }
-                  - history_item: { importName: '$${imp.importName}', latestVersion: '$${version}' }
-                  - imports_status_list: '$${list.concat(imports_status_list, status_item)}'
-                  - imports_history_list: '$${list.concat(imports_history_list, history_item)}'
-                  - imports_version_list: '$${list.concat(imports_version_list, imp.importName)}'
+                  - new_status_list: '$${json.decode("[{\"importName\":\"" + imp.importName + "\",\"latestVersion\":\"" + item_gcs_path + "\",\"graphPath\":\"" + imp.graphPath + "\",\"status\":\"STAGING\"}]")}'
+                  - new_history_list: '$${json.decode("[{\"importName\":\"" + imp.importName + "\",\"latestVersion\":\"" + version + "\"}]")}'
+                  - new_version_list: '$${json.decode("[\"" + imp.importName + "\"]")}'
                   - clean_item: '$${text.replace_all(text.replace_all(text.to_lower(imp.importName), "/", "-"), "_", "-")}'
                   - join_prefix: '$${if(combined_import_name == "", "", "-")}'
                   - combined_import_name: '$${combined_import_name + join_prefix + clean_item}'
+                  - comma_separated_imports: '$${if(comma_separated_imports == "", imp.importName, comma_separated_imports + "," + imp.importName)}'
+            - merge_lists:
+                switch:
+                  - condition: '$${len(imports_status_list) == 0}'
+                    assign:
+                      - imports_status_list: '$${new_status_list}'
+                      - imports_history_list: '$${new_history_list}'
+                      - imports_version_list: '$${new_version_list}'
+                  - condition: true
+                    assign:
+                      - imports_status_list: '$${list.concat(imports_status_list, new_status_list)}'
+                      - imports_history_list: '$${list.concat(imports_history_list, new_history_list)}'
+                      - imports_version_list: '$${list.concat(imports_version_list, new_version_list)}'
     - set_dataflow_job_name:
         assign:
           - import_name_len: '$${len(combined_import_name)}'
@@ -55,6 +98,29 @@ main:
           - sanitized_short_import: '$${text.substring(combined_import_name, 0, substring_end)}'
           - dataflow_job_name: '$${"${clean_namespace_prefix}" + sanitized_short_import + "-" + string(int(sys.now()))}'
     
+    - run_preprocessing:
+        call: launch_and_poll_preprocessing_job
+        args:
+          job_name: '$${prep_job_name}'
+          workflow_id: '$${workflow_id}'
+          temp_location: '$${input.tempLocation}'
+          imports_arg: '$${comma_separated_imports}'
+          region: '$${input.region}'
+          project_id: '${project_id}'
+        result: prep_res
+
+    - read_handshake_file:
+        call: googleapis.storage.v1.objects.get
+        args:
+          bucket: '$${bucket_name}'
+          object: '$${text.url_encode(temp_path_prefix + "/datacommons/ingestion_records/" + workflow_id + ".json")}'
+          alt: 'media'
+        result: handshake_data
+
+    - update_launch_params:
+        assign:
+          - launch_params.importList: '$${handshake_data.importList}'
+
     - try_acquire_lock:
         try:
           call: http.post
@@ -108,7 +174,7 @@ main:
                     workflowId: '$${workflow_id}'
                     imports: '$${imports_status_list}'
                     status: 'STAGING'
-            
+
             - launch_dataflow:
                 call: launch_and_poll_dataflow
                 args:
@@ -398,3 +464,63 @@ launch_and_poll_dataflow:
         return:
           job_id: $${job_id}
           launch_result: $${launch_result}
+
+launch_and_poll_preprocessing_job:
+  params: [job_name, workflow_id, temp_location, imports_arg, region, project_id]
+  steps:
+    - init_args:
+        assign:
+          - container_args: []
+    - set_args:
+        switch:
+          - condition: '$${imports_arg != ""}'
+            assign:
+              - container_args: ['$${"--imports=" + imports_arg}']
+    - run_cloud_run_job:
+        call: googleapis.run.v2.projects.locations.jobs.run
+        args:
+          name: '$${"projects/" + project_id + "/locations/" + region + "/jobs/" + job_name}'
+          body:
+            overrides:
+              containerOverrides:
+                - env:
+                    - name: 'WORKFLOW_EXECUTION_ID'
+                      value: '$${workflow_id}'
+                    - name: 'TEMP_LOCATION'
+                      value: '$${temp_location}'
+                    - name: 'DATA_RUN_MODE'
+                      value: 'dcpbridge'
+                  args: '$${container_args}'
+        result: run_res
+
+    - assign_execution_name:
+        assign:
+          - execution_name: '$${run_res.metadata.name}'
+          
+    - poll_execution:
+        steps:
+          - get_execution:
+              call: googleapis.run.v2.projects.locations.jobs.executions.get
+              args:
+                name: '$${execution_name}'
+              result: exec_status
+          - check_exec_terminal:
+              switch:
+                - condition: '$${default(map.get(exec_status, "succeededCount"), 0) > 0 or default(map.get(exec_status, "failedCount"), 0) > 0 or default(map.get(exec_status, "cancelledCount"), 0) > 0}'
+                  next: check_exec_success
+          - wait_for_execution:
+              call: sys.sleep
+              args:
+                seconds: 30
+              next: poll_execution
+              
+    - check_exec_success:
+        switch:
+          - condition: '$${default(map.get(exec_status, "succeededCount"), 0) > 0}'
+            next: return_success
+            
+    - fail_on_exec_status:
+        raise: '$${"Preprocessing Cloud Run job failed or was cancelled: " + exec_status.name}'
+        
+    - return_success:
+        return: '$${exec_status}'

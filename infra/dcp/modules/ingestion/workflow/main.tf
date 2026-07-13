@@ -32,6 +32,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
     embeddings_timeout             = var.embeddings_timeout
     clean_namespace_prefix         = local.clean_namespace_prefix
     enable_redis_cache_clearing    = var.enable_redis_cache_clearing
+    preprocessing_job_name         = var.preprocessing_job_name
   })
 }
 
