@@ -35,9 +35,8 @@ class IngestionJobClient:
         base_credentials, _ = google.auth.default()
 
         need_project_and_location = (
-            (workflow_name and not workflow_name.startswith("projects/")) or
-            (job_name and not job_name.startswith("projects/"))
-        )
+            workflow_name and not workflow_name.startswith("projects/")
+        ) or (job_name and not job_name.startswith("projects/"))
         if need_project_and_location:
             if not project_id:
                 raise click.ClickException(
@@ -50,9 +49,7 @@ class IngestionJobClient:
 
         if workflow_name:
             if not workflow_name.startswith("projects/"):
-                self.full_workflow_name = (
-                    f"projects/{project_id}/locations/{location}/workflows/{workflow_name}"
-                )
+                self.full_workflow_name = f"projects/{project_id}/locations/{location}/workflows/{workflow_name}"
             else:
                 self.full_workflow_name = workflow_name
         else:
@@ -110,13 +107,11 @@ class IngestionJobClient:
             "spannerInstanceId": spanner_instance or "",
             "spannerDatabaseId": spanner_database or "",
             "region": region,
-            "imports": imports_list
+            "imports": imports_list,
         }
 
         url = f"https://workflowexecutions.googleapis.com/v1/{self.full_workflow_name}/executions"
-        json_payload = {
-            "argument": json.dumps(argument_dict)
-        }
+        json_payload = {"argument": json.dumps(argument_dict)}
 
         try:
             response = self.session.post(url, json=json_payload, timeout=300)

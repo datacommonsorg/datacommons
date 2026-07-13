@@ -73,7 +73,9 @@ def start(imports: str | None = None) -> None:
     res_name = result.get("name")
 
     if res_name:
-        exec_pattern = r"projects/([^/]+)/locations/([^/]+)/workflows/([^/]+)/executions/([^/]+)"
+        exec_pattern = (
+            r"projects/([^/]+)/locations/([^/]+)/workflows/([^/]+)/executions/([^/]+)"
+        )
         exec_match = re.match(exec_pattern, res_name)
 
         if exec_match:

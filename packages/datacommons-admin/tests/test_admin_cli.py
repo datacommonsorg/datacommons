@@ -345,7 +345,7 @@ def test_ingest_start_success(
     mock_auth_default.return_value = (mock_creds, "test-project")
 
     mock_session_inst = MagicMock()
-    
+
     # Mock GET for get_config
     mock_get_resp = MagicMock()
     mock_get_resp.ok = True
@@ -356,7 +356,10 @@ def test_ingest_start_success(
                     {
                         "env": [
                             {"name": "TEMP_LOCATION", "value": "gs://mock-bucket/temp"},
-                            {"name": "GCP_SPANNER_INSTANCE_ID", "value": "mock-instance"},
+                            {
+                                "name": "GCP_SPANNER_INSTANCE_ID",
+                                "value": "mock-instance",
+                            },
                             {"name": "GCP_SPANNER_DATABASE_NAME", "value": "mock-db"},
                             {"name": "REGION", "value": "us-central1"},
                         ]
@@ -484,7 +487,7 @@ def test_ingest_start_with_imports_success(
     mock_auth_default.return_value = (mock_creds, "test-project")
 
     mock_session_inst = MagicMock()
-    
+
     # Mock GET for get_config
     mock_get_resp = MagicMock()
     mock_get_resp.ok = True
@@ -495,7 +498,10 @@ def test_ingest_start_with_imports_success(
                     {
                         "env": [
                             {"name": "TEMP_LOCATION", "value": "gs://mock-bucket/temp"},
-                            {"name": "GCP_SPANNER_INSTANCE_ID", "value": "mock-instance"},
+                            {
+                                "name": "GCP_SPANNER_INSTANCE_ID",
+                                "value": "mock-instance",
+                            },
                             {"name": "GCP_SPANNER_DATABASE_NAME", "value": "mock-db"},
                             {"name": "REGION", "value": "us-central1"},
                         ]
@@ -517,16 +523,17 @@ def test_ingest_start_with_imports_success(
     result = runner.invoke(admin, ["ingest", "start", "--imports", "oecd,doubleup"])
     assert result.exit_code == 0
     assert "Successfully started ingestion workflow!" in result.output
-    
+
     import json
+
     expected_arg = {
         "tempLocation": "gs://mock-bucket/temp",
         "spannerInstanceId": "mock-instance",
         "spannerDatabaseId": "mock-db",
         "region": "us-central1",
-        "imports": ["oecd", "doubleup"]
+        "imports": ["oecd", "doubleup"],
     }
-    
+
     # Verify the API was called with the correct argument
     called_args = mock_session_inst.post.call_args[1]
     assert called_args["timeout"] == 300
