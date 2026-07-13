@@ -1,8 +1,0 @@
-# Example docker-compose override file to run with a local mount of the import repository.
-# To use:
-#   cp docker-compose.override.yml.example docker-compose.override.yml
-#
-services:
-  datacommons-data-processor:
-    volumes:
-      - ${IMPORT_REPO_DIR:-../../../import}/simple:/workspace/import/simple

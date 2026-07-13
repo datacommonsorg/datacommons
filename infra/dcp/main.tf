@@ -59,6 +59,9 @@ resource "google_project_service" "apis" {
 }
 
 locals {
+  # Redirect abandoned 'latest' alias to 'stable' for Dataflow templates
+  df_template_version = var.dcp_version == "latest" ? "stable" : var.dcp_version
+
   global_config = {
     project_id                    = var.project_id
     region                        = var.region
@@ -138,9 +141,9 @@ locals {
     helper_service_image              = coalesce(var.ingestion_helper_service_image, "gcr.io/datcom-ci/datacommons-ingestion-helper:${var.dcp_version}")
 
     # Dataflow Network Configuration
-    dataflow_ip_configuration  = var.ingestion_dataflow_ip_configuration
-    dataflow_subnetwork        = var.ingestion_dataflow_subnetwork
-    dataflow_template_gcs_path = coalesce(var.ingestion_dataflow_template_gcs_path, "gs://datcom-templates/templates/flex/ingestion-${var.dcp_version}.json")
+    dataflow_ip_configuration     = var.ingestion_dataflow_ip_configuration
+    dataflow_subnetwork           = var.ingestion_dataflow_subnetwork
+    dataflow_template_gcs_path    = coalesce(var.ingestion_dataflow_template_gcs_path, "gs://datcom-templates/templates/flex/ingestion-${local.df_template_version}.json")
   }
 }
 
