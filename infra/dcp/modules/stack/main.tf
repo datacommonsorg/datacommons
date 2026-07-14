@@ -134,7 +134,7 @@ module "ingestion_preprocessing_job" {
     {
       name      = "DC_API_KEY"
       secret_id = module.auth.dc_api_key_secret_id
-      enabled   = var.datacommons_services_config.enable
+      enabled   = true
     },
     {
       name      = "MAPS_API_KEY"
