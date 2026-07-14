@@ -30,7 +30,9 @@ variable "database_id" {
 }
 
 variable "processing_units" {
-  type = number
+  type     = number
+  default  = 100
+  nullable = false
 }
 
 variable "stateful_deletion_protection" {
