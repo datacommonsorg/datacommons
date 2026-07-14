@@ -33,7 +33,16 @@ variable "secrets" {
     enabled   = bool
   }))
   default     = {}
-  description = "Map of secrets to grant access to and mount in the job"
+  description = <<EOT
+Map of secrets to grant access to and mount in the job.
+Example:
+{
+  dc_api_key = {
+    secret_id = "projects/my-project/secrets/my-secret"
+    enabled   = true
+  }
+}
+EOT
 }
 
 variable "enable_spanner_embeddings" {
