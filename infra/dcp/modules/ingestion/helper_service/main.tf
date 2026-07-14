@@ -129,6 +129,14 @@ resource "google_bigquery_connection_iam_member" "helper_connection_user" {
   member        = "serviceAccount:${google_service_account.helper_sa[0].email}"
 }
 
+resource "google_project_iam_member" "helper_dataflow_viewer" {
+  count   = var.deploy ? 1 : 0
+  project = var.project_id
+  role    = "roles/dataflow.viewer"
+  member  = "serviceAccount:${google_service_account.helper_sa[0].email}"
+}
+
+
 
 
 
