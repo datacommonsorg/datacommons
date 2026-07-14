@@ -73,6 +73,8 @@ locals {
       version = "latest"
     }
   ] : []) : []
+
+  enable_preprocessing_maps_api = module.auth.maps_api_key_secret_id != null && module.auth.maps_api_key_secret_id != ""
 }
 
 module "spanner" {
@@ -130,18 +132,16 @@ module "ingestion_preprocessing_job" {
   use_spanner                   = true
   enable_spanner_embeddings     = var.datacommons_services_config.resolve_with_spanner_embeddings
   env_vars                      = local.cloud_run_shared_env_variables
-  secrets = [
-    {
-      name      = "DC_API_KEY"
+  env_secrets = {
+    DC_API_KEY = {
       secret_id = module.auth.dc_api_key_secret_id
-      enabled   = true
-    },
-    {
-      name      = "MAPS_API_KEY"
-      secret_id = module.auth.maps_api_key_secret_id
-      enabled   = var.datacommons_services_config.enable && !var.datacommons_services_config.website_disable_google_maps_api && (var.auth_config.google_maps_api_key != null || var.auth_config.create_google_maps_key)
+      enabled   = module.auth.dc_api_key_secret_id != null && module.auth.dc_api_key_secret_id != ""
     }
-  ]
+    MAPS_API_KEY = {
+      secret_id = module.auth.maps_api_key_secret_id
+      enabled   = local.enable_preprocessing_maps_api
+    }
+  }
 
   depends_on = [module.auth]
 }

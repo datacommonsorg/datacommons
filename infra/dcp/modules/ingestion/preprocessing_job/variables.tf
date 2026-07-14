@@ -27,23 +27,21 @@ variable "env_vars" {
   }))
 }
 
-variable "secrets" {
-  type = list(object({
-    name      = string
+variable "env_secrets" {
+  type = map(object({
     secret_id = string
     enabled   = bool
   }))
-  default     = []
+  default     = {}
   description = <<-EOT
-    List of secrets to grant access to and mount in the job.
+    Map of secrets to grant access to and mount in the job, where the key is the environment variable name.
     Example:
-    [
-      {
-        name      = "DC_API_KEY"
+    {
+      "DC_API_KEY" = {
         secret_id = "projects/my-project/secrets/my-secret"
         enabled   = true
       }
-    ]
+    }
   EOT
 }
 

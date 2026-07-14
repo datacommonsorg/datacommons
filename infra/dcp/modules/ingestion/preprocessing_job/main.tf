@@ -36,7 +36,7 @@ resource "google_cloud_run_v2_job" "dc_data_job" {
         }
 
         dynamic "env" {
-          for_each = { for s in var.secrets : s.name => s if s.enabled }
+          for_each = { for k, v in var.env_secrets : k => v if v.enabled && v.secret_id != null && v.secret_id != "" }
           content {
             name = env.key
             value_source {
@@ -106,7 +106,7 @@ EOT
 }
 
 resource "google_secret_manager_secret_iam_member" "preprocessing_secret_accessor" {
-  for_each = { for s in var.secrets : s.name => s if s.enabled }
+  for_each = { for k, v in var.env_secrets : k => v if v.enabled && v.secret_id != null && v.secret_id != "" }
 
   project   = var.project_id
   secret_id = each.value.secret_id
