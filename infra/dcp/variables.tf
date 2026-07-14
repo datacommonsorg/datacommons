@@ -186,7 +186,7 @@ variable "spanner_version_retention_period" {
 }
 
 variable "spanner_processing_units" {
-  description = "Compute capacity for the Spanner instance in processing units (1000 = 1 node)"
+  description = "Compute capacity for the Spanner instance in processing units (1000 = 1 node). Defaults to 100 if not specified."
   type        = number
   default     = null
 }
