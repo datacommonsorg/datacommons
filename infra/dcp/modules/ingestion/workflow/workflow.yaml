@@ -120,6 +120,8 @@ main:
     - update_launch_params:
         assign:
           - launch_params.importList: '$${handshake_data.importList}'
+          - decoded_imports: '$${json.decode(handshake_data.importList)}'
+
 
     - try_acquire_lock:
         try:
