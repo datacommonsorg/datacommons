@@ -13,6 +13,11 @@ variable "image" {
 variable "cpu" { type = string }
 variable "memory" { type = string }
 variable "timeout" { type = string }
+variable "tmp_disk_size" {
+  description = "Optional size of the disk-backed temporary volume. Null or empty values disable the volume."
+  type        = string
+  default     = null
+}
 variable "vpc_connector_id" { type = string }
 variable "bucket_name" { type = string }
 variable "input_path" { type = string }
