@@ -28,21 +28,23 @@ variable "env_vars" {
 }
 
 variable "secrets" {
-  type = map(object({
+  type = list(object({
+    name      = string
     secret_id = string
     enabled   = bool
   }))
-  default     = {}
-  description = <<EOT
-Map of secrets to grant access to and mount in the job.
-Example:
-{
-  dc_api_key = {
-    secret_id = "projects/my-project/secrets/my-secret"
-    enabled   = true
-  }
-}
-EOT
+  default     = []
+  description = <<-EOT
+    List of secrets to grant access to and mount in the job.
+    Example:
+    [
+      {
+        name      = "DC_API_KEY"
+        secret_id = "projects/my-project/secrets/my-secret"
+        enabled   = true
+      }
+    ]
+  EOT
 }
 
 variable "enable_spanner_embeddings" {
