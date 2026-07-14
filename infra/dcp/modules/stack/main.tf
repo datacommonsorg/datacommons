@@ -73,8 +73,6 @@ locals {
       version = "latest"
     }
   ] : []) : []
-
-  enable_preprocessing_maps_api = module.auth.maps_api_key_secret_id != null && module.auth.maps_api_key_secret_id != ""
 }
 
 module "spanner" {
@@ -135,11 +133,11 @@ module "ingestion_preprocessing_job" {
   env_secrets = {
     DC_API_KEY = {
       secret_id = module.auth.dc_api_key_secret_id
-      enabled   = module.auth.dc_api_key_secret_id != null && module.auth.dc_api_key_secret_id != ""
+      enabled   = true
     }
     MAPS_API_KEY = {
       secret_id = module.auth.maps_api_key_secret_id
-      enabled   = local.enable_preprocessing_maps_api
+      enabled   = true
     }
   }
 
