@@ -26,6 +26,9 @@ main:
           - imports_status_list: []
           - imports_history_list: []
           - imports_version_list: []
+          - imports_status_str: ""
+          - imports_history_str: ""
+          - imports_version_str: ""
           - launch_params:
               projectId: '$${project_id}'
               spannerInstanceId: '$${default(map.get(input, "spannerInstanceId"), "")}'
@@ -45,19 +48,18 @@ main:
               - init_decoded:
                   assign:
                     - decoded_imports: []
+                    - imports_json_str: ""
               - build_decoded_loop:
                   for:
                     value: imp_str
                     in: '$${input.imports}'
                     steps:
                       - add_to_decoded:
-                          switch:
-                            - condition: '$${len(decoded_imports) == 0}'
-                              assign:
-                                - decoded_imports: '$${json.decode("[{\"importName\":\"" + imp_str + "\",\"graphPath\":\"\"}]")}'
-                            - condition: true
-                              assign:
-                                - decoded_imports: '$${list.concat(decoded_imports, json.decode("[{\"importName\":\"" + imp_str + "\",\"graphPath\":\"\"}]") )}'
+                          assign:
+                            - imports_json_str: '$${imports_json_str + ",{\"importName\":\"" + imp_str + "\",\"graphPath\":\"\"}"}'
+              - decode_imports:
+                  assign:
+                    - decoded_imports: '$${json.decode("[" + text.substring(imports_json_str, 1, len(imports_json_str)) + "]")}'
           - condition: true
             assign:
               - decoded_imports: []
@@ -72,25 +74,21 @@ main:
             - append_lists:
                 assign:
                   - item_gcs_path: '$${"gs://" + bucket_name + "/${ingestion_artifacts_path}/" + imp.importName + "/" + version}'
-                  - new_status_list: '$${json.decode("[{\"importName\":\"" + imp.importName + "\",\"latestVersion\":\"" + item_gcs_path + "\",\"graphPath\":\"" + imp.graphPath + "\",\"status\":\"STAGING\"}]")}'
-                  - new_history_list: '$${json.decode("[{\"importName\":\"" + imp.importName + "\",\"latestVersion\":\"" + version + "\"}]")}'
-                  - new_version_list: '$${json.decode("[\"" + imp.importName + "\"]")}'
+                  - status_item_str: '$${",{\"importName\":\"" + imp.importName + "\",\"latestVersion\":\"" + item_gcs_path + "\",\"graphPath\":\"" + imp.graphPath + "\",\"status\":\"STAGING\"}"}'
+                  - history_item_str: '$${",{\"importName\":\"" + imp.importName + "\",\"latestVersion\":\"" + version + "\"}"}'
+                  - version_item_str: '$${",\"" + imp.importName + "\""}'
+                  - imports_status_str: '$${imports_status_str + status_item_str}'
+                  - imports_history_str: '$${imports_history_str + history_item_str}'
+                  - imports_version_str: '$${imports_version_str + version_item_str}'
                   - clean_item: '$${text.replace_all(text.replace_all(text.to_lower(imp.importName), "/", "-"), "_", "-")}'
                   - join_prefix: '$${if(combined_import_name == "", "", "-")}'
                   - combined_import_name: '$${combined_import_name + join_prefix + clean_item}'
                   - comma_separated_imports: '$${if(comma_separated_imports == "", imp.importName, comma_separated_imports + "," + imp.importName)}'
-            - merge_lists:
-                switch:
-                  - condition: '$${len(imports_status_list) == 0}'
-                    assign:
-                      - imports_status_list: '$${new_status_list}'
-                      - imports_history_list: '$${new_history_list}'
-                      - imports_version_list: '$${new_version_list}'
-                  - condition: true
-                    assign:
-                      - imports_status_list: '$${list.concat(imports_status_list, new_status_list)}'
-                      - imports_history_list: '$${list.concat(imports_history_list, new_history_list)}'
-                      - imports_version_list: '$${list.concat(imports_version_list, new_version_list)}'
+    - decode_lists:
+        assign:
+          - imports_status_list: '$${json.decode("[" + text.substring(imports_status_str, 1, len(imports_status_str)) + "]")}'
+          - imports_history_list: '$${json.decode("[" + text.substring(imports_history_str, 1, len(imports_history_str)) + "]")}'
+          - imports_version_list: '$${json.decode("[" + text.substring(imports_version_str, 1, len(imports_version_str)) + "]")}'
     - set_dataflow_job_name:
         assign:
           - import_name_len: '$${len(combined_import_name)}'
