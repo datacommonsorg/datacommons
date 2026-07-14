@@ -130,9 +130,16 @@ module "ingestion_preprocessing_job" {
   use_spanner                   = true
   enable_spanner_embeddings     = var.datacommons_services_config.resolve_with_spanner_embeddings
   env_vars                      = local.cloud_run_shared_env_variables
-  secret_env_vars               = local.datacommons_services_secrets
-  dc_api_key_secret_id          = module.auth.dc_api_key_secret_id
-  maps_api_key_secret_id        = module.auth.maps_api_key_secret_id
+  secrets = {
+    dc_api_key = {
+      secret_id = module.auth.dc_api_key_secret_id
+      enabled   = var.datacommons_services_config.enable
+    }
+    maps_api_key = {
+      secret_id = module.auth.maps_api_key_secret_id
+      enabled   = var.datacommons_services_config.enable && !var.datacommons_services_config.website_disable_google_maps_api && (var.auth_config.google_maps_api_key != null || var.auth_config.create_google_maps_key)
+    }
+  }
 
   depends_on = [module.auth]
 }

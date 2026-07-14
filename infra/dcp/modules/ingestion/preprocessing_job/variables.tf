@@ -27,24 +27,13 @@ variable "env_vars" {
   }))
 }
 
-variable "secret_env_vars" {
-  type = list(object({
-    name    = string
-    secret  = string
-    version = string
+variable "secrets" {
+  type = map(object({
+    secret_id = string
+    enabled   = bool
   }))
-}
-
-variable "dc_api_key_secret_id" {
-  type        = string
-  description = "Secret ID for Data Commons API key"
-  default     = ""
-}
-
-variable "maps_api_key_secret_id" {
-  type        = string
-  description = "Secret ID for Maps API key"
-  default     = ""
+  default     = {}
+  description = "Map of secrets to grant access to and mount in the job"
 }
 
 variable "enable_spanner_embeddings" {
