@@ -25,7 +25,7 @@ variable "spanner_config" {
     instance_id                        = string
     database_id                        = string
     version_retention_period           = string
-    processing_units                   = number
+    processing_units                   = optional(number)
     enable_bigquery_connection         = bool
     enable_embeddings_generation       = bool
     bigquery_connection_name           = string
