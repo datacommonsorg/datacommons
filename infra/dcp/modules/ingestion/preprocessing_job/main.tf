@@ -12,6 +12,11 @@ resource "google_cloud_run_v2_job" "dc_data_job" {
   location            = var.region
   deletion_protection = var.stateless_deletion_protection
 
+  depends_on = [
+    google_secret_manager_secret_iam_member.preprocessing_api_key_accessor,
+    google_secret_manager_secret_iam_member.preprocessing_maps_key_accessor
+  ]
+
   template {
     template {
       containers {
