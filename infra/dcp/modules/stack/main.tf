@@ -137,7 +137,7 @@ module "ingestion_preprocessing_job" {
     }
     MAPS_API_KEY = {
       secret_id = module.auth.maps_api_key_secret_id
-      enabled   = true
+      enabled   = var.auth_config.google_maps_api_key != null || var.auth_config.create_google_maps_key
     }
   }
 
