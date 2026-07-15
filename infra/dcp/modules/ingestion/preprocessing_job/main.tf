@@ -12,6 +12,10 @@ resource "google_cloud_run_v2_job" "dc_data_job" {
   location            = var.region
   deletion_protection = var.stateless_deletion_protection
 
+  depends_on = [
+    google_secret_manager_secret_iam_member.preprocessing_secret_accessor
+  ]
+
   template {
     template {
       containers {
@@ -32,12 +36,12 @@ resource "google_cloud_run_v2_job" "dc_data_job" {
         }
 
         dynamic "env" {
-          for_each = var.secret_env_vars
+          for_each = { for k, v in var.env_secrets : k => v if v.enabled }
           content {
-            name = env.value.name
+            name = env.key
             value_source {
               secret_key_ref {
-                secret  = env.value.secret
+                secret  = env.value.secret_id
                 version = env.value.version
               }
             }
@@ -101,16 +105,11 @@ EOT
   }
 }
 
-resource "google_secret_manager_secret_iam_member" "preprocessing_api_key_accessor" {
-  project   = var.project_id
-  secret_id = var.dc_api_key_secret_id
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.preprocessing_sa.email}"
-}
+resource "google_secret_manager_secret_iam_member" "preprocessing_secret_accessor" {
+  for_each = { for k, v in var.env_secrets : k => v if v.enabled }
 
-resource "google_secret_manager_secret_iam_member" "preprocessing_maps_key_accessor" {
   project   = var.project_id
-  secret_id = var.maps_api_key_secret_id
+  secret_id = each.value.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.preprocessing_sa.email}"
 }
