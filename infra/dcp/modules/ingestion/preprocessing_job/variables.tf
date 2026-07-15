@@ -31,6 +31,7 @@ variable "env_secrets" {
   type = map(object({
     secret_id = string
     enabled   = bool
+    version   = optional(string, "latest")
   }))
   default     = {}
   description = <<-EOT
@@ -40,6 +41,7 @@ variable "env_secrets" {
       "DC_API_KEY" = {
         secret_id = "projects/my-project/secrets/my-secret"
         enabled   = true
+        version   = "latest" # Optional, defaults to "latest"
       }
     }
   EOT

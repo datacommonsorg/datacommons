@@ -42,7 +42,7 @@ resource "google_cloud_run_v2_job" "dc_data_job" {
             value_source {
               secret_key_ref {
                 secret  = env.value.secret_id
-                version = "latest"
+                version = env.value.version
               }
             }
           }
