@@ -39,44 +39,80 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
-logger = logging.getLogger("mock_nl_server")
+logger = logging.getLogger("local_nl_server")
 
 
-# Default query mappings
-DEFAULT_MAPPINGS = {
-    "average annual wage in united states of america": {
-        "SV": ["average_annual_wage"],
-        "CosineScore": [0.9],
-        "SV_to_Sentences": {
-            "average_annual_wage": [{"sentence": "Average annual wage", "score": 0.9}]
-        },
-    },
-    "gender wage gap in united states of america": {
-        "SV": ["gender_wage_gap"],
-        "CosineScore": [0.9],
-        "SV_to_Sentences": {
-            "gender_wage_gap": [{"sentence": "Gender wage gap", "score": 0.9}]
-        },
-    },
-}
+import os
+from sentence_transformers import SentenceTransformer, util
+from google.cloud import spanner
+
+# Global NL Resolver instance
+_NL_RESOLVER = None
+
+class NLResolver:
+    def __init__(self):
+        print(">>> Loading SentenceTransformer model (all-mpnet-base-v2)...", flush=True)
+        # Using all-mpnet-base-v2 to match default schema dimensions
+        self.model = SentenceTransformer('all-mpnet-base-v2')
+        self.var_embeddings = {} # DCID -> embedding
+        self.var_names = {} # DCID -> name
+
+    def load_variables(self):
+        project_id = os.getenv("SPANNER_PROJECT_ID", "default")
+        instance_id = os.getenv("SPANNER_INSTANCE_ID", "default")
+        database_id = os.getenv("SPANNER_DATABASE_ID", "test-db")
+        emulator_host = os.getenv("SPANNER_EMULATOR_HOST")
+
+        print(f">>> Connecting to Spanner at {emulator_host}...", flush=True)
+        # Apply emulator patch if needed, but in container sitecustomize should handle it
+        client = spanner.Client(project=project_id)
+        instance = client.instance(instance_id)
+        database = instance.database(database_id)
+
+        print(">>> Reading variables from Spanner...", flush=True)
+        with database.snapshot() as snapshot:
+            results = snapshot.execute_sql(
+                "SELECT subject_id, name FROM Node WHERE 'StatisticalVariable' IN UNNEST(types)"
+            )
+            for row in results:
+                dcid, name = row[0], row[1]
+                if name:
+                    self.var_names[dcid] = name
+
+        print(f">>> Generating embeddings for {len(self.var_names)} variables...", flush=True)
+        if self.var_names:
+            names = list(self.var_names.values())
+            dcids = list(self.var_names.keys())
+            embeddings = self.model.encode(names, show_progress_bar=True)
+            for dcid, emb in zip(dcids, embeddings):
+                self.var_embeddings[dcid] = emb
+        print(">>> NL Resolver ready.", flush=True)
+
+    def search(self, query, top_k=5):
+        if not self.var_embeddings:
+            return []
+        
+        query_emb = self.model.encode(query)
+        results = []
+        for dcid, var_emb in self.var_embeddings.items():
+            score = util.cos_sim(query_emb, var_emb).item()
+            results.append((dcid, score))
+        
+        results.sort(key=lambda x: x[1], reverse=True)
+        return results[:top_k]
+
+def get_resolver():
+    global _NL_RESOLVER
+    if _NL_RESOLVER is None:
+        resolver = NLResolver()
+        resolver.load_variables()
+        _NL_RESOLVER = resolver
+    return _NL_RESOLVER
 
 
-def load_mappings():
-    mappings = dict(DEFAULT_MAPPINGS)
-    config_path = Path("/app/mock_queries.json")
-    if config_path.exists():
-        try:
-            with config_path.open() as f:
-                custom_mappings = json.load(f)
-                for k, v in custom_mappings.items():
-                    mappings[k.lower().strip()] = v
-            logger.info("Loaded custom query mappings from %s", config_path)
-        except Exception as e:  # noqa: BLE001
-            logger.error("Failed to load custom query mappings: %s", e)
-    return mappings
 
 
-class MockNLServerHandler(BaseHTTPRequestHandler):
+class LocalNLServerHandler(BaseHTTPRequestHandler):
     def log_message(self, log_format: str, *args: any) -> None:
         # Override to log via standard python logging instead of stderr
         logger.info(
@@ -119,24 +155,25 @@ class MockNLServerHandler(BaseHTTPRequestHandler):
             queries = req_json.get("queries", [])
             logger.info("Received search queries: %s", queries)
 
-            mappings = load_mappings()
+            resolver = get_resolver()
+
             query_results = {}
             for q in queries:
-                cleaned_q = q.lower().strip().rstrip("?")
-                if cleaned_q in mappings:
-                    query_results[q] = mappings[cleaned_q]
-                elif "wage" in cleaned_q:
-                    # Fallback keyword matching for wage queries
-                    query_results[q] = mappings.get(
-                        "average annual wage in united states of america"
-                    )
-                else:
-                    # Fallback for unrecognized queries
-                    query_results[q] = {
-                        "SV": [],
-                        "CosineScore": [],
-                        "SV_to_Sentences": {},
-                    }
+                search_results = resolver.search(q)
+
+                sv_list = [r[0] for r in search_results]
+                scores = [r[1] for r in search_results]
+
+                sv_to_sentences = {}
+                for dcid, score in search_results:
+                    sv_to_sentences[dcid] = [{"sentence": resolver.var_names.get(dcid, ""), "score": score}]
+
+                query_results[q] = {
+                    "SV": sv_list,
+                    "CosineScore": scores,
+                    "SV_to_Sentences": sv_to_sentences
+                }
+
 
             response = {"queryResults": query_results, "scoreThreshold": 0.5}
             self.send_response(200)
@@ -148,17 +185,28 @@ class MockNLServerHandler(BaseHTTPRequestHandler):
         self.send_error(404, f"Endpoint Not Found: {self.path}")
 
 
-def run(server_class=HTTPServer, handler_class=MockNLServerHandler, port=6060):
+def run(server_class=HTTPServer, handler_class=LocalNLServerHandler, port=6060):
+    # Pre-load resolver to warm up model and load variables before serving
+    logger.info("Pre-loading NL Resolver...")
+    try:
+        get_resolver()
+        logger.info("NL Resolver loaded successfully.")
+    except Exception as e:
+        logger.error("Failed to load NL Resolver: %s", e)
+        # We might want to exit or continue, let's continue but log error
+        # If it fails here, requests will likely fail too.
+
     server_address = ("", port)
     httpd = server_class(server_address, handler_class)
-    logger.info("Mock NL Server running on port %d...", port)
+    logger.info("Local NL Server running on port %d...", port)
+
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
         pass
     finally:
         httpd.server_close()
-        logger.info("Mock NL Server stopped.")
+        logger.info("Local NL Server stopped.")
 
 
 if __name__ == "__main__":

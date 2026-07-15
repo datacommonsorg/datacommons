@@ -65,36 +65,26 @@ try:
         def update_database_ddl(self, request=None, *args, **kwargs):
             emulator_host = os.getenv("SPANNER_EMULATOR_HOST")
             if emulator_host:
+                def should_keep(stmt):
+                    norm = stmt.strip().upper()
+                    if norm.startswith("CREATE MODEL") and os.getenv("SPANNER_ENABLE_MODEL", "false").lower() != "true":
+                        return False
+                    if norm.startswith("CREATE VECTOR INDEX") and os.getenv("SPANNER_ENABLE_VECTOR_INDEX", "false").lower() != "true":
+                        return False
+                    return True
+
                 req_obj = request if request is not None else kwargs.get("request")
                 if req_obj is not None:
                     if hasattr(req_obj, "statements"):
-                        filtered_statements = []
-                        for stmt in req_obj.statements:
-                            normalized = stmt.strip().upper()
-                            if normalized.startswith(
-                                ("CREATE MODEL", "CREATE VECTOR INDEX")
-                            ):
-                                continue
-                            filtered_statements.append(stmt)
+                        filtered = [s for s in req_obj.statements if should_keep(s)]
                         del req_obj.statements[:]
-                        req_obj.statements.extend(filtered_statements)
+                        req_obj.statements.extend(filtered)
                     elif isinstance(req_obj, dict) and "statements" in req_obj:
-                        req_obj["statements"] = [
-                            s
-                            for s in req_obj["statements"]
-                            if not s.strip()
-                            .upper()
-                            .startswith(("CREATE MODEL", "CREATE VECTOR INDEX"))
-                        ]
+                        req_obj["statements"] = [s for s in req_obj["statements"] if should_keep(s)]
                 elif "statements" in kwargs:
-                    kwargs["statements"] = [
-                        s
-                        for s in kwargs["statements"]
-                        if not s.strip()
-                        .upper()
-                        .startswith(("CREATE MODEL", "CREATE VECTOR INDEX"))
-                    ]
+                    kwargs["statements"] = [s for s in kwargs["statements"] if should_keep(s)]
             return super().update_database_ddl(request, *args, **kwargs)
+
 
     google.cloud.spanner_admin_database_v1.DatabaseAdminClient = (
         InsecureDatabaseAdminClient

@@ -48,6 +48,7 @@ def pytest_addoption(parser):
     )
 
 
+
 @pytest.fixture(scope="session")
 def keep_containers(request):
     return request.config.getoption("--keep-containers")
@@ -71,3 +72,5 @@ def ingestion_image(request):
 @pytest.fixture(scope="session")
 def generate_golden(request):
     return request.config.getoption("--generate-golden")
+
+

@@ -64,6 +64,9 @@ services:
       - SPANNER_INSTANCE_ID=default
       - SPANNER_DATABASE_ID=test-db
       - SPANNER_GRAPH_DATABASE_ID=test-db
+      - SPANNER_ENABLE_MODEL=${SPANNER_ENABLE_MODEL:-false}
+      - SPANNER_ENABLE_VECTOR_INDEX=${SPANNER_ENABLE_VECTOR_INDEX:-true}
+
     depends_on:
       - spanner
     networks:
@@ -99,25 +102,42 @@ services:
       - MAPS_API_KEY=dummy-maps-key
       - DC_API_ROOT=
       - ENABLE_MODEL=true
-      - NL_SERVICE_ROOT_URL=http://mock-nl-server:6060
+      - NL_SERVICE_ROOT_URL=http://local-nl-server:6060
     depends_on:
       - spanner
-      - mock-nl-server
+      - local-nl-server
     networks:
       - test-network
     extra_hosts:
       - "metadata.google.internal:127.0.0.1"
 
-  mock-nl-server:
-    image: python:3.11-slim
-    container_name: itest-mock-nl-server
+  local-nl-server:
+    build:
+      context: .
+      dockerfile: local_nl_server.Dockerfile
+    container_name: itest-local-nl-server
+    ports:
+      - "${MOCK_NL_PORT:-6060}:6060"
     volumes:
-      - ./mock_nl_server.py:/app/mock_nl_server.py
-    command: python /app/mock_nl_server.py
+      - ./local_nl_server.py:/app/local_nl_server.py
+      - ./patch_credentials.py:/app/patch/sitecustomize.py
+      - hf-cache:/root/.cache
+    environment:
+      - PYTHONPATH=/app/patch
+      - SPANNER_EMULATOR_HOST=spanner:${SPANNER_INTERNAL_GRPC_PORT:-15000}
+      - SPANNER_PROJECT_ID=default
+      - SPANNER_INSTANCE_ID=default
+      - SPANNER_DATABASE_ID=test-db
+    command: python /app/local_nl_server.py
     networks:
       - test-network
+
+
+volumes:
+  hf-cache:
 
 networks:
   test-network:
     name: itest-net
     driver: bridge
+

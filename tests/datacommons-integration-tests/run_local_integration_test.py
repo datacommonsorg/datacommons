@@ -62,7 +62,7 @@ WEBSITE_PORT = get_port("WEBSITE_PORT", 8082)
 HELPER_PORT = get_port("HELPER_PORT", 8081)
 SPANNER_REST_PORT = get_port("SPANNER_REST_PORT", 9020)
 SPANNER_GRPC_PORT = get_port("SPANNER_GRPC_PORT", 9010)
-MOCK_NL_PORT = get_port("MOCK_NL_PORT", 6060)
+LOCAL_NL_PORT = get_port("LOCAL_NL_PORT", 6060)
 
 PROJECT_ID = os.getenv("SPANNER_PROJECT_ID", "default")
 INSTANCE_ID = os.getenv("SPANNER_INSTANCE_ID", "default")
@@ -162,15 +162,20 @@ def wait_for_service(
     raise RuntimeError(f"{name} failed to start within {timeout_secs} seconds.")
 
 
-def call_helper(action_type: str) -> dict:
-    path = (
-        "database/initialize"
-        if action_type == "initialize_database"
-        else "database/seed"
-    )
+def call_helper(action_type: str, path: str = None, payload: dict = None) -> dict:
+    if not path:
+        path = (
+            "database/initialize"
+            if action_type == "initialize_database"
+            else "database/seed"
+        )
+    if payload is None:
+        payload = {"actionType": action_type}
+
     url = f"http://localhost:{HELPER_PORT}/{path}"
     try:
-        resp = requests.post(url, json={"actionType": action_type}, timeout=120)
+        resp = requests.post(url, json=payload, timeout=120)
+
         resp.raise_for_status()
         try:
             return resp.json()
@@ -233,6 +238,77 @@ def seed_gcs_emulator() -> None:
         print("  GCS emulator successfully seeded.", flush=True)
     except Exception as e:
         raise RuntimeError(f"Failed to seed GCS emulator: {e}") from e  # noqa: BLE001
+
+
+def ingest_embeddings_local() -> None:
+    """Generates embeddings for variables using a local model and inserts them into Spanner."""
+    try:
+        from sentence_transformers import SentenceTransformer
+    except ImportError:
+        print(">>> WARNING: sentence-transformers not installed. Skipping local embeddings generation.", flush=True)
+        return
+
+    print(">>> Loading local embeddings model (all-mpnet-base-v2)...", flush=True)
+    # Using all-mpnet-base-v2 because it outputs 768 dimensions matching default schema
+    model = SentenceTransformer('all-mpnet-base-v2')
+
+    # Configure client to query the local Spanner emulator
+    os.environ["SPANNER_EMULATOR_HOST"] = f"localhost:{SPANNER_GRPC_PORT}"
+
+    client = spanner.Client(project=PROJECT_ID)
+    instance = client.instance(INSTANCE_ID)
+    database = instance.database(DATABASE_ID)
+
+    print(">>> Reading variables from Spanner...", flush=True)
+    vars_to_embed = []
+    with database.snapshot() as snapshot:
+        results = snapshot.execute_sql(
+            "SELECT subject_id, name, types FROM Node WHERE 'StatisticalVariable' IN UNNEST(types)"
+        )
+        for row in results:
+            dcid, name, types = row[0], row[1], list(row[2]) if row[2] else []
+            if name:
+                vars_to_embed.append((dcid, name, types))
+
+    print(f">>> Generating embeddings for {len(vars_to_embed)} variables...", flush=True)
+
+    batch_size = 100
+    for i in range(0, len(vars_to_embed), batch_size):
+        batch = vars_to_embed[i:i+batch_size]
+        dcids = [b[0] for b in batch]
+        names = [b[1] for b in batch]
+        types_list = [b[2] for b in batch]
+
+        embeddings = model.encode(names)
+
+        def _insert(transaction):
+            for dcid, embedding, types in zip(dcids, embeddings, types_list):
+                embedding_content = json.dumps({"title": dcid, "name": names[dcids.index(dcid)]})
+
+                sql = """
+                    INSERT OR UPDATE INTO NodeEmbedding
+                    (subject_id, embedding_label, embedding_content, embeddings, node_types)
+                    VALUES (@dcid, 'local-all-mpnet-base-v2', @content, @embeddings, @types)
+                """
+                params = {
+                    "dcid": dcid,
+                    "content": embedding_content,
+                    "embeddings": [float(v) for v in embedding],
+                    "types": types
+                }
+                param_types = {
+                    "dcid": spanner.param_types.STRING,
+                    "content": spanner.param_types.JSON,
+                    "embeddings": spanner.param_types.Array(spanner.param_types.FLOAT64),
+                    "types": spanner.param_types.Array(spanner.param_types.STRING)
+                }
+                transaction.execute_update(sql, params=params, param_types=param_types)
+
+        database.run_in_transaction(_insert)
+        print(f"    Processed batch {i//batch_size + 1}", flush=True)
+
+    print(">>> Local embeddings ingestion completed.", flush=True)
+
 
 
 # =============================================================================
@@ -374,6 +450,10 @@ def docker_stack(services_image, helper_image, ingestion_image, keep_containers)
     if ingestion_image:
         compose_env["INGESTION_IMAGE"] = ingestion_image
 
+    compose_env["SPANNER_ENABLE_MODEL"] = "false"
+    compose_env["SPANNER_ENABLE_VECTOR_INDEX"] = "true"
+
+
     dc_api_key = os.environ.get("DC_API_KEY")
     if not dc_api_key:
         print(
@@ -420,7 +500,7 @@ def docker_stack(services_image, helper_image, ingestion_image, keep_containers)
     compose_env["HELPER_PORT"] = str(HELPER_PORT)
     compose_env["SPANNER_GRPC_PORT"] = str(SPANNER_GRPC_PORT)
     compose_env["SPANNER_REST_PORT"] = str(SPANNER_REST_PORT)
-    compose_env["MOCK_NL_PORT"] = str(MOCK_NL_PORT)
+    compose_env["LOCAL_NL_PORT"] = str(LOCAL_NL_PORT)
 
     # 1. Clear any stale containers first
     print("\n>>> Clearing any stale docker containers...", flush=True)
@@ -518,7 +598,23 @@ def docker_stack(services_image, helper_image, ingestion_image, keep_containers)
             # Load the generated GCS JSON-LD files directly into Spanner using the Java Beam template
             run_spanner_loader(compose_env)
 
+            print(">>> Generating embeddings locally (Lightweight Mode)...", flush=True)
+            ingest_embeddings_local()
+
+            print(">>> Starting Local NL Server container...", flush=True)
+            run_command(
+                ["docker", "compose", "-f", str(compose_file), "up", "-d", "local-nl-server"],
+                env=compose_env,
+            )
+
+            wait_for_service(
+                f"http://localhost:{LOCAL_NL_PORT}/healthz",
+                "Local NL Server",
+                timeout_secs=300,
+            )
+
             # 8. Boot Website container
+
 
             print(">>> Starting serving Website container...", flush=True)
             run_command(
@@ -692,16 +788,18 @@ def test_website_semantic_nl_query(generate_golden):
     query_str = urllib.parse.quote(f"{stat_var_name} in United States of America")
 
     url = f"http://localhost:{WEBSITE_PORT}/api/explore/detect-and-fulfill"
+
     # CAVEAT / WORKAROUND:
-    # Cloud Spanner Emulator does not support vector indexes or ANN search queries
-    # (APPROX_COSINE_DISTANCE), failing query compilation with validation errors.
-    # We bypass it for local integration tests by disabling Spanner vector search.
-    # IMPORTANT: Real GCP-based integration tests must cover this active vector search path.
+    # In lightweight mode, we might not have ML.PREDICT working in Spanner for query embeddings.
+    # We bypass it by disabling Spanner vector search.
+    full_url = f"{url}?q={query_str}&disable_feature=use_v2_resolve_for_nl_search_vars"
+
     resp = requests.post(
-        f"{url}?q={query_str}&disable_feature=use_v2_resolve_for_nl_search_vars",
+        full_url,
         json={"contextHistory": []},
         timeout=120,
     )
+
     assert resp.status_code == 200, (
         f"NL Query API returned code {resp.status_code}. Response: {resp.text}"
     )

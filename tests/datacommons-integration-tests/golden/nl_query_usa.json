@@ -216,6 +216,6 @@
   },
   "svSource": "CURRENT_QUERY",
   "userMessages": [
-    "Sorry, there were no relevant statistics for states in United States of America. See results for United States of America."
+    "Low confidence in understanding your query. Displaying the closest results."
   ]
 }
