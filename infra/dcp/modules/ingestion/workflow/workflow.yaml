@@ -491,6 +491,8 @@ launch_and_poll_preprocessing_job:
                     - name: 'DATA_RUN_MODE'
                       value: 'dcpbridge'
                   args: '$${container_args}'
+          connector_params:
+            timeout: 7200
         result: run_res
 
     - assign_execution_name:
