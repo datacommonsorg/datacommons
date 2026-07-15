@@ -344,6 +344,12 @@ variable "ingestion_preprocessing_job_timeout" {
   default     = "21600s"
 }
 
+variable "ingestion_preprocessing_job_tmp_disk_size" {
+  description = "Optional ephemeral disk size for pre-processing temporary files. Null or empty values disable disk-backed storage; enabled volumes must be at least 10Gi."
+  type        = string
+  default     = null
+}
+
 variable "ingestion_input_path" {
   description = "Path within the bucket where raw files are uploaded"
   type        = string
@@ -413,4 +419,3 @@ variable "ingestion_dataflow_template_gcs_path" {
   type        = string
   default     = null
 }
-

@@ -90,10 +90,11 @@ variable "ingestion_config" {
     ingestion_artifacts_path = string
 
     # Preprocessing Job
-    preprocessing_job_image   = optional(string)
-    preprocessing_job_cpu     = string
-    preprocessing_job_memory  = string
-    preprocessing_job_timeout = string
+    preprocessing_job_image         = optional(string)
+    preprocessing_job_cpu           = string
+    preprocessing_job_memory        = string
+    preprocessing_job_timeout       = string
+    preprocessing_job_tmp_disk_size = optional(string)
 
     # Workflow & Helper Service
     workflow_lock_acquisition_timeout = number

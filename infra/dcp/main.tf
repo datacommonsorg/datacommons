@@ -2,7 +2,7 @@ terraform {
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = ">= 5.11.0"
+      version = ">= 7.30.0"
     }
     null = {
       source  = "hashicorp/null"
@@ -131,10 +131,11 @@ locals {
     ingestion_artifacts_path = trimsuffix(var.ingestion_artifacts_path, "/")
 
     # Preprocessing Job
-    preprocessing_job_image   = coalesce(var.ingestion_preprocessing_job_image, "gcr.io/datcom-ci/datacommons-data:${var.dcp_version}")
-    preprocessing_job_cpu     = var.ingestion_preprocessing_job_cpu
-    preprocessing_job_memory  = var.ingestion_preprocessing_job_memory
-    preprocessing_job_timeout = var.ingestion_preprocessing_job_timeout
+    preprocessing_job_image         = coalesce(var.ingestion_preprocessing_job_image, "gcr.io/datcom-ci/datacommons-data:${var.dcp_version}")
+    preprocessing_job_cpu           = var.ingestion_preprocessing_job_cpu
+    preprocessing_job_memory        = var.ingestion_preprocessing_job_memory
+    preprocessing_job_timeout       = var.ingestion_preprocessing_job_timeout
+    preprocessing_job_tmp_disk_size = var.ingestion_preprocessing_job_tmp_disk_size
 
     # Workflow & Helper Service
     workflow_lock_acquisition_timeout = var.ingestion_workflow_lock_acquisition_timeout

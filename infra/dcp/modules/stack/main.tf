@@ -133,6 +133,7 @@ module "ingestion_preprocessing_job" {
   secret_env_vars               = local.datacommons_services_secrets
   dc_api_key_secret_id          = module.auth.dc_api_key_secret_id
   maps_api_key_secret_id        = module.auth.maps_api_key_secret_id
+  tmp_disk_size                 = var.ingestion_config.preprocessing_job_tmp_disk_size
 
   depends_on = [module.auth]
 }

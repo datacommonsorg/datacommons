@@ -1,5 +1,8 @@
 locals {
-  name_prefix = var.namespace != "" ? "${var.namespace}-" : ""
+  name_prefix         = var.namespace != "" ? "${var.namespace}-" : ""
+  tmp_disk_mount_path = "/mnt/preprocessing-tmp"
+  tmp_disk_size       = var.tmp_disk_size == null ? "" : trimspace(var.tmp_disk_size)
+  tmp_disk_enabled    = local.tmp_disk_size != ""
 }
 
 resource "google_service_account" "preprocessing_sa" {
@@ -10,6 +13,7 @@ resource "google_service_account" "preprocessing_sa" {
 resource "google_cloud_run_v2_job" "dc_data_job" {
   name                = "${local.name_prefix}dc-ingestion-preprocessing-job"
   location            = var.region
+  launch_stage         = local.tmp_disk_enabled ? "BETA" : null
   deletion_protection = var.stateless_deletion_protection
 
   template {
@@ -20,6 +24,14 @@ resource "google_cloud_run_v2_job" "dc_data_job" {
           limits = {
             cpu    = var.cpu
             memory = var.memory
+          }
+        }
+
+        dynamic "volume_mounts" {
+          for_each = local.tmp_disk_enabled ? [1] : []
+          content {
+            name       = "preprocessing-tmp"
+            mount_path = local.tmp_disk_mount_path
           }
         }
 
@@ -44,6 +56,14 @@ resource "google_cloud_run_v2_job" "dc_data_job" {
           }
         }
 
+        dynamic "env" {
+          for_each = local.tmp_disk_enabled ? [1] : []
+          content {
+            name  = "TMPDIR"
+            value = local.tmp_disk_mount_path
+          }
+        }
+
         env {
           name  = "GCS_BUCKET"
           value = var.bucket_name
@@ -65,6 +85,16 @@ resource "google_cloud_run_v2_job" "dc_data_job" {
           value = var.enable_spanner_embeddings ? "true" : "false"
         }
 
+      }
+      dynamic "volumes" {
+        for_each = local.tmp_disk_enabled ? [local.tmp_disk_size] : []
+        content {
+          name = "preprocessing-tmp"
+          empty_dir {
+            medium     = "DISK"
+            size_limit = volumes.value
+          }
+        }
       }
       dynamic "vpc_access" {
         for_each = var.vpc_connector_id != null && var.vpc_connector_id != "" ? [1] : []

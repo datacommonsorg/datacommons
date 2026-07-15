@@ -69,6 +69,11 @@ datacommons_services_allow_unauthenticated_access = false
 # files are uploaded for processing.
 ingestion_input_path = "ingestion/input"
 
+# Optional: use disk-backed temporary storage for large preprocessing jobs.
+# Cloud Run ephemeral disks require at least 10Gi and a supported region. The
+# default per-instance quota is 10 GB; request a quota increase for larger disks.
+# ingestion_preprocessing_job_tmp_disk_size = "10Gi"
+
 # =============================================================================
 # Ingestion - Postprocessing
 # =============================================================================
