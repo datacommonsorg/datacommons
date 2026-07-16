@@ -104,6 +104,10 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
         name  = "ENABLE_UNIQUE_HISTORY_RECORDS"
         value = "true"
       }
+      env {
+        name  = "USE_SPANNER_KEY_VALUE_STORE"
+        value = var.use_spanner ? "true" : "false"
+      }
     }
 
     dynamic "vpc_access" {
