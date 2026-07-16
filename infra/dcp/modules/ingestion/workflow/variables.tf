@@ -65,6 +65,12 @@ variable "preprocessing_job_name" {
   default     = ""
 }
 
+variable "postprocessing_job_name" {
+  type        = string
+  description = "Name of the ingestion postprocessing Cloud Run job"
+  default     = ""
+}
+
 variable "ingestion_artifacts_path" {
   type        = string
   description = "Path where pre-processed files are placed for the next stage"

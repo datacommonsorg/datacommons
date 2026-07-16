@@ -223,6 +223,7 @@ module "ingestion_workflow" {
   dataflow_subnetwork            = var.ingestion_config.dataflow_subnetwork
   dataflow_template_gcs_path     = var.ingestion_config.dataflow_template_gcs_path
   preprocessing_job_name         = var.ingestion_config.enable_ingestion ? module.ingestion_preprocessing_job[0].job_name : ""
+  postprocessing_job_name        = var.ingestion_config.enable_ingestion ? module.ingestion_postprocessing_job[0].job_name : ""
 
   depends_on = [module.ingestion_helper_service]
 }

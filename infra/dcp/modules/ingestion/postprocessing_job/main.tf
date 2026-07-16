@@ -59,10 +59,6 @@ resource "google_cloud_run_v2_job" "dc_postprocessing_job" {
           name  = "ENABLE_EMBEDDINGS"
           value = var.enable_spanner_embeddings ? "true" : "false"
         }
-        env {
-          name  = "IS_BASE_DC"
-          value = "false"
-        }
       }
 
       dynamic "vpc_access" {

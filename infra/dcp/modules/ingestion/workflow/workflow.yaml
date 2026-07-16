@@ -22,7 +22,9 @@ main:
           - num_imports: 0
           - combined_import_name: ""
           - prep_job_name: '${preprocessing_job_name}'
+          - postproc_job_name: '${postprocessing_job_name}'
           - comma_separated_imports: ""
+          - provenances_list: []
           - imports_status_list: []
           - imports_history_list: []
           - imports_version_list: []
@@ -119,6 +121,15 @@ main:
         assign:
           - launch_params.importList: '$${handshake_data.importList}'
           - decoded_imports: '$${json.decode(handshake_data.importList)}'
+          - provenances_list: []
+    - extract_provenance_dcids:
+        for:
+          value: item
+          in: $${decoded_imports}
+          steps:
+            - append_provenance:
+                assign:
+                  - provenances_list: '$${list.concat(provenances_list, item.importName)}'
 
 
     - try_acquire_lock:
@@ -222,7 +233,11 @@ main:
                               call: run_postprocessing_job
                               args:
                                 run_flag: '$${run_postproc}'
-                                import_list: '$${decoded_imports}'
+                                import_list: '$${provenances_list}'
+                                job_name: '$${postproc_job_name}'
+                                region: '$${input.region}'
+                                project_id: '$${project_id}'
+                                workflow_id: '$${workflow_id}'
                               result: postprocessing_result
                     - embeddings_branch:
                         steps:
@@ -349,23 +364,37 @@ update_ingestion_status:
         return: true
 
 run_postprocessing_job:
-  params: [run_flag, import_list]
+  params: [run_flag, import_list, job_name, region, project_id, workflow_id]
   steps:
-    - check_flag:
+    - check_flag_and_empty:
         switch:
-          - condition: $${not run_flag}
-            return: null
-    - run_agg:
-        call: http.post
+          - condition: '$${not run_flag or import_list == null or len(import_list) == 0}'
+            return: 'SKIPPED'
+    - run_cloud_run_agg_job:
+        call: googleapis.run.v2.projects.locations.jobs.run
         args:
-          url: '${ingestion_helper_url}/aggregation/run'
-          auth:
-            type: OIDC
+          name: '$${"projects/" + project_id + "/locations/" + region + "/jobs/" + job_name}'
           body:
-            importList: $${import_list}
-        result: res
+            overrides:
+              containerOverrides:
+                - env:
+                    - name: 'WORKFLOW_EXECUTION_ID'
+                      value: '$${workflow_id}'
+                  args:
+                    - "--no-is_base_dc"
+                    - "--config_path=aggregation/configs/common.yaml"
+                    - "--import_list"
+                    - '$${json.encode_to_string(import_list)}'
+                    - "--no-dry_run"
+        result: run_res
+    - call_poll_postprocessing:
+        call: poll_cloud_run_job_execution
+        args:
+          execution_name: '$${run_res.metadata.name}'
+          error_prefix: "Postprocessing Cloud Run job failed or was cancelled"
+        result: exec_status
     - return_result:
-        return: $${res}
+        return: '$${exec_status}'
 
 run_embeddings_job:
   params: [run_flag]
@@ -491,14 +520,25 @@ launch_and_poll_preprocessing_job:
                     - name: 'DATA_RUN_MODE'
                       value: 'dcpbridge'
                   args: '$${container_args}'
-          connector_params:
-            timeout: 7200
         result: run_res
 
     - assign_execution_name:
         assign:
           - execution_name: '$${run_res.metadata.name}'
           
+    - call_poll_preprocessing:
+        call: poll_cloud_run_job_execution
+        args:
+          execution_name: '$${execution_name}'
+          error_prefix: "Preprocessing Cloud Run job failed or was cancelled"
+        result: exec_status
+
+    - return_preprocessing_result:
+        return: '$${exec_status}'
+
+poll_cloud_run_job_execution:
+  params: [execution_name, error_prefix]
+  steps:
     - poll_execution:
         steps:
           - get_execution:
@@ -522,7 +562,7 @@ launch_and_poll_preprocessing_job:
             next: return_success
             
     - fail_on_exec_status:
-        raise: '$${"Preprocessing Cloud Run job failed or was cancelled: " + exec_status.name}'
+        raise: '$${error_prefix + ": " + exec_status.name}'
         
     - return_success:
         return: '$${exec_status}'
