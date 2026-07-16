@@ -95,6 +95,12 @@ variable "ingestion_config" {
     preprocessing_job_memory  = string
     preprocessing_job_timeout = string
 
+    # Postprocessing Job
+    postprocessing_job_image   = optional(string)
+    postprocessing_job_cpu     = string
+    postprocessing_job_memory  = string
+    postprocessing_job_timeout = string
+
     # Workflow & Helper Service
     workflow_lock_acquisition_timeout = number
     helper_service_image              = optional(string)
