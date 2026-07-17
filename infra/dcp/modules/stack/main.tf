@@ -144,6 +144,28 @@ module "ingestion_preprocessing_job" {
   depends_on = [module.auth]
 }
 
+module "ingestion_postprocessing_job" {
+  source = "../ingestion/postprocessing_job"
+  count  = var.ingestion_config.enable_ingestion ? 1 : 0
+
+  project_id                     = var.global.project_id
+  namespace                      = var.global.namespace
+  region                         = var.global.region
+  stateless_deletion_protection  = var.global.stateless_deletion_protection
+  image                          = var.ingestion_config.postprocessing_job_image
+  cpu                            = var.ingestion_config.postprocessing_job_cpu
+  memory                         = var.ingestion_config.postprocessing_job_memory
+  timeout                        = var.ingestion_config.postprocessing_job_timeout
+  vpc_connector_id               = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].connector_id : null
+  spanner_instance_id            = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
+  spanner_database_id            = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
+  bigquery_connection_id         = var.spanner_config.enable ? module.spanner[0].bigquery_connection_id : ""
+  use_spanner                    = var.spanner_config.enable
+  enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
+  enable_spanner_embeddings      = var.spanner_config.enable_embeddings_generation
+  env_vars                       = local.cloud_run_shared_env_variables
+}
+
 module "ingestion_dataflow" {
   source = "../ingestion/dataflow"
 
@@ -201,6 +223,7 @@ module "ingestion_workflow" {
   dataflow_subnetwork            = var.ingestion_config.dataflow_subnetwork
   dataflow_template_gcs_path     = var.ingestion_config.dataflow_template_gcs_path
   preprocessing_job_name         = var.ingestion_config.enable_ingestion ? module.ingestion_preprocessing_job[0].job_name : ""
+  postprocessing_job_name        = var.ingestion_config.enable_ingestion ? module.ingestion_postprocessing_job[0].job_name : ""
 
   depends_on = [module.ingestion_helper_service]
 }
@@ -236,23 +259,23 @@ module "datacommons_services" {
   source = "../datacommons_services"
   count  = var.datacommons_services_config.enable ? 1 : 0
 
-  project_id                      = var.global.project_id
-  namespace                       = var.global.namespace
-  region                          = var.global.region
-  stateless_deletion_protection   = var.global.stateless_deletion_protection
-  image                           = var.datacommons_services_config.image
-  cpu                             = var.datacommons_services_config.cpu
-  memory                          = var.datacommons_services_config.memory
-  min_instances                   = var.datacommons_services_config.min_instances
-  max_instances                   = var.datacommons_services_config.max_instances
-  make_public                     = var.datacommons_services_config.allow_unauthenticated_access
-  google_analytics_tag_id         = var.datacommons_services_config.google_analytics_tag
-  mcp_search_scope                = var.datacommons_services_config.search_scope
-  enable_mcp                      = var.datacommons_services_config.enable_mcp
-  mcp_instructions_path           = var.datacommons_services_config.instructions_path
-  artifacts_bucket_name           = module.storage.artifacts_bucket_name
-  vpc_connector_id                = var.redis_config.enable ? module.redis[0].connector_id : null
-  use_spanner                     = var.spanner_config.enable
+  project_id                    = var.global.project_id
+  namespace                     = var.global.namespace
+  region                        = var.global.region
+  stateless_deletion_protection = var.global.stateless_deletion_protection
+  image                         = var.datacommons_services_config.image
+  cpu                           = var.datacommons_services_config.cpu
+  memory                        = var.datacommons_services_config.memory
+  min_instances                 = var.datacommons_services_config.min_instances
+  max_instances                 = var.datacommons_services_config.max_instances
+  make_public                   = var.datacommons_services_config.allow_unauthenticated_access
+  google_analytics_tag_id       = var.datacommons_services_config.google_analytics_tag
+  mcp_search_scope              = var.datacommons_services_config.search_scope
+  enable_mcp                    = var.datacommons_services_config.enable_mcp
+  mcp_instructions_path         = var.datacommons_services_config.instructions_path
+  artifacts_bucket_name         = module.storage.artifacts_bucket_name
+  vpc_connector_id              = var.redis_config.enable ? module.redis[0].connector_id : null
+  use_spanner                   = var.spanner_config.enable
   env_vars = concat(local.cloud_run_shared_env_variables, [
     {
       name  = "INGESTION_WORKFLOW_NAME"
@@ -339,6 +362,37 @@ resource "google_cloud_run_v2_job_iam_member" "workflow_pre_developer" {
 resource "google_service_account_iam_member" "workflow_pre_sa_user" {
   count              = var.ingestion_config.enable_ingestion ? 1 : 0
   service_account_id = "projects/${var.global.project_id}/serviceAccounts/${module.ingestion_preprocessing_job[0].service_account_email}"
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
+resource "google_cloud_run_v2_job_iam_member" "workflow_post_viewer" {
+  count    = var.ingestion_config.enable_ingestion ? 1 : 0
+  location = var.global.region
+  name     = module.ingestion_postprocessing_job[0].job_name
+  role     = "roles/run.viewer"
+  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
+resource "google_cloud_run_v2_job_iam_member" "workflow_post_invoker" {
+  count    = var.ingestion_config.enable_ingestion ? 1 : 0
+  location = var.global.region
+  name     = module.ingestion_postprocessing_job[0].job_name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
+resource "google_cloud_run_v2_job_iam_member" "workflow_post_developer" {
+  count    = var.ingestion_config.enable_ingestion ? 1 : 0
+  location = var.global.region
+  name     = module.ingestion_postprocessing_job[0].job_name
+  role     = "roles/run.developer"
+  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
+resource "google_service_account_iam_member" "workflow_post_sa_user" {
+  count              = var.ingestion_config.enable_ingestion ? 1 : 0
+  service_account_id = "projects/${var.global.project_id}/serviceAccounts/${module.ingestion_postprocessing_job[0].service_account_email}"
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }

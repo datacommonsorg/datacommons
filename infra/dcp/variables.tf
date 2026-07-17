@@ -344,6 +344,34 @@ variable "ingestion_preprocessing_job_timeout" {
   default     = "21600s"
 }
 
+# =============================================================================
+# Ingestion - Postprocessing Job
+# =============================================================================
+
+variable "ingestion_postprocessing_job_image" {
+  description = "Docker image URL for the data ingestion post-processing aggregation job. If not provided (null), defaults to the stable image tagged with dcp_version."
+  type        = string
+  default     = null
+}
+
+variable "ingestion_postprocessing_job_cpu" {
+  description = "CPU limit for the post-processing job container"
+  type        = string
+  default     = "2"
+}
+
+variable "ingestion_postprocessing_job_memory" {
+  description = "Memory limit for the post-processing job container"
+  type        = string
+  default     = "8Gi"
+}
+
+variable "ingestion_postprocessing_job_timeout" {
+  description = "Execution timeout for the post-processing job"
+  type        = string
+  default     = "21600s"
+}
+
 variable "ingestion_input_path" {
   description = "Path within the bucket where raw files are uploaded"
   type        = string

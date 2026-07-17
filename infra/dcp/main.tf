@@ -136,14 +136,20 @@ locals {
     preprocessing_job_memory  = var.ingestion_preprocessing_job_memory
     preprocessing_job_timeout = var.ingestion_preprocessing_job_timeout
 
+    # Postprocessing Job
+    postprocessing_job_image   = coalesce(var.ingestion_postprocessing_job_image, "gcr.io/datcom-ci/datacommons-aggregation-helper:${var.dcp_version}")
+    postprocessing_job_cpu     = var.ingestion_postprocessing_job_cpu
+    postprocessing_job_memory  = var.ingestion_postprocessing_job_memory
+    postprocessing_job_timeout = var.ingestion_postprocessing_job_timeout
+
     # Workflow & Helper Service
     workflow_lock_acquisition_timeout = var.ingestion_workflow_lock_acquisition_timeout
     helper_service_image              = coalesce(var.ingestion_helper_service_image, "gcr.io/datcom-ci/datacommons-ingestion-helper:${var.dcp_version}")
 
     # Dataflow Network Configuration
-    dataflow_ip_configuration     = var.ingestion_dataflow_ip_configuration
-    dataflow_subnetwork           = var.ingestion_dataflow_subnetwork
-    dataflow_template_gcs_path    = coalesce(var.ingestion_dataflow_template_gcs_path, "gs://datcom-templates/templates/flex/ingestion-${local.df_template_version}.json")
+    dataflow_ip_configuration  = var.ingestion_dataflow_ip_configuration
+    dataflow_subnetwork        = var.ingestion_dataflow_subnetwork
+    dataflow_template_gcs_path = coalesce(var.ingestion_dataflow_template_gcs_path, "gs://datcom-templates/templates/flex/ingestion-${local.df_template_version}.json")
   }
 }
 
