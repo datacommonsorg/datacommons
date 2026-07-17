@@ -12,23 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datacommons_admin.core.clients.ingestion_helper_client import (
-    IngestionHelperClient,
-)
-from datacommons_admin.core.clients.ingestion_job_client import IngestionJobClient
-from datacommons_admin.core.clients.sdmx_client import (
-    SdmxAPIError,
-    SdmxAuthError,
-    SdmxClient,
-    SdmxClientError,
-)
+from datacommons_admin.sdmx.sdmx_cli import sdmx
 
-__all__ = [
-    "IngestionHelperClient",
-    "IngestionJobClient",
-    "SdmxAPIError",
-    "SdmxAuthError",
-    "SdmxClient",
-    "SdmxClientError",
-]
-
+__all__ = ["sdmx"]

@@ -190,3 +190,29 @@ def mock_run_migrations():
     """Mocks _run_migrations for db commands."""
     with patch("datacommons_admin.db.db_cli._run_migrations") as mock_fn:
         yield mock_fn
+
+
+@pytest.fixture
+def mock_tf_output_sdmx() -> str:
+    """Returns a mock JSON string representing Terraform outputs for SDMX commands."""
+    return (
+        '{"datacommons_service_url": {"value": "https://mock-dc-service"}, '
+        '"project_id": {"value": "mock-proj"}}'
+    )
+
+
+@pytest.fixture
+def mock_terraform_sdmx(mock_tf_output_sdmx: str):
+    """Mocks Terraform CLI check and terraform output for SDMX commands."""
+    with (
+        patch(
+            "datacommons_admin.core.utils.tf_utils.shutil.which",
+            return_value="terraform",
+        ),
+        patch("datacommons_admin.core.utils.tf_utils.subprocess.run") as mock_run,
+    ):
+        mock_proc = MagicMock()
+        mock_proc.stdout = mock_tf_output_sdmx
+        mock_run.return_value = mock_proc
+        yield mock_run
+

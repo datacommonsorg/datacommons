@@ -382,3 +382,10 @@ def test_get_terraform_output_handles_falsy_values(
     )
     assert result.exit_code == 0
     assert "BOOL=False ZERO=0" in result.output
+
+
+def test_get_datacommons_service_url(mock_terraform_sdmx) -> None:
+    from datacommons_admin.core.utils.tf_utils import get_datacommons_service_url
+
+    assert get_datacommons_service_url() == "https://mock-dc-service"
+
