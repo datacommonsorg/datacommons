@@ -41,3 +41,5 @@ infra/dcp/.env
 AGENTS.md
 docs/plans
 docs/designs
+tests/testbed/workspaces/
+test_results.json
