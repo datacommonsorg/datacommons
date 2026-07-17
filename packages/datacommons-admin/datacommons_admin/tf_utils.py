@@ -29,6 +29,7 @@ TF_OUTPUT_INGESTION_PREP_JOB_NAME = "ingestion_prep_job_name"
 TF_OUTPUT_PROJECT_ID = "project_id"
 TF_OUTPUT_REGION = "region"
 TF_OUTPUT_INGESTION_WORKFLOW_NAME = "ingestion_workflow_name"
+TF_OUTPUT_DATACOMMONS_SERVICE_URL = "datacommons_service_url"
 
 
 def _get_outputs_from_gcs(
@@ -228,3 +229,8 @@ def get_region() -> str:
 def get_ingestion_workflow_name() -> str:
     """Convenience wrapper to fetch the ingestion_workflow_name Terraform output."""
     return get_terraform_output(TF_OUTPUT_INGESTION_WORKFLOW_NAME)
+
+
+def get_datacommons_service_url() -> str:
+    """Convenience wrapper to fetch the datacommons_service_url Terraform output."""
+    return get_terraform_output(TF_OUTPUT_DATACOMMONS_SERVICE_URL)

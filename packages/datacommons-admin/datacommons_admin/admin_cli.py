@@ -615,5 +615,7 @@ def seed_db() -> None:
 
 
 from datacommons_admin.ingest_cli import ingest
+from datacommons_admin.sdmx_cli import sdmx
 
 admin.add_command(ingest)
+admin.add_command(sdmx)
