@@ -35,14 +35,14 @@ GITHUB_RAW_BASE_URL = "https://raw.githubusercontent.com/datacommonsorg/datacomm
 GITHUB_REPO_URL = "https://github.com/datacommonsorg/datacommons.git"
 
 
-def _get_default_bucket_name(namespace: str, project_id: str) -> str:
+def _get_default_bucket_name(instance_name: str, project_id: str) -> str:
     """Returns the default Google Cloud Storage bucket name for Terraform state."""
-    return f"tf-state-{namespace}-{project_id}"
+    return f"tf-state-{instance_name}-{project_id}"
 
 
-def _get_default_state_prefix(namespace: str) -> str:
+def _get_default_state_prefix(instance_name: str) -> str:
     """Returns the default Google Cloud Storage object prefix for Terraform state."""
-    return f"terraform/state/{namespace}"
+    return f"terraform/state/{instance_name}"
 
 
 def _log_resolved_value(label: str, value: str, is_default: bool, indent: int = 2):
@@ -229,30 +229,30 @@ def admin() -> None:
     """Manage a Data Commons Platform instance in Google Cloud"""
 
 
-def _validate_namespace(ns: str) -> Tuple[bool, str]:
-    if not ns:
-        return False, "Namespace must not be empty."
-    if len(ns) > 16:
+def _validate_instance_name(name: str) -> Tuple[bool, str]:
+    if not name:
+        return False, "Instance name must not be empty."
+    if len(name) > 16:
         return (
             False,
-            f"Namespace must be 16 characters or less (currently {len(ns)} characters).",
+            f"Instance name must be 16 characters or less (currently {len(name)} characters).",
         )
-    if not re.match(r"^[a-z]([-a-z0-9]*[a-z0-9])?$", ns):
+    if not re.match(r"^[a-z]([-a-z0-9]*[a-z0-9])?$", name):
         return (
             False,
-            "Namespace must start with a lowercase letter, end with a lowercase letter or number, and contain only lowercase alphanumeric characters and dashes.",
+            "Instance name must start with a lowercase letter, end with a lowercase letter or number, and contain only lowercase alphanumeric characters and dashes.",
         )
     return True, ""
 
 
 def _resolve_project_config(
-    project_id: str, namespace: str, force: bool
+    project_id: str, instance_name: str, force: bool
 ) -> Tuple[str, str, Path]:
-    """Resolves project ID and namespace, and determines target directory."""
+    """Resolves project ID and instance name, and determines target directory."""
     if project_id:
         _log_resolved_value("Project ID", project_id, is_default=False)
-    if namespace:
-        _log_resolved_value("Namespace", namespace, is_default=False)
+    if instance_name:
+        _log_resolved_value("Instance Name", instance_name, is_default=False)
 
     resolved_project_id = project_id.strip()
     if not resolved_project_id:
@@ -262,34 +262,34 @@ def _resolve_project_config(
     if not resolved_project_id:
         raise click.ClickException("GCP project ID must not be empty.")
 
-    resolved_namespace = namespace.strip()
-    if resolved_namespace:
-        is_valid, err_msg = _validate_namespace(resolved_namespace)
+    resolved_instance_name = instance_name.strip()
+    if resolved_instance_name:
+        is_valid, err_msg = _validate_instance_name(resolved_instance_name)
         if not is_valid:
             raise click.ClickException(err_msg)
 
     while True:
-        if not resolved_namespace:
-            resolved_namespace = _prompt("Namespace", type=str).strip()
-            is_valid, err_msg = _validate_namespace(resolved_namespace)
+        if not resolved_instance_name:
+            resolved_instance_name = _prompt("Instance Name", type=str).strip()
+            is_valid, err_msg = _validate_instance_name(resolved_instance_name)
             if not is_valid:
                 click.secho(f"Error: {err_msg}", fg="red")
-                resolved_namespace = ""
+                resolved_instance_name = ""
                 continue
 
-        target_dir = Path.cwd() / resolved_namespace
+        target_dir = Path.cwd() / resolved_instance_name
         if target_dir.exists() and not force:
             click.secho(
-                f"Error: Folder '{resolved_namespace}' already exists locally. "
-                "Please specify a different namespace, or use --force to overwrite.",
+                f"Error: Folder '{resolved_instance_name}' already exists locally. "
+                "Please specify a different instance name, or use --force to overwrite.",
                 fg="yellow",
             )
-            resolved_namespace = ""
+            resolved_instance_name = ""
             continue
 
         break
 
-    return resolved_project_id, resolved_namespace, target_dir
+    return resolved_project_id, resolved_instance_name, target_dir
 
 
 def _check_existing_files(target_dir: Path, use_remote_state: bool, force: bool):
@@ -315,7 +315,7 @@ def _check_existing_files(target_dir: Path, use_remote_state: bool, force: bool)
 def _setup_dcp_config_dir(
     target_dir: Path,
     project_id: str,
-    namespace: str,
+    instance_name: str,
     bucket_name: str,
     tf_state_prefix: str,
     dc_api_key: str,
@@ -364,7 +364,8 @@ def _setup_dcp_config_dir(
         # Modify tfvars_example with actual values
         tfvars_content = tfvars_example
         tfvars_content = tfvars_content.replace('"$$PROJECT_ID$$"', f'"{project_id}"')
-        tfvars_content = tfvars_content.replace('"$$NAMESPACE$$"', f'"{namespace}"')
+        tfvars_content = tfvars_content.replace('"$$NAMESPACE$$"', f'"{instance_name}"')
+        tfvars_content = tfvars_content.replace('"$$INSTANCE_NAME$$"', f'"{instance_name}"')
         if api_key:
             tfvars_content = tfvars_content.replace('"$$DC_API_KEY$$"', f'"{api_key}"')
 
@@ -401,7 +402,14 @@ def _setup_dcp_config_dir(
     help="Google Cloud Platform project ID used for all resources related to your Data Commons instance.",
 )
 @click.option(
-    "--namespace", default="", help="Namespace prefix for provisioned resources."
+    "--instance-name",
+    default="",
+    help="Unique identifier used as a prefix for resource naming (replaces --namespace).",
+)
+@click.option(
+    "--namespace",
+    default="",
+    help="DEPRECATED: Use --instance-name instead.",
 )
 @click.option("--dc-api-key", default="", help="Data Commons API key.")
 @click.option(
@@ -432,11 +440,12 @@ def _setup_dcp_config_dir(
 @click.option(
     "--tf-state-prefix",
     default="",
-    help="Google Cloud Storage object prefix for Terraform state file (default: terraform/state/{namespace}).",
+    help="Google Cloud Storage object prefix for Terraform state file (default: terraform/state/{instance_name}).",
 )
 def init(
     project_id: str,
     namespace: str,
+    instance_name: str,
     dc_api_key: str,
     tf_git_ref: str,
     force: bool,
@@ -448,11 +457,14 @@ def init(
     """Initialize Terraform scaffolding for Data Commons administration/infrastructure."""
     click.secho("Data Commons Admin Init", fg="cyan", bold=True)
 
+    # For backward compatibility, fallback to namespace if instance_name is empty
+    effective_instance_name = instance_name.strip() or namespace.strip()
+
     # 1. Project Configs
     click.secho("\n[Project configuration]", fg="cyan", bold=True)
     click.secho("Configuring project settings...", fg="bright_black")
-    resolved_project_id, resolved_namespace, target_dir = _resolve_project_config(
-        project_id, namespace, force
+    resolved_project_id, resolved_instance_name, target_dir = _resolve_project_config(
+        project_id, effective_instance_name, force
     )
 
     # 2. Terraform Setup
@@ -467,7 +479,7 @@ def init(
     resolved_bucket_name = (
         _configure_remote_state(
             resolved_project_id,
-            resolved_namespace,
+            resolved_instance_name,
             tf_state_bucket,
             tf_state_bucket_location,
         )
@@ -476,7 +488,7 @@ def init(
     )
 
     resolved_tf_state_prefix = tf_state_prefix.strip() or _get_default_state_prefix(
-        resolved_namespace
+        resolved_instance_name
     )
 
     # 3. DCP config dir setup
@@ -485,7 +497,7 @@ def init(
     _setup_dcp_config_dir(
         target_dir,
         resolved_project_id,
-        resolved_namespace,
+        resolved_instance_name,
         resolved_bucket_name,
         resolved_tf_state_prefix,
         dc_api_key,
@@ -494,7 +506,7 @@ def init(
     )
 
     click.secho(
-        f"Customize variables in {resolved_namespace}/terraform.tfvars as needed.",
+        f"Customize variables in {resolved_instance_name}/terraform.tfvars as needed.",
         fg="green",
     )
     click.secho(
