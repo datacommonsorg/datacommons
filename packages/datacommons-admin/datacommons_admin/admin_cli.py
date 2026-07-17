@@ -225,8 +225,33 @@ def _get_github_templates(ref: str) -> tuple[str, str, str, str]:
 
 
 @click.group()
-def admin() -> None:
+@click.option(
+    "--project-id",
+    default=None,
+    help="GCP project ID used to locate the remote Terraform state bucket.",
+)
+@click.option(
+    "--instance-name",
+    default=None,
+    help="DCP instance name (prefix) used to locate the remote Terraform state bucket.",
+)
+@click.option(
+    "--tf-state-location",
+    default=None,
+    help="Direct GCS URI pointing to the Terraform state file (gs://bucket/prefix/default.tfstate).",
+)
+@click.pass_context
+def admin(
+    ctx: click.Context,
+    project_id: str | None,
+    instance_name: str | None,
+    tf_state_location: str | None,
+) -> None:
     """Manage a Data Commons Platform instance in Google Cloud"""
+    ctx.ensure_object(dict)
+    ctx.obj["project_id"] = project_id
+    ctx.obj["instance_name"] = instance_name
+    ctx.obj["tf_state_location"] = tf_state_location
 
 
 def _validate_instance_name(name: str) -> Tuple[bool, str]:

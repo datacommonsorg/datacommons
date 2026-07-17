@@ -580,3 +580,64 @@ def test_ingest_start_with_imports_success(
     called_payload = called_args["json"]
     assert "argument" in called_payload
     assert json.loads(called_payload["argument"]) == expected_arg
+
+
+@patch("google.cloud.storage.Client")
+def test_get_terraform_output_from_gcs(mock_storage_client, runner: CliRunner) -> None:
+    from unittest.mock import MagicMock
+    from datacommons_admin.tf_utils import get_terraform_output
+    import click
+
+    # Mock storage client
+    mock_client_inst = MagicMock()
+    mock_storage_client.return_value = mock_client_inst
+    mock_bucket = MagicMock()
+    mock_client_inst.bucket.return_value = mock_bucket
+    mock_blob = MagicMock()
+    mock_bucket.blob.return_value = mock_blob
+    
+    state_content = """{
+      "version": 4,
+      "outputs": {
+        "test_key": {
+          "value": "gcs-resolved-val",
+          "type": "string"
+        }
+      }
+    }"""
+    mock_blob.download_as_text.return_value = state_content
+
+    @admin.command(name="test-get-output")
+    def test_get_output_cmd():
+        val = get_terraform_output("test_key")
+        click.echo(f"VAL={val}")
+
+    # Test with project-id and instance-name
+    result = runner.invoke(
+        admin,
+        [
+            "--project-id", "mock-project",
+            "--instance-name", "mock-instance",
+            "test-get-output"
+        ]
+    )
+    assert result.exit_code == 0
+    assert "VAL=gcs-resolved-val" in result.output
+    mock_client_inst.bucket.assert_called_once_with("tf-state-mock-instance-mock-project")
+    mock_bucket.blob.assert_called_once_with("terraform/state/mock-instance/default.tfstate")
+
+    # Test with tf-state-location
+    mock_client_inst.reset_mock()
+    mock_bucket.reset_mock()
+    result = runner.invoke(
+        admin,
+        [
+            "--tf-state-location", "gs://custom-bucket/custom-prefix/state.tfstate",
+            "test-get-output"
+        ]
+    )
+    assert result.exit_code == 0
+    assert "VAL=gcs-resolved-val" in result.output
+    mock_client_inst.bucket.assert_called_once_with("custom-bucket")
+    mock_bucket.blob.assert_called_once_with("custom-prefix/state.tfstate")
+
