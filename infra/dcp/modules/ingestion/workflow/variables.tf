@@ -47,6 +47,20 @@ variable "embeddings_timeout" {
   default     = 1800
 }
 
+variable "preprocessing_job_timeout" {
+  type        = number
+  description = "Timeout in seconds for the preprocessing Cloud Run job execution"
+  default     = 21600
+}
+
+variable "postprocessing_job_timeout" {
+  type        = number
+  description = "Timeout in seconds for the postprocessing Cloud Run job execution"
+  default     = 21600
+}
+
+
+
 variable "ingestion_helper_service_name" {
   type        = string
   description = "Name of the ingestion helper Cloud Run service"

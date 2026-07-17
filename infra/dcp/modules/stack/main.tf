@@ -224,9 +224,12 @@ module "ingestion_workflow" {
   dataflow_template_gcs_path     = var.ingestion_config.dataflow_template_gcs_path
   preprocessing_job_name         = var.ingestion_config.enable_ingestion ? module.ingestion_preprocessing_job[0].job_name : ""
   postprocessing_job_name        = var.ingestion_config.enable_ingestion ? module.ingestion_postprocessing_job[0].job_name : ""
+  preprocessing_job_timeout      = tonumber(replace(var.ingestion_config.preprocessing_job_timeout, "s", ""))
+  postprocessing_job_timeout     = tonumber(replace(var.ingestion_config.postprocessing_job_timeout, "s", ""))
 
   depends_on = [module.ingestion_helper_service]
 }
+
 
 module "redis" {
   source = "../redis"

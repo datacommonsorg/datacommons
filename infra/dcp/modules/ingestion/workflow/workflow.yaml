@@ -386,7 +386,10 @@ run_postprocessing_job:
                     - "--import_list"
                     - '$${json.encode_to_string(import_list)}'
                     - "--no-dry_run"
+          connector_params:
+            timeout: ${postprocessing_job_timeout}
         result: run_res
+
     - call_poll_postprocessing:
         call: poll_cloud_run_job_execution
         args:
@@ -520,7 +523,11 @@ launch_and_poll_preprocessing_job:
                     - name: 'DATA_RUN_MODE'
                       value: 'dcpbridge'
                   args: '$${container_args}'
+          connector_params:
+            timeout: ${preprocessing_job_timeout}
         result: run_res
+
+
 
     - assign_execution_name:
         assign:

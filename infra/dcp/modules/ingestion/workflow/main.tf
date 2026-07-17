@@ -30,7 +30,11 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
     dataflow_ip_configuration      = var.dataflow_ip_configuration
     dataflow_subnetwork            = var.dataflow_subnetwork
     embeddings_timeout             = var.embeddings_timeout
+    preprocessing_job_timeout      = var.preprocessing_job_timeout
+    postprocessing_job_timeout     = var.postprocessing_job_timeout
     clean_namespace_prefix         = local.clean_namespace_prefix
+
+
     enable_redis_cache_clearing    = var.enable_redis_cache_clearing
     preprocessing_job_name         = var.preprocessing_job_name
     postprocessing_job_name        = var.postprocessing_job_name
