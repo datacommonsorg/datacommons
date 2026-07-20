@@ -11,7 +11,7 @@ main:
           - execution_error: null
           - postprocessing_result: null
           - embedding_result: null
-          - current_stage: "dataflow"
+          - current_stage: "preprocessing"
           - job_id: null
           - lock_timeout: ${lock_acquisition_timeout}
           - lock_retries: 0
@@ -96,6 +96,15 @@ main:
           - sanitized_short_import: '$${text.substring(combined_import_name, 0, substring_end)}'
           - dataflow_job_name: '$${"${clean_namespace_prefix}" + sanitized_short_import + "-" + string(int(sys.now()))}'
     
+    - update_history_preprocessing:
+        call: update_history
+        args:
+          workflow_id: '$${workflow_id}'
+          status: 'RUNNING'
+          stage: 'preprocessing'
+          job_id: null
+          import_list: '$${imports_history_list}'
+
     - run_preprocessing:
         call: launch_and_poll_preprocessing_job
         args:
