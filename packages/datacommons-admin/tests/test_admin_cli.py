@@ -44,7 +44,7 @@ def test_init_success_with_options(
                 "--project-id",
                 "test-project",
                 "--instance-name",
-                "test-instance-name",
+                "test-instance",
                 "--dc-api-key",
                 "test-key",
                 "--no-tf-remote-state",
@@ -53,7 +53,7 @@ def test_init_success_with_options(
         assert result.exit_code == 0
         assert "Downloaded and populated Terraform templates." in result.output
 
-        target_dir = Path.cwd() / "test-instance-name"
+        target_dir = Path.cwd() / "test-instance"
         assert target_dir.exists()
         assert (target_dir / "main.tf").exists()
         assert (target_dir / "terraform.tfvars").exists()
@@ -62,7 +62,7 @@ def test_init_success_with_options(
 
         tfvars_content = (target_dir / "terraform.tfvars").read_text()
         assert 'project_id = "test-project"' in tfvars_content
-        assert 'instance_name  = "test-instance-name"' in tfvars_content
+        assert 'instance_name  = "test-instance"' in tfvars_content
         assert 'dc_api_key = "test-key"' in tfvars_content
 
 
@@ -80,15 +80,15 @@ def test_init_success_with_prompts(
         result = runner.invoke(
             admin,
             ["init", "--no-tf-remote-state"],
-            input="prompt-project\nprompt-instance-name\nprompt-key\n",
+            input="prompt-project\nprompt-instance\nprompt-key\n",
         )
         assert result.exit_code == 0
-        target_dir = Path.cwd() / "prompt-instance-name"
+        target_dir = Path.cwd() / "prompt-instance"
         assert target_dir.exists()
 
         tfvars_content = (target_dir / "terraform.tfvars").read_text()
         assert 'project_id = "prompt-project"' in tfvars_content
-        assert 'instance_name  = "prompt-instance-name"' in tfvars_content
+        assert 'instance_name  = "prompt-instance"' in tfvars_content
 
 
 @patch("datacommons_admin.admin_cli._get_github_templates")
@@ -102,7 +102,7 @@ def test_init_existing_folder_force(
         'project_id = "$$PROJECT_ID$$"\ninstance_name  = "$$INSTANCE_NAME$$"\n# dc_api_key = "$$DC_API_KEY$$"',
     )
     with runner.isolated_filesystem(temp_dir=tmp_path):
-        existing_dir = Path.cwd() / "existing-instance-name"
+        existing_dir = Path.cwd() / "existing-dcp"
         existing_dir.mkdir()
         (existing_dir / "main.tf").write_text("old content")
 
@@ -113,7 +113,7 @@ def test_init_existing_folder_force(
                 "--project-id",
                 "test-project",
                 "--instance-name",
-                "existing-instance-name",
+                "existing-dcp",
                 "--force",
                 "--no-tf-remote-state",
             ],
@@ -148,17 +148,17 @@ def test_init_remote_state(
                 "--project-id",
                 "remote-project",
                 "--instance-name",
-                "remote-instance-name",
+                "remote-instance",
                 "--dc-api-key",
                 "remote-key",
             ],
         )
         assert result.exit_code == 0
         mock_configure.assert_called_once_with(
-            "remote-project", "remote-instance-name", "", "US"
+            "remote-project", "remote-instance", "", "US"
         )
 
-        target_dir = Path.cwd() / "remote-instance-name"
+        target_dir = Path.cwd() / "remote-instance"
         assert (target_dir / "backend.tf").exists()
         backend_content = (target_dir / "backend.tf").read_text()
         assert 'bucket = "mock-bucket-name"' in backend_content
@@ -457,7 +457,7 @@ def test_init_uses_default_ref_v_prefixed(
                 "--project-id",
                 "ref-project",
                 "--instance-name",
-                "ref-instance-name",
+                "ref-instance",
                 "--dc-api-key",
                 "ref-key",
                 "--no-tf-remote-state",
