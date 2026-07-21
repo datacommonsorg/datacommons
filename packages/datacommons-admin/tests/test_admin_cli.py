@@ -34,7 +34,7 @@ def test_init_success_with_options(
         'variable "test" {}',
         'module "stack" {\n  source = "./modules/stack"\n}',
         'output "test" {}',
-        'project_id = "$$PROJECT_ID$$"\nnamespace  = "$$NAMESPACE$$"\n# dc_api_key = "$$DC_API_KEY$$"',
+        'project_id = "$$PROJECT_ID$$"\ninstance_name  = "$$INSTANCE_NAME$$"\n# dc_api_key = "$$DC_API_KEY$$"',
     )
     with runner.isolated_filesystem(temp_dir=tmp_path):
         result = runner.invoke(
@@ -43,8 +43,8 @@ def test_init_success_with_options(
                 "init",
                 "--project-id",
                 "test-project",
-                "--namespace",
-                "test-ns",
+                "--instance-name",
+                "test-instance-name",
                 "--dc-api-key",
                 "test-key",
                 "--no-tf-remote-state",
@@ -62,7 +62,7 @@ def test_init_success_with_options(
 
         tfvars_content = (target_dir / "terraform.tfvars").read_text()
         assert 'project_id = "test-project"' in tfvars_content
-        assert 'namespace  = "test-ns"' in tfvars_content
+        assert 'instance_name  = "test-instance-name"' in tfvars_content
         assert 'dc_api_key = "test-key"' in tfvars_content
 
 
@@ -74,21 +74,21 @@ def test_init_success_with_prompts(
         'variable "test" {}',
         'module "stack" {\n  source = "./modules/stack"\n}',
         'output "test" {}',
-        'project_id = "$$PROJECT_ID$$"\nnamespace  = "$$NAMESPACE$$"\n# dc_api_key = "$$DC_API_KEY$$"',
+        'project_id = "$$PROJECT_ID$$"\ninstance_name  = "$$INSTANCE_NAME$$"\n# dc_api_key = "$$DC_API_KEY$$"',
     )
     with runner.isolated_filesystem(temp_dir=tmp_path):
         result = runner.invoke(
             admin,
             ["init", "--no-tf-remote-state"],
-            input="prompt-project\nprompt-ns\nprompt-key\n",
+            input="prompt-project\nprompt-instance-name\nprompt-key\n",
         )
         assert result.exit_code == 0
-        target_dir = Path.cwd() / "prompt-ns"
+        target_dir = Path.cwd() / "prompt-instance-name"
         assert target_dir.exists()
 
         tfvars_content = (target_dir / "terraform.tfvars").read_text()
         assert 'project_id = "prompt-project"' in tfvars_content
-        assert 'namespace  = "prompt-ns"' in tfvars_content
+        assert 'instance_name  = "prompt-instance-name"' in tfvars_content
 
 
 @patch("datacommons_admin.admin_cli._get_github_templates")
@@ -99,10 +99,10 @@ def test_init_existing_folder_force(
         'variable "test" {}',
         'module "stack" {\n  source = "./modules/stack"\n}',
         'output "test" {}',
-        'project_id = "$$PROJECT_ID$$"\nnamespace  = "$$NAMESPACE$$"\n# dc_api_key = "$$DC_API_KEY$$"',
+        'project_id = "$$PROJECT_ID$$"\ninstance_name  = "$$INSTANCE_NAME$$"\n# dc_api_key = "$$DC_API_KEY$$"',
     )
     with runner.isolated_filesystem(temp_dir=tmp_path):
-        existing_dir = Path.cwd() / "existing-ns"
+        existing_dir = Path.cwd() / "existing-instance-name"
         existing_dir.mkdir()
         (existing_dir / "main.tf").write_text("old content")
 
@@ -112,8 +112,8 @@ def test_init_existing_folder_force(
                 "init",
                 "--project-id",
                 "test-project",
-                "--namespace",
-                "existing-ns",
+                "--instance-name",
+                "existing-instance-name",
                 "--force",
                 "--no-tf-remote-state",
             ],
@@ -136,7 +136,7 @@ def test_init_remote_state(
         'variable "test" {}',
         'module "stack" {\n  source = "./modules/stack"\n}',
         'output "test" {}',
-        'project_id = "$$PROJECT_ID$$"\nnamespace  = "$$NAMESPACE$$"\n# dc_api_key = "$$DC_API_KEY$$"',
+        'project_id = "$$PROJECT_ID$$"\ninstance_name  = "$$INSTANCE_NAME$$"\n# dc_api_key = "$$DC_API_KEY$$"',
     )
     mock_configure.return_value = "mock-bucket-name"
 
@@ -147,16 +147,18 @@ def test_init_remote_state(
                 "init",
                 "--project-id",
                 "remote-project",
-                "--namespace",
-                "remote-ns",
+                "--instance-name",
+                "remote-instance-name",
                 "--dc-api-key",
                 "remote-key",
             ],
         )
         assert result.exit_code == 0
-        mock_configure.assert_called_once_with("remote-project", "remote-ns", "", "US")
+        mock_configure.assert_called_once_with(
+            "remote-project", "remote-instance-name", "", "US"
+        )
 
-        target_dir = Path.cwd() / "remote-ns"
+        target_dir = Path.cwd() / "remote-instance-name"
         assert (target_dir / "backend.tf").exists()
         backend_content = (target_dir / "backend.tf").read_text()
         assert 'bucket = "mock-bucket-name"' in backend_content
@@ -443,7 +445,7 @@ def test_init_uses_default_ref_v_prefixed(
         'variable "test" {}',
         'module "stack" {\n  source = "./modules/stack"\n}',
         'output "test" {}',
-        'project_id = "$$PROJECT_ID$$"\nnamespace  = "$$NAMESPACE$$"\n# dc_api_key = "$$DC_API_KEY$$"',
+        'project_id = "$$PROJECT_ID$$"\ninstance_name  = "$$INSTANCE_NAME$$"\n# dc_api_key = "$$DC_API_KEY$$"',
     )
     from datacommons_admin import __version__
 
@@ -454,8 +456,8 @@ def test_init_uses_default_ref_v_prefixed(
                 "init",
                 "--project-id",
                 "ref-project",
-                "--namespace",
-                "ref-ns",
+                "--instance-name",
+                "ref-instance-name",
                 "--dc-api-key",
                 "ref-key",
                 "--no-tf-remote-state",

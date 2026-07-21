@@ -2,7 +2,7 @@ variable "deploy" {
   type = bool
 }
 
-variable "namespace" {
+variable "instance_name" {
   type = string
 }
 

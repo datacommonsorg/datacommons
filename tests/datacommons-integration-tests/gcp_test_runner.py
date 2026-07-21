@@ -118,11 +118,11 @@ def validate_mcf_file(mcf_path: Path) -> None:
         ) from e
 
 
-def setup_workspace(workspace_dir: Path, namespace: str) -> None:
+def setup_workspace(workspace_dir: Path, instance_name: str) -> None:
     """Ensure clean scratch workspace directories exist.
     Tries to destroy resources first if tfstate is present to avoid leakage.
     """
-    sandbox_dir = workspace_dir / namespace
+    sandbox_dir = workspace_dir / instance_name
     if sandbox_dir.exists() and (sandbox_dir / "terraform.tfstate").exists():
         has_resources = False
         try:
@@ -136,7 +136,7 @@ def setup_workspace(workspace_dir: Path, namespace: str) -> None:
 
         if has_resources:
             logging.info(
-                f">>> [STEP] Existing active sandbox '{namespace}' detected with provisioned resources."
+                f">>> [STEP] Existing active sandbox '{instance_name}' detected with provisioned resources."
             )
             logging.info(
                 ">>> [STEP] Attempting to clean up existing GCP resources first..."
@@ -154,7 +154,7 @@ def setup_workspace(workspace_dir: Path, namespace: str) -> None:
                 )
                 if is_ci:
                     raise RuntimeError(
-                        f"Aborting to prevent resource leakage. Clean up resources for namespace '{namespace}' manually."
+                        f"Aborting to prevent resource leakage. Clean up resources for namespace '{instance_name}' manually."
                     ) from e
                 print(
                     "\n[!] WARNING: Deleting this directory will permanently orphan these resources in GCP.",
@@ -184,7 +184,7 @@ def initialize_sandbox_scaffolding(
     workspace_root: Path,
     workspace_dir: Path,
     project_id: str,
-    namespace: str,
+    instance_name: str,
     dc_api_key: str,
     tf_git_ref: str,
     tf_state_bucket: str = "",
@@ -201,8 +201,8 @@ def initialize_sandbox_scaffolding(
         "init",
         "--project-id",
         project_id,
-        "--namespace",
-        namespace,
+        "--instance-name",
+        instance_name,
         "--dc-api-key",
         dc_api_key,
     ]
@@ -215,7 +215,7 @@ def initialize_sandbox_scaffolding(
         init_args.extend(["--tf-git-ref", tf_git_ref])
 
     run_command(init_args, cwd=workspace_dir)
-    sandbox_dir = workspace_dir / namespace
+    sandbox_dir = workspace_dir / instance_name
     log_success(f"Sandbox created at {sandbox_dir}")
 
     # Overwrite remote github scaffolding with local workspace files to test local modifications offline
@@ -704,9 +704,9 @@ def main() -> None:
         "--region", default="us-central1", help="GCP region to deploy in"
     )
     parser.add_argument(
-        "--namespace",
+        "--instance-name",
         default=None,
-        help="Custom namespace (defaults to itest-XXXX)",
+        help="Custom instance name (defaults to itest-XXXX)",
     )
     parser.add_argument(
         "--dcp-version",
@@ -742,15 +742,15 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    # Generate random namespace if not provided
-    namespace = args.namespace
-    if not namespace:
+    # Generate random instance name if not provided
+    instance_name = args.instance_name
+    if not instance_name:
         rand_suffix = f"{random.randint(1000, 9999)}"
-        namespace = f"itest-{rand_suffix}"
+        instance_name = f"itest-{rand_suffix}"
 
-    log_step(f"Starting Integration Test with namespace: {namespace}")
+    log_step(f"Starting Integration Test with instance name: {instance_name}")
 
-    workspace_dir = Path(f"/tmp/workspace-{namespace}")
+    workspace_dir = Path(f"/tmp/workspace-{instance_name}")
     workspace_root = Path(__file__).resolve().parent.parent.parent
 
     # Track lifecycle state for cleanups
@@ -759,18 +759,18 @@ def main() -> None:
 
     try:
         if args.reuse_sandbox:
-            if not args.namespace:
+            if not args.instance_name:
                 raise RuntimeError(
-                    "Namespace must be specified when using --reuse-sandbox (e.g. --namespace itest-XXXX)"
+                    "Instance name must be specified when using --reuse-sandbox (e.g. --instance-name itest-XXXX)"
                 )
-            sandbox_dir = workspace_dir / namespace
+            sandbox_dir = workspace_dir / instance_name
             if not sandbox_dir.exists():
                 raise RuntimeError(f"Sandbox directory does not exist: {sandbox_dir}")
-            log_step(f"Reusing existing sandbox namespace: {namespace}")
+            log_step(f"Reusing existing sandbox instance name: {instance_name}")
             outputs = get_terraform_outputs(sandbox_dir)
         else:
             # 1. Setup workspace
-            setup_workspace(workspace_dir, namespace)
+            setup_workspace(workspace_dir, instance_name)
 
             # 1b. Validate local MCF schema syntax before deploying expensive cloud resources
             root_dir = Path(__file__).resolve().parent.parent.parent
@@ -790,7 +790,7 @@ def main() -> None:
                 workspace_root=workspace_root,
                 workspace_dir=workspace_dir,
                 project_id=args.project_id,
-                namespace=namespace,
+                instance_name=instance_name,
                 dc_api_key=dc_key,
                 tf_git_ref=args.tf_git_ref,
                 tf_state_bucket=args.tf_state_bucket,
@@ -858,7 +858,7 @@ def main() -> None:
         if terraform_provisioned and sandbox_dir:
             if args.keep_sandbox:
                 log_step(
-                    f"Keeping GCP Sandbox intact for debugging: namespace={namespace}"
+                    f"Keeping GCP Sandbox intact for debugging: instance_name={instance_name}"
                 )
             else:
                 run_terraform_destroy(sandbox_dir, workspace_dir)

@@ -96,7 +96,7 @@ main:
           - import_name_len: '$${len(combined_import_name)}'
           - substring_end: '$${if(import_name_len < 35, import_name_len, 35)}'
           - sanitized_short_import: '$${text.substring(combined_import_name, 0, substring_end)}'
-          - dataflow_job_name: '$${"${clean_namespace_prefix}" + sanitized_short_import + "-" + string(int(sys.now()))}'
+          - dataflow_job_name: '$${"${clean_instance_name_prefix}" + sanitized_short_import + "-" + string(int(sys.now()))}'
     
     - run_preprocessing:
         call: launch_and_poll_preprocessing_job

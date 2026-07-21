@@ -7,8 +7,8 @@
 # Global Configuration
 # =============================================================================
 project_id = "$$PROJECT_ID$$"
-namespace  = "$$NAMESPACE$$"
-region     = "us-central1"
+instance_name = "$$INSTANCE_NAME$$"
+region = "us-central1"
 
 # Deletion protection for stateful resources holding persistent data 
 # (Spanner and Cloud Storage).

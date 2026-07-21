@@ -71,7 +71,7 @@ def get_terraform_output(key: str) -> str:
         if not has_tf_files:
             raise click.ClickException(
                 f"No Terraform outputs found in '{cwd}'.\n"
-                "Please navigate to your initialized DCP Terraform directory (e.g., 'cd my-namespace') and ensure 'terraform apply' has been run."
+                "Please navigate to your initialized DCP Terraform directory (e.g., 'cd my-instance-name') and ensure 'terraform apply' has been run."
             )
         else:
             raise click.ClickException(
