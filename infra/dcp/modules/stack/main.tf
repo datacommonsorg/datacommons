@@ -80,7 +80,7 @@ module "spanner" {
   count  = var.spanner_config.enable ? 1 : 0
 
   project_id                         = var.global.project_id
-  namespace                          = var.global.namespace
+  instance_name                      = var.global.instance_name
   region                             = var.global.region
   create_instance                    = var.spanner_config.create_instance
   create_database                    = var.spanner_config.create_db
@@ -106,8 +106,8 @@ module "storage" {
   stateful_deletion_protection = var.global.stateful_deletion_protection
 
   # Shared vars
-  project_id = var.global.project_id
-  namespace  = var.global.namespace
+  project_id    = var.global.project_id
+  instance_name = var.global.instance_name
 }
 
 module "ingestion_preprocessing_job" {
@@ -115,7 +115,7 @@ module "ingestion_preprocessing_job" {
   count  = var.ingestion_config.enable_ingestion ? 1 : 0
 
   project_id                    = var.global.project_id
-  namespace                     = var.global.namespace
+  instance_name                 = var.global.instance_name
   region                        = var.global.region
   stateless_deletion_protection = var.global.stateless_deletion_protection
   image                         = var.ingestion_config.preprocessing_job_image
@@ -149,7 +149,7 @@ module "ingestion_postprocessing_job" {
   count  = var.ingestion_config.enable_ingestion ? 1 : 0
 
   project_id                     = var.global.project_id
-  namespace                      = var.global.namespace
+  instance_name                  = var.global.instance_name
   region                         = var.global.region
   stateless_deletion_protection  = var.global.stateless_deletion_protection
   image                          = var.ingestion_config.postprocessing_job_image
@@ -172,7 +172,7 @@ module "ingestion_dataflow" {
 
   deploy                = var.ingestion_config.enable_ingestion
   project_id            = var.global.project_id
-  namespace             = var.global.namespace
+  instance_name         = var.global.instance_name
   ingestion_bucket_name = module.storage.artifacts_bucket_name
   use_spanner           = var.spanner_config.enable
 }
@@ -182,7 +182,7 @@ module "ingestion_helper_service" {
 
   deploy                        = var.ingestion_config.enable_ingestion
   project_id                    = var.global.project_id
-  namespace                     = var.global.namespace
+  instance_name                 = var.global.instance_name
   region                        = var.global.region
   stateless_deletion_protection = var.global.stateless_deletion_protection
   # Use index [0] because module.spanner is conditional. Fallback to empty string if disabled.
@@ -208,7 +208,7 @@ module "ingestion_workflow" {
   source = "../ingestion/workflow"
 
   deploy                         = var.ingestion_config.enable_ingestion
-  namespace                      = var.global.namespace
+  instance_name                  = var.global.instance_name
   region                         = var.global.region
   stateless_deletion_protection  = var.global.stateless_deletion_protection
   project_id                     = var.global.project_id
@@ -217,7 +217,7 @@ module "ingestion_workflow" {
   dataflow_service_account_email = module.ingestion_dataflow.service_account_email
   enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
   enable_embeddings_generation   = var.spanner_config.enable_embeddings_generation
-  ingestion_helper_service_name  = "${var.global.namespace != "" ? "${var.global.namespace}-" : ""}dc-ingestion-helper"
+  ingestion_helper_service_name  = "${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-ingestion-helper"
   enable_redis_cache_clearing    = var.redis_config.enable
   ingestion_artifacts_path       = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
   dataflow_ip_configuration      = var.ingestion_config.dataflow_ip_configuration
@@ -229,13 +229,14 @@ module "ingestion_workflow" {
   depends_on = [module.ingestion_helper_service]
 }
 
+
 module "redis" {
   source = "../redis"
   count  = var.redis_config.enable ? 1 : 0
 
-  namespace               = var.global.namespace
+  instance_name           = var.global.instance_name
   region                  = var.global.region
-  instance_name           = var.redis_config.instance_name
+  redis_instance_name     = var.redis_config.instance_name
   memory_size_gb          = var.redis_config.memory_size_gb
   tier                    = var.redis_config.tier
   location_id             = var.redis_config.location_id
@@ -250,7 +251,7 @@ module "auth" {
   source = "../auth"
 
   project_id             = var.global.project_id
-  namespace              = var.global.namespace
+  instance_name          = var.global.instance_name
   dc_api_key             = var.auth_config.google_datacommons_api_key
   google_maps_api_key    = var.auth_config.google_maps_api_key
   create_google_maps_key = var.auth_config.create_google_maps_key
@@ -261,7 +262,7 @@ module "datacommons_services" {
   count  = var.datacommons_services_config.enable ? 1 : 0
 
   project_id                    = var.global.project_id
-  namespace                     = var.global.namespace
+  instance_name                 = var.global.instance_name
   region                        = var.global.region
   stateless_deletion_protection = var.global.stateless_deletion_protection
   image                         = var.datacommons_services_config.image

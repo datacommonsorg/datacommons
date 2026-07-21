@@ -1,7 +1,7 @@
 locals {
-  name_prefix               = var.namespace != "" ? "${var.namespace}-" : ""
+  name_prefix               = var.instance_name != "" ? "${var.instance_name}-" : ""
   should_run_postprocessing = var.enable_bigquery_postprocessing || var.enable_embeddings_generation
-  clean_namespace_prefix    = var.namespace != "" ? "${replace(lower(var.namespace), "_", "-")}-" : ""
+  clean_namespace_prefix    = var.instance_name != "" ? "${replace(lower(var.instance_name), "_", "-")}-" : ""
 }
 
 resource "google_service_account" "workflow_sa" {
@@ -31,6 +31,8 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
     dataflow_subnetwork            = var.dataflow_subnetwork
     embeddings_timeout             = var.embeddings_timeout
     clean_namespace_prefix         = local.clean_namespace_prefix
+
+
     enable_redis_cache_clearing    = var.enable_redis_cache_clearing
     preprocessing_job_name         = var.preprocessing_job_name
     postprocessing_job_name        = var.postprocessing_job_name

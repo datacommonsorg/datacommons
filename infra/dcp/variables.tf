@@ -13,8 +13,14 @@ variable "region" {
   default     = "us-central1"
 }
 
-variable "namespace" {
+variable "instance_name" {
   description = "A unique identifier used as a prefix for resource naming. This prevents naming conflicts when deploying multiple isolated environments (like dev, staging, or feature branches) within the same GCP project."
+  type        = string
+  default     = ""
+}
+
+variable "namespace" {
+  description = "DEPRECATED: Use instance_name instead. A unique identifier used as a prefix for resource naming."
   type        = string
   default     = ""
 }
@@ -82,7 +88,7 @@ variable "storage_create_artifacts_bucket" {
 }
 
 variable "storage_artifacts_bucket_name" {
-  description = "The name of the unified GCS bucket for artifacts (serving and ingestion). If not provided, a name will be automatically generated following the pattern [namespace-]dc-artifacts-[project_id]"
+  description = "The name of the unified GCS bucket for artifacts (serving and ingestion). If not provided, a name will be automatically generated following the pattern [instance-name-]dc-artifacts-[project_id]"
   type        = string
   default     = ""
 }
@@ -98,7 +104,7 @@ variable "enable_redis" {
 }
 
 variable "redis_instance_name" {
-  description = "The name of the Redis instance. If not provided, a name will be automatically generated following the pattern [namespace-]dc-redis-instance"
+  description = "The name of the Redis instance. If not provided, a name will be automatically generated following the pattern [instance-name-]dc-redis-instance"
   type        = string
   default     = ""
 }
@@ -168,13 +174,13 @@ variable "spanner_create_database" {
 }
 
 variable "spanner_instance_id" {
-  description = "The ID of the Spanner instance. If not provided, a name will be automatically generated following the pattern [namespace-]dc-instance"
+  description = "The ID of the Spanner instance. If not provided, a name will be automatically generated following the pattern [instance-name-]dc-instance"
   type        = string
   default     = ""
 }
 
 variable "spanner_database_id" {
-  description = "The ID of the Spanner database. If not provided, a name will be automatically generated following the pattern [namespace-]dc-db"
+  description = "The ID of the Spanner database. If not provided, a name will be automatically generated following the pattern [instance-name-]dc-db"
   type        = string
   default     = ""
 }

@@ -2,7 +2,7 @@ variable "project_id" {
   type = string
 }
 
-variable "namespace" {
+variable "instance_name" {
   type = string
 }
 

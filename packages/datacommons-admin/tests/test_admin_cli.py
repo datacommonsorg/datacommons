@@ -67,6 +67,46 @@ def test_init_success_with_options(
 
 
 @patch("datacommons_admin.admin_cli._get_github_templates")
+def test_init_success_with_instance_name(
+    mock_get_templates, runner: CliRunner, tmp_path: Path
+) -> None:
+    mock_get_templates.return_value = (
+        'variable "test" {}',
+        'module "stack" {\n  source = "./modules/stack"\n}',
+        'output "test" {}',
+        'project_id = "$$PROJECT_ID$$"\ninstance_name  = "$$INSTANCE_NAME$$"\n# dc_api_key = "$$DC_API_KEY$$"',
+    )
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(
+            admin,
+            [
+                "init",
+                "--project-id",
+                "test-project",
+                "--instance-name",
+                "test-inst",
+                "--dc-api-key",
+                "test-key",
+                "--no-tf-remote-state",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "Downloaded and populated Terraform templates." in result.output
+
+        target_dir = Path.cwd() / "test-inst"
+        assert target_dir.exists()
+        assert (target_dir / "main.tf").exists()
+        assert (target_dir / "terraform.tfvars").exists()
+        assert (target_dir / "README.md").exists()
+        assert not (target_dir / "backend.tf").exists()
+
+        tfvars_content = (target_dir / "terraform.tfvars").read_text()
+        assert 'project_id = "test-project"' in tfvars_content
+        assert 'instance_name  = "test-inst"' in tfvars_content
+        assert 'dc_api_key = "test-key"' in tfvars_content
+
+
+@patch("datacommons_admin.admin_cli._get_github_templates")
 def test_init_success_with_prompts(
     mock_get_templates, runner: CliRunner, tmp_path: Path
 ) -> None:
