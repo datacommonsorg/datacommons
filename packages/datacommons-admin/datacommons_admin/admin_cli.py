@@ -364,7 +364,9 @@ def _setup_dcp_config_dir(
         # Modify tfvars_example with actual values
         tfvars_content = tfvars_example
         tfvars_content = tfvars_content.replace('"$$PROJECT_ID$$"', f'"{project_id}"')
-        tfvars_content = tfvars_content.replace('"$$INSTANCE_NAME$$"', f'"{instance_name}"')
+        tfvars_content = tfvars_content.replace(
+            '"$$INSTANCE_NAME$$"', f'"{instance_name}"'
+        )
         if api_key:
             tfvars_content = tfvars_content.replace('"$$DC_API_KEY$$"', f'"{api_key}"')
 
@@ -401,7 +403,9 @@ def _setup_dcp_config_dir(
     help="Google Cloud Platform project ID used for all resources related to your Data Commons instance.",
 )
 @click.option(
-    "--instance-name", default="", help="Instance name that serves as prefix for provisioned resources."
+    "--instance-name",
+    default="",
+    help="Instance name that serves as prefix for provisioned resources.",
 )
 @click.option("--dc-api-key", default="", help="Data Commons API key.")
 @click.option(
