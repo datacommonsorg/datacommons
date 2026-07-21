@@ -25,6 +25,11 @@ variable "bigquery_connection_id" { type = string }
 variable "use_spanner" { type = bool }
 variable "enable_bigquery_postprocessing" { type = bool }
 variable "enable_spanner_embeddings" { type = bool }
+variable "enable_bigquery_connection" {
+  type    = bool
+  default = false
+}
+
 
 variable "env_vars" {
   type = list(object({
