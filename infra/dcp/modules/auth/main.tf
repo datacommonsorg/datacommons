@@ -1,5 +1,5 @@
 locals {
-  name_prefix               = var.namespace != "" ? "${var.namespace}-" : ""
+  name_prefix               = var.instance_name != "" ? "${var.instance_name}-" : ""
   google_maps_api_key_value = var.google_maps_api_key != null ? var.google_maps_api_key : try(google_apikeys_key.maps_api_key[0].key_string, "")
 }
 
@@ -24,7 +24,7 @@ resource "google_apikeys_key" "maps_api_key" {
   count = var.google_maps_api_key == null && var.create_google_maps_key ? 1 : 0
 
   name         = "${local.name_prefix}dc-google-maps-key-${random_id.api_key_suffix.hex}"
-  display_name = "Maps API Key for ${var.namespace != "" ? var.namespace : "Data Commons"}"
+  display_name = "Maps API Key for ${var.instance_name != "" ? var.instance_name : "Data Commons"}"
   project      = var.project_id
 
   restrictions {

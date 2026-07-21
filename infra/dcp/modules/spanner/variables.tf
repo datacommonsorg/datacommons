@@ -3,7 +3,7 @@ variable "project_id" {
   description = "GCP Project ID"
 }
 
-variable "namespace" {
+variable "instance_name" {
   type = string
 }
 

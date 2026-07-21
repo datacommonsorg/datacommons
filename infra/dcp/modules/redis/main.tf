@@ -1,10 +1,10 @@
 locals {
-  name_prefix         = var.namespace != "" ? "${var.namespace}-" : ""
-  display_name_prefix = var.namespace != "" ? "(${var.namespace}) " : ""
+  name_prefix         = var.instance_name != "" ? "${var.instance_name}-" : ""
+  display_name_prefix = var.instance_name != "" ? "(${var.instance_name}) " : ""
 }
 
 resource "google_redis_instance" "redis_instance" {
-  name                    = var.instance_name != "" ? "${local.name_prefix}${var.instance_name}" : "${local.name_prefix}dc-redis-instance"
+  name                    = var.redis_instance_name != "" ? "${local.name_prefix}${var.redis_instance_name}" : "${local.name_prefix}dc-redis-instance"
   memory_size_gb          = var.memory_size_gb
   tier                    = var.tier
   region                  = var.region
