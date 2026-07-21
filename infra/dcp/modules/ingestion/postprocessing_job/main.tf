@@ -99,7 +99,7 @@ resource "google_project_iam_member" "postprocessing_bq_job_user" {
 }
 
 resource "google_project_iam_member" "postprocessing_bq_connection_user" {
-  count   = var.enable_bigquery_postprocessing && var.bigquery_connection_id != "" ? 1 : 0
+  count   = var.enable_bigquery_postprocessing && var.enable_bigquery_connection ? 1 : 0
   project = var.project_id
   role    = "roles/bigquery.connectionUser"
   member  = "serviceAccount:${google_service_account.postprocessing_sa.email}"

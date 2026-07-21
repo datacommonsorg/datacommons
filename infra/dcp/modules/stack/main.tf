@@ -163,6 +163,7 @@ module "ingestion_postprocessing_job" {
   use_spanner                    = var.spanner_config.enable
   enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
   enable_spanner_embeddings      = var.spanner_config.enable_embeddings_generation
+  enable_bigquery_connection     = var.spanner_config.enable && var.spanner_config.enable_bigquery_connection
   env_vars                       = local.cloud_run_shared_env_variables
 }
 
