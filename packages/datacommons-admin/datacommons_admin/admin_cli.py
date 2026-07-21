@@ -404,8 +404,9 @@ def _setup_dcp_config_dir(
 )
 @click.option(
     "--instance-name",
+    "--namespace",
     default="",
-    help="Instance name that serves as prefix for provisioned resources.",
+    help="Instance name that serves as prefix for provisioned resources. (Deprecated alias: --namespace)",
 )
 @click.option("--dc-api-key", default="", help="Data Commons API key.")
 @click.option(
