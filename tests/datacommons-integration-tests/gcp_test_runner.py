@@ -154,7 +154,7 @@ def setup_workspace(workspace_dir: Path, instance_name: str) -> None:
                 )
                 if is_ci:
                     raise RuntimeError(
-                        f"Aborting to prevent resource leakage. Clean up resources for namespace '{instance_name}' manually."
+                        f"Aborting to prevent resource leakage. Clean up resources for sandbox '{instance_name}' manually."
                     ) from e
                 print(
                     "\n[!] WARNING: Deleting this directory will permanently orphan these resources in GCP.",

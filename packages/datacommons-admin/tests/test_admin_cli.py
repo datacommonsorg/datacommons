@@ -53,7 +53,7 @@ def test_init_success_with_options(
         assert result.exit_code == 0
         assert "Downloaded and populated Terraform templates." in result.output
 
-        target_dir = Path.cwd() / "test-ns"
+        target_dir = Path.cwd() / "test-instance-name"
         assert target_dir.exists()
         assert (target_dir / "main.tf").exists()
         assert (target_dir / "terraform.tfvars").exists()
