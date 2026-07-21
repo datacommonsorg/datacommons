@@ -26,8 +26,9 @@ variable "use_spanner" { type = bool }
 variable "enable_bigquery_postprocessing" { type = bool }
 variable "enable_spanner_embeddings" { type = bool }
 variable "enable_bigquery_connection" {
-  type    = bool
-  default = false
+  description = "Enable BigQuery connection for post-processing. Requires Spanner module to be enabled with BigQuery connection support (spanner_config.enable = true and spanner_config.enable_bigquery_connection = true)."
+  type        = bool
+  default     = false
 }
 
 
