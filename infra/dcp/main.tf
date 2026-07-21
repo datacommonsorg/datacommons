@@ -59,13 +59,16 @@ resource "google_project_service" "apis" {
 }
 
 locals {
+  # For backward compatibility, fallback to namespace if instance_name is empty
+  effective_instance_name = var.instance_name != "" ? var.instance_name : var.namespace
+
   # Redirect abandoned 'latest' alias to 'stable' for Dataflow templates
   df_template_version = var.dcp_version == "latest" ? "stable" : var.dcp_version
 
   global_config = {
     project_id                    = var.project_id
     region                        = var.region
-    namespace                     = var.namespace
+    instance_name                 = local.effective_instance_name
     stateful_deletion_protection  = var.stateful_deletion_protection
     stateless_deletion_protection = var.stateless_deletion_protection
   }

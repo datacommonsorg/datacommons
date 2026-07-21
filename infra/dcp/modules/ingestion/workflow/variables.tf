@@ -2,7 +2,7 @@ variable "deploy" {
   type = bool
 }
 
-variable "namespace" {
+variable "instance_name" {
   type = string
 }
 
@@ -46,6 +46,8 @@ variable "embeddings_timeout" {
   description = "Timeout in seconds for ingestion helper service HTTP post"
   default     = 1800
 }
+
+
 
 variable "ingestion_helper_service_name" {
   type        = string

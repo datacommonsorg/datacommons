@@ -67,6 +67,46 @@ def test_init_success_with_options(
 
 
 @patch("datacommons_admin.admin_cli._get_github_templates")
+def test_init_success_with_instance_name(
+    mock_get_templates, runner: CliRunner, tmp_path: Path
+) -> None:
+    mock_get_templates.return_value = (
+        'variable "test" {}',
+        'module "stack" {\n  source = "./modules/stack"\n}',
+        'output "test" {}',
+        'project_id = "$$PROJECT_ID$$"\ninstance_name  = "$$INSTANCE_NAME$$"\n# dc_api_key = "$$DC_API_KEY$$"',
+    )
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(
+            admin,
+            [
+                "init",
+                "--project-id",
+                "test-project",
+                "--instance-name",
+                "test-inst",
+                "--dc-api-key",
+                "test-key",
+                "--no-tf-remote-state",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "Downloaded and populated Terraform templates." in result.output
+
+        target_dir = Path.cwd() / "test-inst"
+        assert target_dir.exists()
+        assert (target_dir / "main.tf").exists()
+        assert (target_dir / "terraform.tfvars").exists()
+        assert (target_dir / "README.md").exists()
+        assert not (target_dir / "backend.tf").exists()
+
+        tfvars_content = (target_dir / "terraform.tfvars").read_text()
+        assert 'project_id = "test-project"' in tfvars_content
+        assert 'instance_name  = "test-inst"' in tfvars_content
+        assert 'dc_api_key = "test-key"' in tfvars_content
+
+
+@patch("datacommons_admin.admin_cli._get_github_templates")
 def test_init_success_with_prompts(
     mock_get_templates, runner: CliRunner, tmp_path: Path
 ) -> None:
@@ -540,3 +580,64 @@ def test_ingest_start_with_imports_success(
     called_payload = called_args["json"]
     assert "argument" in called_payload
     assert json.loads(called_payload["argument"]) == expected_arg
+
+
+@patch("google.cloud.storage.Client")
+def test_get_terraform_output_from_gcs(mock_storage_client, runner: CliRunner) -> None:
+    from unittest.mock import MagicMock
+    from datacommons_admin.tf_utils import get_terraform_output
+    import click
+
+    # Mock storage client
+    mock_client_inst = MagicMock()
+    mock_storage_client.return_value = mock_client_inst
+    mock_bucket = MagicMock()
+    mock_client_inst.bucket.return_value = mock_bucket
+    mock_blob = MagicMock()
+    mock_bucket.blob.return_value = mock_blob
+    
+    state_content = """{
+      "version": 4,
+      "outputs": {
+        "test_key": {
+          "value": "gcs-resolved-val",
+          "type": "string"
+        }
+      }
+    }"""
+    mock_blob.download_as_text.return_value = state_content
+
+    @admin.command(name="test-get-output")
+    def test_get_output_cmd():
+        val = get_terraform_output("test_key")
+        click.echo(f"VAL={val}")
+
+    # Test with project-id and instance-name
+    result = runner.invoke(
+        admin,
+        [
+            "--project-id", "mock-project",
+            "--instance-name", "mock-instance",
+            "test-get-output"
+        ]
+    )
+    assert result.exit_code == 0
+    assert "VAL=gcs-resolved-val" in result.output
+    mock_client_inst.bucket.assert_called_once_with("tf-state-mock-instance-mock-project")
+    mock_bucket.blob.assert_called_once_with("terraform/state/mock-instance/default.tfstate")
+
+    # Test with tf-state-location
+    mock_client_inst.reset_mock()
+    mock_bucket.reset_mock()
+    result = runner.invoke(
+        admin,
+        [
+            "--tf-state-location", "gs://custom-bucket/custom-prefix/state.tfstate",
+            "test-get-output"
+        ]
+    )
+    assert result.exit_code == 0
+    assert "VAL=gcs-resolved-val" in result.output
+    mock_client_inst.bucket.assert_called_once_with("custom-bucket")
+    mock_bucket.blob.assert_called_once_with("custom-prefix/state.tfstate")
+

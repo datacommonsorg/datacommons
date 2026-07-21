@@ -16,6 +16,17 @@ import os
 
 import click
 
+# Monkeypatch ClickException to format errors in red
+def _custom_click_exception_show(self, file=None):
+    if file is None:
+        import sys
+        file = sys.stderr
+    click.echo(
+        click.style("Error: ", fg="red", bold=True) + click.style(self.format_message(), fg="red"),
+        file=file
+    )
+click.ClickException.show = _custom_click_exception_show
+
 from datacommons_admin.admin_cli import admin as admin_cli
 
 from . import __version__
