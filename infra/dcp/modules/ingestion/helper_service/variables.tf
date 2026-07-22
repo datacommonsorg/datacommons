@@ -37,27 +37,11 @@ variable "image" {
   description = "Docker image URL for the ingestion support service"
 }
 
-variable "bigquery_connection_id" {
-  type    = string
-  default = ""
-}
-
 variable "use_spanner" {
   type    = bool
   default = true
 }
 
-variable "enable_bigquery_connection" {
-  type        = bool
-  description = "Flag to enable BigQuery connection usage"
-  default     = false
-}
-
-variable "enable_bigquery_postprocessing" {
-  type        = bool
-  description = "Flag to enable BigQuery postprocessing"
-  default     = true
-}
 
 variable "enable_embeddings_generation" {
   type        = bool
