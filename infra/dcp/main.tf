@@ -65,7 +65,7 @@ locals {
   global_config = {
     project_id                    = var.project_id
     region                        = var.region
-    namespace                     = var.namespace
+    instance_name                 = var.instance_name
     stateful_deletion_protection  = var.stateful_deletion_protection
     stateless_deletion_protection = var.stateless_deletion_protection
   }

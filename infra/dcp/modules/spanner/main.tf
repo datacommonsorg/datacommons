@@ -1,5 +1,5 @@
 locals {
-  name_prefix           = var.namespace != "" ? "${var.namespace}-" : ""
+  name_prefix           = var.instance_name != "" ? "${var.instance_name}-" : ""
   effective_instance_id = var.create_instance ? (var.instance_id != "" ? "${local.name_prefix}${var.instance_id}" : "${local.name_prefix}dc-instance") : var.instance_id
   effective_database_id = var.create_database ? (var.database_id != "" ? "${local.name_prefix}${var.database_id}" : "${local.name_prefix}dc-db") : var.database_id
 }

@@ -74,15 +74,15 @@ Pulls the latest templates, provisions a completely new isolated sandbox stack i
   ```
 
 #### 2. Lightweight Mode (Fast Debugging Loop)
-Skips the slow Terraform setup and teardown stages entirely. It reads resource configurations from an existing `/tmp/workspace-<namespace>` directory, clears the database tables, re-uploads local test data files, triggers the ingestion workflow, and runs `pytest`. This reduces iteration time **from 10+ minutes down to 1-2 minutes**.
+Skips the slow Terraform setup and teardown stages entirely. It reads resource configurations from an existing `/tmp/workspace-<instance-name>` directory, clears the database tables, re-uploads local test data files, triggers the ingestion workflow, and runs `pytest`. This reduces iteration time **from 10+ minutes down to 1-2 minutes**.
 * **Usage:**
   1. First, create a persistent sandbox and keep it alive:
      ```bash
-     uv run python tests/datacommons-integration-tests/gcp_test_runner.py --namespace my-debug-sandbox --keep-sandbox
+     uv run python tests/datacommons-integration-tests/gcp_test_runner.py --instance-name my-debug-sandbox --keep-sandbox
      ```
   2. Run subsequent test runs in lightweight mode:
      ```bash
-     uv run python tests/datacommons-integration-tests/gcp_test_runner.py --namespace my-debug-sandbox --reuse-sandbox
+     uv run python tests/datacommons-integration-tests/gcp_test_runner.py --instance-name my-debug-sandbox --reuse-sandbox
      ```
 
 
@@ -90,9 +90,9 @@ Skips the slow Terraform setup and teardown stages entirely. It reads resource c
 *   `--project-id`: The Google Cloud Project ID where the sandbox resources should be provisioned (default: `datcom-ci`).
 *   `--dc-api-key`: Google Data Commons API Key needed to authenticate and configure sandbox clients.
 *   `--region`: The GCP region to deploy resources (default: `us-central1`).
-*   `--namespace`: Custom naming namespace for resources (default: randomized `itest-XXXX`).
+*   `--instance-name`: Custom naming instance name for resources (default: randomized `itest-XXXX`).
 *   `--keep-sandbox`: Do not destroy sandbox GCP resources on completion/failure. Useful for debugging active instances.
-*   `--reuse-sandbox`: Reuse existing local workspace and GCP sandbox resources if they exist. Requires passing a persistent, custom `--namespace` (e.g. `--namespace itest-9611`) and having run with `--keep-sandbox` in the previous run.
+*   `--reuse-sandbox`: Reuse existing local workspace and GCP sandbox resources if they exist. Requires passing a persistent, custom `--instance-name` (e.g. `--instance-name itest-9611`) and having run with `--keep-sandbox` in the previous run.
 *   `--tf-git-ref`: Git reference branch/tag/commit for the GCP Terraform templates repository (default: `main`).
 *   `--dcp-version`: Override default DCP version (controls all images and templates) (default: `latest`).
 
