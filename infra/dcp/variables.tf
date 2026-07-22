@@ -14,7 +14,7 @@ variable "region" {
 }
 
 variable "instance_name" {
-  description = "A unique identifier used to name resources in this deployment.  This prevents naming conflicts when deploying multiple isolated environments (like dev, staging, or feature branches) within the same GCP project."
+  description = "A unique identifier used as a prefix for resource naming. This prevents naming conflicts when deploying multiple isolated environments (like dev, staging, or feature branches) within the same GCP project."
   type        = string
   default     = ""
 }
