@@ -8,17 +8,23 @@ resource "google_service_account" "serving_sa" {
 }
 
 resource "google_project_iam_member" "serving_sa_roles" {
-  for_each = setsubtract(toset([
-    "roles/compute.networkViewer",
-    "roles/redis.editor",
-    "roles/storage.objectViewer",
-    "roles/vpcaccess.user",
-    # TODO: Review this overly broad permission.
-    "roles/iam.serviceAccountUser",
-    "roles/secretmanager.secretAccessor",
-    "roles/spanner.databaseUser",
-    "roles/workflows.invoker"
-  ]), var.use_spanner ? [] : ["roles/spanner.databaseUser"])
+  for_each = setsubtract(
+    toset(concat(
+      [
+        "roles/compute.networkViewer",
+        "roles/redis.editor",
+        "roles/storage.objectViewer",
+        "roles/vpcaccess.user",
+        # TODO: Review this overly broad permission.
+        "roles/iam.serviceAccountUser",
+        "roles/secretmanager.secretAccessor",
+        "roles/spanner.databaseUser",
+        "roles/workflows.invoker"
+      ],
+      var.resolve_with_spanner_embeddings ? ["roles/aiplatform.user"] : []
+    )),
+    var.use_spanner ? [] : ["roles/spanner.databaseUser"]
+  )
 
   project = var.project_id
   member  = "serviceAccount:${google_service_account.serving_sa.email}"
