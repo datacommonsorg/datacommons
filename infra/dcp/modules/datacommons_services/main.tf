@@ -113,6 +113,10 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
         name  = "USE_SPANNER_KEY_VALUE_STORE"
         value = var.use_spanner ? "true" : "false"
       }
+      env {
+        name  = "V2_RESOLVE_INDICATORS_TARGET"
+        value = var.v2_resolve_indicators_target
+      }
     }
 
     dynamic "vpc_access" {

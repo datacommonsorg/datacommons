@@ -316,6 +316,12 @@ variable "datacommons_services_resolve_with_spanner_embeddings" {
   default     = true
 }
 
+variable "datacommons_services_v2_resolve_indicators_target" {
+  description = "Target parameter for v2/resolve API calls made by website service when resolver=indicator."
+  type        = string
+  default     = ""
+}
+
 # =============================================================================
 # Ingestion - Preprocessing Job
 # =============================================================================

@@ -51,6 +51,7 @@ variable "datacommons_services_config" {
     allow_unauthenticated_access    = bool
     website_disable_google_maps_api = bool
     resolve_with_spanner_embeddings = bool
+    v2_resolve_indicators_target    = optional(string, "")
   })
 }
 
