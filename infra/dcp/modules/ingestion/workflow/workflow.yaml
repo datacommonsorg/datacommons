@@ -387,8 +387,8 @@ run_postprocessing_job:
                     - "--config_path=aggregation/configs/common.yaml"
                     - "--import_list"
                     - '$${json.encode_to_string(import_list)}'
-                    - '$${"--generate_stat_var_groups=" + string(generate_stat_var_groups)}'
-                    - "--no-dry_run"
+                    - '$${if(generate_stat_var_groups, "--generate_stat_var_groups", "--no-generate_stat_var_groups")}'
+                    - "--no-dry_run" 
         result: run_res
     - call_poll_postprocessing:
         call: poll_cloud_run_job_execution
