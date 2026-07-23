@@ -73,7 +73,7 @@ variable "resolve_with_spanner_embeddings" {
   type = bool
 }
 
-variable "website_v2_resolve_indicators_target" {
+variable "website_resolve_indicators_target" {
   type        = string
   default     = ""
   description = "Target parameter for indicator v2/resolve calls made by website service"
