@@ -37,21 +37,21 @@ variable "spanner_config" {
 
 variable "datacommons_services_config" {
   type = object({
-    enable                          = bool
-    image                           = optional(string)
-    name                            = string
-    min_instances                   = number
-    max_instances                   = number
-    cpu                             = string
-    memory                          = string
-    google_analytics_tag            = string
-    enable_mcp                      = bool
-    search_scope                    = string
-    instructions_path               = string
-    allow_unauthenticated_access    = bool
-    website_disable_google_maps_api = bool
-    resolve_with_spanner_embeddings = bool
-    v2_resolve_indicators_target    = optional(string, "")
+    enable                               = bool
+    image                                = optional(string)
+    name                                 = string
+    min_instances                        = number
+    max_instances                        = number
+    cpu                                  = string
+    memory                               = string
+    google_analytics_tag                 = string
+    enable_mcp                           = bool
+    search_scope                         = string
+    instructions_path                    = string
+    allow_unauthenticated_access         = bool
+    website_disable_google_maps_api      = bool
+    resolve_with_spanner_embeddings      = bool
+    website_v2_resolve_indicators_target = optional(string, "")
   })
 }
 

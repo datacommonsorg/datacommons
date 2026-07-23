@@ -63,7 +63,7 @@ datacommons_services_allow_unauthenticated_access = false
 # datacommons_services_google_analytics_tag_id = "your-analytics-tag-id"
 
 # Target scope for indicator v2/resolve API calls made by the website service (optional, e.g. "sdmx").
-# datacommons_services_v2_resolve_indicators_target = ""
+# datacommons_services_website_v2_resolve_indicators_target = ""
 
 # =============================================================================
 # Ingestion - Preprocessing Job

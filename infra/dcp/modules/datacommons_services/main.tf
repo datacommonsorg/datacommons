@@ -115,7 +115,7 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
       }
       env {
         name  = "V2_RESOLVE_INDICATORS_TARGET"
-        value = var.v2_resolve_indicators_target
+        value = var.website_v2_resolve_indicators_target
       }
     }
 
