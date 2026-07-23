@@ -317,7 +317,7 @@ variable "datacommons_services_resolve_with_spanner_embeddings" {
 }
 
 variable "datacommons_services_website_search_scope" {
-  description = "Controls the scope for indicator resolution on the website Explore page (e.g., restricting queries to custom variables). Valid values are 'base_only', 'custom_only', 'base_and_custom'. Default is base_and_custom"
+  description = "Controls the scope for indicator resolution on the website Explore page (e.g., restricting queries to custom variables). Valid values are 'base_only', 'custom_only', 'base_and_custom'."
   type        = string
   default     = "base_and_custom"
 }
