@@ -73,10 +73,10 @@ variable "resolve_with_spanner_embeddings" {
   type = bool
 }
 
-variable "website_resolve_indicators_target" {
+variable "website_search_scope" {
   type        = string
   default     = ""
-  description = "Target parameter for indicator v2/resolve calls made by website service"
+  description = "Controls the scope for indicator resolution on the website Explore page"
 }
 
 # =============================================================================

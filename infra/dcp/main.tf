@@ -87,21 +87,21 @@ locals {
   }
 
   datacommons_services_config = {
-    enable                            = var.enable_datacommons_services
-    image                             = coalesce(var.datacommons_services_image, "gcr.io/datcom-ci/datacommons-services:${var.dcp_version}")
-    name                              = var.datacommons_services_name
-    min_instances                     = var.datacommons_services_min_instances
-    max_instances                     = var.datacommons_services_max_instances
-    cpu                               = var.datacommons_services_cpu
-    memory                            = var.datacommons_services_memory
-    google_analytics_tag              = var.datacommons_services_google_analytics_tag_id
-    enable_mcp                        = var.datacommons_services_enable_mcp
-    search_scope                      = var.datacommons_services_mcp_search_scope
-    instructions_path                 = var.datacommons_services_mcp_instructions_path != null ? trimsuffix(var.datacommons_services_mcp_instructions_path, "/") : null
-    allow_unauthenticated_access      = var.datacommons_services_allow_unauthenticated_access
-    website_disable_google_maps_api   = var.datacommons_services_website_disable_google_maps_api
-    resolve_with_spanner_embeddings   = var.datacommons_services_resolve_with_spanner_embeddings
-    website_resolve_indicators_target = var.datacommons_services_website_resolve_indicators_target
+    enable                          = var.enable_datacommons_services
+    image                           = coalesce(var.datacommons_services_image, "gcr.io/datcom-ci/datacommons-services:${var.dcp_version}")
+    name                            = var.datacommons_services_name
+    min_instances                   = var.datacommons_services_min_instances
+    max_instances                   = var.datacommons_services_max_instances
+    cpu                             = var.datacommons_services_cpu
+    memory                          = var.datacommons_services_memory
+    google_analytics_tag            = var.datacommons_services_google_analytics_tag_id
+    enable_mcp                      = var.datacommons_services_enable_mcp
+    search_scope                    = var.datacommons_services_mcp_search_scope
+    instructions_path               = var.datacommons_services_mcp_instructions_path != null ? trimsuffix(var.datacommons_services_mcp_instructions_path, "/") : null
+    allow_unauthenticated_access    = var.datacommons_services_allow_unauthenticated_access
+    website_disable_google_maps_api = var.datacommons_services_website_disable_google_maps_api
+    resolve_with_spanner_embeddings = var.datacommons_services_resolve_with_spanner_embeddings
+    website_search_scope            = var.datacommons_services_website_search_scope
   }
 
   auth_config = {

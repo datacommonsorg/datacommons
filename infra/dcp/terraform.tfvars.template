@@ -62,8 +62,9 @@ datacommons_services_allow_unauthenticated_access = false
 # Track traffic and user interactions with your site using Google Analytics.
 # datacommons_services_google_analytics_tag_id = "your-analytics-tag-id"
 
-# Target scope for indicator v2/resolve API calls made by the website service (optional, e.g. "sdmx").
-# datacommons_services_website_resolve_indicators_target = ""
+# Controls the scope for indicator resolution on the website Explore page (e.g., restricting queries to custom variables).
+# Valid values are 'base_only', 'custom_only', 'base_and_custom'. Default is base_and_custom.
+# datacommons_services_website_search_scope = ""
 
 # =============================================================================
 # Ingestion - Preprocessing Job
