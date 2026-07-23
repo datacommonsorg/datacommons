@@ -18,6 +18,7 @@ main:
           - max_lock_retries: $${int(lock_timeout / 120)}
           - run_embeddings: ${enable_embeddings_generation}
           - run_postproc: ${enable_bigquery_postprocessing}
+          - generate_stat_var_groups: false
           - decoded_imports: []
           - num_imports: 0
           - combined_import_name: ""
