@@ -118,13 +118,13 @@ variable "redis_tier" {
 variable "redis_location_id" {
   description = "The primary zone where the Redis instance will be located"
   type        = string
-  default     = "us-central1-a"
+  default     = null
 }
 
 variable "redis_alternative_location_id" {
   description = "The alternative zone for the failover Redis instance (required for STANDARD_HA tier)"
   type        = string
-  default     = "us-central1-b"
+  default     = null
 }
 
 variable "redis_replica_count" {
