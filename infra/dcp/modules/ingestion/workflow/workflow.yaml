@@ -319,7 +319,7 @@ main:
     - restart_service:
         call: googleapis.run.v2.projects.locations.services.patch
         args:
-          name: '$${"projects/" + project_id + "/locations/${region}/services/" + datacommons_services_name}'
+          name: '$${"projects/" + project_id + "/locations/${region}/services/${datacommons_services_name}"}'
           updateMask: "template.labels"
           body:
             template:
