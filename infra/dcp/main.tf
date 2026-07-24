@@ -101,6 +101,7 @@ locals {
     allow_unauthenticated_access    = var.datacommons_services_allow_unauthenticated_access
     website_disable_google_maps_api = var.datacommons_services_website_disable_google_maps_api
     resolve_with_spanner_embeddings = var.datacommons_services_resolve_with_spanner_embeddings
+    website_search_scope            = var.datacommons_services_website_search_scope
   }
 
   auth_config = {
