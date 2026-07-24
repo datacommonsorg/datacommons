@@ -125,3 +125,21 @@ variable "dataflow_template_gcs_path" {
   }
 }
 
+variable "dataflow_max_workers" {
+  type        = number
+  description = "Maximum number of Dataflow worker VMs"
+  default     = 20
+}
+
+variable "dataflow_num_workers" {
+  type        = number
+  description = "Initial number of Dataflow worker VMs"
+  default     = 4
+}
+
+variable "dataflow_worker_machine_type" {
+  type        = string
+  description = "Machine type for Dataflow worker VMs"
+  default     = "n2-standard-4"
+}
+

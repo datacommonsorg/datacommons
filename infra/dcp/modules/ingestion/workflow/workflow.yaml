@@ -420,6 +420,9 @@ launch_and_poll_dataflow:
               serviceAccountEmail: '${dataflow_service_account_email}'
               tempLocation: $${temp_location}
               stagingLocation: $${temp_location}
+              maxWorkers: ${dataflow_max_workers}
+              numWorkers: ${dataflow_num_workers}
+              machineType: '${dataflow_worker_machine_type}'
 %{ if dataflow_ip_configuration != "WORKER_IP_UNSPECIFIED" }
     - inject_ip:
         assign:

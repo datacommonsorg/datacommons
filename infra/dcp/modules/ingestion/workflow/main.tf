@@ -34,6 +34,9 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
     enable_redis_cache_clearing    = var.enable_redis_cache_clearing
     preprocessing_job_name         = var.preprocessing_job_name
     postprocessing_job_name        = var.postprocessing_job_name
+    dataflow_max_workers         = var.dataflow_max_workers
+    dataflow_num_workers         = var.dataflow_num_workers
+    dataflow_worker_machine_type = var.dataflow_worker_machine_type
   })
 }
 

@@ -454,3 +454,21 @@ variable "ingestion_dataflow_template_gcs_path" {
   default     = null
 }
 
+variable "ingestion_dataflow_max_workers" {
+  description = "Maximum number of Dataflow worker VMs for autoscaling during ingestion."
+  type        = number
+  default     = 20
+}
+
+variable "ingestion_dataflow_num_workers" {
+  description = "Initial number of Dataflow worker VMs to launch during ingestion."
+  type        = number
+  default     = 4
+}
+
+variable "ingestion_dataflow_worker_machine_type" {
+  description = "GCP Compute Engine machine type for Dataflow worker VMs."
+  type        = string
+  default     = "n2-standard-4"
+}
+
