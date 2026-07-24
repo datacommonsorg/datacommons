@@ -73,6 +73,12 @@ variable "resolve_with_spanner_embeddings" {
   type = bool
 }
 
+variable "website_search_scope" {
+  type        = string
+  default     = ""
+  description = "Controls the scope for indicator resolution on the website Explore page"
+}
+
 # =============================================================================
 # Infrastructure References
 # =============================================================================

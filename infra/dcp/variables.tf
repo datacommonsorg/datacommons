@@ -124,13 +124,13 @@ variable "redis_tier" {
 variable "redis_location_id" {
   description = "The primary zone where the Redis instance will be located"
   type        = string
-  default     = "us-central1-a"
+  default     = null
 }
 
 variable "redis_alternative_location_id" {
   description = "The alternative zone for the failover Redis instance (required for STANDARD_HA tier)"
   type        = string
-  default     = "us-central1-b"
+  default     = null
 }
 
 variable "redis_replica_count" {
@@ -320,6 +320,12 @@ variable "datacommons_services_resolve_with_spanner_embeddings" {
   description = "Enable resolving search queries with Spanner embeddings. Requires Spanner to be enabled (enable_spanner = true)."
   type        = bool
   default     = true
+}
+
+variable "datacommons_services_website_search_scope" {
+  description = "Controls the scope for indicator resolution on the website Explore page (e.g., restricting queries to custom variables). Valid values are 'base_only', 'custom_only', 'base_and_custom'."
+  type        = string
+  default     = "base_and_custom"
 }
 
 # =============================================================================

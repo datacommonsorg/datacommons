@@ -285,6 +285,7 @@ module "datacommons_services" {
   ])
   secret_env_vars                 = local.datacommons_services_secrets
   resolve_with_spanner_embeddings = var.datacommons_services_config.resolve_with_spanner_embeddings
+  website_search_scope            = var.datacommons_services_config.website_search_scope
 
   depends_on = [module.ingestion_preprocessing_job]
 }
