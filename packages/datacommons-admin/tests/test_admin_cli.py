@@ -67,6 +67,38 @@ def test_init_success_with_options(
 
 
 @patch("datacommons_admin.admin_cli._get_github_templates")
+def test_init_success_with_deprecated_namespace_flag(
+    mock_get_templates, runner: CliRunner, tmp_path: Path
+) -> None:
+    mock_get_templates.return_value = (
+        'variable "test" {}',
+        'module "stack" {\n  source = "./modules/stack"\n}',
+        'output "test" {}',
+        'project_id = "$$PROJECT_ID$$"\ninstance_name  = "$$INSTANCE_NAME$$"\n# dc_api_key = "$$DC_API_KEY$$"',
+    )
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(
+            admin,
+            [
+                "init",
+                "--project-id",
+                "test-project",
+                "--namespace",
+                "legacy-namespace",
+                "--dc-api-key",
+                "test-key",
+                "--no-tf-remote-state",
+            ],
+        )
+        assert result.exit_code == 0
+        target_dir = Path.cwd() / "legacy-namespace"
+        assert target_dir.exists()
+        tfvars_content = (target_dir / "terraform.tfvars").read_text()
+        assert 'instance_name  = "legacy-namespace"' in tfvars_content
+
+
+
+@patch("datacommons_admin.admin_cli._get_github_templates")
 def test_init_success_with_prompts(
     mock_get_templates, runner: CliRunner, tmp_path: Path
 ) -> None:

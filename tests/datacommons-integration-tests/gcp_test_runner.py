@@ -705,8 +705,10 @@ def main() -> None:
     )
     parser.add_argument(
         "--instance-name",
+        "--namespace",
+        dest="instance_name",
         default=None,
-        help="Custom instance name (defaults to itest-XXXX)",
+        help="Custom instance name (defaults to itest-XXXX). (Deprecated alias: --namespace)",
     )
     parser.add_argument(
         "--dcp-version",
