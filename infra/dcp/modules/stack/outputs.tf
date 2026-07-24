@@ -16,6 +16,10 @@ output "datacommons_service_name" {
   value = length(module.datacommons_services) > 0 ? module.datacommons_services[0].service_name : null
 }
 
+output "datacommons_service_service_account_email" {
+  value = length(module.datacommons_services) > 0 ? module.datacommons_services[0].service_account_email : null
+}
+
 output "ingestion_workflow_id" {
   description = "ID of the ingestion Cloud Workflow"
   value       = module.ingestion_workflow.workflow_id
