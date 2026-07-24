@@ -19,6 +19,12 @@ variable "instance_name" {
   default     = ""
 }
 
+variable "namespace" {
+  description = "Deprecated alias for instance_name. Used to maintain backward-compatibility with existing Terraform configurations."
+  type        = string
+  default     = ""
+}
+
 variable "stateful_deletion_protection" {
   description = "Enable deletion protection for stateful resources (Spanner, GCS) to prevent data loss."
   type        = bool
