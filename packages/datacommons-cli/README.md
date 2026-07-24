@@ -95,7 +95,7 @@ datacommons admin [COMMAND] --help
 
 1. Initialize your project configuration and scaffold Terraform templates:
    ```bash
-   datacommons admin init --project-id my-gcp-project --namespace prod
+   datacommons admin init --project-id my-gcp-project --instance-name prod
    ```
 
 2. Change directories to the scaffolded directory (e.g. `cd prod`).

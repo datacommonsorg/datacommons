@@ -31,7 +31,7 @@ uv run datacommons admin init
 
 The command will prompt for:
 - GCP project id
-- namespace
+- Instance name
 - Data Commons API key
 
 It then creates a new folder with `main.tf`, `terraform.tfvars`, and a deployment `README.md`.

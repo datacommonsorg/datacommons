@@ -1,6 +1,6 @@
 locals {
-  name_prefix         = var.namespace != "" ? "${var.namespace}-" : ""
-  display_name_prefix = var.namespace != "" ? "(${var.namespace}) " : ""
+  name_prefix         = var.instance_name != "" ? "${var.instance_name}-" : ""
+  display_name_prefix = var.instance_name != "" ? "(${var.instance_name}) " : ""
 }
 
 resource "google_service_account" "dataflow_sa" {

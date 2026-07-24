@@ -41,7 +41,7 @@ cp terraform.tfvars.template terraform.tfvars
 
 Edit `terraform.tfvars` and fill in at least the following required variables:
 *   `project_id`: Your GCP Project ID.
-*   `namespace`: A unique identifier for resource naming (e.g., your name or team name).
+*   `instance_name`: A unique identifier for resource naming (e.g., your name or team name).
 
 ### 2. Run the Setup Script
 
@@ -103,17 +103,17 @@ Upon successful apply, Terraform displays key endpoints and resource names:
 After successful deployment with `deploy_ingestion_workflow = true`, you can run the automated ingestion pipeline.
 
 ### Step 1: Upload your Schema file
-Upload your custom graph nodes file (`.mcf`) to the provisioned ingestion bucket. By default, the bucket name format is: `<namespace>-ingestion-bucket-<project_id>`.
+Upload your custom graph nodes file (`.mcf`) to the provisioned ingestion bucket. By default, the bucket name format is: `<instance_name>-ingestion-bucket-<project_id>`.
 
 ```bash
-gcloud storage cp path/to/your/sample.mcf gs://<namespace>-ingestion-bucket-<project_id>/imports/sample.mcf
+gcloud storage cp path/to/your/sample.mcf gs://<instance_name>-ingestion-bucket-<project_id>/imports/sample.mcf
 ```
 
 ### Step 2: Trigger the Workflow Orchestrator
 Trigger the Cloud Workflow to start the Dataflow job that will read the file and insert it into Spanner.
 
 ```bash
-gcloud workflows run <namespace>-ingestion-orchestrator \
+gcloud workflows run <instance_name>-ingestion-orchestrator \
   --project=<project_id> \
   --location=<region> \
   --data='{
@@ -121,8 +121,8 @@ gcloud workflows run <namespace>-ingestion-orchestrator \
     "region": "<region>",
     "spannerInstanceId": "<spanner-instance-id>",
     "spannerDatabaseId": "<spanner-database-id>",
-    "importList": "[{\"importName\": \"SampleTestCase\", \"graphPath\": \"gs://<namespace>-ingestion-bucket-<project_id>/imports/sample.mcf\"}]",
-    "tempLocation": "gs://<namespace>-ingestion-bucket-<project_id>/temp"
+    "importList": "[{\"importName\": \"SampleTestCase\", \"graphPath\": \"gs://<instance_name>-ingestion-bucket-<project_id>/imports/sample.mcf\"}]",
+    "tempLocation": "gs://<instance_name>-ingestion-bucket-<project_id>/temp"
   }'
 ```
 

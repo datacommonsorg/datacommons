@@ -1,4 +1,4 @@
-variable "namespace" {
+variable "instance_name" {
   type = string
 }
 
@@ -6,7 +6,7 @@ variable "region" {
   type = string
 }
 
-variable "instance_name" {
+variable "redis_instance_name" {
   type    = string
   default = ""
 }

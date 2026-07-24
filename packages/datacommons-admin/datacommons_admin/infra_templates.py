@@ -36,7 +36,7 @@ This setup deploys core Data Commons Platform infrastructure on GCP using the `i
 
 ## Configure Variables
 
-Set environment-specific values in `terraform.tfvars` (for example `project_id`, `namespace`, and `dc_api_key`), and update module arguments in `main.tf` if you want to enable or tune additional features.
+Set environment-specific values in `terraform.tfvars` (for example `project_id`, `instance_name`, and `dc_api_key`), and update module arguments in `main.tf` if you want to enable or tune additional features.
 
 ## Learn More About Variables
 

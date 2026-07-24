@@ -1,12 +1,12 @@
 locals {
-  name_prefix         = var.namespace != "" ? "${var.namespace}-" : ""
-  display_name_prefix = var.namespace != "" ? "(${var.namespace}) " : ""
+  name_prefix         = var.instance_name != "" ? "${var.instance_name}-" : ""
+  display_name_prefix = var.instance_name != "" ? "(${var.instance_name}) " : ""
   # Trimmed because the connector name is capped to 25 chars.
-  vpc_name_prefix     = var.namespace != "" ? "${trimsuffix(substr(var.namespace, 0, 13), "-")}-" : ""
+  vpc_name_prefix     = var.instance_name != "" ? "${trimsuffix(substr(var.instance_name, 0, 13), "-")}-" : ""
 }
 
 resource "google_redis_instance" "redis_instance" {
-  name                    = var.instance_name != "" ? "${local.name_prefix}${var.instance_name}" : "${local.name_prefix}dc-redis-instance"
+  name                    = var.redis_instance_name != "" ? "${local.name_prefix}${var.redis_instance_name}" : "${local.name_prefix}dc-redis-instance"
   memory_size_gb          = var.memory_size_gb
   tier                    = var.tier
   region                  = var.region

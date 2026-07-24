@@ -1,4 +1,4 @@
-variable "namespace" {
+variable "instance_name" {
   type = string
 }
 

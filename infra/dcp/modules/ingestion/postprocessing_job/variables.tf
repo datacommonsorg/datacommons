@@ -1,5 +1,5 @@
 variable "project_id" { type = string }
-variable "namespace" { type = string }
+variable "instance_name" { type = string }
 variable "region" { type = string }
 variable "stateless_deletion_protection" {
   type        = bool
