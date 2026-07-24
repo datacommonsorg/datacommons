@@ -129,17 +129,42 @@ variable "dataflow_max_workers" {
   type        = number
   description = "Maximum number of Dataflow worker VMs"
   default     = 20
+  nullable    = false
+
+  validation {
+    condition     = var.dataflow_max_workers > 0
+    error_message = "The dataflow_max_workers must be a positive integer."
+  }
 }
 
 variable "dataflow_num_workers" {
   type        = number
   description = "Initial number of Dataflow worker VMs"
   default     = 4
+  nullable    = false
+
+  validation {
+    condition     = var.dataflow_num_workers > 0
+    error_message = "The dataflow_num_workers must be a positive integer."
+  }
 }
 
 variable "dataflow_worker_machine_type" {
   type        = string
   description = "Machine type for Dataflow worker VMs"
   default     = "n2-standard-4"
+  nullable    = false
+
+  validation {
+    condition     = length(var.dataflow_worker_machine_type) > 0
+    error_message = "The dataflow_worker_machine_type must not be empty."
+  }
+}
+
+check "dataflow_workers_limits" {
+  assert {
+    condition     = var.dataflow_max_workers >= var.dataflow_num_workers
+    error_message = "The dataflow_max_workers must be greater than or equal to dataflow_num_workers."
+  }
 }
 
