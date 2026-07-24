@@ -18,6 +18,7 @@ main:
           - max_lock_retries: $${int(lock_timeout / 120)}
           - run_embeddings: ${enable_embeddings_generation}
           - run_postproc: ${enable_bigquery_postprocessing}
+          - generate_stat_var_groups: false
           - decoded_imports: []
           - num_imports: 0
           - combined_import_name: ""
@@ -120,6 +121,7 @@ main:
     - update_launch_params:
         assign:
           - launch_params.importList: '$${handshake_data.importList}'
+          - generate_stat_var_groups: '$${default(map.get(handshake_data, "generateStatVarGroups"), false)}'
           - decoded_imports: '$${json.decode(handshake_data.importList)}'
           - provenances_list: []
     - extract_provenance_dcids:
@@ -238,6 +240,7 @@ main:
                                 region: '$${input.region}'
                                 project_id: '$${project_id}'
                                 workflow_id: '$${workflow_id}'
+                                generate_stat_var_groups: '$${generate_stat_var_groups}'
                               result: postprocessing_result
                     - embeddings_branch:
                         steps:
@@ -364,7 +367,7 @@ update_ingestion_status:
         return: true
 
 run_postprocessing_job:
-  params: [run_flag, import_list, job_name, region, project_id, workflow_id]
+  params: [run_flag, import_list, job_name, region, project_id, workflow_id, generate_stat_var_groups]
   steps:
     - check_flag_and_empty:
         switch:
@@ -385,7 +388,8 @@ run_postprocessing_job:
                     - "--config_path=aggregation/configs/common.yaml"
                     - "--import_list"
                     - '$${json.encode_to_string(import_list)}'
-                    - "--no-dry_run"
+                    - '$${if(generate_stat_var_groups, "--generate_stat_var_groups", "--no-generate_stat_var_groups")}'
+                    - "--no-dry_run" 
         result: run_res
     - call_poll_postprocessing:
         call: poll_cloud_run_job_execution
