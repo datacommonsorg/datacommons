@@ -112,5 +112,8 @@ variable "ingestion_config" {
     dataflow_ip_configuration  = optional(string, "WORKER_IP_UNSPECIFIED")
     dataflow_subnetwork        = optional(string, "")
     dataflow_template_gcs_path = optional(string)
+    dataflow_max_workers         = optional(number, 20)
+    dataflow_num_workers         = optional(number, 4)
+    dataflow_worker_machine_type = optional(string, "n2-standard-4")
   })
 }
