@@ -20,6 +20,7 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
 
   source_contents = templatefile("${path.module}/workflow.yaml", {
     project_id                          = var.project_id
+    region                              = var.region
     ingestion_helper_url                = var.ingestion_helper_url
     lock_acquisition_timeout            = var.lock_acquisition_timeout
     enable_embeddings_generation        = var.enable_embeddings_generation
