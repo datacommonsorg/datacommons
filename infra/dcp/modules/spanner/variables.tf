@@ -57,7 +57,7 @@ variable "bigquery_connection_name" {
 variable "version_retention_period" {
   type        = string
   description = "The version retention period for the Spanner database"
-  default     = "6h"
+  default     = "24h"
 }
 
 variable "create_bigquery_reservation" {
