@@ -97,7 +97,6 @@ def test_init_success_with_deprecated_namespace_flag(
         assert 'instance_name  = "legacy-namespace"' in tfvars_content
 
 
-
 @patch("datacommons_admin.admin_cli._get_github_templates")
 def test_init_success_with_prompts(
     mock_get_templates, runner: CliRunner, tmp_path: Path
