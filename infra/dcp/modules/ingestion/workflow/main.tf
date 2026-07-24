@@ -1,6 +1,6 @@
 locals {
-  name_prefix               = var.instance_name != "" ? "${var.instance_name}-" : ""
-  should_run_postprocessing = var.enable_bigquery_postprocessing || var.enable_embeddings_generation
+  name_prefix                = var.instance_name != "" ? "${var.instance_name}-" : ""
+  should_run_postprocessing  = var.enable_bigquery_postprocessing || var.enable_embeddings_generation
   clean_instance_name_prefix = var.instance_name != "" ? "${replace(lower(var.instance_name), "_", "-")}-" : ""
 }
 
@@ -19,24 +19,26 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
   deletion_protection = var.stateless_deletion_protection
 
   source_contents = templatefile("${path.module}/workflow.yaml", {
-    project_id                     = var.project_id
-    ingestion_helper_url           = var.ingestion_helper_url
-    lock_acquisition_timeout       = var.lock_acquisition_timeout
-    enable_embeddings_generation   = var.enable_embeddings_generation
-    enable_bigquery_postprocessing = var.enable_bigquery_postprocessing
-    ingestion_artifacts_path       = var.ingestion_artifacts_path
-    dataflow_template_gcs_path     = var.dataflow_template_gcs_path
-    dataflow_service_account_email = var.dataflow_service_account_email
-    dataflow_ip_configuration      = var.dataflow_ip_configuration
-    dataflow_subnetwork            = var.dataflow_subnetwork
-    embeddings_timeout             = var.embeddings_timeout
-    clean_instance_name_prefix     = local.clean_instance_name_prefix
-    enable_redis_cache_clearing    = var.enable_redis_cache_clearing
-    preprocessing_job_name         = var.preprocessing_job_name
-    postprocessing_job_name        = var.postprocessing_job_name
-    dataflow_max_workers         = var.dataflow_max_workers
-    dataflow_num_workers         = var.dataflow_num_workers
-    dataflow_worker_machine_type = var.dataflow_worker_machine_type
+    project_id                          = var.project_id
+    ingestion_helper_url                = var.ingestion_helper_url
+    lock_acquisition_timeout            = var.lock_acquisition_timeout
+    enable_embeddings_generation        = var.enable_embeddings_generation
+    enable_bigquery_postprocessing      = var.enable_bigquery_postprocessing
+    ingestion_artifacts_path            = var.ingestion_artifacts_path
+    dataflow_template_gcs_path          = var.dataflow_template_gcs_path
+    dataflow_service_account_email      = var.dataflow_service_account_email
+    dataflow_ip_configuration           = var.dataflow_ip_configuration
+    dataflow_subnetwork                 = var.dataflow_subnetwork
+    embeddings_timeout                  = var.embeddings_timeout
+    clean_instance_name_prefix          = local.clean_instance_name_prefix
+    enable_redis_cache_clearing         = var.enable_redis_cache_clearing
+    preprocessing_job_name              = var.preprocessing_job_name
+    postprocessing_job_name             = var.postprocessing_job_name
+    dataflow_max_workers                = var.dataflow_max_workers
+    dataflow_num_workers                = var.dataflow_num_workers
+    dataflow_worker_machine_type        = var.dataflow_worker_machine_type
+    enable_datacommons_services_restart = var.enable_datacommons_services_restart
+    datacommons_services_name           = var.datacommons_services_name
   })
 }
 

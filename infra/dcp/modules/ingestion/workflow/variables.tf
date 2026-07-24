@@ -59,6 +59,19 @@ variable "enable_redis_cache_clearing" {
   default     = false
 }
 
+variable "enable_datacommons_services_restart" {
+  type        = bool
+  description = "Flag to indicate if datacommons_services should be restarted after ingestion completes"
+  default     = true
+}
+
+variable "datacommons_services_name" {
+  type        = string
+  description = "Name of the datacommons_services Cloud Run service to restart after ingestion"
+  default     = ""
+}
+
+
 variable "preprocessing_job_name" {
   type        = string
   description = "Name of the ingestion preprocessing Cloud Run job"
