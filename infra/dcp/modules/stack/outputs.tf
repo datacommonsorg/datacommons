@@ -17,7 +17,8 @@ output "datacommons_service_name" {
 }
 
 output "datacommons_service_service_account_email" {
-  value = length(module.datacommons_services) > 0 ? module.datacommons_services[0].service_account_email : null
+  description = "Email of the service account used by the Data Commons serving service"
+  value       = length(module.datacommons_services) > 0 ? module.datacommons_services[0].service_account_email : null
 }
 
 output "ingestion_workflow_id" {
