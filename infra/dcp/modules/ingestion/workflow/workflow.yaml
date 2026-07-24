@@ -203,15 +203,6 @@ main:
                   - job_id: '$${dataflow_res.job_id}'
                   - launch_result: '$${dataflow_res.launch_result}'
 
-            - update_history_dataflow_success:
-                call: update_history
-                args:
-                  workflow_id: '$${workflow_id}'
-                  status: 'SUCCESS'
-                  stage: 'dataflow'
-                  job_id: '$${job_id}'
-                  import_list: '$${imports_history_list}'
-
             - set_stage_postproc:
                 assign:
                   - current_stage: "postprocessing"
