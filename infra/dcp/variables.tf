@@ -457,10 +457,10 @@ variable "ingestion_dataflow_template_gcs_path" {
 variable "ingestion_dataflow_max_workers" {
   description = "Maximum number of Dataflow worker VMs for autoscaling during ingestion."
   type        = number
-  default     = null
+  default     = 20
 
   validation {
-    condition     = var.ingestion_dataflow_max_workers == null || var.ingestion_dataflow_max_workers > 0
+    condition     = var.ingestion_dataflow_max_workers > 0
     error_message = "The ingestion_dataflow_max_workers must be a positive integer."
   }
 }
@@ -468,10 +468,10 @@ variable "ingestion_dataflow_max_workers" {
 variable "ingestion_dataflow_num_workers" {
   description = "Initial number of Dataflow worker VMs to launch during ingestion."
   type        = number
-  default     = null
+  default     = 4
 
   validation {
-    condition     = var.ingestion_dataflow_num_workers == null || var.ingestion_dataflow_num_workers > 0
+    condition     = var.ingestion_dataflow_num_workers > 0
     error_message = "The ingestion_dataflow_num_workers must be a positive integer."
   }
 }
@@ -479,12 +479,17 @@ variable "ingestion_dataflow_num_workers" {
 variable "ingestion_dataflow_worker_machine_type" {
   description = "GCP Compute Engine machine type for Dataflow worker VMs."
   type        = string
-  default     = null
+  default     = "n2-standard-4"
+
+  validation {
+    condition     = length(var.ingestion_dataflow_worker_machine_type) > 0
+    error_message = "The ingestion_dataflow_worker_machine_type must not be empty."
+  }
 }
 
 check "ingestion_dataflow_workers_limits" {
   assert {
-    condition     = var.ingestion_dataflow_max_workers == null || var.ingestion_dataflow_num_workers == null || var.ingestion_dataflow_max_workers >= var.ingestion_dataflow_num_workers
+    condition     = var.ingestion_dataflow_max_workers >= var.ingestion_dataflow_num_workers
     error_message = "The ingestion_dataflow_max_workers must be greater than or equal to ingestion_dataflow_num_workers."
   }
 }
