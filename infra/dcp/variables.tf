@@ -186,9 +186,9 @@ variable "spanner_database_id" {
 }
 
 variable "spanner_version_retention_period" {
-  description = "Spanner database version retention period (e.g., 6h)"
+  description = "Spanner database version retention period (e.g., 24h)"
   type        = string
-  default     = "6h"
+  default     = "24h"
 }
 
 variable "spanner_processing_units" {
