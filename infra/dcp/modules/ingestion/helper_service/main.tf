@@ -43,10 +43,6 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
         name  = "SPANNER_GRAPH_DATABASE_ID"
         value = var.spanner_database_id
       }
-      env {
-        name  = "BQ_SPANNER_CONN_ID"
-        value = var.bigquery_connection_id
-      }
 
       env {
         name  = "LOCATION"
@@ -108,25 +104,6 @@ resource "google_storage_bucket_iam_member" "helper_bucket_access" {
   bucket = var.ingestion_bucket_name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${google_service_account.helper_sa[0].email}"
-}
-
-resource "google_project_iam_member" "helper_bq_roles" {
-  for_each = toset(var.deploy && var.enable_bigquery_postprocessing ? [
-    "roles/bigquery.dataEditor",
-    "roles/bigquery.jobUser"
-  ] : [])
-  project = var.project_id
-  role    = each.value
-  member  = "serviceAccount:${google_service_account.helper_sa[0].email}"
-}
-
-resource "google_bigquery_connection_iam_member" "helper_connection_user" {
-  count         = var.deploy && var.enable_bigquery_connection ? 1 : 0
-  project       = var.project_id
-  location      = var.region
-  connection_id = var.bigquery_connection_id
-  role          = "roles/bigquery.connectionUser"
-  member        = "serviceAccount:${google_service_account.helper_sa[0].email}"
 }
 
 resource "google_project_iam_member" "helper_dataflow_viewer" {
