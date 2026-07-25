@@ -315,8 +315,21 @@ main:
             type: OIDC
 %{ endif }
 
+%{ if enable_datacommons_services_restart && datacommons_services_name != "" }
+    - restart_service:
+        call: googleapis.run.v2.projects.locations.services.patch
+        args:
+          name: 'projects/${project_id}/locations/${region}/services/${datacommons_services_name}'
+          updateMask: "template.labels"
+          body:
+            template:
+              labels:
+                restarted-at: '$${string(int(sys.now()))}'
+%{ endif }
+
     - return_result:
         return: '$${launch_result}'
+
 
 
 # --- Subworkflows ---

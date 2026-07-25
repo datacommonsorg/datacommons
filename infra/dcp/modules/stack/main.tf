@@ -106,7 +106,7 @@ module "storage" {
   stateful_deletion_protection = var.global.stateful_deletion_protection
 
   # Shared vars
-  project_id = var.global.project_id
+  project_id    = var.global.project_id
   instance_name = var.global.instance_name
 }
 
@@ -207,27 +207,29 @@ module "ingestion_helper_service" {
 module "ingestion_workflow" {
   source = "../ingestion/workflow"
 
-  deploy                         = var.ingestion_config.enable_ingestion
-  instance_name                  = var.global.instance_name
-  region                         = var.global.region
-  stateless_deletion_protection  = var.global.stateless_deletion_protection
-  project_id                     = var.global.project_id
-  lock_acquisition_timeout       = var.ingestion_config.workflow_lock_acquisition_timeout
-  ingestion_helper_url           = module.ingestion_helper_service.ingestion_helper_url
-  dataflow_service_account_email = module.ingestion_dataflow.service_account_email
-  enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
-  enable_embeddings_generation   = var.spanner_config.enable_embeddings_generation
-  ingestion_helper_service_name  = "${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-ingestion-helper"
-  enable_redis_cache_clearing    = var.redis_config.enable
-  ingestion_artifacts_path       = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
-  dataflow_ip_configuration      = var.ingestion_config.dataflow_ip_configuration
-  dataflow_subnetwork            = var.ingestion_config.dataflow_subnetwork
-  dataflow_template_gcs_path     = var.ingestion_config.dataflow_template_gcs_path
-  dataflow_max_workers         = var.ingestion_config.dataflow_max_workers
-  dataflow_num_workers         = var.ingestion_config.dataflow_num_workers
-  dataflow_worker_machine_type = var.ingestion_config.dataflow_worker_machine_type
-  preprocessing_job_name         = var.ingestion_config.enable_ingestion ? module.ingestion_preprocessing_job[0].job_name : ""
-  postprocessing_job_name        = var.ingestion_config.enable_ingestion ? module.ingestion_postprocessing_job[0].job_name : ""
+  deploy                              = var.ingestion_config.enable_ingestion
+  instance_name                       = var.global.instance_name
+  region                              = var.global.region
+  stateless_deletion_protection       = var.global.stateless_deletion_protection
+  project_id                          = var.global.project_id
+  lock_acquisition_timeout            = var.ingestion_config.workflow_lock_acquisition_timeout
+  ingestion_helper_url                = module.ingestion_helper_service.ingestion_helper_url
+  dataflow_service_account_email      = module.ingestion_dataflow.service_account_email
+  enable_bigquery_postprocessing      = var.ingestion_config.workflow_enable_bigquery_postprocessing
+  enable_embeddings_generation        = var.spanner_config.enable_embeddings_generation
+  ingestion_helper_service_name       = "${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-ingestion-helper"
+  enable_redis_cache_clearing         = var.redis_config.enable
+  ingestion_artifacts_path            = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
+  dataflow_ip_configuration           = var.ingestion_config.dataflow_ip_configuration
+  dataflow_subnetwork                 = var.ingestion_config.dataflow_subnetwork
+  dataflow_template_gcs_path          = var.ingestion_config.dataflow_template_gcs_path
+  dataflow_max_workers                = var.ingestion_config.dataflow_max_workers
+  dataflow_num_workers                = var.ingestion_config.dataflow_num_workers
+  dataflow_worker_machine_type        = var.ingestion_config.dataflow_worker_machine_type
+  preprocessing_job_name              = var.ingestion_config.enable_ingestion ? module.ingestion_preprocessing_job[0].job_name : ""
+  postprocessing_job_name             = var.ingestion_config.enable_ingestion ? module.ingestion_postprocessing_job[0].job_name : ""
+  enable_datacommons_services_restart = var.datacommons_services_config.enable
+  datacommons_services_name           = "${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-datacommons-service"
 
   depends_on = [module.ingestion_helper_service]
 }
@@ -414,4 +416,19 @@ resource "google_project_iam_member" "workflow_run_viewer" {
   project = var.global.project_id
   role    = "roles/run.viewer"
   member  = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "workflow_serving_developer" {
+  count    = var.ingestion_config.enable_ingestion && var.datacommons_services_config.enable ? 1 : 0
+  location = var.global.region
+  name     = module.datacommons_services[0].service_name
+  role     = "roles/run.developer"
+  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
+resource "google_service_account_iam_member" "ingestion_workflow_act_as_serving_sa" {
+  count              = var.ingestion_config.enable_ingestion && var.datacommons_services_config.enable ? 1 : 0
+  service_account_id = "projects/${var.global.project_id}/serviceAccounts/${module.datacommons_services[0].service_account_email}"
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }

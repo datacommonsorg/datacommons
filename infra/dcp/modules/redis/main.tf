@@ -2,7 +2,7 @@ locals {
   name_prefix         = var.instance_name != "" ? "${var.instance_name}-" : ""
   display_name_prefix = var.instance_name != "" ? "(${var.instance_name}) " : ""
   # Trimmed because the connector name is capped to 25 chars.
-  vpc_name_prefix     = var.instance_name != "" ? "${trimsuffix(substr(var.instance_name, 0, 13), "-")}-" : ""
+  vpc_name_prefix = var.instance_name != "" ? "${trimsuffix(substr(var.instance_name, 0, 13), "-")}-" : ""
 }
 
 resource "google_redis_instance" "redis_instance" {
