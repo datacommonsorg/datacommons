@@ -186,15 +186,12 @@ module "ingestion_helper_service" {
   region                        = var.global.region
   stateless_deletion_protection = var.global.stateless_deletion_protection
   # Use index [0] because module.spanner is conditional. Fallback to empty string if disabled.
-  spanner_instance_id            = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
-  spanner_database_id            = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
-  bigquery_connection_id         = var.spanner_config.enable ? module.spanner[0].bigquery_connection_id : ""
-  ingestion_bucket_name          = module.storage.artifacts_bucket_name
-  image                          = var.ingestion_config.helper_service_image
-  use_spanner                    = var.spanner_config.enable
-  enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
-  enable_bigquery_connection     = var.spanner_config.enable_bigquery_connection
-  enable_embeddings_generation   = var.spanner_config.enable_embeddings_generation
+  spanner_instance_id          = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
+  spanner_database_id          = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
+  ingestion_bucket_name        = module.storage.artifacts_bucket_name
+  image                        = var.ingestion_config.helper_service_image
+  use_spanner                  = var.spanner_config.enable
+  enable_embeddings_generation = var.spanner_config.enable_embeddings_generation
 
   # Redis configuration for cache clearing
   vpc_connector_id         = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].connector_id : null
