@@ -230,7 +230,7 @@ variable "spanner_bigquery_reservation_slot_capacity" {
 variable "spanner_bigquery_reservation_max_slots" {
   description = "Maximum slots for BigQuery reservation autoscaling"
   type        = number
-  default     = 400
+  default     = 100
 }
 
 # =============================================================================
