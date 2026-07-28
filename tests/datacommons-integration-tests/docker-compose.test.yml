@@ -88,7 +88,6 @@ services:
       - SPANNER_EMULATOR_HOST=spanner:${SPANNER_INTERNAL_GRPC_PORT:-15000}
       - STORAGE_EMULATOR_HOST=http://gcs:9099
       - OUTPUT_DIR=gs://test-bucket/output
-      - RESOLVE_WITH_SPANNER_EMBEDDINGS=true
       - PROJECT_ID=default
       - GCP_PROJECT_ID=default
       - GCP_SPANNER_INSTANCE_ID=default
