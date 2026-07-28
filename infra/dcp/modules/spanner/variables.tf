@@ -75,5 +75,5 @@ variable "bigquery_reservation_slot_capacity" {
 variable "bigquery_reservation_max_slots" {
   type        = number
   description = "Max slots for BigQuery reservation autoscale"
-  default     = 400
+  default     = 100
 }
