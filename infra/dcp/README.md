@@ -92,6 +92,7 @@ Once configured, execute standard Terraform commands to provision resources:
 Upon successful apply, Terraform displays key endpoints and resource names:
 *   `platform_service_url`: Cloud Run service URL for the platform service.
 *   `datacommons_service_url`: Cloud Run service URL for the Data Commons service.
+*   `datacommons_service_service_account_email`: Email of the service account used by the Data Commons serving service.
 *   `ingestion_workflow_name`: Name of the Cloud Workflows ingestion orchestrator.
 *   `ingestion_service_uri`: URI of the ingestion support Cloud Run service.
 *   `ingestion_prep_job_name`: Name of the data ingestion pre-processing job.

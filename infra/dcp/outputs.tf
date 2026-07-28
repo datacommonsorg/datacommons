@@ -15,6 +15,11 @@ output "datacommons_service_name" {
   value = module.stack.datacommons_service_name
 }
 
+output "datacommons_service_service_account_email" {
+  description = "Email of the service account used by the Data Commons serving service"
+  value       = module.stack.datacommons_service_service_account_email
+}
+
 output "ingestion_workflow_id" {
   description = "ID of the ingestion Cloud Workflows orchestrator"
   value       = module.stack.ingestion_workflow_id
