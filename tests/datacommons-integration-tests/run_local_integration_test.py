@@ -306,7 +306,10 @@ def run_spanner_loader(compose_env: dict[str, str]) -> None:
 
     import_list = []
     for d in import_dirs:
-        import_name = d.split("/")[-1]
+        # d is 'output/jsonld/wages_<timestamp>/OECDWages'
+        parts = d.split("/")
+        top_folder = parts[2] if len(parts) >= 3 else parts[0]
+        import_name = top_folder.split("_")[0]
         import_list.append(
             {"importName": import_name, "graphPath": f"gs://test-bucket/{d}/*.jsonld"}
         )
