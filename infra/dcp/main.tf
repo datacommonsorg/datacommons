@@ -32,6 +32,8 @@ provider "google-beta" {
 resource "google_project_service" "apis" {
   for_each = toset(concat([
     "apikeys.googleapis.com",
+    "maps-backend.googleapis.com",
+    "places-backend.googleapis.com",
     "run.googleapis.com",
     "iam.googleapis.com",
     "cloudresourcemanager.googleapis.com",
