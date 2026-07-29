@@ -293,15 +293,13 @@ def run_spanner_loader(compose_env: dict[str, str]) -> None:
     except Exception as e:
         raise RuntimeError(f"Failed to query GCS emulator: {e}") from e
 
-    # Extract output directories like output/jsonld/<timestamp_dir>/<import_name>/
-    jsonld_blobs = [
-        name for name in items if "output/jsonld/" in name and name.endswith(".jsonld")
-    ]
+    # Extract JSON-LD files and their containing parent directories
+    jsonld_blobs = [name for name in items if name.endswith(".jsonld")]
     import_dirs = set()
     for name in jsonld_blobs:
         parts = name.split("/")
-        if len(parts) >= 5:
-            import_dirs.add("/".join(parts[:4]))
+        if len(parts) >= 2:
+            import_dirs.add("/".join(parts[:-1]))
 
     if not import_dirs:
         raise ValueError("No generated JSON-LD files found in GCS emulator.")
