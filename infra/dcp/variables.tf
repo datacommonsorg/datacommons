@@ -52,7 +52,7 @@ variable "billing_project_id" {
 variable "dcp_version" {
   description = "The version of the Data Commons Platform to deploy. This controls the default tag for Docker images and template paths if specific overrides are not provided."
   type        = string
-  default     = "1.1.0"
+  default     = "1.1.1"
 }
 
 # =============================================================================
