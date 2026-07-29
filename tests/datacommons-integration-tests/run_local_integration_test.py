@@ -293,28 +293,32 @@ def run_spanner_loader(compose_env: dict[str, str]) -> None:
     except Exception as e:
         raise RuntimeError(f"Failed to query GCS emulator: {e}") from e
 
-    # Extract JSON-LD files and their containing parent directories
+    # Extract top-level import directories (e.g. output/jsonld/wages_<timestamp>)
     jsonld_blobs = [name for name in items if name.endswith(".jsonld")]
-    import_dirs = set()
+    top_dirs = set()
     for name in jsonld_blobs:
         parts = name.split("/")
-        if len(parts) >= 2:
-            import_dirs.add("/".join(parts[:-1]))
+        if len(parts) >= 3:
+            top_dirs.add("/".join(parts[:3]))
+        elif len(parts) >= 2:
+            top_dirs.add("/".join(parts[:-1]))
 
-    if not import_dirs:
+    if not top_dirs:
         raise ValueError("No generated JSON-LD files found in GCS emulator.")
 
     import_list = []
-    for d in import_dirs:
-        # d is 'output/jsonld/wages_<timestamp>/OECDWages'
-        parts = d.split("/")
-        top_folder = parts[2] if len(parts) >= 3 else parts[0]
+    for d in top_dirs:
+        # d is 'output/jsonld/wages_<timestamp>'
+        top_folder = d.split("/")[-1]
         import_name = top_folder.split("_")[0]
         import_list.append(
-            {"importName": import_name, "graphPath": f"gs://test-bucket/{d}/*.jsonld"}
+            {
+                "importName": import_name,
+                "graphPath": f"gs://test-bucket/{d}/**/*.jsonld",
+            }
         )
 
-    print(f"  Found import directories: {list(import_dirs)}", flush=True)
+    print(f"  Found import directories: {list(top_dirs)}", flush=True)
 
     try:
         # 3. Execute the Java Beam pipeline container inside the compose network 'itest-net'
