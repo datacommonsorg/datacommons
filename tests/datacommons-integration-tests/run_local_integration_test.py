@@ -314,7 +314,7 @@ def run_spanner_loader(compose_env: dict[str, str]) -> None:
         import_list.append(
             {
                 "importName": import_name,
-                "graphPath": f"gs://test-bucket/{d}/**/*.jsonld",
+                "graphPath": f"gs://test-bucket/{d}/*/*.jsonld",
             }
         )
 
