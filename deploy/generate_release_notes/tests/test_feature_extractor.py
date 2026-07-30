@@ -31,65 +31,8 @@ class TestFeatureExtractorUnit:
     """Unit tests for FeatureExtractor with mocked Gemini API calls."""
 
     @patch("google.genai.Client")
-    def test_filter_prs_with_flash(self, mock_client_cls):
-        """Test Stage 1 Flash model filtering out bot version bumps and noise."""
-        mock_client = MagicMock()
-        mock_client_cls.return_value = mock_client
-
-        # Mock Flash model response returning PRs datacommons#188 and datacommons#189
-        mock_res = MagicMock()
-        mock_res.text = json.dumps({"relevant_pr_ids": ["datacommons#188", "datacommons#189"]})
-        mock_client.models.generate_content.return_value = mock_res
-
-        pr188 = PullRequest(
-            number=188,
-            title="[DCP Ingestion] Remove status set to Success at end of dataflow stage",
-            body="Fixes status race condition",
-            author="gmechali",
-            url="https://github.com/datacommonsorg/datacommons/pull/188",
-            merged_at="2026-07-24T18:05:13Z",
-            repo_name="datacommonsorg/datacommons",
-            files_changed=["infra/dcp/dataflow_job.tf"],
-        )
-        pr189 = PullRequest(
-            number=189,
-            title="[DCP Ingestion] Allow dataflow to scale workers based on Terraform Variables",
-            body="Adds max_workers variable",
-            author="gmechali",
-            url="https://github.com/datacommonsorg/datacommons/pull/189",
-            merged_at="2026-07-24T19:13:17Z",
-            repo_name="datacommonsorg/datacommons",
-            files_changed=["infra/dcp/variables.tf"],
-        )
-        pr195_bot = PullRequest(
-            number=195,
-            title="chore: bump version to 1.1.1",
-            body="Automated release bump",
-            author="datacommons-robot-author",
-            url="https://github.com/datacommonsorg/datacommons/pull/195",
-            merged_at="2026-07-29T00:37:18Z",
-            repo_name="datacommonsorg/datacommons",
-            files_changed=["VERSION"],
-        )
-
-        manifest = ReleaseInfoManifest(
-            previous_version="v1.1.0",
-            new_version="v1.1.1",
-            all_pull_requests=[pr188, pr189, pr195_bot],
-        )
-
-        extractor = FeatureExtractor(api_key="mock_key")
-        candidates = extractor.filter_prs_with_flash(manifest)
-
-        assert len(candidates) == 2
-        candidate_ids = [pr.qualified_id for pr in candidates]
-        assert "datacommons#188" in candidate_ids
-        assert "datacommons#189" in candidate_ids
-        assert "datacommons#195" not in candidate_ids
-
-    @patch("google.genai.Client")
-    def test_synthesize_features_with_pro(self, mock_client_cls):
-        """Test Stage 2 Pro model feature grouping and SOP classification."""
+    def test_extract_features_single_stage(self, mock_client_cls):
+        """Test single-stage feature extraction and SOP classification while filtering bot PRs."""
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
 
@@ -133,17 +76,26 @@ class TestFeatureExtractorUnit:
             repo_name="datacommonsorg/datacommons",
             files_changed=["infra/dcp/variables.tf"],
         )
+        pr195_bot = PullRequest(
+            number=195,
+            title="chore: bump version to 1.1.1",
+            body="Automated release bump",
+            author="datacommons-robot-author",
+            url="https://github.com/datacommonsorg/datacommons/pull/195",
+            merged_at="2026-07-29T00:37:18Z",
+            repo_name="datacommonsorg/datacommons",
+            files_changed=["VERSION"],
+        )
 
         manifest = ReleaseInfoManifest(
             previous_version="v1.1.0",
             new_version="v1.1.1",
-            all_pull_requests=[pr188, pr189],
+            all_pull_requests=[pr188, pr189, pr195_bot],
         )
 
         extractor = FeatureExtractor(api_key="mock_key")
-        features = extractor.synthesize_features_with_pro(
+        features = extractor.extract_features(
             manifest=manifest,
-            candidate_prs=[pr188, pr189],
             additional_instructions="Focus on Dataflow scaling",
         )
 

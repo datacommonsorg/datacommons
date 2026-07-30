@@ -14,8 +14,8 @@
 
 """Step 2: Feature Extractor for Data Commons Platform (DCP) release notes generation.
 
-Executes a Two-Stage Gemini LLM Pipeline (Flash + Pro) for noise filtering,
-SOP classification, feature grouping, and technical release notes synthesis.
+Synthesizes raw PullRequests into structured FeatureUpdate objects using Gemini LLM,
+classifying features into standard SOP categories and handling feature grouping.
 """
 
 import json
@@ -35,20 +35,21 @@ from deploy.generate_release_notes.models import (
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_FILTER_MODEL = "gemini-3.6-flash"
-DEFAULT_SYNTHESIS_MODEL = "gemini-3.6-flash"
+DEFAULT_MODEL = "gemini-3.6-flash"
 
 VALID_SOP_CATEGORIES = {cat.value for cat in SOPCategory}
 
 
 class FeatureExtractor:
-    """Two-Stage Gemini LLM Pipeline for filtering, classifying, and synthesizing DCP release features."""
+    """Single-stage Gemini LLM Pipeline for filtering, classifying, and synthesizing DCP release features."""
 
     def __init__(
         self,
         api_key: Optional[str] = None,
-        filter_model: str = DEFAULT_FILTER_MODEL,
-        synthesis_model: str = DEFAULT_SYNTHESIS_MODEL,
+        model_name: str = DEFAULT_MODEL,
+        # Backward compatibility aliases
+        filter_model: Optional[str] = None,
+        synthesis_model: Optional[str] = None,
     ):
         key = api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
         if not key:
@@ -59,98 +60,25 @@ class FeatureExtractor:
         else:
             self.client = genai.Client(api_key=key)
 
-        self.filter_model = filter_model
-        self.synthesis_model = synthesis_model
+        self.model_name = synthesis_model or model_name or DEFAULT_MODEL
 
-    def filter_prs_with_flash(self, manifest: ReleaseInfoManifest) -> List[PullRequest]:
-        """Stage 1 (Flash Model): Rapidly triages all raw PRs to weed out bot bumps, typo fixes, and non-informative noise."""
-        if not manifest.all_pull_requests:
-            logger.warning("No PRs provided in manifest for Stage 1 filtering.")
-            return []
-
-        logger.info(
-            f"Stage 1: Filtering {len(manifest.all_pull_requests)} raw PRs using {self.filter_model}..."
-        )
-
-        # Build compact representation for Flash model using qualified PR IDs (e.g. 'datacommons#188')
-        pr_summaries = []
-        for pr in manifest.all_pull_requests:
-            pr_summaries.append(
-                {
-                    "id": pr.qualified_id,
-                    "title": pr.title,
-                    "repo": pr.repo_name,
-                    "author": pr.author,
-                    "files_changed_count": len(pr.files_changed),
-                    "sample_files": pr.files_changed[:10],
-                }
-            )
-
-        prompt = f"""You are a Senior Technical Release Engineer for Data Commons Platform (DCP).
-Analyze the following list of merged Pull Requests for release range {manifest.previous_version} -> {manifest.new_version}.
-
-Goal: Identify all SUBSTANTIVE, meaningful Pull Requests that represent feature additions, bug fixes, infrastructure changes, configuration updates, or Data Commons Platform/Base capabilities.
-
-Filter OUT ONLY non-informative noise:
-- Automated bot version bumps (e.g., 'chore: bump version to 1.1.1', dependabot, renovate).
-- Trivial formatting, linting, or typo fixes in documentation/README (e.g., 'fix typo in README').
-- Trivial internal test-only refactors with zero functional impact.
-
-DO NOT filter out base Data Commons features or infrastructure PRs — keep all substantive PRs!
-
-Here is the list of PRs:
-{json.dumps(pr_summaries, indent=2)}
-
-Respond ONLY with a JSON object containing a single key "relevant_pr_ids" with an array of qualified PR ID strings (e.g., ["datacommons#188", "import#42"]).
-Example: {{"relevant_pr_ids": ["datacommons#188", "import#42"]}}
-"""
-
-        try:
-            config = types.GenerateContentConfig(
-                response_mime_type="application/json",
-                temperature=0.1,
-            )
-            res = self.client.models.generate_content(
-                model=self.filter_model,
-                contents=prompt,
-                config=config,
-            )
-            data = json.loads(res.text)
-            relevant_ids = set(data.get("relevant_pr_ids", []))
-            
-            candidate_prs = [
-                pr for pr in manifest.all_pull_requests if pr.qualified_id in relevant_ids
-            ]
-            logger.info(
-                f"Stage 1 Complete: Retained {len(candidate_prs)} / {len(manifest.all_pull_requests)} substantive PRs."
-            )
-            return candidate_prs
-        except Exception as e:
-            logger.error(f"Stage 1 Flash filtering failed: {e}. Falling back to all non-bot PRs.")
-            # Basic fallback for error resilience
-            return [
-                pr for pr in manifest.all_pull_requests 
-                if "bump version" not in pr.title.lower() and pr.author != "datacommons-robot-author"
-            ]
-
-    def synthesize_features_with_pro(
+    def extract_features(
         self,
         manifest: ReleaseInfoManifest,
-        candidate_prs: List[PullRequest],
         additional_instructions: Optional[str] = None,
     ) -> List[FeatureUpdate]:
-        """Stage 2 (Pro Model): Performs deep semantic classification, feature grouping, override resolution, and SOP drafting."""
-        if not candidate_prs:
-            logger.warning("No candidate PRs provided for Stage 2 synthesis.")
+        """Classifies, groups, and synthesizes raw PRs into FeatureUpdate objects in 1 Gemini call."""
+        if not manifest.all_pull_requests:
+            logger.warning("No PRs provided in manifest for feature extraction.")
             return []
 
         logger.info(
-            f"Stage 2: Synthesizing features from {len(candidate_prs)} candidate PRs using {self.synthesis_model}..."
+            f"Step 2: Extracting features from {len(manifest.all_pull_requests)} PRs using {self.model_name}..."
         )
 
-        # Build detailed PR context for Pro model with merged_at timestamps and qualified IDs
+        # Build detailed PR context for model with merged_at timestamps and qualified IDs
         detailed_prs = []
-        for pr in candidate_prs:
+        for pr in manifest.all_pull_requests:
             # Preserve "BREAKING CHANGE:" sections if present in body
             body_text = pr.body or ""
             body_snippet = body_text[:500]
@@ -216,25 +144,29 @@ Categorize EVERY feature into EXACTLY ONE of these 4 standard SOP categories bas
 ---
 
 ### Task Instructions:
-1. **Feature Grouping & Deduplication**:
+1. **Filter Out & Ignore Irrelevant PRs**:
+   - Completely IGNORE automated bot PRs (e.g. dependabot, renovate, 'chore: bump version to 1.1.1').
+   - Completely IGNORE trivial formatting, typo fixes, or non-informative refactors with zero user impact.
+
+2. **Feature Grouping & Deduplication**:
    - Combine related PRs (e.g., an initial feature PR + follow-up bug fixes + test PRs) into a SINGLE cohesive `FeatureUpdate`.
    - List all included PR qualified IDs in `included_prs` (e.g. `["datacommons#188", "datacommons#189"]`).
 
-2. **Supersede Resolution & Chronology**:
+3. **Supersede Resolution & Chronology**:
    - Use `merged_at` timestamps to understand commit order.
    - If a PR was superseded or modified by a later PR in this release, describe only the FINAL state at {manifest.new_version}.
 
-3. **User-First Technical Writing**:
+4. **User-First Technical Writing**:
    - Focus feature titles and descriptions on **User Capabilities, Platform Benefits, and Operator Configurations**, NOT internal developer implementation details (e.g. avoid 'Refactored helper function X' or 'Updated internal class Y').
    - Set `is_dcp_relevant: true` for all platform-relevant features, or `false` for base-only features.
    - If a feature contains only ONE PR, ensure `description` is rich and comprehensive enough for release notes generation to understand all capabilities implemented.
 
-4. **Per-PR Contribution Summaries**:
+5. **Per-PR Contribution Summaries**:
    - For EVERY PR listed in `included_prs`, provide a specific 1-2 sentence contribution summary under `pr_contributions` mapping the qualified PR ID to its specific capability contribution (e.g., `{{"datacommons#188": "Removed premature success status set at end of dataflow stage", "datacommons#189": "Added max_workers Terraform variable for Dataflow auto-scaling"}}`).
 
 {instructions_context}
 
-### Substantive Candidate PRs:
+### Raw Merged PRs:
 {json.dumps(detailed_prs, indent=2)}
 
 Respond ONLY with a JSON array of FeatureUpdate objects with the following schema:
@@ -262,7 +194,7 @@ Respond ONLY with a JSON array of FeatureUpdate objects with the following schem
                 temperature=0.2,
             )
             res = self.client.models.generate_content(
-                model=self.synthesis_model,
+                model=self.model_name,
                 contents=prompt,
                 config=config,
             )
@@ -295,31 +227,9 @@ Respond ONLY with a JSON array of FeatureUpdate objects with the following schem
                 features.append(feature)
 
             logger.info(
-                f"Stage 2 Complete: Synthesized {len(features)} structured FeatureUpdate objects across categories."
+                f"Step 2 Complete: Synthesized {len(features)} structured FeatureUpdate objects across categories."
             )
             return features
         except Exception as e:
-            logger.error(f"Stage 2 Pro synthesis failed: {e}")
-            raise RuntimeError(f"Failed to synthesize release features with Gemini Pro: {e}")
-
-    def extract_features(
-        self,
-        manifest: ReleaseInfoManifest,
-        additional_instructions: Optional[str] = None,
-    ) -> List[FeatureUpdate]:
-        """Main entry point: orchestrates Stage 1 Flash filtering -> Stage 2 Pro synthesis -> List[FeatureUpdate]."""
-        logger.info(
-            f"Starting Step 2 Feature Extraction for release {manifest.previous_version} -> {manifest.new_version}..."
-        )
-
-        # Stage 1: Fast Flash Noise Filter
-        candidate_prs = self.filter_prs_with_flash(manifest)
-
-        # Stage 2: Deep Pro Synthesis & SOP Classification
-        features = self.synthesize_features_with_pro(
-            manifest=manifest,
-            candidate_prs=candidate_prs,
-            additional_instructions=additional_instructions,
-        )
-
-        return features
+            logger.error(f"Step 2 Feature extraction failed: {e}")
+            raise RuntimeError(f"Failed to extract release features with Gemini: {e}")

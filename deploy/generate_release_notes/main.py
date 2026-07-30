@@ -34,8 +34,7 @@ from typing import Optional
 import click
 
 from deploy.generate_release_notes.feature_extractor import (
-    DEFAULT_FILTER_MODEL,
-    DEFAULT_SYNTHESIS_MODEL,
+    DEFAULT_MODEL as DEFAULT_FEATURE_MODEL,
     FeatureExtractor,
 )
 from deploy.generate_release_notes.pr_extractor import PRExtractor
@@ -92,14 +91,11 @@ logger = logging.getLogger("generate_release_notes")
     help="Append complete raw PR audit log table at the bottom of the release notes.",
 )
 @click.option(
-    "--filter-model",
-    default=DEFAULT_FILTER_MODEL,
-    help=f"Gemini model for Stage 1 noise filtering (default: {DEFAULT_FILTER_MODEL}).",
-)
-@click.option(
     "--synthesis-model",
-    default=DEFAULT_SYNTHESIS_MODEL,
-    help=f"Gemini model for Stage 2 feature synthesis (default: {DEFAULT_SYNTHESIS_MODEL}).",
+    "--filter-model",
+    "synthesis_model",
+    default=DEFAULT_FEATURE_MODEL,
+    help=f"Gemini model for Step 2 feature synthesis (default: {DEFAULT_FEATURE_MODEL}).",
 )
 @click.option(
     "--writer-model",
@@ -123,7 +119,6 @@ def main(
     additional_instructions: Optional[str],
     allow_missing_images: bool,
     include_audit_log: bool,
-    filter_model: str,
     synthesis_model: str,
     writer_model: str,
     manifest_out: Optional[str],
@@ -194,8 +189,7 @@ def main(
     # ----------------------------------------------------
     logger.info("\n--- STEP 2: Feature Extraction & SOP Classification ---")
     feature_extractor = FeatureExtractor(
-        filter_model=filter_model,
-        synthesis_model=synthesis_model,
+        model_name=synthesis_model,
     )
     try:
         features = feature_extractor.extract_features(
