@@ -180,8 +180,8 @@ Respond ONLY with a JSON array of FeatureUpdate objects with the following schem
     "target_components": ["dcp", "services", "preprocessing", "dataflow_worker", "ingestion_helper", "postprocessing"],
     "included_prs": ["datacommons#188", "datacommons#189"],
     "pr_contributions": {{
-      "datacommons#188": "Removed premature success status set at end of dataflow stage",
-      "datacommons#189": "Added max_workers Terraform variable for Dataflow auto-scaling"
+      "agent-toolkit#211": "Query bilateral trade and migration relationships between multiple entities",
+      "datacommons#189": "Configure max_workers in Terraform to scale Dataflow workers automatically for large imports"
     }},
     "is_dcp_relevant": true,
     "breaking_changes": "Optional string describing breaking change if any, else null"
