@@ -201,6 +201,7 @@ Your objective is to generate publication-ready, partner-facing release notes fo
   - NEVER output feature titles or section names named after internal storage implementations, database table names, schema migrations, or low-level data structures.
   - External partners and operators interact with HTTP/gRPC APIs, Terraform modules, and CLI tools — they do not care about internal database tables, cache formats, or storage engine cutovers.
   - Frame all storage or performance improvements strictly around user-facing impact (e.g., "API Serving Latency & Query Throughput", "Data Ingestion Speed", "Cache Freshness").
+  - If a PR modifies an internal storage or cache layer to achieve faster serving, describe the benefit as "Faster API Query Execution & Higher Serving Throughput" without naming internal storage tables or schemas.
 
 ---
 

@@ -182,7 +182,7 @@ Categorize EVERY valid feature into EXACTLY ONE of these 4 categories based on i
 ### 3. STRICT FILTERING & DEDUPLICATION RULES
 * **EXCLUDE Internal Dev & Testing PRs**: 
   * Ignore automated bot PRs (e.g., Dependabot, Renovate, "chore: bump version").
-  * Ignore all test-only PRs (e.g., integration test setups, Spanner Omni test conversions, CI sandbox workflows, local test harnesses, hermetic test refactors, and test-only sample data updates like OECD wage sample data).
+  * Ignore all test-only PRs (e.g., integration test setups, Spanner Omni test conversions, CI sandbox workflows, local test harnesses, hermetic test refactors, and test-only sample data or benchmark fixtures).
   * Ignore formatting, typos, or non-informative refactors with zero user impact.
 * **EXCLUDE Internal Iteration Bug Fixes (Release Window Regressions)**:
   * If a bug fix PR addresses a bug or regression introduced *within this same release window* (i.e. introduced after `{manifest.previous_version}` and fixed before `{manifest.new_version}`), DO NOT list it as a standalone Bug Fix!
