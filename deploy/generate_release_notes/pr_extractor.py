@@ -202,15 +202,20 @@ class PRExtractor:
         t_prev = (
             prev_timestamp.split(".")[0].replace(" ", "T")
             if prev_timestamp
-            else ""
+            else "2026-01-01T00:00:00Z"
         )
         t_new = (
             new_timestamp.split(".")[0].replace(" ", "T")
             if new_timestamp
-            else ""
+            else datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         )
 
-        search_query = f"merged:{t_prev}..{t_new} base:main"
+        if not t_prev.endswith("Z") and "+" not in t_prev and "-" not in t_prev[10:]:
+            t_prev += "Z"
+        if not t_new.endswith("Z") and "+" not in t_new and "-" not in t_new[10:]:
+            t_new += "Z"
+
+        search_query = f"merged:{t_prev}..{t_new}"
         cmd = [
             "gh",
             "pr",
