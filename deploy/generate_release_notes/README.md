@@ -6,7 +6,7 @@ An agentic, skill-driven tool suite for generating publication-ready, partner-fa
 
 ## Quick Start (How to Use)
 
-Simply point your LLM coding assistant (e.g. Jetski / Gemini) at [`SKILL.md`](SKILL.md):
+Simply point your LLM coding assistant (e.g. Antigravity / Gemini) at [`SKILL.md`](SKILL.md):
 
 > **Prompt Example**:
 > *"Please read `deploy/generate_release_notes/SKILL.md` and generate release notes for version v1.1.0 to v1.1.1."*
