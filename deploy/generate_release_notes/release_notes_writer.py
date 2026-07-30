@@ -210,15 +210,16 @@ Your objective is to generate publication-ready, partner-facing release notes fo
 
 ---
 
-### 3. INPUT MAPPING RULES
+### 3. INPUT MAPPING RULES (RENDER ALL FEATURES)
 You will process two payload inputs. Map them to the final release note sections as follows:
 
-1. **`features_payload`**: 
-    * Major, highly impactful items must be grouped as detailed features under **Key Feature Updates**.
-    * Minor enhancements, optimizations, or configuration instructions must be formatted as concise bullet points under **Improvements & Configuration Updates**.
-2. **`bug_fixes_payload`**: 
-    * Substantive bug fixes that address user-facing errors, data inaccuracies, or platform operator crashes must be mapped to **Bug Fixes**.
-    * *STRICT EXCLUSION*: Completely ignore internal development chores, test refactors, CI sandbox workflows, local test setups, or unused sample data removals.
+1.  **`features_payload`**: 
+    *   **STRICT REQUIREMENT**: You MUST render EVERY item provided in `features_payload`. DO NOT drop or omit any feature!
+    *   Major, highly impactful items (e.g. SDMX 3.0 REST Endpoints, Agent MCP Toolkit Overhaul, Modular Ingestion Workflows) MUST be rendered as detailed feature sections under **Key Feature Updates**.
+    *   Minor enhancements, optimizations, or configuration instructions must be formatted as concise bullet points under **Improvements & Configuration Updates**.
+2.  **`bug_fixes_payload`**: 
+    *   Substantive bug fixes that address user-facing errors, data inaccuracies, or platform operator crashes must be mapped to **Bug Fixes**.
+    *   *STRICT EXCLUSION*: Completely ignore internal development chores, test refactors, CI sandbox workflows, local test setups, or unused sample data removals.
 
 ---
 
