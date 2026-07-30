@@ -1,19 +1,55 @@
 ---
 name: dcp-context
-description: Architectural reference and domain context for Data Commons Platform (DCP) release notes generation.
+description: Architectural reference, domain context, and component map for Data Commons Platform (DCP) release notes generation.
 ---
 
 # Data Commons Platform (DCP) Domain Context & Architectural Map
 
-This skill provides the domain context, repository mapping, and architectural principles for writing publication-ready, partner-facing DCP release notes.
+This skill provides the domain context, platform architecture, user touchpoints, and single source of truth component mapping for evaluating Pull Request relevance and generating partner-facing release notes.
 
 ---
 
-## 1. Core Architectural Overview & Single Source of Truth Mapping
+## 1. What is Data Commons Platform (DCP)?
 
-Data Commons Platform (DCP) is a self-hosted, Cloud Spanner-backed deployment of Data Commons. It replaces legacy Bigtable with Cloud Spanner graph tables and vector embeddings. It features custom data ingestion pipelines, specialized serving APIs, and deployment automation across 6 core repositories.
+- **Data Commons**: An open-knowledge graph that unifies public datasets across demographics, economics, climate, health, and geography into a standardized, interconnected graph structure.
+- **Data Commons Platform (DCP)**: The self-hosted, enterprise-grade deployment of Data Commons. It allows organizations and partners to deploy an isolated Data Commons instance backed by Cloud Spanner, load custom proprietary datasets alongside public Data Commons data, expose standardized SDMX 3.0 REST and FastMCP AI agent interfaces, and manage infrastructure via Terraform and CLI automation.
 
-### 📌 Component & Repository Mapping Registry (SINGLE SOURCE OF TRUTH)
+---
+
+## 2. User & Operator Touchpoints vs. Internal Implementation
+
+When analyzing Pull Requests and synthesizing release notes, agents MUST distinguish between **external user/operator touchpoints** (what partners interact with) and **internal implementation mechanics** (non-user facing code).
+
+### A. External User & Operator Touchpoints (PUBLIC RELEASE RELEVANT)
+These represent the interfaces, contracts, and capabilities that partners, developers, data engineers, and instance operators directly interact with:
+
+1. **Serving APIs & Protocols**:
+   - SDMX 3.0 REST Data and Availability endpoints (`/sdmx/v3/rest/data/...`, `/sdmx/v3/rest/availability/...`).
+   - Observations V2 API (`/v2/observation`) and Mixer gRPC graph endpoints.
+   - Place containment expansion (`containedInPlace+`), time-series filtering (`TIME_PERIOD`).
+2. **AI Agent Integration (MCP / Model Context Protocol)**:
+   - FastMCP tools for AI agent research playbooks (`get_multi_entity_observations`, `search_indicators`, `get_variable_metadata`).
+   - Indicator search target scopes (`custom_only`, `base_only`, `base_and_custom`).
+3. **Web Applications & Exploration Tools**:
+   - Explore UI, Download Tool, Place Browser, Croissant JSON-LD dataset metadata.
+4. **Infrastructure & Deployment Automation**:
+   - Terraform modules (`infra/dcp/`), variables (`ingestion_dataflow_max_workers`, `spanner_processing_units`), and IAM role configurations.
+   - Admin CLI (`datacommons admin init`, `datacommons admin deploy`) and Admin Portal web interface.
+   - Vector search profile configurations (`--spanner_search_config_path`).
+5. **Data Ingestion Inputs**:
+   - Custom CSV/MCF dataset formats, column mapping definitions, and batch import job configurations.
+
+### B. Internal Implementation Mechanics (NON-USER FACING — DO NOT EXPOSE)
+These are internal engine mechanics that partners do NOT interact with directly. They should be framed around high-level user impact (e.g. *"98% lower query latency"*) without exposing internal table names or DDLs:
+- Internal Cloud Spanner DDL graph table schemas and KeyValueStore tables.
+- Dataflow TFRecord chunking and intermediate GCS staging paths.
+- Cloud Workflows internal execution IDs and status tracking tables (`IngestionHistory`).
+- Internal SQL parameter unrolling and join ordering optimizations.
+
+---
+
+## 3. Component & Repository Registry (SINGLE SOURCE OF TRUTH)
+
 All skills and subagents MUST use this table as the single authoritative source of truth for component keys, source repositories, subdirectory path filters, target container images, and output verification files:
 
 | Component Key | Component Name | Source Repositories & Subdirectory Filters | Container Image URI / Release Artifact | Output Verification File |
