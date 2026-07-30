@@ -144,22 +144,23 @@ Categorize EVERY feature into EXACTLY ONE of these 4 standard SOP categories bas
 ---
 
 ### Task Instructions:
-1. **Filter Out & Ignore Irrelevant PRs**:
+1. **Filter Out & Ignore Internal Dev & Testing PRs**:
    - Completely IGNORE automated bot PRs (e.g. dependabot, renovate, 'chore: bump version to 1.1.1').
+   - Completely IGNORE internal integration test setups, Spanner Omni test suites, CI sandbox workflows, local test harnesses, and test-only sample data updates.
    - Completely IGNORE trivial formatting, typo fixes, or non-informative refactors with zero user impact.
 
-2. **Feature Grouping & Deduplication**:
+2. **User Persona Focus (Building ON TOP OF Platform)**:
+   - Write for people **building ON TOP OF the platform** (data engineers, API consumers, instance operators).
+   - Focus on **Ingestion Inputs & Pipelines** (CSV/SDMX inputs, import workflows, validation rules) and **APIs & Tooling** (REST APIs, SDMX 3.0 endpoints, `/v2/observation`, MCP tools, Web UI, Admin CLI).
+   - **De-emphasize Database Layer Details**: Minimize mentions of Spanner database internals (e.g. Spanner graph schema, KeyValueStore cutover). Focus instead on the user-facing API or Ingestion behavior change.
+
+3. **Feature Grouping & Deduplication**:
    - Combine related PRs (e.g., an initial feature PR + follow-up bug fixes + test PRs) into a SINGLE cohesive `FeatureUpdate`.
    - List all included PR qualified IDs in `included_prs` (e.g. `["datacommons#188", "datacommons#189"]`).
 
-3. **Supersede Resolution & Chronology**:
+4. **Supersede Resolution & Chronology**:
    - Use `merged_at` timestamps to understand commit order.
    - If a PR was superseded or modified by a later PR in this release, describe only the FINAL state at {manifest.new_version}.
-
-4. **User-First Technical Writing**:
-   - Focus feature titles and descriptions on **User Capabilities, Platform Benefits, and Operator Configurations**, NOT internal developer implementation details (e.g. avoid 'Refactored helper function X' or 'Updated internal class Y').
-   - Set `is_dcp_relevant: true` for all platform-relevant features, or `false` for base-only features.
-   - If a feature contains only ONE PR, ensure `description` is rich and comprehensive enough for release notes generation to understand all capabilities implemented.
 
 5. **Per-PR Contribution Summaries**:
    - For EVERY PR listed in `included_prs`, provide a specific 1-2 sentence contribution summary under `pr_contributions` mapping the qualified PR ID to its specific capability contribution (e.g., `{{"datacommons#188": "Removed premature success status set at end of dataflow stage", "datacommons#189": "Added max_workers Terraform variable for Dataflow auto-scaling"}}`).

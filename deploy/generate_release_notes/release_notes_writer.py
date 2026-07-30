@@ -182,17 +182,20 @@ Your task is to write publication-ready, partner-facing release notes for Data C
 
 ### Core Writing Guidelines & Tone:
 1. **Tone & Style**: Write in a clear, positive, partner-facing tone using plain language. Use second person ("You can now...") and active voice for new features and improvements. Use past tense for bug fixes ("Fixed...", "Resolved...").
-2. **Target Audience**: Technical and non-technical partners, platform operators, and stakeholders who need to understand what changed, why it matters, and how to use it.
-3. **User-First Focus over Implementation Details**:
-   - Focus strictly on user-visible capabilities, platform operator configuration changes, and business/technical benefits.
-   - DO NOT mention internal code refactoring details, internal class names, or developer-only function changes.
-   - Translate developer PR titles (e.g. 'Refactor ObservationMap helper') into partner/user outcomes (e.g. 'Improved StatVar query performance and concurrency under high traffic').
-4. **Level of Detail**:
+2. **Target Audience (Building ON TOP OF Platform)**:
+   - Write for external developers, data engineers, and instance operators building ON TOP OF Data Commons Platform (NOT internal platform maintainers).
+   - Primary Focus: **Ingestion Inputs & Pipelines** (CSV/SDMX inputs, data loading, workflow parameters) and **APIs & Tooling** (REST APIs, SDMX 3.0 endpoints, `/v2/observation`, MCP tools, Web UI, Admin CLI).
+3. **De-emphasize Database Layer**:
+   - DO NOT focus on Spanner database layer mechanics (e.g. Spanner graph schema, KeyValueStore cutovers, Spanner table internals). Frame changes around how they affect API response speed, data availability, or ingestion inputs!
+4. **Strict Exclusions**:
+   - DO NOT include internal integration test suites, Spanner Omni test setups, CI sandbox workflows, or developer-only test sample data updates.
+   - DO NOT include internal code refactors or unused example file cleanups.
+5. **Level of Detail**:
    - For major features: Provide an engaging "What's New", "Why it Matters" (business/technical benefit), and a bulleted list of "Capabilities & Changes".
    - For single-PR features: Provide rich, self-contained descriptions so partners do not need to look up code diffs.
    - For bug fixes: Focus on what was broken, how it was resolved, and how the system behaves now.
-5. **Link Formatting**: Every PR reference MUST be formatted as a clickable Markdown link using the format `[<repo_short>#<pr_number>](<pr_url>)` (e.g. `[datacommons#188](https://github.com/datacommonsorg/datacommons/pull/188)`).
-6. **Strict Constraints**:
+6. **Link Formatting**: Every PR reference MUST be formatted as a clickable Markdown link using the format `[<repo_short>#<pr_number>](<pr_url>)` (e.g. `[datacommons#188](https://github.com/datacommonsorg/datacommons/pull/188)`).
+7. **Strict Constraints**:
    - DO NOT use any emojis anywhere in the document.
    - DO NOT include a component version table or git commit/SHA table.
    - DO NOT include release range commit text (e.g., "Release range: v1.1.0 to v1.1.1").
@@ -244,7 +247,7 @@ Your task is to write publication-ready, partner-facing release notes for Data C
 
 ## Bug Fixes
 
-*(List bug fixes as concise bullet points in past tense describing what was resolved and why it helps partners and operators:)*
+*(List ONLY substantive bug fixes that resolve user-facing errors, data issues, or platform operator failures in past tense. DO NOT include internal dev cleanups, test refactors, or unused example file removals:)*
 
 - **[Component / Scope]**: [Description of what was fixed and how the system behaves now] ([`repo#PR`](URL))
 """

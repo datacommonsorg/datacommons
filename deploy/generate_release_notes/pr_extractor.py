@@ -18,7 +18,7 @@ Extracts Pull Requests and image mappings across Data Commons repositories using
 gcloud container image tags and GitHub CLI (gh pr list).
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import logging
 import subprocess
@@ -335,7 +335,11 @@ class PRExtractor:
             if not ts_list:
                 # Default to fallback timestamp if image tags missing
                 t_min = "2026-01-01T00:00:00Z"
-                t_max = datetime.utcnow().isoformat() + "Z"
+                t_max = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+            elif len(ts_list) == 1:
+                # If only prev_timestamp exists (e.g. new_version tag missing during staging/test), search from prev to NOW
+                t_min = ts_list[0]
+                t_max = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
             else:
                 sorted_ts = sorted(ts_list)
                 t_min = sorted_ts[0]
