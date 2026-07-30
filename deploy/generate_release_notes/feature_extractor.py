@@ -109,82 +109,74 @@ class FeatureExtractor:
                 f"{instructions_text}\n"
             )
 
-        prompt = f"""You are an expert Technical Release Manager for Data Commons Platform (DCP) drafting official release notes for release {manifest.new_version} (previous version: {manifest.previous_version}).
-
-### Context & Domain Knowledge — What is Data Commons Platform (DCP)?
-Data Commons Platform (DCP) is a self-hosted, Cloud Spanner-backed deployment of Data Commons. It replaces legacy Bigtable with Cloud Spanner graph tables and vector embeddings, featuring custom data ingestion pipelines, specialized serving APIs, and deployment automation across 6 key repositories:
-
-1. **`datacommonsorg/datacommons` (Monorepo)**:
-   - Contains DCP Terraform modules (`infra/dcp/`, `infra/modules/`), CLI tools (`packages/datacommons-cli/`), and Admin Portal (`packages/datacommons-admin/`).
-2. **`datacommonsorg/website`**:
-   - Web application serving UI and APIs (`server/`, `static/`, `build/cdc_services/`, `build/cdc_data/`).
-3. **`datacommonsorg/mixer`**:
-   - Core Spanner gRPC graph and StatVar serving engine (`internal/server/`, `proto/`).
-4. **`datacommonsorg/import`**:
-   - Data processing pipelines: Simple importer (`simple/`), Dataflow Java worker (`pipeline/ingestion/`), Ingestion Helper (`pipeline/workflow/ingestion-helper/`), Aggregation Helper (`pipeline/workflow/aggregation-helper/`).
-5. **`datacommonsorg/agent-toolkit`**:
-   - Datacommons Model Context Protocol (MCP) server and tools (`src/datacommons_mcp/`).
-6. **`datacommonsorg/datacommons-data`**:
-   - Data preprocessor container image built from `import/simple/` and `website/build/cdc_data/`.
+        prompt = f"""You are an expert Technical Release Manager for the Data Commons Platform (DCP). Your task is to analyze raw PR metadata and draft structured, user-centric release notes for version `{manifest.new_version}` (previous version: `{manifest.previous_version}`).
 
 ---
 
-### Classification Rules & SOP Categories:
-Categorize EVERY feature into EXACTLY ONE of these 4 standard SOP categories based on its files and description:
-
-1. **"Spanner Graph & APIs"**:
-   - Features touching SDMX 3.0 REST endpoints, `/v2/observation` StatVar data retrieval, Spanner gRPC graph serving, `proto/` definitions, or `agent-toolkit` MCP server/tools.
-2. **"Ingestion & Safety"**:
-   - Features touching Dataflow Java worker (`pipeline/ingestion/`), `ingestion-helper`, `aggregation-helper`, Spanner table loading, timestamp bounds, data validation, or health probes.
-3. **"Search & Website"**:
-   - Features touching Spanner vector embeddings (`NodeEmbedding`), private instance `detect-and-fulfill`, Nginx/Envoy, Website UI, or Admin Portal UI.
-4. **"Infra & Tooling"**:
-   - Features touching `infra/dcp/` (Terraform), `datacommons-cli`/`admin` PyPI packages, monorepo root configs, or Cloud Build release pipelines.
+### 1. CONTEXT & DOMAIN KNOWLEDGE
+Data Commons Platform (DCP) is a self-hosted, Cloud Spanner-backed deployment of Data Commons. It replaces legacy Bigtable with Cloud Spanner graph tables and vector embeddings. It features custom data ingestion pipelines, specialized serving APIs, and deployment automation across 6 repositories:
+1. `datacommonsorg/datacommons` (Monorepo): Terraform modules (`infra/dcp/`, `infra/modules/`), CLI tools (`packages/datacommons-cli/`), and Admin Portal (`packages/datacommons-admin/`).
+2. `datacommonsorg/website`: Web application serving UI and APIs (`server/`, `static/`, `build/cdc_services/`, `build/cdc_data/`).
+3. `datacommonsorg/mixer`: Core Spanner gRPC graph and StatVar serving engine (`internal/server/`, `proto/`).
+4. `datacommonsorg/import`: Data processing pipelines (`simple/`, `pipeline/ingestion/` Dataflow Java worker, `pipeline/workflow/ingestion-helper/`, `pipeline/workflow/aggregation-helper/`).
+5. `datacommonsorg/agent-toolkit`: Datacommons Model Context Protocol (MCP) server and tools (`src/datacommons_mcp/`).
+6. `datacommonsorg/datacommons-data`: Data preprocessor container image built from `import/simple/` and `website/build/cdc_data/`.
 
 ---
 
-### Task Instructions:
-1. **Filter Out & Ignore Internal Dev & Testing PRs (STRICT)**:
-   - Completely IGNORE automated bot PRs (e.g. dependabot, renovate, 'chore: bump version to 1.1.1').
-   - Completely IGNORE all test-only PRs: integration test setups, Spanner Omni test conversions, CI sandbox workflows, local test harnesses, hermetic test refactors, and test-only sample data updates (e.g. OECD wage sample data). DO NOT output any FeatureUpdate for test-only PRs!
-   - Completely IGNORE trivial formatting, typo fixes, or non-informative refactors with zero user impact.
+### 2. CLASSIFICATION RULES (SOP CATEGORIES)
+Categorize EVERY valid feature into EXACTLY ONE of these 4 categories based on its files and description:
+* **"Spanner Graph & APIs"**: Features touching SDMX 3.0 REST endpoints, `/v2/observation` StatVar data retrieval, Spanner gRPC graph serving, `proto/` definitions, or `agent-toolkit` MCP server/tools.
+* **"Ingestion & Safety"**: Features touching Dataflow Java worker (`pipeline/ingestion/`), `ingestion-helper`, `aggregation-helper`, Spanner table loading, timestamp bounds, data validation, or health probes.
+* **"Search & Website"**: Features touching Spanner vector embeddings (`NodeEmbedding`), private instance `detect-and-fulfill`, Nginx/Envoy, Website UI, or Admin Portal UI.
+* **"Infra & Tooling"**: Features touching `infra/dcp/` (Terraform), `datacommons-cli`/`admin` PyPI packages, monorepo root configs, or Cloud Build release pipelines.
 
-2. **User Persona Focus (Building ON TOP OF Platform)**:
-   - Write for people **building ON TOP OF the platform** (data engineers, API consumers, instance operators).
-   - Focus on **Ingestion Inputs & Pipelines** (CSV/SDMX inputs, import workflows, validation rules) and **APIs & Tooling** (REST APIs, SDMX 3.0 endpoints, `/v2/observation`, MCP tools, Web UI, Admin CLI).
-   - **De-emphasize Database Layer Details**: Minimize mentions of Spanner database internals (e.g. Spanner graph schema, KeyValueStore cutover). Focus instead on the user-facing API or Ingestion behavior change.
+---
 
-3. **Feature Grouping & Deduplication**:
-   - Combine related PRs (e.g., an initial feature PR + follow-up bug fixes + test PRs) into a SINGLE cohesive `FeatureUpdate`.
-   - List all included PR qualified IDs in `included_prs` (e.g. `["datacommons#188", "datacommons#189"]`).
+### 3. STRICT FILTERING & DEDUPLICATION RULES
+* **EXCLUDE Internal Dev & Testing PRs**: 
+  * Ignore automated bot PRs (e.g., Dependabot, Renovate, "chore: bump version").
+  * Ignore all test-only PRs (e.g., integration test setups, Spanner Omni test conversions, CI sandbox workflows, local test harnesses, hermetic test refactors, and test-only sample data updates like OECD wage sample data).
+  * Ignore formatting, typos, or non-informative refactors with zero user impact.
+* **Deduplicate & Group Related PRs**: 
+  * Combine related PRs (e.g., an initial feature PR + follow-up bug fixes + post-feature adjustments) into a SINGLE cohesive `FeatureUpdate`.
+  * If PRs conflict or supersede each other, describe ONLY the final chronological state at `{manifest.new_version}`.
 
-4. **Supersede Resolution & Chronology**:
-   - Use `merged_at` timestamps to understand commit order.
-   - If a PR was superseded or modified by a later PR in this release, describe only the FINAL state at {manifest.new_version}.
+---
 
-5. **Actionable Per-PR Capability & Use Case Summaries**:
-   - For EVERY PR listed in `included_prs`, provide a specific 1-2 sentence summary under `pr_contributions` describing an **explicit thing the user can DO or input format supported** because of this PR (e.g., `{{"agent-toolkit#211": "Query bilateral trade and migration relationships between multiple entities", "datacommons#189": "Configure max_workers in Terraform to scale Dataflow workers automatically for large imports"}}`). DO NOT list internal code refactors!
+### 4. WRITING STYLE & PERSONA FOCUS
+* **Target Audience**: Write for platform users, data engineers, API consumers, and instance operators building ON TOP of DCP.
+* **User Capability Focus**: Frame the "description" and "pr_contributions" around what the user can *actually do* or what *input formats* are now supported (e.g., "Configure max_workers in Terraform to scale Dataflow workers automatically" instead of "Added Terraform max_workers variable").
+* **De-emphasize DB Internals**: Minimize mentions of Spanner database internals (e.g., Spanner graph schema, KeyValueStore cutover). Focus instead on the user-facing API or Ingestion behavior change.
 
+---
+
+### 5. INPUT DATA
+* **Instructions Context**: 
 {instructions_context}
-
-### Raw Merged PRs:
+* **Raw Merged PRs**: 
 {json.dumps(detailed_prs, indent=2)}
 
-Respond ONLY with a JSON array of FeatureUpdate objects with the following schema:
+---
+
+### 6. OUTPUT FORMAT
+Respond ONLY with a valid JSON array of `FeatureUpdate` objects conforming strictly to the schema below. 
+Do not include markdown code block formatting (such as ```json) or any conversational text before or after the JSON. Output raw JSON only.
+
 [
   {{
     "id": "short_unique_snake_case_id",
     "title": "Clear Technical Feature Title",
-    "description": "2-3 sentence technical description of the feature, changes, and impact.",
+    "description": "2-3 sentence technical description of the feature, explaining the change and its user-facing impact.",
     "category": "Spanner Graph & APIs | Ingestion & Safety | Search & Website | Infra & Tooling",
     "target_components": ["dcp", "services", "preprocessing", "dataflow_worker", "ingestion_helper", "postprocessing"],
-    "included_prs": ["datacommons#188", "datacommons#189"],
+    "included_prs": ["agent-toolkit#211", "datacommons#189"],
     "pr_contributions": {{
       "agent-toolkit#211": "Query bilateral trade and migration relationships between multiple entities",
       "datacommons#189": "Configure max_workers in Terraform to scale Dataflow workers automatically for large imports"
     }},
     "is_dcp_relevant": true,
-    "breaking_changes": "Optional string describing breaking change if any, else null"
+    "breaking_changes": "Detailed description of the breaking change if any, otherwise null"
   }}
 ]
 """
