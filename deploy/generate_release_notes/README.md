@@ -1,14 +1,46 @@
 # Data Commons Platform (DCP) Release Notes Generator
 
-An agentic, multi-repository tool for generating publication-ready, partner-facing release notes for the Data Commons Platform (DCP).
+An agentic, skill-driven tool suite for generating publication-ready, partner-facing release notes for the Data Commons Platform (DCP).
 
-The tool automatically extracts merged Pull Requests across all 6 core Data Commons repositories, classifies them according to standard SOP categories using Gemini 3.6 Flash, filters out internal test noise and regressions, and formats concise release notes tailored for developers and platform operators building on top of DCP.
+The tool automatically extracts merged Pull Requests across all 6 core Data Commons repositories, classifies them according to standard SOP categories, filters out internal test noise and regressions, writes human-verifiable PR lists per container image (`output/prs_<component>.txt`), and formats concise release notes tailored for developers and platform operators building on top of DCP.
 
 ---
 
-## Architecture Overview
+## Agentic Skill Suite Architecture
 
-The tool operates as a structured 3-step pipeline:
+The tool can be executed natively by Jetski using 4 specialized `SKILL.md` instruction sets:
+
+```
+deploy/generate_release_notes/
+├── SKILL.md                          <-- 1. Orchestrator Skill (Master Entrypoint)
+├── skills/
+│   ├── pr-extraction/
+│   │   └── SKILL.md                  <-- 2. PR Extraction & Image Tag Resolution Skill
+│   ├── dcp-context/
+│   │   └── SKILL.md                  <-- 3. DCP Domain Context & Architectural Map
+│   └── release-writer/
+│       └── SKILL.md                  <-- 4. Partner-Facing Release Notes Writer
+└── output/                            <-- Verification & Output Directory
+    ├── prs_services.txt              <-- Verified PRs for Core Services (Website, Mixer, MCP)
+    ├── prs_preprocessing.txt         <-- Verified PRs for Data Preprocessor (datacommons-data)
+    ├── prs_dataflow_worker.txt       <-- Verified PRs for Dataflow Worker
+    ├── prs_ingestion_helper.txt      <-- Verified PRs for Ingestion Helper
+    ├── prs_postprocessing.txt        <-- Verified PRs for Postprocessing Helper
+    ├── prs_dcp_monorepo.txt          <-- Verified PRs for DCP Monorepo & Infra
+    └── RELEASE_NOTES_v1.1.1.md       <-- Final Publication-Ready Release Notes
+```
+
+### How to Run via Jetski:
+Simply ask Jetski:
+> *"Jetski, generate release notes for v1.1.0 to v1.1.1 using the dcp-release-notes skill."*
+
+Jetski will orchestrate specialized subagents, resolve container image tags via `gcloud`, extract PRs via `gh pr list`, write human-verifiable `output/prs_<component>.txt` files per image, apply domain context, and author publication-ready GFM release notes!
+
+---
+
+## CLI Execution (Python Pipeline)
+
+Alternatively, you can run the standalone Python CLI tool:
 
 ```
 ┌─────────────────────────┐     ┌──────────────────────────────┐     ┌────────────────────────────┐
@@ -17,13 +49,9 @@ The tool operates as a structured 3-step pipeline:
 └─────────────────────────┘     └──────────────────────────────┘     └────────────────────────────┘
 ```
 
-1. **Step 1: PR Extractor (`pr_extractor.py`)**: Resolves container image tags across Artifact Registry (`gcr.io/datcom-ci/datacommons-services`, `datacommons-data`, etc.) and Git tags. Queries GitHub CLI (`gh pr list`) in a single date-range search per repository to fetch all merged PRs between versions.
-2. **Step 2: Feature Extractor (`feature_extractor.py`)**: Uses Gemini 3.6 Flash to filter out Dependabot PRs, test-only refactors, and intermediate release-window regressions (via deterministic file diff footprint matching). Synthesizes remaining PRs into structured `FeatureUpdate` objects categorized under:
-   - **Spanner Graph & APIs** (SDMX 3.0 REST endpoints, `/v2/observation`, Mixer gRPC, MCP tools)
-   - **Ingestion & Safety** (Dataflow workers, workflow orchestration, preprocessor, health probes)
-   - **Search & Website** (Vector embeddings, search scope targeting, Website UI)
-   - **Infra & Tooling** (Terraform modules, Admin CLI, monorepo versioning)
-3. **Step 3: Release Notes Writer (`release_notes_writer.py`)**: Renders publication-ready GitHub Flavored Markdown (GFM) using the **"So What?" Rule**, strict **Anti-AI-Fluff Word Budgets**, side-by-side **DO vs. DON'T guidelines**, and clickable `[repo#PR](URL)` links.
+1. **Step 1: PR Extractor (`pr_extractor.py`)**: Resolves container image tags across Artifact Registry and Git tags. Queries GitHub CLI (`gh pr list`) in a single date-range search per repository to fetch all merged PRs between versions.
+2. **Step 2: Feature Extractor (`feature_extractor.py`)**: Uses Gemini 3.6 Flash to filter out Dependabot PRs, test-only refactors, and intermediate release-window regressions (via deterministic file diff footprint matching).
+3. **Step 3: Release Notes Writer (`release_notes_writer.py`)**: Renders publication-ready GitHub Flavored Markdown (GFM) using the **"So What?" Rule**, strict **Anti-AI-Fluff Word Budgets**, and clickable `[repo#PR](URL)` links.
 
 ---
 
