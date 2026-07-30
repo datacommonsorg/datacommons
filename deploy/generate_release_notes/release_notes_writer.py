@@ -34,7 +34,7 @@ from deploy.generate_release_notes.models import (
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_WRITER_MODEL = "gemini-3.5-flash"
+DEFAULT_WRITER_MODEL = "gemini-3.6-flash"
 
 
 class ReleaseNotesWriter:
