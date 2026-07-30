@@ -11,14 +11,14 @@ This skill orchestrates the end-to-end generation of publication-ready, partner-
 
 ## Component & Container Image Registry
 
-| Component Key | Component Name | Container Image URI / Artifact | Source Repos & Path Filters | Output Verification File |
+| Component Key | Component Name | Container Image URI / Artifact | Source Repos & Content Focus | Output Verification File |
 | :--- | :--- | :--- | :--- | :--- |
-| `services` | Core Services (Website, Mixer, MCP Agent) | `gcr.io/datcom-ci/datacommons-services` | `datacommonsorg/website`<br>`datacommonsorg/mixer`<br>`datacommonsorg/agent-toolkit` | `output/prs_services.txt` |
-| `preprocessing` | Data Preprocessor | `gcr.io/datcom-ci/datacommons-data` | `datacommonsorg/import` (filter: `simple/`) | `output/prs_preprocessing.txt` |
-| `dataflow_worker` | Dataflow Ingestion Worker | `us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion` | `datacommonsorg/import` (filter: `pipeline/ingestion/`) | `output/prs_dataflow_worker.txt` |
-| `ingestion_helper` | Ingestion Helper Service | `gcr.io/datcom-ci/datacommons-ingestion-helper` | `datacommonsorg/import` (filter: `pipeline/workflow/ingestion-helper/`) | `output/prs_ingestion_helper.txt` |
-| `postprocessing` | Postprocessing Helper Service | `gcr.io/datcom-ci/datacommons-aggregation-helper` | `datacommonsorg/import` (filter: `pipeline/workflow/aggregation-helper/`) | `output/prs_postprocessing.txt` |
-| `dcp_monorepo` | DCP Monorepo & Terraform Infra | DCP Monorepo | `datacommonsorg/datacommons` | `output/prs_dcp_monorepo.txt` |
+| `services` | Core Services (Website, Mixer, MCP Agent) | `gcr.io/datcom-ci/datacommons-services` | `datacommonsorg/website`<br>`datacommonsorg/mixer`<br>`datacommonsorg/agent-toolkit`<br>*(Serving APIs, SDMX 3.0, FastMCP, UI)* | `output/prs_services.txt` |
+| `preprocessing` | Data Preprocessor | `gcr.io/datcom-ci/datacommons-data` | `datacommonsorg/import`<br>*(CSV/MCF validation, JSON-LD streaming batching)* | `output/prs_preprocessing.txt` |
+| `dataflow_worker` | Dataflow Ingestion Worker | `us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion` | `datacommonsorg/import`<br>*(Dataflow pipelines, TFRecord loading, Spanner graph transforms)* | `output/prs_dataflow_worker.txt` |
+| `ingestion_helper` | Ingestion Helper Service | `gcr.io/datcom-ci/datacommons-ingestion-helper` | `datacommonsorg/import`<br>*(Cloud Workflows status tracking, run history tables)* | `output/prs_ingestion_helper.txt` |
+| `postprocessing` | Postprocessing Helper Service | `gcr.io/datcom-ci/datacommons-aggregation-helper` | `datacommonsorg/import`<br>*(Graph postprocessing rollups, StatVar/Place aggregations, summary store)* | `output/prs_postprocessing.txt` |
+| `dcp_monorepo` | DCP Monorepo & Terraform Infra | DCP Monorepo | `datacommonsorg/datacommons`<br>*(Terraform modules, Admin CLI, deployment infra)* | `output/prs_dcp_monorepo.txt` |
 
 ---
 
