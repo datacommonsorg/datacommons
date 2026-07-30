@@ -204,9 +204,8 @@ Data Commons Platform (DCP) is a self-hosted, Cloud Spanner-backed deployment of
 * **BANNED AI FLUFF WORDS (STRICT)**: DO NOT use AI cliché words: `seamlessly`, `empower`, `leveraging`, `robust`, `overhaul`, `delivers a major`, `comprehensive`, `fosters`, `game-changing`, `cutting-edge`, `paradigm`. Write simple, direct sentences instead!
 * **STRICT WORD COUNT BUDGETS**:
     * **Executive Summary**: Maximum 25 words (1 single, punchy sentence).
-    * **What's New**: 15-20 words max (1 direct sentence).
-    * **Why it Matters**: 15-20 words max (1 direct sentence).
-    * **Capabilities & Changes Bullets**: 12-15 words max per bullet.
+    * **What's New**: Combine description and user benefit into 1 concise paragraph (25-35 words max).
+    * **Specific Capabilities Bullets**: 12-15 words max per bullet.
 * **The "So What?" Rule**: Do not just list code changes. Frame every update around user capability (e.g., *what* can the developer do now, *which* inputs are accepted, or *how* does this affect query performance/scalability?).
 * **Extract Concrete Enums & Configuration Values (STRICT)**: Whenever an update introduces or modifies a configuration variable, CLI flag, environment variable, or Terraform setting, DO NOT summarize it generically (e.g., "Configured search scope"). ALWAYS extract and list the specific valid values or enums (e.g., `custom_only`, `base_only`, `base_and_custom`, `--instance_name`, processing unit bounds) and explain the exact behavior or filtering capability each option enables for operators!
 * **FOCUS ON EXTERNAL CONTRACTS & CAPABILITIES (ZERO INTERNAL IMPLEMENTATION MECHANICS)**:
@@ -277,11 +276,9 @@ Generate GFM matching the exact structure below. Do not add any greeting, intro,
 
 ### [Feature Title]
 
-**What's New**: [Clear description of what partners or operators can now do]
+**What's New**: [Clear 1-2 sentence description combining what changed and why it is important / user capability enabled.]
 
-**Why it Matters**: [Business benefit, technical impact, or performance advantage]
-
-**Capabilities & Use Cases Enabled**:
+**Specific Capabilities**:
 - [Actionable Use Case / Input Capability 1] ([repo_short#PR](URL))
 - [Actionable Use Case / Input Capability 2] ([repo_short#PR](URL))
 
