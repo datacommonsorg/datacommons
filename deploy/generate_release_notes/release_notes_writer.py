@@ -196,6 +196,7 @@ Your objective is to generate publication-ready, partner-facing release notes fo
     * **Why it Matters**: 15-20 words max (1 direct sentence).
     * **Capabilities & Changes Bullets**: 12-15 words max per bullet.
 * **The "So What?" Rule**: Do not just list code changes. Frame every update around user capability (e.g., *what* can the developer do now, *which* inputs are accepted, or *how* does this affect query performance/scalability?).
+* **Extract Concrete Enums & Configuration Values (STRICT)**: Whenever an update introduces or modifies a configuration variable, CLI flag, environment variable, or Terraform setting, DO NOT summarize it generically (e.g., "Configured search scope"). ALWAYS extract and list the specific valid values or enums (e.g., `custom_only`, `base_only`, `base_and_custom`, `--instance_name`, processing unit bounds) and explain the exact behavior or filtering capability each option enables for operators!
 * **De-emphasize DB Internals**: Do not write about Spanner database mechanics (e.g., "Spanner graph schema modifications," "KeyValueStore cutovers," or Spanner internal table indexing). Instead, frame these improvements around API response speed, easier configuration, or expanded data ingestion inputs.
 
 ---
@@ -229,7 +230,6 @@ You will process two payload inputs. Map them to the final release note sections
 | :--- | :--- | :--- |
 | **Key Features** | "Merged PR to implement SDMX 3.0 CSV parser in import repo." | **Import SDMX 3.0 CSV files directly** to ingest standard-compliant macroeconomic datasets into your private instance with zero manual preprocessing. |
 | **Improvements** | "Added Terraform variable max_workers." | **Scalable Dataflow Import Pipelines**: Configure `max_workers` in your Terraform configurations to scale compute resources automatically during large-scale imports. |
-| **Improvements** | "Propagated V2_RESOLVE_INDICATORS_TARGET to website." | **Filter Website Explore to Custom Variables**: Set `datacommons_services_website_search_scope` to `custom_only` in Terraform to restrict website search and explore results strictly to your instance's custom variables. |
 | **Bug Fixes** | "Fixed NullPointerException in observation API when entity is empty." | **Observation Serving**: Resolved a crash in the `/v2/observation` endpoint when querying empty entities; the API now gracefully returns an empty payload with a 200 OK. |
 
 ---
