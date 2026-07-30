@@ -150,9 +150,12 @@ class ReleaseNotesWriter:
             f"Step 3: Rendering release notes for {manifest.new_version} using {self.model_name}..."
         )
 
-        # Build payloads for prompt
+        # Build payloads for prompt — include ONLY DCP-relevant user/partner features
         features_payload = []
         for feat in features:
+            if not feat.is_dcp_relevant:
+                logger.info(f"Omitting non-DCP-relevant feature from release notes: {feat.title}")
+                continue
             features_payload.append(
                 {
                     "id": feat.id,
