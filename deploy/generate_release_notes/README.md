@@ -2,7 +2,7 @@
 
 An agentic, skill-driven tool suite for generating publication-ready, partner-facing release notes for the Data Commons Platform (DCP).
 
-The tool automatically extracts merged Pull Requests across all 6 core Data Commons repositories, classifies them according to standard SOP categories, filters out internal test noise and regressions, writes human-verifiable PR lists per container image (`output/prs_<component>.txt`), and formats concise release notes tailored for developers and platform operators building on top of DCP.
+The tool automatically extracts merged Pull Requests across all 6 core Data Commons repositories, classifies them according to platform layer and technical impact, filters out internal test noise and regressions, writes human-verifiable PR lists per container image (`output/prs_<component>.txt`), and formats concise release notes tailored for developers and platform operators building on top of DCP.
 
 ---
 
@@ -71,29 +71,14 @@ Your LLM agent will load `skills/release-writer/SKILL.md` and author the publica
 The master entrypoint skill that coordinates subagent execution, manages the step-by-step pipeline, and ensures intermediate verification files are generated before writing the final release notes.
 
 ### 2. PR Extraction Skill (`skills/pr-extraction/SKILL.md`)
-Contains exact commands and rules for `gcloud container images list-tags` resolution, date-range `gh pr list` queries, non-production test filtering, and intermediate regression exclusion.
+Contains exact commands and rules for `gcloud container images list-tags` resolution (with strict user prompt on missing tags), date-range `gh pr list` queries, non-production test filtering, and intermediate regression exclusion.
 
 ### 3. DCP Domain Context Skill (`skills/dcp-context/SKILL.md`)
 Defines the architectural map across all 6 core repositories (`datacommons`, `website`, `mixer`, `agent-toolkit`, `import`) and enforces strict **External Contracts & Operator Capabilities** vs. **Zero Internal Implementation Mechanics** (no internal database table names or DDLs).
 
 ### 4. Release Writer Skill (`skills/release-writer/SKILL.md`)
 Defines the non-verbose, partner-facing GFM format:
-- **Executive Summary**: 1 single sentence (max 25 words).
+- **Dynamic Executive Summary**: Scales length dynamically with release size (2–3 sentences for major releases, 1 punchy sentence for patch releases).
 - **Key Feature Updates**: **What's New** (1 paragraph combining description + benefit) followed by **Specific Capabilities** (bullet points with `[repo#PR](URL)` links).
 - **Improvements & Configuration Updates**: Bullet points extracting concrete enums (`custom_only`, `base_only`) and scaling limits (`max_workers`).
 - **Bug Fixes**: 3–5 high-level functional categories (Deployment, Ingestion, Serving APIs, UI).
-
----
-
-## Repository Mapping
-
-| Repository | Scope / Path Filter | Target Component & Image |
-| :--- | :--- | :--- |
-| `datacommonsorg/datacommons` | All PRs (`infra/dcp/`, `packages/`) | DCP Monorepo & Infra (`dcp`) |
-| `datacommonsorg/website` | All PRs (excluding `cdc_data/`) | Core Services (`services`) $\rightarrow$ `gcr.io/datcom-ci/datacommons-services` |
-| `datacommonsorg/mixer` | All PRs (`internal/server/`, `proto/`, `deploy/`) | Core Services (`services`) $\rightarrow$ `gcr.io/datcom-ci/datacommons-services` |
-| `datacommonsorg/agent-toolkit` | All PRs (`src/datacommons_mcp/`) | Core Services (`services`) $\rightarrow$ `gcr.io/datcom-ci/datacommons-services` |
-| `datacommonsorg/import` | `simple/` | Data Preprocessor (`preprocessing`) $\rightarrow$ `gcr.io/datcom-ci/datacommons-data` |
-| `datacommonsorg/import` | `pipeline/ingestion/` | Dataflow Worker (`dataflow_worker`) $\rightarrow$ Dataflow Templates |
-| `datacommonsorg/import` | `pipeline/workflow/ingestion-helper/` | Ingestion Helper (`ingestion_helper`) $\rightarrow$ `datacommons-ingestion-helper` |
-| `datacommonsorg/import` | `pipeline/workflow/aggregation-helper/` | Postprocessing Helper (`postprocessing`) $\rightarrow$ `datacommons-aggregation-helper` |
