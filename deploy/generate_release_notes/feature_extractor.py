@@ -144,8 +144,10 @@ Categorize EVERY valid feature into EXACTLY ONE of these 4 categories based on i
 
 ---
 
-### 4. WRITING STYLE & PERSONA FOCUS
+### 4. WRITING STYLE & PERSONA FOCUS (CONCISE & ANTI-FLUFF)
 * **Target Audience**: Write for platform users, data engineers, API consumers, and instance operators building ON TOP of DCP.
+* **BANNED AI FLUFF WORDS (STRICT)**: DO NOT use AI cliché words: `seamlessly`, `empower`, `leveraging`, `robust`, `overhaul`, `delivers a major`, `comprehensive`, `fosters`, `game-changing`, `cutting-edge`, `paradigm`. Write simple, direct sentences instead!
+* **Concise Sentence Budget**: Keep `description` to 1-2 punchy sentences (max 25 words). Keep `pr_contributions` summaries to 1 short sentence (12-15 words max per PR).
 * **User Capability Focus**: Frame the "description" and "pr_contributions" around what the user can *actually do* or what *input formats* are now supported (e.g., "Configure max_workers in Terraform to scale Dataflow workers automatically" instead of "Added Terraform max_workers variable").
 * **De-emphasize DB Internals**: Minimize mentions of Spanner database internals (e.g., Spanner graph schema, KeyValueStore cutover). Focus instead on the user-facing API or Ingestion behavior change.
 
