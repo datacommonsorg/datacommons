@@ -22,21 +22,15 @@ When invoked, you will receive the following parameters:
 
 ## Execution Steps
 
-### 1. Container Image Tag & Timestamp Resolution
-1. **Primary Tag Resolution (Artifact Registry / GCR)**:
-   Attempt to resolve the creation timestamp for `<prev_version>` and `<new_version>` for your assigned `image_uri`:
+### 1. Container Image Tag & Timestamp Resolution (NO AUTOMATIC FALLBACK)
+1. **Artifact Registry Tag Resolution**:
+   Resolve the creation timestamp for `<prev_version>` and `<new_version>` for your assigned `image_uri`:
    ```bash
    gcloud container images list-tags <image_uri> --filter="tags:<version>" --format="value(timestamp.datetime)"
    ```
-2. **Fallback Tag Resolution (Git Release Tags)**:
-   If `gcloud` returns no timestamp (e.g. tag naming difference like `v1.1.0` vs `1.1.0` or missing image), resolve the timestamp directly from git or GitHub release:
-   ```bash
-   gh release view <version> --repo <repo_name> --json publishedAt --jq '.publishedAt'
-   # Or via git tag:
-   git log -1 --format=%cI <version>
-   ```
-3. **Staging / Unreleased Target Tag**:
-   If `<new_version>` is unreleased or image tag is missing during staging, set `t_new` to the current time `NOW()`.
+2. **STRICT MANDATE — ASK USER ON MISSING TAGS**:
+   If an image tag does NOT exist in Artifact Registry for `<prev_version>` or `<new_version>`, **DO NOT automatically guess, synthesize, or fall back to git tags**. 
+   Stop immediately and ask the user how to proceed (e.g., provide an alternative tag, specify custom date boundaries, or pass `--allow-missing-images` to use `NOW()`).
 
 ### 2. Single Date-Range PR Search per Repository
 For each assigned source repository, execute a single `gh pr list` query spanning `[t_prev .. t_new]`:
@@ -65,7 +59,9 @@ Categorize every PR into either **Relevant PRs** or **Excluded PRs**:
    - **Bot & Non-Production Chores**: Dependabot bumps, automated version bumps, unit/integration test harness refactors, or test sample data removals.
 
 ### 5. Write Verification File (`prs_<component>.txt`)
-Format and write the extracted PRs into your assigned `output_file`, including an **Irrelevant / Excluded PRs** section at the bottom for developer audit.
+Format and write the extracted PRs into your assigned `output_file`, including a complete **Irrelevant / Excluded PRs** section at the bottom for developer audit.
+
+*MANDATE*: Every single PR that is NOT included in Relevant Production PRs MUST be listed under Excluded PRs with an explicit, 1-sentence `Reason:` explaining why it was ignored (e.g., Base DC flag flip, revert pair, intermediate regression fix, bot bump, or test harness refactor).
 
 For each relevant PR, provide:
 1. **URL**: Explicit GitHub PR URL for GFM link generation (`https://github.com/...`).
@@ -97,7 +93,11 @@ URL: {url}
 ================================================================================
 
 [{repo_short}#{number}] {title}
-Reason: Excluded - Base DC-only flag flip / internal feature toggle
+Reason: Excluded - Base DC-only flag flip / internal feature toggle without platform impact
+URL: {url}
+
+[{repo_short}#{number}] {title}
+Reason: Excluded - Revert PR pair (reverted by PR {revert_pr_id} merged in current release window)
 URL: {url}
 
 [{repo_short}#{number}] {title}

@@ -49,13 +49,18 @@ Data Commons Platform (DCP) is a self-hosted, Cloud Spanner-backed deployment of
 
 ---
 
-## 3. SOP Categories & Release Notes Mapping Matrix
+## 3. Section Mapping & Release Content Principles
 
-The 4 SOP categories translate directly into the sections of the final release notes document:
+Rather than using arbitrary internal categories, map changes directly into the three standard release notes sections based on technical impact:
 
-| SOP Category | Scope & Included Components | Release Notes Section Mapping |
-| :--- | :--- | :--- |
-| **Spanner Graph & APIs** | Mixer gRPC, SDMX 3.0 REST, `/v2/observation`, FastMCP tools | **Key Feature Updates** (Major API/MCP Features)<br>**Bug Fixes**: *Serving API & Query Robustness* |
-| **Ingestion & Safety** | Preprocessor, Dataflow workers, Cloud Workflows, postprocessing rollups | **Key Feature Updates** (Major Pipeline Features)<br>**Improvements**: *Dataflow Transformations / Postprocessing*<br>**Bug Fixes**: *Ingestion Pipeline Reliability* |
-| **Search & Website** | Vector embeddings, semantic search, Explore UI, Download Tool, Place Browser | **Key Feature Updates** (Search/Embeddings)<br>**Improvements**: *Website Exploration Tools*<br>**Bug Fixes**: *Web UI & Visualization* |
-| **Infra & Tooling** | Terraform modules, Admin CLI (`datacommons admin`), Cloud Run, IAM roles | **Improvements**: *Terraform Infrastructure & Auto-Scaling*<br>**Bug Fixes**: *Deployment & Infrastructure Reliability* |
+1. **Key Feature Updates**:
+   - Major, high-impact capabilities introduced in this release (e.g., SDMX 3.0 REST Data & Availability APIs, FastMCP AI agent tools, streaming JSON-LD preprocessors, vector search embeddings).
+   - Must follow the non-verbose format: **What's New** (1 paragraph combining description + benefit) followed by **Specific Capabilities** (bullet points with `[repo#PR](URL)` links).
+
+2. **Improvements & Configuration Updates**:
+   - Incremental enhancements, operator tools, Terraform variables (`max_workers`, BigQuery slots), CLI flags (`--instance_name`), and scaling optimizations.
+   - Must extract concrete enums (e.g. `custom_only`, `base_only`) and explicit configuration parameters.
+
+3. **Bug Fixes**:
+   - Synthesized into 3 to 5 functional categories (*Deployment & Infrastructure*, *Ingestion Pipeline Reliability*, *Serving API & Query Robustness*, *Web UI & Visualization*).
+   - Must ONLY include true platform bug fixes present in prior releases (excluding intra-release intermediate fixes).
