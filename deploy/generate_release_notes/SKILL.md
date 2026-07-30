@@ -30,6 +30,10 @@ When requested to generate release notes (e.g., *"Generate release notes for v1.
 1. Identify the previous release tag (`<prev_version>`, e.g., `v1.1.0`) and target release tag (`<new_version>`, e.g., `v1.1.1`).
 2. Ensure `deploy/generate_release_notes/output/` directory exists.
 
+> [!IMPORTANT]
+> **DO NOT resolve image tags or run `gcloud` commands in the orchestrator.**
+> The orchestrator MUST NOT query Artifact Registry or inspect image creation timestamps up front. Simply pass the raw version strings (`<prev_version>` and `<new_version>`) to each subagent and let them resolve their assigned image tags concurrently.
+
 ### Step 2: Spawn PR Extraction Subagents
 Call `invoke_subagent` to spawn subagents concurrently across the components above. 
 
