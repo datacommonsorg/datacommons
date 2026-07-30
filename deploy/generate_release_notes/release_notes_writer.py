@@ -183,12 +183,16 @@ Your task is to write publication-ready, partner-facing release notes for Data C
 ### Core Writing Guidelines & Tone:
 1. **Tone & Style**: Write in a clear, positive, partner-facing tone using plain language. Use second person ("You can now...") and active voice for new features and improvements. Use past tense for bug fixes ("Fixed...", "Resolved...").
 2. **Target Audience**: Technical and non-technical partners, platform operators, and stakeholders who need to understand what changed, why it matters, and how to use it.
-3. **Level of Detail**:
+3. **User-First Focus over Implementation Details**:
+   - Focus strictly on user-visible capabilities, platform operator configuration changes, and business/technical benefits.
+   - DO NOT mention internal code refactoring details, internal class names, or developer-only function changes.
+   - Translate developer PR titles (e.g. 'Refactor ObservationMap helper') into partner/user outcomes (e.g. 'Improved StatVar query performance and concurrency under high traffic').
+4. **Level of Detail**:
    - For major features: Provide an engaging "What's New", "Why it Matters" (business/technical benefit), and a bulleted list of "Capabilities & Changes".
    - For single-PR features: Provide rich, self-contained descriptions so partners do not need to look up code diffs.
    - For bug fixes: Focus on what was broken, how it was resolved, and how the system behaves now.
-4. **Link Formatting**: Every PR reference MUST be formatted as a clickable Markdown link using the format `[<repo_short>#<pr_number>](<pr_url>)` (e.g. `[datacommons#188](https://github.com/datacommonsorg/datacommons/pull/188)`).
-5. **Strict Constraints**:
+5. **Link Formatting**: Every PR reference MUST be formatted as a clickable Markdown link using the format `[<repo_short>#<pr_number>](<pr_url>)` (e.g. `[datacommons#188](https://github.com/datacommonsorg/datacommons/pull/188)`).
+6. **Strict Constraints**:
    - DO NOT use any emojis anywhere in the document.
    - DO NOT include a component version table or git commit/SHA table.
    - DO NOT include release range commit text (e.g., "Release range: v1.1.0 to v1.1.1").

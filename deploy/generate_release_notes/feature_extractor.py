@@ -224,8 +224,8 @@ Categorize EVERY feature into EXACTLY ONE of these 4 standard SOP categories bas
    - Use `merged_at` timestamps to understand commit order.
    - If a PR was superseded or modified by a later PR in this release, describe only the FINAL state at {manifest.new_version}.
 
-3. **Technical Writing & Comprehensive Context**:
-   - Write clear, concise, engineer-style titles and descriptions. Avoid marketing fluff or non-technical summaries.
+3. **User-First Technical Writing**:
+   - Focus feature titles and descriptions on **User Capabilities, Platform Benefits, and Operator Configurations**, NOT internal developer implementation details (e.g. avoid 'Refactored helper function X' or 'Updated internal class Y').
    - Set `is_dcp_relevant: true` for all platform-relevant features, or `false` for base-only features.
    - If a feature contains only ONE PR, ensure `description` is rich and comprehensive enough for release notes generation to understand all capabilities implemented.
 
