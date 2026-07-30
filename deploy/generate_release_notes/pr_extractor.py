@@ -214,6 +214,15 @@ class PRExtractor:
             raw_prs = json.loads(res.stdout)
             prs: List[PullRequest] = []
             for item in raw_prs:
+                merged_at = item.get("mergedAt", "")
+                # Strict timestamp check: omit PRs merged after new_timestamp if new_timestamp is set
+                if new_timestamp and merged_at:
+                    if merged_at > t_new:
+                        continue
+                if prev_timestamp and merged_at:
+                    if merged_at < t_prev:
+                        continue
+
                 author_login = (
                     item.get("author", {}).get("login", "unknown")
                     if isinstance(item.get("author"), dict)
@@ -236,7 +245,7 @@ class PRExtractor:
                     body=item.get("body", ""),
                     author=author_login,
                     url=item.get("url", ""),
-                    merged_at=item.get("mergedAt", ""),
+                    merged_at=merged_at,
                     repo_name=repo,
                     labels=labels,
                     files_changed=files,
