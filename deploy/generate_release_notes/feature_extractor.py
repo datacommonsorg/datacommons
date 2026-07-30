@@ -35,7 +35,7 @@ from deploy.generate_release_notes.models import (
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_FILTER_MODEL = "gemini-2.5-flash"
+DEFAULT_FILTER_MODEL = "gemini-3.5-flash"
 DEFAULT_SYNTHESIS_MODEL = "gemini-2.5-pro"
 
 VALID_SOP_CATEGORIES = {cat.value for cat in SOPCategory}
