@@ -117,7 +117,7 @@ class FeatureExtractor:
 Data Commons Platform (DCP) is a self-hosted, Cloud Spanner-backed deployment of Data Commons. It replaces legacy Bigtable with Cloud Spanner graph tables and vector embeddings. It features custom data ingestion pipelines, specialized serving APIs, and deployment automation across 6 repositories:
 1. `datacommonsorg/datacommons` (Monorepo): Terraform modules (`infra/dcp/`, `infra/modules/`), CLI tools (`packages/datacommons-cli/`), and Admin Portal (`packages/datacommons-admin/`).
 2. `datacommonsorg/website`: Web application serving UI and APIs (`server/`, `static/`, `build/cdc_services/`, `build/cdc_data/`).
-3. `datacommonsorg/mixer`: Core Spanner gRPC graph and StatVar serving engine (`internal/server/`, `proto/`).
+3. `datacommonsorg/mixer`: Core Spanner gRPC graph, StatVar serving engine, and ESPv2 gateway (`internal/server/`, `proto/`, `deploy/helm_charts/`).
 4. `datacommonsorg/import`: Data processing pipelines (`simple/`, `pipeline/ingestion/` Dataflow Java worker, `pipeline/workflow/ingestion-helper/`, `pipeline/workflow/aggregation-helper/`).
 5. `datacommonsorg/agent-toolkit`: Datacommons Model Context Protocol (MCP) server and tools (`src/datacommons_mcp/`).
 6. `datacommonsorg/datacommons-data`: Data preprocessor container image built from `import/simple/` and `website/build/cdc_data/`.
@@ -126,7 +126,7 @@ Data Commons Platform (DCP) is a self-hosted, Cloud Spanner-backed deployment of
 
 ### 2. CLASSIFICATION RULES (SOP CATEGORIES)
 Categorize EVERY valid feature into EXACTLY ONE of these 4 categories based on its files and description:
-* **"Spanner Graph & APIs"**: Features touching SDMX 3.0 REST endpoints, `/v2/observation` StatVar data retrieval, Spanner gRPC graph serving, `proto/` definitions, or `agent-toolkit` MCP server/tools.
+* **"Spanner Graph & APIs"**: Features touching SDMX 3.0 REST endpoints, ESPv2 query parameter handling, `/v2/observation` StatVar data retrieval, Spanner gRPC graph serving, `proto/` definitions, or `agent-toolkit` MCP server/tools.
 * **"Ingestion & Safety"**: Features touching Dataflow Java worker (`pipeline/ingestion/`), `ingestion-helper`, `aggregation-helper`, Spanner table loading, timestamp bounds, data validation, or health probes.
 * **"Search & Website"**: Features touching Spanner vector embeddings (`NodeEmbedding`), private instance `detect-and-fulfill`, Nginx/Envoy, Website UI, or Admin Portal UI.
 * **"Infra & Tooling"**: Features touching `infra/dcp/` (Terraform), `datacommons-cli`/`admin` PyPI packages, monorepo root configs, or Cloud Build release pipelines.
@@ -138,6 +138,10 @@ Categorize EVERY valid feature into EXACTLY ONE of these 4 categories based on i
   * Ignore automated bot PRs (e.g., Dependabot, Renovate, "chore: bump version").
   * Ignore all test-only PRs (e.g., integration test setups, Spanner Omni test conversions, CI sandbox workflows, local test harnesses, hermetic test refactors, and test-only sample data updates like OECD wage sample data).
   * Ignore formatting, typos, or non-informative refactors with zero user impact.
+* **EXCLUDE Internal Iteration Bug Fixes (Release Window Regressions)**:
+  * If a bug fix PR addresses a bug or regression introduced *within this same release window* (i.e. introduced after `{manifest.previous_version}` and fixed before `{manifest.new_version}`), DO NOT list it as a standalone Bug Fix!
+  * Fold it into the parent `FeatureUpdate` as part of that feature's development, or drop it if it was just an internal dev fix.
+  * ONLY list bugs under 'Bug Fixes' if the bug was present in `{manifest.previous_version}` or an earlier published release!
 * **Deduplicate & Group Related PRs**: 
   * Combine related PRs (e.g., an initial feature PR + follow-up bug fixes + post-feature adjustments) into a SINGLE cohesive `FeatureUpdate`.
   * If PRs conflict or supersede each other, describe ONLY the final chronological state at `{manifest.new_version}`.
