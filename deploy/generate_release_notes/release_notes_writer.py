@@ -197,7 +197,9 @@ Your task is to write publication-ready, partner-facing release notes for Data C
    - For major features: Provide an engaging "What's New", "Why it Matters" (business/technical benefit), and a bulleted list of "Capabilities & Changes".
    - For single-PR features: Provide rich, self-contained descriptions so partners do not need to look up code diffs.
    - For bug fixes: Focus on what was broken, how it was resolved, and how the system behaves now.
-6. **Link Formatting**: Every PR reference MUST be formatted as a clickable Markdown link using the format `[<repo_short>#<pr_number>](<pr_url>)` (e.g. `[datacommons#188](https://github.com/datacommonsorg/datacommons/pull/188)`).
+6. **Link Formatting**:
+   - Every PR reference MUST be formatted as a clickable Markdown link: `[<repo_short>#<pr_number>](<pr_url>)` (e.g. `[datacommons#188](https://github.com/datacommonsorg/datacommons/pull/188)`).
+   - DO NOT put backticks around or inside the link text (e.g. write `[datacommons#188](URL)`, NEVER `[`datacommons#188`](URL)` or `` `[datacommons#188](URL)` ``).
 7. **Strict Constraints**:
    - DO NOT use any emojis anywhere in the document.
    - DO NOT include a component version table or git commit/SHA table.
@@ -235,8 +237,8 @@ Your task is to write publication-ready, partner-facing release notes for Data C
 **What's New**: [Clear description of what partners or operators can now do]
 **Why it Matters**: [Business benefit and technical impact]
 **Capabilities & Changes**:
-- [Capability 1] ([`repo#PR`](URL))
-- [Capability 2] ([`repo#PR`](URL))
+- [Capability 1] ([repo#PR](URL))
+- [Capability 2] ([repo#PR](URL))
 
 ---
 
@@ -244,7 +246,7 @@ Your task is to write publication-ready, partner-facing release notes for Data C
 
 *(List enhancements, performance updates, or required Terraform/Admin Panel configuration changes as concise bullet points:)*
 
-- **[Improvement Title]**: [Summary of update, configuration instructions if required, and benefit] ([`repo#PR`](URL))
+- **[Improvement Title]**: [Summary of update, configuration instructions if required, and benefit] ([repo#PR](URL))
 
 ---
 
@@ -252,7 +254,7 @@ Your task is to write publication-ready, partner-facing release notes for Data C
 
 *(List ONLY substantive bug fixes that resolve user-facing errors, data issues, or platform operator failures in past tense. DO NOT include internal dev cleanups, test refactors, or unused example file removals:)*
 
-- **[Component / Scope]**: [Description of what was fixed and how the system behaves now] ([`repo#PR`](URL))
+- **[Component / Scope]**: [Description of what was fixed and how the system behaves now] ([repo#PR](URL))
 """
 
         try:
