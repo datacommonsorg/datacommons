@@ -12,7 +12,7 @@ This skill provides step-by-step instructions for a subagent to analyze all raw 
 ## Input & Output Files
 
 - **Input Files**: `deploy/generate_release_notes/output/prs_*.txt` (`prs_services.txt`, `prs_preprocessing.txt`, `prs_dataflow_worker.txt`, `prs_ingestion_helper.txt`, `prs_postprocessing.txt`, `prs_dcp_monorepo.txt`).
-- **Context Reference**: [`deploy/generate_release_notes/skills/dcp-context/SKILL.md`](file:///Users/calinc/datcom-datacommons/deploy/generate_release_notes/skills/dcp-context/SKILL.md).
+- **Context Reference**: [`skills/dcp-context/SKILL.md`](../dcp-context/SKILL.md).
 - **Target Output File**: `deploy/generate_release_notes/output/IMAGE_DELTAS_<new_version>.txt`.
 
 ---

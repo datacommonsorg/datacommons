@@ -38,8 +38,8 @@ When requested to generate release notes (e.g., *"Generate release notes for v1.
 Call `invoke_subagent` to spawn subagents concurrently across the components above. 
 
 Provide each subagent with:
-1. The **PR Extraction Skill**: [`deploy/generate_release_notes/skills/pr-extraction/SKILL.md`](file:///Users/calinc/datcom-datacommons/deploy/generate_release_notes/skills/pr-extraction/SKILL.md).
-2. The **DCP Context Skill**: [`deploy/generate_release_notes/skills/dcp-context/SKILL.md`](file:///Users/calinc/datcom-datacommons/deploy/generate_release_notes/skills/dcp-context/SKILL.md).
+1. The **PR Extraction Skill**: [`skills/pr-extraction/SKILL.md`](skills/pr-extraction/SKILL.md).
+2. The **DCP Context Skill**: [`skills/dcp-context/SKILL.md`](skills/dcp-context/SKILL.md).
 3. Its assigned **Component Name**, **Image URI**, **Source Repos**, `<prev_version>`, `<new_version>`, and target **Output Verification File**.
 
 #### Dedicated Subagent Tasks (1-to-1 with Component Output Files):
@@ -53,7 +53,7 @@ Provide each subagent with:
 ### Step 3: Verification Checkpoint & Release Delta Synthesis Subagent
 1. Notify the developer that raw PR verification files have been generated under `deploy/generate_release_notes/output/prs_*.txt` for review.
 2. Call `invoke_subagent` to spawn a specialized **Release Delta Synthesis Subagent** (`delta-synthesizer`).
-3. Provide the subagent with the **Release Delta Synthesis Skill**: [`deploy/generate_release_notes/skills/release-delta-synthesis/SKILL.md`](file:///Users/calinc/datcom-datacommons/deploy/generate_release_notes/skills/release-delta-synthesis/SKILL.md).
+3. Provide the subagent with the **Release Delta Synthesis Skill**: [`skills/release-delta-synthesis/SKILL.md`](skills/release-delta-synthesis/SKILL.md).
 4. The subagent will:
    - Read all `output/prs_*.txt` files.
    - Investigate and distinguish true bug fixes present in `<prev_version>` vs. intermediate bug fixes introduced and fixed within `<new_version>` (omitting intra-release fixes).
@@ -61,7 +61,7 @@ Provide each subagent with:
    - Output the unified image delta summary to: `deploy/generate_release_notes/output/IMAGE_DELTAS_<new_version>.txt`.
 
 ### Step 4: Author Publication-Ready Release Notes
-1. Read the **DCP Domain Context Skill**: [`deploy/generate_release_notes/skills/dcp-context/SKILL.md`](file:///Users/calinc/datcom-datacommons/deploy/generate_release_notes/skills/dcp-context/SKILL.md).
-2. Read the **Release Writer Skill**: [`deploy/generate_release_notes/skills/release-writer/SKILL.md`](file:///Users/calinc/datcom-datacommons/deploy/generate_release_notes/skills/release-writer/SKILL.md).
+1. Read the **DCP Domain Context Skill**: [`skills/dcp-context/SKILL.md`](skills/dcp-context/SKILL.md).
+2. Read the **Release Writer Skill**: [`skills/release-writer/SKILL.md`](skills/release-writer/SKILL.md).
 3. Read `deploy/generate_release_notes/output/IMAGE_DELTAS_<new_version>.txt`.
 4. Author the final release notes from the verified image delta summary into: `deploy/generate_release_notes/output/RELEASE_NOTES_<new_version>.md`.

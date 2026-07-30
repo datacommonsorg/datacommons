@@ -38,7 +38,7 @@ deploy/generate_release_notes/
 ## Developer Usage Instructions (Prompting Your LLM Agent)
 
 ### Step 1: Point Your LLM Agent at the Orchestrator Skill
-To generate release notes for a release range, point your LLM agent at [`deploy/generate_release_notes/SKILL.md`](file:///Users/calinc/datcom-datacommons/deploy/generate_release_notes/SKILL.md):
+To generate release notes for a release range, point your LLM agent at [`SKILL.md`](SKILL.md):
 
 > **Prompt Example**:
 > *"Please read `deploy/generate_release_notes/SKILL.md` and generate release notes for version v1.1.0 to v1.1.1."*

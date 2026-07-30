@@ -40,7 +40,7 @@ gh pr list --repo <repo_name> --state merged --search "merged:<t_prev>..<t_new>"
 *(IMPORTANT: Do NOT pass `base:main` inside `--search`; use `--search "merged:<t_prev>..<t_new>"` directly to prevent GitHub Search API parse errors!)*
 
 ### 3. DCP Context & Semantic Content Analysis
-1. **Read DCP Context Skill**: Before analyzing PRs, you MUST read [`deploy/generate_release_notes/skills/dcp-context/SKILL.md`](file:///Users/calinc/datcom-datacommons/deploy/generate_release_notes/skills/dcp-context/SKILL.md) to understand how your assigned component fits into the platform architecture.
+1. **Read DCP Context Skill**: Before analyzing PRs, you MUST read [`skills/dcp-context/SKILL.md`](../dcp-context/SKILL.md) to understand how your assigned component fits into the platform architecture.
 2. **Analyze PR Content**: Analyze the actual content of each PR (title, description body, labels, and changed code context) against the DCP context to evaluate relevance:
    - **Data Preprocessor (`preprocessing` / `datacommons-data`)**: Include PRs affecting CSV/MCF parsing, streaming JSON-LD batching, schema validation, column mapping, or preprocessor execution.
    - **Dataflow Ingestion Worker (`dataflow_worker`)**: Include PRs affecting Dataflow pipelines, TFRecord loading, BigQuery/Spanner graph transformations, or batch import scaling (`max_workers`).
