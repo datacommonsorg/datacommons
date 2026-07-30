@@ -9,30 +9,21 @@ This skill provides the domain context, repository mapping, and architectural pr
 
 ---
 
-## 1. Core Architectural Overview
+## 1. Core Architectural Overview & Single Source of Truth Mapping
 
-Data Commons Platform (DCP) is a self-hosted, Cloud Spanner-backed deployment of Data Commons. It replaces legacy Bigtable with Cloud Spanner graph tables and vector embeddings. It features custom data ingestion pipelines, specialized serving APIs, and deployment automation across 6 core repositories:
+Data Commons Platform (DCP) is a self-hosted, Cloud Spanner-backed deployment of Data Commons. It replaces legacy Bigtable with Cloud Spanner graph tables and vector embeddings. It features custom data ingestion pipelines, specialized serving APIs, and deployment automation across 6 core repositories.
 
-1. `datacommonsorg/datacommons` (Monorepo & Infra):
-   - **Terraform Modules** (`infra/dcp/`, `infra/modules/`): Infrastructure provisioning for Spanner, Cloud Run, BigQuery, and Dataflow.
-   - **CLI Tools** (`packages/datacommons-cli/`): `datacommons admin init`, `datacommons admin deploy`.
-   - **Admin Portal** (`packages/datacommons-admin/`): Web management interface.
+### 📌 Component & Repository Mapping Registry (SINGLE SOURCE OF TRUTH)
+All skills and subagents MUST use this table as the single authoritative source of truth for component keys, source repositories, subdirectory path filters, target container images, and output verification files:
 
-2. `datacommonsorg/website` (Web Application & Frontend):
-   - Serves UI pages (Explore, Visualization Tools, Place Browser) and REST API routing (`server/`, `static/`, `build/cdc_services/`).
-
-3. `datacommonsorg/mixer` (Core Serving Engine):
-   - High-performance gRPC graph and StatVar serving engine (`internal/server/`, `proto/`, `deploy/helm_charts/`, ESPv2 gateway).
-   - Serves SDMX 3.0 REST Data & Availability endpoints, `/v2/observation`, and vector search embeddings.
-
-4. `datacommonsorg/agent-toolkit` (Model Context Protocol / MCP):
-   - Model Context Protocol (MCP) server & FastMCP tools for AI agent integrations (`src/datacommons_mcp/`).
-   - Enables agentic research playbooks, multi-entity observation retrieval, and indicator search across custom or base instances.
-
-5. `datacommonsorg/import` (Ingestion Stack & Cloud Workflows):
-   - **Data Preprocessor** (`simple/`): CSV/MCF validation and streaming JSON-LD batching (built into `datacommons-data` container image).
-   - **Dataflow Ingestion Worker** (`pipeline/ingestion/`): Parallelized BigQuery/Spanner graph loading.
-   - **Cloud Workflow Helpers** (`pipeline/workflow/ingestion-helper/`, `pipeline/workflow/aggregation-helper/`): Ingestion status tracking and postprocessing aggregations (StatVar, Place, Entity rollups).
+| Component Key | Component Name | Source Repositories & Subdirectory Filters | Container Image URI / Release Artifact | Output Verification File |
+| :--- | :--- | :--- | :--- | :--- |
+| `services` | Core Services (Website, Mixer, MCP Agent) | `datacommonsorg/website` (`server/`, `static/`, `build/cdc_services/`)<br>`datacommonsorg/mixer` (`internal/server/`, `proto/`, `deploy/`)<br>`datacommonsorg/agent-toolkit` (`src/datacommons_mcp/`) | `gcr.io/datcom-ci/datacommons-services` | `output/prs_services.txt` |
+| `preprocessing` | Data Preprocessor | `datacommonsorg/import` (`simple/`) | `gcr.io/datcom-ci/datacommons-data` | `output/prs_preprocessing.txt` |
+| `dataflow_worker` | Dataflow Ingestion Worker | `datacommonsorg/import` (`pipeline/ingestion/`) | `us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion` | `output/prs_dataflow_worker.txt` |
+| `ingestion_helper` | Ingestion Helper Service | `datacommonsorg/import` (`pipeline/workflow/ingestion-helper/`) | `gcr.io/datcom-ci/datacommons-ingestion-helper` | `output/prs_ingestion_helper.txt` |
+| `postprocessing` | Postprocessing Helper Service | `datacommonsorg/import` (`pipeline/workflow/aggregation-helper/`) | `gcr.io/datcom-ci/datacommons-aggregation-helper` | `output/prs_postprocessing.txt` |
+| `dcp_monorepo` | DCP Monorepo & Terraform Infra | `datacommonsorg/datacommons` (`infra/dcp/`, `infra/modules/`, `packages/`) | DCP Monorepo & Terraform Modules | `output/prs_dcp_monorepo.txt` |
 
 ---
 
