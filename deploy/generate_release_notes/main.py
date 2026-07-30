@@ -176,13 +176,26 @@ def main(
                     "prev_sha": v.previous_sha,
                     "new_sha": v.new_sha,
                     "image_uri": v.image_uri,
+                    "pull_requests_count": len(manifest.pull_requests_by_component.get(k, [])),
+                    "pull_requests": [
+                        {
+                            "id": pr.qualified_id,
+                            "title": pr.title,
+                            "author": pr.author,
+                            "repo": pr.repo_name,
+                            "url": pr.url,
+                            "merged_at": pr.merged_at,
+                            "files_changed": pr.files_changed,
+                        }
+                        for pr in manifest.pull_requests_by_component.get(k, [])
+                    ],
                 }
                 for k, v in manifest.components.items()
             },
         }
         with open(manifest_out, "w") as f:
             json.dump(manifest_dict, f, indent=2)
-        logger.info(f"Saved manifest summary to {manifest_out}")
+        logger.info(f"Saved manifest with PRs per image to {manifest_out}")
 
     # ----------------------------------------------------
     # STEP 2: Feature Extraction & SOP Classification
