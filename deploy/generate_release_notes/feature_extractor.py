@@ -223,7 +223,7 @@ Do not include markdown code block formatting (such as ```json) or any conversat
   {{
     "id": "short_unique_snake_case_id",
     "title": "Clear Technical Feature Title",
-    "description": "2-3 sentence technical description of the feature, explaining the change and its user-facing impact.",
+    "description": "1-2 sentence technical description of the feature (max 25 words), explaining the change and its user-facing impact.",
     "category": "Spanner Graph & APIs | Ingestion & Safety | Search & Website | Infra & Tooling",
     "target_components": ["dcp", "services", "preprocessing", "dataflow_worker", "ingestion_helper", "postprocessing"],
     "included_prs": ["agent-toolkit#211", "datacommons#189"],

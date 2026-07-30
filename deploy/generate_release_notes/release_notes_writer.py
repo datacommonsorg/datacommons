@@ -151,6 +151,7 @@ class ReleaseNotesWriter:
         )
 
         # Build payloads for prompt — include ONLY DCP-relevant user/partner features
+        pr_url_map = {pr.qualified_id: pr.url for pr in manifest.all_pull_requests}
         features_payload = []
         for feat in features:
             if not feat.is_dcp_relevant:
@@ -164,6 +165,7 @@ class ReleaseNotesWriter:
                     "category": feat.category,
                     "target_components": feat.target_components,
                     "included_prs": feat.included_prs,
+                    "pr_urls": {pr_id: pr_url_map.get(pr_id, "") for pr_id in feat.included_prs},
                     "pr_contributions": feat.pr_contributions,
                     "is_dcp_relevant": feat.is_dcp_relevant,
                     "breaking_changes": feat.breaking_changes,
@@ -186,7 +188,17 @@ Your objective is to generate publication-ready, partner-facing release notes fo
 
 ---
 
-### 1. CORE WRITING STYLE & TONE (CONCISE & ANTI-FLUFF)
+### 1. CONTEXT & DOMAIN KNOWLEDGE
+Data Commons Platform (DCP) is a self-hosted, Cloud Spanner-backed deployment of Data Commons. It replaces legacy Bigtable with Cloud Spanner graph tables and vector embeddings. It features custom data ingestion pipelines, specialized serving APIs, and deployment automation across 6 repositories:
+1. `datacommonsorg/datacommons` (Monorepo): Terraform modules (`infra/dcp/`, `infra/modules/`), CLI tools (`packages/datacommons-cli/`), and Admin Portal (`packages/datacommons-admin/`).
+2. `datacommonsorg/website`: Web application serving UI and APIs (`server/`, `static/`, `build/cdc_services/`, `build/cdc_data/`).
+3. `datacommonsorg/mixer`: Core Spanner gRPC graph and StatVar serving engine (`internal/server/`, `proto/`, `deploy/helm_charts/`, ESPv2 gateway).
+4. `datacommonsorg/agent-toolkit`: Model Context Protocol (MCP) server & FastMCP tools for AI agent integrations (`src/datacommons_mcp/`).
+5. `datacommonsorg/import`: Data ingestion preprocessor (`simple/`), Dataflow ingestion worker (`pipeline/ingestion/`), and Cloud Workflow helpers (`pipeline/workflow/ingestion-helper/`, `pipeline/workflow/aggregation-helper/`).
+
+---
+
+### 2. CORE WRITING STYLE & TONE (CONCISE & ANTI-FLUFF)
 * **Perspective & Tone**: Write like a senior Google engineer writing a concise technical changelog — direct, factual, punchy, and zero fluff. Use active voice ("You can now...") for features, past tense ("Fixed...") for bugs.
 * **Audience Focus**: Write specifically for external developers, data engineers, and instance operators building ON TOP OF the platform. 
 * **BANNED AI FLUFF WORDS (STRICT)**: DO NOT use AI cliché words: `seamlessly`, `empower`, `leveraging`, `robust`, `overhaul`, `delivers a major`, `comprehensive`, `fosters`, `game-changing`, `cutting-edge`, `paradigm`. Write simple, direct sentences instead!
@@ -205,22 +217,22 @@ Your objective is to generate publication-ready, partner-facing release notes fo
 
 ---
 
-### 2. STRICT CONSTRAINTS (ZERO-TOLERANCE RULES)
+### 3. STRICT CONSTRAINTS (ZERO-TOLERANCE RULES)
 * **NO Emojis**: Do not use emojis anywhere in the document.
 * **NO Version/Commit Tables**: Do not include a component version table, git commit hashes, or SHA tables.
 * **NO Commit Range Text**: Do not include text like "Release range: v1.1.0 to v1.1.1".
-* **NO Code-Fenced Links**: Every PR reference MUST be a clean, clickable GFM link. Do not wrap backticks around or inside link text.
+* **NO Code-Fenced Links**: Every PR reference MUST be a clean, clickable GFM link. Do not wrap backticks around or inside link text. Use the provided full URL for each PR in `pr_urls` or `url` fields!
     * **CORRECT**: `[website#123](https://github.com/...)`
     * **INCORRECT**: `[`website#123`](https://github.com/...)` or `[`website#123` (https://github.com/...)]`
 
 ---
 
-### 3. INPUT MAPPING RULES (RENDER ALL FEATURES)
+### 4. INPUT MAPPING RULES (RENDER ALL FEATURES)
 You will process two payload inputs. Map them to the final release note sections as follows:
 
 1.  **`features_payload`**: 
     *   **STRICT REQUIREMENT**: You MUST render EVERY item provided in `features_payload`. DO NOT drop or omit any feature!
-    *   Major, highly impactful items (e.g. SDMX 3.0 REST Endpoints, Agent MCP Toolkit Overhaul, Modular Ingestion Workflows) MUST be rendered as detailed feature sections under **Key Feature Updates**.
+    *   Major, highly impactful items (e.g. new external API protocols, major component architecture overhauls, core pipeline workflow changes) MUST be rendered as detailed feature sections under **Key Feature Updates**.
     *   Minor enhancements, optimizations, or configuration instructions must be formatted as concise bullet points under **Improvements & Configuration Updates**.
 2.  **`bug_fixes_payload`**: 
     *   **HIGH-LEVEL GROUPING (MAX 4-5 BULLETS TOTAL - NO LAUNDRY LIST)**: DO NOT output a laundry list of dozens of individual PRs!
@@ -230,7 +242,7 @@ You will process two payload inputs. Map them to the final release note sections
 
 ---
 
-### 4. DO vs. DON'T CONTENT SAMPLES
+### 5. DO vs. DON'T CONTENT SAMPLES
 
 | Section | ❌ DO NOT Write (Internal Developer Focus) |  DO Write (Partner & Operator Focus) |
 | :--- | :--- | :--- |
@@ -240,7 +252,7 @@ You will process two payload inputs. Map them to the final release note sections
 
 ---
 
-### 5. INPUT DATA
+### 6. INPUT DATA
 
 #### Major Features & Updates:
 {json.dumps(features_payload, indent=2)}
@@ -252,12 +264,12 @@ You will process two payload inputs. Map them to the final release note sections
 
 ---
 
-### 6. REQUIRED OUTPUT STRUCTURE
+### 7. REQUIRED OUTPUT STRUCTURE
 Generate GFM matching the exact structure below. Do not add any greeting, intro, or concluding conversational text outside this structure.
 
 # Data Commons Platform Release {manifest.new_version} ({release_date})
 
-[Provide a high-impact, 1-2 sentence Executive Summary highlighting the most important capabilities, performance boosts, and critical fixes introduced in this release for partners and platform operators.]
+[Provide a high-impact, 1-sentence Executive Summary (max 25 words) highlighting the most important capabilities, performance boosts, and critical fixes introduced in this release for partners and platform operators.]
 
 ---
 
