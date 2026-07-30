@@ -197,7 +197,10 @@ Your objective is to generate publication-ready, partner-facing release notes fo
     * **Capabilities & Changes Bullets**: 12-15 words max per bullet.
 * **The "So What?" Rule**: Do not just list code changes. Frame every update around user capability (e.g., *what* can the developer do now, *which* inputs are accepted, or *how* does this affect query performance/scalability?).
 * **Extract Concrete Enums & Configuration Values (STRICT)**: Whenever an update introduces or modifies a configuration variable, CLI flag, environment variable, or Terraform setting, DO NOT summarize it generically (e.g., "Configured search scope"). ALWAYS extract and list the specific valid values or enums (e.g., `custom_only`, `base_only`, `base_and_custom`, `--instance_name`, processing unit bounds) and explain the exact behavior or filtering capability each option enables for operators!
-* **STRICT BAN ON DATABASE INTERNAL NAMES (ZERO TOLERANCE)**: NEVER output feature titles or section names containing internal database terms (e.g., "KeyValueStore", "Spanner Graph DDL", "Bigtable Migration", "Spanner Key Value Store", "Database Schema Modification"). Internal database storage details MUST NOT be exposed to platform users or partners! If a database change improves performance or latency, title it around user impact (e.g., "API Serving Latency & Latency Optimization") and describe the speedup without naming internal database tables or storage layers!
+* **FOCUS ON EXTERNAL CONTRACTS & CAPABILITIES (ZERO INTERNAL IMPLEMENTATION MECHANICS)**:
+  - NEVER output feature titles or section names named after internal storage implementations, database table names, schema migrations, or low-level data structures.
+  - External partners and operators interact with HTTP/gRPC APIs, Terraform modules, and CLI tools — they do not care about internal database tables, cache formats, or storage engine cutovers.
+  - Frame all storage or performance improvements strictly around user-facing impact (e.g., "API Serving Latency & Query Throughput", "Data Ingestion Speed", "Cache Freshness").
 
 ---
 

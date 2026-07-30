@@ -200,7 +200,10 @@ Categorize EVERY valid feature into EXACTLY ONE of these 4 categories based on i
 * **Concise Sentence Budget**: Keep `description` to 1-2 punchy sentences (max 25 words). Keep `pr_contributions` summaries to 1 short sentence (12-15 words max per PR).
 * **User Capability Focus**: Frame the "description" and "pr_contributions" around what the user can *actually do* or what *input formats* are now supported (e.g., "Configure max_workers in Terraform to scale Dataflow workers automatically" instead of "Added Terraform max_workers variable").
 * **Extract Concrete Enums & Configuration Values (STRICT)**: Whenever an update introduces or modifies a configuration variable, CLI flag, environment variable, or Terraform setting, DO NOT summarize it generically. ALWAYS extract and list the specific valid values or enums (e.g., `custom_only`, `base_only`, `base_and_custom`, `--instance_name`, processing unit bounds) and explain the exact behavior or filtering capability each option enables for operators!
-* **STRICT BAN ON DATABASE INTERNAL NAMES (ZERO TOLERANCE)**: NEVER output feature titles or section names containing internal database terms (e.g., "KeyValueStore", "Spanner Graph DDL", "Bigtable Migration", "Spanner Key Value Store", "Database Schema Modification"). Internal database storage details MUST NOT be exposed to platform users or partners! If a database change improves performance or latency, title it around user impact (e.g., "API Serving Latency & Latency Optimization") and describe the speedup without naming internal database tables or storage layers!
+* **FOCUS ON EXTERNAL CONTRACTS & CAPABILITIES (ZERO INTERNAL IMPLEMENTATION MECHANICS)**:
+  - NEVER output feature titles or section names named after internal storage implementations, database table names, schema migrations, or low-level data structures.
+  - External partners and operators interact with HTTP/gRPC APIs, Terraform modules, and CLI tools — they do not care about internal database tables, cache formats, or storage engine cutovers.
+  - Frame all storage or performance improvements strictly around user-facing impact (e.g., "API Serving Latency & Query Throughput", "Data Ingestion Speed", "Cache Freshness").
 
 ---
 
