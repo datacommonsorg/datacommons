@@ -111,6 +111,87 @@ uv run --group generate-release-notes python -m deploy.generate_release_notes \
 
 ---
 
+## Configuration & Component Registry (`config.py`)
+
+The tool's multi-repository mappings, image URIs, and source rules are centrally configured in [`config.py`](file:///Users/calinc/datcom-datacommons/deploy/generate_release_notes/config.py).
+
+### Core Data Structures in `config.py`:
+
+1. **`SourceRule`**: Defines a GitHub repository and an optional sub-directory `path_filter` for mapping monorepo or multi-repo PRs:
+   ```python
+   SourceRule(repo="datacommonsorg/import", path_filter="simple/")
+   ```
+2. **`ComponentConfig`**: Configures a tracked release component:
+   - `id`: Internal component key (e.g. `services`, `preprocessing`).
+   - `name`: Human-readable display name.
+   - `artifact_type`: Artifact category (`dcp_platform`, `docker_services`, `docker_data`, `dataflow_template`, `docker_ingestion_helper`, `docker_postprocessing`).
+   - `image_uri`: Primary container image URI in Google Artifact Registry or GCR (e.g. `gcr.io/datcom-ci/datacommons-services`).
+   - `default_tag_prefix`: Version tag prefix (e.g. `"v"` for `v1.1.1`).
+   - `sources`: List of contributing `SourceRule` objects.
+
+### Master `COMPONENTS` Registry:
+
+```python
+COMPONENTS: Dict[str, ComponentConfig] = {
+    "dcp": ComponentConfig(
+        id="dcp",
+        name="DCP Monorepo & Infra (CLI, Admin, DB, Terraform)",
+        artifact_type="dcp_platform",
+        image_uri=None,
+        default_tag_prefix="v",
+        sources=[SourceRule(repo="datacommonsorg/datacommons")],
+    ),
+    "services": ComponentConfig(
+        id="services",
+        name="Core Services (Website, Mixer, MCP)",
+        artifact_type="docker_services",
+        image_uri="gcr.io/datcom-ci/datacommons-services",
+        default_tag_prefix="v",
+        sources=[
+            SourceRule(repo="datacommonsorg/website"),
+            SourceRule(repo="datacommonsorg/mixer"),
+            SourceRule(repo="datacommonsorg/agent-toolkit"),
+        ],
+    ),
+    "preprocessing": ComponentConfig(
+        id="preprocessing",
+        name="Data Preprocessor (datacommons-data)",
+        artifact_type="docker_data",
+        image_uri="gcr.io/datcom-ci/datacommons-data",
+        default_tag_prefix="v",
+        sources=[SourceRule(repo="datacommonsorg/import", path_filter="simple/")],
+    ),
+    "dataflow_worker": ComponentConfig(
+        id="dataflow_worker",
+        name="Dataflow Ingestion Worker",
+        artifact_type="dataflow_template",
+        image_uri="us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion",
+        default_tag_prefix="v",
+        sources=[SourceRule(repo="datacommonsorg/import", path_filter="pipeline/ingestion/")],
+    ),
+    "ingestion_helper": ComponentConfig(
+        id="ingestion_helper",
+        name="Ingestion Helper Service",
+        artifact_type="docker_ingestion_helper",
+        image_uri="gcr.io/datcom-ci/datacommons-ingestion-helper",
+        default_tag_prefix="v",
+        sources=[SourceRule(repo="datacommonsorg/import", path_filter="pipeline/workflow/ingestion-helper/")],
+    ),
+    "postprocessing": ComponentConfig(
+        id="postprocessing",
+        name="Postprocessing Aggregation Helper Service",
+        artifact_type="docker_postprocessing",
+        image_uri="gcr.io/datcom-ci/datacommons-aggregation-helper",
+        default_tag_prefix="v",
+        sources=[SourceRule(repo="datacommonsorg/import", path_filter="pipeline/workflow/aggregation-helper/")],
+    ),
+}
+```
+
+To add a new component or track an additional repository, simply define a new `ComponentConfig` in [`config.py`](file:///Users/calinc/datcom-datacommons/deploy/generate_release_notes/config.py).
+
+---
+
 ## Repository Coverage
 
 The tool automatically tracks and correlates PRs across all 6 core Data Commons repositories:
