@@ -23,11 +23,20 @@ When invoked, you will receive the following parameters:
 ## Execution Steps
 
 ### 1. Container Image Tag & Timestamp Resolution
-1. Resolve the creation timestamp for `<prev_version>` and `<new_version>` for your assigned `image_uri`:
+1. **Primary Tag Resolution (Artifact Registry / GCR)**:
+   Attempt to resolve the creation timestamp for `<prev_version>` and `<new_version>` for your assigned `image_uri`:
    ```bash
    gcloud container images list-tags <image_uri> --filter="tags:<version>" --format="value(timestamp.datetime)"
    ```
-2. If an image tag is missing (e.g. during staging before image tagging), set `t_new` to the current time `NOW()`.
+2. **Fallback Tag Resolution (Git Release Tags)**:
+   If `gcloud` returns no timestamp (e.g. tag naming difference like `v1.1.0` vs `1.1.0` or missing image), resolve the timestamp directly from git or GitHub release:
+   ```bash
+   gh release view <version> --repo <repo_name> --json publishedAt --jq '.publishedAt'
+   # Or via git tag:
+   git log -1 --format=%cI <version>
+   ```
+3. **Staging / Unreleased Target Tag**:
+   If `<new_version>` is unreleased or image tag is missing during staging, set `t_new` to the current time `NOW()`.
 
 ### 2. Single Date-Range PR Search per Repository
 For each assigned source repository, execute a single `gh pr list` query spanning `[t_prev .. t_new]`:
@@ -46,10 +55,11 @@ gh pr list --repo <repo_name> --state merged --search "merged:<t_prev>..<t_new>"
    - **Core Services (`services` / `datacommons-services`)**: Include PRs affecting serving APIs (Mixer gRPC, SDMX 3.0 REST, MCP agent tools, `/v2/observation`), vector embeddings, or Website Explore UI tools.
    - **DCP Monorepo & Infra (`dcp_monorepo`)**: Include PRs affecting Terraform modules, Admin CLI tools (`datacommons admin`), or deployment infrastructure.
 
-### 4. Noise, Base DC, and Regression Categorization
+### 4. Noise, Revert PRs, and Regression Categorization
 Categorize every PR into either **Relevant PRs** or **Excluded PRs**:
 1. **Relevant PRs**: Direct partner/operator features, configuration capabilities, or true platform bug fixes.
 2. **Excluded PRs**:
+   - **Revert / Superseded PR Pairs**: If a PR reverts or supersedes another PR merged *within the same release window* (`[t_prev..t_new]`), exclude BOTH PRs.
    - **Base DC Only / Flag Flips**: PRs that only affect internal Google-hosted Base DC or internal flag flips without platform impact.
    - **Intermediate Regressions**: Bug fix PRs that address features/code introduced within the same release window (`[t_prev..t_new]`).
    - **Bot & Non-Production Chores**: Dependabot bumps, automated version bumps, unit/integration test harness refactors, or test sample data removals.
@@ -58,8 +68,9 @@ Categorize every PR into either **Relevant PRs** or **Excluded PRs**:
 Format and write the extracted PRs into your assigned `output_file`, including an **Irrelevant / Excluded PRs** section at the bottom for developer audit.
 
 For each relevant PR, provide:
-1. **Change Summary**: Concise description of what changed in the code.
-2. **DCP Impact**: Direct impact on platform operators, developers, or end-users.
+1. **URL**: Explicit GitHub PR URL for GFM link generation (`https://github.com/...`).
+2. **Change Summary**: Concise description of what changed in the code.
+3. **DCP Impact**: Direct impact on platform operators, developers, or end-users.
 
 ```
 ================================================================================
@@ -72,10 +83,12 @@ Total Relevant PRs: {relevant_count} | Total Excluded PRs: {excluded_count}
 --- RELEVANT PRODUCTION PRS ---
 
 [{repo_short}#{number}] {title} (Author: {author} | Merged: {merged_at})
+URL: {url}
 - Change Summary: {1-2 sentence summary of what changed in this PR}
 - DCP Impact: {1-2 sentence explanation of user capability, API contract, or operator benefit}
 
 [{repo_short}#{number}] {title} (Author: {author} | Merged: {merged_at})
+URL: {url}
 - Change Summary: {1-2 sentence summary of what changed in this PR}
 - DCP Impact: {1-2 sentence explanation of user capability, API contract, or operator benefit}
 
@@ -85,12 +98,15 @@ Total Relevant PRs: {relevant_count} | Total Excluded PRs: {excluded_count}
 
 [{repo_short}#{number}] {title}
 Reason: Excluded - Base DC-only flag flip / internal feature toggle
+URL: {url}
 
 [{repo_short}#{number}] {title}
 Reason: Excluded - Intermediate regression fix for PR {parent_pr_id} merged in current release window
+URL: {url}
 
 [{repo_short}#{number}] {title}
 Reason: Excluded - Unit test harness refactor / test sample data update
+URL: {url}
 ```
 
 Confirm when your assigned verification file has been written cleanly to `output_file`.

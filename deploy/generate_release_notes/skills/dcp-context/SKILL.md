@@ -49,13 +49,13 @@ Data Commons Platform (DCP) is a self-hosted, Cloud Spanner-backed deployment of
 
 ---
 
-## 3. SOP Categories for Feature Classification
+## 3. SOP Categories & Release Notes Mapping Matrix
 
-1. **Spanner Graph & APIs**:
-   - SDMX 3.0 REST endpoints, `/v2/observation`, Mixer gRPC graph serving, FastMCP tools, MCP agent research skills.
-2. **Ingestion & Safety**:
-   - Preprocessing, Dataflow workers, Cloud Workflows orchestration, postprocessing aggregations, health probes.
-3. **Search & Website**:
-   - Vector embeddings, semantic search, search target scope (`V2_RESOLVE_INDICATORS_TARGET`), Explore UI, Download Tool.
-4. **Infra & Tooling**:
-   - Terraform modules, Admin CLI (`datacommons admin`), monorepo versioning, IAM role provisioning.
+The 4 SOP categories translate directly into the sections of the final release notes document:
+
+| SOP Category | Scope & Included Components | Release Notes Section Mapping |
+| :--- | :--- | :--- |
+| **Spanner Graph & APIs** | Mixer gRPC, SDMX 3.0 REST, `/v2/observation`, FastMCP tools | **Key Feature Updates** (Major API/MCP Features)<br>**Bug Fixes**: *Serving API & Query Robustness* |
+| **Ingestion & Safety** | Preprocessor, Dataflow workers, Cloud Workflows, postprocessing rollups | **Key Feature Updates** (Major Pipeline Features)<br>**Improvements**: *Dataflow Transformations / Postprocessing*<br>**Bug Fixes**: *Ingestion Pipeline Reliability* |
+| **Search & Website** | Vector embeddings, semantic search, Explore UI, Download Tool, Place Browser | **Key Feature Updates** (Search/Embeddings)<br>**Improvements**: *Website Exploration Tools*<br>**Bug Fixes**: *Web UI & Visualization* |
+| **Infra & Tooling** | Terraform modules, Admin CLI (`datacommons admin`), Cloud Run, IAM roles | **Improvements**: *Terraform Infrastructure & Auto-Scaling*<br>**Bug Fixes**: *Deployment & Infrastructure Reliability* |

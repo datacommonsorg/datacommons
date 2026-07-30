@@ -24,12 +24,22 @@ This skill provides step-by-step instructions for a subagent to analyze all raw 
 2. Group PRs by container image / component key (`services`, `preprocessing`, `dataflow_worker`, `ingestion_helper`, `postprocessing`, `dcp_monorepo`).
 
 ### 2. Intra-Release vs. Prior-Release Bug Fix Investigation
-Perform deep investigation into every bug fix PR:
-- **Intra-Release Intermediate Fix (EXCLUDE)**: Was the bug introduced by a feature/PR *merged within this current release window* (`[v_prev..v_new]`)? If so, exclude it! Platform users running `v_prev` were never exposed to this bug, so listing it creates noise.
-- **Prior-Release True Fix (INCLUDE)**: Did the bug exist in the previously published container image (`v_prev` or earlier)? If so, synthesize it under true platform bug fixes for that component!
+Perform step-by-step investigation into every bug fix PR using the following concrete verification procedure:
 
-### 3. Synthesize Salient Image Deltas (Per Container Image)
-For each container image / component, summarize the salient changes from the perspective of an operator upgrading from `<prev_version>` to `<new_version>`:
+1. **Check PR Title & Description Cross-References**:
+   - Inspect if the PR description references a PR merged in the current range (e.g., *"Fixes #2015"*, *"Follow up to #2000"*, *"Regression introduced by #1967"*).
+   - If it references an intermediate PR merged within `[t_prev..t_new]`, classify it as **Intra-Release Intermediate Fix (EXCLUDE)**.
+2. **Footprint & Feature Matching**:
+   - Compare the PR's `Change Summary` and modified files against major features in `prs_*.txt` merged earlier in the window.
+   - If the bug is for a feature first introduced in this release window (e.g. SDMX 3.0 REST endpoints, FastMCP tools), classify it as **Intra-Release Intermediate Fix (EXCLUDE)** because users running `<prev_version>` were never exposed to this bug.
+3. **Git History Verification (If Ambiguous)**:
+   - If a bug fix is ambiguous, run `git log -S "<function_or_symbol>" <prev_version>` or inspect `git diff <prev_version>..<new_version>` via shell to check if the code existed in `<prev_version>`.
+   - If the code existed in `<prev_version>` and was broken, classify it as **Prior-Release True Fix (INCLUDE)**.
+
+### 3. Synthesize Salient Image Deltas & Preserve URLs
+For each container image / component, summarize the salient changes from the perspective of an operator upgrading from `<prev_version>` to `<new_version>`.
+
+*CRITICAL MANDATE*: Preserve the full `URL` string for EVERY PR referenced in the delta summary so the final Release Writer can format clean GFM links `[repo#PR](URL)` without guessing!
 
 1. **Major Feature Capabilities Added**:
    - What new capabilities exist in this image that were not present in `<prev_version>`?
@@ -38,7 +48,7 @@ For each container image / component, summarize the salient changes from the per
    - What new Terraform variables, CLI parameters (`--instance_name`), or environment variables were added?
    - What scaling bounds (`max_workers`, BigQuery slots) or memory optimizations were introduced?
 3. **True Platform Bug Fixes**:
-   - What issues present in `<prev_version>` were resolved in this container image?
+   - What issues present in `<prev_version>` were resolved in this container image? Include full PR URLs for each fix!
 
 ---
 

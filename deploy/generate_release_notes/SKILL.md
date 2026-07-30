@@ -38,10 +38,13 @@ Provide each subagent with:
 2. The **DCP Context Skill**: [`deploy/generate_release_notes/skills/dcp-context/SKILL.md`](file:///Users/calinc/datcom-datacommons/deploy/generate_release_notes/skills/dcp-context/SKILL.md).
 3. Its assigned **Component Name**, **Image URI**, **Source Repos**, `<prev_version>`, `<new_version>`, and target **Output Verification File**.
 
-#### Subagent Tasks:
+#### Dedicated Subagent Tasks (1-to-1 with Component Output Files):
 - **Subagent 1 (`services-extractor`)**: Extract PRs for `gcr.io/datcom-ci/datacommons-services` from `website`, `mixer`, `agent-toolkit` $\rightarrow$ write `output/prs_services.txt`.
-- **Subagent 2 (`import-extractor`)**: Extract PRs for `import` repo for preprocessor, Dataflow worker, ingestion helper, and postprocessing helper $\rightarrow$ write `output/prs_preprocessing.txt`, `output/prs_dataflow_worker.txt`, `output/prs_ingestion_helper.txt`, `output/prs_postprocessing.txt`.
-- **Subagent 3 (`monorepo-extractor`)**: Extract PRs for `datacommonsorg/datacommons` monorepo & Terraform infra $\rightarrow$ write `output/prs_dcp_monorepo.txt`.
+- **Subagent 2 (`preprocessing-extractor`)**: Extract PRs for `gcr.io/datcom-ci/datacommons-data` (preprocessor) from `import` repo $\rightarrow$ write `output/prs_preprocessing.txt`.
+- **Subagent 3 (`dataflow-worker-extractor`)**: Extract PRs for Dataflow Ingestion Worker from `import` repo $\rightarrow$ write `output/prs_dataflow_worker.txt`.
+- **Subagent 4 (`ingestion-helper-extractor`)**: Extract PRs for Ingestion Helper Service from `import` repo $\rightarrow$ write `output/prs_ingestion_helper.txt`.
+- **Subagent 5 (`postprocessing-extractor`)**: Extract PRs for Postprocessing Helper Service from `import` repo $\rightarrow$ write `output/prs_postprocessing.txt`.
+- **Subagent 6 (`monorepo-extractor`)**: Extract PRs for `datacommonsorg/datacommons` monorepo & Terraform infra $\rightarrow$ write `output/prs_dcp_monorepo.txt`.
 
 ### Step 3: Verification Checkpoint & Release Delta Synthesis Subagent
 1. Notify the developer that raw PR verification files have been generated under `deploy/generate_release_notes/output/prs_*.txt` for review.
