@@ -7,6 +7,15 @@ description: Instructions for extracting, filtering, and verifying merged Pull R
 
 This skill provides step-by-step instructions for extracting merged Pull Requests across all 6 Data Commons repositories and mapping them to their corresponding container images and components.
 
+## Concurrent Subagent Execution Mandate
+
+To extract PRs efficiently across all 6 repositories without blocking the main agent context, **you MUST spawn concurrent subagents using `invoke_subagent`**.
+
+Spawn subagents concurrently to handle component extraction in parallel:
+- **Subagent 1 (`services-extractor`)**: Handles `datacommonsorg/website`, `mixer`, `agent-toolkit` $\rightarrow$ writes `prs_services.txt`.
+- **Subagent 2 (`import-extractor`)**: Handles `datacommonsorg/import` path rules (`simple/`, `pipeline/ingestion/`, `pipeline/workflow/`) $\rightarrow$ writes `prs_preprocessing.txt`, `prs_dataflow_worker.txt`, `prs_ingestion_helper.txt`, `prs_postprocessing.txt`.
+- **Subagent 3 (`monorepo-extractor`)**: Handles `datacommonsorg/datacommons` monorepo & Terraform infra $\rightarrow$ writes `prs_dcp_monorepo.txt`.
+
 ---
 
 ## Component & Image Source Rules

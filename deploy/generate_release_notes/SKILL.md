@@ -17,22 +17,21 @@ When the user asks to generate release notes (e.g., *"Generate release notes for
 1. Identify the previous release tag (`<prev_version>`, e.g., `v1.1.0`) and target release tag (`<new_version>`, e.g., `v1.1.1`).
 2. Create the output directory `deploy/generate_release_notes/output/` if it does not exist.
 
-### Step 2: PR Extraction & Image Verification (Subagent Delegation)
+### Step 2: PR Extraction & Image Verification (Concurrent Subagent Spawning)
 1. Read the **PR Extraction Skill**: [SKILL.md](file:///Users/calinc/datcom-datacommons/deploy/generate_release_notes/skills/pr-extraction/SKILL.md).
-2. Spawn subagent(s) using `invoke_subagent` equipped with `gcloud` and `gh` CLI commands to:
-   - Resolve Artifact Registry image tags (`gcr.io/datcom-ci/datacommons-services`, `datacommons-data`, etc.).
-   - Execute date-range PR queries (`gh pr list --search "merged:<t_prev>..<t_new>"`) across all 6 repositories.
-   - Filter out Dependabot, automated version bumps, and test-only fixtures.
-   - Deterministically detect intermediate release-window regressions.
-   - Write verified PR lists to component text files in `deploy/generate_release_notes/output/`:
-     * `prs_services.txt` (Core Services: Website, Mixer, MCP Agent)
-     * `prs_preprocessing.txt` (Data Preprocessor: datacommons-data)
-     * `prs_dataflow_worker.txt` (Dataflow Ingestion Worker)
-     * `prs_ingestion_helper.txt` (Ingestion Helper Service)
-     * `prs_postprocessing.txt` (Postprocessing Aggregation Helper)
-     * `prs_dcp_monorepo.txt` (DCP Monorepo & Terraform Infra)
+2. **Mandatory Subagent Spawning**: Call `invoke_subagent` to spawn 3 concurrent subagents in parallel:
+   - **Subagent 1 (`services-extractor`)**: Extract PRs for `website`, `mixer`, `agent-toolkit` $\rightarrow$ write `deploy/generate_release_notes/output/prs_services.txt`.
+   - **Subagent 2 (`import-extractor`)**: Extract PRs for `import` repo across `simple/`, `pipeline/ingestion/`, and `pipeline/workflow/` $\rightarrow$ write `prs_preprocessing.txt`, `prs_dataflow_worker.txt`, `prs_ingestion_helper.txt`, `prs_postprocessing.txt`.
+   - **Subagent 3 (`monorepo-extractor`)**: Extract PRs for `datacommons` monorepo & Terraform infra $\rightarrow$ write `prs_dcp_monorepo.txt`.
 
-3. Inform the developer that PR verification files are written in `deploy/generate_release_notes/output/` for review.
+3. Each subagent will use `gcloud` and `gh` CLI commands to:
+   - Resolve Artifact Registry image tags (`gcr.io/datcom-ci/datacommons-services`, `datacommons-data`, etc.).
+   - Execute date-range PR queries (`gh pr list --search "merged:<t_prev>..<t_new>"`) across their assigned repositories.
+   - Filter out Dependabot, automated version bumps, and non-production test fixtures.
+   - Deterministically detect intermediate release-window regressions.
+   - Output human-verifiable text files per container image into `deploy/generate_release_notes/output/`.
+
+4. Inform the developer that PR verification files are written in `deploy/generate_release_notes/output/` for review.
 
 ### Step 3: Load Domain Context & Architectural Principles
 1. Read the **DCP Domain Context Skill**: [SKILL.md](file:///Users/calinc/datcom-datacommons/deploy/generate_release_notes/skills/dcp-context/SKILL.md).
