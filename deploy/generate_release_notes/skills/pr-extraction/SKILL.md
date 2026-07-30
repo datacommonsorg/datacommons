@@ -36,44 +36,62 @@ gh pr list --repo <repo_name> --state merged --search "merged:<t_prev>..<t_new>"
 ```
 *(IMPORTANT: Do NOT pass `base:main` inside `--search`; use `--search "merged:<t_prev>..<t_new>"` directly to prevent GitHub Search API parse errors!)*
 
-### 3. PR Content & Component Relevance Analysis
-Do NOT rely on rigid directory path matching. Instead, **analyze the actual content of each PR** (title, description body, labels, and changed files) to determine its technical relevance to your assigned component:
+### 3. DCP Context & Semantic Content Analysis
+1. **Read DCP Context Skill**: Before analyzing PRs, you MUST read [`deploy/generate_release_notes/skills/dcp-context/SKILL.md`](file:///Users/calinc/datcom-datacommons/deploy/generate_release_notes/skills/dcp-context/SKILL.md) to understand how your assigned component fits into the platform architecture.
+2. **Analyze PR Content**: Analyze the actual content of each PR (title, description body, labels, and changed code context) against the DCP context to evaluate relevance:
+   - **Data Preprocessor (`preprocessing` / `datacommons-data`)**: Include PRs affecting CSV/MCF parsing, streaming JSON-LD batching, schema validation, column mapping, or preprocessor execution.
+   - **Dataflow Ingestion Worker (`dataflow_worker`)**: Include PRs affecting Dataflow pipelines, TFRecord loading, BigQuery/Spanner graph transformations, or batch import scaling (`max_workers`).
+   - **Ingestion Helper Service (`ingestion_helper`)**: Include PRs affecting Cloud Workflows orchestration, ingestion status tracking, execution IDs, status polling, or run history tables.
+   - **Postprocessing Helper Service (`postprocessing`)**: Include PRs affecting graph postprocessing rollups, StatVar/Place/Entity aggregations, Data-Point Vectors (DPVs), or pre-computed summary stores.
+   - **Core Services (`services` / `datacommons-services`)**: Include PRs affecting serving APIs (Mixer gRPC, SDMX 3.0 REST, MCP agent tools, `/v2/observation`), vector embeddings, or Website Explore UI tools.
+   - **DCP Monorepo & Infra (`dcp_monorepo`)**: Include PRs affecting Terraform modules, Admin CLI tools (`datacommons admin`), or deployment infrastructure.
 
-- **Data Preprocessor (`preprocessing` / `datacommons-data`)**: Include PRs whose content affects CSV/MCF parsing, streaming JSON-LD batching, schema validation, column mapping, or preprocessor container execution.
-- **Dataflow Ingestion Worker (`dataflow_worker`)**: Include PRs whose content affects Dataflow pipelines, TFRecord loading, BigQuery/Spanner graph transformations, batch import scaling (`max_workers`), or ingestion transforms.
-- **Ingestion Helper Service (`ingestion_helper`)**: Include PRs whose content affects Cloud Workflows orchestration, ingestion status tracking, execution IDs, status polling, or run history tables.
-- **Postprocessing Helper Service (`postprocessing`)**: Include PRs whose content affects graph postprocessing rollups, StatVar/Place/Entity aggregations, Data-Point Vectors (DPVs), or pre-computed summary stores.
-- **Core Services (`services` / `datacommons-services`)**: Include PRs whose content affects serving APIs (Mixer gRPC, SDMX 3.0 REST, MCP agent tools, `/v2/observation`), vector embeddings, or Website Explore UI tools.
-- **DCP Monorepo & Infra (`dcp_monorepo`)**: Include PRs whose content affects Terraform modules, Admin CLI tools (`datacommons admin`), or deployment infrastructure.
-
-### 4. Noise & Intermediate Regression Filtering
-1. **Filter Out Bot & Non-Production PRs**:
-   - Exclude Dependabot, Renovate, and automated version bumps (`"bump version"`, `datacommons-robot-author`).
-   - Exclude test-only PRs (unit/integration test harnesses, hermetic test refactors, test-only sample data, or benchmark fixtures).
-2. **Filter Out Intermediate Release-Window Regressions**:
-   - Check if a bug fix PR addresses a feature or code modified *within the same release window* (`[t_prev..t_new]`).
-   - If it fixes an intermediate PR merged earlier in `[t_prev..t_new]`, tag it as an internal regression and DO NOT include it in public Bug Fixes!
+### 4. Noise, Base DC, and Regression Categorization
+Categorize every PR into either **Relevant PRs** or **Excluded PRs**:
+1. **Relevant PRs**: Direct partner/operator features, configuration capabilities, or true platform bug fixes.
+2. **Excluded PRs**:
+   - **Base DC Only / Flag Flips**: PRs that only affect internal Google-hosted Base DC or internal flag flips without platform impact.
+   - **Intermediate Regressions**: Bug fix PRs that address features/code introduced within the same release window (`[t_prev..t_new]`).
+   - **Bot & Non-Production Chores**: Dependabot bumps, automated version bumps, unit/integration test harness refactors, or test sample data removals.
 
 ### 5. Write Verification File (`prs_<component>.txt`)
-Format and write the extracted PRs into your assigned `output_file`:
+Format and write the extracted PRs into your assigned `output_file`, including an **Irrelevant / Excluded PRs** section at the bottom for developer audit:
 
 ```
 ================================================================================
 Component: {component_name}
 Image URI: {image_uri}
 Release Range: {prev_version} ({t_prev}) -> {new_version} ({t_new})
-Total PRs Extracted: {count}
+Total Relevant PRs: {relevant_count} | Total Excluded PRs: {excluded_count}
+================================================================================
+
+--- RELEVANT PRODUCTION PRS ---
+
+[{repo_short}#{number}] {title}
+Author: {author} | Merged: {merged_at}
+URL: {url}
+Files Changed: {files_summary}
+
+[{repo_short}#{number}] {title}
+Author: {author} | Merged: {merged_at}
+URL: {url}
+Files Changed: {files_summary}
+
+================================================================================
+--- IRRELEVANT / EXCLUDED PRS (AUDIT LOG) ---
 ================================================================================
 
 [{repo_short}#{number}] {title}
-Author: {author} | Merged: {merged_at}
+Reason: Excluded - Base DC-only flag flip / internal feature toggle
 URL: {url}
-Files Changed: {files_summary}
 
 [{repo_short}#{number}] {title}
-Author: {author} | Merged: {merged_at}
+Reason: Excluded - Intermediate regression fix for PR {parent_pr_id} merged in current release window
 URL: {url}
-Files Changed: {files_summary}
+
+[{repo_short}#{number}] {title}
+Reason: Excluded - Unit test harness refactor / test sample data update
+URL: {url}
 ```
 
 Confirm when your assigned verification file has been written cleanly to `output_file`.
