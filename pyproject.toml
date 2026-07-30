@@ -22,7 +22,13 @@ dependencies = [
 [dependency-groups]
 dev = [
   {include-group = "lint"},
-  {include-group = "test"}
+  {include-group = "test"},
+  {include-group = "generate-release-notes"}
+]
+generate-release-notes = [
+  "google-genai>=0.1.0",
+  "click>=8.1.7",
+  "jinja2>=3.1.0",
 ]
 lint = [
   "pre-commit>=4.5.1",
@@ -145,8 +151,9 @@ build-backend = "setuptools.build_meta"
 # Tell setuptools this is a meta-package and to stop looking for code
 packages = []
 
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["packages/*/tests", "deploy/generate_release_notes/tests"]
+
 [tool.setuptools.dynamic]
 version = {file = "VERSION"}
-
-[tool.pytest.ini_options]
-testpaths = ["packages"]
