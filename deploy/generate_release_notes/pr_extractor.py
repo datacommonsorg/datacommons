@@ -51,8 +51,9 @@ def format_version_tag(version: str) -> str:
 class PRExtractor:
     """Extracts all PRs and image mappings between two release versions using gcloud and gh pr list."""
 
-    def __init__(self, use_cache: bool = True):
+    def __init__(self, use_cache: bool = True, skip_missing_images: bool = False):
         self.use_cache = use_cache
+        self.skip_missing_images = skip_missing_images
 
     def resolve_image_tag_info(
         self, image_uri: str, version: str
@@ -155,10 +156,16 @@ class PRExtractor:
                 info.previous_sha = prev_data.get("digest")
 
             if not new_data:
-                raise ValueError(
-                    f"Required container image tag '{new_version}' not found for '{comp.name}' at {comp.image_uri}. "
-                    f"Ensure the release container image has been built and tagged before generating release notes."
-                )
+                if self.skip_missing_images:
+                    logger.warning(
+                        f"Skipping missing image component '{comp.name}' ({comp.image_uri}:{new_version}) because skip_missing_images is set."
+                    )
+                else:
+                    raise ValueError(
+                        f"Required container image tag '{new_version}' not found for '{comp.name}' at {comp.image_uri}. "
+                        f"Ensure the release container image has been built and tagged before generating release notes, "
+                        f"or pass --skip-missing-images / skip_missing_images=True to bypass."
+                    )
             else:
                 info.new_timestamp = new_data.get("timestamp", {}).get("datetime")
                 info.new_sha = new_data.get("digest")

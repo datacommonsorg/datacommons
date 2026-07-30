@@ -115,6 +115,22 @@ class TestPRExtractorUnit:
         assert info["digest"] == "sha256:1234567890abcdef"
         assert info["timestamp"]["datetime"] == "2026-07-15 12:00:00-07:00"
 
+    @patch("deploy.generate_release_notes.pr_extractor.PRExtractor.resolve_image_tag_info")
+    def test_missing_image_tag_handling(self, mock_resolve):
+        """Test error raising and bypass flag when container image tag is missing."""
+        mock_resolve.return_value = None  # Image tag not found
+        comp = COMPONENTS["services"]
+
+        # 1. Default mode: should raise ValueError
+        extractor_strict = PRExtractor(skip_missing_images=False)
+        with pytest.raises(ValueError, match="Required container image tag '9.9.9' not found"):
+            extractor_strict.resolve_component_version(comp, "1.1.0", "9.9.9")
+
+        # 2. Skip mode: should log warning and not raise error
+        extractor_permissive = PRExtractor(skip_missing_images=True)
+        info = extractor_permissive.resolve_component_version(comp, "1.1.0", "9.9.9")
+        assert info.new_timestamp is None
+
 
 class TestPRExtractorIntegration:
     """Integration test executing PRExtractor against real GitHub repositories."""
