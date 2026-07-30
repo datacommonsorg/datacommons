@@ -487,6 +487,12 @@ variable "ingestion_dataflow_worker_machine_type" {
   }
 }
 
+variable "force_restart" {
+  description = "Set to true to force Cloud Run services to redeploy/restart with a new timestamp. Defaults to true."
+  type        = bool
+  default     = true
+}
+
 check "ingestion_dataflow_workers_limits" {
   assert {
     condition     = var.ingestion_dataflow_max_workers >= var.ingestion_dataflow_num_workers

@@ -70,3 +70,9 @@ variable "ingestion_artifacts_path" {
   type        = string
   description = "Path where pre-processed files are placed for the next stage"
 }
+
+variable "force_restart" {
+  type        = bool
+  description = "Set to true to force Cloud Run service to redeploy/restart with a new timestamp"
+  default     = true
+}

@@ -18,7 +18,7 @@ locals {
     },
     {
       name  = "FORCE_RESTART"
-      value = "${timestamp()}"
+      value = var.global.force_restart ? timestamp() : ""
     },
     {
       name  = "REDIS_HOST"
@@ -198,6 +198,7 @@ module "ingestion_helper_service" {
   redis_host               = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
   redis_port               = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
   ingestion_artifacts_path = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
+  force_restart            = var.global.force_restart
 }
 
 
