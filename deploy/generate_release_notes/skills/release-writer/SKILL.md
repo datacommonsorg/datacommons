@@ -13,10 +13,12 @@ This skill provides step-by-step instructions for authoring non-verbose, publica
 
 - **Tone**: Direct, factual, punchy, senior-engineer technical changelog. Active voice for features ("You can now..."), past tense for bugs ("Resolved...").
 - **BANNED AI FLUFF WORDS (STRICT)**: DO NOT use AI cliché words: `seamlessly`, `empower`, `leveraging`, `robust`, `overhaul`, `delivers a major`, `comprehensive`, `fosters`, `game-changing`, `cutting-edge`, `paradigm`.
-- **STRICT WORD COUNT BUDGETS**:
-  - **Executive Summary**: Maximum 25 words (1 single, punchy sentence).
-  - **What's New**: Combine description and user benefit into 1 concise paragraph (25-35 words max).
-  - **Specific Capabilities Bullets**: 12-15 words max per bullet.
+- **DYNAMIC EXECUTIVE SUMMARY**:
+  - The summary length and detail level MUST scale dynamically with the scope of the release.
+  - **Large / Feature-Rich Releases**: Provide a comprehensive 2–3 sentence overview highlighting all major capabilities, API protocols, preprocessor boosts, and critical fixes without an artificial word count cap.
+  - **Small / Patch Releases**: Provide a short, single-sentence summary (15–25 words) without unnecessary verbosity or fluff.
+- **What's New Paragraphs**: Combine technical change and user benefit into 1 concise, punchy paragraph (25–45 words).
+- **Specific Capabilities Bullets**: 12–20 words max per bullet point.
 - **GFM Link Rules**: Every PR reference MUST be a clean, clickable link: `[repo_short#PR](URL)`. NEVER wrap backticks around or inside link text (`[`repo#123`](URL)` is forbidden!).
 - **NO Horizontal Dividers Between Features**: Do NOT place horizontal rule lines (`---`) between individual feature sections under Key Feature Updates. Use standard Markdown headers (`### Feature Title`) with single blank lines only!
 
@@ -27,7 +29,7 @@ This skill provides step-by-step instructions for authoring non-verbose, publica
 ```markdown
 # Data Commons Platform Release {new_version} ({release_date})
 
-[Provide a high-impact, 1-sentence Executive Summary (max 25 words) highlighting the most important capabilities, performance boosts, and critical fixes introduced in this release for partners and platform operators.]
+[Provide a high-impact Executive Summary highlighting the most important capabilities, performance boosts, and critical fixes introduced in this release. Adjust summary length dynamically based on release size: 2-3 sentences for major releases, 1 punchy sentence for patch releases.]
 
 ---
 
