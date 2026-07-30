@@ -9,8 +9,10 @@ This skill provides step-by-step instructions for authoring non-verbose, publica
 
 ---
 
-## 1. Writing Style & Tone Constraints
+## 1. Persona & Writing Style Constraints
 
+- **Partner & Operator Persona**: Write specifically for external developers, data engineers, and instance operators building ON TOP OF DCP. Frame features around user capabilities (*"what the user can now do"*, *input formats supported*, *scaling controls*).
+- **Zero Internal Database Terms (STRICT)**: NEVER output feature titles or section names containing internal database table names, schema DDLs, or storage migration mechanics (e.g. no "KeyValueStore", "Spanner Graph DDL", "Bigtable Cutover"). Frame latency improvements around user impact (e.g. *"API Serving Latency & Query Throughput"*).
 - **Tone**: Direct, factual, punchy, senior-engineer technical changelog. Active voice for features ("You can now..."), past tense for bugs ("Resolved...").
 - **BANNED AI FLUFF WORDS (STRICT)**: DO NOT use AI cliché words: `seamlessly`, `empower`, `leveraging`, `robust`, `overhaul`, `delivers a major`, `comprehensive`, `fosters`, `game-changing`, `cutting-edge`, `paradigm`.
 - **DYNAMIC EXECUTIVE SUMMARY**:

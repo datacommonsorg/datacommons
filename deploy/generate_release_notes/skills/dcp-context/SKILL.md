@@ -24,34 +24,3 @@ All skills and subagents MUST use this table as the single authoritative source 
 | `ingestion_helper` | Ingestion Helper Service | `datacommonsorg/import` (`pipeline/workflow/ingestion-helper/`) | `gcr.io/datcom-ci/datacommons-ingestion-helper` | `output/prs_ingestion_helper.txt` |
 | `postprocessing` | Postprocessing Helper Service | `datacommonsorg/import` (`pipeline/workflow/aggregation-helper/`) | `gcr.io/datcom-ci/datacommons-aggregation-helper` | `output/prs_postprocessing.txt` |
 | `dcp_monorepo` | DCP Monorepo & Terraform Infra | `datacommonsorg/datacommons` (`infra/dcp/`, `packages/`) | DCP Monorepo & Terraform Modules | `output/prs_dcp_monorepo.txt` |
-
----
-
-## 2. Architectural Boundary & Persona Principles
-
-### Focus on External Contracts & Operator Capabilities
-- **Partner & Operator Focus**: Write specifically for external developers, data engineers, and instance operators building ON TOP OF DCP.
-- **User Capabilities**: Frame every feature and improvement around *what the user can now do*, *which input formats are supported*, or *how compute resources scale*.
-- **Extract Concrete Enums & Configuration Values**: Always extract valid enums (`custom_only`, `base_only`, `base_and_custom`), CLI flags (`--instance_name`), and scaling bounds (`max_workers`, BigQuery slots).
-
-### Zero Internal Implementation Mechanics (STRICT)
-- **NO Internal Database Terms**: NEVER output feature titles or section names containing internal database table names, schema DDLs, or storage migration mechanics (e.g. no "KeyValueStore", "Spanner Graph DDL", "Bigtable Cutover", "Database Schema Modification").
-- **Frame Performance Speedups Around User Impact**: If an internal storage or cache layer change improves serving speed, title it around user impact: **"API Serving Latency & Query Throughput"** or **"Faster API Response Speed"** without naming internal database tables.
-
----
-
-## 3. Section Mapping & Release Content Principles
-
-Rather than using arbitrary internal categories, map changes directly into the three standard release notes sections based on technical impact:
-
-1. **Key Feature Updates**:
-   - Major, high-impact capabilities introduced in this release (e.g., SDMX 3.0 REST Data & Availability APIs, FastMCP AI agent tools, streaming JSON-LD preprocessors, vector search embeddings).
-   - Must follow the non-verbose format: **What's New** (1 paragraph combining description + benefit) followed by **Specific Capabilities** (bullet points with `[repo#PR](URL)` links).
-
-2. **Improvements & Configuration Updates**:
-   - Incremental enhancements, operator tools, Terraform variables (`max_workers`, BigQuery slots), CLI flags (`--instance_name`), and scaling optimizations.
-   - Must extract concrete enums (e.g. `custom_only`, `base_only`) and explicit configuration parameters.
-
-3. **Bug Fixes**:
-   - Synthesized into 3 to 5 functional categories (*Deployment & Infrastructure*, *Ingestion Pipeline Reliability*, *Serving API & Query Robustness*, *Web UI & Visualization*).
-   - Must ONLY include true platform bug fixes present in prior releases (excluding intra-release intermediate fixes).
