@@ -77,6 +77,7 @@ class FeatureUpdate:
     category: str  # Must match one of SOPCategory values
     target_components: List[str] = field(default_factory=list)
     included_prs: List[str] = field(default_factory=list)  # Qualified PR IDs e.g. ["datacommons#188"]
+    pr_contributions: Dict[str, str] = field(default_factory=dict)  # Maps PR ID -> Specific contribution summary
     is_dcp_relevant: bool = True
     breaking_changes: Optional[str] = None
 

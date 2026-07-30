@@ -198,9 +198,13 @@ Example: {{"relevant_pr_ids": ["datacommons#188", "import#42"]}}
    - Use the `merged_at` timestamps to understand commit order.
    - If a PR was superseded or modified by a later PR in this release, describe only the FINAL state at {manifest.new_version}.
 
-4. **Technical Writing**:
+4. **Technical Writing & Comprehensive Context**:
    - Write clear, concise, engineer-style titles and descriptions. Avoid marketing fluff or non-technical summaries.
    - Set `is_dcp_relevant: true` for all platform-relevant features, or `false` for base-only features.
+   - If a feature contains only ONE PR, ensure the `description` is rich and comprehensive enough for release notes generation to understand all capabilities implemented.
+
+5. **Per-PR Contribution Summaries**:
+   - For EVERY PR listed in `included_prs`, provide a specific 1-2 sentence contribution summary under `pr_contributions` mapping the qualified PR ID to its specific capability contribution (e.g., `{{"datacommons#188": "Removed premature success status set at end of dataflow stage", "datacommons#189": "Added max_workers Terraform variable for Dataflow auto-scaling"}}`).
 
 {instructions_context}
 
@@ -216,6 +220,10 @@ Respond ONLY with a JSON array of FeatureUpdate objects with the following schem
     "category": "Spanner Graph & APIs | Ingestion & Safety | Search & Website | Infra & Tooling",
     "target_components": ["dcp", "services", "preprocessing", "dataflow_worker", "ingestion_helper", "postprocessing"],
     "included_prs": ["datacommons#188", "datacommons#189"],
+    "pr_contributions": {{
+      "datacommons#188": "Removed premature success status set at end of dataflow stage",
+      "datacommons#189": "Added max_workers Terraform variable for Dataflow auto-scaling"
+    }},
     "is_dcp_relevant": true,
     "breaking_changes": "Optional string describing breaking change if any, else null"
   }}
@@ -254,6 +262,7 @@ Respond ONLY with a JSON array of FeatureUpdate objects with the following schem
                     category=cat,
                     target_components=item.get("target_components", []),
                     included_prs=item.get("included_prs", []),
+                    pr_contributions=item.get("pr_contributions", {}),
                     is_dcp_relevant=item.get("is_dcp_relevant", True),
                     breaking_changes=item.get("breaking_changes"),
                 )

@@ -101,6 +101,10 @@ class TestFeatureExtractorUnit:
                 "category": "Ingestion & Safety",
                 "target_components": ["dcp", "dataflow_worker"],
                 "included_prs": ["datacommons#188", "datacommons#189"],
+                "pr_contributions": {
+                    "datacommons#188": "Removed premature success status set at end of dataflow stage",
+                    "datacommons#189": "Added max_workers Terraform variable for Dataflow auto-scaling",
+                },
                 "is_dcp_relevant": True,
                 "breaking_changes": None,
             }
@@ -149,6 +153,8 @@ class TestFeatureExtractorUnit:
         assert feature.id == "ingestion_dataflow_scaling"
         assert feature.category == "Ingestion & Safety"
         assert feature.included_prs == ["datacommons#188", "datacommons#189"]
+        assert "datacommons#188" in feature.pr_contributions
+        assert "datacommons#189" in feature.pr_contributions
         assert feature.is_dcp_relevant is True
 
 
