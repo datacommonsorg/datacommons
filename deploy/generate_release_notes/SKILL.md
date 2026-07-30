@@ -43,10 +43,18 @@ Provide each subagent with:
 - **Subagent 2 (`import-extractor`)**: Extract PRs for `import` repo for preprocessor, Dataflow worker, ingestion helper, and postprocessing helper $\rightarrow$ write `output/prs_preprocessing.txt`, `output/prs_dataflow_worker.txt`, `output/prs_ingestion_helper.txt`, `output/prs_postprocessing.txt`.
 - **Subagent 3 (`monorepo-extractor`)**: Extract PRs for `datacommonsorg/datacommons` monorepo & Terraform infra $\rightarrow$ write `output/prs_dcp_monorepo.txt`.
 
-### Step 3: Verification Checkpoint
-Notify the developer that the PR verification files have been generated under `deploy/generate_release_notes/output/prs_*.txt` for review.
+### Step 3: Verification Checkpoint & Release Delta Synthesis Subagent
+1. Notify the developer that raw PR verification files have been generated under `deploy/generate_release_notes/output/prs_*.txt` for review.
+2. Call `invoke_subagent` to spawn a specialized **Release Delta Synthesis Subagent** (`delta-synthesizer`).
+3. Provide the subagent with the **Release Delta Synthesis Skill**: [`deploy/generate_release_notes/skills/release-delta-synthesis/SKILL.md`](file:///Users/calinc/datcom-datacommons/deploy/generate_release_notes/skills/release-delta-synthesis/SKILL.md).
+4. The subagent will:
+   - Read all `output/prs_*.txt` files.
+   - Investigate and distinguish true bug fixes present in `<prev_version>` vs. intermediate bug fixes introduced and fixed within `<new_version>` (omitting intra-release fixes).
+   - Summarize salient features and configuration updates per container image relative to `<prev_version>`.
+   - Output the unified image delta summary to: `deploy/generate_release_notes/output/IMAGE_DELTAS_<new_version>.txt`.
 
-### Step 4: Apply Domain Context & Author Release Notes
+### Step 4: Author Publication-Ready Release Notes
 1. Read the **DCP Domain Context Skill**: [`deploy/generate_release_notes/skills/dcp-context/SKILL.md`](file:///Users/calinc/datcom-datacommons/deploy/generate_release_notes/skills/dcp-context/SKILL.md).
 2. Read the **Release Writer Skill**: [`deploy/generate_release_notes/skills/release-writer/SKILL.md`](file:///Users/calinc/datcom-datacommons/deploy/generate_release_notes/skills/release-writer/SKILL.md).
-3. Author the final release notes from the verified PR text files into: `deploy/generate_release_notes/output/RELEASE_NOTES_<new_version>.md`.
+3. Read `deploy/generate_release_notes/output/IMAGE_DELTAS_<new_version>.txt`.
+4. Author the final release notes from the verified image delta summary into: `deploy/generate_release_notes/output/RELEASE_NOTES_<new_version>.md`.

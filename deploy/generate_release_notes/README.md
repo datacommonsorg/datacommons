@@ -15,11 +15,13 @@ deploy/generate_release_notes/
 ├── SKILL.md                          <-- 1. Master Orchestrator Skill (Entrypoint)
 ├── skills/
 │   ├── pr-extraction/
-│   │   └── SKILL.md                  <-- 2. PR Extraction & Image Tag Resolution Skill
+│   │   └── SKILL.md                  <-- 2. PR Extraction Skill (Subagent Extraction)
+│   ├── release-delta-synthesis/
+│   │   └── SKILL.md                  <-- 3. Release Delta Synthesis Skill (Image Delta Analysis)
 │   ├── dcp-context/
-│   │   └── SKILL.md                  <-- 3. DCP Domain Context & Architectural Map
+│   │   └── SKILL.md                  <-- 4. DCP Domain Context & Architectural Map
 │   └── release-writer/
-│       └── SKILL.md                  <-- 4. Partner-Facing Release Notes Writer
+│       └── SKILL.md                  <-- 5. Partner-Facing Release Notes Writer
 └── output/                            <-- Verification & Output Directory
     ├── prs_services.txt              <-- Verified PRs for Core Services (Website, Mixer, MCP)
     ├── prs_preprocessing.txt         <-- Verified PRs for Data Preprocessor (datacommons-data)
@@ -27,6 +29,7 @@ deploy/generate_release_notes/
     ├── prs_ingestion_helper.txt      <-- Verified PRs for Ingestion Helper
     ├── prs_postprocessing.txt        <-- Verified PRs for Postprocessing Helper
     ├── prs_dcp_monorepo.txt          <-- Verified PRs for DCP Monorepo & Infra
+    ├── IMAGE_DELTAS_v1.1.1.txt       <-- Intermediate Image Delta Summary (Delta vs. Previous Release)
     └── RELEASE_NOTES_v1.1.1.md       <-- Final Publication-Ready Release Notes
 ```
 
@@ -41,22 +44,23 @@ To generate release notes for a release range, point your LLM agent at [`deploy/
 > *"Please read `deploy/generate_release_notes/SKILL.md` and generate release notes for version v1.1.0 to v1.1.1."*
 
 ### Step 2: PR Extraction & Intermediate Verification Files
-Your LLM agent will follow the PR extraction skill (`skills/pr-extraction/SKILL.md`) to:
+Your LLM agent will spawn concurrent subagents using `skills/pr-extraction/SKILL.md` and `skills/dcp-context/SKILL.md` to:
 1. Resolve container image tags across Artifact Registry via `gcloud`.
 2. Query merged Pull Requests across all 6 Data Commons repositories via `gh pr list`.
-3. Filter out non-production test fixtures and intermediate release-window regressions.
-4. Output human-verifiable text files per container image into `deploy/generate_release_notes/output/`:
-   - `prs_services.txt` (Core Services: Website, Mixer, MCP Agent)
-   - `prs_preprocessing.txt` (Data Preprocessor: `datacommons-data`)
-   - `prs_dataflow_worker.txt` (Dataflow Ingestion Worker)
-   - `prs_ingestion_helper.txt` (Ingestion Helper Service)
-   - `prs_postprocessing.txt` (Postprocessing Aggregation Helper)
-   - `prs_dcp_monorepo.txt` (DCP Monorepo & Terraform Infra)
+3. Analyze PR content, change summary, and DCP impact.
+4. Output human-verifiable text files per container image into `deploy/generate_release_notes/output/prs_*.txt`.
 
-Developers can open and inspect these `.txt` files to verify that all relevant PRs for each image are correctly captured before the final release notes are written.
+Developers can open and inspect these `.txt` files to verify that all relevant PRs for each image are correctly captured, and inspect the **Irrelevant / Excluded PRs** audit log at the bottom.
 
-### Step 3: Domain Context & Final Writing
-Your LLM agent will load the domain context (`skills/dcp-context/SKILL.md`) and author the final release notes according to `skills/release-writer/SKILL.md`, outputting:
+### Step 3: Release Delta Synthesis (Delta vs. Previously Published Image)
+Your LLM agent will spawn a **Release Delta Synthesis Subagent** using `skills/release-delta-synthesis/SKILL.md` to:
+1. Analyze all `output/prs_*.txt` files.
+2. Distinguish true platform bug fixes present in `<prev_version>` vs. intermediate bug fixes introduced and resolved within `<new_version>` (omitting intra-release fixes).
+3. Summarize salient features and operator capabilities added to each container image relative to `<prev_version>`.
+4. Output the intermediate delta summary file: `deploy/generate_release_notes/output/IMAGE_DELTAS_<new_version>.txt`.
+
+### Step 4: Final Release Notes Authoring
+Your LLM agent will load `skills/release-writer/SKILL.md` and author the publication-ready release notes:
 `deploy/generate_release_notes/output/RELEASE_NOTES_<new_version>.md`
 
 ---

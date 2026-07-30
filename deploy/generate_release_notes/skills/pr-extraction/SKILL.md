@@ -55,7 +55,11 @@ Categorize every PR into either **Relevant PRs** or **Excluded PRs**:
    - **Bot & Non-Production Chores**: Dependabot bumps, automated version bumps, unit/integration test harness refactors, or test sample data removals.
 
 ### 5. Write Verification File (`prs_<component>.txt`)
-Format and write the extracted PRs into your assigned `output_file`, including an **Irrelevant / Excluded PRs** section at the bottom for developer audit:
+Format and write the extracted PRs into your assigned `output_file`, including an **Irrelevant / Excluded PRs** section at the bottom for developer audit.
+
+For each relevant PR, provide:
+1. **Change Summary**: Concise description of what changed in the code.
+2. **DCP Impact**: Direct impact on platform operators, developers, or end-users.
 
 ```
 ================================================================================
@@ -67,15 +71,13 @@ Total Relevant PRs: {relevant_count} | Total Excluded PRs: {excluded_count}
 
 --- RELEVANT PRODUCTION PRS ---
 
-[{repo_short}#{number}] {title}
-Author: {author} | Merged: {merged_at}
-URL: {url}
-Files Changed: {files_summary}
+[{repo_short}#{number}] {title} (Author: {author} | Merged: {merged_at})
+- Change Summary: {1-2 sentence summary of what changed in this PR}
+- DCP Impact: {1-2 sentence explanation of user capability, API contract, or operator benefit}
 
-[{repo_short}#{number}] {title}
-Author: {author} | Merged: {merged_at}
-URL: {url}
-Files Changed: {files_summary}
+[{repo_short}#{number}] {title} (Author: {author} | Merged: {merged_at})
+- Change Summary: {1-2 sentence summary of what changed in this PR}
+- DCP Impact: {1-2 sentence explanation of user capability, API contract, or operator benefit}
 
 ================================================================================
 --- IRRELEVANT / EXCLUDED PRS (AUDIT LOG) ---
@@ -83,15 +85,12 @@ Files Changed: {files_summary}
 
 [{repo_short}#{number}] {title}
 Reason: Excluded - Base DC-only flag flip / internal feature toggle
-URL: {url}
 
 [{repo_short}#{number}] {title}
 Reason: Excluded - Intermediate regression fix for PR {parent_pr_id} merged in current release window
-URL: {url}
 
 [{repo_short}#{number}] {title}
 Reason: Excluded - Unit test harness refactor / test sample data update
-URL: {url}
 ```
 
 Confirm when your assigned verification file has been written cleanly to `output_file`.
