@@ -81,31 +81,6 @@ Defines the non-verbose, partner-facing GFM format:
 
 ---
 
-## Standalone CLI Execution (Python Pipeline)
-
-Alternatively, for non-LLM or CI/CD automated environments, run the standalone Python CLI tool:
-
-```bash
-uv run --group generate-release-notes python -m deploy.generate_release_notes \
-  --prev v1.1.0 \
-  --new v1.1.1 \
-  --allow-missing-images \
-  --manifest-out ./output/manifest_v1.1.1.json \
-  --out ./output/RELEASE_NOTES_v1.1.1.md
-```
-
-### CLI Options Reference:
-| Flag / Option | Type | Description |
-| :--- | :--- | :--- |
-| `--prev` | `STRING` | Previous release version tag (e.g. `v1.1.0`). |
-| `--new` | `STRING` | Target release version tag (e.g. `v1.1.1`). |
-| `--out`, `-o` | `PATH` | Output markdown file path (default: `./RELEASE_NOTES_<new>.md`). |
-| `--allow-missing-images` | `BOOLEAN` | Bypass missing container image tag errors during staging. |
-| `--manifest-out` | `PATH` | Export JSON manifest mapping all PRs to their container image URIs. |
-| `--include-audit-log` | `BOOLEAN` | Append raw PR audit log table at the bottom of the release notes. |
-
----
-
 ## Repository Mapping
 
 | Repository | Scope / Path Filter | Target Component & Image |

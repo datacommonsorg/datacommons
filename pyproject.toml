@@ -23,12 +23,6 @@ dependencies = [
 dev = [
   {include-group = "lint"},
   {include-group = "test"},
-  {include-group = "generate-release-notes"}
-]
-generate-release-notes = [
-  "google-genai>=0.1.0",
-  "click>=8.1.7",
-  "jinja2>=3.1.0",
 ]
 lint = [
   "pre-commit>=4.5.1",
@@ -153,7 +147,7 @@ packages = []
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
-testpaths = ["packages/*/tests", "deploy/generate_release_notes/tests"]
+testpaths = ["packages/*/tests"]
 
 [tool.setuptools.dynamic]
 version = {file = "VERSION"}
