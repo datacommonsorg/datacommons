@@ -197,7 +197,7 @@ Your objective is to generate publication-ready, partner-facing release notes fo
     * **Capabilities & Changes Bullets**: 12-15 words max per bullet.
 * **The "So What?" Rule**: Do not just list code changes. Frame every update around user capability (e.g., *what* can the developer do now, *which* inputs are accepted, or *how* does this affect query performance/scalability?).
 * **Extract Concrete Enums & Configuration Values (STRICT)**: Whenever an update introduces or modifies a configuration variable, CLI flag, environment variable, or Terraform setting, DO NOT summarize it generically (e.g., "Configured search scope"). ALWAYS extract and list the specific valid values or enums (e.g., `custom_only`, `base_only`, `base_and_custom`, `--instance_name`, processing unit bounds) and explain the exact behavior or filtering capability each option enables for operators!
-* **De-emphasize DB Internals**: Do not write about Spanner database mechanics (e.g., "Spanner graph schema modifications," "KeyValueStore cutovers," or Spanner internal table indexing). Instead, frame these improvements around API response speed, easier configuration, or expanded data ingestion inputs.
+* **STRICT BAN ON DATABASE INTERNAL NAMES (ZERO TOLERANCE)**: NEVER output feature titles or section names containing internal database terms (e.g., "KeyValueStore", "Spanner Graph DDL", "Bigtable Migration", "Spanner Key Value Store", "Database Schema Modification"). Internal database storage details MUST NOT be exposed to platform users or partners! If a database change improves performance or latency, title it around user impact (e.g., "API Serving Latency & Latency Optimization") and describe the speedup without naming internal database tables or storage layers!
 
 ---
 
@@ -219,7 +219,9 @@ You will process two payload inputs. Map them to the final release note sections
     *   Major, highly impactful items (e.g. SDMX 3.0 REST Endpoints, Agent MCP Toolkit Overhaul, Modular Ingestion Workflows) MUST be rendered as detailed feature sections under **Key Feature Updates**.
     *   Minor enhancements, optimizations, or configuration instructions must be formatted as concise bullet points under **Improvements & Configuration Updates**.
 2.  **`bug_fixes_payload`**: 
-    *   Substantive bug fixes that address user-facing errors, data inaccuracies, or platform operator crashes must be mapped to **Bug Fixes**.
+    *   **HIGH-LEVEL GROUPING (MAX 4-5 BULLETS TOTAL - NO LAUNDRY LIST)**: DO NOT output a laundry list of dozens of individual PRs!
+    *   Aggregate and group all raw bug fixes into 3 to 5 high-impact, functional bullet points (e.g., **Deployment & Infrastructure**, **Ingestion Pipeline Reliability**, **Serving API & Query Robustness**, **Web UI & Visualization**).
+    *   Each grouped bullet must synthesize the common issue and fix in 1-2 concise sentences for the user, linking all relevant PRs together (e.g., `([datacommons#163](https://github.com/...), [datacommons#178](https://github.com/...))`).
     *   *STRICT EXCLUSION*: Completely ignore internal development chores, test refactors, CI sandbox workflows, local test setups, or unused sample data removals.
 
 ---
@@ -230,7 +232,7 @@ You will process two payload inputs. Map them to the final release note sections
 | :--- | :--- | :--- |
 | **Key Features** | "Merged PR to implement SDMX 3.0 CSV parser in import repo." | **Import SDMX 3.0 CSV files directly** to ingest standard-compliant macroeconomic datasets into your private instance with zero manual preprocessing. |
 | **Improvements** | "Added Terraform variable max_workers." | **Scalable Dataflow Import Pipelines**: Configure `max_workers` in your Terraform configurations to scale compute resources automatically during large-scale imports. |
-| **Bug Fixes** | "Fixed NullPointerException in observation API when entity is empty." | **Observation Serving**: Resolved a crash in the `/v2/observation` endpoint when querying empty entities; the API now gracefully returns an empty payload with a 200 OK. |
+| **Bug Fixes** | "- Fixed NullPointerException in observation API when entity is empty. [PR 1]<br>- Fixed timeout in preprocessor polling. [PR 2]<br>- Fixed IAM count error. [PR 3]" | **Deployment & Infrastructure Reliability**: Resolved Terraform IAM race conditions during fresh deployments and fixed preprocessor polling timeouts during long-running ingestion workflows ([datacommons#163](https://github.com/...), [datacommons#176](https://github.com/...)). |
 
 ---
 
