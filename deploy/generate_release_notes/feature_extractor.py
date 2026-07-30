@@ -181,29 +181,55 @@ Example: {{"relevant_pr_ids": ["datacommons#188", "import#42"]}}
                 f"{instructions_text}\n"
             )
 
-        prompt = f"""You are an expert Technical Release Manager drafting official release notes for Data Commons Platform (DCP) release {manifest.new_version} (previous version: {manifest.previous_version}).
+        prompt = f"""You are an expert Technical Release Manager for Data Commons Platform (DCP) drafting official release notes for release {manifest.new_version} (previous version: {manifest.previous_version}).
+
+### Context & Domain Knowledge — What is Data Commons Platform (DCP)?
+Data Commons Platform (DCP) is a self-hosted, Cloud Spanner-backed deployment of Data Commons. It replaces legacy Bigtable with Cloud Spanner graph tables and vector embeddings, featuring custom data ingestion pipelines, specialized serving APIs, and deployment automation across 6 key repositories:
+
+1. **`datacommonsorg/datacommons` (Monorepo)**:
+   - Contains DCP Terraform modules (`infra/dcp/`, `infra/modules/`), CLI tools (`packages/datacommons-cli/`), and Admin Portal (`packages/datacommons-admin/`).
+2. **`datacommonsorg/website`**:
+   - Web application serving UI and APIs (`server/`, `static/`, `build/cdc_services/`, `build/cdc_data/`).
+3. **`datacommonsorg/mixer`**:
+   - Core Spanner gRPC graph and StatVar serving engine (`internal/server/`, `proto/`).
+4. **`datacommonsorg/import`**:
+   - Data processing pipelines: Simple importer (`simple/`), Dataflow Java worker (`pipeline/ingestion/`), Ingestion Helper (`pipeline/workflow/ingestion-helper/`), Aggregation Helper (`pipeline/workflow/aggregation-helper/`).
+5. **`datacommonsorg/agent-toolkit`**:
+   - Datacommons Model Context Protocol (MCP) server and tools (`src/datacommons_mcp/`).
+6. **`datacommonsorg/datacommons-data`**:
+   - Data preprocessor container image built from `import/simple/` and `website/build/cdc_data/`.
+
+---
+
+### Classification Rules & SOP Categories:
+Categorize EVERY feature into EXACTLY ONE of these 4 standard SOP categories based on its files and description:
+
+1. **"Spanner Graph & APIs"**:
+   - Features touching SDMX 3.0 REST endpoints, `/v2/observation` StatVar data retrieval, Spanner gRPC graph serving, `proto/` definitions, or `agent-toolkit` MCP server/tools.
+2. **"Ingestion & Safety"**:
+   - Features touching Dataflow Java worker (`pipeline/ingestion/`), `ingestion-helper`, `aggregation-helper`, Spanner table loading, timestamp bounds, data validation, or health probes.
+3. **"Search & Website"**:
+   - Features touching Spanner vector embeddings (`NodeEmbedding`), private instance `detect-and-fulfill`, Nginx/Envoy, Website UI, or Admin Portal UI.
+4. **"Infra & Tooling"**:
+   - Features touching `infra/dcp/` (Terraform), `datacommons-cli`/`admin` PyPI packages, monorepo root configs, or Cloud Build release pipelines.
+
+---
 
 ### Task Instructions:
-1. **Semantic Classification**: Categorize each feature into EXACTLY ONE of the 4 standard DCP SOP categories (use exact category names):
-   - "Spanner Graph & APIs" (SDMX 3.0 REST API, `/v2/observation` StatVars, MCP server/tools, Spanner gRPC serving/protos)
-   - "Ingestion & Safety" (Ingestion Helper, Aggregation Helper, Dataflow Java worker, timestamp bounds, safety checks, Spanner loading)
-   - "Search & Website" (Spanner vector embeddings / `NodeEmbedding`, private instance `detect-and-fulfill`, Website UI, Nginx/Envoy)
-   - "Infra & Tooling" (DCP Terraform modules, `datacommons admin`/`cli` PyPI packages, monorepo packages, Cloud Build release pipelines)
-
-2. **Feature Grouping & Deduplication**:
+1. **Feature Grouping & Deduplication**:
    - Combine related PRs (e.g., an initial feature PR + follow-up bug fixes + test PRs) into a SINGLE cohesive `FeatureUpdate`.
    - List all included PR qualified IDs in `included_prs` (e.g. `["datacommons#188", "datacommons#189"]`).
 
-3. **Supersede Resolution & Chronology**:
-   - Use the `merged_at` timestamps to understand commit order.
+2. **Supersede Resolution & Chronology**:
+   - Use `merged_at` timestamps to understand commit order.
    - If a PR was superseded or modified by a later PR in this release, describe only the FINAL state at {manifest.new_version}.
 
-4. **Technical Writing & Comprehensive Context**:
+3. **Technical Writing & Comprehensive Context**:
    - Write clear, concise, engineer-style titles and descriptions. Avoid marketing fluff or non-technical summaries.
    - Set `is_dcp_relevant: true` for all platform-relevant features, or `false` for base-only features.
-   - If a feature contains only ONE PR, ensure the `description` is rich and comprehensive enough for release notes generation to understand all capabilities implemented.
+   - If a feature contains only ONE PR, ensure `description` is rich and comprehensive enough for release notes generation to understand all capabilities implemented.
 
-5. **Per-PR Contribution Summaries**:
+4. **Per-PR Contribution Summaries**:
    - For EVERY PR listed in `included_prs`, provide a specific 1-2 sentence contribution summary under `pr_contributions` mapping the qualified PR ID to its specific capability contribution (e.g., `{{"datacommons#188": "Removed premature success status set at end of dataflow stage", "datacommons#189": "Added max_workers Terraform variable for Dataflow auto-scaling"}}`).
 
 {instructions_context}
