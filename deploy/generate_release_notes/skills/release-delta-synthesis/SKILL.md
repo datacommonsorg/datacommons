@@ -42,6 +42,21 @@ For each container image / component, summarize the salient changes from the per
 
 ---
 
+## Component & Service Separation Rules
+
+Do NOT club Website, Mixer, and MCP Agent Toolkit together in the output synthesis. Separate them into distinct, dedicated component sections so developers and operators can clearly see changes per layer:
+
+1. **`Mixer Serving Engine & SDMX APIs`** (`datacommonsorg/mixer`): Core gRPC serving engine, SDMX 3.0 REST Data/Availability endpoints, `/v2/observation`, vector search indexing, SQL query planner optimizations.
+2. **`MCP Agent Toolkit & FastMCP Tools`** (`datacommonsorg/agent-toolkit`): FastMCP tools, `get_multi_entity_observations`, indicator search tools, target scope resolution (`custom_only`, `base_only`).
+3. **`Website UI & Exploration Tools`** (`datacommonsorg/website`): Explore UI, Download Tool, Place Browser, Croissant dataset metadata, web server routing and caching.
+4. **`Data Preprocessor`** (`datacommonsorg/import` - `datacommons-data`): CSV/MCF validation, 10k-node streaming JSON-LD batching, namespace mapping.
+5. **`Dataflow Ingestion Worker`** (`datacommonsorg/import` - Dataflow Templates): TFRecord loading, Spanner graph transformations, `max_workers` auto-scaling.
+6. **`Ingestion Helper Service`** (`datacommonsorg/import` - `datacommons-ingestion-helper`): Cloud Workflows status tracking, execution IDs, history tables.
+7. **`Postprocessing Aggregation Helper`** (`datacommonsorg/import` - `datacommons-aggregation-helper`): StatVar/Place/Entity rollups, summary store, DPV aggregations.
+8. **`DCP Monorepo & Infrastructure`** (`datacommonsorg/datacommons`): Terraform modules, Admin CLI (`datacommons admin`), Cloud Run job orchestration.
+
+---
+
 ## Output Document Structure (`IMAGE_DELTAS_<new_version>.txt`)
 
 Write `deploy/generate_release_notes/output/IMAGE_DELTAS_<new_version>.txt` using the exact structure below:
@@ -53,25 +68,46 @@ Generated Date: {date}
 ================================================================================
 
 --------------------------------------------------------------------------------
-1. COMPONENT: Core Services (Website, Mixer, MCP Agent)
-   Container Image: gcr.io/datcom-ci/datacommons-services
+1. COMPONENT: Mixer Serving Engine & SDMX APIs (datacommonsorg/mixer)
+   Container Image: gcr.io/datcom-ci/datacommons-services (Mixer binary)
 --------------------------------------------------------------------------------
 
 SALIENT FEATURES & CAPABILITIES (vs. {prev_version}):
 - SDMX 3.0 REST Data & Availability Endpoints: Serves multi-entity observations in SDMX-CSV 2.0 format with facetId filtering and containedInPlace+ expansion ([mixer#1976], [mixer#1988], [mixer#2000]).
-- FastMCP Agent Integration: Exposes get_multi_entity_observations tool and indicator search with custom_only/base_only target scopes ([agent-toolkit#211], [agent-toolkit#212]).
 
 CONFIGURATION & OPERATOR UPDATES:
 - Vector Search Profiles: Support custom embedding profiles via --spanner_search_config_path ([mixer#2039]).
 
 TRUE PLATFORM BUG FIXES (Fixes issues present in {prev_version}):
 - Serving SQL Optimization: Unroll SQL array parameters for size <= 10 to resolve latency spikes ([mixer#1993]).
-- Place Browser Duplication: Fixed duplicate place rendering when multiple provenances exist ([website#6474]).
 
 [INTRA-RELEASE FIXES EXCLUDED FROM PUBLIC NOTES: mixer#2025, mixer#2070]
 
 --------------------------------------------------------------------------------
-2. COMPONENT: Data Preprocessor
+2. COMPONENT: MCP Agent Toolkit & FastMCP Tools (datacommonsorg/agent-toolkit)
+   Container Image: gcr.io/datcom-ci/datacommons-services (MCP binary)
+--------------------------------------------------------------------------------
+
+SALIENT FEATURES & CAPABILITIES (vs. {prev_version}):
+- FastMCP Agent Integration: Exposes get_multi_entity_observations tool and indicator search with custom_only/base_only target scopes ([agent-toolkit#211], [agent-toolkit#212]).
+
+TRUE PLATFORM BUG FIXES (Fixes issues present in {prev_version}):
+- Agent API Protocol: Updated V2AgentGetObservations to HTTP POST for large payload handling ([agent-toolkit#213]).
+
+--------------------------------------------------------------------------------
+3. COMPONENT: Website UI & Exploration Tools (datacommonsorg/website)
+   Container Image: gcr.io/datcom-ci/datacommons-services (Website binary)
+--------------------------------------------------------------------------------
+
+SALIENT FEATURES & CAPABILITIES (vs. {prev_version}):
+- Download Tool Redesign: Enhanced export interface for custom variable datasets ([website#6411]).
+- Croissant Dataset Metadata: Inject Croissant JSON-LD for dataset indexing ([website#6443]).
+
+TRUE PLATFORM BUG FIXES (Fixes issues present in {prev_version}):
+- Place Browser Duplication: Fixed duplicate place rendering when multiple provenances exist ([website#6474]).
+
+--------------------------------------------------------------------------------
+4. COMPONENT: Data Preprocessor
    Container Image: gcr.io/datcom-ci/datacommons-data
 --------------------------------------------------------------------------------
 ...
