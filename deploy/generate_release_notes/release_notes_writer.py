@@ -180,39 +180,55 @@ class ReleaseNotesWriter:
                 f"{instructions_text}\n"
             )
 
-        prompt = f"""You are an expert Technical Release Manager and Product Documentation Specialist for the Data Commons Platform (DCP).
-Your task is to write publication-ready, partner-facing release notes for Data Commons Platform release {manifest.new_version} ({release_date}).
+        prompt = f"""You are an expert Technical Release Manager and Product Documentation Specialist for the Data Commons Platform (DCP). 
 
-### Core Writing Guidelines & Tone:
-1. **Tone & Style**: Write in a clear, positive, partner-facing tone using plain language. Use second person ("You can now...") and active voice for new features and improvements. Use past tense for bug fixes ("Fixed...", "Resolved...").
-2. **Target Audience (Building ON TOP OF Platform)**:
-   - Write for external developers, data engineers, and instance operators building ON TOP OF Data Commons Platform (NOT internal platform maintainers).
-   - Primary Focus: **Ingestion Inputs & Pipelines** (CSV/SDMX inputs, data loading, workflow parameters) and **APIs & Tooling** (REST APIs, SDMX 3.0 endpoints, `/v2/observation`, MCP tools, Web UI, Admin CLI).
-3. **De-emphasize Database Layer**:
-   - DO NOT focus on Spanner database layer mechanics (e.g. Spanner graph schema, KeyValueStore cutovers, Spanner table internals). Frame changes around how they affect API response speed, data availability, or ingestion inputs!
-4. **Strict Exclusions**:
-   - DO NOT include internal integration test suites, Spanner Omni test setups, CI sandbox workflows, or developer-only test sample data updates.
-   - DO NOT include internal code refactors or unused example file cleanups.
-5. **Level of Detail & Use Case Focus**:
-   - For major features: Provide an engaging "What's New", "Why it Matters" (business/technical benefit), and a bulleted list under "**Capabilities & Use Cases Enabled**".
-   - **DO NOT write a laundry list of code changes or PR descriptions!** Every bullet under Capabilities MUST describe an explicit thing the user can DO (e.g., 'Query bilateral trade flows between two countries', 'Import SDMX 3.0 CSV files directly', 'Run targeted single-entity vs child-place research playbooks'). Focus on supported input types, query capabilities, and real use cases!
-   - For single-PR features: Provide rich, self-contained descriptions so partners do not need to look up code diffs.
-   - For bug fixes: Focus on what was broken, how it was resolved, and how the system behaves now.
-6. **Link Formatting**:
-   - Every PR reference MUST be formatted as a clickable Markdown link: `[<repo_short>#<pr_number>](<pr_url>)` (e.g. `[datacommons#188](https://github.com/datacommonsorg/datacommons/pull/188)`).
-   - DO NOT put backticks around or inside the link text (e.g. write `[datacommons#188](URL)`, NEVER `[`datacommons#188`](URL)` or `` `[datacommons#188](URL)` ``).
-7. **Strict Constraints**:
-   - DO NOT use any emojis anywhere in the document.
-   - DO NOT include a component version table or git commit/SHA table.
-   - DO NOT include release range commit text (e.g., "Release range: v1.1.0 to v1.1.1").
-   - Place the 1-2 sentence Executive Summary directly beneath the main title (`# Data Commons Platform Release {manifest.new_version} ({release_date})`).
-   - Output ONLY clean, valid GitHub Flavored Markdown (GFM).
+Your objective is to generate publication-ready, partner-facing release notes for DCP version `{manifest.new_version}` ({release_date}) using GFM (GitHub Flavored Markdown).
 
 ---
 
-### Input Release Data:
+### 1. CORE WRITING STYLE & TONE
+* **Perspective & Tone**: Use a clear, authoritative, yet welcoming and positive tone. Write in the active voice and use the second person ("You can now...") for new features or configuration updates. Use the past tense ("Fixed...", "Resolved...") for bug fixes.
+* **Audience Focus**: Write specifically for external developers, data engineers, and instance operators building ON TOP OF the platform. 
+* **The "So What?" Rule**: Do not just list code changes. Frame every update around user capability (e.g., *what* can the developer do now, *which* inputs are accepted, or *how* does this affect query performance/scalability?).
+* **De-emphasize DB Internals**: Do not write about Spanner database mechanics (e.g., "Spanner graph schema modifications," "KeyValueStore cutovers," or Spanner internal table indexing). Instead, frame these improvements around API response speed, easier configuration, or expanded data ingestion inputs.
 
-#### Synthesized Features & Updates:
+---
+
+### 2. STRICT CONSTRAINTS (ZERO-TOLERANCE RULES)
+* **NO Emojis**: Do not use emojis anywhere in the document.
+* **NO Version/Commit Tables**: Do not include a component version table, git commit hashes, or SHA tables.
+* **NO Commit Range Text**: Do not include text like "Release range: v1.1.0 to v1.1.1".
+* **NO Code-Fenced Links**: Every PR reference MUST be a clean, clickable GFM link. Do not wrap backticks around or inside link text.
+    * **CORRECT**: `[website#123](https://github.com/...)`
+    * **INCORRECT**: `[`website#123`](https://github.com/...)` or `[`website#123` (https://github.com/...)]`
+
+---
+
+### 3. INPUT MAPPING RULES
+You will process two payload inputs. Map them to the final release note sections as follows:
+
+1. **`features_payload`**: 
+    * Major, highly impactful items must be grouped as detailed features under **Key Feature Updates**.
+    * Minor enhancements, optimizations, or configuration instructions must be formatted as concise bullet points under **Improvements & Configuration Updates**.
+2. **`bug_fixes_payload`**: 
+    * Substantive bug fixes that address user-facing errors, data inaccuracies, or platform operator crashes must be mapped to **Bug Fixes**.
+    * *STRICT EXCLUSION*: Completely ignore internal development chores, test refactors, CI sandbox workflows, local test setups, or unused sample data removals.
+
+---
+
+### 4. DO vs. DON'T CONTENT SAMPLES
+
+| Section | ❌ DO NOT Write (Internal Developer Focus) |  DO Write (Partner & Operator Focus) |
+| :--- | :--- | :--- |
+| **Key Features** | "Merged PR to implement SDMX 3.0 CSV parser in import repo." | **Import SDMX 3.0 CSV files directly** to ingest standard-compliant macroeconomic datasets into your private instance with zero manual preprocessing. |
+| **Improvements** | "Added Terraform variable max_workers." | **Scalable Dataflow Import Pipelines**: Configure `max_workers` in your Terraform configurations to scale compute resources automatically during large-scale imports. |
+| **Bug Fixes** | "Fixed NullPointerException in observation API when entity is empty." | **Observation Serving**: Resolved a crash in the `/v2/observation` endpoint when querying empty entities; the API now gracefully returns an empty payload with a 200 OK. |
+
+---
+
+### 5. INPUT DATA
+
+#### Major Features & Updates:
 {json.dumps(features_payload, indent=2)}
 
 #### Bug Fixes & Refactors:
@@ -222,40 +238,38 @@ Your task is to write publication-ready, partner-facing release notes for Data C
 
 ---
 
-### Required Output Markdown Structure:
+### 6. REQUIRED OUTPUT STRUCTURE
+Generate GFM matching the exact structure below. Do not add any greeting, intro, or concluding conversational text outside this structure.
 
 # Data Commons Platform Release {manifest.new_version} ({release_date})
 
-*(1-2 sentences highlighting the most important capabilities, improvements, and fixes in this release for partners and platform operators.)*
+[Provide a high-impact, 1-2 sentence Executive Summary highlighting the most important capabilities, performance boosts, and critical fixes introduced in this release for partners and platform operators.]
 
 ---
 
 ## Key Feature Updates
 
-*(Group major feature updates here. For each feature, use the following structure:)*
-
 ### [Feature Title]
+
 **What's New**: [Clear description of what partners or operators can now do]
-**Why it Matters**: [Business benefit and technical impact]
+
+**Why it Matters**: [Business benefit, technical impact, or performance advantage]
+
 **Capabilities & Use Cases Enabled**:
-- [Actionable Use Case / Input Capability 1] ([repo#PR](URL))
-- [Actionable Use Case / Input Capability 2] ([repo#PR](URL))
+- [Actionable Use Case / Input Capability 1] ([repo_short#PR](URL))
+- [Actionable Use Case / Input Capability 2] ([repo_short#PR](URL))
 
 ---
 
 ## Improvements & Configuration Updates
 
-*(List enhancements, performance updates, or required Terraform/Admin Panel configuration changes as concise bullet points:)*
-
-- **[Improvement Title]**: [Summary of update, configuration instructions if required, and benefit] ([repo#PR](URL))
+- **[Improvement Title]**: [Summary of update, step-by-step configuration instructions if required, and direct benefit] ([repo_short#PR](URL))
 
 ---
 
 ## Bug Fixes
 
-*(List ONLY substantive bug fixes that resolve user-facing errors, data issues, or platform operator failures in past tense. DO NOT include internal dev cleanups, test refactors, or unused example file removals:)*
-
-- **[Component / Scope]**: [Description of what was fixed and how the system behaves now] ([repo#PR](URL))
+- **[Component / Scope]**: [Description of what was broken, how it was resolved, and how the system behaves now] ([repo_short#PR](URL))
 """
 
         try:
