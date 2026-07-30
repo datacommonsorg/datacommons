@@ -62,13 +62,24 @@ class ReleaseNotesWriter:
         self, manifest: ReleaseInfoManifest, features: List[FeatureUpdate]
     ) -> List[Dict[str, Any]]:
         """Extracts PRs that are bug fixes or one-off improvements not covered in major features."""
+        from deploy.generate_release_notes.feature_extractor import detect_internal_regressions
+
         included_pr_ids = set()
         for feat in features:
             included_pr_ids.update(feat.included_prs)
 
+        # Detect internal regressions to exclude intermediate fixes from Bug Fixes
+        regression_map = detect_internal_regressions(manifest.all_pull_requests)
+
         bug_fix_prs = []
         for pr in manifest.all_pull_requests:
             if pr.qualified_id in included_pr_ids:
+                continue
+
+            if pr.qualified_id in regression_map:
+                logger.info(
+                    f"Excluding intermediate regression fix {pr.qualified_id} (fixes {regression_map[pr.qualified_id]}) from public Bug Fixes."
+                )
                 continue
 
             title_lower = pr.title.lower()
