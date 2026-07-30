@@ -15,7 +15,17 @@
 """Data models for Data Commons Platform (DCP) release notes generation."""
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Dict, List, Optional
+
+
+class SOPCategory(str, Enum):
+    """Standard SOP Categories for Data Commons Platform Release Notes."""
+
+    SPANNER_APIS = "Spanner Graph & APIs"
+    INGESTION_SAFETY = "Ingestion & Safety"
+    SEARCH_WEBSITE = "Search & Website"
+    INFRA_TOOLING = "Infra & Tooling"
 
 
 @dataclass
@@ -33,6 +43,12 @@ class PullRequest:
     files_changed: List[str] = field(default_factory=list)
     commit_shas: List[str] = field(default_factory=list)
     target_components: List[str] = field(default_factory=list)
+
+    @property
+    def qualified_id(self) -> str:
+        """Returns a qualified repo#number identifier (e.g. 'datacommons#188' or 'import#42')."""
+        repo_short = self.repo_name.split("/")[-1]
+        return f"{repo_short}#{self.number}"
 
 
 @dataclass
@@ -58,9 +74,9 @@ class FeatureUpdate:
     id: str
     title: str
     description: str
-    category: str  # e.g. "Spanner Graph & APIs", "Ingestion & Safety", "Search & Website", "Infra & Tooling"
+    category: str  # Must match one of SOPCategory values
     target_components: List[str] = field(default_factory=list)
-    included_prs: List[int] = field(default_factory=list)
+    included_prs: List[str] = field(default_factory=list)  # Qualified PR IDs e.g. ["datacommons#188"]
     is_dcp_relevant: bool = True
     breaking_changes: Optional[str] = None
 

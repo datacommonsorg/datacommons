@@ -36,9 +36,9 @@ class TestFeatureExtractorUnit:
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
 
-        # Mock Flash model response returning PRs #188 and #189
+        # Mock Flash model response returning PRs datacommons#188 and datacommons#189
         mock_res = MagicMock()
-        mock_res.text = json.dumps({"relevant_pr_numbers": [188, 189]})
+        mock_res.text = json.dumps({"relevant_pr_ids": ["datacommons#188", "datacommons#189"]})
         mock_client.models.generate_content.return_value = mock_res
 
         pr188 = PullRequest(
@@ -82,10 +82,10 @@ class TestFeatureExtractorUnit:
         candidates = extractor.filter_prs_with_flash(manifest)
 
         assert len(candidates) == 2
-        candidate_numbers = [pr.number for pr in candidates]
-        assert 188 in candidate_numbers
-        assert 189 in candidate_numbers
-        assert 195 not in candidate_numbers
+        candidate_ids = [pr.qualified_id for pr in candidates]
+        assert "datacommons#188" in candidate_ids
+        assert "datacommons#189" in candidate_ids
+        assert "datacommons#195" not in candidate_ids
 
     @patch("google.genai.Client")
     def test_synthesize_features_with_pro(self, mock_client_cls):
@@ -100,7 +100,7 @@ class TestFeatureExtractorUnit:
                 "description": "Configured Dataflow worker auto-scaling via Terraform variables and resolved premature success status marking.",
                 "category": "Ingestion & Safety",
                 "target_components": ["dcp", "dataflow_worker"],
-                "included_prs": [188, 189],
+                "included_prs": ["datacommons#188", "datacommons#189"],
                 "is_dcp_relevant": True,
                 "breaking_changes": None,
             }
@@ -148,7 +148,7 @@ class TestFeatureExtractorUnit:
         assert isinstance(feature, FeatureUpdate)
         assert feature.id == "ingestion_dataflow_scaling"
         assert feature.category == "Ingestion & Safety"
-        assert feature.included_prs == [188, 189]
+        assert feature.included_prs == ["datacommons#188", "datacommons#189"]
         assert feature.is_dcp_relevant is True
 
 

@@ -30,12 +30,15 @@ from deploy.generate_release_notes.models import (
     FeatureUpdate,
     PullRequest,
     ReleaseInfoManifest,
+    SOPCategory,
 )
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_FILTER_MODEL = "gemini-2.5-flash"
 DEFAULT_SYNTHESIS_MODEL = "gemini-2.5-pro"
+
+VALID_SOP_CATEGORIES = {cat.value for cat in SOPCategory}
 
 
 class FeatureExtractor:
@@ -69,35 +72,37 @@ class FeatureExtractor:
             f"Stage 1: Filtering {len(manifest.all_pull_requests)} raw PRs using {self.filter_model}..."
         )
 
-        # Build compact representation for Flash model
+        # Build compact representation for Flash model using qualified PR IDs (e.g. 'datacommons#188')
         pr_summaries = []
         for pr in manifest.all_pull_requests:
             pr_summaries.append(
                 {
-                    "number": pr.number,
+                    "id": pr.qualified_id,
                     "title": pr.title,
                     "repo": pr.repo_name,
                     "author": pr.author,
                     "files_changed_count": len(pr.files_changed),
-                    "sample_files": pr.files_changed[:3],
+                    "sample_files": pr.files_changed[:10],
                 }
             )
 
         prompt = f"""You are a Senior Technical Release Engineer for Data Commons Platform (DCP).
 Analyze the following list of merged Pull Requests for release range {manifest.previous_version} -> {manifest.new_version}.
 
-Goal: Identify all SUBSTANTIVE, meaningful Pull Requests that represent feature additions, bug fixes, infrastructure changes, or configuration updates for the Data Commons Platform.
+Goal: Identify all SUBSTANTIVE, meaningful Pull Requests that represent feature additions, bug fixes, infrastructure changes, configuration updates, or Data Commons Platform/Base capabilities.
 
-Filter OUT:
+Filter OUT ONLY non-informative noise:
 - Automated bot version bumps (e.g., 'chore: bump version to 1.1.1', dependabot, renovate).
 - Trivial formatting, linting, or typo fixes in documentation/README (e.g., 'fix typo in README').
-- Internal test-only refactors with zero functional impact.
+- Trivial internal test-only refactors with zero functional impact.
+
+DO NOT filter out base Data Commons features or infrastructure PRs — keep all substantive PRs!
 
 Here is the list of PRs:
 {json.dumps(pr_summaries, indent=2)}
 
-Respond ONLY with a JSON object containing a single key "relevant_pr_numbers" with an array of integer PR numbers that should be included for release notes synthesis.
-Example: {{"relevant_pr_numbers": [101, 105, 112]}}
+Respond ONLY with a JSON object containing a single key "relevant_pr_ids" with an array of qualified PR ID strings (e.g., ["datacommons#188", "import#42"]).
+Example: {{"relevant_pr_ids": ["datacommons#188", "import#42"]}}
 """
 
         try:
@@ -111,10 +116,10 @@ Example: {{"relevant_pr_numbers": [101, 105, 112]}}
                 config=config,
             )
             data = json.loads(res.text)
-            relevant_numbers = set(data.get("relevant_pr_numbers", []))
+            relevant_ids = set(data.get("relevant_pr_ids", []))
             
             candidate_prs = [
-                pr for pr in manifest.all_pull_requests if pr.number in relevant_numbers
+                pr for pr in manifest.all_pull_requests if pr.qualified_id in relevant_ids
             ]
             logger.info(
                 f"Stage 1 Complete: Retained {len(candidate_prs)} / {len(manifest.all_pull_requests)} substantive PRs."
@@ -143,31 +148,43 @@ Example: {{"relevant_pr_numbers": [101, 105, 112]}}
             f"Stage 2: Synthesizing features from {len(candidate_prs)} candidate PRs using {self.synthesis_model}..."
         )
 
-        # Build detailed PR context for Pro model
+        # Build detailed PR context for Pro model with merged_at timestamps and qualified IDs
         detailed_prs = []
         for pr in candidate_prs:
+            # Preserve "BREAKING CHANGE:" sections if present in body
+            body_text = pr.body or ""
+            body_snippet = body_text[:500]
+            if "BREAKING CHANGE" in body_text and "BREAKING CHANGE" not in body_snippet:
+                bc_start = body_text.find("BREAKING CHANGE")
+                body_snippet += "\n...\n" + body_text[bc_start : bc_start + 300]
+
             detailed_prs.append(
                 {
-                    "number": pr.number,
+                    "id": pr.qualified_id,
                     "title": pr.title,
                     "author": pr.author,
                     "repo": pr.repo_name,
                     "url": pr.url,
+                    "merged_at": pr.merged_at,
                     "target_components": pr.target_components,
-                    "files_changed": pr.files_changed,
-                    "body_summary": pr.body[:500] if pr.body else "",
+                    "files_changed": pr.files_changed[:10],
+                    "body_summary": body_snippet,
                 }
             )
 
         instructions_context = ""
         if additional_instructions or manifest.additional_instructions:
             instructions_text = additional_instructions or manifest.additional_instructions
-            instructions_context = f"\n### Additional User Context & Highlights:\n{instructions_text}\n"
+            instructions_context = (
+                f"\n### Additional User Context & High-Priority Highlights:\n"
+                f"Note: User instructions have top priority and override default classification or filtering where applicable:\n"
+                f"{instructions_text}\n"
+            )
 
         prompt = f"""You are an expert Technical Release Manager drafting official release notes for Data Commons Platform (DCP) release {manifest.new_version} (previous version: {manifest.previous_version}).
 
 ### Task Instructions:
-1. **Semantic Classification**: Categorize each feature into EXACTLY ONE of the 4 standard DCP SOP categories:
+1. **Semantic Classification**: Categorize each feature into EXACTLY ONE of the 4 standard DCP SOP categories (use exact category names):
    - "Spanner Graph & APIs" (SDMX 3.0 REST API, `/v2/observation` StatVars, MCP server/tools, Spanner gRPC serving/protos)
    - "Ingestion & Safety" (Ingestion Helper, Aggregation Helper, Dataflow Java worker, timestamp bounds, safety checks, Spanner loading)
    - "Search & Website" (Spanner vector embeddings / `NodeEmbedding`, private instance `detect-and-fulfill`, Website UI, Nginx/Envoy)
@@ -175,9 +192,10 @@ Example: {{"relevant_pr_numbers": [101, 105, 112]}}
 
 2. **Feature Grouping & Deduplication**:
    - Combine related PRs (e.g., an initial feature PR + follow-up bug fixes + test PRs) into a SINGLE cohesive `FeatureUpdate`.
-   - List all included PR numbers in `included_prs` (e.g. `[188, 189]`).
+   - List all included PR qualified IDs in `included_prs` (e.g. `["datacommons#188", "datacommons#189"]`).
 
-3. **Supersede Resolution**:
+3. **Supersede Resolution & Chronology**:
+   - Use the `merged_at` timestamps to understand commit order.
    - If a PR was superseded or modified by a later PR in this release, describe only the FINAL state at {manifest.new_version}.
 
 4. **Technical Writing**:
@@ -197,7 +215,7 @@ Respond ONLY with a JSON array of FeatureUpdate objects with the following schem
     "description": "2-3 sentence technical description of the feature, changes, and impact.",
     "category": "Spanner Graph & APIs | Ingestion & Safety | Search & Website | Infra & Tooling",
     "target_components": ["dcp", "services", "preprocessing", "dataflow_worker", "ingestion_helper", "postprocessing"],
-    "included_prs": [188, 189],
+    "included_prs": ["datacommons#188", "datacommons#189"],
     "is_dcp_relevant": true,
     "breaking_changes": "Optional string describing breaking change if any, else null"
   }}
@@ -217,11 +235,23 @@ Respond ONLY with a JSON array of FeatureUpdate objects with the following schem
             raw_features = json.loads(res.text)
             features: List[FeatureUpdate] = []
             for item in raw_features:
+                cat = item.get("category", "Infra & Tooling")
+                if cat not in VALID_SOP_CATEGORIES:
+                    # Fuzzy match or fallback to Infra & Tooling
+                    matched = False
+                    for valid_cat in VALID_SOP_CATEGORIES:
+                        if valid_cat.lower() in cat.lower() or cat.lower() in valid_cat.lower():
+                            cat = valid_cat
+                            matched = True
+                            break
+                    if not matched:
+                        cat = SOPCategory.INFRA_TOOLING.value
+
                 feature = FeatureUpdate(
                     id=item.get("id", f"feature_{len(features)+1}"),
                     title=item.get("title", "Untitled Feature"),
                     description=item.get("description", ""),
-                    category=item.get("category", "Infra & Tooling"),
+                    category=cat,
                     target_components=item.get("target_components", []),
                     included_prs=item.get("included_prs", []),
                     is_dcp_relevant=item.get("is_dcp_relevant", True),
