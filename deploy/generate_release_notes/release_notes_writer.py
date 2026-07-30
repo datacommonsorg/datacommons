@@ -220,6 +220,7 @@ Data Commons Platform (DCP) is a self-hosted, Cloud Spanner-backed deployment of
 * **NO Emojis**: Do not use emojis anywhere in the document.
 * **NO Version/Commit Tables**: Do not include a component version table, git commit hashes, or SHA tables.
 * **NO Commit Range Text**: Do not include text like "Release range: v1.1.0 to v1.1.1".
+* **NO Horizontal Dividers Between Features**: Do not place horizontal rule lines (`---`) between individual feature sections under Key Feature Updates. Use standard Markdown headers (`### Feature Title`) with single blank lines only!
 * **NO Code-Fenced Links**: Every PR reference MUST be a clean, clickable GFM link. Do not wrap backticks around or inside link text. Use the provided full URL for each PR in `pr_urls` or `url` fields!
     * **CORRECT**: `[website#123](https://github.com/...)`
     * **INCORRECT**: `[`website#123`](https://github.com/...)` or `[`website#123` (https://github.com/...)]`
