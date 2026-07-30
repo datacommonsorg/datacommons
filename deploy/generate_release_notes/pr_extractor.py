@@ -312,6 +312,7 @@ class PRExtractor:
 
         # 1. Resolve version info and timestamps across all components
         repo_timestamps: Dict[str, List[str]] = {}
+        repo_has_missing_new: Dict[str, bool] = {}
         for comp_id, comp in COMPONENTS.items():
             comp_info = self.resolve_component_version(
                 comp, prev_version, new_version
@@ -322,10 +323,13 @@ class PRExtractor:
             for rule in comp.sources:
                 if rule.repo not in repo_timestamps:
                     repo_timestamps[rule.repo] = []
+                    repo_has_missing_new[rule.repo] = False
                 if comp_info.prev_timestamp:
                     repo_timestamps[rule.repo].append(comp_info.prev_timestamp)
                 if comp_info.new_timestamp:
                     repo_timestamps[rule.repo].append(comp_info.new_timestamp)
+                else:
+                    repo_has_missing_new[rule.repo] = True
 
         # 2. For each repository, compute min & max timestamps and fetch PRs in 1 single call
         raw_prs_by_repo: Dict[str, List[PullRequest]] = {}
@@ -336,9 +340,10 @@ class PRExtractor:
                 # Default to fallback timestamp if image tags missing
                 t_min = "2026-01-01T00:00:00Z"
                 t_max = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-            elif len(ts_list) == 1:
-                # If only prev_timestamp exists (e.g. new_version tag missing during staging/test), search from prev to NOW
-                t_min = ts_list[0]
+            elif repo_has_missing_new.get(repo, False):
+                # If new_version tag is missing for this repo, extend t_max to current time NOW
+                sorted_ts = sorted(ts_list)
+                t_min = sorted_ts[0]
                 t_max = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
             else:
                 sorted_ts = sorted(ts_list)

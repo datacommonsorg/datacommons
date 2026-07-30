@@ -144,9 +144,9 @@ Categorize EVERY feature into EXACTLY ONE of these 4 standard SOP categories bas
 ---
 
 ### Task Instructions:
-1. **Filter Out & Ignore Internal Dev & Testing PRs**:
+1. **Filter Out & Ignore Internal Dev & Testing PRs (STRICT)**:
    - Completely IGNORE automated bot PRs (e.g. dependabot, renovate, 'chore: bump version to 1.1.1').
-   - Completely IGNORE internal integration test setups, Spanner Omni test suites, CI sandbox workflows, local test harnesses, and test-only sample data updates.
+   - Completely IGNORE all test-only PRs: integration test setups, Spanner Omni test conversions, CI sandbox workflows, local test harnesses, hermetic test refactors, and test-only sample data updates (e.g. OECD wage sample data). DO NOT output any FeatureUpdate for test-only PRs!
    - Completely IGNORE trivial formatting, typo fixes, or non-informative refactors with zero user impact.
 
 2. **User Persona Focus (Building ON TOP OF Platform)**:
