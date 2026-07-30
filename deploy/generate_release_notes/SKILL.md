@@ -1,6 +1,6 @@
 ---
 name: dcp-release-notes
-description: Master orchestrator skill for generating publication-ready, partner-facing Data Commons Platform (DCP) release notes across all 6 core repositories using agentic subagents.
+description: Master orchestrator skill for generating publication-ready, partner-facing Data Commons Platform (DCP) release notes across core repositories and platform components using agentic subagents.
 ---
 
 # DCP Release Notes Generator (Orchestrator Skill)
