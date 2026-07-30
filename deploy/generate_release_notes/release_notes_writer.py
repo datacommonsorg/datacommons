@@ -193,8 +193,9 @@ Your task is to write publication-ready, partner-facing release notes for Data C
 4. **Strict Exclusions**:
    - DO NOT include internal integration test suites, Spanner Omni test setups, CI sandbox workflows, or developer-only test sample data updates.
    - DO NOT include internal code refactors or unused example file cleanups.
-5. **Level of Detail**:
-   - For major features: Provide an engaging "What's New", "Why it Matters" (business/technical benefit), and a bulleted list of "Capabilities & Changes".
+5. **Level of Detail & Use Case Focus**:
+   - For major features: Provide an engaging "What's New", "Why it Matters" (business/technical benefit), and a bulleted list under "**Capabilities & Use Cases Enabled**".
+   - **DO NOT write a laundry list of code changes or PR descriptions!** Every bullet under Capabilities MUST describe an explicit thing the user can DO (e.g., 'Query bilateral trade flows between two countries', 'Import SDMX 3.0 CSV files directly', 'Run targeted single-entity vs child-place research playbooks'). Focus on supported input types, query capabilities, and real use cases!
    - For single-PR features: Provide rich, self-contained descriptions so partners do not need to look up code diffs.
    - For bug fixes: Focus on what was broken, how it was resolved, and how the system behaves now.
 6. **Link Formatting**:
@@ -236,9 +237,9 @@ Your task is to write publication-ready, partner-facing release notes for Data C
 ### [Feature Title]
 **What's New**: [Clear description of what partners or operators can now do]
 **Why it Matters**: [Business benefit and technical impact]
-**Capabilities & Changes**:
-- [Capability 1] ([repo#PR](URL))
-- [Capability 2] ([repo#PR](URL))
+**Capabilities & Use Cases Enabled**:
+- [Actionable Use Case / Input Capability 1] ([repo#PR](URL))
+- [Actionable Use Case / Input Capability 2] ([repo#PR](URL))
 
 ---
 

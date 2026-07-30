@@ -162,8 +162,8 @@ Categorize EVERY feature into EXACTLY ONE of these 4 standard SOP categories bas
    - Use `merged_at` timestamps to understand commit order.
    - If a PR was superseded or modified by a later PR in this release, describe only the FINAL state at {manifest.new_version}.
 
-5. **Per-PR Contribution Summaries**:
-   - For EVERY PR listed in `included_prs`, provide a specific 1-2 sentence contribution summary under `pr_contributions` mapping the qualified PR ID to its specific capability contribution (e.g., `{{"datacommons#188": "Removed premature success status set at end of dataflow stage", "datacommons#189": "Added max_workers Terraform variable for Dataflow auto-scaling"}}`).
+5. **Actionable Per-PR Capability & Use Case Summaries**:
+   - For EVERY PR listed in `included_prs`, provide a specific 1-2 sentence summary under `pr_contributions` describing an **explicit thing the user can DO or input format supported** because of this PR (e.g., `{{"agent-toolkit#211": "Query bilateral trade and migration relationships between multiple entities", "datacommons#189": "Configure max_workers in Terraform to scale Dataflow workers automatically for large imports"}}`). DO NOT list internal code refactors!
 
 {instructions_context}
 
