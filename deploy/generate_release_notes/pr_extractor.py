@@ -139,34 +139,48 @@ class PRExtractor:
             image_uri=comp.image_uri,
         )
 
-        # 1. Primary image resolution via gcloud container images list-tags
+        # 1. Image-based component resolution (must find tag in Container Registry)
         if comp.image_uri:
             prev_data = self.resolve_image_tag_info(
                 comp.image_uri, prev_version
             )
             new_data = self.resolve_image_tag_info(comp.image_uri, new_version)
 
-            if prev_data and "timestamp" in prev_data:
-                info.prev_timestamp = prev_data["timestamp"].get("datetime")
+            if not prev_data:
+                logger.warning(
+                    f"Container image tag '{prev_version}' not found for {comp.name} at {comp.image_uri}"
+                )
+            else:
+                info.prev_timestamp = prev_data.get("timestamp", {}).get("datetime")
                 info.previous_sha = prev_data.get("digest")
-            if new_data and "timestamp" in new_data:
-                info.new_timestamp = new_data["timestamp"].get("datetime")
+
+            if not new_data:
+                raise ValueError(
+                    f"Required container image tag '{new_version}' not found for '{comp.name}' at {comp.image_uri}. "
+                    f"Ensure the release container image has been built and tagged before generating release notes."
+                )
+            else:
+                info.new_timestamp = new_data.get("timestamp", {}).get("datetime")
                 info.new_sha = new_data.get("digest")
 
-        # 2. Fallback to Git tag resolution for monorepo or missing image tags
-        if not info.prev_timestamp and comp.sources:
-            git_prev = self.get_git_tag_timestamp(
-                comp.sources[0].repo, prev_version
-            )
-            if git_prev:
-                info.previous_sha, info.prev_timestamp = git_prev
+        # 2. Non-image component resolution (e.g. monorepo packages, infra) via Git tags
+        else:
+            if comp.sources:
+                git_prev = self.get_git_tag_timestamp(
+                    comp.sources[0].repo, prev_version
+                )
+                if git_prev:
+                    info.previous_sha, info.prev_timestamp = git_prev
 
-        if not info.new_timestamp and comp.sources:
-            git_new = self.get_git_tag_timestamp(
-                comp.sources[0].repo, new_version
-            )
-            if git_new:
-                info.new_sha, info.new_timestamp = git_new
+                git_new = self.get_git_tag_timestamp(
+                    comp.sources[0].repo, new_version
+                )
+                if git_new:
+                    info.new_sha, info.new_timestamp = git_new
+                else:
+                    raise ValueError(
+                        f"Required Git tag '{new_version}' not found for '{comp.name}' in repo '{comp.sources[0].repo}'."
+                    )
 
         return info
 
