@@ -40,6 +40,48 @@ DEFAULT_MODEL = "gemini-3.6-flash"
 VALID_SOP_CATEGORIES = {cat.value for cat in SOPCategory}
 
 
+def detect_internal_regressions(prs: List[PullRequest]) -> Dict[str, str]:
+    """Deterministically identifies PRs that fix regressions introduced by earlier PRs in the same release window.
+
+    Returns a dict mapping pr.qualified_id -> parent_feature_pr.qualified_id.
+    """
+    sorted_prs = sorted(prs, key=lambda p: p.merged_at or "")
+    file_to_prs: Dict[str, List[PullRequest]] = {}
+    regression_map: Dict[str, str] = {}
+
+    for pr in sorted_prs:
+        title_lower = pr.title.lower()
+        is_fix = any(
+            w in title_lower
+            for w in ["fix", "bug", "resolve", "patch", "repair", "correct"]
+        )
+
+        if is_fix and pr.files_changed:
+            matching_earlier_prs = []
+            for f in pr.files_changed:
+                if f in file_to_prs:
+                    for prev_pr in file_to_prs[f]:
+                        if (
+                            prev_pr.number != pr.number
+                            and prev_pr.repo_name == pr.repo_name
+                        ):
+                            matching_earlier_prs.append(prev_pr)
+
+            if matching_earlier_prs:
+                parent_pr = matching_earlier_prs[-1]
+                regression_map[pr.qualified_id] = parent_pr.qualified_id
+                logger.info(
+                    f"Deterministically detected internal regression: {pr.qualified_id} fixes intermediate PR {parent_pr.qualified_id}"
+                )
+
+        for f in pr.files_changed:
+            if f not in file_to_prs:
+                file_to_prs[f] = []
+            file_to_prs[f].append(pr)
+
+    return regression_map
+
+
 class FeatureExtractor:
     """Single-stage Gemini LLM Pipeline for filtering, classifying, and synthesizing DCP release features."""
 
@@ -76,6 +118,9 @@ class FeatureExtractor:
             f"Step 2: Extracting features from {len(manifest.all_pull_requests)} PRs using {self.model_name}..."
         )
 
+        # Pre-process PRs to deterministically detect internal regressions within this release window
+        regression_map = detect_internal_regressions(manifest.all_pull_requests)
+
         # Build detailed PR context for model with merged_at timestamps and qualified IDs
         detailed_prs = []
         for pr in manifest.all_pull_requests:
@@ -86,19 +131,20 @@ class FeatureExtractor:
                 bc_start = body_text.find("BREAKING CHANGE")
                 body_snippet += "\n...\n" + body_text[bc_start : bc_start + 300]
 
-            detailed_prs.append(
-                {
-                    "id": pr.qualified_id,
-                    "title": pr.title,
-                    "author": pr.author,
-                    "repo": pr.repo_name,
-                    "url": pr.url,
-                    "merged_at": pr.merged_at,
-                    "target_components": pr.target_components,
-                    "files_changed": pr.files_changed[:10],
-                    "body_summary": body_snippet,
-                }
-            )
+            pr_dict = {
+                "id": pr.qualified_id,
+                "title": pr.title,
+                "author": pr.author,
+                "repo": pr.repo_name,
+                "url": pr.url,
+                "merged_at": pr.merged_at,
+                "target_components": pr.target_components,
+                "files_changed": pr.files_changed[:10],
+                "body_summary": body_snippet,
+                "is_internal_regression": pr.qualified_id in regression_map,
+                "fixes_intermediate_pr": regression_map.get(pr.qualified_id),
+            }
+            detailed_prs.append(pr_dict)
 
         instructions_context = ""
         if additional_instructions or manifest.additional_instructions:
