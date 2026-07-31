@@ -118,15 +118,15 @@ main:
           - condition: true
             steps:
               - run_preprocessing:
-                call: launch_and_poll_preprocessing_job
-                args:
-                  job_name: '$${prep_job_name}'
-                  workflow_id: '$${workflow_id}'
-                  temp_location: '$${input.tempLocation}'
-                  imports_arg: '$${comma_separated_imports}'
-                  region: '$${input.region}'
-                  project_id: '${project_id}'
-                result: prep_res
+                  call: launch_and_poll_preprocessing_job
+                  args:
+                    job_name: '$${prep_job_name}'
+                    workflow_id: '$${workflow_id}'
+                    temp_location: '$${input.tempLocation}'
+                    imports_arg: '$${comma_separated_imports}'
+                    region: '$${input.region}'
+                    project_id: '${project_id}'
+                  result: prep_res
               - read_handshake_file:
                   call: googleapis.storage.v1.objects.get
                   args:
