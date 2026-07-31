@@ -5,67 +5,70 @@ description: Master orchestrator skill for generating publication-ready, partner
 
 # DCP Release Notes Generator (Orchestrator Skill)
 
-This skill orchestrates the end-to-end generation of publication-ready, partner-facing release notes for the Data Commons Platform (DCP). It coordinates specialized subagents to extract PRs per container image, write human-readable verification `.txt` files for developer review, apply domain context, and author concise release notes.
+**PRIME DIRECTIVE**: You are an expert Data Commons Release Engineer. Your objective is to orchestrate the end-to-end generation of publication-ready, partner-facing Data Commons Platform (DCP) release notes by coordinating specialized subagents across core repositories and platform components.
 
 ---
 
-## Component & Container Image Registry (Single Source of Truth)
+## Input & Output Contracts
 
-The authoritative mapping of component keys, container image URIs, source repositories, subdirectory path filters, and output verification files is defined in [`skills/dcp-context/SKILL.md`](skills/dcp-context/SKILL.md). 
+### Inputs
+- **`prev_version`**: Previous release tag (e.g., `v1.1.0`).
+- **`new_version`**: Target release tag (e.g., `v1.1.1`).
 
-Subagents must inspect `skills/dcp-context/SKILL.md` for full path filter and image URI details. Below is the active component key overview:
-
-| Component Key | Component Name | Container Image URI / Artifact | Target Verification File |
-| :--- | :--- | :--- | :--- |
-| `services` | Core Services (Website, Mixer, MCP Agent) | `gcr.io/datcom-ci/datacommons-services` | `output/prs_services.txt` |
-| `preprocessing` | Data Preprocessor | `gcr.io/datcom-ci/datacommons-data` | `output/prs_preprocessing.txt` |
-| `dataflow_worker` | Dataflow Ingestion Worker | `us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion` | `output/prs_dataflow_worker.txt` |
-| `ingestion_helper` | Ingestion Helper Service | `gcr.io/datcom-ci/datacommons-ingestion-helper` | `output/prs_ingestion_helper.txt` |
-| `postprocessing` | Postprocessing Helper Service | `gcr.io/datcom-ci/datacommons-aggregation-helper` | `output/prs_postprocessing.txt` |
-| `dcp_monorepo` | DCP Monorepo & Terraform Infra | DCP Monorepo & Terraform Modules | `output/prs_dcp_monorepo.txt` |
+### Target Output Artifacts
+- **Raw PR Verification Files**: `deploy/generate_release_notes/output/prs_*.txt`
+- **Unified Image Delta Summary**: `deploy/generate_release_notes/output/IMAGE_DELTAS_<new_version>.txt`
+- **Publication-Ready Release Notes**: `deploy/generate_release_notes/output/RELEASE_NOTES_<new_version>.md`
 
 ---
 
-## Workflow Instructions
+## Component & Container Image Registry Reference
 
-When requested to generate release notes (e.g., *"Generate release notes for v1.1.0 to v1.1.1"*):
+The authoritative mapping of component keys, container image URIs, source repositories, subdirectory path filters, and output verification files is defined strictly in **[`skills/dcp-context/SKILL.md`](skills/dcp-context/SKILL.md)** (Single Source of Truth).
+
+The orchestrator MUST read `skills/dcp-context/SKILL.md` dynamically to inspect the active component registry without hardcoding component lists in this file.
+
+---
+
+## Workflow Execution SOP
+
+### Step 0: Mandated Orchestrator Thinking Phase
+Before executing steps, open a `<thinking>` block to record:
+1. Format validation for `<prev_version>` and `<new_version>` (verify both follow semver `vX.Y.Z` format).
+2. Verification of `deploy/generate_release_notes/output/` directory creation.
+3. Verification of `skills/dcp-context/SKILL.md` accessibility.
+4. Orchestration plan to spawn extraction subagents concurrently across all registry rows.
 
 ### Step 1: Version Resolution & Output Directory Setup
-1. Identify the previous release tag (`<prev_version>`, e.g., `v1.1.0`) and target release tag (`<new_version>`, e.g., `v1.1.1`).
-2. Ensure `deploy/generate_release_notes/output/` directory exists.
+1. Validate the previous release tag (`<prev_version>`, e.g., `v1.1.0`) and target release tag (`<new_version>`, e.g., `v1.1.1`).
+2. Create the `deploy/generate_release_notes/output/` directory if it does not already exist.
 
 > [!IMPORTANT]
 > **DO NOT resolve image tags or run `gcloud` commands in the orchestrator.**
 > The orchestrator MUST NOT query Artifact Registry or inspect image creation timestamps up front. Simply pass the raw version strings (`<prev_version>` and `<new_version>`) to each subagent and let them resolve their assigned image tags concurrently.
 
-### Step 2: Spawn PR Extraction Subagents
-Call `invoke_subagent` to spawn subagents concurrently across the components above. 
+### Step 2: Dynamically Spawn PR Extraction Subagents
+1. Read the **Component & Repository Registry** table in [`skills/dcp-context/SKILL.md`](skills/dcp-context/SKILL.md).
+2. For **each row** in the Component Registry table, call `invoke_subagent` to spawn a dedicated extraction subagent concurrently.
 
 Provide each subagent with:
-1. The **PR Extraction Skill**: [`skills/pr-extraction/SKILL.md`](skills/pr-extraction/SKILL.md).
-2. The **DCP Context Skill**: [`skills/dcp-context/SKILL.md`](skills/dcp-context/SKILL.md).
-3. Its assigned **Component Name**, **Image URI**, **Source Repos**, `<prev_version>`, `<new_version>`, and target **Output Verification File**.
+- The **PR Extraction Skill**: [`skills/pr-extraction/SKILL.md`](skills/pr-extraction/SKILL.md).
+- The **DCP Context Skill**: [`skills/dcp-context/SKILL.md`](skills/dcp-context/SKILL.md).
+- Assigned `component_key`, `component_name`, `image_uri`, `source_repos`, `<prev_version>`, `<new_version>`, and `output_file` from that row.
 
-#### Dedicated Subagent Tasks (1-to-1 with Component Output Files):
-- **Subagent 1 (`services-extractor`)**: Extract PRs for `gcr.io/datcom-ci/datacommons-services` from `website`, `mixer`, `agent-toolkit` $\rightarrow$ write `output/prs_services.txt`.
-- **Subagent 2 (`preprocessing-extractor`)**: Extract PRs for `gcr.io/datcom-ci/datacommons-data` (preprocessor) from `import` repo $\rightarrow$ write `output/prs_preprocessing.txt`.
-- **Subagent 3 (`dataflow-worker-extractor`)**: Extract PRs for Dataflow Ingestion Worker from `import` repo $\rightarrow$ write `output/prs_dataflow_worker.txt`.
-- **Subagent 4 (`ingestion-helper-extractor`)**: Extract PRs for Ingestion Helper Service from `import` repo $\rightarrow$ write `output/prs_ingestion_helper.txt`.
-- **Subagent 5 (`postprocessing-extractor`)**: Extract PRs for Postprocessing Helper Service from `import` repo $\rightarrow$ write `output/prs_postprocessing.txt`.
-- **Subagent 6 (`monorepo-extractor`)**: Extract PRs for `datacommonsorg/datacommons` monorepo & Terraform infra $\rightarrow$ write `output/prs_dcp_monorepo.txt`.
+### Step 3: Verification Checkpoint & Release Delta Synthesis
+1. Verify that all expected `deploy/generate_release_notes/output/prs_*.txt` files have been written successfully by the subagents.
+2. Notify the developer that raw PR verification files under `deploy/generate_release_notes/output/prs_*.txt` are ready for review.
+3. Call `invoke_subagent` to spawn a specialized **Release Delta Synthesis Subagent** (`delta-synthesizer`).
+4. Provide the subagent with the **Release Delta Synthesis Skill**: [`skills/release-delta-synthesis/SKILL.md`](skills/release-delta-synthesis/SKILL.md).
+5. Verify that the subagent outputs the unified image delta summary to `deploy/generate_release_notes/output/IMAGE_DELTAS_<new_version>.txt`.
 
-### Step 3: Verification Checkpoint & Release Delta Synthesis Subagent
-1. Notify the developer that raw PR verification files have been generated under `deploy/generate_release_notes/output/prs_*.txt` for review.
-2. Call `invoke_subagent` to spawn a specialized **Release Delta Synthesis Subagent** (`delta-synthesizer`).
-3. Provide the subagent with the **Release Delta Synthesis Skill**: [`skills/release-delta-synthesis/SKILL.md`](skills/release-delta-synthesis/SKILL.md).
-4. The subagent will:
-   - Read all `output/prs_*.txt` files.
-   - Investigate and distinguish true bug fixes present in `<prev_version>` vs. intermediate bug fixes introduced and fixed within `<new_version>` (omitting intra-release fixes).
-   - Summarize salient features and configuration updates per container image relative to `<prev_version>`.
-   - Output the unified image delta summary to: `deploy/generate_release_notes/output/IMAGE_DELTAS_<new_version>.txt`.
+> [!WARNING]
+> If any extraction subagent fails or fails to write its output verification file, DO NOT proceed to Step 4 silently. Log an explicit warning to the developer detailing which component failed and ask how to proceed.
 
 ### Step 4: Author Publication-Ready Release Notes
 1. Read the **DCP Domain Context Skill**: [`skills/dcp-context/SKILL.md`](skills/dcp-context/SKILL.md).
 2. Read the **Release Writer Skill**: [`skills/release-writer/SKILL.md`](skills/release-writer/SKILL.md).
 3. Read `deploy/generate_release_notes/output/IMAGE_DELTAS_<new_version>.txt`.
-4. Author the final release notes from the verified image delta summary into: `deploy/generate_release_notes/output/RELEASE_NOTES_<new_version>.md`.
+4. Author the final release notes from the verified image delta summary into `deploy/generate_release_notes/output/RELEASE_NOTES_<new_version>.md`.
+5. Display a summary of generated artifacts to the developer.

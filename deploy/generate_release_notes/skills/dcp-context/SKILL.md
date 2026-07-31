@@ -5,7 +5,17 @@ description: Architectural reference, domain context, and component map for Data
 
 # Data Commons Platform (DCP) Domain Context & Architectural Map
 
-This skill provides the domain context, platform architecture, user touchpoints, and single source of truth component mapping for evaluating Pull Request relevance and generating partner-facing release notes.
+**PRIME DIRECTIVE**: You are an expert Data Commons Architectural & Domain Analyst. Your objective is to provide the authoritative architectural context, user touchpoint principles, and component registry for evaluating PR relevance and framing partner-facing release notes across all Data Commons Platform components.
+
+---
+
+## Input & Output Contracts
+
+### Inputs
+- **PR Metadata & Code Footprints**: PR title, body, changed files, diffs, and labels extracted from source repositories.
+
+### Target Output Context
+- **Relevance Classification**: `RELEVANT_USER_CAPABILITY`, `RELEVANT_OPERATOR_TOOL`, `RELEVANT_BUG_FIX`, or `EXCLUDED_INTERNAL_MECHANIC`.
 
 ---
 
@@ -16,35 +26,45 @@ This skill provides the domain context, platform architecture, user touchpoints,
 
 ---
 
-## 2. User & Operator Touchpoints vs. Internal Implementation
+## 2. User & Operator Touchpoint Principles for PR Relevance
 
-When analyzing Pull Requests and synthesizing release notes, agents MUST distinguish between **external user/operator touchpoints** (what partners interact with) and **internal implementation mechanics** (non-user facing code).
+When analyzing Pull Requests and synthesizing release notes, agents MUST categorize changes based on **where and how the user or operator interacts with the platform**:
 
-### A. External User & Operator Touchpoints (PUBLIC RELEASE RELEVANT)
-These represent the interfaces, contracts, and capabilities that partners, developers, data engineers, and instance operators directly interact with:
+### A. Data Input & Ingestion Pipeline (What Data Engineers & Operators Care About)
+- **Data Input Configurations & Schemas**: Anything that changes **what types of input are accepted** by the preprocessor (custom CSV/MCF formats, column mapping definitions, schema validation rules, subject node integrity).
+- **CLI & Operational Control**: `datacommons admin` CLI parameters, flags (`--instance_name`), and deployment automation.
+- **Ingestion Speed, Performance, & Accuracy**: While import is running, operators care deeply about **throughput, execution speed, multi-threaded parsing, streaming JSON-LD batching, failure resilience, and data accuracy**.
 
-1. **Serving APIs & Protocols**:
-   - SDMX 3.0 REST Data and Availability endpoints (`/sdmx/v3/rest/data/...`, `/sdmx/v3/rest/availability/...`).
-   - Observations V2 API (`/v2/observation`) and Mixer gRPC graph endpoints.
-   - Place containment expansion (`containedInPlace+`), time-series filtering (`TIME_PERIOD`).
-2. **AI Agent Integration (MCP / Model Context Protocol)**:
-   - FastMCP tools for AI agent research playbooks (`get_multi_entity_observations`, `search_indicators`, `get_variable_metadata`).
-   - Indicator search target scopes (`custom_only`, `base_only`, `base_and_custom`).
-3. **Web Applications & Exploration Tools**:
-   - Explore UI, Download Tool, Place Browser, Croissant JSON-LD dataset metadata.
-4. **Infrastructure & Deployment Automation**:
-   - Terraform modules (`infra/dcp/`), variables (`ingestion_dataflow_max_workers`, `spanner_processing_units`), and IAM role configurations.
-   - Admin CLI (`datacommons admin init`, `datacommons admin deploy`) and Admin Portal web interface.
-   - Vector search profile configurations (`--spanner_search_config_path`).
-5. **Data Ingestion Inputs**:
-   - Custom CSV/MCF dataset formats, column mapping definitions, and batch import job configurations.
+### B. Serving & Data Access (How Users & AI Interact With Their Data)
+- **Mixer Serving APIs (Primary Data Touchpoint)**: Users care deeply about the **shape and speed** of Mixer APIs (SDMX 3.0 REST Data & Availability endpoints, all `/v2/` Mixer REST & gRPC endpoints, place containment expansion `containedInPlace+`, query latency). This is their primary avenue for interacting with their data!
+- **MCP Agent Tools & Capabilities (AI Touchpoint)**: FastMCP tools (`get_multi_entity_observations`, `search_indicators`, `get_variable_metadata`) and target scopes (`custom_only`, `base_only`) — because this is a primary avenue for how AI agents and researchers query and analyze their data!
+- **Web Applications & Exploration UI**: Explore UI, Download Tool, Place Browser, Croissant JSON-LD dataset metadata — how end-users visualize, query, and export datasets.
+- **Infrastructure & Scaling Controls**: Terraform modules (`infra/dcp/`), variables (`ingestion_dataflow_max_workers`, `spanner_processing_units`), and vector search profile configurations (`--spanner_search_config_path`).
 
-### B. Internal Implementation Mechanics (NON-USER FACING — DO NOT EXPOSE)
-These are internal engine mechanics that partners do NOT interact with directly. They should be framed around high-level user impact (e.g. *"98% lower query latency"*) without exposing internal table names or DDLs:
+### C. Internal Implementation Mechanics (Non-User Facing Noise — DO NOT EXPOSE)
+These are internal engine mechanics that partners do NOT interact with directly. They should be framed around **high-level user impact** (e.g., *"98% lower query latency"*) without exposing internal table names or DDLs:
 - Internal Cloud Spanner DDL graph table schemas and KeyValueStore tables.
 - Dataflow TFRecord chunking and intermediate GCS staging paths.
 - Cloud Workflows internal execution IDs and status tracking tables (`IngestionHistory`).
 - Internal SQL parameter unrolling and join ordering optimizations.
+
+### D. Sequential Decision SOP for Evaluating PR Relevance
+
+When evaluating any PR against domain context, follow this exact step-by-step sequence:
+
+1. **Step 1: Identify Target Component Layer**: Match modified paths against the Component Registry table (Section 3).
+2. **Step 2: Evaluate Touchpoint Category**:
+   - Check if the PR alters Data Input / Ingestion (Section 2.A) $\rightarrow$ Classify as **`RELEVANT_DATA_INPUT_OR_INGESTION`**.
+   - Check if the PR alters Serving APIs, MCP tools, or UI (Section 2.B) $\rightarrow$ Classify as **`RELEVANT_SERVING_OR_UI`**.
+   - Check if the PR is an internal DB/engine refactor (Section 2.C) $\rightarrow$ Classify as **`INTERNAL_MECHANIC`** (Reframe to high-level impact or exclude).
+3. **Step 3: Mandated Evaluation Thinking Phase**:
+   Open a `<thinking>` block to record:
+   - What changed in the code.
+   - Which touchpoint (Section 2.A, 2.B, or 2.C) is affected.
+   - The exact 1-2 sentence user capability or operator benefit statement.
+
+> [!IMPORTANT]
+> **Cross-Component PR Guardrail**: If a single PR touches multiple repository components (e.g., both Mixer proto and Website UI), assign its release note entry to the primary user-facing layer (Website UI / MCP) while referencing the underlying API change.
 
 ---
 
