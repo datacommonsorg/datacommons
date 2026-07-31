@@ -141,6 +141,7 @@ main:
           - generate_stat_var_groups: '$${default(map.get(handshake_data, "generateStatVarGroups"), false)}'
           - decoded_imports: '$${json.decode(handshake_data.importList)}'
           - provenances_list: []
+          - provenances_history_str: ""
     - extract_provenance_dcids:
         for:
           value: item
@@ -149,6 +150,11 @@ main:
             - append_provenance:
                 assign:
                   - provenances_list: '$${list.concat(provenances_list, item.importName)}'
+                  - prov_item_str: '$${",{\"importName\":\"" + item.importName + "\",\"latestVersion\":\"" + version + "\"}"}'
+                  - provenances_history_str: '$${provenances_history_str + prov_item_str}'
+    - decode_provenances_history:
+        assign:
+          - provenances_history_list: '$${json.decode("[" + text.substring(provenances_history_str, 1, len(provenances_history_str)) + "]")}'
 
 
     - try_acquire_lock:
@@ -270,13 +276,23 @@ main:
                     version: '$${version}'
                     comment: '$${"Auto-promoted by workflow " + workflow_id}'
             
+            - update_import_status_success:
+                call: http.post
+                args:
+                  url: '${ingestion_helper_url}/imports/status'
+                  auth:
+                    type: OIDC
+                  body:
+                    workflowId: '$${workflow_id}'
+                    imports: '$${imports_status_list}'
+                    status: 'SUCCESS'
             - update_ingestion_status_success:
                 call: update_ingestion_status
                 args:
                   workflow_id: '$${workflow_id}'
                   job_id: '$${job_id}'
                   status: 'SUCCESS'
-                  import_list: '$${imports_history_list}'
+                  import_list: '$${provenances_history_list}'
 
             - update_history_postproc_success:
                 call: update_history
@@ -298,13 +314,23 @@ main:
                   stage: '$${current_stage}'
                   job_id: '$${job_id}'
                   import_list: '$${imports_history_list}'
+            - update_import_status_failure:
+                call: http.post
+                args:
+                  url: '${ingestion_helper_url}/imports/status'
+                  auth:
+                    type: OIDC
+                  body:
+                    workflowId: '$${workflow_id}'
+                    imports: '$${imports_status_list}'
+                    status: 'FAILURE'
             - update_ingestion_status_failure:
                 call: update_ingestion_status
                 args:
                   workflow_id: '$${workflow_id}'
                   job_id: '$${if(job_id != null, job_id, "N/A")}'
                   status: 'RETRY'
-                  import_list: '$${imports_history_list}'
+                  import_list: '$${provenances_history_list}'
             - capture_error:
                 assign:
                   - execution_error: '$${e}'
