@@ -114,9 +114,8 @@ main:
                     bucket: '$${bucket_name}'
                     object: '$${text.url_encode(handshake_object)}'
                     alt: 'media'
-                  result: handshake_data
-        default:
-          steps:
+          - condition: true
+            steps:
             - run_preprocessing:
                 call: launch_and_poll_preprocessing_job
                 args:
