@@ -299,9 +299,9 @@ main:
                 args:
                   workflow_id: '$${workflow_id}'
                   status: 'SUCCESS'
-                  stage: null
-                  job_id: null
-                  import_list: null
+                  stage: 'dataflow'
+                  job_id: '$${job_id}'
+                  import_list: '$${imports_history_list}'
 
         except:
           as: e
