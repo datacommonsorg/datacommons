@@ -71,8 +71,8 @@ variable "ingestion_artifacts_path" {
   description = "Path where pre-processed files are placed for the next stage"
 }
 
-variable "force_restart" {
+variable "skip_container_restarts" {
   type        = bool
-  description = "Set to true to force Cloud Run service to redeploy/restart with a new timestamp"
-  default     = true
+  description = "Set to true to skip updating container restart timestamps, speeding up terraform apply when container images have not changed."
+  default     = false
 }

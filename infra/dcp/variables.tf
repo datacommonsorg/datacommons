@@ -487,10 +487,10 @@ variable "ingestion_dataflow_worker_machine_type" {
   }
 }
 
-variable "force_restart" {
-  description = "Set to true to force Cloud Run services to redeploy/restart with a new timestamp. Defaults to true."
+variable "skip_container_restarts" {
+  description = "Set to true to skip updating container restart timestamps, speeding up terraform apply when container images have not changed."
   type        = bool
-  default     = true
+  default     = false
 }
 
 check "ingestion_dataflow_workers_limits" {

@@ -5,7 +5,7 @@ variable "global" {
     instance_name                 = string
     stateful_deletion_protection  = bool
     stateless_deletion_protection = bool
-    force_restart                 = bool
+    skip_container_restarts       = bool
   })
 }
 
