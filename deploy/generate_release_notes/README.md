@@ -57,3 +57,13 @@ deploy/generate_release_notes/
 - **Release Delta Synthesis (`skills/release-delta-synthesis/SKILL.md`)**: Rules for image delta synthesis, separating Mixer, MCP Agent Toolkit, and Website UI into dedicated sections.
 - **DCP Domain Context (`skills/dcp-context/SKILL.md`)**: **Single Source of Truth** for component keys, repository mappings, subdirectory path filters, container image URIs, and persona guidelines.
 - **Release Writer (`skills/release-writer/SKILL.md`)**: Guidelines for authoring publication-ready release notes with dynamic Executive Summary scaling and two-tier feature formatting (**What's New** + **Specific Capabilities** with `[repo#PR](URL)` links).
+
+---
+
+## Maintenance & Updating for Stack Changes
+
+All component mappings, repository definitions, and image URIs are centralized in **[`skills/dcp-context/SKILL.md`](skills/dcp-context/SKILL.md)** (Single Source of Truth).
+
+- **Adding/Modifying a Component or Image**: Add or update the row in the Component Registry table in `skills/dcp-context/SKILL.md`. The orchestrator will dynamically spawn subagents for it.
+- **Updating Path Filters**: Update the **Source Repositories & Subdirectory Filters** column in `skills/dcp-context/SKILL.md`.
+- **Updating Writing Rules or Persona**: Update `skills/release-writer/SKILL.md` for formatting and tone, or `skills/dcp-context/SKILL.md` for user touchpoints.
