@@ -487,6 +487,12 @@ variable "ingestion_dataflow_worker_machine_type" {
   }
 }
 
+variable "skip_container_restarts" {
+  description = "Set to true to skip updating container restart timestamps, speeding up terraform apply when container images have not changed."
+  type        = bool
+  default     = false
+}
+
 check "ingestion_dataflow_workers_limits" {
   assert {
     condition     = var.ingestion_dataflow_max_workers >= var.ingestion_dataflow_num_workers

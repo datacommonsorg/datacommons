@@ -70,6 +70,7 @@ locals {
     instance_name                 = var.instance_name != "" ? var.instance_name : var.namespace
     stateful_deletion_protection  = var.stateful_deletion_protection
     stateless_deletion_protection = var.stateless_deletion_protection
+    skip_container_restarts       = var.skip_container_restarts
   }
 
   spanner_config = {
