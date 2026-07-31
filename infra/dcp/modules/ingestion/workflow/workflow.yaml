@@ -142,6 +142,7 @@ main:
           - decoded_imports: '$${json.decode(handshake_data.importList)}'
           - provenances_list: []
           - provenances_history_str: ""
+          - combined_graph_paths: ""
     - extract_provenance_dcids:
         for:
           value: item
@@ -152,9 +153,24 @@ main:
                   - provenances_list: '$${list.concat(provenances_list, item.importName)}'
                   - prov_item_str: '$${",{\"importName\":\"" + item.importName + "\",\"latestVersion\":\"" + version + "\"}"}'
                   - provenances_history_str: '$${provenances_history_str + prov_item_str}'
+                  - join_comma: '$${if(combined_graph_paths == "", "", ",")}'
+                  - combined_graph_paths: '$${combined_graph_paths + join_comma + item.graphPath}'
     - decode_provenances_history:
         assign:
           - provenances_history_list: '$${json.decode("[" + text.substring(provenances_history_str, 1, len(provenances_history_str)) + "]")}'
+          - imports_status_str_updated: ""
+    - update_status_list_with_graph_paths:
+        for:
+          value: st_item
+          in: $${imports_status_list}
+          steps:
+            - append_status_path:
+                assign:
+                  - updated_st_item: '$${",{\"importName\":\"" + st_item.importName + "\",\"latestVersion\":\"" + st_item.latestVersion + "\",\"graphPath\":\"" + combined_graph_paths + "\",\"status\":\"" + st_item.status + "\"}"}'
+                  - imports_status_str_updated: '$${imports_status_str_updated + updated_st_item}'
+    - decode_updated_status_list:
+        assign:
+          - imports_status_list: '$${json.decode("[" + text.substring(imports_status_str_updated, 1, len(imports_status_str_updated)) + "]")}'
 
 
     - try_acquire_lock:
