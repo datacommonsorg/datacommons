@@ -13,7 +13,7 @@ locals {
       "roles/workflows.invoker"
     ],
     var.use_spanner ? ["roles/spanner.databaseUser"] : [],
-    var.use_spanner && var.resolve_with_spanner_embeddings ? ["roles/aiplatform.user"] : []
+    var.use_spanner ? ["roles/aiplatform.user"] : []
   ))
 }
 
@@ -100,18 +100,6 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
       env {
         name  = "DC_INSTRUCTIONS_DIR"
         value = var.mcp_instructions_path != null ? "gs://${var.artifacts_bucket_name}/${var.mcp_instructions_path}" : ""
-      }
-      env {
-        name  = "RESOLVE_WITH_SPANNER_EMBEDDINGS"
-        value = var.resolve_with_spanner_embeddings ? "true" : "false"
-      }
-      env {
-        name  = "ENABLE_UNIQUE_HISTORY_RECORDS"
-        value = "true"
-      }
-      env {
-        name  = "USE_SPANNER_KEY_VALUE_STORE"
-        value = var.use_spanner ? "true" : "false"
       }
       env {
         name  = "V2_RESOLVE_INDICATORS_TARGET"
