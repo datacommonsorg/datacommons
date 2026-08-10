@@ -85,7 +85,7 @@
         "sessionId": "007_999999999",
         "skipRelatedThings": false,
         "variables": [
-          "average_annual_wage"
+          "Annual_Average_Wage"
         ]
       },
       "llm_resp": {},
@@ -127,8 +127,8 @@
             "growth_ranking_type": null,
             "is_topic_peer_group": false,
             "orig_sv_map": {
-              "average_annual_wage": [
-                "average_annual_wage"
+              "Annual_Average_Wage": [
+                "Annual_Average_Wage"
               ]
             },
             "props": [],
