@@ -31,7 +31,7 @@
               }
             ],
             "denom": "Count_Person",
-            "description": "Annual rates paid per employee in full-time equivalent unit in the total economy.",
+            "description": "Annual rates paid per employee in full-time equivalent unit in the total economy",
             "title": "Average annual wage"
           }
         ],

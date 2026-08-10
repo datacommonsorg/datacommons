@@ -7,7 +7,7 @@
   },
   {
     "name": "",
-    "subject_id": "Annual average w:y/F3wzEuFCMKpWrxvhYrNcRG/7YuaDq6iGNGCOaJAqE=",
+    "subject_id": "Average annual w:y/F3wzEuFCMKpWrxvhYrNcRG/7YuaDq6iGNGCOaJAqE=",
     "types": [],
     "value": "Average annual wage"
   },
@@ -19,9 +19,9 @@
   },
   {
     "name": "",
-    "subject_id": "OECD Ann Average:rSLAXuhyx0+Wmrh9x0yAUZHLqtd6T/HKCKsNg5uDMSA=",
+    "subject_id": "OECD Average Ann:rSLAXuhyx0+Wmrh9x0yAUZHLqtd6T/HKCKsNg5uDMSA=",
     "types": [],
-    "value": "OECD Average annual wages"
+    "value": "OECD Average Annual Wages"
   },
   {
     "name": "",
@@ -36,7 +36,7 @@
     "value": "OECD"
   },
   {
-    "name": "OECD Gender Wage Gap",
+    "name": "OECDGenderWageGap",
     "subject_id": "OECDGenderWageGap",
     "types": [
       "Provenance"
@@ -52,7 +52,7 @@
     "value": "OECDGroup"
   },
   {
-    "name": "OECD Average annual wages",
+    "name": "OECDWages",
     "subject_id": "OECDWages",
     "types": [
       "Provenance"
@@ -98,7 +98,7 @@
     "value": "Topic"
   },
   {
-    "name": "Average annual wage",
+    "name": "Annual_Average_Wage",
     "subject_id": "Annual_Average_Wage",
     "types": [
       "StatisticalVariable"
@@ -466,7 +466,7 @@
     "value": "dc/g/Root"
   },
   {
-    "name": "Gender wage gap",
+    "name": "Difference_Average_Wages_To_Male_Average_Wages",
     "subject_id": "Difference_Average_Wages_To_Male_Average_Wages",
     "types": [
       "StatisticalVariable"
