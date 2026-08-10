@@ -32,12 +32,12 @@
             ],
             "denom": "Count_Person",
             "description": "Annual rates paid per employee in full-time equivalent unit in the total economy.",
-            "title": "Annual average wage"
+            "title": "Average annual wage"
           }
         ],
         "statVarSpec": {
           "Annual_Average_Wage": {
-            "name": "Annual average wage",
+            "name": "Average annual wage",
             "statVar": "Annual_Average_Wage"
           }
         }

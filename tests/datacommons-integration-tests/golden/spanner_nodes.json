@@ -3,11 +3,11 @@
     "name": "",
     "subject_id": "Annual rates pai:B6bETuBs05/fIp/9iZA4visxwBM7FD+/5SfBW9dhMY8=",
     "types": [],
-    "value": "Annual rates paid per employee in full-time equivalent unit in the total economy."
+    "value": "Annual rates paid per employee in full-time equivalent unit in the total economy"
   },
   {
     "name": "",
-    "subject_id": "Average annual w:y/F3wzEuFCMKpWrxvhYrNcRG/7YuaDq6iGNGCOaJAqE=",
+    "subject_id": "Annual average w:y/F3wzEuFCMKpWrxvhYrNcRG/7YuaDq6iGNGCOaJAqE=",
     "types": [],
     "value": "Average annual wage"
   },
@@ -19,9 +19,9 @@
   },
   {
     "name": "",
-    "subject_id": "OECD Average Ann:rSLAXuhyx0+Wmrh9x0yAUZHLqtd6T/HKCKsNg5uDMSA=",
+    "subject_id": "OECD Ann Average:rSLAXuhyx0+Wmrh9x0yAUZHLqtd6T/HKCKsNg5uDMSA=",
     "types": [],
-    "value": "OECD Average Annual Wages"
+    "value": "OECD Average annual wages"
   },
   {
     "name": "",
@@ -52,7 +52,7 @@
     "value": "OECDGroup"
   },
   {
-    "name": "OECD Average Annual Wages",
+    "name": "OECD Average annual wages",
     "subject_id": "OECDWages",
     "types": [
       "Provenance"
@@ -98,7 +98,7 @@
     "value": "Topic"
   },
   {
-    "name": "Annual average wage",
+    "name": "Average annual wage",
     "subject_id": "Annual_Average_Wage",
     "types": [
       "StatisticalVariable"
