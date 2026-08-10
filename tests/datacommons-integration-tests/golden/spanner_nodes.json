@@ -1,7 +1,7 @@
 [
   {
     "name": "",
-    "subject_id": "Annual rates pai:B6bETuBs05/fIp/9iZA4visxwBM7FD+/5SfBW9dhMY8=",
+    "subject_id": "Annual rates pai:QcxCPxjZLzhnx8nxh4X/zaFLgx5n5sARyMQTUU7O6xM=",
     "types": [],
     "value": "Annual rates paid per employee in full-time equivalent unit in the total economy"
   },
@@ -36,7 +36,7 @@
     "value": "OECD"
   },
   {
-    "name": "OECDGenderWageGap",
+    "name": "OECD Gender Wage Gap",
     "subject_id": "OECDGenderWageGap",
     "types": [
       "Provenance"
@@ -52,7 +52,7 @@
     "value": "OECDGroup"
   },
   {
-    "name": "OECDWages",
+    "name": "OECD Average Annual Wages",
     "subject_id": "OECDWages",
     "types": [
       "Provenance"
@@ -98,7 +98,7 @@
     "value": "Topic"
   },
   {
-    "name": "Annual_Average_Wage",
+    "name": "Average annual wage",
     "subject_id": "Annual_Average_Wage",
     "types": [
       "StatisticalVariable"
@@ -466,7 +466,7 @@
     "value": "dc/g/Root"
   },
   {
-    "name": "Difference_Average_Wages_To_Male_Average_Wages",
+    "name": "Gender wage gap",
     "subject_id": "Difference_Average_Wages_To_Male_Average_Wages",
     "types": [
       "StatisticalVariable"
