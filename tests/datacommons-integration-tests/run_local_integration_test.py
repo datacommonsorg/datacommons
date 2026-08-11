@@ -675,7 +675,7 @@ def test_website_semantic_nl_query(generate_golden):
     instance = client.instance(INSTANCE_ID)
     database = instance.database(DATABASE_ID)
 
-    stat_var_name = "Average annual wage"
+    stat_var_name = "Annual_Average_Wage"
     with database.snapshot() as snapshot:
         results = snapshot.execute_sql(
             "SELECT name FROM Node WHERE 'StatisticalVariable' IN UNNEST(types) LIMIT 1"
