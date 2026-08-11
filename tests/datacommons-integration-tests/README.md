@@ -105,6 +105,3 @@ Once the GCP sandbox stack is up and seeded with dataset MCFs, the script trigge
     *   *Philosophy:* Validates E2E query routing and data loading for custom variables. It asserts observations values on custom seeded OECD wages metrics to verify local database mapping, loading, and seeding.
 *   **Stage B: V2 Embeddings & Natural Language Resolution**
     *   *Philosophy:* Validates custom search index and embeddings generation. This checks that the Ingestion Helper successfully generated vector coordinates from custom MCFs, loaded them into Spanner, and that the Resolver can map natural language queries (like "wages") back to these custom database entities.
-
-
-
