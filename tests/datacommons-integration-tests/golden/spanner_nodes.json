@@ -37,27 +37,27 @@
   },
   {
     "name": "OECD Gender Wage Gap",
-    "subject_id": "oecd:OECDGenderWageGap",
+    "subject_id": "OECDGenderWageGap",
     "types": [
       "Provenance"
     ],
-    "value": "oecd:OECDGenderWageGap"
+    "value": "OECDGenderWageGap"
   },
   {
     "name": "OECD",
-    "subject_id": "oecd:OECDGroup",
+    "subject_id": "OECDGroup",
     "types": [
       "StatVarGroup"
     ],
-    "value": "oecd:OECDGroup"
+    "value": "OECDGroup"
   },
   {
     "name": "OECD Average Annual Wages",
-    "subject_id": "oecd:OECDWages",
+    "subject_id": "OECDWages",
     "types": [
       "Provenance"
     ],
-    "value": "oecd:OECDWages"
+    "value": "OECDWages"
   },
   {
     "name": "",
@@ -99,11 +99,11 @@
   },
   {
     "name": "Average annual wage",
-    "subject_id": "oecd:Annual_Average_Wage",
+    "subject_id": "Annual_Average_Wage",
     "types": [
       "StatisticalVariable"
     ],
-    "value": "oecd:Annual_Average_Wage"
+    "value": "Annual_Average_Wage"
   },
   {
     "name": "country/AUS",
@@ -467,11 +467,11 @@
   },
   {
     "name": "Gender wage gap",
-    "subject_id": "oecd:Difference_Average_Wages_To_Male_Average_Wages",
+    "subject_id": "Difference_Average_Wages_To_Male_Average_Wages",
     "types": [
       "StatisticalVariable"
     ],
-    "value": "oecd:Difference_Average_Wages_To_Male_Average_Wages"
+    "value": "Difference_Average_Wages_To_Male_Average_Wages"
   },
   {
     "name": "",

@@ -10,7 +10,7 @@
                 "tiles": [
                   {
                     "statVarKey": [
-                      "oecd:Annual_Average_Wage"
+                      "Annual_Average_Wage"
                     ],
                     "title": "Average Annual Wage in United States of America",
                     "type": "LINE"
@@ -22,7 +22,7 @@
                   {
                     "description": "Average Annual Wage in United States of America",
                     "statVarKey": [
-                      "oecd:Annual_Average_Wage"
+                      "Annual_Average_Wage"
                     ],
                     "title": "Average Annual Wage in United States of America",
                     "type": "HIGHLIGHT"
@@ -38,7 +38,7 @@
         "statVarSpec": {
           "Annual_Average_Wage": {
             "name": "Average annual wage",
-            "statVar": "oecd:Annual_Average_Wage"
+            "statVar": "Annual_Average_Wage"
           }
         }
       }
@@ -85,7 +85,7 @@
         "sessionId": "007_999999999",
         "skipRelatedThings": false,
         "variables": [
-          "oecd:Annual_Average_Wage"
+          "Annual_Average_Wage"
         ]
       },
       "llm_resp": {},
@@ -127,8 +127,8 @@
             "growth_ranking_type": null,
             "is_topic_peer_group": false,
             "orig_sv_map": {
-              "oecd:Annual_Average_Wage": [
-                "oecd:Annual_Average_Wage"
+              "Annual_Average_Wage": [
+                "Annual_Average_Wage"
               ]
             },
             "props": [],
@@ -157,18 +157,18 @@
           "props": [],
           "ranking_types": [],
           "sv_place_latest_date": {
-            "oecd:Average_Annual_Wage": {
+            "Average_Annual_Wage": {
               "country/USA": ""
             }
           },
           "svs": [
-            "oecd:Average_Annual_Wage"
+            "Average_Annual_Wage"
           ]
         }
       ],
       "session_id": "007_999999999",
       "svs": [
-        "oecd:Average_Annual_Wage"
+        "Average_Annual_Wage"
       ]
     }
   ],
