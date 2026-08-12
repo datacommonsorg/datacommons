@@ -13,13 +13,11 @@
 # limitations under the License.
 
 steps:
-  # 1. Clone target commit/ref, apply version bump, and push RC tag to GitHub
+  # 1. Clone target commit/branch, apply version bump, and push RC tag to GitHub
   - name: 'ghcr.io/astral-sh/uv:python3.12-trixie-slim'
     entrypoint: 'bash'
     secretEnv: ['GH_TOKEN']
     env:
-      - 'TAG_NAME=$TAG_NAME'
-      - 'COMMIT_SHA=$COMMIT_SHA'
       - 'TARGET_VERSION=${_TARGET_VERSION}'
       - 'GITHUB_COMMIT=${_GITHUB_COMMIT}'
     args:
@@ -27,20 +25,20 @@ steps:
       - |
         apt-get update && apt-get install -y git
 
+        if [ -z "$$TARGET_VERSION" ]; then
+          echo "ERROR: Substitution _TARGET_VERSION is required (e.g. _TARGET_VERSION='1.2.3rc1')."
+          exit 1
+        fi
+        tag_version="$$TARGET_VERSION"
+
         if [ -n "$$GH_TOKEN" ]; then
           git config --global url."https://${_GITHUB_AUTHOR}:$$GH_TOKEN@github.com/".insteadOf "https://github.com/"
           git config --global user.email "${_GITHUB_AUTHOR}@users.noreply.github.com"
           git config --global user.name "${_GITHUB_AUTHOR}"
         fi
 
-        # Determine target ref: substitution _GITHUB_COMMIT > trigger $COMMIT_SHA > $TAG_NAME > default _GITHUB_BRANCH
+        # Determine target ref: substitution _GITHUB_COMMIT > default _GITHUB_BRANCH
         target_ref="$$GITHUB_COMMIT"
-        if [ -z "$target_ref" ]; then
-          target_ref="$$COMMIT_SHA"
-        fi
-        if [ -z "$target_ref" ]; then
-          target_ref="$$TAG_NAME"
-        fi
         if [ -z "$target_ref" ]; then
           target_ref="${_GITHUB_BRANCH}"
         fi
@@ -51,30 +49,14 @@ steps:
         cd /workspace
         git checkout "$target_ref"
 
-        if [ -n "$TAG_NAME" ]; then
-          tag_version=$${TAG_NAME#v}
-        else
-          tag_version="$$TARGET_VERSION"
-        fi
+        echo "Applying version bump for staging release candidate $tag_version..."
+        bash deploy/scripts/apply_version_bump.sh "$tag_version"
 
-        if [ -z "$tag_version" ]; then
-          echo "ERROR: Neither TAG_NAME nor _TARGET_VERSION substitution was provided."
-          exit 1
-        fi
-
-        # Check if checked-out source code ALREADY contains the bumped tag_version (prevents re-trigger loops)
-        if grep -q "default\s*=\s*\"$tag_version\"" infra/dcp/variables.tf 2>/dev/null; then
-          echo "Source code is already version-bumped to $tag_version. Skipping version bump and tag re-push to prevent trigger loops."
-        else
-          echo "Applying version bump for staging release candidate $tag_version..."
-          bash deploy/scripts/apply_version_bump.sh "$tag_version"
-
-          if [ -n "$$GH_TOKEN" ]; then
-            echo "Creating local RC commit and tagging v$tag_version..."
-            git commit -am "chore(rc): bump version files for v$tag_version" || true
-            git tag -f "v$tag_version"
-            git push origin "v$tag_version" --force || echo "Warning: Failed to push tag v$tag_version to GitHub"
-          fi
+        if [ -n "$$GH_TOKEN" ]; then
+          echo "Creating local RC commit and tagging v$tag_version on GitHub..."
+          git commit -am "chore(rc): bump version files for v$tag_version" || true
+          git tag -f "v$tag_version"
+          git push origin "v$tag_version" --force || echo "Warning: Failed to push tag v$tag_version to GitHub"
         fi
 
   # 2. Build and publish all Python packages to TestPyPI

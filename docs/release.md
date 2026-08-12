@@ -26,22 +26,15 @@ dependencies = [
 
 ---
 
-## 2. CI/CD Pipeline Architecture & RC Tagging Mechanism
+## 2. CI/CD Pipeline Architecture & Intentional Triggers
 
-Automated workflows are powered by **Google Cloud Build** across three components.
-
-> [!IMPORTANT]
-> **How Release Candidate (RC) Tagging Works Without Polluting `main`:**
-> - When `deploy/staging.yaml` runs (either via manual `gcloud builds submit` or an RC tag trigger), Cloud Build clones the target commit, runs `apply_version_bump.sh`, creates a local commit inside the container, and force-pushes **only the tag `v<VERSION>`** to GitHub (`git push origin v1.2.3rc1`).
-> - Pushing a tag uploads the commit object to GitHub under `refs/tags/v1.2.3rc1`.
-> - **Branch `main` (`refs/heads/main`) is NOT modified or committed to.**
-> - This guarantees that HTTP raw GitHub references (e.g., `infra/dcp/variables.tf?ref=v1.2.3rc1`) resolve `dcp_version = "1.2.3rc1"` when `datacommons admin init` runs, while leaving `main` 100% clean!
+Automated workflows are powered by **Google Cloud Build** across three distinct pipelines, each with a single, unambiguous trigger method:
 
 | Pipeline | Trigger / Method | Role & Actions | Version Bumping | Git Tag Action | Destination |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **`staging.yaml`** | Manual `gcloud builds submit` OR Push `v*rc*` tag | Release candidate staging (supports custom commit SHA) | Executes `deploy/scripts/apply_version_bump.sh` | **Tags & Pushes `v<VERSION>` to GitHub** (does not commit to `main`) | **TestPyPI** |
-| **`bump_version.yaml`** | `gcloud builds submit` | Automated version bump PR generator | Executes `deploy/scripts/apply_version_bump.sh` | **Creates PR branch on Git** | N/A |
-| **`release.yaml`** | Publish `v*` tag (e.g. `v1.2.3`) | Production release (runs on tagged commit SHA) | **Read-only validation** (verifies committed versions match tag) | **NO** | **Official PyPI** |
+| **`staging.yaml`** | Manual `gcloud builds submit` | Release candidate staging (supports custom commit SHA) | Executes `deploy/scripts/apply_version_bump.sh` | **Tags & Pushes `v<VERSION>` to GitHub** (does not commit to `main`) | **TestPyPI** |
+| **`bump_version.yaml`** | Manual `gcloud builds submit` | Automated version bump PR generator | Executes `deploy/scripts/apply_version_bump.sh` | **Creates PR branch on Git** | N/A |
+| **`release.yaml`** | Publish GitHub Release `v*` | Production release (runs on tagged commit SHA) | **Read-only validation** (verifies committed versions match tag) | **NO** | **Official PyPI** |
 
 ---
 
@@ -62,8 +55,8 @@ All local version updates across files are single-sourced in [`deploy/scripts/ap
 
 To build, tag, and publish a Release Candidate (RC) for partner testing off **`main`** or **any specific commit SHA**:
 
-1. **Option A: Trigger Staging Build Manually via Cloud Build (Recommended):**
-   Run `gcloud builds submit` targeting `deploy/staging.yaml`. You can optionally pass `_GITHUB_COMMIT` to build off a specific commit SHA:
+1. **Trigger Staging Build via Cloud Build:**
+   Run `gcloud builds submit` targeting `deploy/staging.yaml` with your target RC version string. You can optionally specify `_GITHUB_COMMIT` to build off a specific commit SHA (defaults to `main`):
    ```bash
    # Build off latest main
    gcloud builds submit \
@@ -80,22 +73,15 @@ To build, tag, and publish a Release Candidate (RC) for partner testing off **`m
      .
    ```
 
-2. **Option B: Trigger via Git RC Tag Push on a Specific Commit:**
-   ```bash
-   # Create RC tag on a specific commit SHA (e.g., 8f9b2a1)
-   git tag v1.2.3rc1 8f9b2a1
-   git push origin v1.2.3rc1
-   ```
-
-#### What `staging.yaml` Executes Behind the Scenes:
-1. Clones the repository and checks out the requested commit SHA (or `main`).
+#### What `staging.yaml` Executes:
+1. Clones a clean copy of the target commit SHA (or `main`) directly from GitHub.
 2. Applies the version bump (`1.2.3rc1`) to local files (`VERSION`, `pyproject.toml`, `__init__.py`, `variables.tf`).
-3. Creates a local commit inside Cloud Build and **pushes tag `v1.2.3rc1` to GitHub**. 
-   - *Note:* The tag `v1.2.3rc1` now exists on GitHub pointing to the bumped commit, allowing raw HTTP template fetches (`variables.tf?ref=v1.2.3rc1`) to succeed during `datacommons admin init`.
+3. Creates a local commit inside Cloud Build and **pushes Git tag `v1.2.3rc1` to GitHub**. 
+   - *Note:* The tag `v1.2.3rc1` on GitHub points to the bumped commit, allowing raw HTTP template fetches (`variables.tf?ref=v1.2.3rc1`) to succeed during `datacommons admin init`.
    - *Note:* Branch `main` is untouched.
 4. Builds wheels and publishes packages to **TestPyPI**.
 
-3. **Verify Staging RC & Installation:**
+2. **Verify Staging RC & Installation:**
    - Confirm package availability on TestPyPI (`https://test.pypi.org/project/datacommons-cli/1.2.3rc1/`).
    - Test installation in a clean environment:
      ```bash
@@ -138,7 +124,7 @@ Once the RC is verified on TestPyPI and staging environments:
 1. **Draft & Publish GitHub Release:**
    - Navigate to [GitHub Releases](https://github.com/datacommonsorg/datacommons/releases).
    - Click **Draft a new release**.
-   - Select the target tag `v1.2.3` and choose target branch/commit (e.g. `main` or specific commit SHA).
+   - Select target tag `v1.2.3` and choose target branch/commit.
    - Title: `v1.2.3`.
    - Add release notes and click **Publish release**.
 2. **Production Pipeline Execution (`release.yaml`):**
