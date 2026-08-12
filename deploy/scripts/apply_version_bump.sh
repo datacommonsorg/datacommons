@@ -13,6 +13,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# -----------------------------------------------------------------------------
+# apply_version_bump.sh - Single Source of Truth for CI/CD Version Updates
+#
+# PURPOSE:
+#   Applies local version updates across:
+#     1. Root VERSION file & subpackage packages/*/VERSION files.
+#     2. Runtime __version__ strings in packages/*/datacommons_*/__init__.py.
+#     3. Terraform HCL variable defaults (dcp_version) in infra/dcp/*.tf.
+#     4. Lockstep dependency requirement in packages/datacommons-cli/pyproject.toml
+#        (datacommons-admin>=NEW_VERSION).
+#
+# USAGE ACROSS CI/CD FLOWS:
+#   1. Pre-Release PR (deploy/bump_version.yaml):
+#      Runs this script, commits modified files to Git, and opens a PR against main.
+#
+#   2. Staging / Release Candidate (deploy/staging.yaml):
+#      Runs this script ephemerally inside Cloud Build on a clean clone of main,
+#      tags and pushes v<VERSION> to GitHub (so HTTP HCL template fetches work),
+#      and publishes to TestPyPI. (No Git commits pushed to main).
+#
+#   3. Production Release (deploy/release.yaml):
+#      Does NOT run this script. Performs read-only validation that Git source
+#      code already matches tag_version before publishing to PyPI.
+# -----------------------------------------------------------------------------
+
 set -eo pipefail
 
 NEW_VERSION="$1"
