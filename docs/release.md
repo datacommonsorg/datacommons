@@ -30,10 +30,10 @@ dependencies = [
 
 Automated workflows are powered by **Google Cloud Build** across three components:
 
-| Pipeline | Trigger / Method | Role & Actions | Version Bumping | Git Commit? | Destination |
+| Pipeline | Trigger / Method | Role & Actions | Version Bumping | Git Tag Action | Destination |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **`bump_version.yaml`** | `gcloud builds submit` | Automated version bump PR generator | Executes `deploy/scripts/apply_version_bump.sh` | **YES** (creates PR branch) | N/A |
-| **`staging.yaml`** | Push `v*rc*` tag (e.g. `v1.2.3rc1`) | Release candidate verification | Executes `deploy/scripts/apply_version_bump.sh` (ephemeral container state) | **NO** | **TestPyPI** |
+| **`staging.yaml`** | Manual `gcloud builds submit` OR Push `v*rc*` tag | Release candidate staging & tag publication | Executes `deploy/scripts/apply_version_bump.sh` | **Tags & Pushes `v<VERSION>` to GitHub** | **TestPyPI** |
+| **`bump_version.yaml`** | `gcloud builds submit` | Automated version bump PR generator | Executes `deploy/scripts/apply_version_bump.sh` | **Creates PR branch on Git** | N/A |
 | **`release.yaml`** | Publish `v*` tag (e.g. `v1.2.3`) | Production release | **Read-only validation** (verifies committed versions match tag) | **NO** | **Official PyPI** |
 
 ---
@@ -51,22 +51,32 @@ All local version updates across files are single-sourced in [`deploy/scripts/ap
 
 ## 4. Step-by-Step Release Walkthrough
 
-### Step 1: Create & Push Release Candidate (RC) for Staging Verification
+### Step 1: Trigger Staging Pre-Release (TestPyPI & GitHub RC Tag)
 
-To test a release candidate without cluttering `main` Git history:
+To build, tag, and publish a Release Candidate (RC) for partner testing:
 
-1. **Commit and Push Feature Changes:** Ensure all feature work is merged to `main`.
-2. **Create and Push the Git RC Tag:**
+1. **Option A: Trigger Staging Build Manually via Cloud Build (Recommended):**
+   Run `gcloud builds submit` targeting `deploy/staging.yaml` with your target RC version:
    ```bash
-   # Create RC tag locally
+   gcloud builds submit \
+     --config deploy/staging.yaml \
+     --substitutions=_TARGET_VERSION="1.2.3rc1" \
+     --project="datcom-ci" \
+     .
+   ```
+2. **Option B: Trigger via Git RC Tag Push:**
+   ```bash
    git tag v1.2.3rc1
-
-   # Push tag to GitHub (triggers deploy/staging.yaml on Cloud Build)
    git push origin v1.2.3rc1
    ```
-3. **Verify Staging Build on TestPyPI:**
-   - `staging.yaml` runs `apply_version_bump.sh 1.2.3rc1` in memory and publishes wheels to TestPyPI.
-   - Verify package availability at `https://test.pypi.org/project/datacommons-cli/1.2.3rc1/`.
+
+#### What `staging.yaml` Executes:
+- Applies version bump to `1.2.3rc1` locally across all version files and Terraform variables.
+- **Creates and pushes Git tag `v1.2.3rc1` to GitHub**, ensuring raw GitHub references (e.g., `infra/dcp/variables.tf?ref=v1.2.3rc1`) resolve `dcp_version = "1.2.3rc1"`.
+- Builds wheels and publishes packages to **TestPyPI**.
+
+3. **Verify Staging RC & Installation:**
+   - Confirm package availability on TestPyPI (`https://test.pypi.org/project/datacommons-cli/1.2.3rc1/`).
    - Test installation in a clean environment:
      ```bash
      uv tool install --force \
@@ -74,12 +84,19 @@ To test a release candidate without cluttering `main` Git history:
        --extra-index-url https://pypi.org/simple/ \
        "datacommons-cli==1.2.3rc1"
      ```
+   - Initialize a test deployment:
+     ```bash
+     datacommons admin init \
+       --project-id my-gcp-project \
+       --instance-name test-rc-stack
+     ```
+     *(The CLI automatically passes `--tf-git-ref v1.2.3rc1`, which pulls the newly published GitHub tag with default `dcp_version = "1.2.3rc1"`).*
 
 ---
 
 ### Step 2: Production Version Bump PR
 
-Once the RC is verified:
+Once the RC is verified on TestPyPI and staging environments:
 
 1. **Trigger Version Bump Workflow:**
    ```bash
@@ -98,7 +115,7 @@ Once the RC is verified:
 
 ### Step 3: Publish Official Production Release
 
-1. **Draft GitHub Release:**
+1. **Draft & Publish GitHub Release:**
    - Navigate to [GitHub Releases](https://github.com/datacommonsorg/datacommons/releases).
    - Click **Draft a new release**.
    - Set tag to `v1.2.3` on target `main`.

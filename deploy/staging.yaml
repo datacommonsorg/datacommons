@@ -13,17 +13,41 @@
 # limitations under the License.
 
 steps:
-  # 1. Set lockstep version across __init__.py files and root pyproject.toml using inline python
-  - name: 'python:3.12-slim'
+  # 1. Apply local version bump and push RC tag to GitHub
+  - name: 'ghcr.io/astral-sh/uv:python3.12-trixie-slim'
     entrypoint: 'bash'
+    secretEnv: ['GH_TOKEN']
     env:
       - 'TAG_NAME=$TAG_NAME'
+      - 'TARGET_VERSION=${_TARGET_VERSION}'
     args:
       - '-c'
       - |
-        tag_version=$${TAG_NAME#v}
-        echo "Applying ephemeral version bump for release candidate $tag_version..."
+        apt-get update && apt-get install -y git
+
+        if [ -n "$TAG_NAME" ]; then
+          tag_version=$${TAG_NAME#v}
+        else
+          tag_version="$$TARGET_VERSION"
+        fi
+
+        if [ -z "$tag_version" ]; then
+          echo "ERROR: Neither TAG_NAME nor _TARGET_VERSION substitution was provided."
+          exit 1
+        fi
+
+        echo "Applying version bump for staging release candidate $tag_version..."
         bash deploy/scripts/apply_version_bump.sh "$tag_version"
+
+        if [ -n "$$GH_TOKEN" ]; then
+          git config --global url."https://${_GITHUB_AUTHOR}:$$GH_TOKEN@github.com/".insteadOf "https://github.com/"
+          git config --global user.email "${_GITHUB_AUTHOR}@users.noreply.github.com"
+          git config --global user.name "${_GITHUB_AUTHOR}"
+          
+          echo "Tagging and pushing v$tag_version to GitHub..."
+          git tag -f "v$tag_version"
+          git push origin "v$tag_version" --force || echo "Warning: Failed to push tag v$tag_version to GitHub"
+        fi
 
   # 2. Build and publish all Python packages to TestPyPI
   - name: 'ghcr.io/astral-sh/uv:python3.12-trixie-slim'
@@ -52,10 +76,16 @@ steps:
           fi
         done
 
+substitutions:
+  _GITHUB_AUTHOR: 'datacommons-robot-author'
+  _TARGET_VERSION: ''
+
 availableSecrets:
   secretManager:
   - versionName: projects/$PROJECT_ID/secrets/TEST_PYPI_TOKEN/versions/latest
     env: 'TEST_PYPI_TOKEN'
+  - versionName: projects/$PROJECT_ID/secrets/agent-toolkit-github-pat/versions/latest
+    env: 'GH_TOKEN'
 
 options:
   logging: CLOUD_LOGGING_ONLY
