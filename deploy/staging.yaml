@@ -13,13 +13,15 @@
 # limitations under the License.
 
 steps:
-  # 1. Clone clean main, apply version bump, and push RC tag to GitHub
+  # 1. Clone target commit/ref, apply version bump, and push RC tag to GitHub
   - name: 'ghcr.io/astral-sh/uv:python3.12-trixie-slim'
     entrypoint: 'bash'
     secretEnv: ['GH_TOKEN']
     env:
       - 'TAG_NAME=$TAG_NAME'
+      - 'COMMIT_SHA=$COMMIT_SHA'
       - 'TARGET_VERSION=${_TARGET_VERSION}'
+      - 'GITHUB_COMMIT=${_GITHUB_COMMIT}'
     args:
       - '-c'
       - |
@@ -31,10 +33,23 @@ steps:
           git config --global user.name "${_GITHUB_AUTHOR}"
         fi
 
-        # Clone clean main branch to ensure hermetic builds independent of local uncommitted files
+        # Determine target ref: substitution _GITHUB_COMMIT > trigger $COMMIT_SHA > $TAG_NAME > default _GITHUB_BRANCH
+        target_ref="$$GITHUB_COMMIT"
+        if [ -z "$target_ref" ]; then
+          target_ref="$$COMMIT_SHA"
+        fi
+        if [ -z "$target_ref" ]; then
+          target_ref="$$TAG_NAME"
+        fi
+        if [ -z "$target_ref" ]; then
+          target_ref="${_GITHUB_BRANCH}"
+        fi
+
+        echo "Cloning repository and checking out target ref '$target_ref'..."
         rm -rf /workspace/* /workspace/.[!.]*
-        git clone "https://github.com/${_GITHUB_ORG}/${_GITHUB_REPO}.git" /workspace --branch "${_GITHUB_BRANCH}" --single-branch --depth 1
+        git clone "https://github.com/${_GITHUB_ORG}/${_GITHUB_REPO}.git" /workspace
         cd /workspace
+        git checkout "$target_ref"
 
         if [ -n "$TAG_NAME" ]; then
           tag_version=$${TAG_NAME#v}
@@ -88,6 +103,7 @@ substitutions:
   _GITHUB_ORG: 'datacommonsorg'
   _GITHUB_REPO: 'datacommons'
   _GITHUB_BRANCH: 'main'
+  _GITHUB_COMMIT: ''
   _TARGET_VERSION: ''
 
 availableSecrets:
