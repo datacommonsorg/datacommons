@@ -34,8 +34,8 @@ steps:
         # Update Lockfile
         uv lock
 
-        # Commit & Push all modified files from apply_version_bump script
-        git add -A
+        # Commit & Push modified tracked files from apply_version_bump script
+        git add -u
         git commit -m "chore: bump version to $$NEW_VERSION"
         git push origin $$BRANCH_NAME --force
 
