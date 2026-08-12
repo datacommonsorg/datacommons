@@ -28,25 +28,8 @@ steps:
         BRANCH_NAME="chore/bump-version-$$NEW_VERSION"
         git checkout -b $$BRANCH_NAME
 
-        # Update Version Files
-        OLD_VERSION=$$(cat VERSION)
-        echo "Updating root VERSION file to $$NEW_VERSION"
-        echo "$$NEW_VERSION" > VERSION
-        for pkg in packages/*; do
-          if [ -d "$$pkg" ]; then
-            echo "Updating $$pkg/VERSION to $$NEW_VERSION"
-            echo "$$NEW_VERSION" > "$$pkg/VERSION"
-          fi
-        done
-
-        # Update __init__.py files across all packages
-        python3 -c "import glob, re; [open(f, 'w').write(re.sub(r'^__version__ = [\"\'].*[\"\']', '__version__ = \"'\"$$NEW_VERSION\"'\"', content, flags=re.MULTILINE)) for f in glob.glob('packages/*/datacommons_*/__init__.py') for content in [open(f, 'r').read()]]"
-
-        # Update Terraform variables
-        find infra/dcp -type f -name "*.tf" -exec sed -i "s/$$OLD_VERSION/$$NEW_VERSION/g" {} +
-
-        # Update datacommons-admin dependency requirement in datacommons-cli/pyproject.toml
-        python3 -c "import re, sys; p='packages/datacommons-cli/pyproject.toml'; content = open(p).read(); updated, count = re.subn(r'\"datacommons-admin[^\"]*\"', f'\"datacommons-admin>=$$NEW_VERSION\"', content); open(p, 'w').write(updated) if count else sys.exit('Error: datacommons-admin dependency not found or updated in packages/datacommons-cli/pyproject.toml')"
+        # Update Version Files using shared script
+        bash deploy/scripts/apply_version_bump.sh "$$NEW_VERSION"
 
         # Update Lockfile
         uv lock
