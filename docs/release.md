@@ -26,14 +26,17 @@ dependencies = [
 
 ---
 
-## 2. CI/CD Pipeline Architecture
+## 2. CI/CD Pipeline Architecture & Hermetic Build Guarantee
 
-Automated workflows are powered by **Google Cloud Build** across three components:
+Automated workflows are powered by **Google Cloud Build** across three components.
+
+> [!NOTE]
+> **Hermetic Build Guarantee:** Both `staging.yaml` and `bump_version.yaml` explicitly clone a fresh, clean copy of the `main` branch from GitHub into Cloud Build. This guarantees that submitted builds are 100% hermetic and completely independent of any local uncommitted files or dirty working directories on the developer's machine.
 
 | Pipeline | Trigger / Method | Role & Actions | Version Bumping | Git Tag Action | Destination |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **`staging.yaml`** | Manual `gcloud builds submit` OR Push `v*rc*` tag | Release candidate staging & tag publication | Executes `deploy/scripts/apply_version_bump.sh` | **Tags & Pushes `v<VERSION>` to GitHub** | **TestPyPI** |
-| **`bump_version.yaml`** | `gcloud builds submit` | Automated version bump PR generator | Executes `deploy/scripts/apply_version_bump.sh` | **Creates PR branch on Git** | N/A |
+| **`staging.yaml`** | Manual `gcloud builds submit` OR Push `v*rc*` tag | Release candidate staging & tag publication (clones clean `main`) | Executes `deploy/scripts/apply_version_bump.sh` | **Tags & Pushes `v<VERSION>` to GitHub** | **TestPyPI** |
+| **`bump_version.yaml`** | `gcloud builds submit` | Automated version bump PR generator (clones clean `main`) | Executes `deploy/scripts/apply_version_bump.sh` | **Creates PR branch on Git** | N/A |
 | **`release.yaml`** | Publish `v*` tag (e.g. `v1.2.3`) | Production release | **Read-only validation** (verifies committed versions match tag) | **NO** | **Official PyPI** |
 
 ---
@@ -56,7 +59,7 @@ All local version updates across files are single-sourced in [`deploy/scripts/ap
 To build, tag, and publish a Release Candidate (RC) for partner testing:
 
 1. **Option A: Trigger Staging Build Manually via Cloud Build (Recommended):**
-   Run `gcloud builds submit` targeting `deploy/staging.yaml` with your target RC version:
+   Run `gcloud builds submit` targeting `deploy/staging.yaml` with your target RC version string. Cloud Build automatically clones a fresh, clean copy of `main` from GitHub:
    ```bash
    gcloud builds submit \
      --config deploy/staging.yaml \
@@ -71,7 +74,8 @@ To build, tag, and publish a Release Candidate (RC) for partner testing:
    ```
 
 #### What `staging.yaml` Executes:
-- Applies version bump to `1.2.3rc1` locally across all version files and Terraform variables.
+- Clones a clean copy of `main` from GitHub.
+- Applies version bump to `1.2.3rc1` across all version files and Terraform variables.
 - **Creates and pushes Git tag `v1.2.3rc1` to GitHub**, ensuring raw GitHub references (e.g., `infra/dcp/variables.tf?ref=v1.2.3rc1`) resolve `dcp_version = "1.2.3rc1"`.
 - Builds wheels and publishes packages to **TestPyPI**.
 

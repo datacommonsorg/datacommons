@@ -13,7 +13,7 @@
 # limitations under the License.
 
 steps:
-  # 1. Apply local version bump and push RC tag to GitHub
+  # 1. Clone clean main, apply version bump, and push RC tag to GitHub
   - name: 'ghcr.io/astral-sh/uv:python3.12-trixie-slim'
     entrypoint: 'bash'
     secretEnv: ['GH_TOKEN']
@@ -24,6 +24,17 @@ steps:
       - '-c'
       - |
         apt-get update && apt-get install -y git
+
+        if [ -n "$$GH_TOKEN" ]; then
+          git config --global url."https://${_GITHUB_AUTHOR}:$$GH_TOKEN@github.com/".insteadOf "https://github.com/"
+          git config --global user.email "${_GITHUB_AUTHOR}@users.noreply.github.com"
+          git config --global user.name "${_GITHUB_AUTHOR}"
+        fi
+
+        # Clone clean main branch to ensure hermetic builds independent of local uncommitted files
+        rm -rf /workspace/* /workspace/.[!.]*
+        git clone "https://github.com/${_GITHUB_ORG}/${_GITHUB_REPO}.git" /workspace --branch "${_GITHUB_BRANCH}" --single-branch --depth 1
+        cd /workspace
 
         if [ -n "$TAG_NAME" ]; then
           tag_version=$${TAG_NAME#v}
@@ -40,10 +51,6 @@ steps:
         bash deploy/scripts/apply_version_bump.sh "$tag_version"
 
         if [ -n "$$GH_TOKEN" ]; then
-          git config --global url."https://${_GITHUB_AUTHOR}:$$GH_TOKEN@github.com/".insteadOf "https://github.com/"
-          git config --global user.email "${_GITHUB_AUTHOR}@users.noreply.github.com"
-          git config --global user.name "${_GITHUB_AUTHOR}"
-          
           echo "Tagging and pushing v$tag_version to GitHub..."
           git tag -f "v$tag_version"
           git push origin "v$tag_version" --force || echo "Warning: Failed to push tag v$tag_version to GitHub"
@@ -78,6 +85,9 @@ steps:
 
 substitutions:
   _GITHUB_AUTHOR: 'datacommons-robot-author'
+  _GITHUB_ORG: 'datacommonsorg'
+  _GITHUB_REPO: 'datacommons'
+  _GITHUB_BRANCH: 'main'
   _TARGET_VERSION: ''
 
 availableSecrets:
