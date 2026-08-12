@@ -62,14 +62,19 @@ steps:
           exit 1
         fi
 
-        echo "Applying version bump for staging release candidate $tag_version..."
-        bash deploy/scripts/apply_version_bump.sh "$tag_version"
+        # Check if checked-out source code ALREADY contains the bumped tag_version (prevents re-trigger loops)
+        if grep -q "default\s*=\s*\"$tag_version\"" infra/dcp/variables.tf 2>/dev/null; then
+          echo "Source code is already version-bumped to $tag_version. Skipping version bump and tag re-push to prevent trigger loops."
+        else
+          echo "Applying version bump for staging release candidate $tag_version..."
+          bash deploy/scripts/apply_version_bump.sh "$tag_version"
 
-        if [ -n "$$GH_TOKEN" ]; then
-          echo "Creating local RC commit and tagging v$tag_version..."
-          git commit -am "chore(rc): bump version files for v$tag_version" || true
-          git tag -f "v$tag_version"
-          git push origin "v$tag_version" --force || echo "Warning: Failed to push tag v$tag_version to GitHub"
+          if [ -n "$$GH_TOKEN" ]; then
+            echo "Creating local RC commit and tagging v$tag_version..."
+            git commit -am "chore(rc): bump version files for v$tag_version" || true
+            git tag -f "v$tag_version"
+            git push origin "v$tag_version" --force || echo "Warning: Failed to push tag v$tag_version to GitHub"
+          fi
         fi
 
   # 2. Build and publish all Python packages to TestPyPI
