@@ -43,7 +43,7 @@ steps:
         find infra/dcp -type f -name "*.tf" -exec sed -i "s/$$OLD_VERSION/$$NEW_VERSION/g" {} +
         
         # Update datacommons-admin dependency requirement in datacommons-cli/pyproject.toml
-        python3 -c "import re; p='packages/datacommons-cli/pyproject.toml'; open(p, 'w').write(re.sub(r'\"datacommons-admin[^\"]*\"', f'\"datacommons-admin>=$$NEW_VERSION\"', open(p).read()))"
+        python3 -c "import re, sys; p='packages/datacommons-cli/pyproject.toml'; content = open(p).read(); updated, count = re.subn(r'\"datacommons-admin[^\"]*\"', f'\"datacommons-admin>=$$NEW_VERSION\"', content); open(p, 'w').write(updated) if count else sys.exit('Error: datacommons-admin dependency not found or updated in packages/datacommons-cli/pyproject.toml')"
 
         # Update Lockfile
         uv lock
