@@ -42,11 +42,14 @@ steps:
         # Update Terraform variables
         find infra/dcp -type f -name "*.tf" -exec sed -i "s/$$OLD_VERSION/$$NEW_VERSION/g" {} +
         
+        # Update datacommons-admin dependency requirement in datacommons-cli/pyproject.toml
+        python3 -c "import re; p='packages/datacommons-cli/pyproject.toml'; open(p, 'w').write(re.sub(r'\"datacommons-admin[^\"]*\"', f'\"datacommons-admin>=$$NEW_VERSION\"', open(p).read()))"
+
         # Update Lockfile
         uv lock
 
         # Commit & Push
-        git add VERSION packages/*/VERSION infra/dcp/ uv.lock
+        git add VERSION packages/*/VERSION packages/datacommons-cli/pyproject.toml infra/dcp/ uv.lock
         git commit -m "chore: bump version to $$NEW_VERSION"
         git push origin $$BRANCH_NAME --force
 
