@@ -39,9 +39,12 @@ steps:
           fi
         done
 
+        # Update __init__.py files across all packages
+        python3 -c "import glob, re; [open(f, 'w').write(re.sub(r'^__version__ = [\"\'].*[\"\']', '__version__ = \"'\"$$NEW_VERSION\"'\"', content, flags=re.MULTILINE)) for f in glob.glob('packages/*/datacommons_*/__init__.py') for content in [open(f, 'r').read()]]"
+
         # Update Terraform variables
         find infra/dcp -type f -name "*.tf" -exec sed -i "s/$$OLD_VERSION/$$NEW_VERSION/g" {} +
-        
+
         # Update datacommons-admin dependency requirement in datacommons-cli/pyproject.toml
         python3 -c "import re, sys; p='packages/datacommons-cli/pyproject.toml'; content = open(p).read(); updated, count = re.subn(r'\"datacommons-admin[^\"]*\"', f'\"datacommons-admin>=$$NEW_VERSION\"', content); open(p, 'w').write(updated) if count else sys.exit('Error: datacommons-admin dependency not found or updated in packages/datacommons-cli/pyproject.toml')"
 
@@ -49,7 +52,7 @@ steps:
         uv lock
 
         # Commit & Push
-        git add VERSION packages/*/VERSION packages/datacommons-cli/pyproject.toml infra/dcp/ uv.lock
+        git add VERSION packages/*/VERSION packages/datacommons-cli/pyproject.toml packages/*/datacommons_*/__init__.py infra/dcp/ uv.lock
         git commit -m "chore: bump version to $$NEW_VERSION"
         git push origin $$BRANCH_NAME --force
 
