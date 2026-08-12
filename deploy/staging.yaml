@@ -66,7 +66,8 @@ steps:
         bash deploy/scripts/apply_version_bump.sh "$tag_version"
 
         if [ -n "$$GH_TOKEN" ]; then
-          echo "Tagging and pushing v$tag_version to GitHub..."
+          echo "Creating local RC commit and tagging v$tag_version..."
+          git commit -am "chore(rc): bump version files for v$tag_version" || true
           git tag -f "v$tag_version"
           git push origin "v$tag_version" --force || echo "Warning: Failed to push tag v$tag_version to GitHub"
         fi
