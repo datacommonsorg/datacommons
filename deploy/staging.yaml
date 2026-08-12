@@ -36,6 +36,9 @@ steps:
     args:
       - '-c'
       - |
+        # NOTE: The loop below processes packages/ alphabetically (datacommons-admin before datacommons-cli).
+        # This order is strictly required because datacommons-cli depends on datacommons-admin>=VERSION.
+        # Reordering such that cli comes before admin will cause TestPyPI dependency resolution failures during publish.
         for pkg in packages/*; do
           pkg_name=$(basename "$pkg")
           if [ "$pkg_name" = "datacommons-db" ] || [ "$pkg_name" = "datacommons-api" ] || [ "$pkg_name" = "datacommons-schema" ]; then
