@@ -1,15 +1,15 @@
 # Data Commons Database Module
 
-This module provides the database models for the Data Commons project, implementing a graph database using Google Cloud Spanner and SQLAlchemy. It defines the core data models for nodes, edges, and observations in a graph structure.
+This module provides the database models and client primitives for the Data Commons project, implementing a graph database using Google Cloud Spanner and SQLAlchemy. It defines the core data models for nodes, edges, observations, and schema migration version tracking.
 
 ## Features
 
-- SQLAlchemy ORM models for nodes, edges, and observations
-- Graph database implementation using Google Cloud Spanner
-- JSON-LD document support for data import/export
-- Efficient querying with proper indexing
-- Relationship management between nodes and edges
-- Provenance tracking for all relationships
+- **Direct Cloud Spanner Client (`SpannerClient`)**: Client for schema migrations, DDL execution, point-in-time snapshot reads, and migration version tracking.
+- **SQLAlchemy ORM models**: Declarative models for nodes, edges, and observations.
+- **Graph database implementation**: Built on top of Google Cloud Spanner.
+- **JSON-LD document support**: Model support for data import/export.
+- **Efficient indexing & querying**: Full-text and composite indexing for graph traversals.
+- **Provenance tracking**: Complete auditability for all graph entities and relationships.
 
 ## Data Model
 
@@ -43,21 +43,79 @@ This module provides the database models for the Data Commons project, implement
 
 ## Usage
 
-### Basic Setup
+### Cloud Spanner Client & Schema Management
+
+The package exports `SpannerClient` for direct Spanner operations, schema management, and migration version tracking.
+
+#### Initialization
+
+```python
+from datacommons_db import SpannerClient
+
+client = SpannerClient(
+    project_id="your-gcp-project",
+    instance_id="your-spanner-instance",
+    database_id="your-spanner-database",
+)
+```
+
+#### Checking Tables & Schema Version
+
+```python
+# Check if a specific table exists in information_schema
+if not client.table_exists("Node"):
+    print("Node table not found")
+
+# Check migration metadata version (returns 0 if uninitialized)
+current_version = client.get_schema_version()
+print(f"Active schema version: {current_version}")
+```
+
+#### Executing DDL Statements
+
+`execute_ddl()` handles single statements, semicolon-separated strings, or statement lists, and waits for Spanner Long-Running Operations (LROs) to complete:
+
+```python
+client.execute_ddl("""
+    CREATE TABLE CustomTable (
+        id STRING(64) NOT NULL,
+        name STRING(MAX)
+    ) PRIMARY KEY (id);
+""")
+```
+
+#### Executing Queries & DML
+
+```python
+from google.cloud import spanner
+
+# Parameterized DML transaction
+rows_affected = client.execute_dml(
+    "UPDATE CustomTable SET name = @name WHERE id = @id",
+    params={"name": "New Name", "id": "123"},
+    param_types={"name": spanner.param_types.STRING, "id": spanner.param_types.STRING},
+)
+
+# Point-in-time Snapshot query
+rows = client.execute_query(
+    "SELECT id, name FROM CustomTable WHERE id = @id",
+    params={"id": "123"},
+    param_types={"id": spanner.param_types.STRING},
+)
+```
+
+### SQLAlchemy ORM Usage
 
 ```python
 from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from datacommons_db.models.node import NodeModel
 from datacommons_db.models.edge import EdgeModel
 
 # Initialize database connection
 engine = create_engine('spanner:///projects/your-project/instances/your-instance/databases/your-database')
 
-# Create tables
-Base.metadata.create_all(engine)
-
 # Create a session
-from sqlalchemy.orm import sessionmaker
 Session = sessionmaker(bind=engine)
 session = Session()
 
