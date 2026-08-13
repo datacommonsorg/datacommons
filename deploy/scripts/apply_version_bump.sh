@@ -59,17 +59,21 @@ for pkg in packages/*; do
   fi
 done
 
-# 3. Update Terraform variables (dcp_version default) cross-platform
+# 3. Update Terraform dcp_version variable default in infra/dcp/variables.tf
 python3 -c "
-import glob, sys
-old_v, new_v = sys.argv[1], sys.argv[2]
-for path in glob.glob('infra/dcp/**/*.tf', recursive=True) + glob.glob('infra/dcp/*.tf'):
-    with open(path, 'r') as f:
-        content = f.read()
-    if old_v in content:
-        with open(path, 'w') as f:
-            f.write(content.replace(old_v, new_v))
-" "$OLD_VERSION" "$NEW_VERSION"
+import re, sys
+new_v = sys.argv[1]
+p = 'infra/dcp/variables.tf'
+content = open(p).read()
+updated, count = re.subn(
+    r'(variable\s+\"dcp_version\"\s+\{[^}]*default\s*=\s*\")[^\"]+(\")',
+    r'\g<1>' + new_v + r'\g<2>',
+    content
+)
+if not count:
+    sys.exit('Error: variable \"dcp_version\" default not found or updated in infra/dcp/variables.tf')
+open(p, 'w').write(updated)
+" "$NEW_VERSION"
 
 # 4. Lock datacommons-admin dependency requirement in datacommons-cli/pyproject.toml
 python3 -c "

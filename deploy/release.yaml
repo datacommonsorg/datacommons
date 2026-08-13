@@ -36,6 +36,9 @@ steps:
         echo "Validating datacommons-cli dependency lock in pyproject.toml matches '$tag_version'..."
         python3 -c "import sys; content = open('packages/datacommons-cli/pyproject.toml').read(); sys.exit(f'ERROR: packages/datacommons-cli/pyproject.toml does not lock datacommons-admin to ==$tag_version') if f'\"datacommons-admin==$tag_version\"' not in content else None"
 
+        echo "Validating infra/dcp/variables.tf dcp_version default matches '$tag_version'..."
+        python3 -c "import re, sys; content = open('infra/dcp/variables.tf').read(); sys.exit(f'ERROR: infra/dcp/variables.tf does not set dcp_version default to $tag_version') if not re.search(rf'variable\s+\"dcp_version\"\s+\{{[^}}]*default\s*=\s*\"{re.escape(\"$tag_version\")}\"', content) else None"
+
   # 2. Build and publish all Python packages to PyPI
   - name: 'ghcr.io/astral-sh/uv:python3.12-trixie-slim'
     entrypoint: 'bash'
