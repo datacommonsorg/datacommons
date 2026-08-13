@@ -199,6 +199,8 @@ module "ingestion_helper_service" {
   redis_port               = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
   ingestion_artifacts_path = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
   skip_container_restarts  = var.global.skip_container_restarts
+  cpu_idle                 = var.ingestion_config.helper_service_cpu_idle
+  startup_cpu_boost        = var.ingestion_config.helper_service_startup_cpu_boost
 }
 
 

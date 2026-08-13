@@ -452,6 +452,18 @@ variable "ingestion_helper_service_image" {
   default     = null
 }
 
+variable "ingestion_helper_service_cpu_idle" {
+  description = "When true, CPU is only allocated during request processing (cheaper for low-traffic services). When false, CPU is always allocated."
+  type        = bool
+  default     = null
+}
+
+variable "ingestion_helper_service_startup_cpu_boost" {
+  description = "Temporarily boost CPU allocation during container startup to reduce cold start latency."
+  type        = bool
+  default     = null
+}
+
 # =============================================================================
 # Ingestion - Dataflow Network Configuration
 # =============================================================================

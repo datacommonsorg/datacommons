@@ -75,12 +75,14 @@ variable "cpu_idle" {
   type        = bool
   description = "When true, CPU is only allocated during request processing (cheaper for low-traffic services). When false, CPU is always allocated."
   default     = false
+  nullable    = false
 }
 
 variable "startup_cpu_boost" {
   type        = bool
   description = "Temporarily boost CPU allocation during container startup to reduce cold start latency."
   default     = true
+  nullable    = false
 }
 
 variable "skip_container_restarts" {

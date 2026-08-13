@@ -153,6 +153,8 @@ locals {
     # Workflow & Helper Service
     workflow_lock_acquisition_timeout = var.ingestion_workflow_lock_acquisition_timeout
     helper_service_image              = coalesce(var.ingestion_helper_service_image, "gcr.io/datcom-ci/datacommons-ingestion-helper:${var.dcp_version}")
+    helper_service_cpu_idle           = var.ingestion_helper_service_cpu_idle
+    helper_service_startup_cpu_boost  = var.ingestion_helper_service_startup_cpu_boost
 
     # Dataflow Network & Scaling Configuration
     dataflow_ip_configuration    = var.ingestion_dataflow_ip_configuration

@@ -110,6 +110,8 @@ variable "ingestion_config" {
     # Workflow & Helper Service
     workflow_lock_acquisition_timeout = number
     helper_service_image              = optional(string)
+    helper_service_cpu_idle           = optional(bool)
+    helper_service_startup_cpu_boost  = optional(bool)
 
     # Dataflow network configuration
     # Use WORKER_IP_PRIVATE when a compute.vmExternalIpAccess org policy

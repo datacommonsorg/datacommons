@@ -82,6 +82,15 @@ datacommons_services_allow_unauthenticated_access = false
 ingestion_input_path = "ingestion/input"
 
 # =============================================================================
+# Ingestion - Helper Service
+# =============================================================================
+# CPU idle mode for ingestion helper service: when true, CPU is only allocated during request processing.
+# ingestion_helper_service_cpu_idle = false
+
+# Boost CPU allocation during container startup to reduce cold start latency (default: true).
+# ingestion_helper_service_startup_cpu_boost = true
+
+# =============================================================================
 # Ingestion - Postprocessing
 # =============================================================================
 # Provisions a dedicated BigQuery reservation (slot commitment) for Spanner federated 
