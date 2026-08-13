@@ -39,6 +39,9 @@
 
 set -eo pipefail
 
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$REPO_ROOT"
+
 NEW_VERSION="$1"
 if [ -z "$NEW_VERSION" ]; then
   echo "Usage: $0 <NEW_VERSION>"
