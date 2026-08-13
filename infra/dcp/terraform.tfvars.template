@@ -42,10 +42,6 @@ storage_create_artifacts_bucket = true
 # significantly improving performance. You may want to set this to true in production.
 enable_redis = false
 
-# VPC connector scaling for Redis. Lower min_instances reduces baseline cost.
-# redis_vpc_connector_min_instances = 2
-# redis_vpc_connector_max_instances = 10
-
 # =============================================================================
 # Spanner Module
 # =============================================================================
@@ -63,14 +59,6 @@ spanner_create_instance = true
 # Data Commons documentation.
 datacommons_services_allow_unauthenticated_access = false
 
-# CPU idle mode: when true, CPU is only allocated during request processing (saves costs
-# for low-traffic services). When false (default), CPU is always allocated for better
-# performance and avoids cold starts.
-# datacommons_services_cpu_idle = false
-
-# Boost CPU allocation during container startup to reduce cold start latency (default: true).
-# datacommons_services_startup_cpu_boost = true
-
 # Track traffic and user interactions with your site using Google Analytics.
 # datacommons_services_google_analytics_tag_id = "your-analytics-tag-id"
 
@@ -80,15 +68,6 @@ datacommons_services_allow_unauthenticated_access = false
 # The root directory path within the Cloud Storage bucket where raw data
 # files are uploaded for processing.
 ingestion_input_path = "ingestion/input"
-
-# =============================================================================
-# Ingestion - Helper Service
-# =============================================================================
-# CPU idle mode for ingestion helper service: when true, CPU is only allocated during request processing.
-# ingestion_helper_service_cpu_idle = false
-
-# Boost CPU allocation during container startup to reduce cold start latency (default: true).
-# ingestion_helper_service_startup_cpu_boost = true
 
 # =============================================================================
 # Ingestion - Postprocessing

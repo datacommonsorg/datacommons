@@ -80,8 +80,8 @@ variable "redis_config" {
     replica_count               = number
     vpc_network_name            = string
     vpc_connector_cidr          = string
-    vpc_connector_min_instances = optional(number, 2)
-    vpc_connector_max_instances = optional(number, 10)
+    vpc_connector_min_instances = number
+    vpc_connector_max_instances = number
   })
 }
 
