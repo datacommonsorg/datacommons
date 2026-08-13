@@ -155,12 +155,22 @@ variable "redis_vpc_connector_min_instances" {
   description = "Minimum number of VPC Access Connector instances. Lower values reduce baseline cost."
   type        = number
   default     = 2
+
+  validation {
+    condition     = var.redis_vpc_connector_min_instances >= 2 && var.redis_vpc_connector_min_instances <= 9
+    error_message = "The redis_vpc_connector_min_instances must be between 2 and 9."
+  }
 }
 
 variable "redis_vpc_connector_max_instances" {
   description = "Maximum number of VPC Access Connector instances."
   type        = number
   default     = 10
+
+  validation {
+    condition     = var.redis_vpc_connector_max_instances >= 3 && var.redis_vpc_connector_max_instances <= 10
+    error_message = "The redis_vpc_connector_max_instances must be between 3 and 10."
+  }
 }
 
 # =============================================================================
@@ -533,6 +543,13 @@ check "ingestion_dataflow_workers_limits" {
   assert {
     condition     = var.ingestion_dataflow_max_workers >= var.ingestion_dataflow_num_workers
     error_message = "The ingestion_dataflow_max_workers must be greater than or equal to ingestion_dataflow_num_workers."
+  }
+}
+
+check "redis_vpc_connector_instances_limits" {
+  assert {
+    condition     = var.redis_vpc_connector_max_instances >= var.redis_vpc_connector_min_instances
+    error_message = "The redis_vpc_connector_max_instances must be greater than or equal to redis_vpc_connector_min_instances."
   }
 }
 

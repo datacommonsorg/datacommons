@@ -49,10 +49,20 @@ variable "vpc_connector_min_instances" {
   type        = number
   description = "Minimum number of VPC Access Connector instances."
   default     = 2
+
+  validation {
+    condition     = var.vpc_connector_min_instances >= 2 && var.vpc_connector_min_instances <= 9
+    error_message = "The vpc_connector_min_instances must be between 2 and 9."
+  }
 }
 
 variable "vpc_connector_max_instances" {
   type        = number
   description = "Maximum number of VPC Access Connector instances."
   default     = 10
+
+  validation {
+    condition     = var.vpc_connector_max_instances >= 3 && var.vpc_connector_max_instances <= 10
+    error_message = "The vpc_connector_max_instances must be between 3 and 10."
+  }
 }
