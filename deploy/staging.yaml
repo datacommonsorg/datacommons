@@ -23,6 +23,7 @@ steps:
     args:
       - '-c'
       - |
+        set -eo pipefail
         apt-get update && apt-get install -y git
 
         if [ -z "$$TARGET_VERSION" ]; then
@@ -57,7 +58,7 @@ steps:
           git add -u
           git commit -m "chore(rc): bump version files for v$tag_version" || true
           git tag -f "v$tag_version"
-          git push origin "v$tag_version" --force || echo "Warning: Failed to push tag v$tag_version to GitHub"
+          git push origin "v$tag_version" --force
         fi
 
   # 2. Build and publish all Python packages to TestPyPI
@@ -68,8 +69,9 @@ steps:
     args:
       - '-c'
       - |
+        set -eo pipefail
         # NOTE: The loop below processes packages/ alphabetically (datacommons-admin before datacommons-cli).
-        # This order is strictly required because datacommons-cli depends on datacommons-admin>=VERSION.
+        # This order is strictly required because datacommons-cli depends on datacommons-admin==VERSION.
         # Reordering such that cli comes before admin will cause TestPyPI dependency resolution failures during publish.
         for pkg in packages/*; do
           pkg_name=$(basename "$pkg")
@@ -79,11 +81,12 @@ steps:
           fi
           if [ -d "$pkg" ] && [ -f "$pkg/pyproject.toml" ]; then
             echo "Building and publishing $pkg..."
-            cd "$pkg"
-            rm -rf dist/ build/ *.egg-info
-            uv build --out-dir dist
-            uv publish --token $$TEST_PYPI_TOKEN --publish-url https://test.pypi.org/legacy/
-            cd -
+            (
+              cd "$pkg"
+              rm -rf dist/ build/ *.egg-info
+              uv build --out-dir dist
+              uv publish --token $$TEST_PYPI_TOKEN --publish-url https://test.pypi.org/legacy/
+            )
           fi
         done
 

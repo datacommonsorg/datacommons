@@ -19,10 +19,9 @@
 # PURPOSE:
 #   Applies local version updates across:
 #     1. Root VERSION file & subpackage packages/*/VERSION files.
-#     2. Runtime __version__ strings in packages/*/datacommons_*/__init__.py.
-#     3. Terraform HCL variable defaults (dcp_version) in infra/dcp/*.tf.
-#     4. Lockstep dependency requirement in packages/datacommons-cli/pyproject.toml
-#        (datacommons-admin>=NEW_VERSION).
+#     2. Terraform HCL variable defaults (dcp_version) in infra/dcp/*.tf.
+#     3. Lockstep dependency requirement in packages/datacommons-cli/pyproject.toml
+#        (datacommons-admin==NEW_VERSION).
 #
 # USAGE ACROSS CI/CD FLOWS:
 #   1. Pre-Release PR (deploy/bump_version.yaml):
@@ -60,13 +59,28 @@ for pkg in packages/*; do
   fi
 done
 
-# 3. Update __init__.py files across all packages
-python3 -c "import glob, re; [open(f, 'w').write(re.sub(r'^__version__ = [\"\'].*[\"\']', '__version__ = \"'\"$NEW_VERSION\"'\"', content, flags=re.MULTILINE)) for f in glob.glob('packages/*/datacommons_*/__init__.py') for content in [open(f, 'r').read()]]"
+# 3. Update Terraform variables (dcp_version default) cross-platform
+python3 -c "
+import glob, sys
+old_v, new_v = sys.argv[1], sys.argv[2]
+for path in glob.glob('infra/dcp/**/*.tf', recursive=True) + glob.glob('infra/dcp/*.tf'):
+    with open(path, 'r') as f:
+        content = f.read()
+    if old_v in content:
+        with open(path, 'w') as f:
+            f.write(content.replace(old_v, new_v))
+" "$OLD_VERSION" "$NEW_VERSION"
 
-# 4. Update Terraform variables (dcp_version default)
-find infra/dcp -type f -name "*.tf" -exec sed -i "s/$OLD_VERSION/$NEW_VERSION/g" {} +
-
-# 5. Lock datacommons-admin dependency requirement in datacommons-cli/pyproject.toml
-python3 -c "import re, sys; p='packages/datacommons-cli/pyproject.toml'; content = open(p).read(); updated, count = re.subn(r'\"datacommons-admin[^\"]*\"', f'\"datacommons-admin>=$NEW_VERSION\"', content); open(p, 'w').write(updated) if count else sys.exit('Error: datacommons-admin dependency not found or updated in packages/datacommons-cli/pyproject.toml')"
+# 4. Lock datacommons-admin dependency requirement in datacommons-cli/pyproject.toml
+python3 -c "
+import re, sys
+new_v = sys.argv[1]
+p = 'packages/datacommons-cli/pyproject.toml'
+content = open(p).read()
+updated, count = re.subn(r'\"datacommons-admin[^\"]*\"', f'\"datacommons-admin=={new_v}\"', content)
+if not count:
+    sys.exit('Error: datacommons-admin dependency not found or updated in packages/datacommons-cli/pyproject.toml')
+open(p, 'w').write(updated)
+" "$NEW_VERSION"
 
 echo "Successfully applied version bump to '$NEW_VERSION'."

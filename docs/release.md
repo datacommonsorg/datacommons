@@ -74,7 +74,7 @@ The build system relies on a single shared versioning script: [`deploy/scripts/a
 | **`release.yaml`** | Publish GitHub Release `v*` | Production release | **Read-only validation** (verifies committed versions match tag) | **NO** | **Official PyPI** |
 
 > [!IMPORTANT]
-> **Package Build Order:** Packages are published alphabetically (`packages/*`). This guarantees `datacommons-admin` is published **before** `datacommons-cli`, satisfying the `datacommons-admin>=VERSION` requirement on PyPI and TestPyPI.
+> **Package Build Order:** Packages are published alphabetically (`packages/*`). This guarantees `datacommons-admin` is published **before** `datacommons-cli`, satisfying the `datacommons-admin==VERSION` requirement on PyPI and TestPyPI.
 
 ---
 

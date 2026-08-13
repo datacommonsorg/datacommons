@@ -6,10 +6,14 @@ steps:
     args:
       - -c
       - |
+        set -eo pipefail
+
+        if [ -z "$$NEW_VERSION" ]; then
+          echo "ERROR: Substitution _NEW_VERSION is required (e.g. _NEW_VERSION='1.2.3')."
+          exit 1
+        fi
+
         apt-get update && apt-get install -y git curl gh
-        
-        # Fail on error
-        set -e
 
         # Config Git with Robot Author
         git config --global url."https://${_GITHUB_AUTHOR}:$$GH_TOKEN@github.com/".insteadOf "https://github.com/"
@@ -55,6 +59,7 @@ substitutions:
   _GITHUB_ORG: 'datacommonsorg'
   _GITHUB_REPO: 'datacommons'
   _GITHUB_BRANCH: 'main'
+  _NEW_VERSION: ''
 
 availableSecrets:
   secretManager:

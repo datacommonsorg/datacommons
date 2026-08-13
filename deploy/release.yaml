@@ -13,7 +13,7 @@
 # limitations under the License.
 
 steps:
-  # 1. Validate version consistency across VERSION file, __init__.py files, and pyproject.toml
+  # 1. Validate version consistency across VERSION file, subpackage VERSION files, and pyproject.toml
   - name: 'python:3.12-slim'
     entrypoint: 'bash'
     env:
@@ -21,19 +21,20 @@ steps:
     args:
       - '-c'
       - |
+        set -eo pipefail
         tag_version=$${TAG_NAME#v}
         version_in_file=$(tr -d '[:space:]' < VERSION)
-        echo "Validating release tag '$tag_version' against VERSION file '$version_in_file'..."
+        echo "Validating release tag '$tag_version' against root VERSION file '$version_in_file'..."
         if [ "$tag_version" != "$version_in_file" ]; then
-          echo "ERROR: Release tag ($tag_version) does not match VERSION file ($version_in_file)."
+          echo "ERROR: Release tag ($tag_version) does not match root VERSION file ($version_in_file)."
           exit 1
         fi
 
-        echo "Validating package __init__.py versions match '$tag_version'..."
-        python3 -c "import glob, sys; invalid = [f for f in glob.glob('packages/*/datacommons_*/__init__.py') if f'__version__ = \"$tag_version\"' not in open(f).read()]; sys.exit(f'ERROR: The following __init__.py files do not match release version $tag_version: {invalid}') if invalid else None"
+        echo "Validating subpackage VERSION files match '$tag_version'..."
+        python3 -c "import glob, sys; invalid = [f for f in glob.glob('packages/*/VERSION') if open(f).read().strip() != '$tag_version']; sys.exit(f'ERROR: The following VERSION files do not match release version $tag_version: {invalid}') if invalid else None"
 
         echo "Validating datacommons-cli dependency lock in pyproject.toml matches '$tag_version'..."
-        python3 -c "import sys; content = open('packages/datacommons-cli/pyproject.toml').read(); sys.exit(f'ERROR: packages/datacommons-cli/pyproject.toml does not lock datacommons-admin to >=$tag_version') if f'\"datacommons-admin>=$tag_version\"' not in content else None"
+        python3 -c "import sys; content = open('packages/datacommons-cli/pyproject.toml').read(); sys.exit(f'ERROR: packages/datacommons-cli/pyproject.toml does not lock datacommons-admin to ==$tag_version') if f'\"datacommons-admin==$tag_version\"' not in content else None"
 
   # 2. Build and publish all Python packages to PyPI
   - name: 'ghcr.io/astral-sh/uv:python3.12-trixie-slim'
@@ -43,8 +44,9 @@ steps:
     args:
       - '-c'
       - |
+        set -eo pipefail
         # NOTE: The loop below processes packages/ alphabetically (datacommons-admin before datacommons-cli).
-        # This order is strictly required because datacommons-cli depends on datacommons-admin>=VERSION.
+        # This order is strictly required because datacommons-cli depends on datacommons-admin==VERSION.
         # Reordering such that cli comes before admin will cause PyPI dependency resolution failures during publish.
         for pkg in packages/*; do
           pkg_name=$(basename "$pkg")
@@ -54,11 +56,12 @@ steps:
           fi
           if [ -d "$pkg" ] && [ -f "$pkg/pyproject.toml" ]; then
             echo "Building and publishing $pkg..."
-            cd "$pkg"
-            rm -rf dist/ build/ *.egg-info
-            uv build --out-dir dist
-            uv publish --token $$PYPI_TOKEN
-            cd -
+            (
+              cd "$pkg"
+              rm -rf dist/ build/ *.egg-info
+              uv build --out-dir dist
+              uv publish --token $$PYPI_TOKEN
+            )
           fi
         done
 
