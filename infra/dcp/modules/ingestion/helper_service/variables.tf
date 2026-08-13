@@ -71,6 +71,18 @@ variable "ingestion_artifacts_path" {
   description = "Path where pre-processed files are placed for the next stage"
 }
 
+variable "cpu_idle" {
+  type        = bool
+  description = "When true, CPU is only allocated during request processing (cheaper for low-traffic services). When false, CPU is always allocated."
+  default     = false
+}
+
+variable "startup_cpu_boost" {
+  type        = bool
+  description = "Temporarily boost CPU allocation during container startup to reduce cold start latency."
+  default     = true
+}
+
 variable "skip_container_restarts" {
   type        = bool
   description = "Set to true to skip updating container restart timestamps, speeding up terraform apply when container images have not changed."

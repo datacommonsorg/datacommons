@@ -151,6 +151,18 @@ variable "redis_vpc_connector_cidr" {
   default     = "10.13.0.0/28"
 }
 
+variable "redis_vpc_connector_min_instances" {
+  description = "Minimum number of VPC Access Connector instances. Lower values reduce baseline cost."
+  type        = number
+  default     = 2
+}
+
+variable "redis_vpc_connector_max_instances" {
+  description = "Maximum number of VPC Access Connector instances."
+  type        = number
+  default     = 10
+}
+
 # =============================================================================
 # Spanner Module
 # =============================================================================
@@ -277,6 +289,18 @@ variable "datacommons_services_memory" {
   description = "Memory limit for the Data Commons services container"
   type        = string
   default     = "16G"
+}
+
+variable "datacommons_services_cpu_idle" {
+  description = "When true, CPU is only allocated during request processing (cheaper for low-traffic services). When false, CPU is always allocated (better performance, avoids cold starts within running instances)."
+  type        = bool
+  default     = false
+}
+
+variable "datacommons_services_startup_cpu_boost" {
+  description = "Temporarily boost CPU allocation during container startup to reduce cold start latency."
+  type        = bool
+  default     = true
 }
 
 variable "datacommons_services_allow_unauthenticated_access" {

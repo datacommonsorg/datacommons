@@ -97,6 +97,8 @@ locals {
     max_instances                   = var.datacommons_services_max_instances
     cpu                             = var.datacommons_services_cpu
     memory                          = var.datacommons_services_memory
+    cpu_idle                        = var.datacommons_services_cpu_idle
+    startup_cpu_boost               = var.datacommons_services_startup_cpu_boost
     google_analytics_tag            = var.datacommons_services_google_analytics_tag_id
     enable_mcp                      = var.datacommons_services_enable_mcp
     search_scope                    = var.datacommons_services_mcp_search_scope
@@ -121,8 +123,10 @@ locals {
     location_id             = var.redis_location_id
     alternative_location_id = var.redis_alternative_location_id
     replica_count           = var.redis_replica_count
-    vpc_network_name        = var.redis_vpc_network_name
-    vpc_connector_cidr      = var.redis_vpc_connector_cidr
+    vpc_network_name            = var.redis_vpc_network_name
+    vpc_connector_cidr          = var.redis_vpc_connector_cidr
+    vpc_connector_min_instances = var.redis_vpc_connector_min_instances
+    vpc_connector_max_instances = var.redis_vpc_connector_max_instances
   }
 
   ingestion_config = {

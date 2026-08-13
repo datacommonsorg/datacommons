@@ -245,8 +245,10 @@ module "redis" {
   alternative_location_id = var.redis_config.alternative_location_id
   replica_count           = var.redis_config.replica_count
   vpc_network_id          = data.google_compute_network.default.id
-  vpc_connector_cidr      = var.redis_config.vpc_connector_cidr
-  enable_connector        = true
+  vpc_connector_cidr          = var.redis_config.vpc_connector_cidr
+  vpc_connector_min_instances = var.redis_config.vpc_connector_min_instances
+  vpc_connector_max_instances = var.redis_config.vpc_connector_max_instances
+  enable_connector            = true
 }
 
 module "auth" {
@@ -270,6 +272,8 @@ module "datacommons_services" {
   image                         = var.datacommons_services_config.image
   cpu                           = var.datacommons_services_config.cpu
   memory                        = var.datacommons_services_config.memory
+  cpu_idle                      = var.datacommons_services_config.cpu_idle
+  startup_cpu_boost             = var.datacommons_services_config.startup_cpu_boost
   min_instances                 = var.datacommons_services_config.min_instances
   max_instances                 = var.datacommons_services_config.max_instances
   make_public                   = var.datacommons_services_config.allow_unauthenticated_access
