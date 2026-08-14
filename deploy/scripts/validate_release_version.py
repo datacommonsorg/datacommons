@@ -193,14 +193,25 @@ def validate_release_version(
             # A. Check container images in GCR/Artifact Registry
             for artifact, repo in ARTIFACT_IMAGE_MAP.items():
                 image_ref = f"{repo}:{target_version}"
-                cmd = [
-                    "gcloud",
-                    "container",
-                    "images",
-                    "describe",
-                    image_ref,
-                    "--format=json",
-                ]
+                if "pkg.dev" in repo:
+                    cmd = [
+                        "gcloud",
+                        "artifacts",
+                        "docker",
+                        "images",
+                        "describe",
+                        image_ref,
+                        "--format=json",
+                    ]
+                else:
+                    cmd = [
+                        "gcloud",
+                        "container",
+                        "images",
+                        "describe",
+                        image_ref,
+                        "--format=json",
+                    ]
                 res = subprocess.run(cmd, check=False, capture_output=True, text=True)
                 if res.returncode != 0:
                     detail = (

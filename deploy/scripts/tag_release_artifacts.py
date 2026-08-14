@@ -92,15 +92,27 @@ def tag_container_image(
     src_image = f"{repo}:{src_tag}"
     target_image = f"{repo}:{target_tag}"
 
-    cmd = [
-        "gcloud",
-        "container",
-        "images",
-        "add-tag",
-        src_image,
-        target_image,
-        "--quiet",
-    ]
+    if "pkg.dev" in repo:
+        cmd = [
+            "gcloud",
+            "artifacts",
+            "docker",
+            "tags",
+            "add",
+            src_image,
+            target_image,
+            "--quiet",
+        ]
+    else:
+        cmd = [
+            "gcloud",
+            "container",
+            "images",
+            "add-tag",
+            src_image,
+            target_image,
+            "--quiet",
+        ]
 
     print(f"  [IMAGE] Tagging {src_image} -> {target_image}")
     if dry_run:
@@ -180,7 +192,7 @@ def stage_dataflow_template(
             )
 
         data["image"] = target_image
-        local_target.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        local_target.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
         # 3. Upload updated template spec to target URI
         cp_out_cmd = ["gcloud", "storage", "cp", str(local_target), target_uri]

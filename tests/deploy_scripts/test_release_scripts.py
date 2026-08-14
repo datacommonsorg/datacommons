@@ -331,7 +331,9 @@ class TestValidateReleaseVersion:
         """
 
         def mock_run(cmd, **kwargs):
-            if "container" in cmd and "images" in cmd:
+            if ("container" in cmd and "images" in cmd) or (
+                "artifacts" in cmd and "docker" in cmd
+            ):
                 return MagicMock(returncode=1)
             return MagicMock(returncode=0)
 
@@ -610,6 +612,8 @@ class TestTagReleaseArtifacts:
         assert "ingestion_helper  : 1.1.1 -> 1.1.2rc1" in captured
         assert "dataflow          : 1.1.1 -> 1.1.2rc1" in captured
         assert "ingestion-1.1.1.json -> ingestion-1.1.2rc1.json" in captured
+        assert "gcloud container images add-tag" in captured
+        assert "gcloud artifacts docker tags add" in captured
         assert "[DRY-RUN]" in captured
 
     def test_tag_all_artifacts_wholesale_promotion(
