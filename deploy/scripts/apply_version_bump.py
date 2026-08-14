@@ -48,6 +48,10 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 def apply_version_bump(new_version: str) -> None:
     """Updates version manifests and dependency pins across the monorepo."""
+    new_version = new_version.strip().lstrip("v").strip()
+    if not new_version:
+        sys.exit("Error: Target version cannot be empty.")
+
     version_file = REPO_ROOT / "VERSION"
     old_version = (
         version_file.read_text().strip() if version_file.exists() else "unknown"

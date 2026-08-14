@@ -113,15 +113,17 @@ def publish_packages(
 
         # 3. Publish to PyPI / TestPyPI
         if dry_run:
-            print(f"[{pkg_name}] DRY RUN: Skipping publish step.")
+            print(f"[{pkg_name}] DRY RUN: Skipping publish step.\n")
             continue
 
         print(f"[{pkg_name}] Publishing to {target}...")
-        publish_cmd = ["uv", "publish", "--token", token]
+        publish_cmd = ["uv", "publish"]
         if target == "testpypi":
             publish_cmd.extend(["--publish-url", TEST_PYPI_URL])
 
-        subprocess.run(publish_cmd, cwd=pkg_dir, check=True)
+        # Inject auth token via UV_PUBLISH_TOKEN in environment to avoid argv/ps exposure
+        env = {**os.environ, "UV_PUBLISH_TOKEN": token}
+        subprocess.run(publish_cmd, cwd=pkg_dir, env=env, check=True)
         print(f"[{pkg_name}] Successfully published to {target}!\n")
 
     print("All packages processed successfully!")

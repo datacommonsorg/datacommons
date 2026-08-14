@@ -42,7 +42,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 def validate_release_version(tag_or_version: str) -> None:
     """Validates all version declarations match the target release version."""
-    target_version = tag_or_version.lstrip("v").strip()
+    target_version = tag_or_version.strip().lstrip("v").strip()
     if not target_version:
         sys.exit("Error: Target version cannot be empty.")
 
@@ -102,13 +102,22 @@ def validate_release_version(tag_or_version: str) -> None:
         errors.append("packages/datacommons-cli/pyproject.toml does not exist.")
     else:
         toml_content = cli_toml.read_text()
-        expected_dep = f'"datacommons-admin=={target_version}"'
-        if expected_dep not in toml_content:
+        m = re.search(r'["\']datacommons-admin\s*==\s*([^"\']+)["\']', toml_content)
+        if not m:
             errors.append(
-                f"packages/datacommons-cli/pyproject.toml does not lock {expected_dep}."
+                f"packages/datacommons-cli/pyproject.toml does not lock"
+                f" datacommons-admin=={target_version}."
+            )
+        elif m.group(1) != target_version:
+            errors.append(
+                f"packages/datacommons-cli/pyproject.toml locks datacommons-admin to"
+                f" '{m.group(1)}' instead of target '{target_version}'."
             )
         else:
-            print(f"  [OK] packages/datacommons-cli/pyproject.toml: {expected_dep}")
+            print(
+                f"  [OK] packages/datacommons-cli/pyproject.toml:"
+                f" datacommons-admin=={target_version}"
+            )
 
     # 4. Validate Terraform dcp_version default in infra/dcp/variables.tf
     tf_file = REPO_ROOT / "infra/dcp/variables.tf"

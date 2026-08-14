@@ -44,13 +44,17 @@ steps:
         git push origin $$BRANCH_NAME --force
 
 
-        # Create PR
-        gh pr create \
-          --repo "${_GITHUB_ORG}/${_GITHUB_REPO}" \
-          --title "chore: bump version to $$NEW_VERSION" \
-          --body "Automated PR from Cloud Build release pipeline matching to update our version to $$NEW_VERSION ahead of its release" \
-          --base "${_GITHUB_BRANCH}" \
-          --head "$$BRANCH_NAME" || { echo "PR creation failed! It might already exist."; exit 1; }
+        # Create PR if not already present
+        if gh pr view "$$BRANCH_NAME" --repo "${_GITHUB_ORG}/${_GITHUB_REPO}" > /dev/null 2>&1; then
+          echo "PR for branch $$BRANCH_NAME already exists and was updated via force push."
+        else
+          gh pr create \
+            --repo "${_GITHUB_ORG}/${_GITHUB_REPO}" \
+            --title "chore: bump version to $$NEW_VERSION" \
+            --body "Automated PR from Cloud Build release pipeline matching to update our version to $$NEW_VERSION ahead of its release" \
+            --base "${_GITHUB_BRANCH}" \
+            --head "$$BRANCH_NAME"
+        fi
 
 
 

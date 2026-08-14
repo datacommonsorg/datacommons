@@ -14,7 +14,7 @@
 
 steps:
   # 1. Validate version consistency across VERSION files, pyproject.toml, and variables.tf
-  - name: 'python:3.12-slim'
+  - name: 'ghcr.io/astral-sh/uv:python3.12-trixie-slim'
     entrypoint: 'python3'
     args: ['deploy/scripts/validate_release_version.py', '$TAG_NAME']
 
