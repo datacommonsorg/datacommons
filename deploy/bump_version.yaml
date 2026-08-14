@@ -6,10 +6,14 @@ steps:
     args:
       - -c
       - |
+        set -eo pipefail
+
+        if [ -z "$$NEW_VERSION" ]; then
+          echo "ERROR: Substitution _NEW_VERSION is required (e.g. _NEW_VERSION='1.2.3')."
+          exit 1
+        fi
+
         apt-get update && apt-get install -y git curl gh
-        
-        # Fail on error
-        set -e
 
         # Config Git with Robot Author
         git config --global url."https://${_GITHUB_AUTHOR}:$$GH_TOKEN@github.com/".insteadOf "https://github.com/"
@@ -28,36 +32,29 @@ steps:
         BRANCH_NAME="chore/bump-version-$$NEW_VERSION"
         git checkout -b $$BRANCH_NAME
 
-        # Update Version Files
-        OLD_VERSION=$$(cat VERSION)
-        echo "Updating root VERSION file to $$NEW_VERSION"
-        echo "$$NEW_VERSION" > VERSION
-        for pkg in packages/*; do
-          if [ -d "$$pkg" ]; then
-            echo "Updating $$pkg/VERSION to $$NEW_VERSION"
-            echo "$$NEW_VERSION" > "$$pkg/VERSION"
-          fi
-        done
+        # Update Version Files using shared script
+        python3 deploy/scripts/apply_version_bump.py "$$NEW_VERSION"
 
-        # Update Terraform variables
-        find infra/dcp -type f -name "*.tf" -exec sed -i "s/$$OLD_VERSION/$$NEW_VERSION/g" {} +
-        
         # Update Lockfile
         uv lock
 
-        # Commit & Push
-        git add VERSION packages/*/VERSION infra/dcp/ uv.lock
+        # Commit & Push modified tracked files from apply_version_bump script
+        git add -u
         git commit -m "chore: bump version to $$NEW_VERSION"
         git push origin $$BRANCH_NAME --force
 
 
-        # Create PR
-        gh pr create \
-          --repo "${_GITHUB_ORG}/${_GITHUB_REPO}" \
-          --title "chore: bump version to $$NEW_VERSION" \
-          --body "Automated PR from Cloud Build release pipeline matching to update our version to $$NEW_VERSION ahead of its release" \
-          --base "${_GITHUB_BRANCH}" \
-          --head "$$BRANCH_NAME" || { echo "PR creation failed! It might already exist."; exit 1; }
+        # Create PR if not already present
+        if gh pr view "$$BRANCH_NAME" --repo "${_GITHUB_ORG}/${_GITHUB_REPO}" > /dev/null 2>&1; then
+          echo "PR for branch $$BRANCH_NAME already exists and was updated via force push."
+        else
+          gh pr create \
+            --repo "${_GITHUB_ORG}/${_GITHUB_REPO}" \
+            --title "chore: bump version to $$NEW_VERSION" \
+            --body "Automated PR from Cloud Build release pipeline matching to update our version to $$NEW_VERSION ahead of its release" \
+            --base "${_GITHUB_BRANCH}" \
+            --head "$$BRANCH_NAME"
+        fi
 
 
 
@@ -66,6 +63,7 @@ substitutions:
   _GITHUB_ORG: 'datacommonsorg'
   _GITHUB_REPO: 'datacommons'
   _GITHUB_BRANCH: 'main'
+  _NEW_VERSION: ''
 
 availableSecrets:
   secretManager:
