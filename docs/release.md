@@ -8,16 +8,20 @@ This guide details the release procedure for the Data Commons Platform (DCP). Al
 
 The release process follows three sequential stages:
 
-1. **Stage 1: Stage a Release Candidate (RC)**
-   - Run `deploy/staging.yaml` with your target candidate version (e.g. `X.Y.ZrcN`).
-   - The build ephemerally bumps version files in-container, pushes Git tag `vX.Y.ZrcN` to GitHub (*`main` branch remains untouched*), and publishes candidate wheels to **TestPyPI** for staging verification.
+1. **Stage 1: Stage a Release Candidate (RC) in TestPyPI**
+   - **Pipeline:** `deploy/staging.yaml`
+   - **Scripts:** [`apply_version_bump.py`](../deploy/scripts/apply_version_bump.py), [`publish_packages.py`](../deploy/scripts/publish_packages.py)
+   - **Action:** Run `deploy/staging.yaml` with your target candidate version (e.g. `X.Y.ZrcN`). The build ephemerally bumps version files in-container, pushes Git tag `vX.Y.ZrcN` to GitHub (*`main` branch remains untouched*), and publishes candidate wheels to **TestPyPI** for staging verification.
+
 2. **Stage 2: Open & Merge Version Bump PR**
-   - Run `deploy/bump_version.yaml` with the target release version (e.g. `X.Y.Z`).
-   - The build opens an automated PR against `main` containing updated `VERSION` files, `infra/dcp/variables.tf`, and `uv.lock`.
-   - Review and merge the PR into `main`.
+   - **Pipeline:** `deploy/bump_version.yaml`
+   - **Scripts:** [`apply_version_bump.py`](../deploy/scripts/apply_version_bump.py)
+   - **Action:** Run `deploy/bump_version.yaml` with the target release version (e.g. `X.Y.Z`). The build opens an automated PR against `main` containing updated `VERSION` files, `infra/dcp/variables.tf`, and `uv.lock`. Review and merge the PR into `main`.
+
 3. **Stage 3: Publish Official Production Release**
-   - Create and publish a GitHub Release with tag `vX.Y.Z` on `main`.
-   - Cloud Build automatically validates that committed files match `X.Y.Z` and publishes official wheels to **PyPI**.
+   - **Pipeline:** `deploy/release.yaml`
+   - **Scripts:** [`validate_release_version.py`](../deploy/scripts/validate_release_version.py), [`publish_packages.py`](../deploy/scripts/publish_packages.py)
+   - **Action:** Create and publish a GitHub Release with tag `vX.Y.Z` on `main`. Cloud Build automatically triggers `deploy/release.yaml`, validates that committed files match `X.Y.Z`, and publishes official wheels to **PyPI**.
 
 > [!IMPORTANT]
 > **Package Build & Distribution Order:** Public packages are built and published in strict topological dependency order via [`deploy/scripts/publish_packages.py`](../deploy/scripts/publish_packages.py) (`datacommons-admin` before `datacommons-cli`), satisfying the `datacommons-admin==VERSION` requirement on PyPI and TestPyPI.
@@ -26,7 +30,7 @@ The release process follows three sequential stages:
 
 ## 2. Step-by-Step Release Walkthrough
 
-### Phase 1: Stage & Verify a Release Candidate (RC)
+### Phase 1: Stage & Verify a Release Candidate (RC) in TestPyPI
 
 #### Step 0: Tag Candidate Images & Flex Template
 Ensure all core microservice images and the Dataflow flex template are built and tagged with the candidate version (e.g. `X.Y.ZrcN`):
