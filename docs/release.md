@@ -20,7 +20,7 @@ The release process follows three sequential stages:
    - Cloud Build automatically validates that committed files match `X.Y.Z` and publishes official wheels to **PyPI**.
 
 > [!IMPORTANT]
-> **Package Build Order:** Packages are published alphabetically (`packages/*`). This guarantees `datacommons-admin` is published **before** `datacommons-cli`, satisfying the `datacommons-admin==VERSION` requirement on PyPI and TestPyPI.
+> **Package Build & Distribution Order:** Public packages are built and published in strict topological dependency order via [`deploy/scripts/publish_packages.py`](../deploy/scripts/publish_packages.py) (`datacommons-admin` before `datacommons-cli`), satisfying the `datacommons-admin==VERSION` requirement on PyPI and TestPyPI.
 
 ---
 
@@ -62,7 +62,7 @@ gcloud builds submit \
 * Runs `apply_version_bump.py "X.Y.ZrcN"` to update `VERSION`, `packages/*/VERSION`, `infra/dcp/variables.tf`, and lock `datacommons-admin==X.Y.ZrcN`.
 * Creates a local commit containing these updated version files and force-pushes Git tag `vX.Y.ZrcN` to GitHub.
   *(Note: Tag `vX.Y.ZrcN` on GitHub points directly to this commit so remote Terraform module fetches via `?ref=vX.Y.ZrcN` resolve `default = "X.Y.ZrcN"` in `variables.tf`, while branch `main` remains clean).*
-* Builds package wheels in subshells and publishes them to **TestPyPI**.
+* Runs `publish_packages.py --target testpypi` to build and upload wheels to **TestPyPI** in topological order.
 
 #### Step 2: Verify Release Candidate on Staging
 - [ ] **TestPyPI Package Check:** Confirm wheels exist at `https://test.pypi.org/project/datacommons-cli/X.Y.ZrcN/`.
@@ -140,7 +140,7 @@ Ensure all production container images and Dataflow flex template are tagged wit
   - Asserts all `packages/*/VERSION == X.Y.Z`.
   - Asserts `datacommons-cli/pyproject.toml` locks `datacommons-admin==X.Y.Z`.
   - Asserts `infra/dcp/variables.tf` defaults `dcp_version = "X.Y.Z"`.
-* Builds package wheels in subshells and publishes them to **Official PyPI**.
+* Runs `deploy/scripts/publish_packages.py --target pypi` to build and upload wheels to **Official PyPI** in topological order.
 
 > [!TIP]
 > Maintainers can run a local pre-flight consistency check before drafting a release:

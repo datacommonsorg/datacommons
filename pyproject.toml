@@ -118,6 +118,10 @@ extend-ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+"deploy/scripts/**/*.py" = [
+    "S603",   # Subprocess call check in automation scripts
+    "S607",   # Partial executable path in automation scripts
+]
 "packages/*/tests/**/*.py" = [
     "S101",   # Allow using `assert` in pytests
     "ANN001", # Ignore missing type annotations in test files

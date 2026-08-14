@@ -20,32 +20,15 @@ steps:
 
   # 2. Build and publish all Python packages to PyPI
   - name: 'ghcr.io/astral-sh/uv:python3.12-trixie-slim'
-    entrypoint: 'bash'
+    entrypoint: 'python3'
     secretEnv:
       - 'PYPI_TOKEN'
     args:
-      - '-c'
-      - |
-        set -eo pipefail
-        # NOTE: The loop below processes packages/ alphabetically (datacommons-admin before datacommons-cli).
-        # This order is strictly required because datacommons-cli depends on datacommons-admin==VERSION.
-        # Reordering such that cli comes before admin will cause PyPI dependency resolution failures during publish.
-        for pkg in packages/*; do
-          pkg_name=$(basename "$pkg")
-          if [ "$pkg_name" = "datacommons-db" ] || [ "$pkg_name" = "datacommons-api" ] || [ "$pkg_name" = "datacommons-schema" ]; then
-            echo "Skipping experimental package $pkg_name..."
-            continue
-          fi
-          if [ -d "$pkg" ] && [ -f "$pkg/pyproject.toml" ]; then
-            echo "Building and publishing $pkg..."
-            (
-              cd "$pkg"
-              rm -rf dist/ build/ *.egg-info
-              uv build --out-dir dist
-              uv publish --token $$PYPI_TOKEN
-            )
-          fi
-        done
+      - 'deploy/scripts/publish_packages.py'
+      - '--target'
+      - 'pypi'
+      - '--token-env'
+      - 'PYPI_TOKEN'
 
 availableSecrets:
   secretManager:

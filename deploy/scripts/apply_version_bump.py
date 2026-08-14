@@ -61,7 +61,7 @@ def apply_version_bump(new_version: str) -> None:
     packages_dir = REPO_ROOT / "packages"
     if packages_dir.is_dir():
         for pkg_dir in sorted(packages_dir.iterdir()):
-            if pkg_dir.is_dir():
+            if pkg_dir.is_dir() and (pkg_dir / "pyproject.toml").is_file():
                 pkg_version_file = pkg_dir / "VERSION"
                 rel_path = pkg_version_file.relative_to(REPO_ROOT)
                 print(f"Updating {rel_path} to {new_version}")

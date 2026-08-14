@@ -67,22 +67,34 @@ def validate_release_version(tag_or_version: str) -> None:
 
     # 2. Validate subpackage VERSION files
     packages_dir = REPO_ROOT / "packages"
-    subpkg_version_files = (
-        sorted(packages_dir.glob("*/VERSION")) if packages_dir.is_dir() else []
+    pkg_dirs = (
+        [
+            d
+            for d in sorted(packages_dir.iterdir())
+            if d.is_dir() and (d / "pyproject.toml").is_file()
+        ]
+        if packages_dir.is_dir()
+        else []
     )
-    if not subpkg_version_files:
-        errors.append("No subpackage VERSION files found under packages/*/VERSION.")
+    if not pkg_dirs:
+        errors.append(
+            "No package directories with pyproject.toml found under packages/."
+        )
     else:
-        for pkg_vf in subpkg_version_files:
-            pkg_v = pkg_vf.read_text().strip()
+        for pkg_dir in pkg_dirs:
+            pkg_vf = pkg_dir / "VERSION"
             rel_path = pkg_vf.relative_to(REPO_ROOT)
-            if pkg_v != target_version:
-                errors.append(
-                    f"{rel_path} ({pkg_v}) does not match target version"
-                    f" ({target_version})."
-                )
+            if not pkg_vf.is_file():
+                errors.append(f"Required version file {rel_path} is missing.")
             else:
-                print(f"  [OK] {rel_path}: {pkg_v}")
+                pkg_v = pkg_vf.read_text().strip()
+                if pkg_v != target_version:
+                    errors.append(
+                        f"{rel_path} ({pkg_v}) does not match target version"
+                        f" ({target_version})."
+                    )
+                else:
+                    print(f"  [OK] {rel_path}: {pkg_v}")
 
     # 3. Validate datacommons-cli pyproject.toml lockstep dependency pin
     cli_toml = REPO_ROOT / "packages/datacommons-cli/pyproject.toml"
