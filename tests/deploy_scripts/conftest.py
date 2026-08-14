@@ -20,4 +20,4 @@ from pathlib import Path
 # Inject deploy/scripts directory into sys.path to test scripts as standalone modules
 SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "deploy" / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
-  sys.path.insert(0, str(SCRIPTS_DIR))
+    sys.path.insert(0, str(SCRIPTS_DIR))
