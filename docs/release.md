@@ -35,18 +35,9 @@ The release process follows three sequential stages:
 #### Step 1: Submit Staging Build (`deploy/staging.yaml`)
 Submit `deploy/staging.yaml` with your target RC version and artifact source tags:
 ```bash
-# Example showing all available substitution parameters:
 gcloud builds submit \
   --config deploy/staging.yaml \
-  --substitutions=\
-_TARGET_VERSION="1.1.2rc1",\
-_DEFAULT_SOURCE_TAG="1.1.1",\
-_SERVICES_TAG="1574ed3-79627f8-e265a1d",\
-_PREPROCESSOR_TAG="1.1.1",\
-_POSTPROCESSOR_TAG="1.1.1",\
-_INGESTION_HELPER_TAG="1.1.1",\
-_DATAFLOW_TAG="1.1.1",\
-_GITHUB_COMMIT="" \
+  --substitutions=_TARGET_VERSION="1.1.2rc1",_DEFAULT_SOURCE_TAG="1.1.1",_SERVICES_TAG="1574ed3-79627f8-e265a1d" \
   --project="datcom-ci" \
   .
 ```
