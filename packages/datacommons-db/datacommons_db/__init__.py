@@ -15,7 +15,3 @@
 import importlib.metadata
 
 __version__ = importlib.metadata.version("datacommons-db")
-
-__all__ = [
-    "__version__",
-]
