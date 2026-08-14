@@ -88,8 +88,6 @@ jobs:
         run: uv sync --locked
 
       - name: Run hermetic integration test
-        env:
-          DC_API_KEY: ${{ secrets.DC_API_KEY }}
         run: uv run pytest -s tests/datacommons-integration-tests/run_local_integration_test.py
 
 
