@@ -22,6 +22,7 @@ Tests cover:
 """
 
 import json
+import shutil
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -355,6 +356,23 @@ class TestValidateReleaseVersion:
             return MagicMock(returncode=0)
 
         monkeypatch.setattr(subprocess, "run", mock_run)
+        with pytest.raises(SystemExit) as exc_info:
+            validator.validate_release_version("1.0.0", check_remote_artifacts=True)
+        assert exc_info.value.code == 1
+
+    def test_validate_release_version_missing_gcloud_fails(
+        self, mock_monorepo: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """// Test: test_validate_release_version_missing_gcloud_fails
+
+        // Situation: check_remote_artifacts is True but gcloud is not installed.
+        // Expectation: Validator reports missing gcloud and exits with 1.
+        """
+        monkeypatch.setattr(
+            shutil,
+            "which",
+            lambda cmd: None if cmd == "gcloud" else "/usr/bin/" + cmd,
+        )
         with pytest.raises(SystemExit) as exc_info:
             validator.validate_release_version("1.0.0", check_remote_artifacts=True)
         assert exc_info.value.code == 1
@@ -721,3 +739,54 @@ class TestTagReleaseArtifacts:
                 target_tag="1.1.2",
             )
         assert "Failed to tag image" in str(exc_info.value)
+
+    def test_stage_dataflow_template_non_dict_json_aborts(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """// Test: test_stage_dataflow_template_non_dict_json_aborts
+
+        // Situation: Downloaded template JSON is a list instead of a dictionary.
+        // Expectation: Script aborts with clear error message.
+        """
+        invalid_json = tmp_path / "invalid.json"
+        invalid_json.write_text(json.dumps(["item1", "item2"]))
+
+        def mock_gcloud_run(cmd, **kwargs):
+            if cmd[0] == "gcloud" and cmd[1] == "storage" and cmd[2] == "cp":
+                dst = cmd[4]
+                Path(dst).write_text(invalid_json.read_text())
+                return MagicMock(returncode=0)
+            return MagicMock(returncode=0)
+
+        monkeypatch.setattr(subprocess, "run", mock_gcloud_run)
+
+        with pytest.raises(SystemExit) as exc_info:
+            tagger.stage_dataflow_template(
+                gcs_base="gs://datcom-templates/templates/flex",
+                src_tag="1.1.1",
+                target_tag="1.1.2",
+                dataflow_image_repo="us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion",
+                dry_run=False,
+            )
+        assert "Template JSON root must be a dictionary object" in str(exc_info.value)
+
+    def test_tag_all_artifacts_missing_gcloud_aborts(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """// Test: test_tag_all_artifacts_missing_gcloud_aborts
+
+        // Situation: tag_all_artifacts runs with dry_run=False but gcloud is not installed.
+        // Expectation: Script aborts reporting missing gcloud CLI.
+        """
+        monkeypatch.setattr(
+            shutil,
+            "which",
+            lambda cmd: None if cmd == "gcloud" else "/usr/bin/" + cmd,
+        )
+        with pytest.raises(SystemExit) as exc_info:
+            tagger.tag_all_artifacts(
+                target_tag="1.1.2",
+                default_source_tag="1.1.1",
+                dry_run=False,
+            )
+        assert "gcloud" in str(exc_info.value)

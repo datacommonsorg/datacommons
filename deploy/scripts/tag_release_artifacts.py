@@ -54,6 +54,7 @@ USAGE EXAMPLES:
 import argparse
 import json
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -171,7 +172,9 @@ def stage_dataflow_template(
         # 2. Parse and update image pointer inside JSON
         try:
             data = json.loads(local_src.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError) as e:
+            if not isinstance(data, dict):
+                raise ValueError("Template JSON root must be a dictionary object.")
+        except (json.JSONDecodeError, OSError, ValueError) as e:
             sys.exit(
                 f"Error: Failed to parse JSON in downloaded template '{src_uri}': {e}"
             )
@@ -216,6 +219,13 @@ def tag_all_artifacts(
         sys.exit(
             f"Error: Invalid target tag format '{target_tag}'. "
             "Must follow SemVer / PEP 440 (e.g. '1.2.3' or '1.2.3rc1')."
+        )
+
+    # Validate gcloud availability when performing actual execution
+    if not dry_run and not shutil.which("gcloud"):
+        sys.exit(
+            "Error: 'gcloud' command-line tool not found in PATH. "
+            "Please ensure Google Cloud SDK is installed and in your PATH."
         )
 
     # Resolve source tags with fallback hierarchy

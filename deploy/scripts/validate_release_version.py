@@ -45,6 +45,7 @@ USAGE:
 
 import argparse
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -183,38 +184,49 @@ def validate_release_version(
     # 5. Optional / CI: Validate remote release artifacts (images & GCS template)
     if check_remote_artifacts:
         print("\nValidating remote release artifacts exist...")
-
-        # A. Check container images in GCR/Artifact Registry
-        for artifact, repo in ARTIFACT_IMAGE_MAP.items():
-            image_ref = f"{repo}:{target_version}"
-            cmd = [
-                "gcloud",
-                "container",
-                "images",
-                "describe",
-                image_ref,
-                "--format=json",
-            ]
-            res = subprocess.run(cmd, check=False, capture_output=True, text=True)
-            if res.returncode != 0:
-                errors.append(
-                    f"Remote container image '{image_ref}' does not exist in registry."
-                )
-            else:
-                print(f"  [OK] Container Image ({artifact}): {image_ref}")
-
-        # B. Check Dataflow Flex Template spec in GCS
-        template_uri = (
-            f"{template_gcs_base.rstrip('/')}/ingestion-{target_version}.json"
-        )
-        cmd = ["gcloud", "storage", "ls", template_uri]
-        res = subprocess.run(cmd, check=False, capture_output=True, text=True)
-        if res.returncode != 0:
+        if not shutil.which("gcloud"):
             errors.append(
-                f"Dataflow Flex Template spec '{template_uri}' does not exist in GCS."
+                "'gcloud' CLI tool is required for remote artifact validation"
+                " but was not found in PATH."
             )
         else:
-            print(f"  [OK] Dataflow Flex Template: {template_uri}")
+            # A. Check container images in GCR/Artifact Registry
+            for artifact, repo in ARTIFACT_IMAGE_MAP.items():
+                image_ref = f"{repo}:{target_version}"
+                cmd = [
+                    "gcloud",
+                    "container",
+                    "images",
+                    "describe",
+                    image_ref,
+                    "--format=json",
+                ]
+                res = subprocess.run(cmd, check=False, capture_output=True, text=True)
+                if res.returncode != 0:
+                    detail = (
+                        f" Details: {res.stderr.strip()}" if res.stderr.strip() else ""
+                    )
+                    errors.append(
+                        f"Remote container image '{image_ref}' does not exist"
+                        f" in registry.{detail}"
+                    )
+                else:
+                    print(f"  [OK] Container Image ({artifact}): {image_ref}")
+
+            # B. Check Dataflow Flex Template spec in GCS
+            template_uri = (
+                f"{template_gcs_base.rstrip('/')}/ingestion-{target_version}.json"
+            )
+            cmd = ["gcloud", "storage", "ls", template_uri]
+            res = subprocess.run(cmd, check=False, capture_output=True, text=True)
+            if res.returncode != 0:
+                detail = f" Details: {res.stderr.strip()}" if res.stderr.strip() else ""
+                errors.append(
+                    f"Dataflow Flex Template spec '{template_uri}' does not"
+                    f" exist in GCS.{detail}"
+                )
+            else:
+                print(f"  [OK] Dataflow Flex Template: {template_uri}")
 
     if errors:
         print("\nRelease validation FAILED with the following error(s):")
