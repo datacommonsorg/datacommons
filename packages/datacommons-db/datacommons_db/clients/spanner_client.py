@@ -28,7 +28,12 @@ from datacommons_db.utils.validators import (
 
 @dataclass(frozen=True)
 class DdlResult:
-    """Result of a DDL statement execution."""
+    """Result of a DDL statement execution.
+
+    Attributes:
+        success: True if DDL statements completed successfully, False otherwise.
+        error: Error message string if execution failed, None otherwise.
+    """
 
     success: bool
     error: str | None = None
@@ -36,7 +41,13 @@ class DdlResult:
 
 @dataclass(frozen=True)
 class DmlResult:
-    """Result of a DML statement execution inside a read-write transaction."""
+    """Result of a DML statement execution inside a read-write transaction.
+
+    Attributes:
+        success: True if the transaction committed successfully, False otherwise.
+        rows_affected: Number of rows modified by the DML statement (0 on failure).
+        error: Error message string if execution failed, None otherwise.
+    """
 
     success: bool
     rows_affected: int = 0
@@ -45,7 +56,13 @@ class DmlResult:
 
 @dataclass(frozen=True)
 class QueryResult:
-    """Result of a snapshot read query."""
+    """Result of a snapshot read query.
+
+    Attributes:
+        success: True if the snapshot query executed successfully, False otherwise.
+        rows: List of rows where each row is a list of column values ([] on failure).
+        error: Error message string if execution failed, None otherwise.
+    """
 
     success: bool
     rows: list[list[Any]] = field(default_factory=list)
