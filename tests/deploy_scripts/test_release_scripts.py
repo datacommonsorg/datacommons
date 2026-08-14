@@ -24,11 +24,10 @@ import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import apply_version_bump as bumper
+import publish_packages as publisher
 import pytest
-
-import deploy.scripts.apply_version_bump as bumper
-import deploy.scripts.publish_packages as publisher
-import deploy.scripts.validate_release_version as validator
+import validate_release_version as validator
 
 # ==============================================================================
 # Fixtures & Test Environment Setup
