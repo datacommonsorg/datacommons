@@ -33,7 +33,7 @@ steps:
         git checkout -b $$BRANCH_NAME
 
         # Update Version Files using shared script
-        bash deploy/scripts/apply_version_bump.sh "$$NEW_VERSION"
+        python3 deploy/scripts/apply_version_bump.py "$$NEW_VERSION"
 
         # Update Lockfile
         uv lock

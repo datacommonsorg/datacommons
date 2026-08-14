@@ -51,7 +51,7 @@ steps:
         git checkout "$target_ref"
 
         echo "Applying version bump for staging release candidate $tag_version..."
-        bash deploy/scripts/apply_version_bump.sh "$tag_version"
+        python3 deploy/scripts/apply_version_bump.py "$tag_version"
 
         if [ -n "$$GH_TOKEN" ]; then
           echo "Creating local RC commit and tagging v$tag_version on GitHub..."

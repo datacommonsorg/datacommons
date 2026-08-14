@@ -1,6 +1,6 @@
 # Data Commons Platform (DCP) Release & Versioning Guide
 
-This guide details the release procedure for the Data Commons Platform (DCP). All platform packages (`datacommons-cli`, `datacommons-admin`, etc.), Terraform modules, and container images share unified lockstep versioning anchored by the root [`VERSION`](../VERSION) file and the centralized versioning script [`deploy/scripts/apply_version_bump.sh`](../deploy/scripts/apply_version_bump.sh).
+This guide details the release procedure for the Data Commons Platform (DCP). All platform packages (`datacommons-cli`, `datacommons-admin`, etc.), Terraform modules, and container images share unified lockstep versioning anchored by the root [`VERSION`](../VERSION) file and the centralized versioning script [`deploy/scripts/apply_version_bump.py`](../deploy/scripts/apply_version_bump.py).
 
 ---
 
@@ -59,7 +59,7 @@ gcloud builds submit \
 
 **What this step does:**
 * Clones the target commit into a clean build container.
-* Runs `apply_version_bump.sh "X.Y.ZrcN"` to update `VERSION`, `packages/*/VERSION`, `infra/dcp/variables.tf`, and lock `datacommons-admin==X.Y.ZrcN`.
+* Runs `apply_version_bump.py "X.Y.ZrcN"` to update `VERSION`, `packages/*/VERSION`, `infra/dcp/variables.tf`, and lock `datacommons-admin==X.Y.ZrcN`.
 * Creates a local commit containing these updated version files and force-pushes Git tag `vX.Y.ZrcN` to GitHub.
   *(Note: Tag `vX.Y.ZrcN` on GitHub points directly to this commit so remote Terraform module fetches via `?ref=vX.Y.ZrcN` resolve `default = "X.Y.ZrcN"` in `variables.tf`, while branch `main` remains clean).*
 * Builds package wheels in subshells and publishes them to **TestPyPI**.
@@ -101,7 +101,7 @@ gcloud builds submit \
 
 **What this step does:**
 * Clones `main` and checks out branch `chore/bump-version-X.Y.Z`.
-* Runs `apply_version_bump.sh "X.Y.Z"` to update `VERSION`, `packages/*/VERSION`, `packages/datacommons-cli/pyproject.toml`, and `infra/dcp/variables.tf`.
+* Runs `apply_version_bump.py "X.Y.Z"` to update `VERSION`, `packages/*/VERSION`, `packages/datacommons-cli/pyproject.toml`, and `infra/dcp/variables.tf`.
 * Runs `uv lock` to update dependencies.
 * Commits changes, pushes the branch to GitHub, and opens a Pull Request against `main`.
 
