@@ -15,6 +15,7 @@
 from datacommons_db.clients.spanner_client import (
     DdlResult,
     DmlResult,
+    ExecutionStatus,
     QueryResult,
     SpannerClient,
 )
@@ -22,6 +23,7 @@ from datacommons_db.clients.spanner_client import (
 __all__ = [
     "DdlResult",
     "DmlResult",
+    "ExecutionStatus",
     "QueryResult",
     "SpannerClient",
 ]

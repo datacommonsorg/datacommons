@@ -20,6 +20,7 @@ import pytest
 from datacommons_db.clients import (
     DdlResult,
     DmlResult,
+    ExecutionStatus,
     QueryResult,
     SpannerClient,
 )
@@ -265,7 +266,7 @@ def test_table_exists_true():
         "CREATE TABLE Node (subject_id STRING(64)) PRIMARY KEY (subject_id)"
     )
     assert isinstance(result, DdlResult)
-    assert result.success is True
+    assert result.status == ExecutionStatus.SUCCESS
     assert client.table_exists("Node") is True
 
 
@@ -277,7 +278,7 @@ def test_execute_ddl_multiple_statements():
             "CREATE TABLE Edge (predicate STRING(64)) PRIMARY KEY (predicate)",
         ]
     )
-    assert result.success is True
+    assert result.status == ExecutionStatus.SUCCESS
     assert client.table_exists("Node") is True
     assert client.table_exists("Edge") is True
 
@@ -285,7 +286,7 @@ def test_execute_ddl_multiple_statements():
 def test_execute_ddl_single_statement():
     client = SpannerClient("proj", "inst", "db")
     result = client.execute_ddl("CREATE TABLE SingleTable (id INT64) PRIMARY KEY (id)")
-    assert result.success is True
+    assert result.status == ExecutionStatus.SUCCESS
     assert client.table_exists("SingleTable") is True
 
 
@@ -294,11 +295,11 @@ def test_execute_ddl_drop_table():
     result1 = client.execute_ddl(
         "CREATE TABLE Edge (predicate STRING(64)) PRIMARY KEY (predicate)"
     )
-    assert result1.success is True
+    assert result1.status == ExecutionStatus.SUCCESS
     assert client.table_exists("Edge") is True
 
     result2 = client.execute_ddl("DROP TABLE Edge")
-    assert result2.success is True
+    assert result2.status == ExecutionStatus.SUCCESS
     assert client.table_exists("Edge") is False
 
 
@@ -327,7 +328,7 @@ def test_execute_ddl_list():
             "CREATE TABLE TableB (id INT64) PRIMARY KEY (id)",
         ]
     )
-    assert result.success is True
+    assert result.status == ExecutionStatus.SUCCESS
     assert client.table_exists("TableA") is True
     assert client.table_exists("TableB") is True
 
@@ -335,20 +336,20 @@ def test_execute_ddl_list():
 def test_execute_ddl_empty_string():
     client = SpannerClient("proj", "inst", "db")
     result = client.execute_ddl("")
-    assert result.success is True
+    assert result.status == ExecutionStatus.SUCCESS
 
 
 def test_execute_ddl_empty_list():
     client = SpannerClient("proj", "inst", "db")
     result = client.execute_ddl([])
-    assert result.success is True
+    assert result.status == ExecutionStatus.SUCCESS
 
 
 def test_execute_ddl_invalid_type():
     client = SpannerClient("proj", "inst", "db")
     result = client.execute_ddl(123)
-    assert result.success is False
-    assert "must be a str or a list of str" in result.error
+    assert result.status == ExecutionStatus.ERROR
+    assert "must be a str or a list of str" in result.error_message
 
 
 def test_execute_ddl_error(fake_spanner_db: FakeSpannerDatabase):
@@ -357,8 +358,8 @@ def test_execute_ddl_error(fake_spanner_db: FakeSpannerDatabase):
         side_effect=RuntimeError("Spanner DDL execution failed")
     )
     result = client.execute_ddl("CREATE TABLE ErrorTable (id INT64) PRIMARY KEY (id)")
-    assert result.success is False
-    assert "Spanner DDL execution failed" in result.error
+    assert result.status == ExecutionStatus.ERROR
+    assert "Spanner DDL execution failed" in result.error_message
 
 
 # ==============================================================================
@@ -377,9 +378,9 @@ def test_execute_dml_with_params(fake_spanner_db: FakeSpannerDatabase):
         param_types=param_types,
     )
     assert isinstance(result, DmlResult)
-    assert result.success is True
+    assert result.status == ExecutionStatus.SUCCESS
     assert result.rows_affected == 1
-    assert result.error is None
+    assert result.error_message is None
     assert fake_spanner_db.last_transaction is not None
     assert (
         fake_spanner_db.last_transaction.last_query
@@ -396,9 +397,9 @@ def test_execute_dml_error(fake_spanner_db: FakeSpannerDatabase):
     )
     result = client.execute_dml("UPDATE Node SET value = 'test'")
     assert isinstance(result, DmlResult)
-    assert result.success is False
+    assert result.status == ExecutionStatus.ERROR
     assert result.rows_affected == 0
-    assert "Transaction failed" in result.error
+    assert "Transaction failed" in result.error_message
 
 
 def test_execute_query_with_params():
@@ -412,9 +413,9 @@ def test_execute_query_with_params():
         param_types=param_types,
     )
     assert isinstance(result, QueryResult)
-    assert result.success is True
+    assert result.status == ExecutionStatus.SUCCESS
     assert result.rows == [["result_for_test_node"]]
-    assert result.error is None
+    assert result.error_message is None
 
 
 def test_execute_query_custom_table(fake_spanner_db: FakeSpannerDatabase):
@@ -423,9 +424,9 @@ def test_execute_query_custom_table(fake_spanner_db: FakeSpannerDatabase):
 
     result = client.execute_query("SELECT name, count FROM custom_test_table")
     assert isinstance(result, QueryResult)
-    assert result.success is True
+    assert result.status == ExecutionStatus.SUCCESS
     assert result.rows == [["row1", 10], ["row2", 20]]
-    assert result.error is None
+    assert result.error_message is None
 
 
 def test_execute_query_error(fake_spanner_db: FakeSpannerDatabase):
@@ -435,6 +436,6 @@ def test_execute_query_error(fake_spanner_db: FakeSpannerDatabase):
     )
     result = client.execute_query("SELECT 1")
     assert isinstance(result, QueryResult)
-    assert result.success is False
+    assert result.status == ExecutionStatus.ERROR
     assert result.rows == []
-    assert "Snapshot read failed" in result.error
+    assert "Snapshot read failed" in result.error_message

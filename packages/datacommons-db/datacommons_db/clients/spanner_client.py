@@ -14,6 +14,7 @@
 
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import Any
 
 from google.auth.credentials import Credentials
@@ -26,17 +27,24 @@ from datacommons_db.utils.validators import (
 )
 
 
+class ExecutionStatus(StrEnum):
+    """Status of a Spanner database operation."""
+
+    SUCCESS = "SUCCESS"
+    ERROR = "ERROR"
+
+
 @dataclass(frozen=True)
 class DdlResult:
     """Result of a DDL statement execution.
 
     Attributes:
-        success: True if DDL statements completed successfully, False otherwise.
-        error: Error message string if execution failed, None otherwise.
+        status: Execution status enum (SUCCESS or ERROR).
+        error_message: Error message string if execution failed, None otherwise.
     """
 
-    success: bool
-    error: str | None = None
+    status: ExecutionStatus
+    error_message: str | None = None
 
 
 @dataclass(frozen=True)
@@ -44,14 +52,14 @@ class DmlResult:
     """Result of a DML statement execution inside a read-write transaction.
 
     Attributes:
-        success: True if the transaction committed successfully, False otherwise.
+        status: Execution status enum (SUCCESS or ERROR).
         rows_affected: Number of rows modified by the DML statement (0 on failure).
-        error: Error message string if execution failed, None otherwise.
+        error_message: Error message string if execution failed, None otherwise.
     """
 
-    success: bool
+    status: ExecutionStatus
     rows_affected: int = 0
-    error: str | None = None
+    error_message: str | None = None
 
 
 @dataclass(frozen=True)
@@ -59,14 +67,14 @@ class QueryResult:
     """Result of a snapshot read query.
 
     Attributes:
-        success: True if the snapshot query executed successfully, False otherwise.
+        status: Execution status enum (SUCCESS or ERROR).
         rows: List of rows where each row is a list of column values ([] on failure).
-        error: Error message string if execution failed, None otherwise.
+        error_message: Error message string if execution failed, None otherwise.
     """
 
-    success: bool
+    status: ExecutionStatus
     rows: list[list[Any]] = field(default_factory=list)
-    error: str | None = None
+    error_message: str | None = None
 
 
 class SpannerClient:
@@ -119,7 +127,7 @@ class SpannerClient:
         param_types = {"table_name": spanner.param_types.STRING}
 
         result = self.execute_query(query, params=params, param_types=param_types)
-        return bool(result.success and result.rows)
+        return bool(result.status == ExecutionStatus.SUCCESS and result.rows)
 
     def execute_ddl(self, ddl_statements: str | list[str]) -> DdlResult:
         """Execute DDL statements and wait for completion.
@@ -130,7 +138,7 @@ class SpannerClient:
             ddl_statements: A single DDL statement string or a list of DDL statement strings.
 
         Returns:
-            DdlResult with success status and optional error message.
+            DdlResult with execution status and optional error message.
         """
         if isinstance(ddl_statements, str):
             statements = [ddl_statements]
@@ -138,19 +146,19 @@ class SpannerClient:
             statements = ddl_statements
         else:
             return DdlResult(
-                success=False,
-                error="ddl_statements must be a str or a list of str.",
+                status=ExecutionStatus.ERROR,
+                error_message="ddl_statements must be a str or a list of str.",
             )
 
         if not statements:
-            return DdlResult(success=True)
+            return DdlResult(status=ExecutionStatus.SUCCESS)
 
         try:
             operation = self.database.update_ddl(statements)
             operation.result()
-            return DdlResult(success=True)
+            return DdlResult(status=ExecutionStatus.SUCCESS)
         except Exception as e:  # noqa: BLE001 - must catch all exceptions to ensure a DdlResult is always returned
-            return DdlResult(success=False, error=str(e))
+            return DdlResult(status=ExecutionStatus.ERROR, error_message=str(e))
 
     def execute_dml(
         self,
@@ -168,7 +176,7 @@ class SpannerClient:
             param_types: Dictionary of parameter types.
 
         Returns:
-            DmlResult with success status, rows affected, and optional error message.
+            DmlResult with execution status, rows affected, and optional error message.
         """
 
         def _unit_of_work(transaction: Transaction) -> int:
@@ -178,9 +186,15 @@ class SpannerClient:
 
         try:
             rows_affected = self.database.run_in_transaction(_unit_of_work)
-            return DmlResult(success=True, rows_affected=rows_affected)
+            return DmlResult(
+                status=ExecutionStatus.SUCCESS, rows_affected=rows_affected
+            )
         except Exception as e:  # noqa: BLE001 - must catch all exceptions to ensure a DmlResult is always returned
-            return DmlResult(success=False, rows_affected=0, error=str(e))
+            return DmlResult(
+                status=ExecutionStatus.ERROR,
+                rows_affected=0,
+                error_message=str(e),
+            )
 
     def _execute_query_stream(
         self,
@@ -222,7 +236,7 @@ class SpannerClient:
             param_types: Dictionary of parameter types.
 
         Returns:
-            QueryResult with success status, rows, and optional error message.
+            QueryResult with execution status, rows, and optional error message.
         """
         try:
             rows = list(
@@ -230,6 +244,8 @@ class SpannerClient:
                     query, params=params, param_types=param_types
                 )
             )
-            return QueryResult(success=True, rows=rows)
+            return QueryResult(status=ExecutionStatus.SUCCESS, rows=rows)
         except Exception as e:  # noqa: BLE001 - must catch all exceptions to ensure a QueryResult is always returned
-            return QueryResult(success=False, rows=[], error=str(e))
+            return QueryResult(
+                status=ExecutionStatus.ERROR, rows=[], error_message=str(e)
+            )
