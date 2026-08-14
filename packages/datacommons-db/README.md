@@ -4,7 +4,7 @@ This module provides the database models and client primitives for the Data Comm
 
 ## Features
 
-- **Direct Cloud Spanner Client (`SpannerClient`)**: Client for schema migrations, DDL execution, point-in-time snapshot reads, and migration version tracking.
+- **Direct Cloud Spanner Client (`SpannerClient`)**: Client for Spanner database operations, DDL execution, parameterized DML, and point-in-time snapshot queries.
 - **SQLAlchemy ORM models**: Declarative models for nodes, edges, and observations.
 - **Graph database implementation**: Built on top of Google Cloud Spanner.
 - **JSON-LD document support**: Model support for data import/export.
@@ -43,9 +43,9 @@ This module provides the database models and client primitives for the Data Comm
 
 ## Usage
 
-### Cloud Spanner Client & Schema Management
+### Cloud Spanner Client
 
-The package exports `SpannerClient` for direct Spanner operations, schema management, and migration version tracking.
+The package provides `SpannerClient` for direct Spanner operations, DDL execution, and query execution.
 
 #### Initialization
 
@@ -67,16 +67,12 @@ client = SpannerClient(
 ```
 
 
-#### Checking Tables & Schema Version
+#### Checking Tables
 
 ```python
 # Check if a specific table exists in information_schema
 if not client.table_exists("Node"):
     print("Node table not found")
-
-# Check migration metadata version (returns 0 if uninitialized)
-current_version = client.get_schema_version()
-print(f"Active schema version: {current_version}")
 ```
 
 #### Executing DDL Statements

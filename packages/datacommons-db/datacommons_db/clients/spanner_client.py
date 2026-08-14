@@ -20,7 +20,6 @@ from google.auth.credentials import Credentials
 from google.cloud import spanner
 from google.cloud.spanner_v1.transaction import Transaction
 
-_SCHEMA_VERSION_TABLE_NAME = "SchemaVersion"
 _TABLE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_]+$")
 _RESOURCE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_\-]+$")
 
@@ -34,7 +33,7 @@ def _validate_resource_id(name: str, value: object) -> None:
 
 
 class SpannerClient:
-    """Client for Cloud Spanner schema management, DDL execution, and version tracking."""
+    """Client for Cloud Spanner operations, DDL execution, and query execution."""
 
     def __init__(
         self,
@@ -92,57 +91,6 @@ class SpannerClient:
             ):
                 return True
             return False
-
-    def schema_version_table_exists(self) -> bool:
-        """Check if the SchemaVersion table exists in Cloud Spanner."""
-        return self.table_exists(_SCHEMA_VERSION_TABLE_NAME)
-
-    def get_schema_version(self) -> int:
-        """Get the current schema version from the SchemaVersion table.
-
-        Returns:
-            The current active integer schema version, or 0 if SchemaVersion does not exist.
-        """
-        if not self.schema_version_table_exists():
-            return 0
-
-        # The version with the latest applied timestamp is the current version.
-        query = (
-            f"SELECT Version FROM {_SCHEMA_VERSION_TABLE_NAME} "  # noqa: S608
-            "ORDER BY AppliedTimestamp DESC LIMIT 1"
-        )
-        with self.database.snapshot() as snapshot:
-            for row in snapshot.execute_sql(query):
-                return int(row[0]) if row[0] is not None else 0
-            return 0
-
-    def update_schema_version(self, version: int, description: str) -> None:
-        """Insert a newly applied schema version into SchemaVersion.
-
-        Args:
-            version: The integer schema version applied.
-            description: Description of the schema migration.
-        """
-        if not isinstance(version, int) or version < 0:
-            raise ValueError(f"Version must be a non-negative integer, got {version}")
-        if not isinstance(description, str) or not description.strip():
-            raise ValueError("Description must be a non-empty string.")
-
-        query = (
-            f"INSERT INTO {_SCHEMA_VERSION_TABLE_NAME} (Version, AppliedTimestamp, Description) "  # noqa: S608
-            "VALUES (@version, PENDING_COMMIT_TIMESTAMP(), @description)"
-        )
-        params = {"version": version, "description": description.strip()}
-        param_types = {
-            "version": spanner.param_types.INT64,
-            "description": spanner.param_types.STRING,
-        }
-
-        self.execute_dml(query, params=params, param_types=param_types)
-
-    def set_schema_version(self, version: int, description: str) -> None:
-        """Alias for update_schema_version."""
-        self.update_schema_version(version, description)
 
     def execute_ddl(self, ddl_statements: str | list[str]) -> None:
         """Execute DDL statements and wait for completion.

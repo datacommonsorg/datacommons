@@ -13,15 +13,12 @@
 # limitations under the License.
 
 import re
-import time
 from collections.abc import Callable
 from unittest.mock import MagicMock, patch
 
 import pytest
 from datacommons_db.clients import SpannerClient
 from google.cloud import spanner
-
-_SCHEMA_VERSION_TABLE_NAME = "SchemaVersion"
 
 
 class FakeSnapshot:
@@ -35,13 +32,6 @@ class FakeSnapshot:
     - Returns rows as a 2D list (`list[list[object]]`), where each outer list
       element is a row, and each inner element is a column value (matching
       Google Cloud Spanner's `StreamedResultSet` iteration format).
-
-    Query Handlers:
-    1. `information_schema.tables`: Checks whether `params["table_name"]` exists in
-       `self.db.tables`. Returns `[[1]]` if found, `[]` otherwise.
-    2. `SchemaVersion`: Retrieves all migration rows from `self.db.tables["SchemaVersion"]`,
-       sorts them by `AppliedTimestamp` descending, and yields `[[latest_version]]`.
-    3. Custom Test Tables: If `custom_test_table` exists in `self.db.tables`, returns its rows.
     """
 
     def __init__(self, db: "FakeSpannerDatabase") -> None:
@@ -77,22 +67,7 @@ class FakeSnapshot:
                 return [[1]]
             return []
 
-        # 2. Querying SchemaVersion for the latest active version
-        if _SCHEMA_VERSION_TABLE_NAME.lower() in query.lower():
-            if _SCHEMA_VERSION_TABLE_NAME not in self.db.tables:
-                return []
-            rows = self.db.tables[_SCHEMA_VERSION_TABLE_NAME]
-            if not rows:
-                return []
-            # Sort by AppliedTimestamp descending
-            sorted_rows = sorted(
-                rows,
-                key=lambda r: float(r.get("AppliedTimestamp", 0.0)),
-                reverse=True,
-            )
-            return [[sorted_rows[0].get("Version")]]
-
-        # 3. Fallback / generic test queries
+        # 2. Fallback / generic test queries
         if "custom_test_table" in self.db.tables:
             return self.db.tables["custom_test_table"]
 
@@ -107,11 +82,6 @@ class FakeTransaction:
 
     Simulates `google.cloud.spanner_v1.transaction.Transaction` used inside
     `database.run_in_transaction(unit_of_work)`.
-
-    Features:
-    - Captures `last_query`, `last_params`, and `last_param_types` for assertion checks.
-    - Mutates `FakeSpannerDatabase.tables` when `INSERT INTO SchemaVersion` is executed,
-      recording `Version`, `Description`, and `AppliedTimestamp`.
     """
 
     def __init__(self, db: "FakeSpannerDatabase") -> None:
@@ -126,7 +96,7 @@ class FakeTransaction:
         params: dict[str, object] | None = None,
         param_types: dict[str, object] | None = None,
     ) -> int:
-        """Execute a DML update and mutate in-memory state.
+        """Execute a DML update.
 
         Args:
             query: SQL DML statement string.
@@ -139,25 +109,6 @@ class FakeTransaction:
         self.last_query = query
         self.last_params = params
         self.last_param_types = param_types
-
-        # Handle INSERT INTO SchemaVersion
-        if (
-            "insert into" in query.lower()
-            and _SCHEMA_VERSION_TABLE_NAME.lower() in query.lower()
-        ):
-            if _SCHEMA_VERSION_TABLE_NAME not in self.db.tables:
-                self.db.tables[_SCHEMA_VERSION_TABLE_NAME] = []
-
-            self.db.tables[_SCHEMA_VERSION_TABLE_NAME].append(
-                {
-                    "Version": params.get("version") if params else None,
-                    "Description": params.get("description") if params else "",
-                    "AppliedTimestamp": time.time(),
-                }
-            )
-            return 1
-
-        # Default to 1 for all other statements.
         return 1
 
 
@@ -399,101 +350,6 @@ def test_execute_ddl_invalid_type():
         TypeError, match="ddl_statements must be a str or a list of str"
     ):
         client.execute_ddl(123)
-
-
-# ==============================================================================
-# SchemaVersion Tests
-# ==============================================================================
-
-
-def test_schema_version_table_exists_false():
-    client = SpannerClient("inst", "db")
-    assert client.schema_version_table_exists() is False
-
-
-def test_schema_version_table_exists_true():
-    client = SpannerClient("inst", "db")
-    client.execute_ddl(
-        f"CREATE TABLE {_SCHEMA_VERSION_TABLE_NAME} (Version INT64 NOT NULL) PRIMARY KEY (Version)"
-    )
-    assert client.schema_version_table_exists() is True
-
-
-def test_get_schema_version_table_missing():
-    client = SpannerClient("inst", "db")
-    # If table is missing, we assume version 0
-    assert client.get_schema_version() == 0
-
-
-def test_get_schema_version_empty_table():
-    client = SpannerClient("inst", "db")
-    client.execute_ddl(
-        f"CREATE TABLE {_SCHEMA_VERSION_TABLE_NAME} ("
-        "Version INT64 NOT NULL, "
-        "AppliedTimestamp TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true), "
-        "Description STRING(MAX) NOT NULL"
-        ") PRIMARY KEY (Version);"
-    )
-    # If table is empty, we assume version 0
-    assert client.get_schema_version() == 0
-
-
-def test_get_schema_version_returns_latest_version():
-    client = SpannerClient("inst", "db")
-    client.execute_ddl(
-        f"CREATE TABLE {_SCHEMA_VERSION_TABLE_NAME} ("
-        "Version INT64 NOT NULL, "
-        "AppliedTimestamp TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true), "
-        "Description STRING(MAX) NOT NULL"
-        ") PRIMARY KEY (Version);"
-    )
-    client.update_schema_version(1, "Baseline schema")
-    client.update_schema_version(2, "Create Namespace table")
-    assert client.get_schema_version() == 2
-
-
-def test_update_schema_version_inserts_record(
-    fake_spanner_db: FakeSpannerDatabase,
-):
-    client = SpannerClient("inst", "db")
-    client.execute_ddl(
-        f"CREATE TABLE {_SCHEMA_VERSION_TABLE_NAME} ("
-        "Version INT64 NOT NULL, "
-        "AppliedTimestamp TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true), "
-        "Description STRING(MAX) NOT NULL"
-        ") PRIMARY KEY (Version);"
-    )
-    client.update_schema_version(1, "Baseline schema")
-
-    rows = fake_spanner_db.tables[_SCHEMA_VERSION_TABLE_NAME]
-    assert len(rows) == 1
-    assert rows[0]["Version"] == 1
-    assert rows[0]["Description"] == "Baseline schema"
-
-
-def test_set_schema_version_alias():
-    client = SpannerClient("inst", "db")
-    client.execute_ddl(
-        f"CREATE TABLE {_SCHEMA_VERSION_TABLE_NAME} (Version INT64) PRIMARY KEY (Version)"
-    )
-    client.set_schema_version(1, "Initial version")
-    assert client.get_schema_version() == 1
-
-
-@pytest.mark.parametrize(
-    ("ver", "desc"),
-    [
-        (-1, "Valid desc"),
-        ("1", "Valid desc"),
-        (1, ""),
-        (1, "   "),
-        (1, None),
-    ],
-)
-def test_update_schema_version_validation(ver: int, desc: str):
-    client = SpannerClient("inst", "db")
-    with pytest.raises(ValueError, match="(Version|Description)"):
-        client.update_schema_version(ver, desc)
 
 
 # ==============================================================================
