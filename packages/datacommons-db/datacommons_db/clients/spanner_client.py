@@ -101,12 +101,8 @@ class SpannerClient:
         params = {"table_name": table_name}
         param_types = {"table_name": spanner.param_types.STRING}
 
-        with self.database.snapshot() as snapshot:
-            for _ in snapshot.execute_sql(
-                query, params=params, param_types=param_types
-            ):
-                return True
-            return False
+        result = self.execute_query(query, params=params, param_types=param_types)
+        return bool(result.success and result.rows)
 
     def execute_ddl(self, ddl_statements: str | list[str]) -> DdlResult:
         """Execute DDL statements and wait for completion.
