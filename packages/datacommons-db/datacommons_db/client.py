@@ -58,9 +58,7 @@ class SpannerClient:
         self.instance_id = instance_id
         self.database_id = database_id
 
-        self.client = spanner.Client(
-            project=self.project_id, credentials=credentials
-        )
+        self.client = spanner.Client(project=self.project_id, credentials=credentials)
         self.instance = self.client.instance(self.instance_id)
         self.database = self.instance.database(self.database_id)
 
@@ -123,9 +121,7 @@ class SpannerClient:
             description: Description of the schema migration.
         """
         if not isinstance(version, int) or version < 0:
-            raise ValueError(
-                f"Version must be a non-negative integer, got {version}"
-            )
+            raise ValueError(f"Version must be a non-negative integer, got {version}")
         if not isinstance(description, str) or not description.strip():
             raise ValueError("Description must be a non-empty string.")
 
@@ -140,7 +136,6 @@ class SpannerClient:
         }
 
         self.execute_dml(query, params=params, param_types=param_types)
-
 
     def set_schema_version(self, version: int, description: str) -> None:
         """Alias for update_schema_version."""
@@ -194,6 +189,7 @@ class SpannerClient:
         Returns:
             The number of rows modified.
         """
+
         def _unit_of_work(transaction: Transaction) -> int:
             return transaction.execute_update(
                 query, params=params, param_types=param_types
@@ -224,4 +220,3 @@ class SpannerClient:
                 query, params=params, param_types=param_types
             )
             return [list(row) for row in results]
-
