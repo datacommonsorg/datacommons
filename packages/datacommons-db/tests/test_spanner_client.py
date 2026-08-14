@@ -18,7 +18,7 @@ from collections.abc import Callable
 from unittest.mock import MagicMock, patch
 
 import pytest
-from datacommons_db import SpannerClient
+from datacommons_db.clients import SpannerClient
 from google.cloud import spanner
 
 _SCHEMA_VERSION_TABLE_NAME = "SchemaVersion"

@@ -14,11 +14,8 @@
 
 import importlib.metadata
 
-from datacommons_db.clients.spanner_client import SpannerClient
-
 __version__ = importlib.metadata.version("datacommons-db")
 
 __all__ = [
-    "SpannerClient",
     "__version__",
 ]

@@ -50,7 +50,7 @@ The package exports `SpannerClient` for direct Spanner operations, schema manage
 #### Initialization
 
 ```python
-from datacommons_db import SpannerClient
+from datacommons_db.clients import SpannerClient
 
 # 1. Auto-detected project ID (from GOOGLE_CLOUD_PROJECT or environment)
 client = SpannerClient(
