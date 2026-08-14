@@ -335,17 +335,12 @@ def test_execute_ddl_list():
     assert client.table_exists("TableB") is True
 
 
-def test_execute_ddl_empty_list():
-    client = SpannerClient("proj", "inst", "db")
-    result = client.execute_ddl([])
-    assert result.status == ExecutionStatus.SUCCESS
-
-
 @pytest.mark.parametrize(
     "invalid_ddl",
     [
         "CREATE TABLE SingleTable (id INT64) PRIMARY KEY (id)",
         "",
+        [],
         123,
         None,
     ],
@@ -354,7 +349,7 @@ def test_execute_ddl_invalid_type(invalid_ddl: object):
     client = SpannerClient("proj", "inst", "db")
     result = client.execute_ddl(invalid_ddl)
     assert result.status == ExecutionStatus.ERROR
-    assert "must be a list of str" in result.error_message
+    assert "must be a non-empty list of str" in result.error_message
 
 
 def test_execute_ddl_error(fake_spanner_db: FakeSpannerDatabase):

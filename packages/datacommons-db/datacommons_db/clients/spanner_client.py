@@ -135,21 +135,16 @@ class SpannerClient:
         Handles operations like CREATE TABLE, ALTER TABLE, etc.
 
         Args:
-            ddl_statements: A list of DDL statement strings.
+            ddl_statements: A non-empty list of DDL statement strings.
 
         Returns:
             DdlResult with execution status and optional error message.
         """
-        # Type check must come first. This prevents "None" from being treated as an empty list.
-        if not isinstance(ddl_statements, list):
+        if not ddl_statements or not isinstance(ddl_statements, list):
             return DdlResult(
                 status=ExecutionStatus.ERROR,
-                error_message="ddl_statements must be a list of str.",
+                error_message="ddl_statements must be a non-empty list of str.",
             )
-
-        # Treat no-op as success - all requested 0 statements were executed with nothing to do
-        if not ddl_statements:
-            return DdlResult(status=ExecutionStatus.SUCCESS)
 
         try:
             operation = self.database.update_ddl(ddl_statements)
