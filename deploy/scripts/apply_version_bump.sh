@@ -24,17 +24,19 @@
 #        (datacommons-admin==NEW_VERSION).
 #
 # USAGE ACROSS CI/CD FLOWS:
-#   1. Pre-Release PR (deploy/bump_version.yaml):
-#      Runs this script, commits modified files to Git, and opens a PR against main.
+#   1. Staging / Release Candidate (deploy/staging.yaml):
+#      Runs this script ephemerally inside Cloud Build on target commit,
+#      tags and pushes v<VERSION> to GitHub (for remote Terraform template fetches),
+#      and publishes candidate wheels to TestPyPI. (No Git commits pushed to main).
 #
-#   2. Staging / Release Candidate (deploy/staging.yaml):
-#      Runs this script ephemerally inside Cloud Build on a clean clone of main,
-#      tags and pushes v<VERSION> to GitHub (so HTTP HCL template fetches work),
-#      and publishes to TestPyPI. (No Git commits pushed to main).
+#   2. Main Branch Version Bump PR (deploy/bump_version.yaml):
+#      Runs this script on main, updates uv.lock, commits modified files,
+#      and opens an automated PR against main.
 #
 #   3. Production Release (deploy/release.yaml):
-#      Does NOT run this script. Performs read-only validation that Git source
-#      code already matches tag_version before publishing to PyPI.
+#      Does NOT run this script (the bump PR in step 2 should have already been merged).
+#      Performs read-only validation that Git source code already matches tag_version
+#      before building and publishing official wheels to PyPI.
 # -----------------------------------------------------------------------------
 
 set -eo pipefail
