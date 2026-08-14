@@ -13,38 +13,10 @@
 # limitations under the License.
 
 steps:
-  # 1. Validate version consistency across VERSION file, subpackage VERSION files, and pyproject.toml
+  # 1. Validate version consistency across VERSION files, pyproject.toml, and variables.tf
   - name: 'python:3.12-slim'
-    entrypoint: 'bash'
-    env:
-      - 'TAG_NAME=$TAG_NAME'
-    args:
-      - '-c'
-      - |
-        set -eo pipefail
-        tag_version=$${TAG_NAME#v}
-        version_in_file=$(tr -d '[:space:]' < VERSION)
-        echo "Validating release tag '$tag_version' against root VERSION file '$version_in_file'..."
-        if [ "$tag_version" != "$version_in_file" ]; then
-          echo "ERROR: Release tag ($tag_version) does not match root VERSION file ($version_in_file)."
-          exit 1
-        fi
-
-        echo "Validating subpackage VERSION files match '$tag_version'..."
-        python3 -c "import glob, sys; v = sys.argv[1]; files = glob.glob('packages/*/VERSION'); sys.exit('ERROR: No subpackage VERSION files found matching packages/*/VERSION') if not files else None; invalid = [f for f in files if open(f).read().strip() != v]; sys.exit(f'ERROR: The following VERSION files do not match release version {v}: {invalid}') if invalid else None" "$tag_version"
-
-        echo "Validating datacommons-cli dependency lock in pyproject.toml matches '$tag_version'..."
-        python3 -c "import sys; v = sys.argv[1]; content = open('packages/datacommons-cli/pyproject.toml').read(); sys.exit(f'ERROR: packages/datacommons-cli/pyproject.toml does not lock datacommons-admin to =={v}') if f'\"datacommons-admin=={v}\"' not in content else None" "$tag_version"
-
-        echo "Validating infra/dcp/variables.tf dcp_version default matches '$tag_version'..."
-        python3 -c "
-        import re, sys
-        tag_v = sys.argv[1]
-        content = open('infra/dcp/variables.tf').read()
-        m = re.search(r'variable\s+\"dcp_version\"\s+\{[^}]*default\s*=\s*\"([^\"]+)\"', content)
-        if not m or m.group(1) != tag_v:
-            sys.exit(f'ERROR: infra/dcp/variables.tf dcp_version default ({m.group(1) if m else None}) does not match release version {tag_v}')
-        " "$tag_version"
+    entrypoint: 'python3'
+    args: ['deploy/scripts/validate_release_version.py', '$TAG_NAME']
 
   # 2. Build and publish all Python packages to PyPI
   - name: 'ghcr.io/astral-sh/uv:python3.12-trixie-slim'

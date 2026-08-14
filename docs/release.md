@@ -135,12 +135,18 @@ Ensure all production container images and Dataflow flex template are tagged wit
 
 **What this step triggers (`deploy/release.yaml`):**
 * Cloud Build automatically runs `deploy/release.yaml` on tag push `vX.Y.Z`.
-* Performs **strict read-only validation**:
+* Runs `deploy/scripts/validate_release_version.py "vX.Y.Z"` to perform **strict read-only validation**:
   - Asserts root `VERSION == X.Y.Z`.
   - Asserts all `packages/*/VERSION == X.Y.Z`.
   - Asserts `datacommons-cli/pyproject.toml` locks `datacommons-admin==X.Y.Z`.
   - Asserts `infra/dcp/variables.tf` defaults `dcp_version = "X.Y.Z"`.
 * Builds package wheels in subshells and publishes them to **Official PyPI**.
+
+> [!TIP]
+> Maintainers can run a local pre-flight consistency check before drafting a release:
+> ```bash
+> python3 deploy/scripts/validate_release_version.py vX.Y.Z
+> ```
 
 #### Step 2: Verify Production Release
 - [ ] **PyPI Live Check:** Confirm packages are live at `https://pypi.org/project/datacommons-cli/X.Y.Z/`.
