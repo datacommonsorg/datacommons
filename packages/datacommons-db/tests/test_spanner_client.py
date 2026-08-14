@@ -233,7 +233,9 @@ def fake_spanner_db():
     instantiated in tests interacts directly with the in-memory `FakeSpannerDatabase`.
     """
     fake_db = FakeSpannerDatabase()
-    with patch("datacommons_db.client.spanner.Client") as mock_client_cls:
+    with patch(
+        "datacommons_db.clients.spanner_client.spanner.Client"
+    ) as mock_client_cls:
 
         def fake_client_factory(
             project: str | None = None, credentials: object = None
