@@ -89,21 +89,10 @@ class SpannerClient:
         Args:
             ddl_statements: A single DDL statement string or a list of DDL statement strings.
         """
-        statements: list[str] = []
         if isinstance(ddl_statements, str):
-            cleaned = ddl_statements.strip()
-            if cleaned.endswith(";"):
-                cleaned = cleaned[:-1].strip()
-            if cleaned:
-                statements.append(cleaned)
+            statements = [ddl_statements]
         elif isinstance(ddl_statements, list):
-            for stmt in ddl_statements:
-                if isinstance(stmt, str):
-                    cleaned = stmt.strip()
-                    if cleaned.endswith(";"):
-                        cleaned = cleaned[:-1].strip()
-                    if cleaned:
-                        statements.append(cleaned)
+            statements = ddl_statements
         else:
             raise TypeError("ddl_statements must be a str or a list of str.")
 

@@ -266,7 +266,7 @@ def test_execute_ddl_multiple_statements():
     client = SpannerClient("proj", "inst", "db")
     client.execute_ddl(
         [
-            "CREATE TABLE Node (subject_id STRING(64)) PRIMARY KEY (subject_id);",
+            "CREATE TABLE Node (subject_id STRING(64)) PRIMARY KEY (subject_id)",
             "CREATE TABLE Edge (predicate STRING(64)) PRIMARY KEY (predicate)",
         ]
     )
@@ -274,10 +274,10 @@ def test_execute_ddl_multiple_statements():
     assert client.table_exists("Edge") is True
 
 
-def test_execute_ddl_single_statement_trailing_semicolon():
+def test_execute_ddl_single_statement():
     client = SpannerClient("proj", "inst", "db")
-    client.execute_ddl("CREATE TABLE SemicolonTable (id INT64) PRIMARY KEY (id);")
-    assert client.table_exists("SemicolonTable") is True
+    client.execute_ddl("CREATE TABLE SingleTable (id INT64) PRIMARY KEY (id)")
+    assert client.table_exists("SingleTable") is True
 
 
 def test_execute_ddl_drop_table():
@@ -314,7 +314,6 @@ def test_execute_ddl_list():
         [
             "CREATE TABLE TableA (id INT64) PRIMARY KEY (id)",
             "CREATE TABLE TableB (id INT64) PRIMARY KEY (id)",
-            "  ",
         ]
     )
     assert client.table_exists("TableA") is True
@@ -328,7 +327,7 @@ def test_execute_ddl_empty_string():
 
 def test_execute_ddl_empty_list():
     client = SpannerClient("proj", "inst", "db")
-    client.execute_ddl(["  ", ""])
+    client.execute_ddl([])
 
 
 def test_execute_ddl_invalid_type():
