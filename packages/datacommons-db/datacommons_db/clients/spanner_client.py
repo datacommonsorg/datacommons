@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import re
 from collections.abc import Iterator
 from typing import Any
 
@@ -20,16 +19,10 @@ from google.auth.credentials import Credentials
 from google.cloud import spanner
 from google.cloud.spanner_v1.transaction import Transaction
 
-_TABLE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_]+$")
-_RESOURCE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_\-]+$")
-
-
-def _validate_resource_id(name: str, value: object) -> None:
-    """Validate that a GCP / Spanner resource ID matches expected identifier patterns."""
-    if not isinstance(value, str) or not value or not _RESOURCE_ID_PATTERN.match(value):
-        raise ValueError(
-            f"Invalid {name} '{value}'. Must be a non-empty string containing only alphanumeric characters, underscores, and hyphens."
-        )
+from datacommons_db.utils.validators import (
+    validate_resource_id,
+    validate_table_name,
+)
 
 
 class SpannerClient:
@@ -51,9 +44,9 @@ class SpannerClient:
             credentials: Optional Google Cloud credentials object.
         """
         if project_id is not None:
-            _validate_resource_id("project_id", project_id)
-        _validate_resource_id("instance_id", instance_id)
-        _validate_resource_id("database_id", database_id)
+            validate_resource_id("project_id", project_id)
+        validate_resource_id("instance_id", instance_id)
+        validate_resource_id("database_id", database_id)
 
         self.instance_id = instance_id
         self.database_id = database_id
@@ -72,10 +65,7 @@ class SpannerClient:
         Returns:
             True if the table exists, False otherwise.
         """
-        if not table_name or not _TABLE_NAME_PATTERN.match(table_name):
-            raise ValueError(
-                f"Invalid table name '{table_name}'. Table names must match {_TABLE_NAME_PATTERN.pattern}"
-            )
+        validate_table_name(table_name)
 
         query = (
             "SELECT 1 FROM information_schema.tables "
