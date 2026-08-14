@@ -70,26 +70,22 @@ if not client.table_exists("Node"):
 
 #### Executing DDL Statements
 
-`execute_ddl()` accepts a single statement string or a list of statement strings, and waits for Spanner Long-Running Operations (LROs) to complete, returning a `DdlResult`:
+`execute_ddl()` accepts a list of DDL statement strings and waits for Spanner Long-Running Operations (LROs) to complete, returning a `DdlResult`:
 
 ```python
 from datacommons_db.clients import ExecutionStatus
 
-# Single statement
-ddl_result = client.execute_ddl("""
+ddl_result = client.execute_ddl([
+    """
     CREATE TABLE CustomTable (
         id STRING(64) NOT NULL,
         name STRING(MAX)
     ) PRIMARY KEY (id)
-""")
-if ddl_result.status != ExecutionStatus.SUCCESS:
-    print(f"DDL failed: {ddl_result.error_message}")
-
-# Multiple statements (pass as a list)
-ddl_result = client.execute_ddl([
-    "CREATE TABLE TableA (id INT64) PRIMARY KEY (id)",
+    """,
     "CREATE TABLE TableB (id INT64) PRIMARY KEY (id)",
 ])
+if ddl_result.status != ExecutionStatus.SUCCESS:
+    print(f"DDL failed: {ddl_result.error_message}")
 ```
 
 

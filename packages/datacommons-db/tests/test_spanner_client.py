@@ -263,7 +263,7 @@ def test_table_exists_false():
 def test_table_exists_true():
     client = SpannerClient("proj", "inst", "db")
     result = client.execute_ddl(
-        "CREATE TABLE Node (subject_id STRING(64)) PRIMARY KEY (subject_id)"
+        ["CREATE TABLE Node (subject_id STRING(64)) PRIMARY KEY (subject_id)"]
     )
     assert isinstance(result, DdlResult)
     assert result.status == ExecutionStatus.SUCCESS
@@ -285,7 +285,9 @@ def test_execute_ddl_multiple_statements():
 
 def test_execute_ddl_single_statement():
     client = SpannerClient("proj", "inst", "db")
-    result = client.execute_ddl("CREATE TABLE SingleTable (id INT64) PRIMARY KEY (id)")
+    result = client.execute_ddl(
+        ["CREATE TABLE SingleTable (id INT64) PRIMARY KEY (id)"]
+    )
     assert result.status == ExecutionStatus.SUCCESS
     assert client.table_exists("SingleTable") is True
 
@@ -293,12 +295,12 @@ def test_execute_ddl_single_statement():
 def test_execute_ddl_drop_table():
     client = SpannerClient("proj", "inst", "db")
     result1 = client.execute_ddl(
-        "CREATE TABLE Edge (predicate STRING(64)) PRIMARY KEY (predicate)"
+        ["CREATE TABLE Edge (predicate STRING(64)) PRIMARY KEY (predicate)"]
     )
     assert result1.status == ExecutionStatus.SUCCESS
     assert client.table_exists("Edge") is True
 
-    result2 = client.execute_ddl("DROP TABLE Edge")
+    result2 = client.execute_ddl(["DROP TABLE Edge"])
     assert result2.status == ExecutionStatus.SUCCESS
     assert client.table_exists("Edge") is False
 
@@ -333,23 +335,26 @@ def test_execute_ddl_list():
     assert client.table_exists("TableB") is True
 
 
-def test_execute_ddl_empty_string():
-    client = SpannerClient("proj", "inst", "db")
-    result = client.execute_ddl("")
-    assert result.status == ExecutionStatus.SUCCESS
-
-
 def test_execute_ddl_empty_list():
     client = SpannerClient("proj", "inst", "db")
     result = client.execute_ddl([])
     assert result.status == ExecutionStatus.SUCCESS
 
 
-def test_execute_ddl_invalid_type():
+@pytest.mark.parametrize(
+    "invalid_ddl",
+    [
+        "CREATE TABLE SingleTable (id INT64) PRIMARY KEY (id)",
+        "",
+        123,
+        None,
+    ],
+)
+def test_execute_ddl_invalid_type(invalid_ddl: object):
     client = SpannerClient("proj", "inst", "db")
-    result = client.execute_ddl(123)
+    result = client.execute_ddl(invalid_ddl)
     assert result.status == ExecutionStatus.ERROR
-    assert "must be a str or a list of str" in result.error_message
+    assert "must be a list of str" in result.error_message
 
 
 def test_execute_ddl_error(fake_spanner_db: FakeSpannerDatabase):
@@ -357,7 +362,7 @@ def test_execute_ddl_error(fake_spanner_db: FakeSpannerDatabase):
     fake_spanner_db.update_ddl = MagicMock(
         side_effect=RuntimeError("Spanner DDL execution failed")
     )
-    result = client.execute_ddl("CREATE TABLE ErrorTable (id INT64) PRIMARY KEY (id)")
+    result = client.execute_ddl(["CREATE TABLE ErrorTable (id INT64) PRIMARY KEY (id)"])
     assert result.status == ExecutionStatus.ERROR
     assert "Spanner DDL execution failed" in result.error_message
 

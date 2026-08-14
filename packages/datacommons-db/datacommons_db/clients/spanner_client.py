@@ -129,32 +129,29 @@ class SpannerClient:
         result = self.execute_query(query, params=params, param_types=param_types)
         return bool(result.status == ExecutionStatus.SUCCESS and result.rows)
 
-    def execute_ddl(self, ddl_statements: str | list[str]) -> DdlResult:
+    def execute_ddl(self, ddl_statements: list[str]) -> DdlResult:
         """Execute DDL statements and wait for completion.
 
         Handles operations like CREATE TABLE, ALTER TABLE, etc.
 
         Args:
-            ddl_statements: A single DDL statement string or a list of DDL statement strings.
+            ddl_statements: A list of DDL statement strings.
 
         Returns:
             DdlResult with execution status and optional error message.
         """
-        if isinstance(ddl_statements, str):
-            statements = [ddl_statements]
-        elif isinstance(ddl_statements, list):
-            statements = ddl_statements
-        else:
-            return DdlResult(
-                status=ExecutionStatus.ERROR,
-                error_message="ddl_statements must be a str or a list of str.",
-            )
-
-        if not statements:
+        # Treat no-op as success - all requested 0 statements were executed with nothing to do
+        if not ddl_statements:
             return DdlResult(status=ExecutionStatus.SUCCESS)
 
+        if not isinstance(ddl_statements, list):
+            return DdlResult(
+                status=ExecutionStatus.ERROR,
+                error_message="ddl_statements must be a list of str.",
+            )
+
         try:
-            operation = self.database.update_ddl(statements)
+            operation = self.database.update_ddl(ddl_statements)
             operation.result()
             return DdlResult(status=ExecutionStatus.SUCCESS)
         except Exception as e:  # noqa: BLE001 - must catch all exceptions to ensure a DdlResult is always returned
