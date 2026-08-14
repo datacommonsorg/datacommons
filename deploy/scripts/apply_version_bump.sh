@@ -84,7 +84,7 @@ import re, sys
 new_v = sys.argv[1]
 p = 'packages/datacommons-cli/pyproject.toml'
 content = open(p).read()
-updated, count = re.subn(r'\"datacommons-admin[^\"]*\"', f'\"datacommons-admin=={new_v}\"', content)
+updated, count = re.subn(r'\"datacommons-admin(?:\s*[=><~][^\"]*)?\"', f'\"datacommons-admin=={new_v}\"', content)
 if not count:
     sys.exit('Error: datacommons-admin dependency not found or updated in packages/datacommons-cli/pyproject.toml')
 open(p, 'w').write(updated)

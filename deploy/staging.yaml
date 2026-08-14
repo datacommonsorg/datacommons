@@ -56,7 +56,7 @@ steps:
         if [ -n "$$GH_TOKEN" ]; then
           echo "Creating local RC commit and tagging v$tag_version on GitHub..."
           git add -u
-          git commit -m "chore(rc): bump version files for v$tag_version" || true
+          git diff-index --quiet HEAD || git commit -m "chore(rc): bump version files for v$tag_version"
           git tag -f "v$tag_version"
           git push origin "v$tag_version" --force
         fi
