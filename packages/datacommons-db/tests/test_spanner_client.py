@@ -188,12 +188,10 @@ def fake_spanner_db():
         "datacommons_db.clients.spanner_client.spanner.Client"
     ) as mock_client_cls:
 
-        def fake_client_factory(
-            project: str | None = None, credentials: object = None
-        ) -> MagicMock:
+        def fake_client_factory(project: str, credentials: object = None) -> MagicMock:
             _ = credentials
             mock_client = MagicMock()
-            mock_client.project = project or "auto-detected-project"
+            mock_client.project = project
             mock_instance = MagicMock()
             mock_client.instance.return_value = mock_instance
             mock_instance.database.return_value = fake_db
@@ -210,24 +208,12 @@ def fake_spanner_db():
 
 
 def test_init_success():
-    # Explicit project_id
     client = SpannerClient(
+        project_id="test-project",
         instance_id="test-instance",
         database_id="test-db",
-        project_id="test-project",
     )
     assert client.project_id == "test-project"
-    assert client.instance_id == "test-instance"
-    assert client.database_id == "test-db"
-
-
-def test_init_auto_detect_project():
-    # Omitted project_id (auto-detected from environment)
-    client = SpannerClient(
-        instance_id="test-instance",
-        database_id="test-db",
-    )
-    assert client.project_id == "auto-detected-project"
     assert client.instance_id == "test-instance"
     assert client.database_id == "test-db"
 
@@ -239,6 +225,7 @@ def test_init_auto_detect_project():
         ("   ", "inst", "db"),
         ("proj with space", "inst", "db"),
         ("proj/slash", "inst", "db"),
+        (None, "inst", "db"),
         ("proj", "", "db"),
         ("proj", "   ", "db"),
         ("proj", "inst with space", "db"),
@@ -254,7 +241,7 @@ def test_init_validation_errors(proj: str | None, inst: str, db: str):
     with pytest.raises(
         ValueError, match="Invalid (project_id|instance_id|database_id)"
     ):
-        SpannerClient(instance_id=inst, database_id=db, project_id=proj)
+        SpannerClient(project_id=proj, instance_id=inst, database_id=db)
 
 
 # ==============================================================================
@@ -263,12 +250,12 @@ def test_init_validation_errors(proj: str | None, inst: str, db: str):
 
 
 def test_table_exists_false():
-    client = SpannerClient("inst", "db")
+    client = SpannerClient("proj", "inst", "db")
     assert client.table_exists("NonExistentTable") is False
 
 
 def test_table_exists_true():
-    client = SpannerClient("inst", "db")
+    client = SpannerClient("proj", "inst", "db")
     client.execute_ddl(
         "CREATE TABLE Node (subject_id STRING(64)) PRIMARY KEY (subject_id)"
     )
@@ -276,7 +263,7 @@ def test_table_exists_true():
 
 
 def test_execute_ddl_multiple_statements():
-    client = SpannerClient("inst", "db")
+    client = SpannerClient("proj", "inst", "db")
     client.execute_ddl(
         [
             "CREATE TABLE Node (subject_id STRING(64)) PRIMARY KEY (subject_id);",
@@ -288,13 +275,13 @@ def test_execute_ddl_multiple_statements():
 
 
 def test_execute_ddl_single_statement_trailing_semicolon():
-    client = SpannerClient("inst", "db")
+    client = SpannerClient("proj", "inst", "db")
     client.execute_ddl("CREATE TABLE SemicolonTable (id INT64) PRIMARY KEY (id);")
     assert client.table_exists("SemicolonTable") is True
 
 
 def test_execute_ddl_drop_table():
-    client = SpannerClient("inst", "db")
+    client = SpannerClient("proj", "inst", "db")
     client.execute_ddl(
         "CREATE TABLE Edge (predicate STRING(64)) PRIMARY KEY (predicate)"
     )
@@ -316,13 +303,13 @@ def test_execute_ddl_drop_table():
     ],
 )
 def test_table_exists_invalid_name(invalid_name: str):
-    client = SpannerClient("inst", "db")
+    client = SpannerClient("proj", "inst", "db")
     with pytest.raises(ValueError, match="Invalid table name"):
         client.table_exists(invalid_name)
 
 
 def test_execute_ddl_list():
-    client = SpannerClient("inst", "db")
+    client = SpannerClient("proj", "inst", "db")
     client.execute_ddl(
         [
             "CREATE TABLE TableA (id INT64) PRIMARY KEY (id)",
@@ -335,17 +322,17 @@ def test_execute_ddl_list():
 
 
 def test_execute_ddl_empty_string():
-    client = SpannerClient("inst", "db")
+    client = SpannerClient("proj", "inst", "db")
     client.execute_ddl("")
 
 
 def test_execute_ddl_empty_list():
-    client = SpannerClient("inst", "db")
+    client = SpannerClient("proj", "inst", "db")
     client.execute_ddl(["  ", ""])
 
 
 def test_execute_ddl_invalid_type():
-    client = SpannerClient("inst", "db")
+    client = SpannerClient("proj", "inst", "db")
     with pytest.raises(
         TypeError, match="ddl_statements must be a str or a list of str"
     ):
@@ -358,7 +345,7 @@ def test_execute_ddl_invalid_type():
 
 
 def test_execute_dml_with_params(fake_spanner_db: FakeSpannerDatabase):
-    client = SpannerClient("inst", "db")
+    client = SpannerClient("proj", "inst", "db")
     params = {"val": "test_val"}
     param_types = {"val": spanner.param_types.STRING}
 
@@ -378,7 +365,7 @@ def test_execute_dml_with_params(fake_spanner_db: FakeSpannerDatabase):
 
 
 def test_execute_query_with_params():
-    client = SpannerClient("inst", "db")
+    client = SpannerClient("proj", "inst", "db")
     params = {"name": "test_node"}
     param_types = {"name": spanner.param_types.STRING}
 
@@ -392,7 +379,7 @@ def test_execute_query_with_params():
 
 def test_execute_query_custom_table(fake_spanner_db: FakeSpannerDatabase):
     fake_spanner_db.tables["custom_test_table"] = [["row1", 10], ["row2", 20]]
-    client = SpannerClient("inst", "db")
+    client = SpannerClient("proj", "inst", "db")
 
     results = client.execute_query("SELECT name, count FROM custom_test_table")
     assert results == [["row1", 10], ["row2", 20]]

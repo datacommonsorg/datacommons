@@ -52,17 +52,10 @@ The package provides `SpannerClient` for direct Spanner operations, DDL executio
 ```python
 from datacommons_db.clients import SpannerClient
 
-# 1. Auto-detected project ID (from GOOGLE_CLOUD_PROJECT or environment)
 client = SpannerClient(
-    instance_id="your-spanner-instance",
-    database_id="your-spanner-database",
-)
-
-# 2. Or with explicit project ID
-client = SpannerClient(
-    instance_id="your-spanner-instance",
-    database_id="your-spanner-database",
     project_id="your-gcp-project",
+    instance_id="your-spanner-instance",
+    database_id="your-spanner-database",
 )
 ```
 
