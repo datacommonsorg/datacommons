@@ -6,17 +6,18 @@ This guide details the release procedure for the Data Commons Platform (DCP). Al
 
 ## 1. High-Level Release Overview
 
-The release workflow consists of three distinct stages:
+The release process follows three sequential stages:
 
-* **Stage 1: Release Candidate (RC Staging)**
-  * **👤 Releaser Action:** Run `gcloud builds submit` targeting `deploy/staging.yaml` with candidate version (e.g. `1.2.3rc1`).
-  * **🤖 Automated Action:** Ephemerally bumps version files in-container, creates a local commit, pushes Git tag `v1.2.3rc1` to GitHub (*`main` branch remains untouched*), and publishes wheels to **TestPyPI**.
-* **Stage 2: Version Bump PR (Main Branch Sync)**
-  * **👤 Releaser Action:** Run `gcloud builds submit` targeting `deploy/bump_version.yaml` with release version (e.g. `1.2.3`), then review and merge the generated PR into `main`.
-  * **🤖 Automated Action:** Runs `apply_version_bump.sh`, updates `uv.lock`, commits changes, and opens an automated PR against `main`.
-* **Stage 3: Production Release (PyPI & GitHub Release)**
-  * **👤 Releaser Action:** Draft and publish an official GitHub Release with tag `v1.2.3` on `main`.
-  * **🤖 Automated Action:** `deploy/release.yaml` runs **read-only validation** asserting that all committed files match `1.2.3`, then builds and publishes wheels to **Official PyPI**.
+1. **Stage 1: Stage a Release Candidate (RC)**
+   - Run `deploy/staging.yaml` with your target candidate version (e.g. `1.2.3rc1`).
+   - The build ephemerally bumps version files in-container, pushes Git tag `v1.2.3rc1` to GitHub (*`main` branch remains untouched*), and publishes candidate wheels to **TestPyPI** for staging verification.
+2. **Stage 2: Open & Merge Version Bump PR**
+   - Run `deploy/bump_version.yaml` with the target release version (e.g. `1.2.3`).
+   - The build opens an automated PR against `main` containing updated `VERSION` files, `infra/dcp/variables.tf`, and `uv.lock`.
+   - Review and merge the PR into `main`.
+3. **Stage 3: Publish Official Production Release**
+   - Create and publish a GitHub Release with tag `v1.2.3` on `main`.
+   - Cloud Build automatically validates that committed files match `1.2.3` and publishes official wheels to **PyPI**.
 
 > [!IMPORTANT]
 > **Package Build Order:** Packages are published alphabetically (`packages/*`). This guarantees `datacommons-admin` is published **before** `datacommons-cli`, satisfying the `datacommons-admin==VERSION` requirement on PyPI and TestPyPI.
@@ -27,7 +28,7 @@ The release workflow consists of three distinct stages:
 
 ### Phase 1: Stage & Verify a Release Candidate (RC)
 
-#### Step 0: Component Image & Flex Template Tagging
+#### Step 0: Tag Candidate Images & Flex Template
 Ensure all core microservice images and the Dataflow flex template are built and tagged with the candidate version (e.g. `1.2.3rc1`):
 * `gcr.io/datcom-ci/datacommons-services:1.2.3rc1`
 * `gcr.io/datcom-ci/datacommons-data:1.2.3rc1`
@@ -36,10 +37,10 @@ Ensure all core microservice images and the Dataflow flex template are built and
 * `us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion:1.2.3rc1`
 * `gs://datcom-templates/templates/flex/ingestion-1.2.3rc1.json`
 
-*(Note: Future followups will extend Cloud Build to automate this image tagging step).*
+*(Note: Future followups will extend Cloud Build to automate image tagging).*
 
-#### Step 1: 👤 Releaser Action — Submit Staging Build
-Submit `deploy/staging.yaml` targeting your RC version. (Optional: specify `_GITHUB_COMMIT="<SHA>"` to build off a specific commit):
+#### Step 1: Submit Staging Build (`deploy/staging.yaml`)
+Submit `deploy/staging.yaml` with your target RC version:
 ```bash
 # Build off latest main
 gcloud builds submit \
@@ -56,14 +57,14 @@ gcloud builds submit \
   .
 ```
 
-#### Step 2: 🤖 Automated Pipeline Execution (`staging.yaml`)
-1. Clones the target commit into a clean build container.
-2. Executes `apply_version_bump.sh "1.2.3rc1"` to update `VERSION`, `packages/*/VERSION`, `infra/dcp/variables.tf`, and lock `datacommons-admin==1.2.3rc1`.
-3. Creates a local commit containing these updated version files inside the container and force-pushes Git tag `v1.2.3rc1` to GitHub.
-   *(Note: The remote tag `v1.2.3rc1` now points directly to this version-bumped commit on GitHub, ensuring remote Terraform module calls via `?ref=v1.2.3rc1` resolve `default = "1.2.3rc1"` in `variables.tf`, while branch `main` remains clean).*
-4. Builds package wheels in subshells and publishes them to **TestPyPI**.
+**What this step does:**
+* Clones the target commit into a clean build container.
+* Runs `apply_version_bump.sh "1.2.3rc1"` to update `VERSION`, `packages/*/VERSION`, `infra/dcp/variables.tf`, and lock `datacommons-admin==1.2.3rc1`.
+* Creates a local commit containing these updated version files and force-pushes Git tag `v1.2.3rc1` to GitHub.
+  *(Note: Tag `v1.2.3rc1` on GitHub points directly to this commit so remote Terraform module fetches via `?ref=v1.2.3rc1` resolve `default = "1.2.3rc1"` in `variables.tf`, while branch `main` remains clean).*
+* Builds package wheels in subshells and publishes them to **TestPyPI**.
 
-#### Step 3: ✅ Verification Checklist for Staging
+#### Step 2: Verify Release Candidate on Staging
 - [ ] **TestPyPI Package Check:** Confirm wheels exist at `https://test.pypi.org/project/datacommons-cli/1.2.3rc1/`.
 - [ ] **CLI Installation Test:** Install the candidate in an isolated terminal:
   ```bash
@@ -87,9 +88,9 @@ gcloud builds submit \
 
 ### Phase 2: Open & Merge Production Version Bump PR
 
-Once the RC is fully verified on staging:
+Once the RC is verified on staging:
 
-#### Step 1: 👤 Releaser Action — Submit Version Bump PR Generator
+#### Step 1: Submit Version Bump PR Generator (`deploy/bump_version.yaml`)
 ```bash
 gcloud builds submit \
   --config deploy/bump_version.yaml \
@@ -98,13 +99,13 @@ gcloud builds submit \
   .
 ```
 
-#### Step 2: 🤖 Automated Pipeline Execution (`bump_version.yaml`)
-1. Clones `main` and checks out branch `chore/bump-version-1.2.3`.
-2. Runs `apply_version_bump.sh "1.2.3"`.
-3. Runs `uv lock` to update dependencies.
-4. Commits tracked changes, pushes the branch to GitHub, and creates a Pull Request against `main`.
+**What this step does:**
+* Clones `main` and checks out branch `chore/bump-version-1.2.3`.
+* Runs `apply_version_bump.sh "1.2.3"` to update `VERSION`, `packages/*/VERSION`, `packages/datacommons-cli/pyproject.toml`, and `infra/dcp/variables.tf`.
+* Runs `uv lock` to update dependencies.
+* Commits changes, pushes the branch to GitHub, and opens a Pull Request against `main`.
 
-#### Step 3: 👤 Releaser Action — Review & Merge PR
+#### Step 2: Review & Merge PR
 1. Locate the auto-created PR (e.g. `chore: bump version to 1.2.3`) on GitHub.
 2. Verify that `VERSION`, `packages/*/VERSION`, `packages/datacommons-cli/pyproject.toml`, and `infra/dcp/variables.tf` are updated to `1.2.3`.
 3. Approve and merge the PR into `main`.
@@ -113,8 +114,8 @@ gcloud builds submit \
 
 ### Phase 3: Publish Production Release to PyPI
 
-#### Step 0: Component Image & Flex Template Tagging
-Ensure all production container images and Dataflow flex template are tagged with the official release version (`1.2.3`):
+#### Step 0: Tag Production Images & Flex Template
+Ensure all production container images and Dataflow flex template are tagged with the release version (`1.2.3`):
 * `gcr.io/datcom-ci/datacommons-services:1.2.3`
 * `gcr.io/datcom-ci/datacommons-data:1.2.3`
 * `gcr.io/datcom-ci/datacommons-ingestion-helper:1.2.3`
@@ -122,7 +123,7 @@ Ensure all production container images and Dataflow flex template are tagged wit
 * `us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion:1.2.3`
 * `gs://datcom-templates/templates/flex/ingestion-1.2.3.json`
 
-#### Step 1: 👤 Releaser Action — Draft & Publish GitHub Release
+#### Step 1: Draft & Publish GitHub Release
 1. Navigate to [GitHub Releases](https://github.com/datacommonsorg/datacommons/releases).
 2. Click **Draft a new release**.
 3. Fill out the fields:
@@ -132,16 +133,16 @@ Ensure all production container images and Dataflow flex template are tagged wit
    * **Description:** Paste curated release notes.
 4. Click **Publish release**.
 
-#### Step 2: 🤖 Automated Pipeline Execution (`release.yaml`)
-1. Cloud Build automatically triggers `deploy/release.yaml` on tag push `v1.2.3`.
-2. Performs **strict read-only validation**:
-   - Asserts root `VERSION == 1.2.3`.
-   - Asserts all `packages/*/VERSION == 1.2.3`.
-   - Asserts `datacommons-cli/pyproject.toml` locks `datacommons-admin==1.2.3`.
-   - Asserts `infra/dcp/variables.tf` defaults `dcp_version = "1.2.3"`.
-3. Builds package wheels in subshells and publishes them to **Official PyPI**.
+**What this step triggers (`deploy/release.yaml`):**
+* Cloud Build automatically runs `deploy/release.yaml` on tag push `v1.2.3`.
+* Performs **strict read-only validation**:
+  - Asserts root `VERSION == 1.2.3`.
+  - Asserts all `packages/*/VERSION == 1.2.3`.
+  - Asserts `datacommons-cli/pyproject.toml` locks `datacommons-admin==1.2.3`.
+  - Asserts `infra/dcp/variables.tf` defaults `dcp_version = "1.2.3"`.
+* Builds package wheels in subshells and publishes them to **Official PyPI**.
 
-#### Step 3: ✅ Verification Checklist for Production
+#### Step 2: Verify Production Release
 - [ ] **PyPI Live Check:** Confirm packages are live at `https://pypi.org/project/datacommons-cli/1.2.3/`.
 - [ ] **CLI Upgrade Test:**
   ```bash
