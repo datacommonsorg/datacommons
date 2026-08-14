@@ -39,78 +39,80 @@ USAGE ACROSS CI/CD FLOWS:
 """
 
 import argparse
-from pathlib import Path
 import re
 import sys
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def apply_version_bump(new_version: str) -> None:
-  """Updates version manifests and dependency pins across the monorepo."""
-  version_file = REPO_ROOT / "VERSION"
-  old_version = version_file.read_text().strip() if version_file.exists() else "unknown"
-  print(f"Applying version bump: '{old_version}' -> '{new_version}'...")
-
-  # 1. Update root VERSION file
-  version_file.write_text(f"{new_version}\n")
-
-  # 2. Update subpackage VERSION files
-  packages_dir = REPO_ROOT / "packages"
-  if packages_dir.is_dir():
-    for pkg_dir in sorted(packages_dir.iterdir()):
-      if pkg_dir.is_dir():
-        pkg_version_file = pkg_dir / "VERSION"
-        rel_path = pkg_version_file.relative_to(REPO_ROOT)
-        print(f"Updating {rel_path} to {new_version}")
-        pkg_version_file.write_text(f"{new_version}\n")
-
-  # 3. Update Terraform dcp_version variable default in infra/dcp/variables.tf
-  tf_file = REPO_ROOT / "infra/dcp/variables.tf"
-  if tf_file.exists():
-    tf_content = tf_file.read_text()
-    updated_tf, count = re.subn(
-        r'(variable\s+"dcp_version"\s+{[^}]*default\s*=\s*")[^"]+(")',
-        rf"\g<1>{new_version}\g<2>",
-        tf_content,
+    """Updates version manifests and dependency pins across the monorepo."""
+    version_file = REPO_ROOT / "VERSION"
+    old_version = (
+        version_file.read_text().strip() if version_file.exists() else "unknown"
     )
-    if not count:
-      sys.exit(
-          "Error: variable 'dcp_version' default not found or updated in"
-          " infra/dcp/variables.tf"
-      )
-    tf_file.write_text(updated_tf)
+    print(f"Applying version bump: '{old_version}' -> '{new_version}'...")
 
-  # 4. Lock datacommons-admin dependency requirement in datacommons-cli/pyproject.toml
-  cli_toml = REPO_ROOT / "packages/datacommons-cli/pyproject.toml"
-  if cli_toml.exists():
-    toml_content = cli_toml.read_text()
-    updated_toml, count = re.subn(
-        r'"datacommons-admin(?:\s*[=><~][^"]*)?"',
-        f'"datacommons-admin=={new_version}"',
-        toml_content,
-    )
-    if not count:
-      sys.exit(
-          "Error: datacommons-admin dependency not found or updated in"
-          " packages/datacommons-cli/pyproject.toml"
-      )
-    cli_toml.write_text(updated_toml)
+    # 1. Update root VERSION file
+    version_file.write_text(f"{new_version}\n")
 
-  print(f"Successfully applied version bump to '{new_version}'.")
+    # 2. Update subpackage VERSION files
+    packages_dir = REPO_ROOT / "packages"
+    if packages_dir.is_dir():
+        for pkg_dir in sorted(packages_dir.iterdir()):
+            if pkg_dir.is_dir():
+                pkg_version_file = pkg_dir / "VERSION"
+                rel_path = pkg_version_file.relative_to(REPO_ROOT)
+                print(f"Updating {rel_path} to {new_version}")
+                pkg_version_file.write_text(f"{new_version}\n")
+
+    # 3. Update Terraform dcp_version variable default in infra/dcp/variables.tf
+    tf_file = REPO_ROOT / "infra/dcp/variables.tf"
+    if tf_file.exists():
+        tf_content = tf_file.read_text()
+        updated_tf, count = re.subn(
+            r'(variable\s+"dcp_version"\s+{[^}]*default\s*=\s*")[^"]+(")',
+            rf"\g<1>{new_version}\g<2>",
+            tf_content,
+        )
+        if not count:
+            sys.exit(
+                "Error: variable 'dcp_version' default not found or updated in"
+                " infra/dcp/variables.tf"
+            )
+        tf_file.write_text(updated_tf)
+
+    # 4. Lock datacommons-admin dependency requirement in datacommons-cli/pyproject.toml
+    cli_toml = REPO_ROOT / "packages/datacommons-cli/pyproject.toml"
+    if cli_toml.exists():
+        toml_content = cli_toml.read_text()
+        updated_toml, count = re.subn(
+            r'"datacommons-admin(?:\s*[=><~][^"]*)?"',
+            f'"datacommons-admin=={new_version}"',
+            toml_content,
+        )
+        if not count:
+            sys.exit(
+                "Error: datacommons-admin dependency not found or updated in"
+                " packages/datacommons-cli/pyproject.toml"
+            )
+        cli_toml.write_text(updated_toml)
+
+    print(f"Successfully applied version bump to '{new_version}'.")
 
 
 def main() -> None:
-  parser = argparse.ArgumentParser(
-      description="Single Source of Truth for DCP Version Updates."
-  )
-  parser.add_argument(
-      "new_version",
-      help="The target version string (e.g. 1.2.3 or 1.2.3rc1)",
-  )
-  args = parser.parse_args()
-  apply_version_bump(args.new_version)
+    parser = argparse.ArgumentParser(
+        description="Single Source of Truth for DCP Version Updates."
+    )
+    parser.add_argument(
+        "new_version",
+        help="The target version string (e.g. 1.2.3 or 1.2.3rc1)",
+    )
+    args = parser.parse_args()
+    apply_version_bump(args.new_version)
 
 
 if __name__ == "__main__":
-  main()
+    main()
