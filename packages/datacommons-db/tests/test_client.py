@@ -325,11 +325,21 @@ def test_table_exists_true():
 def test_execute_ddl_multiple_statements():
     client = SpannerClient("inst", "db")
     client.execute_ddl(
-        "CREATE TABLE Node (subject_id STRING(64)) PRIMARY KEY (subject_id); "
-        "CREATE TABLE Edge (predicate STRING(64)) PRIMARY KEY (predicate);"
+        [
+            "CREATE TABLE Node (subject_id STRING(64)) PRIMARY KEY (subject_id);",
+            "CREATE TABLE Edge (predicate STRING(64)) PRIMARY KEY (predicate)",
+        ]
     )
     assert client.table_exists("Node") is True
     assert client.table_exists("Edge") is True
+
+
+def test_execute_ddl_single_statement_trailing_semicolon():
+    client = SpannerClient("inst", "db")
+    client.execute_ddl(
+        "CREATE TABLE SemicolonTable (id INT64) PRIMARY KEY (id);"
+    )
+    assert client.table_exists("SemicolonTable") is True
 
 
 def test_execute_ddl_drop_table():
@@ -341,6 +351,7 @@ def test_execute_ddl_drop_table():
 
     client.execute_ddl("DROP TABLE Edge")
     assert client.table_exists("Edge") is False
+
 
 
 @pytest.mark.parametrize(

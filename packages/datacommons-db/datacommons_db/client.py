@@ -152,19 +152,21 @@ class SpannerClient:
         Handles operations like CREATE TABLE, ALTER TABLE, etc.
 
         Args:
-            ddl_statements: A single DDL string (optionally multi-statement separated by ;)
-                           or a list of DDL statement strings.
+            ddl_statements: A single DDL statement string or a list of DDL statement strings.
         """
         statements: list[str] = []
         if isinstance(ddl_statements, str):
-            for stmt in ddl_statements.split(";"):
-                cleaned = stmt.strip()
-                if cleaned:
-                    statements.append(cleaned)
+            cleaned = ddl_statements.strip()
+            if cleaned.endswith(";"):
+                cleaned = cleaned[:-1].strip()
+            if cleaned:
+                statements.append(cleaned)
         elif isinstance(ddl_statements, list):
             for stmt in ddl_statements:
                 if isinstance(stmt, str):
                     cleaned = stmt.strip()
+                    if cleaned.endswith(";"):
+                        cleaned = cleaned[:-1].strip()
                     if cleaned:
                         statements.append(cleaned)
         else:
@@ -175,6 +177,7 @@ class SpannerClient:
 
         operation = self.database.update_ddl(statements)
         operation.result()
+
 
     def execute_dml(
         self,

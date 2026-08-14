@@ -81,16 +81,24 @@ print(f"Active schema version: {current_version}")
 
 #### Executing DDL Statements
 
-`execute_ddl()` handles single statements, semicolon-separated strings, or statement lists, and waits for Spanner Long-Running Operations (LROs) to complete:
+`execute_ddl()` accepts a single statement string or a list of statement strings, and waits for Spanner Long-Running Operations (LROs) to complete:
 
 ```python
+# Single statement
 client.execute_ddl("""
     CREATE TABLE CustomTable (
         id STRING(64) NOT NULL,
         name STRING(MAX)
-    ) PRIMARY KEY (id);
+    ) PRIMARY KEY (id)
 """)
+
+# Multiple statements (pass as a list)
+client.execute_ddl([
+    "CREATE TABLE TableA (id INT64) PRIMARY KEY (id)",
+    "CREATE TABLE TableB (id INT64) PRIMARY KEY (id)",
+])
 ```
+
 
 #### Executing Queries & DML
 
