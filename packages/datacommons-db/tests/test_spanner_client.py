@@ -17,7 +17,12 @@ from collections.abc import Callable
 from unittest.mock import MagicMock, patch
 
 import pytest
-from datacommons_db.clients import SpannerClient
+from datacommons_db.clients import (
+    DdlResult,
+    DmlResult,
+    QueryResult,
+    SpannerClient,
+)
 from google.cloud import spanner
 
 
@@ -256,38 +261,44 @@ def test_table_exists_false():
 
 def test_table_exists_true():
     client = SpannerClient("proj", "inst", "db")
-    client.execute_ddl(
+    result = client.execute_ddl(
         "CREATE TABLE Node (subject_id STRING(64)) PRIMARY KEY (subject_id)"
     )
+    assert isinstance(result, DdlResult)
+    assert result.success is True
     assert client.table_exists("Node") is True
 
 
 def test_execute_ddl_multiple_statements():
     client = SpannerClient("proj", "inst", "db")
-    client.execute_ddl(
+    result = client.execute_ddl(
         [
             "CREATE TABLE Node (subject_id STRING(64)) PRIMARY KEY (subject_id)",
             "CREATE TABLE Edge (predicate STRING(64)) PRIMARY KEY (predicate)",
         ]
     )
+    assert result.success is True
     assert client.table_exists("Node") is True
     assert client.table_exists("Edge") is True
 
 
 def test_execute_ddl_single_statement():
     client = SpannerClient("proj", "inst", "db")
-    client.execute_ddl("CREATE TABLE SingleTable (id INT64) PRIMARY KEY (id)")
+    result = client.execute_ddl("CREATE TABLE SingleTable (id INT64) PRIMARY KEY (id)")
+    assert result.success is True
     assert client.table_exists("SingleTable") is True
 
 
 def test_execute_ddl_drop_table():
     client = SpannerClient("proj", "inst", "db")
-    client.execute_ddl(
+    result1 = client.execute_ddl(
         "CREATE TABLE Edge (predicate STRING(64)) PRIMARY KEY (predicate)"
     )
+    assert result1.success is True
     assert client.table_exists("Edge") is True
 
-    client.execute_ddl("DROP TABLE Edge")
+    result2 = client.execute_ddl("DROP TABLE Edge")
+    assert result2.success is True
     assert client.table_exists("Edge") is False
 
 
@@ -310,32 +321,44 @@ def test_table_exists_invalid_name(invalid_name: str):
 
 def test_execute_ddl_list():
     client = SpannerClient("proj", "inst", "db")
-    client.execute_ddl(
+    result = client.execute_ddl(
         [
             "CREATE TABLE TableA (id INT64) PRIMARY KEY (id)",
             "CREATE TABLE TableB (id INT64) PRIMARY KEY (id)",
         ]
     )
+    assert result.success is True
     assert client.table_exists("TableA") is True
     assert client.table_exists("TableB") is True
 
 
 def test_execute_ddl_empty_string():
     client = SpannerClient("proj", "inst", "db")
-    client.execute_ddl("")
+    result = client.execute_ddl("")
+    assert result.success is True
 
 
 def test_execute_ddl_empty_list():
     client = SpannerClient("proj", "inst", "db")
-    client.execute_ddl([])
+    result = client.execute_ddl([])
+    assert result.success is True
 
 
 def test_execute_ddl_invalid_type():
     client = SpannerClient("proj", "inst", "db")
-    with pytest.raises(
-        TypeError, match="ddl_statements must be a str or a list of str"
-    ):
-        client.execute_ddl(123)
+    result = client.execute_ddl(123)
+    assert result.success is False
+    assert "must be a str or a list of str" in result.error
+
+
+def test_execute_ddl_error(fake_spanner_db: FakeSpannerDatabase):
+    client = SpannerClient("proj", "inst", "db")
+    fake_spanner_db.update_ddl = MagicMock(
+        side_effect=RuntimeError("Spanner DDL execution failed")
+    )
+    result = client.execute_ddl("CREATE TABLE ErrorTable (id INT64) PRIMARY KEY (id)")
+    assert result.success is False
+    assert "Spanner DDL execution failed" in result.error
 
 
 # ==============================================================================
@@ -348,12 +371,15 @@ def test_execute_dml_with_params(fake_spanner_db: FakeSpannerDatabase):
     params = {"val": "test_val"}
     param_types = {"val": spanner.param_types.STRING}
 
-    rows_affected = client.execute_dml(
+    result = client.execute_dml(
         "UPDATE Node SET value = @val WHERE true",
         params=params,
         param_types=param_types,
     )
-    assert rows_affected == 1
+    assert isinstance(result, DmlResult)
+    assert result.success is True
+    assert result.rows_affected == 1
+    assert result.error is None
     assert fake_spanner_db.last_transaction is not None
     assert (
         fake_spanner_db.last_transaction.last_query
@@ -363,22 +389,52 @@ def test_execute_dml_with_params(fake_spanner_db: FakeSpannerDatabase):
     assert fake_spanner_db.last_transaction.last_param_types == param_types
 
 
+def test_execute_dml_error(fake_spanner_db: FakeSpannerDatabase):
+    client = SpannerClient("proj", "inst", "db")
+    fake_spanner_db.run_in_transaction = MagicMock(
+        side_effect=RuntimeError("Transaction failed")
+    )
+    result = client.execute_dml("UPDATE Node SET value = 'test'")
+    assert isinstance(result, DmlResult)
+    assert result.success is False
+    assert result.rows_affected == 0
+    assert "Transaction failed" in result.error
+
+
 def test_execute_query_with_params():
     client = SpannerClient("proj", "inst", "db")
     params = {"name": "test_node"}
     param_types = {"name": spanner.param_types.STRING}
 
-    results = client.execute_query(
+    result = client.execute_query(
         "SELECT 1 WHERE name = @name",
         params=params,
         param_types=param_types,
     )
-    assert results == [["result_for_test_node"]]
+    assert isinstance(result, QueryResult)
+    assert result.success is True
+    assert result.rows == [["result_for_test_node"]]
+    assert result.error is None
 
 
 def test_execute_query_custom_table(fake_spanner_db: FakeSpannerDatabase):
     fake_spanner_db.tables["custom_test_table"] = [["row1", 10], ["row2", 20]]
     client = SpannerClient("proj", "inst", "db")
 
-    results = client.execute_query("SELECT name, count FROM custom_test_table")
-    assert results == [["row1", 10], ["row2", 20]]
+    result = client.execute_query("SELECT name, count FROM custom_test_table")
+    assert isinstance(result, QueryResult)
+    assert result.success is True
+    assert result.rows == [["row1", 10], ["row2", 20]]
+    assert result.error is None
+
+
+def test_execute_query_error(fake_spanner_db: FakeSpannerDatabase):
+    client = SpannerClient("proj", "inst", "db")
+    fake_spanner_db.snapshot = MagicMock(
+        side_effect=RuntimeError("Snapshot read failed")
+    )
+    result = client.execute_query("SELECT 1")
+    assert isinstance(result, QueryResult)
+    assert result.success is False
+    assert result.rows == []
+    assert "Snapshot read failed" in result.error

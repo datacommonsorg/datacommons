@@ -70,19 +70,21 @@ if not client.table_exists("Node"):
 
 #### Executing DDL Statements
 
-`execute_ddl()` accepts a single statement string or a list of statement strings, and waits for Spanner Long-Running Operations (LROs) to complete:
+`execute_ddl()` accepts a single statement string or a list of statement strings, and waits for Spanner Long-Running Operations (LROs) to complete, returning a `DdlResult`:
 
 ```python
 # Single statement
-client.execute_ddl("""
+ddl_result = client.execute_ddl("""
     CREATE TABLE CustomTable (
         id STRING(64) NOT NULL,
         name STRING(MAX)
     ) PRIMARY KEY (id)
 """)
+if not ddl_result.success:
+    print(f"DDL failed: {ddl_result.error}")
 
 # Multiple statements (pass as a list)
-client.execute_ddl([
+ddl_result = client.execute_ddl([
     "CREATE TABLE TableA (id INT64) PRIMARY KEY (id)",
     "CREATE TABLE TableB (id INT64) PRIMARY KEY (id)",
 ])
@@ -94,20 +96,25 @@ client.execute_ddl([
 ```python
 from google.cloud import spanner
 
-# Parameterized DML transaction
-rows_affected = client.execute_dml(
+# Parameterized DML transaction (returns DmlResult)
+dml_result = client.execute_dml(
     "UPDATE CustomTable SET name = @name WHERE id = @id",
     params={"name": "New Name", "id": "123"},
     param_types={"name": spanner.param_types.STRING, "id": spanner.param_types.STRING},
 )
+if dml_result.success:
+    print(f"Rows affected: {dml_result.rows_affected}")
+else:
+    print(f"DML failed: {dml_result.error}")
 
-# Point-in-time Snapshot query
-rows = client.execute_query(
+# Point-in-time Snapshot query (returns QueryResult)
+query_result = client.execute_query(
     "SELECT id, name FROM CustomTable WHERE id = @id",
     params={"id": "123"},
     param_types={"id": spanner.param_types.STRING},
 )
-print(f"Queried rows: {rows}")
+if query_result.success:
+    print(f"Queried rows: {query_result.rows}")
 ```
 
 

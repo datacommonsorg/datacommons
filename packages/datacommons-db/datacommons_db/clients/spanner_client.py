@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from collections.abc import Iterator
+from dataclasses import dataclass, field
 from typing import Any
 
 from google.auth.credentials import Credentials
@@ -23,6 +24,32 @@ from datacommons_db.utils.validators import (
     validate_resource_id,
     validate_table_name,
 )
+
+
+@dataclass(frozen=True)
+class DdlResult:
+    """Result of a DDL statement execution."""
+
+    success: bool
+    error: str | None = None
+
+
+@dataclass(frozen=True)
+class DmlResult:
+    """Result of a DML statement execution inside a read-write transaction."""
+
+    success: bool
+    rows_affected: int = 0
+    error: str | None = None
+
+
+@dataclass(frozen=True)
+class QueryResult:
+    """Result of a snapshot read query."""
+
+    success: bool
+    rows: list[list[Any]] = field(default_factory=list)
+    error: str | None = None
 
 
 class SpannerClient:
@@ -81,33 +108,43 @@ class SpannerClient:
                 return True
             return False
 
-    def execute_ddl(self, ddl_statements: str | list[str]) -> None:
+    def execute_ddl(self, ddl_statements: str | list[str]) -> DdlResult:
         """Execute DDL statements and wait for completion.
 
         Handles operations like CREATE TABLE, ALTER TABLE, etc.
 
         Args:
             ddl_statements: A single DDL statement string or a list of DDL statement strings.
+
+        Returns:
+            DdlResult with success status and optional error message.
         """
         if isinstance(ddl_statements, str):
             statements = [ddl_statements]
         elif isinstance(ddl_statements, list):
             statements = ddl_statements
         else:
-            raise TypeError("ddl_statements must be a str or a list of str.")
+            return DdlResult(
+                success=False,
+                error="ddl_statements must be a str or a list of str.",
+            )
 
         if not statements:
-            return
+            return DdlResult(success=True)
 
-        operation = self.database.update_ddl(statements)
-        operation.result()
+        try:
+            operation = self.database.update_ddl(statements)
+            operation.result()
+            return DdlResult(success=True)
+        except Exception as e:  # noqa: BLE001 - must catch all exceptions to ensure a DdlResult is always returned
+            return DdlResult(success=False, error=str(e))
 
     def execute_dml(
         self,
         query: str,
         params: dict[str, Any] | None = None,
         param_types: dict[str, Any] | None = None,
-    ) -> int:
+    ) -> DmlResult:
         """Execute a DML statement inside a Spanner read-write transaction.
 
         Handles operations like INSERT, UPDATE, DELETE
@@ -118,7 +155,7 @@ class SpannerClient:
             param_types: Dictionary of parameter types.
 
         Returns:
-            The number of rows modified.
+            DmlResult with success status, rows affected, and optional error message.
         """
 
         def _unit_of_work(transaction: Transaction) -> int:
@@ -126,7 +163,11 @@ class SpannerClient:
                 query, params=params, param_types=param_types
             )
 
-        return self.database.run_in_transaction(_unit_of_work)
+        try:
+            rows_affected = self.database.run_in_transaction(_unit_of_work)
+            return DmlResult(success=True, rows_affected=rows_affected)
+        except Exception as e:  # noqa: BLE001 - must catch all exceptions to ensure a DmlResult is always returned
+            return DmlResult(success=False, rows_affected=0, error=str(e))
 
     def _execute_query_stream(
         self,
@@ -157,7 +198,7 @@ class SpannerClient:
         query: str,
         params: dict[str, Any] | None = None,
         param_types: dict[str, Any] | None = None,
-    ) -> list[list[Any]]:
+    ) -> QueryResult:
         """Execute a read query within a snapshot transaction.
 
         Handles operations like SELECT.
@@ -168,8 +209,14 @@ class SpannerClient:
             param_types: Dictionary of parameter types.
 
         Returns:
-            A list of result rows (each row as a list).
+            QueryResult with success status, rows, and optional error message.
         """
-        return list(
-            self._execute_query_stream(query, params=params, param_types=param_types)
-        )
+        try:
+            rows = list(
+                self._execute_query_stream(
+                    query, params=params, param_types=param_types
+                )
+            )
+            return QueryResult(success=True, rows=rows)
+        except Exception as e:  # noqa: BLE001 - must catch all exceptions to ensure a QueryResult is always returned
+            return QueryResult(success=False, rows=[], error=str(e))
