@@ -13,6 +13,8 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
   name                = "${local.name_prefix}dc-ingestion-helper"
   location            = var.region
   deletion_protection = var.stateless_deletion_protection
+  # Security Hardening: Ingestion helper is internal-only (called by Cloud Workflows)
+  ingress = "INGRESS_TRAFFIC_INTERNAL_ONLY"
 
   template {
     timeout = "1800s"
@@ -79,11 +81,16 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
       }
     }
 
+    # Direct VPC Egress
     dynamic "vpc_access" {
-      for_each = var.vpc_connector_id != null && var.vpc_connector_id != "" ? [1] : []
+      for_each = var.subnet_id != null && var.subnet_id != "" ? [1] : []
       content {
-        connector = var.vpc_connector_id
-        egress    = "PRIVATE_RANGES_ONLY"
+        network_interfaces {
+          network    = var.network_id
+          subnetwork = var.subnet_id
+          tags       = ["dcp-service"]
+        }
+        egress = var.vpc_egress_mode
       }
     }
 

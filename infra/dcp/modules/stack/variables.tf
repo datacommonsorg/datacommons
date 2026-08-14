@@ -67,6 +67,18 @@ variable "auth_config" {
 
 
 
+variable "network_config" {
+  type = object({
+    enable              = bool
+    create_vpc          = bool
+    network_name        = string
+    subnet_cidr         = string
+    enable_cloud_nat    = bool
+    existing_network_id = optional(string)
+    existing_subnet_id  = optional(string)
+  })
+}
+
 variable "redis_config" {
   type = object({
     enable                  = bool
@@ -76,8 +88,6 @@ variable "redis_config" {
     location_id             = string
     alternative_location_id = string
     replica_count           = number
-    vpc_network_name        = string
-    vpc_connector_cidr      = string
   })
 }
 

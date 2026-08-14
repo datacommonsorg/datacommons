@@ -13,7 +13,21 @@ variable "image" {
 variable "cpu" { type = string }
 variable "memory" { type = string }
 variable "timeout" { type = string }
-variable "vpc_connector_id" { type = string }
+variable "network_id" {
+  type        = string
+  description = "VPC network ID or self_link for Direct VPC Egress"
+  default     = null
+}
+variable "subnet_id" {
+  type        = string
+  description = "Subnet ID or self_link for Direct VPC Egress"
+  default     = null
+}
+variable "vpc_egress_mode" {
+  type        = string
+  description = "VPC egress mode (PRIVATE_RANGES_ONLY or ALL_TRAFFIC)"
+  default     = "PRIVATE_RANGES_ONLY"
+}
 variable "bucket_name" { type = string }
 variable "input_path" { type = string }
 variable "ingestion_artifacts_path" { type = string }

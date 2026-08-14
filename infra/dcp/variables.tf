@@ -94,6 +94,52 @@ variable "storage_artifacts_bucket_name" {
 }
 
 # =============================================================================
+# Network Module
+# =============================================================================
+
+variable "enable_network" {
+  description = "Enable VPC networking for DCP services and ingestion jobs"
+  type        = bool
+  default     = true
+}
+
+variable "network_create_vpc" {
+  description = "Whether to provision a new custom VPC and subnet. Set to false to attach to an existing/Shared VPC."
+  type        = bool
+  default     = true
+}
+
+variable "network_name" {
+  description = "Name of the VPC network (used if network_create_vpc = true or for existing network lookup)."
+  type        = string
+  default     = "dc-vpc"
+}
+
+variable "network_subnet_cidr" {
+  description = "CIDR range for the private subnet."
+  type        = string
+  default     = "10.0.0.0/24"
+}
+
+variable "network_enable_cloud_nat" {
+  description = "Whether to provision a Cloud Router and Cloud NAT for secure outbound internet egress from private workers."
+  type        = bool
+  default     = true
+}
+
+variable "network_existing_network_id" {
+  description = "Network ID or self_link when attaching to an existing/Shared VPC."
+  type        = string
+  default     = null
+}
+
+variable "network_existing_subnet_id" {
+  description = "Subnet ID or self_link when attaching to an existing/Shared VPC."
+  type        = string
+  default     = null
+}
+
+# =============================================================================
 # Redis Module
 # =============================================================================
 
@@ -137,18 +183,6 @@ variable "redis_replica_count" {
   description = "The number of read replicas for the Redis instance"
   type        = number
   default     = 1
-}
-
-variable "redis_vpc_network_name" {
-  description = "VPC network name"
-  type        = string
-  default     = "default"
-}
-
-variable "redis_vpc_connector_cidr" {
-  description = "CIDR range for the VPC Access Connector"
-  type        = string
-  default     = "10.13.0.0/28"
 }
 
 # =============================================================================

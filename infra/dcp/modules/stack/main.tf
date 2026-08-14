@@ -1,5 +1,16 @@
-data "google_compute_network" "default" {
-  name = var.redis_config.vpc_network_name
+module "network" {
+  source = "../network"
+
+  enable              = var.network_config.enable
+  create_vpc          = var.network_config.create_vpc
+  project_id          = var.global.project_id
+  region              = var.global.region
+  instance_name       = var.global.instance_name
+  network_name        = var.network_config.network_name
+  subnet_cidr         = var.network_config.subnet_cidr
+  enable_cloud_nat    = var.network_config.enable_cloud_nat
+  existing_network_id = var.network_config.existing_network_id
+  existing_subnet_id  = var.network_config.existing_subnet_id
 }
 
 locals {
@@ -122,7 +133,8 @@ module "ingestion_preprocessing_job" {
   cpu                           = var.ingestion_config.preprocessing_job_cpu
   memory                        = var.ingestion_config.preprocessing_job_memory
   timeout                       = var.ingestion_config.preprocessing_job_timeout
-  vpc_connector_id              = var.redis_config.enable ? module.redis[0].connector_id : null
+  network_id                    = module.network.network_id
+  subnet_id                     = module.network.subnet_id
   bucket_name                   = module.storage.artifacts_bucket_name
   input_path                    = var.ingestion_config.input_path
   ingestion_artifacts_path      = var.ingestion_config.ingestion_artifacts_path
@@ -156,7 +168,8 @@ module "ingestion_postprocessing_job" {
   cpu                            = var.ingestion_config.postprocessing_job_cpu
   memory                         = var.ingestion_config.postprocessing_job_memory
   timeout                        = var.ingestion_config.postprocessing_job_timeout
-  vpc_connector_id               = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].connector_id : null
+  network_id                     = module.network.network_id
+  subnet_id                      = module.network.subnet_id
   spanner_instance_id            = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
   spanner_database_id            = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
   bigquery_connection_id         = var.spanner_config.enable ? module.spanner[0].bigquery_connection_id : ""
@@ -193,8 +206,9 @@ module "ingestion_helper_service" {
   use_spanner                  = var.spanner_config.enable
   enable_embeddings_generation = var.spanner_config.enable_embeddings_generation
 
-  # Redis configuration for cache clearing
-  vpc_connector_id         = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].connector_id : null
+  # Direct VPC Egress from network module
+  network_id               = module.network.network_id
+  subnet_id                = module.network.subnet_id
   redis_host               = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
   redis_port               = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
   ingestion_artifacts_path = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
@@ -219,7 +233,7 @@ module "ingestion_workflow" {
   enable_redis_cache_clearing         = var.redis_config.enable
   ingestion_artifacts_path            = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
   dataflow_ip_configuration           = var.ingestion_config.dataflow_ip_configuration
-  dataflow_subnetwork                 = var.ingestion_config.dataflow_subnetwork
+  dataflow_subnetwork                 = var.ingestion_config.dataflow_subnetwork != "" ? var.ingestion_config.dataflow_subnetwork : (module.network.subnet_url != null ? module.network.subnet_url : "")
   dataflow_template_gcs_path          = var.ingestion_config.dataflow_template_gcs_path
   dataflow_max_workers                = var.ingestion_config.dataflow_max_workers
   dataflow_num_workers                = var.ingestion_config.dataflow_num_workers
@@ -244,9 +258,7 @@ module "redis" {
   location_id             = var.redis_config.location_id
   alternative_location_id = var.redis_config.alternative_location_id
   replica_count           = var.redis_config.replica_count
-  vpc_network_id          = data.google_compute_network.default.id
-  vpc_connector_cidr      = var.redis_config.vpc_connector_cidr
-  enable_connector        = true
+  vpc_network_id          = module.network.network_id != null && module.network.network_id != "" ? module.network.network_id : "default"
 }
 
 module "auth" {
@@ -278,7 +290,8 @@ module "datacommons_services" {
   enable_mcp                    = var.datacommons_services_config.enable_mcp
   mcp_instructions_path         = var.datacommons_services_config.instructions_path
   artifacts_bucket_name         = module.storage.artifacts_bucket_name
-  vpc_connector_id              = var.redis_config.enable ? module.redis[0].connector_id : null
+  network_id                    = module.network.network_id
+  subnet_id                     = module.network.subnet_id
   use_spanner                   = var.spanner_config.enable
   env_vars = concat(local.cloud_run_shared_env_variables, [
     {

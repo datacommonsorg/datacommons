@@ -13,11 +13,20 @@ variable "image" {
 variable "cpu" { type = string }
 variable "memory" { type = string }
 variable "timeout" { type = string }
-variable "vpc_connector_id" {
+variable "network_id" {
   type        = string
-  nullable    = true
+  description = "VPC network ID or self_link for Direct VPC Egress"
   default     = null
-  description = "VPC Serverless Connector ID for private database access."
+}
+variable "subnet_id" {
+  type        = string
+  description = "Subnet ID or self_link for Direct VPC Egress"
+  default     = null
+}
+variable "vpc_egress_mode" {
+  type        = string
+  description = "VPC egress mode (PRIVATE_RANGES_ONLY or ALL_TRAFFIC)"
+  default     = "PRIVATE_RANGES_ONLY"
 }
 variable "spanner_instance_id" { type = string }
 variable "spanner_database_id" { type = string }
