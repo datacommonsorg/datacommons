@@ -10,18 +10,18 @@ The release process follows three sequential stages:
 
 1. **Stage 1: Stage a Release Candidate (RC) in TestPyPI**
    - **Pipeline:** `deploy/staging.yaml`
-   - **Scripts:** [`apply_version_bump.py`](../deploy/scripts/apply_version_bump.py), [`publish_packages.py`](../deploy/scripts/publish_packages.py)
-   - **Action:** Run `deploy/staging.yaml` with your target candidate version (e.g. `X.Y.ZrcN`). The build ephemerally bumps version files in-container, pushes Git tag `vX.Y.ZrcN` to GitHub (*`main` branch remains untouched*), and publishes candidate wheels to **TestPyPI** for staging verification.
+   - **Scripts:** [`apply_version_bump.py`](../deploy/scripts/apply_version_bump.py), [`tag_release_artifacts.py`](../deploy/scripts/tag_release_artifacts.py), [`publish_packages.py`](../deploy/scripts/publish_packages.py)
+   - **Action:** Run `deploy/staging.yaml` with your target candidate version (e.g. `X.Y.ZrcN`) and artifact source tags. The build ephemerally bumps version files in-container, cross-tags the release container images and Dataflow Flex Template spec (see [`ARTIFACT_IMAGE_MAP`](../deploy/scripts/tag_release_artifacts.py)), pushes Git tag `vX.Y.ZrcN` to GitHub (*`main` branch remains untouched*), and publishes candidate wheels to **TestPyPI** for staging verification.
 
 2. **Stage 2: Open & Merge Version Bump PR**
    - **Pipeline:** `deploy/bump_version.yaml`
-   - **Scripts:** [`apply_version_bump.py`](../deploy/scripts/apply_version_bump.py)
-   - **Action:** Run `deploy/bump_version.yaml` with the target release version (e.g. `X.Y.Z`). The build opens an automated PR against `main` containing updated `VERSION` files, `infra/dcp/variables.tf`, and `uv.lock`. Review and merge the PR into `main`.
+   - **Scripts:** [`apply_version_bump.py`](../deploy/scripts/apply_version_bump.py), [`tag_release_artifacts.py`](../deploy/scripts/tag_release_artifacts.py)
+   - **Action:** Run `deploy/bump_version.yaml` with the target release version (e.g. `X.Y.Z`) and candidate tag (`_PROMOTED_CANDIDATE_TAG`). The build promotes candidate artifacts to production tags, and opens an automated PR against `main` containing updated `VERSION` files, `infra/dcp/variables.tf`, and `uv.lock`. Review and merge the PR into `main`.
 
 3. **Stage 3: Publish Official Production Release**
    - **Pipeline:** `deploy/release.yaml`
    - **Scripts:** [`validate_release_version.py`](../deploy/scripts/validate_release_version.py), [`publish_packages.py`](../deploy/scripts/publish_packages.py)
-   - **Action:** Create and publish a GitHub Release with tag `vX.Y.Z` on `main`. Cloud Build automatically triggers `deploy/release.yaml`, validates that committed files match `X.Y.Z`, and publishes official wheels to **PyPI**.
+   - **Action:** Create and publish a GitHub Release with tag `vX.Y.Z` on `main`. Cloud Build automatically triggers `deploy/release.yaml`, validates that committed files and remote release artifacts exist for `X.Y.Z`, and publishes official wheels to **PyPI**.
 
 > [!IMPORTANT]
 > **Package Build & Distribution Order:** Public packages are built and published in strict topological dependency order via [`deploy/scripts/publish_packages.py`](../deploy/scripts/publish_packages.py) (`datacommons-admin` before `datacommons-cli`), satisfying the `datacommons-admin==VERSION` requirement on PyPI and TestPyPI.
@@ -35,31 +35,36 @@ The release process follows three sequential stages:
 #### Step 1: Submit Staging Build (`deploy/staging.yaml`)
 Submit `deploy/staging.yaml` with your target RC version and artifact source tags:
 ```bash
-# Example 1: Stage RC by specifying a default source baseline and overriding services commit:
+# Example showing all available substitution parameters:
 gcloud builds submit \
   --config deploy/staging.yaml \
-  --substitutions=_TARGET_VERSION="1.1.2rc1",_DEFAULT_SOURCE_TAG="1.1.1",_SERVICES_TAG="1574ed3-79627f8-e265a1d" \
-  --project="datcom-ci" \
-  .
-
-# Example 2: Build off a specific commit SHA on datacommons repo:
-gcloud builds submit \
-  --config deploy/staging.yaml \
-  --substitutions=_TARGET_VERSION="1.1.2rc1",_GITHUB_COMMIT="8f9b2a1",_DEFAULT_SOURCE_TAG="1.1.1" \
+  --substitutions=\
+_TARGET_VERSION="1.1.2rc1",\
+_DEFAULT_SOURCE_TAG="1.1.1",\
+_SERVICES_TAG="1574ed3-79627f8-e265a1d",\
+_PREPROCESSOR_TAG="1.1.1",\
+_POSTPROCESSOR_TAG="1.1.1",\
+_INGESTION_HELPER_TAG="1.1.1",\
+_DATAFLOW_TAG="1.1.1",\
+_GITHUB_COMMIT="" \
   --project="datcom-ci" \
   .
 ```
 
+**Substitutions Reference:**
+* `_TARGET_VERSION`: The target candidate version tag (e.g. `1.1.2rc1`) [Required].
+* `_DEFAULT_SOURCE_TAG`: Baseline source tag inherited by all 5 container images and the Dataflow template unless overridden.
+* `_SERVICES_TAG`: Source tag or commit SHA for `datacommons-services`.
+* `_PREPROCESSOR_TAG`: Source tag for `datacommons-data` (preprocessor).
+* `_POSTPROCESSOR_TAG`: Source tag for `datacommons-aggregation-helper` (postprocessor).
+* `_INGESTION_HELPER_TAG`: Source tag for `datacommons-ingestion-helper`.
+* `_DATAFLOW_TAG`: Source tag for Dataflow worker image and GCS template spec.
+* `_GITHUB_COMMIT`: Optional commit SHA on datacommons repository (defaults to `_GITHUB_BRANCH` / `main`).
+
 **What this step does:**
 1. Clones the target commit and runs `apply_version_bump.py "X.Y.ZrcN"` to update `VERSION`, `packages/*/VERSION`, `infra/dcp/variables.tf`, and lock `datacommons-admin==X.Y.ZrcN`.
 2. Creates a local commit and force-pushes Git tag `vX.Y.ZrcN` to GitHub (*`main` branch remains clean*).
-3. Runs [`tag_release_artifacts.py`](../deploy/scripts/tag_release_artifacts.py) to cross-tag all 5 container images and stage the Dataflow Flex Template JSON spec in GCS:
-   - `services`: `gcr.io/datcom-ci/datacommons-services:X.Y.ZrcN`
-   - `preprocessor`: `gcr.io/datcom-ci/datacommons-data:X.Y.ZrcN`
-   - `postprocessor`: `gcr.io/datcom-ci/datacommons-aggregation-helper:X.Y.ZrcN`
-   - `ingestion_helper`: `gcr.io/datcom-ci/datacommons-ingestion-helper:X.Y.ZrcN`
-   - `dataflow`: `us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion:X.Y.ZrcN`
-   - `flex_template`: `gs://datcom-templates/templates/flex/ingestion-X.Y.ZrcN.json` (pointing to `ingestion:X.Y.ZrcN`)
+3. Runs [`tag_release_artifacts.py`](../deploy/scripts/tag_release_artifacts.py) to cross-tag all 5 container images and stage the rendered Dataflow Flex Template JSON spec in GCS.
 4. Runs `publish_packages.py --target testpypi` to build and upload wheels to **TestPyPI** in topological order.
 
 #### Step 2: Verify Release Candidate on Staging
