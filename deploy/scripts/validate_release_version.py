@@ -20,10 +20,18 @@ PURPOSE:
   match the target release version tag before publishing packages to PyPI.
 
 CHECKS PERFORMED:
-  1. Root VERSION file matches target version.
-  2. All subpackage packages/*/VERSION files match target version.
-  3. packages/datacommons-cli/pyproject.toml locks datacommons-admin to ==target_version.
-  4. infra/dcp/variables.tf declares dcp_version default matching target_version.
+  1. Release tag/version matches SemVer / PEP 440 format.
+  2. Root VERSION file matches target version.
+  3. All subpackage packages/*/VERSION files match target version.
+  4. packages/datacommons-cli/pyproject.toml locks datacommons-admin to ==target_version.
+  5. infra/dcp/variables.tf declares dcp_version default matching target_version.
+
+NOTE ON INTENTIONAL SELF-CONTAINMENT:
+  This script is intentionally self-contained with zero local helper imports so that
+  it can be executed reliably in any isolated CI/CD container without sys.path
+  configuration. The version validation pattern is synchronized with apply_version_bump.py;
+  if you modify the version format pattern here, please check if apply_version_bump.py
+  needs the same update.
 
 USAGE:
   python3 deploy/scripts/validate_release_version.py <TAG_OR_VERSION>
@@ -39,12 +47,22 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
+# Anchored SemVer / PEP 440 regex matching standard releases (1.2.3), pre-releases
+# (1.2.3rc1, 1.2.3a1, 1.2.3b1), and development versions (1.2.0.dev0).
+# Synchronized with apply_version_bump.py.
+VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+(?:(?:a|b|rc)\d+)?(?:\.dev\d+)?$")
+
 
 def validate_release_version(tag_or_version: str) -> None:
     """Validates all version declarations match the target release version."""
     target_version = tag_or_version.strip().lstrip("v").strip()
     if not target_version:
         sys.exit("Error: Target version cannot be empty.")
+    if not VERSION_PATTERN.match(target_version):
+        sys.exit(
+            f"Error: Invalid release tag/version format '{tag_or_version}'. "
+            "Must follow SemVer / PEP 440 (e.g. '1.2.3', 'v1.2.3', or '1.2.3rc1')."
+        )
 
     errors: list[str] = []
     print(

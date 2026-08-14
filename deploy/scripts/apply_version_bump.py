@@ -22,6 +22,13 @@ PURPOSE:
     3. Lockstep dependency requirement in packages/datacommons-cli/pyproject.toml
        (datacommons-admin==NEW_VERSION).
 
+NOTE ON INTENTIONAL SELF-CONTAINMENT:
+  This script is intentionally self-contained with zero local helper imports so that
+  it can be executed reliably in any isolated CI/CD container without sys.path
+  configuration. The version validation pattern is synchronized with validate_release_version.py;
+  if you modify the version format pattern here, please check if validate_release_version.py
+  needs the same update.
+
 USAGE ACROSS CI/CD FLOWS:
   1. Staging / Release Candidate (deploy/staging.yaml):
      Runs this script ephemerally inside Cloud Build on target commit,
@@ -45,12 +52,22 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
+# Anchored SemVer / PEP 440 regex matching standard releases (1.2.3), pre-releases
+# (1.2.3rc1, 1.2.3a1, 1.2.3b1), and development versions (1.2.0.dev0).
+# Synchronized with validate_release_version.py.
+VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+(?:(?:a|b|rc)\d+)?(?:\.dev\d+)?$")
+
 
 def apply_version_bump(new_version: str) -> None:
     """Updates version manifests and dependency pins across the monorepo."""
     new_version = new_version.strip().lstrip("v").strip()
     if not new_version:
         sys.exit("Error: Target version cannot be empty.")
+    if not VERSION_PATTERN.match(new_version):
+        sys.exit(
+            f"Error: Invalid version format '{new_version}'. "
+            "Must follow SemVer / PEP 440 (e.g. '1.2.3' or '1.2.3rc1')."
+        )
 
     version_file = REPO_ROOT / "VERSION"
     old_version = (

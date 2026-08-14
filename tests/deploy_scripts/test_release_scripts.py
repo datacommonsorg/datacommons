@@ -152,6 +152,22 @@ class TestApplyVersionBump:
             bumper.apply_version_bump(invalid_version)
         assert "Target version cannot be empty" in str(exc_info.value)
 
+    @pytest.mark.parametrize(
+        "malformed_version",
+        ["foo", "1.2", "1.2.3.4.5", "release-1.2.3", "v-latest", "1.2.3-beta"],
+    )
+    def test_apply_version_bump_rejects_malformed_version_pattern(
+        self, mock_monorepo: Path, malformed_version: str
+    ) -> None:
+        """// Test: test_apply_version_bump_rejects_malformed_version_pattern
+
+        // Situation: apply_version_bump is called with a non-SemVer/PEP 440 string.
+        // Expectation: Script calls sys.exit rejecting invalid version format.
+        """
+        with pytest.raises(SystemExit) as exc_info:
+            bumper.apply_version_bump(malformed_version)
+        assert "Invalid version format" in str(exc_info.value)
+
     def test_apply_version_bump_missing_tf_variable_aborts(
         self, mock_monorepo: Path
     ) -> None:
@@ -199,6 +215,24 @@ class TestValidateReleaseVersion:
         raising SystemExit.
         """
         validator.validate_release_version(target_version)
+
+    @pytest.mark.parametrize(
+        "malformed_version",
+        ["foo", "1.2", "1.2.3.4.5", "release-1.2.3", "v-latest", ""],
+    )
+    def test_validate_release_version_rejects_malformed_version_pattern(
+        self, mock_monorepo: Path, malformed_version: str
+    ) -> None:
+        """// Test: test_validate_release_version_rejects_malformed_version_pattern
+
+        // Situation: validate_release_version is called with an invalid/malformed version tag.
+        // Expectation: Script calls sys.exit rejecting invalid version tag.
+        """
+        with pytest.raises(SystemExit) as exc_info:
+            validator.validate_release_version(malformed_version)
+        assert "Invalid release tag/version format" in str(
+            exc_info.value
+        ) or "Target version cannot be empty" in str(exc_info.value)
 
     @pytest.mark.parametrize(
         "mismatched_dep",
