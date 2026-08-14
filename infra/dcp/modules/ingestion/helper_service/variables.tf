@@ -70,3 +70,9 @@ variable "ingestion_artifacts_path" {
   type        = string
   description = "Path where pre-processed files are placed for the next stage"
 }
+
+variable "skip_container_restarts" {
+  type        = bool
+  description = "Set to true to skip updating container restart timestamps, speeding up terraform apply when container images have not changed."
+  default     = false
+}

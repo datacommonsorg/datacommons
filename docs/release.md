@@ -21,51 +21,76 @@ Automated builds are powered by **Google Cloud Build** in two distinct release t
 ### Staging (Release Candidates)
 * **Configuration**: [staging.yaml](/deploy/staging.yaml)
 * **Trigger**: Pushing a pre-release tag matching `v*rc*` (e.g., `v1.2.3rc1`).
+* **Build-Time Actions**:
+  * Stamps the tag version into the root `VERSION` file and all subpackage `__init__.py` files.
+  * Dynamically updates the `dcp_version` default in `infra/dcp/variables.tf` to match the RC tag, ensuring packaged Terraform templates pull matching release candidate container images and Dataflow templates by default.
 * **Output**: Publishes all non-experimental packages to **TestPyPI**.
 
 ### Production Release
 * **Configuration**: [release.yaml](/deploy/release.yaml)
-* **Trigger**: Pushing an official release tag matching `v*` (e.g., `v1.2.3`, *no `rc` suffix*).
+* **Trigger**: Publishing a release tag matching `v*` (e.g., `v1.2.3`, *no `rc` suffix*).
+* **Build-Time Actions**:
+  * Validates that the git release tag strictly matches the checked-in [VERSION](../VERSION) file.
+  * Stamps `__version__` in subpackage `__init__.py` files.
 * **Output**: Publishes all non-experimental packages to **Official PyPI**.
 
 ---
 
 ## 3. Release Workflows
 
-### Step 1: Bump Version & Prepare PR
+The release process follows a two-step sequence: first publish and verify a Release Candidate (RC) on **TestPyPI**, then execute the version bump and publish the official release to **PyPI**.
 
-#### Recommended: Automated via Cloud Build
-Trigger the Cloud Build job to automatically create a version-bump branch and GitHub Pull Request:
+### Step 1: Staging Pre-Release (TestPyPI)
+
+Before opening the production version bump PR, create and push an `rc` tag to trigger the staging pipeline:
+
+1. **Tag & Push RC Tag:**
+   ```bash
+   git tag v1.2.3rc1
+   git push origin v1.2.3rc1
+   ```
+   * Pushing `v1.2.3rc1` automatically triggers `deploy/staging.yaml` via Cloud Build.
+2. **Verify on TestPyPI:**
+   * Confirm the package is live at `https://test.pypi.org/project/datacommons-admin/1.2.3rc1/`.
+   * Test installation in a clean environment:
+     ```bash
+     pip install --upgrade --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ datacommons-admin==1.2.3rc1
+     ```
+3. **Verify Deployment:**
+   * Initialize and test a deployment with `datacommons admin init` or update `dcp_version = "1.2.3rc1"` on a test stack to verify end-to-end data ingestion and service health.
+
+---
+
+### Step 2: Production Version Bump & PyPI Release
+
+Once the release candidate is verified on TestPyPI and staging environments:
+
+#### A. Bump Version & Merge PR
+
+Trigger Cloud Build to automatically create a version-bump branch and GitHub Pull Request:
 ```bash
 gcloud builds submit \
   --config deploy/bump_version.yaml \
-  --substitutions=_NEW_VERSION="<new_version>" \
+  --substitutions=_NEW_VERSION="1.2.3" \
   --project="datcom-ci" \
   .
 ```
-1. Go to GitHub and locate the auto-created PR (e.g., `chore: bump version to <new_version>`).
-2. Review, approve, and merge the PR into `main`.
+1. Go to GitHub and locate the auto-created PR (e.g., `chore: bump version to 1.2.3`).
+2. Review that `VERSION`, `infra/dcp/variables.tf`, and `uv.lock` are updated to `1.2.3`.
+3. Approve and merge the PR into `main`.
 
-#### Alternative: Manual Local Bump (Not Recommended)
-1. Update the version string in [VERSION](../VERSION) (e.g., `1.2.3`).
-2. Run `uv lock && uv sync` to update the lockfile and sync package installations.
-3. Commit `VERSION` and `uv.lock`, push to a new branch, and create a Pull Request against `main`.
+#### B. Publish Official GitHub Release
 
-### Step 2: Cut a Release
-Once the version PR is merged into `main`:
-
-#### Staging Release (TestPyPI)
-Create and push an `rc` tag to automatically run the staging pipeline:
-```bash
-git tag v1.2.3rc1
-git push origin v1.2.3rc1
-```
-
-#### Production Release (Official PyPI)
-Once the version-bump Pull Request is merged into `main`, a draft release will be automatically created on GitHub with compiled release notes:
 1. Go to [GitHub Releases](https://github.com/datacommonsorg/datacommons/releases).
 2. Locate the auto-drafted release (e.g., `v1.2.3`) matching the newly bumped version.
-3. Click **Edit** (pencil icon), review the generated release notes, and click **Publish release** to tag the repository and trigger the production publishing pipeline.
+3. Review and curate the release notes, and click **Publish release** (or run `gh release create v1.2.3 --target main`).
+4. Publishing the GitHub Release creates tag `v1.2.3`, which automatically triggers `deploy/release.yaml` to build and publish the packages to **Official PyPI**.
 
-> [!WARNING]
-> The tag published via the GitHub Release (or git command line) must match the version configured in the [VERSION](../VERSION) file to prevent deployment failures or version mismatches.
+#### C. Verify Production PyPI Release
+
+1. Confirm packages are live on PyPI (`https://pypi.org/project/datacommons-admin/1.2.3/`).
+2. Verify installation:
+   ```bash
+   pip install --upgrade datacommons-admin==1.2.3
+   datacommons admin --version
+   ```
