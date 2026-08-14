@@ -37,30 +37,34 @@ class SpannerClient:
 
     def __init__(
         self,
-        project_id: str,
         instance_id: str,
         database_id: str,
+        project_id: str | None = None,
         credentials: Credentials | None = None,
     ) -> None:
         """Initialize the SpannerClient.
 
         Args:
-            project_id: GCP project ID.
             instance_id: Cloud Spanner instance ID.
             database_id: Cloud Spanner database ID.
+            project_id: Optional GCP project ID. If None, auto-detected from the environment.
             credentials: Optional Google Cloud credentials object.
         """
-        _validate_resource_id("project_id", project_id)
+        if project_id is not None:
+            _validate_resource_id("project_id", project_id)
         _validate_resource_id("instance_id", instance_id)
         _validate_resource_id("database_id", database_id)
 
-        self.project_id = project_id
         self.instance_id = instance_id
         self.database_id = database_id
 
-        self.client = spanner.Client(project=self.project_id, credentials=credentials)
+        self.client = spanner.Client(
+            project=project_id, credentials=credentials
+        )
+        self.project_id = self.client.project
         self.instance = self.client.instance(self.instance_id)
         self.database = self.instance.database(self.database_id)
+
 
     def table_exists(self, table_name: str) -> bool:
         """Check if a table exists in the Cloud Spanner database.

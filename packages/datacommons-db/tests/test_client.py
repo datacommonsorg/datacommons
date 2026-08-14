@@ -234,12 +234,19 @@ def fake_spanner_db():
     """
     fake_db = FakeSpannerDatabase()
     with patch("datacommons_db.client.spanner.Client") as mock_client_cls:
-        mock_client = MagicMock()
-        mock_instance = MagicMock()
+        def fake_client_factory(
+            project: str | None = None, credentials: object = None
+        ) -> MagicMock:
+            _ = credentials
+            mock_client = MagicMock()
+            mock_client.project = project or "auto-detected-project"
+            mock_instance = MagicMock()
+            mock_client.instance.return_value = mock_instance
+            mock_instance.database.return_value = fake_db
+            return mock_client
 
-        mock_client_cls.return_value = mock_client
-        mock_client.instance.return_value = mock_instance
-        mock_instance.database.return_value = fake_db
+
+        mock_client_cls.side_effect = fake_client_factory
 
         yield fake_db
 
@@ -250,12 +257,24 @@ def fake_spanner_db():
 
 
 def test_init_success():
+    # Explicit project_id
     client = SpannerClient(
+        instance_id="test-instance",
+        database_id="test-db",
         project_id="test-project",
+    )
+    assert client.project_id == "test-project"
+    assert client.instance_id == "test-instance"
+    assert client.database_id == "test-db"
+
+
+def test_init_auto_detect_project():
+    # Omitted project_id (auto-detected from environment)
+    client = SpannerClient(
         instance_id="test-instance",
         database_id="test-db",
     )
-    assert client.project_id == "test-project"
+    assert client.project_id == "auto-detected-project"
     assert client.instance_id == "test-instance"
     assert client.database_id == "test-db"
 
@@ -267,7 +286,6 @@ def test_init_success():
         ("   ", "inst", "db"),
         ("proj with space", "inst", "db"),
         ("proj/slash", "inst", "db"),
-        (None, "inst", "db"),
         ("proj", "", "db"),
         ("proj", "   ", "db"),
         ("proj", "inst with space", "db"),
@@ -279,11 +297,11 @@ def test_init_success():
         ("proj", "inst", None),
     ],
 )
-def test_init_validation_errors(proj: str, inst: str, db: str):
+def test_init_validation_errors(proj: str | None, inst: str, db: str):
     with pytest.raises(
         ValueError, match="Invalid (project_id|instance_id|database_id)"
     ):
-        SpannerClient(project_id=proj, instance_id=inst, database_id=db)
+        SpannerClient(instance_id=inst, database_id=db, project_id=proj)
 
 
 # ==============================================================================
@@ -292,12 +310,12 @@ def test_init_validation_errors(proj: str, inst: str, db: str):
 
 
 def test_table_exists_false():
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("inst", "db")
     assert client.table_exists("NonExistentTable") is False
 
 
 def test_table_exists_true():
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("inst", "db")
     client.execute_ddl(
         "CREATE TABLE Node (subject_id STRING(64)) PRIMARY KEY (subject_id)"
     )
@@ -305,7 +323,7 @@ def test_table_exists_true():
 
 
 def test_execute_ddl_multiple_statements():
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("inst", "db")
     client.execute_ddl(
         "CREATE TABLE Node (subject_id STRING(64)) PRIMARY KEY (subject_id); "
         "CREATE TABLE Edge (predicate STRING(64)) PRIMARY KEY (predicate);"
@@ -315,7 +333,7 @@ def test_execute_ddl_multiple_statements():
 
 
 def test_execute_ddl_drop_table():
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("inst", "db")
     client.execute_ddl(
         "CREATE TABLE Edge (predicate STRING(64)) PRIMARY KEY (predicate)"
     )
@@ -337,13 +355,13 @@ def test_execute_ddl_drop_table():
     ],
 )
 def test_table_exists_invalid_name(invalid_name: str):
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("inst", "db")
     with pytest.raises(ValueError, match="Invalid table name"):
         client.table_exists(invalid_name)
 
 
 def test_execute_ddl_list():
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("inst", "db")
     client.execute_ddl(
         [
             "CREATE TABLE TableA (id INT64) PRIMARY KEY (id)",
@@ -356,17 +374,17 @@ def test_execute_ddl_list():
 
 
 def test_execute_ddl_empty_string():
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("inst", "db")
     client.execute_ddl("")
 
 
 def test_execute_ddl_empty_list():
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("inst", "db")
     client.execute_ddl(["  ", ""])
 
 
 def test_execute_ddl_invalid_type():
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("inst", "db")
     with pytest.raises(
         TypeError, match="ddl_statements must be a str or a list of str"
     ):
@@ -379,12 +397,12 @@ def test_execute_ddl_invalid_type():
 
 
 def test_schema_version_table_exists_false():
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("inst", "db")
     assert client.schema_version_table_exists() is False
 
 
 def test_schema_version_table_exists_true():
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("inst", "db")
     client.execute_ddl(
         f"CREATE TABLE {_SCHEMA_VERSION_TABLE_NAME} (Version INT64 NOT NULL) PRIMARY KEY (Version)"
     )
@@ -392,13 +410,13 @@ def test_schema_version_table_exists_true():
 
 
 def test_get_schema_version_table_missing():
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("inst", "db")
     # If table is missing, we assume version 0
     assert client.get_schema_version() == 0
 
 
 def test_get_schema_version_empty_table():
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("inst", "db")
     client.execute_ddl(
         f"CREATE TABLE {_SCHEMA_VERSION_TABLE_NAME} ("
         "Version INT64 NOT NULL, "
@@ -411,7 +429,7 @@ def test_get_schema_version_empty_table():
 
 
 def test_get_schema_version_returns_latest_version():
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("inst", "db")
     client.execute_ddl(
         f"CREATE TABLE {_SCHEMA_VERSION_TABLE_NAME} ("
         "Version INT64 NOT NULL, "
@@ -427,7 +445,7 @@ def test_get_schema_version_returns_latest_version():
 def test_update_schema_version_inserts_record(
     fake_spanner_db: FakeSpannerDatabase,
 ):
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("inst", "db")
     client.execute_ddl(
         f"CREATE TABLE {_SCHEMA_VERSION_TABLE_NAME} ("
         "Version INT64 NOT NULL, "
@@ -444,7 +462,7 @@ def test_update_schema_version_inserts_record(
 
 
 def test_set_schema_version_alias():
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("inst", "db")
     client.execute_ddl(
         f"CREATE TABLE {_SCHEMA_VERSION_TABLE_NAME} (Version INT64) PRIMARY KEY (Version)"
     )
@@ -463,7 +481,7 @@ def test_set_schema_version_alias():
     ],
 )
 def test_update_schema_version_validation(ver: int, desc: str):
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("inst", "db")
     with pytest.raises(ValueError, match="(Version|Description)"):
         client.update_schema_version(ver, desc)
 
@@ -474,7 +492,7 @@ def test_update_schema_version_validation(ver: int, desc: str):
 
 
 def test_execute_dml_with_params(fake_spanner_db: FakeSpannerDatabase):
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("inst", "db")
     params = {"val": "test_val"}
     param_types = {"val": spanner.param_types.STRING}
 
@@ -494,7 +512,7 @@ def test_execute_dml_with_params(fake_spanner_db: FakeSpannerDatabase):
 
 
 def test_execute_query_with_params():
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("inst", "db")
     params = {"name": "test_node"}
     param_types = {"name": spanner.param_types.STRING}
 
@@ -508,7 +526,7 @@ def test_execute_query_with_params():
 
 def test_execute_query_custom_table(fake_spanner_db: FakeSpannerDatabase):
     fake_spanner_db.tables["custom_test_table"] = [["row1", 10], ["row2", 20]]
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("inst", "db")
 
     results = client.execute_query("SELECT name, count FROM custom_test_table")
     assert results == [["row1", 10], ["row2", 20]]

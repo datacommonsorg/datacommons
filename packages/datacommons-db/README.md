@@ -52,12 +52,20 @@ The package exports `SpannerClient` for direct Spanner operations, schema manage
 ```python
 from datacommons_db import SpannerClient
 
+# 1. Auto-detected project ID (from GOOGLE_CLOUD_PROJECT or environment)
 client = SpannerClient(
-    project_id="your-gcp-project",
     instance_id="your-spanner-instance",
     database_id="your-spanner-database",
 )
+
+# 2. Or with explicit project ID
+client = SpannerClient(
+    instance_id="your-spanner-instance",
+    database_id="your-spanner-database",
+    project_id="your-gcp-project",
+)
 ```
+
 
 #### Checking Tables & Schema Version
 
