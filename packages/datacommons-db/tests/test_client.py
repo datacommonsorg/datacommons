@@ -234,6 +234,7 @@ def fake_spanner_db():
     """
     fake_db = FakeSpannerDatabase()
     with patch("datacommons_db.client.spanner.Client") as mock_client_cls:
+
         def fake_client_factory(
             project: str | None = None, credentials: object = None
         ) -> MagicMock:
@@ -244,7 +245,6 @@ def fake_spanner_db():
             mock_client.instance.return_value = mock_instance
             mock_instance.database.return_value = fake_db
             return mock_client
-
 
         mock_client_cls.side_effect = fake_client_factory
 
@@ -336,9 +336,7 @@ def test_execute_ddl_multiple_statements():
 
 def test_execute_ddl_single_statement_trailing_semicolon():
     client = SpannerClient("inst", "db")
-    client.execute_ddl(
-        "CREATE TABLE SemicolonTable (id INT64) PRIMARY KEY (id);"
-    )
+    client.execute_ddl("CREATE TABLE SemicolonTable (id INT64) PRIMARY KEY (id);")
     assert client.table_exists("SemicolonTable") is True
 
 
@@ -351,7 +349,6 @@ def test_execute_ddl_drop_table():
 
     client.execute_ddl("DROP TABLE Edge")
     assert client.table_exists("Edge") is False
-
 
 
 @pytest.mark.parametrize(

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import re
+from collections.abc import Iterator
 from typing import Any
 
 from google.auth.credentials import Credentials
@@ -58,13 +59,10 @@ class SpannerClient:
         self.instance_id = instance_id
         self.database_id = database_id
 
-        self.client = spanner.Client(
-            project=project_id, credentials=credentials
-        )
+        self.client = spanner.Client(project=project_id, credentials=credentials)
         self.project_id = self.client.project
         self.instance = self.client.instance(self.instance_id)
         self.database = self.instance.database(self.database_id)
-
 
     def table_exists(self, table_name: str) -> bool:
         """Check if a table exists in the Cloud Spanner database.
@@ -178,7 +176,6 @@ class SpannerClient:
         operation = self.database.update_ddl(statements)
         operation.result()
 
-
     def execute_dml(
         self,
         query: str,
@@ -205,6 +202,30 @@ class SpannerClient:
 
         return self.database.run_in_transaction(_unit_of_work)
 
+    def _execute_query_stream(
+        self,
+        query: str,
+        params: dict[str, Any] | None = None,
+        param_types: dict[str, Any] | None = None,
+    ) -> Iterator[list[Any]]:
+        """Stream query results lazily row-by-row from a point-in-time snapshot.
+        This prevents OOM errors when querying large tables.
+
+        Args:
+            query: The parameterized SQL query string.
+            params: Dictionary of query parameters.
+            param_types: Dictionary of parameter types.
+
+        Yields:
+            Rows as lists of column values.
+        """
+        with self.database.snapshot() as snapshot:
+            results = snapshot.execute_sql(
+                query, params=params, param_types=param_types
+            )
+            for row in results:
+                yield list(row)
+
     def execute_query(
         self,
         query: str,
@@ -223,8 +244,6 @@ class SpannerClient:
         Returns:
             A list of result rows (each row as a list).
         """
-        with self.database.snapshot() as snapshot:
-            results = snapshot.execute_sql(
-                query, params=params, param_types=param_types
-            )
-            return [list(row) for row in results]
+        return list(
+            self._execute_query_stream(query, params=params, param_types=param_types)
+        )

@@ -118,7 +118,11 @@ rows = client.execute_query(
     params={"id": "123"},
     param_types={"id": spanner.param_types.STRING},
 )
+print(f"Queried rows: {rows}")
 ```
+
+
+
 
 ### SQLAlchemy ORM Usage
 
