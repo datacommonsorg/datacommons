@@ -143,7 +143,7 @@ Once the RC is verified on staging:
    ```
 2. **Review & Merge PR:**
    - Locate the auto-created PR (e.g. `chore: bump version to 1.2.3`) on GitHub.
-   - Verify that `VERSION`, `pyproject.toml`, `__init__.py` files, and `infra/dcp/*.tf` are updated to `1.2.3`.
+   - Verify that `VERSION`, `packages/*/VERSION`, `packages/datacommons-cli/pyproject.toml`, and `infra/dcp/variables.tf` are updated to `1.2.3`.
    - Approve and merge the PR into `main`.
 
 ---

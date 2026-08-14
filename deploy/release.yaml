@@ -31,13 +31,20 @@ steps:
         fi
 
         echo "Validating subpackage VERSION files match '$tag_version'..."
-        python3 -c "import glob, sys; invalid = [f for f in glob.glob('packages/*/VERSION') if open(f).read().strip() != '$tag_version']; sys.exit(f'ERROR: The following VERSION files do not match release version $tag_version: {invalid}') if invalid else None"
+        python3 -c "import glob, sys; v = sys.argv[1]; invalid = [f for f in glob.glob('packages/*/VERSION') if open(f).read().strip() != v]; sys.exit(f'ERROR: The following VERSION files do not match release version {v}: {invalid}') if invalid else None" "$tag_version"
 
         echo "Validating datacommons-cli dependency lock in pyproject.toml matches '$tag_version'..."
-        python3 -c "import sys; content = open('packages/datacommons-cli/pyproject.toml').read(); sys.exit(f'ERROR: packages/datacommons-cli/pyproject.toml does not lock datacommons-admin to ==$tag_version') if f'\"datacommons-admin==$tag_version\"' not in content else None"
+        python3 -c "import sys; v = sys.argv[1]; content = open('packages/datacommons-cli/pyproject.toml').read(); sys.exit(f'ERROR: packages/datacommons-cli/pyproject.toml does not lock datacommons-admin to =={v}') if f'\"datacommons-admin=={v}\"' not in content else None" "$tag_version"
 
         echo "Validating infra/dcp/variables.tf dcp_version default matches '$tag_version'..."
-        python3 -c "import re, sys; content = open('infra/dcp/variables.tf').read(); sys.exit(f'ERROR: infra/dcp/variables.tf does not set dcp_version default to $tag_version') if not re.search(rf'variable\s+\"dcp_version\"\s+\{{[^}}]*default\s*=\s*\"{re.escape(\"$tag_version\")}\"', content) else None"
+        python3 -c "
+        import re, sys
+        tag_v = sys.argv[1]
+        content = open('infra/dcp/variables.tf').read()
+        m = re.search(r'variable\s+\"dcp_version\"\s+\{[^}]*default\s*=\s*\"([^\"]+)\"', content)
+        if not m or m.group(1) != tag_v:
+            sys.exit(f'ERROR: infra/dcp/variables.tf dcp_version default ({m.group(1) if m else None}) does not match release version {tag_v}')
+        " "$tag_version"
 
   # 2. Build and publish all Python packages to PyPI
   - name: 'ghcr.io/astral-sh/uv:python3.12-trixie-slim'
