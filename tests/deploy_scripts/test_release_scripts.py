@@ -18,8 +18,10 @@ Tests cover:
   1. apply_version_bump.py - Single source of truth version bumper.
   2. validate_release_version.py - Pre-publish version consistency validator.
   3. publish_packages.py - Package builder and PyPI / TestPyPI distributor.
+  4. tag_release_artifacts.py - Multi-artifact release tagger and template stager.
 """
 
+import json
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -27,6 +29,7 @@ from unittest.mock import MagicMock
 import apply_version_bump as bumper
 import publish_packages as publisher
 import pytest
+import tag_release_artifacts as tagger
 import validate_release_version as validator
 
 # ==============================================================================
@@ -302,6 +305,60 @@ class TestValidateReleaseVersion:
             validator.validate_release_version("1.0.0")
         assert exc_info.value.code == 1
 
+    def test_validate_release_version_remote_artifacts_success(
+        self, mock_monorepo: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """// Test: test_validate_release_version_remote_artifacts_success
+
+        // Situation: validate_release_version is called with --check-remote-artifacts
+        and all images and templates exist.
+        // Expectation: Validator passes cleanly without error.
+        """
+        monkeypatch.setattr(
+            subprocess, "run", lambda *args, **kwargs: MagicMock(returncode=0)
+        )
+        validator.validate_release_version("1.0.0", check_remote_artifacts=True)
+
+    def test_validate_release_version_remote_image_missing_fails(
+        self, mock_monorepo: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """// Test: test_validate_release_version_remote_image_missing_fails
+
+        // Situation: validate_release_version is called with --check-remote-artifacts
+        and a container image does not exist in registry.
+        // Expectation: Validator aborts with exit code 1.
+        """
+
+        def mock_run(cmd, **kwargs):
+            if "container" in cmd and "images" in cmd:
+                return MagicMock(returncode=1)
+            return MagicMock(returncode=0)
+
+        monkeypatch.setattr(subprocess, "run", mock_run)
+        with pytest.raises(SystemExit) as exc_info:
+            validator.validate_release_version("1.0.0", check_remote_artifacts=True)
+        assert exc_info.value.code == 1
+
+    def test_validate_release_version_remote_template_missing_fails(
+        self, mock_monorepo: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """// Test: test_validate_release_version_remote_template_missing_fails
+
+        // Situation: validate_release_version is called with --check-remote-artifacts
+        and the GCS template spec is missing.
+        // Expectation: Validator aborts with exit code 1.
+        """
+
+        def mock_run(cmd, **kwargs):
+            if "storage" in cmd and "ls" in cmd:
+                return MagicMock(returncode=1)
+            return MagicMock(returncode=0)
+
+        monkeypatch.setattr(subprocess, "run", mock_run)
+        with pytest.raises(SystemExit) as exc_info:
+            validator.validate_release_version("1.0.0", check_remote_artifacts=True)
+        assert exc_info.value.code == 1
+
 
 # ==============================================================================
 # Suite 3: publish_packages.py
@@ -503,3 +560,164 @@ class TestReleaseWorkflowContract:
         bumper.apply_version_bump(target_version)
         validator.validate_release_version(target_version)
         validator.validate_release_version(target_version.lstrip("v"))
+
+
+# ==============================================================================
+# Suite 5: tag_release_artifacts.py
+# ==============================================================================
+
+
+class TestTagReleaseArtifacts:
+    def test_tag_all_artifacts_dry_run_success(
+        self, capsys: pytest.CaptureFixture
+    ) -> None:
+        """// Test: test_tag_all_artifacts_dry_run_success
+
+        // Situation: tag_all_artifacts is called with a default baseline and a
+        services override in dry-run mode.
+        // Expectation: All 5 images and the template are planned correctly and
+        displayed in output.
+        """
+        tagger.tag_all_artifacts(
+            target_tag="1.1.2rc1",
+            default_source_tag="1.1.1",
+            services_tag="1574ed3-79627f8-e265a1d",
+            dry_run=True,
+        )
+        captured = capsys.readouterr().out
+        assert "RELEASE ARTIFACT TAGGING PLAN -> Target: '1.1.2rc1'" in captured
+        assert "services          : 1574ed3-79627f8-e265a1d -> 1.1.2rc1" in captured
+        assert "preprocessor      : 1.1.1 -> 1.1.2rc1" in captured
+        assert "postprocessor     : 1.1.1 -> 1.1.2rc1" in captured
+        assert "ingestion_helper  : 1.1.1 -> 1.1.2rc1" in captured
+        assert "dataflow          : 1.1.1 -> 1.1.2rc1" in captured
+        assert "ingestion-1.1.1.json -> ingestion-1.1.2rc1.json" in captured
+        assert "[DRY-RUN]" in captured
+
+    def test_tag_all_artifacts_wholesale_promotion(
+        self, capsys: pytest.CaptureFixture
+    ) -> None:
+        """// Test: test_tag_all_artifacts_wholesale_promotion
+
+        // Situation: tag_all_artifacts is called to promote RC candidate 1.1.2rc2 to
+        production 1.1.2.
+        // Expectation: All artifacts inherit 1.1.2rc2 as the source tag.
+        """
+        tagger.tag_all_artifacts(
+            target_tag="1.1.2",
+            default_source_tag="1.1.2rc2",
+            dry_run=True,
+        )
+        captured = capsys.readouterr().out
+        assert "services          : 1.1.2rc2 -> 1.1.2" in captured
+        assert "preprocessor      : 1.1.2rc2 -> 1.1.2" in captured
+        assert "postprocessor     : 1.1.2rc2 -> 1.1.2" in captured
+        assert "ingestion_helper  : 1.1.2rc2 -> 1.1.2" in captured
+        assert "dataflow          : 1.1.2rc2 -> 1.1.2" in captured
+
+    def test_tag_all_artifacts_missing_source_tag_aborts(self) -> None:
+        """// Test: test_tag_all_artifacts_missing_source_tag_aborts
+
+        // Situation: tag_all_artifacts is called without a default source tag and
+        missing individual overrides.
+        // Expectation: Script calls sys.exit reporting missing source tags.
+        """
+        with pytest.raises(SystemExit) as exc_info:
+            tagger.tag_all_artifacts(
+                target_tag="1.1.2rc1",
+                services_tag="1574ed3",
+            )
+        assert "Missing source tag for artifact(s)" in str(exc_info.value)
+
+    @pytest.mark.parametrize("malformed_target", ["foo", "1.2", "1.2.3.4.5", ""])
+    def test_tag_all_artifacts_malformed_target_tag_aborts(
+        self, malformed_target: str
+    ) -> None:
+        """// Test: test_tag_all_artifacts_malformed_target_tag_aborts
+
+        // Situation: tag_all_artifacts is called with an invalid/malformed target
+        tag.
+        // Expectation: Script calls sys.exit rejecting invalid version format.
+        """
+        with pytest.raises(SystemExit) as exc_info:
+            tagger.tag_all_artifacts(
+                target_tag=malformed_target,
+                default_source_tag="1.1.1",
+            )
+        assert "Invalid target tag format" in str(
+            exc_info.value
+        ) or "Target tag cannot be empty" in str(exc_info.value)
+
+    def test_stage_dataflow_template_mutates_json(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """// Test: test_stage_dataflow_template_mutates_json
+
+        // Situation: stage_dataflow_template executes gcloud storage cp to download
+        and upload.
+        // Expectation: The downloaded JSON has its 'image' key updated to the target
+        image repo:tag.
+        """
+        source_json = tmp_path / "ingestion-1.1.1.json"
+        source_json.write_text(
+            json.dumps(
+                {
+                    "image": (
+                        "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion:1.1.1"
+                    ),
+                    "sdk_info": {"language": "PYTHON"},
+                },
+                indent=2,
+            )
+        )
+
+        uploaded_content = {}
+
+        def mock_gcloud_run(cmd, **kwargs):
+            if cmd[0] == "gcloud" and cmd[1] == "storage" and cmd[2] == "cp":
+                src = cmd[3]
+                dst = cmd[4]
+                if src.startswith("gs://"):
+                    Path(dst).write_text(source_json.read_text())
+                elif dst.startswith("gs://"):
+                    uploaded_content["data"] = json.loads(Path(src).read_text())
+                return MagicMock(returncode=0)
+            return MagicMock(returncode=0)
+
+        monkeypatch.setattr(subprocess, "run", mock_gcloud_run)
+
+        tagger.stage_dataflow_template(
+            gcs_base="gs://datcom-templates/templates/flex",
+            src_tag="1.1.1",
+            target_tag="1.1.2rc1",
+            dataflow_image_repo="us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion",
+            dry_run=False,
+        )
+
+        assert (
+            uploaded_content["data"]["image"]
+            == "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion:1.1.2rc1"
+        )
+        assert uploaded_content["data"]["sdk_info"]["language"] == "PYTHON"
+
+    def test_tag_container_image_failure_aborts(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """// Test: test_tag_container_image_failure_aborts
+
+        // Situation: gcloud container images add-tag fails with exit code 1.
+        // Expectation: Script calls sys.exit reporting the command failure.
+        """
+
+        def failing_run(cmd, **kwargs):
+            raise subprocess.CalledProcessError(1, cmd, stderr="Image not found")
+
+        monkeypatch.setattr(subprocess, "run", failing_run)
+
+        with pytest.raises(SystemExit) as exc_info:
+            tagger.tag_container_image(
+                repo="gcr.io/datcom-ci/datacommons-services",
+                src_tag="missing-tag",
+                target_tag="1.1.2",
+            )
+        assert "Failed to tag image" in str(exc_info.value)

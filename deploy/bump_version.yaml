@@ -1,5 +1,27 @@
 steps:
+  # 1. Optionally tag release artifacts if promoting from a verified release candidate
+  - name: 'google/cloud-sdk:slim'
+    id: 'promote-release-artifacts'
+    entrypoint: 'bash'
+    env:
+      - 'NEW_VERSION=${_NEW_VERSION}'
+      - 'PROMOTED_CANDIDATE_TAG=${_PROMOTED_CANDIDATE_TAG}'
+    args:
+      - '-c'
+      - |
+        set -eo pipefail
+        if [ -n "$$PROMOTED_CANDIDATE_TAG" ]; then
+          echo "Promoting release artifacts from candidate '$$PROMOTED_CANDIDATE_TAG' to target '$$NEW_VERSION'..."
+          python3 deploy/scripts/tag_release_artifacts.py \
+            --target-tag "$$NEW_VERSION" \
+            --default-source-tag "$$PROMOTED_CANDIDATE_TAG"
+        else
+          echo "No candidate tag (_PROMOTED_CANDIDATE_TAG) provided; skipping artifact promotion tagging."
+        fi
+
+  # 2. Update version files, lockfile, commit, and create bump PR
   - name: 'ghcr.io/astral-sh/uv:python3.12-trixie-slim'
+    id: 'create-bump-pr'
     entrypoint: bash
     secretEnv: ['GH_TOKEN']
     env: ['NEW_VERSION=${_NEW_VERSION}']
@@ -56,14 +78,13 @@ steps:
             --head "$$BRANCH_NAME"
         fi
 
-
-
 substitutions:
   _GITHUB_AUTHOR: 'datacommons-robot-author'
   _GITHUB_ORG: 'datacommonsorg'
   _GITHUB_REPO: 'datacommons'
   _GITHUB_BRANCH: 'main'
   _NEW_VERSION: ''
+  _PROMOTED_CANDIDATE_TAG: ''
 
 availableSecrets:
   secretManager:

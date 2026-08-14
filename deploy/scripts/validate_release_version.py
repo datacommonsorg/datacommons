@@ -16,8 +16,9 @@
 """validate_release_version.py - Pre-publish Version Consistency Validator.
 
 PURPOSE:
-  Validates that all monorepo version declarations and dependency pins strictly
-  match the target release version tag before publishing packages to PyPI.
+  Validates that all monorepo version declarations, dependency pins, container
+  images, and Dataflow Flex Templates strictly match the target release version
+  tag before publishing packages to PyPI.
 
 CHECKS PERFORMED:
   1. Release tag/version matches SemVer / PEP 440 format.
@@ -25,6 +26,8 @@ CHECKS PERFORMED:
   3. All subpackage packages/*/VERSION files match target version.
   4. packages/datacommons-cli/pyproject.toml locks datacommons-admin to ==target_version.
   5. infra/dcp/variables.tf declares dcp_version default matching target_version.
+  6. (Optional/CI via --check-remote-artifacts) All 5 container images exist in GCR/Artifact Registry.
+  7. (Optional/CI via --check-remote-artifacts) Dataflow Flex Template spec exists in GCS.
 
 NOTE ON INTENTIONAL SELF-CONTAINMENT:
   This script is intentionally self-contained with zero local helper imports so that
@@ -37,11 +40,12 @@ USAGE:
   python3 deploy/scripts/validate_release_version.py <TAG_OR_VERSION>
   Example:
     python3 deploy/scripts/validate_release_version.py 1.2.3
-    python3 deploy/scripts/validate_release_version.py v1.2.3
+    python3 deploy/scripts/validate_release_version.py v1.2.3 --check-remote-artifacts
 """
 
 import argparse
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -52,8 +56,24 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # Synchronized with apply_version_bump.py.
 VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+(?:(?:a|b|rc)\d+)?(?:\.dev\d+)?$")
 
+# Registry mappings for remote artifact verification
+ARTIFACT_IMAGE_MAP = {
+    "services": "gcr.io/datcom-ci/datacommons-services",
+    "preprocessor": "gcr.io/datcom-ci/datacommons-data",
+    "postprocessor": "gcr.io/datcom-ci/datacommons-aggregation-helper",
+    "ingestion_helper": "gcr.io/datcom-ci/datacommons-ingestion-helper",
+    "dataflow": "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion",
+}
 
-def validate_release_version(tag_or_version: str) -> None:
+DEFAULT_TEMPLATE_GCS_BASE = "gs://datcom-templates/templates/flex"
+
+
+def validate_release_version(
+    tag_or_version: str,
+    *,
+    check_remote_artifacts: bool = False,
+    template_gcs_base: str = DEFAULT_TEMPLATE_GCS_BASE,
+) -> None:
     """Validates all version declarations match the target release version."""
     target_version = tag_or_version.strip().lstrip("v").strip()
     if not target_version:
@@ -160,6 +180,42 @@ def validate_release_version(tag_or_version: str) -> None:
         else:
             print(f"  [OK] infra/dcp/variables.tf (dcp_version default): {m.group(1)}")
 
+    # 5. Optional / CI: Validate remote release artifacts (images & GCS template)
+    if check_remote_artifacts:
+        print("\nValidating remote release artifacts exist...")
+
+        # A. Check container images in GCR/Artifact Registry
+        for artifact, repo in ARTIFACT_IMAGE_MAP.items():
+            image_ref = f"{repo}:{target_version}"
+            cmd = [
+                "gcloud",
+                "container",
+                "images",
+                "describe",
+                image_ref,
+                "--format=json",
+            ]
+            res = subprocess.run(cmd, check=False, capture_output=True, text=True)
+            if res.returncode != 0:
+                errors.append(
+                    f"Remote container image '{image_ref}' does not exist in registry."
+                )
+            else:
+                print(f"  [OK] Container Image ({artifact}): {image_ref}")
+
+        # B. Check Dataflow Flex Template spec in GCS
+        template_uri = (
+            f"{template_gcs_base.rstrip('/')}/ingestion-{target_version}.json"
+        )
+        cmd = ["gcloud", "storage", "ls", template_uri]
+        res = subprocess.run(cmd, check=False, capture_output=True, text=True)
+        if res.returncode != 0:
+            errors.append(
+                f"Dataflow Flex Template spec '{template_uri}' does not exist in GCS."
+            )
+        else:
+            print(f"  [OK] Dataflow Flex Template: {template_uri}")
+
     if errors:
         print("\nRelease validation FAILED with the following error(s):")
         for err in errors:
@@ -177,8 +233,22 @@ def main() -> None:
         "tag_or_version",
         help="The release tag or version string (e.g. v1.2.3 or 1.2.3)",
     )
+    parser.add_argument(
+        "--check-remote-artifacts",
+        action="store_true",
+        help="Validate that all 5 container images and Dataflow Flex Template exist in remote registries/GCS.",
+    )
+    parser.add_argument(
+        "--template-bucket",
+        default=DEFAULT_TEMPLATE_GCS_BASE,
+        help=f"GCS bucket directory for Dataflow Flex Templates (default: {DEFAULT_TEMPLATE_GCS_BASE}).",
+    )
     args = parser.parse_args()
-    validate_release_version(args.tag_or_version)
+    validate_release_version(
+        tag_or_version=args.tag_or_version,
+        check_remote_artifacts=args.check_remote_artifacts,
+        template_gcs_base=args.template_bucket,
+    )
 
 
 if __name__ == "__main__":
