@@ -140,15 +140,16 @@ class SpannerClient:
         Returns:
             DdlResult with execution status and optional error message.
         """
-        # Treat no-op as success - all requested 0 statements were executed with nothing to do
-        if not ddl_statements:
-            return DdlResult(status=ExecutionStatus.SUCCESS)
-
+        # Type check must come first. This prevents "None" from being treated as an empty list.
         if not isinstance(ddl_statements, list):
             return DdlResult(
                 status=ExecutionStatus.ERROR,
                 error_message="ddl_statements must be a list of str.",
             )
+
+        # Treat no-op as success - all requested 0 statements were executed with nothing to do
+        if not ddl_statements:
+            return DdlResult(status=ExecutionStatus.SUCCESS)
 
         try:
             operation = self.database.update_ddl(ddl_statements)
