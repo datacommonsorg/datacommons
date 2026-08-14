@@ -156,13 +156,10 @@ Ensure all production container images and Dataflow flex template are tagged wit
 
 ## 3. Pre-Releases, Immutability & Recovery Protocols
 
-### Pre-Release Versioning Conventions (Alpha, Beta, RC)
-DCP uses standard [PEP 440](https://peps.python.org/pep-0440/) pre-release identifiers for staging and testing builds:
-* **Alpha (`X.Y.Za1`, `X.Y.Za2`)**: Early internal testing builds.
-* **Beta (`X.Y.Zb1`, `X.Y.Zb2`)**: Feature-complete integration builds.
-* **Release Candidate (`X.Y.Zrc1`, `X.Y.Zrc2`)**: Final staging builds prior to production.
+### Release Candidate (RC) Versioning Conventions
+DCP uses standard [PEP 440](https://peps.python.org/pep-0440/) release candidate identifiers (e.g. `X.Y.Zrc1`, `X.Y.Zrc2`) for staging and pre-release testing builds.
 
-Package managers like `uv` and `pip` treat pre-releases safely: they will **not** install pre-release packages automatically unless explicitly requested with the pre-release version string (e.g. `"datacommons-cli==X.Y.ZrcN"`) or the `--pre` flag.
+Package managers like `uv` and `pip` treat release candidates safely: they will **not** install candidate packages automatically unless explicitly requested with the candidate version string (e.g. `"datacommons-cli==X.Y.ZrcN"`) or the `--pre` flag.
 
 ### What if a Release Candidate (RC) fails testing?
 Do **not** overwrite or edit tag `vX.Y.ZrcN`. Fix the bug on `main`, and submit a new staging build with the next increment (`X.Y.Zrc(N+1)`):
