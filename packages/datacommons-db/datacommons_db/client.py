@@ -82,8 +82,9 @@ class SpannerClient:
 
         query = (
             "SELECT 1 FROM information_schema.tables "
-            "WHERE table_schema = '' AND table_name = @table_name LIMIT 1"
+            "WHERE table_schema IN ('', 'public') AND table_name = @table_name LIMIT 1"
         )
+
         params = {"table_name": table_name}
         param_types = {"table_name": spanner.param_types.STRING}
 
