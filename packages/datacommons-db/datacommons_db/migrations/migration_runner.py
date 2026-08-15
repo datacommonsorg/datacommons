@@ -279,7 +279,16 @@ class MigrationRunner:
 
         applied: list[SchemaMigration] = []
         for migration in pending:
-            self.apply_migration(migration)
-            applied.append(migration)
+            try:
+                self.apply_migration(migration)
+                applied.append(migration)
+            except Exception as e:
+                logger.error(
+                    "Migration %d -> %d failed: %s. Halting migration sequence.",
+                    migration.source_version,
+                    migration.target_version,
+                    e,
+                )
+                raise
 
         return applied

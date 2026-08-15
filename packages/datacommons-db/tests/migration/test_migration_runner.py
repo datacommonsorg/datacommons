@@ -330,7 +330,7 @@ def test_run_migrations_already_up_to_date(mock_spanner_client):
     mock_spanner_client.execute_dml.assert_not_called()
 
 
-def test_run_migrations_stops_on_first_error(mock_spanner_client):
+def test_run_migrations_stops_on_first_error(mock_spanner_client, caplog):
     m1 = DummyMigration(0, 1, should_fail=True)
     m2 = DummyMigration(1, 2)
 
@@ -338,9 +338,13 @@ def test_run_migrations_stops_on_first_error(mock_spanner_client):
 
     runner = MigrationRunner(mock_spanner_client, migrations=[m1, m2])
 
-    with pytest.raises(RuntimeError, match="Migration 0->1 failed deliberately"):
+    with caplog.at_level("ERROR"), pytest.raises(
+        RuntimeError, match="Migration 0->1 failed deliberately"
+    ):
         runner.run_migrations()
 
     assert m1.rolled_forward is False
     assert m2.rolled_forward is False
     mock_spanner_client.execute_dml.assert_not_called()
+    assert "Migration 0 -> 1 failed" in caplog.text
+    assert "Halting migration sequence" in caplog.text
