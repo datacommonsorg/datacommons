@@ -85,6 +85,15 @@ def test_validate_migrations_non_zero_start_valid():
     assert result == [m1, m2]
 
 
+def test_validate_migrations_negative_source_version():
+    m = DummyMigration(-1, 0)
+    with pytest.raises(
+        ValueError,
+        match="Migration source_version must be non-negative",
+    ):
+        MigrationRunner.validate_migrations([m])
+
+
 def test_validate_migrations_invalid_step_increment():
     m = DummyMigration(0, 2)
     with pytest.raises(ValueError, match="must have target_version 1, but found 2"):
