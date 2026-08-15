@@ -118,6 +118,52 @@ if query_result.status == ExecutionStatus.SUCCESS:
 
 
 
+### Schema Migrations
+
+The package provides a versioned schema migration framework with `SchemaMigration` and `MigrationRunner`.
+
+#### Running Migrations
+
+```python
+from datacommons_db.clients import SpannerClient
+from datacommons_db.migrations import MigrationRunner
+
+client = SpannerClient(
+    project_id="your-gcp-project",
+    instance_id="your-spanner-instance",
+    database_id="your-spanner-database",
+)
+
+runner = MigrationRunner(client)
+
+# Check current schema version in SchemaVersion table
+current_version = runner.get_current_version()
+print(f"Current schema version: {current_version}")
+
+# Run all pending migrations sequentially
+applied_migrations = runner.run_migrations()
+for migration in applied_migrations:
+    print(f"Applied: {migration.source_version} -> {migration.target_version} ({migration.description})")
+```
+
+#### Defining a Custom Migration
+
+```python
+from datacommons_db.clients import ExecutionStatus, SpannerClient
+from datacommons_db.migrations import SchemaMigration
+
+class Migration0002Custom(SchemaMigration):
+    description: str = "Add custom index"
+    source_version: int = 1
+    target_version: int = 2
+
+    def roll_forward(self, spanner_client: SpannerClient) -> None:
+        result = spanner_client.execute_ddl([
+            "CREATE INDEX CustomIndex ON Node (name)"
+        ])
+        if result.status != ExecutionStatus.SUCCESS:
+            raise RuntimeError(f"Migration failed: {result.error_message}")
+```
 
 ### SQLAlchemy ORM Usage
 
