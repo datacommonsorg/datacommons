@@ -70,6 +70,12 @@ class MigrationRunner:
         seen_targets: set[int] = set()
 
         for i, migration in enumerate(sorted_migrations):
+            # Check non-negative version numbers
+            if migration.source_version < 0:
+                raise ValueError(
+                    f"Migration source_version must be non-negative (>= 0), but found {migration.source_version}"
+                )
+
             # Check for duplicate source or target versions
             if migration.source_version in seen_sources:
                 raise ValueError(
