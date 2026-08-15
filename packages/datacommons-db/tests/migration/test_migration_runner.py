@@ -94,6 +94,15 @@ def test_validate_migrations_negative_source_version():
         MigrationRunner.validate_migrations([m])
 
 
+def test_validate_migrations_non_positive_target_version():
+    m = DummyMigration(0, 0)
+    with pytest.raises(
+        ValueError,
+        match="Migration target_version must be positive",
+    ):
+        MigrationRunner.validate_migrations([m])
+
+
 def test_validate_migrations_invalid_step_increment():
     m = DummyMigration(0, 2)
     with pytest.raises(ValueError, match="must have target_version 1, but found 2"):
@@ -110,7 +119,10 @@ def test_validate_migrations_duplicate_source_version():
 def test_validate_migrations_discontinuous_sequence():
     m1 = DummyMigration(0, 1)
     m2 = DummyMigration(2, 3)
-    with pytest.raises(ValueError, match="Discontinuous migration sequence: gap between target_version 1 and source_version 2"):
+    with pytest.raises(
+        ValueError,
+        match="Discontinuous migration sequence: gap between target_version 1 and source_version 2",
+    ):
         MigrationRunner.validate_migrations([m1, m2])
 
 
@@ -155,6 +167,9 @@ def test_get_current_version_with_version(mock_spanner_client):
     runner = MigrationRunner(mock_spanner_client, migrations=[])
 
     assert runner.get_current_version() == 3
+    mock_spanner_client.execute_query.assert_called_once()
+    query_arg = mock_spanner_client.execute_query.call_args[0][0]
+    assert "ORDER BY AppliedTimestamp DESC" in query_arg
 
 
 def test_get_current_version_query_error(mock_spanner_client):
@@ -165,7 +180,9 @@ def test_get_current_version_query_error(mock_spanner_client):
     )
     runner = MigrationRunner(mock_spanner_client, migrations=[])
 
-    with pytest.raises(RuntimeError, match="Failed to query SchemaVersion table: Query error"):
+    with pytest.raises(
+        RuntimeError, match="Failed to query SchemaVersion table: Query error"
+    ):
         runner.get_current_version()
 
 
@@ -174,7 +191,7 @@ def test_get_current_version_query_error(mock_spanner_client):
 # ==============================================================================
 
 
-def test_get_pending_migrations(mock_spanner_client):
+def test_get_pending_migrations(mock_spanner_client, caplog):
     m1 = DummyMigration(0, 1)
     m2 = DummyMigration(1, 2)
     m3 = DummyMigration(2, 3)
@@ -190,6 +207,12 @@ def test_get_pending_migrations(mock_spanner_client):
     # Case 3: current version 3
     assert runner.get_pending_migrations(current_version=3) == []
 
+    # Case 4: database version ahead of codebase (e.g. version 5 with codebase at 3)
+    with caplog.at_level("WARNING"):
+        pending = runner.get_pending_migrations(current_version=5)
+        assert pending == []
+        assert "is ahead of the latest migration known to this codebase" in caplog.text
+
 
 def test_apply_migration_success(mock_spanner_client):
     m = DummyMigration(0, 1, desc="Baseline")
@@ -203,7 +226,10 @@ def test_apply_migration_success(mock_spanner_client):
 
     assert m.rolled_forward is True
     mock_spanner_client.execute_dml.assert_called_once()
-    query_arg, kwargs = mock_spanner_client.execute_dml.call_args[0][0], mock_spanner_client.execute_dml.call_args[1]
+    query_arg, kwargs = (
+        mock_spanner_client.execute_dml.call_args[0][0],
+        mock_spanner_client.execute_dml.call_args[1],
+    )
     assert "INSERT INTO SchemaVersion" in query_arg
     assert kwargs["params"] == {"version": 1, "description": "Baseline"}
     assert kwargs["param_types"] == {
@@ -236,6 +262,36 @@ def test_apply_migration_dml_failure(mock_spanner_client):
         match="Failed to record migration version 1 in SchemaVersion: DML insert failed",
     ):
         runner.apply_migration(m)
+
+
+def test_set_schema_version_success(mock_spanner_client):
+    mock_spanner_client.execute_dml.return_value = MagicMock(
+        status=ExecutionStatus.SUCCESS,
+        rows_affected=1,
+    )
+    runner = MigrationRunner(mock_spanner_client, migrations=[])
+    runner.set_schema_version(version=2, description="Add table")
+
+    mock_spanner_client.execute_dml.assert_called_once()
+    query_arg, kwargs = (
+        mock_spanner_client.execute_dml.call_args[0][0],
+        mock_spanner_client.execute_dml.call_args[1],
+    )
+    assert "INSERT INTO SchemaVersion" in query_arg
+    assert kwargs["params"] == {"version": 2, "description": "Add table"}
+
+
+def test_set_schema_version_failure(mock_spanner_client):
+    mock_spanner_client.execute_dml.return_value = MagicMock(
+        status=ExecutionStatus.ERROR,
+        error_message="Connection lost",
+    )
+    runner = MigrationRunner(mock_spanner_client, migrations=[])
+    with pytest.raises(
+        RuntimeError,
+        match="Failed to record migration version 2 in SchemaVersion: Connection lost",
+    ):
+        runner.set_schema_version(version=2, description="Add table")
 
 
 def test_run_migrations_all_applied(mock_spanner_client):

@@ -70,10 +70,14 @@ class MigrationRunner:
         seen_targets: set[int] = set()
 
         for i, migration in enumerate(sorted_migrations):
-            # Check non-negative version numbers
+            # Check version bounds
             if migration.source_version < 0:
                 raise ValueError(
                     f"Migration source_version must be non-negative (>= 0), but found {migration.source_version}"
+                )
+            if migration.target_version <= 0:
+                raise ValueError(
+                    f"Migration target_version must be positive (> 0), but found {migration.target_version}"
                 )
 
             # Check for duplicate source or target versions
@@ -115,12 +119,14 @@ class MigrationRunner:
             Sorted, validated list of SchemaMigration instances.
         """
         discovered: list[SchemaMigration] = []
-        seen_classes: set[type[SchemaMigration]] = set()
 
+        # Only iterate through files from __path__.
+        # This prevents external path injection or local file execution when running a packaged release.
         for module_info in pkgutil.iter_modules(
             datacommons_db.migrations.migration_scripts.__path__
         ):
             if module_info.name.startswith("_"):
+                # Treat files starting with _ as private, do not import.
                 continue
             module = importlib.import_module(
                 f"datacommons_db.migrations.migration_scripts.{module_info.name}"
@@ -128,10 +134,8 @@ class MigrationRunner:
             for _, obj in inspect.getmembers(module, inspect.isclass):
                 if (
                     issubclass(obj, SchemaMigration)
-                    and obj is not SchemaMigration
-                    and obj not in seen_classes
+                    and obj.__module__ == module.__name__  # Filter out imported objects
                 ):
-                    seen_classes.add(obj)
                     discovered.append(obj())
 
         return self.validate_migrations(discovered)
@@ -140,7 +144,7 @@ class MigrationRunner:
         """Query the target database to determine the current applied schema version.
 
         Returns:
-            The highest applied version number, or 0 if SchemaVersion table does not exist or is empty.
+            The version number with the most recent AppliedTimestamp, or 0 if SchemaVersion table does not exist or is empty.
 
         Raises:
             RuntimeError: If querying SchemaVersion fails unexpectedly.
@@ -149,7 +153,8 @@ class MigrationRunner:
             return 0
 
         query = (
-            "SELECT Version FROM SchemaVersion ORDER BY Version DESC LIMIT 1"
+            "SELECT Version FROM SchemaVersion "
+            "ORDER BY AppliedTimestamp DESC, Version DESC LIMIT 1"
         )
         result = self.spanner_client.execute_query(query)
         if result.status != ExecutionStatus.SUCCESS:
@@ -176,6 +181,16 @@ class MigrationRunner:
         if current_version is None:
             current_version = self.get_current_version()
 
+        if self.migrations:
+            latest_available_version = self.migrations[-1].target_version
+            if current_version > latest_available_version:
+                logger.warning(
+                    "Database schema version (%d) is ahead of the latest migration known to this codebase (%d). "
+                    "You may be running an outdated version of the datacommons-db package.",
+                    current_version,
+                    latest_available_version,
+                )
+
         return [m for m in self.migrations if m.source_version >= current_version]
 
     def apply_migration(self, migration: SchemaMigration) -> None:
@@ -198,13 +213,34 @@ class MigrationRunner:
         migration.roll_forward(self.spanner_client)
 
         # 2. Record the applied migration version in SchemaVersion
+        self.set_schema_version(
+            version=migration.target_version,
+            description=migration.description,
+        )
+
+        logger.info(
+            "Successfully applied migration %d -> %d",
+            migration.source_version,
+            migration.target_version,
+        )
+
+    def set_schema_version(self, version: int, description: str) -> None:
+        """Record an applied schema version in the SchemaVersion table.
+
+        Args:
+            version: The applied version number to record.
+            description: Description of the schema migration.
+
+        Raises:
+            RuntimeError: If inserting into SchemaVersion fails.
+        """
         insert_query = (
             "INSERT INTO SchemaVersion (Version, AppliedTimestamp, Description) "
             "VALUES (@version, PENDING_COMMIT_TIMESTAMP(), @description)"
         )
         params = {
-            "version": migration.target_version,
-            "description": migration.description,
+            "version": version,
+            "description": description,
         }
         param_types = {
             "version": spanner.param_types.INT64,
@@ -218,15 +254,9 @@ class MigrationRunner:
         )
         if dml_res.status != ExecutionStatus.SUCCESS:
             raise RuntimeError(
-                f"Failed to record migration version {migration.target_version} in SchemaVersion: "
+                f"Failed to record migration version {version} in SchemaVersion: "
                 f"{dml_res.error_message}"
             )
-
-        logger.info(
-            "Successfully applied migration %d -> %d",
-            migration.source_version,
-            migration.target_version,
-        )
 
     def run_migrations(self) -> list[SchemaMigration]:
         """Execute all pending migrations in sequential order.

@@ -39,7 +39,10 @@ def test_migration_0001_properties():
     migration = Migration0001Bootstrap()
     assert migration.source_version == 0
     assert migration.target_version == 1
-    assert migration.description == "Add SchemaVersion table to bootstrap schema versioning."
+    assert (
+        migration.description
+        == "Add SchemaVersion table to bootstrap schema versioning."
+    )
 
 
 def test_migration_0001_roll_backward_not_implemented(mock_spanner_client):
@@ -51,7 +54,9 @@ def test_migration_0001_roll_backward_not_implemented(mock_spanner_client):
 def test_migration_0001_creates_schema_version_table(mock_spanner_client):
     # SchemaVersion table does not exist initially
     mock_spanner_client.table_exists.return_value = False
-    mock_spanner_client.execute_ddl.return_value = DdlResult(status=ExecutionStatus.SUCCESS)
+    mock_spanner_client.execute_ddl.return_value = DdlResult(
+        status=ExecutionStatus.SUCCESS
+    )
 
     migration = Migration0001Bootstrap()
     migration.roll_forward(mock_spanner_client)
