@@ -66,13 +66,6 @@ class MigrationRunner:
             return []
 
         sorted_migrations = sorted(migrations, key=lambda m: m.source_version)
-
-        # Check that migration sequence starts at source version 0
-        if sorted_migrations[0].source_version != 0:
-            raise ValueError(
-                f"First migration must have source_version 0, but found {sorted_migrations[0].source_version}"
-            )
-
         seen_sources: set[int] = set()
         seen_targets: set[int] = set()
 

@@ -24,6 +24,10 @@ from google.cloud import spanner
 
 
 class DummyMigration(SchemaMigration):
+    source_version: int = 0
+    target_version: int = 1
+    description: str = "dummy"
+
     def __init__(
         self,
         source: int,
@@ -32,28 +36,18 @@ class DummyMigration(SchemaMigration):
         *,
         should_fail: bool = False,
     ) -> None:
-        self._source = source
-        self._target = target
-        self._desc = desc
+        self.source_version = source
+        self.target_version = target
+        self.description = desc
         self._should_fail = should_fail
         self.rolled_forward = False
-
-    @property
-    def description(self) -> str:
-        return self._desc
-
-    @property
-    def source_version(self) -> int:
-        return self._source
-
-    @property
-    def target_version(self) -> int:
-        return self._target
 
     def roll_forward(self, spanner_client: SpannerClient) -> None:
         _ = spanner_client
         if self._should_fail:
-            raise RuntimeError(f"Migration {self._source}->{self._target} failed deliberately")
+            raise RuntimeError(
+                f"Migration {self.source_version}->{self.target_version} failed deliberately"
+            )
         self.rolled_forward = True
 
 
@@ -84,10 +78,11 @@ def test_validate_migrations_valid_sequence():
     assert result == [m1, m2, m3]
 
 
-def test_validate_migrations_must_start_at_zero():
-    m = DummyMigration(1, 2)
-    with pytest.raises(ValueError, match="First migration must have source_version 0"):
-        MigrationRunner.validate_migrations([m])
+def test_validate_migrations_non_zero_start_valid():
+    m1 = DummyMigration(3, 4)
+    m2 = DummyMigration(4, 5)
+    result = MigrationRunner.validate_migrations([m2, m1])
+    assert result == [m1, m2]
 
 
 def test_validate_migrations_invalid_step_increment():
