@@ -113,7 +113,7 @@ datacommons admin [COMMAND] --help
 
 5. Trigger the data ingestion pipeline:
    ```bash
-   datacommons admin ingest start
+   datacommons admin ingest start --imports <import_name>
    ```
 
 ---

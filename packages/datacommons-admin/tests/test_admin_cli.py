@@ -411,7 +411,7 @@ def test_ingest_start_success(
     mock_session_inst.post.return_value = mock_resp
     mock_session.return_value = mock_session_inst
 
-    result = runner.invoke(admin, ["ingest", "start"])
+    result = runner.invoke(admin, ["ingest", "start", "--imports", "mock-import"])
     assert result.exit_code == 0
     assert "Successfully started ingestion workflow!" in result.output
     assert "Execution ID: exec-123" in result.output
@@ -419,6 +419,12 @@ def test_ingest_start_success(
         "Execution console link: https://console.cloud.google.com/workflows/workflow/us-central1/mock-workflow/execution/exec-123/summary?project=mock-proj"
         in result.output
     )
+
+
+def test_ingest_start_fails_without_imports_flag(runner: CliRunner) -> None:
+    result = runner.invoke(admin, ["ingest", "start"])
+    assert result.exit_code != 0
+    assert "Missing option '--imports'" in result.output
 
 
 @patch("datacommons_admin.tf_utils.shutil.which")
