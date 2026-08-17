@@ -79,6 +79,9 @@ variable "website_search_scope" {
   description = "Controls the scope for indicator resolution on the website Explore page"
 }
 
+# =============================================================================
+# Infrastructure References
+# =============================================================================
 variable "artifacts_bucket_name" {
   type        = string
   description = "Name of the unified GCS bucket for artifacts"

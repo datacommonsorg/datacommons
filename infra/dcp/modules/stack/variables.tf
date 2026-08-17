@@ -79,16 +79,7 @@ variable "network_config" {
     existing_subnet_id  = optional(string, null)
     vpc_egress_mode     = optional(string, null)
   })
-  default = {
-    enable              = true
-    create_vpc          = true
-    network_name        = "dc-vpc"
-    subnet_cidr         = "10.0.0.0/24"
-    enable_cloud_nat    = false
-    existing_network_id = null
-    existing_subnet_id  = null
-    vpc_egress_mode     = null
-  }
+  default = {}
 }
 
 variable "redis_config" {
