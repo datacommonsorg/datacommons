@@ -139,6 +139,12 @@ variable "network_existing_subnet_id" {
   default     = null
 }
 
+variable "network_vpc_egress_mode" {
+  description = "VPC egress mode for Cloud Run services and jobs (PRIVATE_RANGES_ONLY or ALL_TRAFFIC). Set to ALL_TRAFFIC to route outbound internet traffic through Cloud NAT."
+  type        = string
+  default     = "PRIVATE_RANGES_ONLY"
+}
+
 # =============================================================================
 # Redis Module
 # =============================================================================

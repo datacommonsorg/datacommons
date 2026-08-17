@@ -77,6 +77,7 @@ variable "network_config" {
     enable_cloud_nat    = optional(bool, true)
     existing_network_id = optional(string, null)
     existing_subnet_id  = optional(string, null)
+    vpc_egress_mode     = optional(string, null)
   })
   default = {
     enable              = true
@@ -86,6 +87,7 @@ variable "network_config" {
     enable_cloud_nat    = true
     existing_network_id = null
     existing_subnet_id  = null
+    vpc_egress_mode     = null
   }
 }
 

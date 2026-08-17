@@ -59,16 +59,18 @@ resource "google_compute_router_nat" "nat" {
 # =============================================================================
 # 4. Validations
 # =============================================================================
-check "existing_network_config_valid" {
-  assert {
-    condition = (
-      !var.enable ||
-      var.create_vpc ||
-      (
-        var.existing_network_id != null && var.existing_network_id != "" &&
-        var.existing_subnet_id != null && var.existing_subnet_id != ""
+resource "terraform_data" "existing_network_config_validation" {
+  lifecycle {
+    precondition {
+      condition = (
+        !var.enable ||
+        var.create_vpc ||
+        (
+          var.existing_network_id != null && var.existing_network_id != "" &&
+          var.existing_subnet_id != null && var.existing_subnet_id != ""
+        )
       )
-    )
-    error_message = "When VPC networking is enabled (enable = true) and create_vpc is false, both existing_network_id and existing_subnet_id must be provided."
+      error_message = "When VPC networking is enabled (enable = true) and create_vpc is false, both existing_network_id and existing_subnet_id must be provided."
+    }
   }
 }

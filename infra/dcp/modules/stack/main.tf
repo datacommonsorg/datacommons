@@ -135,6 +135,7 @@ module "ingestion_preprocessing_job" {
   timeout                       = var.ingestion_config.preprocessing_job_timeout
   network_id                    = module.network.network_id
   subnet_id                     = module.network.subnet_id
+  vpc_egress_mode               = var.network_config.vpc_egress_mode != null ? var.network_config.vpc_egress_mode : "PRIVATE_RANGES_ONLY"
   bucket_name                   = module.storage.artifacts_bucket_name
   input_path                    = var.ingestion_config.input_path
   ingestion_artifacts_path      = var.ingestion_config.ingestion_artifacts_path
@@ -170,6 +171,7 @@ module "ingestion_postprocessing_job" {
   timeout                        = var.ingestion_config.postprocessing_job_timeout
   network_id                     = module.network.network_id
   subnet_id                      = module.network.subnet_id
+  vpc_egress_mode                = var.network_config.vpc_egress_mode != null ? var.network_config.vpc_egress_mode : "PRIVATE_RANGES_ONLY"
   spanner_instance_id            = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
   spanner_database_id            = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
   bigquery_connection_id         = var.spanner_config.enable ? module.spanner[0].bigquery_connection_id : ""
@@ -209,6 +211,7 @@ module "ingestion_helper_service" {
   # Direct VPC Egress from network module
   network_id               = module.network.network_id
   subnet_id                = module.network.subnet_id
+  vpc_egress_mode          = var.network_config.vpc_egress_mode != null ? var.network_config.vpc_egress_mode : "PRIVATE_RANGES_ONLY"
   redis_host               = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
   redis_port               = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
   ingestion_artifacts_path = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
@@ -258,7 +261,7 @@ module "redis" {
   location_id             = var.redis_config.location_id
   alternative_location_id = var.redis_config.alternative_location_id
   replica_count           = var.redis_config.replica_count
-  vpc_network_id          = module.network.network_id != null && module.network.network_id != "" ? module.network.network_id : "default"
+  vpc_network_id          = module.network.network_id != null && module.network.network_id != "" ? module.network.network_id : "projects/${var.global.project_id}/global/networks/default"
 }
 
 module "auth" {
@@ -292,6 +295,7 @@ module "datacommons_services" {
   artifacts_bucket_name         = module.storage.artifacts_bucket_name
   network_id                    = module.network.network_id
   subnet_id                     = module.network.subnet_id
+  vpc_egress_mode               = var.network_config.vpc_egress_mode != null ? var.network_config.vpc_egress_mode : "PRIVATE_RANGES_ONLY"
   use_spanner                   = var.spanner_config.enable
   env_vars = concat(local.cloud_run_shared_env_variables, [
     {
@@ -445,22 +449,26 @@ resource "google_service_account_iam_member" "ingestion_workflow_act_as_serving_
 }
 
 # =============================================================================
-# Architecture & Dependency Checks
+# Architecture & Dependency Validations
 # =============================================================================
-check "redis_requires_network" {
-  assert {
-    condition     = !var.redis_config.enable || var.network_config.enable
-    error_message = "enable_redis is set to true, but enable_network is false. Cloud Memorystore for Redis instances only have private IP addresses and require VPC networking to be accessible from Cloud Run services."
+resource "terraform_data" "redis_network_validation" {
+  lifecycle {
+    precondition {
+      condition     = !var.redis_config.enable || var.network_config.enable
+      error_message = "enable_redis is set to true, but enable_network is false. Cloud Memorystore for Redis instances only have private IP addresses and require VPC networking to be accessible from Cloud Run services."
+    }
   }
 }
 
-check "dataflow_private_ip_requires_subnet" {
-  assert {
-    condition = (
-      var.ingestion_config.dataflow_ip_configuration != "WORKER_IP_PRIVATE" ||
-      var.network_config.enable ||
-      (var.ingestion_config.dataflow_subnetwork != null && var.ingestion_config.dataflow_subnetwork != "")
-    )
-    error_message = "dataflow_ip_configuration is set to 'WORKER_IP_PRIVATE', which requires a valid subnetwork. Ensure enable_network is true or provide dataflow_subnetwork."
+resource "terraform_data" "dataflow_subnet_validation" {
+  lifecycle {
+    precondition {
+      condition = (
+        var.ingestion_config.dataflow_ip_configuration != "WORKER_IP_PRIVATE" ||
+        (var.ingestion_config.dataflow_subnetwork != null && var.ingestion_config.dataflow_subnetwork != "") ||
+        (var.network_config.enable && module.network.subnet_url != null && module.network.subnet_url != "")
+      )
+      error_message = "dataflow_ip_configuration is set to 'WORKER_IP_PRIVATE', which requires a valid subnetwork. Ensure enable_network is true and a subnet is available, or provide dataflow_subnetwork."
+    }
   }
 }

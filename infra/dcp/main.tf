@@ -115,6 +115,7 @@ locals {
     enable_cloud_nat    = var.network_enable_cloud_nat
     existing_network_id = var.network_existing_network_id
     existing_subnet_id  = var.network_existing_subnet_id
+    vpc_egress_mode     = var.network_vpc_egress_mode
   }
 
   auth_config = {
