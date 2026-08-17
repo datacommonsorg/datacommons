@@ -40,7 +40,6 @@ resource "google_project_service" "apis" {
     "sqladmin.googleapis.com",
     "redis.googleapis.com",
     "secretmanager.googleapis.com",
-    "vpcaccess.googleapis.com",
     "artifactregistry.googleapis.com",
     "compute.googleapis.com"
     ], var.enable_spanner ? ["spanner.googleapis.com"] : [],
