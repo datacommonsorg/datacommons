@@ -124,7 +124,7 @@ variable "network_subnet_cidr" {
 variable "network_enable_cloud_nat" {
   description = "Whether to provision a Cloud Router and Cloud NAT for secure outbound internet egress from private workers."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "network_existing_network_id" {

@@ -74,7 +74,7 @@ variable "network_config" {
     create_vpc          = optional(bool, true)
     network_name        = optional(string, "dc-vpc")
     subnet_cidr         = optional(string, "10.0.0.0/24")
-    enable_cloud_nat    = optional(bool, true)
+    enable_cloud_nat    = optional(bool, false)
     existing_network_id = optional(string, null)
     existing_subnet_id  = optional(string, null)
     vpc_egress_mode     = optional(string, null)
@@ -84,7 +84,7 @@ variable "network_config" {
     create_vpc          = true
     network_name        = "dc-vpc"
     subnet_cidr         = "10.0.0.0/24"
-    enable_cloud_nat    = true
+    enable_cloud_nat    = false
     existing_network_id = null
     existing_subnet_id  = null
     vpc_egress_mode     = null
