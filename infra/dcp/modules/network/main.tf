@@ -15,6 +15,10 @@ resource "google_compute_network" "vpc" {
   name                    = var.network_name != "" ? "${local.name_prefix}${var.network_name}" : "${local.name_prefix}dc-vpc"
   auto_create_subnetworks = false
   project                 = var.project_id
+
+  timeouts {
+    delete = "10m"
+  }
 }
 
 # =============================================================================
@@ -28,6 +32,10 @@ resource "google_compute_subnetwork" "subnet" {
   network                  = google_compute_network.vpc[0].id
   private_ip_google_access = true # Ensures internal routing to Spanner, BigQuery, GCS without public IPs
   project                  = var.project_id
+
+  timeouts {
+    delete = "10m"
+  }
 }
 
 # =============================================================================
