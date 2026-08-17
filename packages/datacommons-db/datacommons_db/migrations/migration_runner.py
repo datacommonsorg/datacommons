@@ -183,6 +183,16 @@ class MigrationRunner:
             current_version = self.get_current_version()
 
         if self.migrations:
+            # Check that the earliest available migration is continuous with the current version.
+            earliest_available_version = self.migrations[0].source_version
+            if current_version < earliest_available_version:
+                raise ValueError(
+                    f"Database schema version ({current_version}) is behind the earliest "
+                    f"available migration source version ({earliest_available_version}). "
+                    "Cannot safely migrate due to missing migrations."
+                )
+
+            # Check that the latest available migration is not behind the current version.
             latest_available_version = self.migrations[-1].target_version
             if current_version > latest_available_version:
                 logger.warning(
