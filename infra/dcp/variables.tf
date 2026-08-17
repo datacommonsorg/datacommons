@@ -144,7 +144,7 @@ variable "network_existing_subnet_id" {
 # =============================================================================
 
 variable "enable_redis" {
-  description = "Enable a Memorystore Redis instance for caching"
+  description = "Enable a Memorystore Redis instance for caching. NOTE: Cloud Memorystore instances only have private IP addresses and require VPC networking (enable_network = true) to be accessible from Cloud Run services."
   type        = bool
   default     = false
 }
@@ -467,13 +467,13 @@ variable "ingestion_helper_service_image" {
 # =============================================================================
 
 variable "ingestion_dataflow_ip_configuration" {
-  description = "IP configuration for Dataflow workers (WORKER_IP_UNSPECIFIED, WORKER_IP_PUBLIC, WORKER_IP_PRIVATE). Set to WORKER_IP_PRIVATE when a compute.vmExternalIpAccess org policy restricts VMs from obtaining external IPs."
+  description = "IP configuration for Dataflow workers (WORKER_IP_UNSPECIFIED, WORKER_IP_PUBLIC, WORKER_IP_PRIVATE). Set to WORKER_IP_PRIVATE when a compute.vmExternalIpAccess org policy restricts VMs from obtaining external IPs. NOTE: WORKER_IP_PRIVATE requires enable_network = true or an explicitly configured ingestion_dataflow_subnetwork."
   type        = string
   default     = "WORKER_IP_UNSPECIFIED"
 }
 
 variable "ingestion_dataflow_subnetwork" {
-  description = "Subnetwork for Dataflow workers. Required when ingestion_dataflow_ip_configuration is WORKER_IP_PRIVATE. Format: regions/{region}/subnetworks/{subnetwork}."
+  description = "Subnetwork for Dataflow workers. Automatically populated from the network module when enable_network = true. If enable_network = false and WORKER_IP_PRIVATE is used, this variable must be explicitly provided. Format: regions/{region}/subnetworks/{subnetwork} or full self_link."
   type        = string
   default     = ""
 }

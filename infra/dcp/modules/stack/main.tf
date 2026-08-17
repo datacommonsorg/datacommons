@@ -443,3 +443,24 @@ resource "google_service_account_iam_member" "ingestion_workflow_act_as_serving_
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
+
+# =============================================================================
+# Architecture & Dependency Checks
+# =============================================================================
+check "redis_requires_network" {
+  assert {
+    condition     = !var.redis_config.enable || var.network_config.enable
+    error_message = "enable_redis is set to true, but enable_network is false. Cloud Memorystore for Redis instances only have private IP addresses and require VPC networking to be accessible from Cloud Run services."
+  }
+}
+
+check "dataflow_private_ip_requires_subnet" {
+  assert {
+    condition = (
+      var.ingestion_config.dataflow_ip_configuration != "WORKER_IP_PRIVATE" ||
+      var.network_config.enable ||
+      (var.ingestion_config.dataflow_subnetwork != null && var.ingestion_config.dataflow_subnetwork != "")
+    )
+    error_message = "dataflow_ip_configuration is set to 'WORKER_IP_PRIVATE', which requires a valid subnetwork. Ensure enable_network is true or provide dataflow_subnetwork."
+  }
+}

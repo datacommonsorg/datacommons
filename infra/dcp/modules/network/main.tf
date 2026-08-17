@@ -1,21 +1,10 @@
 locals {
   name_prefix = var.instance_name != "" ? "${var.instance_name}-" : ""
 
-  effective_network_id = var.enable ? (
-    var.create_vpc ? (length(google_compute_network.vpc) > 0 ? google_compute_network.vpc[0].id : "") : var.existing_network_id
-  ) : null
-
-  effective_network_name = var.enable ? (
-    var.create_vpc ? (length(google_compute_network.vpc) > 0 ? google_compute_network.vpc[0].name : "") : var.network_name
-  ) : null
-
-  effective_subnet_id = var.enable ? (
-    var.create_vpc ? (length(google_compute_subnetwork.subnet) > 0 ? google_compute_subnetwork.subnet[0].id : "") : var.existing_subnet_id
-  ) : null
-
-  effective_subnet_url = var.enable ? (
-    var.create_vpc ? (length(google_compute_subnetwork.subnet) > 0 ? google_compute_subnetwork.subnet[0].self_link : "") : var.existing_subnet_id
-  ) : null
+  effective_network_id   = var.enable ? (var.create_vpc ? one(google_compute_network.vpc[*].id) : var.existing_network_id) : null
+  effective_network_name = var.enable ? (var.create_vpc ? one(google_compute_network.vpc[*].name) : var.network_name) : null
+  effective_subnet_id    = var.enable ? (var.create_vpc ? one(google_compute_subnetwork.subnet[*].id) : var.existing_subnet_id) : null
+  effective_subnet_url   = var.enable ? (var.create_vpc ? one(google_compute_subnetwork.subnet[*].self_link) : var.existing_subnet_id) : null
 }
 
 # =============================================================================
@@ -64,5 +53,22 @@ resource "google_compute_router_nat" "nat" {
   log_config {
     enable = true
     filter = "ERRORS_ONLY"
+  }
+}
+
+# =============================================================================
+# 4. Validations
+# =============================================================================
+check "existing_network_config_valid" {
+  assert {
+    condition = (
+      !var.enable ||
+      var.create_vpc ||
+      (
+        var.existing_network_id != null && var.existing_network_id != "" &&
+        var.existing_subnet_id != null && var.existing_subnet_id != ""
+      )
+    )
+    error_message = "When VPC networking is enabled (enable = true) and create_vpc is false, both existing_network_id and existing_subnet_id must be provided."
   }
 }
