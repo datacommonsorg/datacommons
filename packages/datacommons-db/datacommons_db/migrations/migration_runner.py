@@ -66,33 +66,8 @@ class MigrationRunner:
             return []
 
         sorted_migrations = sorted(migrations, key=lambda m: m.source_version)
-        seen_sources: set[int] = set()
-        seen_targets: set[int] = set()
 
         for i, migration in enumerate(sorted_migrations):
-            # Check version bounds
-            if migration.source_version < 0:
-                raise ValueError(
-                    f"Migration source_version must be non-negative (>= 0), but found {migration.source_version}"
-                )
-            if migration.target_version <= 0:
-                raise ValueError(
-                    f"Migration target_version must be positive (> 0), but found {migration.target_version}"
-                )
-
-            # Check for duplicate source or target versions
-            if migration.source_version in seen_sources:
-                raise ValueError(
-                    f"Duplicate source_version {migration.source_version} found across migrations"
-                )
-            if migration.target_version in seen_targets:
-                raise ValueError(
-                    f"Duplicate target_version {migration.target_version} found across migrations"
-                )
-
-            seen_sources.add(migration.source_version)
-            seen_targets.add(migration.target_version)
-
             # Check single step increment
             expected_target = migration.source_version + 1
             if migration.target_version != expected_target:
@@ -112,7 +87,8 @@ class MigrationRunner:
 
         return sorted_migrations
 
-    def discover_migrations(self) -> list[SchemaMigration]:
+    @classmethod
+    def discover_migrations(cls) -> list[SchemaMigration]:
         """Automatically discover and validate all SchemaMigration subclasses in migration_scripts.
 
         Returns:
@@ -139,7 +115,7 @@ class MigrationRunner:
                 ):
                     discovered.append(obj())
 
-        return self.validate_migrations(discovered)
+        return cls.validate_migrations(discovered)
 
     def get_current_version(self) -> int:
         """Query the target database to determine the current applied schema version.
