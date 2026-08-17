@@ -134,6 +134,7 @@ class MigrationRunner:
             for _, obj in inspect.getmembers(module, inspect.isclass):
                 if (
                     issubclass(obj, SchemaMigration)
+                    and not inspect.isabstract(obj)
                     and obj.__module__ == module.__name__  # Filter out imported objects
                 ):
                     discovered.append(obj())
