@@ -17,10 +17,11 @@ from datacommons_db.migrations.base import SchemaMigration
 
 _CREATE_SCHEMA_VERSION_TABLE_DDL = """
 CREATE TABLE SchemaVersion (
+    SchemaVersionId UUID NOT NULL DEFAULT (NEW_UUID()),
     Version INT64 NOT NULL,
     AppliedTimestamp TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
     Description STRING(MAX) NOT NULL
-) PRIMARY KEY (Version, AppliedTimestamp)
+) PRIMARY KEY (SchemaVersionId)
 """.strip()
 
 
