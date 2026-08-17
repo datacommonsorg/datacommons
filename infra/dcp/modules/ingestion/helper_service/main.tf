@@ -9,9 +9,11 @@ resource "google_service_account" "helper_sa" {
 }
 
 resource "google_cloud_run_v2_service" "ingestion_helper" {
-  count    = var.deploy ? 1 : 0
-  name     = "${local.name_prefix}dc-ingestion-helper"
-  location = var.region
+  count               = var.deploy ? 1 : 0
+  name                = "${local.name_prefix}dc-ingestion-helper"
+  location            = var.region
+  deletion_protection = var.stateless_deletion_protection
+
   # TODO: Restrict ingress to INGRESS_TRAFFIC_INTERNAL_ONLY once datacommons-admin CLI
   # supports triggering seed-db and init-db via Cloud Workflows/Jobs or VPC bastion proxies.
   # Note: IAM authentication (roles/run.invoker) is still strictly enforced by Cloud Run.
