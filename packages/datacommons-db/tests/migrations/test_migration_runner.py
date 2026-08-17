@@ -338,8 +338,9 @@ def test_run_migrations_stops_on_first_error(mock_spanner_client, caplog):
 
     runner = MigrationRunner(mock_spanner_client, migrations=[m1, m2])
 
-    with caplog.at_level("ERROR"), pytest.raises(
-        RuntimeError, match="Migration 0->1 failed deliberately"
+    with (
+        caplog.at_level("ERROR"),
+        pytest.raises(RuntimeError, match="Migration 0->1 failed deliberately"),
     ):
         runner.run_migrations()
 
