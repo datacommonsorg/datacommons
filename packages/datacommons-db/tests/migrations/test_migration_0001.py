@@ -45,12 +45,6 @@ def test_migration_0001_properties():
     )
 
 
-def test_migration_0001_roll_backward_not_implemented(mock_spanner_client):
-    migration = Migration0001Bootstrap()
-    with pytest.raises(NotImplementedError, match="Rollback not implemented"):
-        migration.roll_backward(mock_spanner_client)
-
-
 def test_migration_0001_creates_schema_version_table(mock_spanner_client):
     # SchemaVersion table does not exist initially
     mock_spanner_client.table_exists.return_value = False

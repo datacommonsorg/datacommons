@@ -45,15 +45,3 @@ class SchemaMigration(ABC):
         Raises:
             RuntimeError: If any DDL or DML operation fails.
         """
-
-    def roll_backward(self, spanner_client: SpannerClient) -> None:
-        """Executes changes to downgrade the database back to the source version from the target version.
-
-        Args:
-            spanner_client: SpannerClient instance.
-
-        Raises:
-            NotImplementedError: Always raised unless overridden.
-        """
-        _ = spanner_client
-        raise NotImplementedError("Rollback not implemented.")
