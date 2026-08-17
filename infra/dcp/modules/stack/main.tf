@@ -154,7 +154,7 @@ module "ingestion_preprocessing_job" {
     }
   }
 
-  depends_on = [module.auth]
+  depends_on = [module.auth, module.network]
 }
 
 module "ingestion_postprocessing_job" {
@@ -180,6 +180,8 @@ module "ingestion_postprocessing_job" {
   enable_spanner_embeddings      = var.spanner_config.enable_embeddings_generation
   enable_bigquery_connection     = var.spanner_config.enable && var.spanner_config.enable_bigquery_connection
   env_vars                       = local.cloud_run_shared_env_variables
+
+  depends_on = [module.network]
 }
 
 module "ingestion_dataflow" {
@@ -216,6 +218,8 @@ module "ingestion_helper_service" {
   redis_port               = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
   ingestion_artifacts_path = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
   skip_container_restarts  = var.global.skip_container_restarts
+
+  depends_on = [module.network]
 }
 
 
@@ -262,6 +266,8 @@ module "redis" {
   alternative_location_id = var.redis_config.alternative_location_id
   replica_count           = var.redis_config.replica_count
   vpc_network_id          = module.network.network_id != null && module.network.network_id != "" ? module.network.network_id : "projects/${var.global.project_id}/global/networks/default"
+
+  depends_on = [module.network]
 }
 
 module "auth" {
@@ -307,7 +313,7 @@ module "datacommons_services" {
   resolve_with_spanner_embeddings = var.datacommons_services_config.resolve_with_spanner_embeddings
   website_search_scope            = var.datacommons_services_config.website_search_scope
 
-  depends_on = [module.ingestion_preprocessing_job]
+  depends_on = [module.ingestion_preprocessing_job, module.network]
 }
 
 check "spanner_instance_id_provided" {
