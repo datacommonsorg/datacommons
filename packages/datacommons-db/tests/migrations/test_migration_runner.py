@@ -12,41 +12,41 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib
 from unittest.mock import MagicMock
 
 import pytest
 from datacommons_db.clients import ExecutionStatus, QueryResult, SpannerClient
 from datacommons_db.migrations import MigrationRunner, SchemaMigration
-from datacommons_db.migrations.migration_scripts.migration_0001_bootstrap import (
-    Migration0001Bootstrap,
-)
 from google.cloud import spanner
+
+_bootstrap_module = importlib.import_module(
+    "datacommons_db.migrations.migration_scripts.20260817000000_bootstrap"
+)
+Migration20260817000000Bootstrap = _bootstrap_module.Migration20260817000000Bootstrap
 
 
 class DummyMigration(SchemaMigration):
-    source_version: int = 0
-    target_version: int = 1
+    creation_timestamp: str = "2026-08-17T00:00:00Z"
     description: str = "dummy"
 
     def __init__(
         self,
-        source: int,
-        target: int,
+        creation_timestamp: str,
         desc: str = "dummy",
         *,
         should_fail: bool = False,
     ) -> None:
-        self.source_version = source
-        self.target_version = target
+        self.creation_timestamp = creation_timestamp
         self.description = desc
         self._should_fail = should_fail
         self.rolled_forward = False
 
-    def roll_forward(self, spanner_client: SpannerClient) -> None:
+    def upgrade(self, spanner_client: SpannerClient) -> None:
         _ = spanner_client
         if self._should_fail:
             raise RuntimeError(
-                f"Migration {self.source_version}->{self.target_version} failed deliberately"
+                f"Migration {self.creation_timestamp} failed deliberately"
             )
         self.rolled_forward = True
 
@@ -70,69 +70,45 @@ def test_validate_migrations_empty():
 
 
 def test_validate_migrations_valid_sequence():
-    m1 = DummyMigration(0, 1)
-    m2 = DummyMigration(1, 2)
-    m3 = DummyMigration(2, 3)
+    m1 = DummyMigration("2026-08-17T10:00:00Z")
+    m2 = DummyMigration("2026-08-17T11:00:00Z")
+    m3 = DummyMigration("2026-08-17T12:00:00Z")
 
     result = MigrationRunner.validate_migrations([m3, m1, m2])
     assert result == [m1, m2, m3]
 
 
-def test_validate_migrations_non_zero_start_valid():
-    m1 = DummyMigration(3, 4)
-    m2 = DummyMigration(4, 5)
-    result = MigrationRunner.validate_migrations([m2, m1])
-    assert result == [m1, m2]
-
-
-def test_validate_migrations_invalid_step_increment():
-    m = DummyMigration(0, 2)
-    with pytest.raises(ValueError, match="must have target_version 1, but found 2"):
-        MigrationRunner.validate_migrations([m])
-
-
-def test_validate_migrations_duplicate_source_version():
-    m1 = DummyMigration(0, 1, desc="first")
-    m2 = DummyMigration(0, 1, desc="second")
+def test_validate_migrations_duplicate_timestamp():
+    m1 = DummyMigration("2026-08-17T10:00:00Z", desc="first")
+    m2 = DummyMigration("2026-08-17T10:00:00Z", desc="second")
     with pytest.raises(
         ValueError,
-        match="Discontinuous migration sequence: gap between target_version 1 and source_version 0",
-    ):
-        MigrationRunner.validate_migrations([m1, m2])
-
-
-def test_validate_migrations_discontinuous_sequence():
-    m1 = DummyMigration(0, 1)
-    m2 = DummyMigration(2, 3)
-    with pytest.raises(
-        ValueError,
-        match="Discontinuous migration sequence: gap between target_version 1 and source_version 2",
+        match="Duplicate migration creation_timestamp detected: 2026-08-17T10:00:00Z",
     ):
         MigrationRunner.validate_migrations([m1, m2])
 
 
 # ==============================================================================
-# Discovery & Current Version Tests
+# Discovery & Applied Migrations Tests
 # ==============================================================================
 
 
 def test_discover_migrations(mock_spanner_client):
     runner = MigrationRunner(mock_spanner_client)
     assert len(runner.migrations) >= 1
-    assert isinstance(runner.migrations[0], Migration0001Bootstrap)
-    assert runner.migrations[0].source_version == 0
-    assert runner.migrations[0].target_version == 1
+    assert isinstance(runner.migrations[0], Migration20260817000000Bootstrap)
+    assert runner.migrations[0].creation_timestamp == "2026-08-17T00:00:00Z"
 
 
-def test_get_current_version_table_missing(mock_spanner_client):
+def test_get_applied_migrations_table_missing(mock_spanner_client):
     mock_spanner_client.table_exists.return_value = False
     runner = MigrationRunner(mock_spanner_client, migrations=[])
 
-    assert runner.get_current_version() == 0
+    assert runner.get_applied_migrations() == set()
     mock_spanner_client.table_exists.assert_called_once_with("SchemaVersion")
 
 
-def test_get_current_version_empty_table(mock_spanner_client):
+def test_get_applied_migrations_empty_table(mock_spanner_client):
     mock_spanner_client.table_exists.return_value = True
     mock_spanner_client.execute_query.return_value = QueryResult(
         status=ExecutionStatus.SUCCESS,
@@ -140,24 +116,27 @@ def test_get_current_version_empty_table(mock_spanner_client):
     )
     runner = MigrationRunner(mock_spanner_client, migrations=[])
 
-    assert runner.get_current_version() == 0
+    assert runner.get_applied_migrations() == set()
 
 
-def test_get_current_version_with_version(mock_spanner_client):
+def test_get_applied_migrations_with_records(mock_spanner_client):
     mock_spanner_client.table_exists.return_value = True
     mock_spanner_client.execute_query.return_value = QueryResult(
         status=ExecutionStatus.SUCCESS,
-        rows=[[3]],
+        rows=[["2026-08-17T10:00:00Z"], ["2026-08-17T11:00:00Z"]],
     )
     runner = MigrationRunner(mock_spanner_client, migrations=[])
 
-    assert runner.get_current_version() == 3
+    assert runner.get_applied_migrations() == {
+        "2026-08-17T10:00:00Z",
+        "2026-08-17T11:00:00Z",
+    }
     mock_spanner_client.execute_query.assert_called_once()
     query_arg = mock_spanner_client.execute_query.call_args[0][0]
-    assert "ORDER BY AppliedTimestamp DESC" in query_arg
+    assert "SELECT CreationTimestamp FROM SchemaVersion" in query_arg
 
 
-def test_get_current_version_query_error(mock_spanner_client):
+def test_get_applied_migrations_query_error(mock_spanner_client):
     mock_spanner_client.table_exists.return_value = True
     mock_spanner_client.execute_query.return_value = QueryResult(
         status=ExecutionStatus.ERROR,
@@ -168,7 +147,7 @@ def test_get_current_version_query_error(mock_spanner_client):
     with pytest.raises(
         RuntimeError, match="Failed to query SchemaVersion table: Query error"
     ):
-        runner.get_current_version()
+        runner.get_applied_migrations()
 
 
 # ==============================================================================
@@ -176,31 +155,41 @@ def test_get_current_version_query_error(mock_spanner_client):
 # ==============================================================================
 
 
-def test_get_pending_migrations(mock_spanner_client, caplog):
-    m1 = DummyMigration(0, 1)
-    m2 = DummyMigration(1, 2)
-    m3 = DummyMigration(2, 3)
+def test_get_pending_migrations(mock_spanner_client):
+    m1 = DummyMigration("2026-08-17T10:00:00Z")
+    m2 = DummyMigration("2026-08-17T11:00:00Z")
+    m3 = DummyMigration("2026-08-17T12:00:00Z")
 
     runner = MigrationRunner(mock_spanner_client, migrations=[m1, m2, m3])
 
-    # Case 1: current version 0
-    assert runner.get_pending_migrations(current_version=0) == [m1, m2, m3]
+    # Case 1: none applied
+    assert runner.get_pending_migrations(applied_migrations=set()) == [m1, m2, m3]
 
-    # Case 2: current version 1
-    assert runner.get_pending_migrations(current_version=1) == [m2, m3]
+    # Case 2: m1 applied
+    assert runner.get_pending_migrations(
+        applied_migrations={"2026-08-17T10:00:00Z"}
+    ) == [m2, m3]
 
-    # Case 3: current version 3
-    assert runner.get_pending_migrations(current_version=3) == []
+    # Case 3: all applied
+    assert (
+        runner.get_pending_migrations(
+            applied_migrations={
+                "2026-08-17T10:00:00Z",
+                "2026-08-17T11:00:00Z",
+                "2026-08-17T12:00:00Z",
+            }
+        )
+        == []
+    )
 
-    # Case 4: database version ahead of codebase (e.g. version 5 with codebase at 3)
-    with caplog.at_level("WARNING"):
-        pending = runner.get_pending_migrations(current_version=5)
-        assert pending == []
-        assert "is ahead of the latest migration known to this codebase" in caplog.text
+    # Case 4: m2 applied, m1 and m3 pending
+    assert runner.get_pending_migrations(
+        applied_migrations={"2026-08-17T11:00:00Z"}
+    ) == [m1, m3]
 
 
 def test_apply_migration_success(mock_spanner_client):
-    m = DummyMigration(0, 1, desc="Baseline")
+    m = DummyMigration("2026-08-17T10:00:00Z", desc="Baseline")
     mock_spanner_client.execute_dml.return_value = MagicMock(
         status=ExecutionStatus.SUCCESS,
         rows_affected=1,
@@ -216,25 +205,30 @@ def test_apply_migration_success(mock_spanner_client):
         mock_spanner_client.execute_dml.call_args[1],
     )
     assert "INSERT INTO SchemaVersion" in query_arg
-    assert kwargs["params"] == {"version": 1, "description": "Baseline"}
+    assert kwargs["params"] == {
+        "creation_timestamp": "2026-08-17T10:00:00Z",
+        "description": "Baseline",
+    }
     assert kwargs["param_types"] == {
-        "version": spanner.param_types.INT64,
+        "creation_timestamp": spanner.param_types.STRING,
         "description": spanner.param_types.STRING,
     }
 
 
-def test_apply_migration_roll_forward_failure(mock_spanner_client):
-    m = DummyMigration(0, 1, should_fail=True)
+def test_apply_migration_upgrade_failure(mock_spanner_client):
+    m = DummyMigration("2026-08-17T10:00:00Z", should_fail=True)
     runner = MigrationRunner(mock_spanner_client, migrations=[m])
 
-    with pytest.raises(RuntimeError, match="Migration 0->1 failed deliberately"):
+    with pytest.raises(
+        RuntimeError, match="Migration 2026-08-17T10:00:00Z failed deliberately"
+    ):
         runner.apply_migration(m)
 
     mock_spanner_client.execute_dml.assert_not_called()
 
 
 def test_apply_migration_dml_failure(mock_spanner_client):
-    m = DummyMigration(0, 1)
+    m = DummyMigration("2026-08-17T10:00:00Z")
     mock_spanner_client.execute_dml.return_value = MagicMock(
         status=ExecutionStatus.ERROR,
         error_message="DML insert failed",
@@ -244,7 +238,7 @@ def test_apply_migration_dml_failure(mock_spanner_client):
 
     with pytest.raises(
         RuntimeError,
-        match="Failed to record migration version 1 in SchemaVersion: DML insert failed",
+        match="Failed to record migration 2026-08-17T10:00:00Z in SchemaVersion: DML insert failed",
     ):
         runner.apply_migration(m)
 
@@ -255,7 +249,9 @@ def test_set_schema_version_success(mock_spanner_client):
         rows_affected=1,
     )
     runner = MigrationRunner(mock_spanner_client, migrations=[])
-    runner.set_schema_version(version=2, description="Add table")
+    runner.set_schema_version(
+        creation_timestamp="2026-08-17T11:00:00Z", description="Add table"
+    )
 
     mock_spanner_client.execute_dml.assert_called_once()
     query_arg, kwargs = (
@@ -263,7 +259,10 @@ def test_set_schema_version_success(mock_spanner_client):
         mock_spanner_client.execute_dml.call_args[1],
     )
     assert "INSERT INTO SchemaVersion" in query_arg
-    assert kwargs["params"] == {"version": 2, "description": "Add table"}
+    assert kwargs["params"] == {
+        "creation_timestamp": "2026-08-17T11:00:00Z",
+        "description": "Add table",
+    }
 
 
 def test_set_schema_version_failure(mock_spanner_client):
@@ -274,14 +273,16 @@ def test_set_schema_version_failure(mock_spanner_client):
     runner = MigrationRunner(mock_spanner_client, migrations=[])
     with pytest.raises(
         RuntimeError,
-        match="Failed to record migration version 2 in SchemaVersion: Connection lost",
+        match="Failed to record migration 2026-08-17T11:00:00Z in SchemaVersion: Connection lost",
     ):
-        runner.set_schema_version(version=2, description="Add table")
+        runner.set_schema_version(
+            creation_timestamp="2026-08-17T11:00:00Z", description="Add table"
+        )
 
 
 def test_run_migrations_all_applied(mock_spanner_client):
-    m1 = DummyMigration(0, 1)
-    m2 = DummyMigration(1, 2)
+    m1 = DummyMigration("2026-08-17T10:00:00Z")
+    m2 = DummyMigration("2026-08-17T11:00:00Z")
 
     mock_spanner_client.table_exists.return_value = False
     mock_spanner_client.execute_dml.return_value = MagicMock(
@@ -299,12 +300,12 @@ def test_run_migrations_all_applied(mock_spanner_client):
 
 
 def test_run_migrations_already_up_to_date(mock_spanner_client):
-    m1 = DummyMigration(0, 1)
+    m1 = DummyMigration("2026-08-17T10:00:00Z")
 
     mock_spanner_client.table_exists.return_value = True
     mock_spanner_client.execute_query.return_value = QueryResult(
         status=ExecutionStatus.SUCCESS,
-        rows=[[1]],
+        rows=[["2026-08-17T10:00:00Z"]],
     )
 
     runner = MigrationRunner(mock_spanner_client, migrations=[m1])
@@ -316,8 +317,8 @@ def test_run_migrations_already_up_to_date(mock_spanner_client):
 
 
 def test_run_migrations_stops_on_first_error(mock_spanner_client, caplog):
-    m1 = DummyMigration(0, 1, should_fail=True)
-    m2 = DummyMigration(1, 2)
+    m1 = DummyMigration("2026-08-17T10:00:00Z", should_fail=True)
+    m2 = DummyMigration("2026-08-17T11:00:00Z")
 
     mock_spanner_client.table_exists.return_value = False
 
@@ -325,12 +326,15 @@ def test_run_migrations_stops_on_first_error(mock_spanner_client, caplog):
 
     with (
         caplog.at_level("ERROR"),
-        pytest.raises(RuntimeError, match="Migration 0->1 failed deliberately"),
+        pytest.raises(
+            RuntimeError,
+            match="Migration 2026-08-17T10:00:00Z failed deliberately",
+        ),
     ):
         runner.run_migrations()
 
     assert m1.rolled_forward is False
     assert m2.rolled_forward is False
     mock_spanner_client.execute_dml.assert_not_called()
-    assert "Migration 0 -> 1 failed" in caplog.text
+    assert "Migration 2026-08-17T10:00:00Z failed" in caplog.text
     assert "Halting migration sequence" in caplog.text

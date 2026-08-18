@@ -18,21 +18,20 @@ from datacommons_db.migrations.base import SchemaMigration
 _CREATE_SCHEMA_VERSION_TABLE_DDL = """
 CREATE TABLE SchemaVersion (
     SchemaVersionId UUID NOT NULL DEFAULT (NEW_UUID()),
-    Version INT64 NOT NULL,
+    CreationTimestamp STRING(64) NOT NULL,
     AppliedTimestamp TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
     Description STRING(MAX) NOT NULL
 ) PRIMARY KEY (SchemaVersionId)
 """.strip()
 
 
-class Migration0001Bootstrap(SchemaMigration):
-    """Bootstrap migration for initial schema setup and legacy database adoption."""
+class Migration20260817000000Bootstrap(SchemaMigration):
+    """Bootstrap migration for initial schema setup and SchemaVersion table initialization."""
 
     description: str = "Add SchemaVersion table to bootstrap schema versioning."
-    source_version: int = 0
-    target_version: int = 1
+    creation_timestamp: str = "2026-08-17T00:00:00Z"
 
-    def roll_forward(self, spanner_client: SpannerClient) -> None:
+    def upgrade(self, spanner_client: SpannerClient) -> None:
         """Executes forward schema changes to initialize SchemaVersion table.
 
         Args:

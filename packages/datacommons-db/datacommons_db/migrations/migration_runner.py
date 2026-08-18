@@ -51,7 +51,7 @@ class MigrationRunner:
     def validate_migrations(
         migrations: list[SchemaMigration],
     ) -> list[SchemaMigration]:
-        """Validate and sort migrations into a contiguous sequence.
+        """Validate and sort migrations chronologically by creation_timestamp.
 
         Args:
             migrations: List of SchemaMigration instances.
@@ -60,30 +60,21 @@ class MigrationRunner:
             Sorted list of SchemaMigration instances.
 
         Raises:
-            ValueError: If migrations have gaps, duplicates, or invalid version transitions.
+            ValueError: If migrations have duplicate creation_timestamps.
         """
         if not migrations:
             return []
 
-        sorted_migrations = sorted(migrations, key=lambda m: m.source_version)
+        sorted_migrations = sorted(migrations, key=lambda m: m.creation_timestamp)
 
-        for i, migration in enumerate(sorted_migrations):
-            # Check single step increment
-            expected_target = migration.source_version + 1
-            if migration.target_version != expected_target:
+        seen_timestamps: set[str] = set()
+        for migration in sorted_migrations:
+            ts = migration.creation_timestamp
+            if ts in seen_timestamps:
                 raise ValueError(
-                    f"Migration with source_version {migration.source_version} must have target_version "
-                    f"{expected_target}, but found {migration.target_version}"
+                    f"Duplicate migration creation_timestamp detected: {ts}"
                 )
-
-            # Check continuity with previous migration
-            if i > 0:
-                prev_migration = sorted_migrations[i - 1]
-                if migration.source_version != prev_migration.target_version:
-                    raise ValueError(
-                        f"Discontinuous migration sequence: gap between target_version "
-                        f"{prev_migration.target_version} and source_version {migration.source_version}"
-                    )
+            seen_timestamps.add(ts)
 
         return sorted_migrations
 
@@ -117,68 +108,45 @@ class MigrationRunner:
 
         return cls.validate_migrations(discovered)
 
-    def get_current_version(self) -> int:
-        """Query the target database to determine the current applied schema version.
+    def get_applied_migrations(self) -> set[str]:
+        """Query the target database to determine the set of applied migration creation timestamps.
 
         Returns:
-            The version number with the most recent AppliedTimestamp, or 0 if SchemaVersion table does not exist or is empty.
+            Set of applied creation_timestamp strings, or empty set if SchemaVersion table does not exist.
 
         Raises:
             RuntimeError: If querying SchemaVersion fails unexpectedly.
         """
         if not self.spanner_client.table_exists("SchemaVersion"):
-            return 0
+            return set()
 
-        query = (
-            "SELECT Version FROM SchemaVersion "
-            "ORDER BY AppliedTimestamp DESC, Version DESC LIMIT 1"
-        )
+        query = "SELECT CreationTimestamp FROM SchemaVersion"
         result = self.spanner_client.execute_query(query)
         if result.status != ExecutionStatus.SUCCESS:
             raise RuntimeError(
                 f"Failed to query SchemaVersion table: {result.error_message}"
             )
 
-        if not result.rows:
-            return 0
-
-        return int(result.rows[0][0])
+        return {str(row[0]) for row in result.rows}
 
     def get_pending_migrations(
-        self, current_version: int | None = None
+        self, applied_migrations: set[str] | None = None
     ) -> list[SchemaMigration]:
-        """Get the list of pending migrations to be applied.
+        """Get the list of pending migrations to be applied in chronological order.
 
         Args:
-            current_version: Optional current version override. If None, queries the database.
+            applied_migrations: Optional set of applied migration creation_timestamps.
+                If None, queries the database.
 
         Returns:
-            List of SchemaMigration instances that have source_version >= current_version.
+            List of SchemaMigration instances that have not yet been applied.
         """
-        if current_version is None:
-            current_version = self.get_current_version()
+        if applied_migrations is None:
+            applied_migrations = self.get_applied_migrations()
 
-        if self.migrations:
-            # Check that the earliest available migration is continuous with the current version.
-            earliest_available_version = self.migrations[0].source_version
-            if current_version < earliest_available_version:
-                raise ValueError(
-                    f"Database schema version ({current_version}) is behind the earliest "
-                    f"available migration source version ({earliest_available_version}). "
-                    "Cannot safely migrate due to missing migrations."
-                )
-
-            # Check that the latest available migration is not behind the current version.
-            latest_available_version = self.migrations[-1].target_version
-            if current_version > latest_available_version:
-                logger.warning(
-                    "Database schema version (%d) is ahead of the latest migration known to this codebase (%d). "
-                    "You may be running an outdated version of the datacommons-db package.",
-                    current_version,
-                    latest_available_version,
-                )
-
-        return [m for m in self.migrations if m.source_version >= current_version]
+        return [
+            m for m in self.migrations if m.creation_timestamp not in applied_migrations
+        ]
 
     def apply_migration(self, migration: SchemaMigration) -> None:
         """Apply a single migration and record its completion in SchemaVersion.
@@ -190,47 +158,45 @@ class MigrationRunner:
             RuntimeError: If migration execution or recording in SchemaVersion fails.
         """
         logger.info(
-            "Applying migration %d -> %d: %s",
-            migration.source_version,
-            migration.target_version,
+            "Applying migration %s: %s",
+            migration.creation_timestamp,
             migration.description,
         )
 
-        # 1. Execute the migration's forward changes
-        migration.roll_forward(self.spanner_client)
+        # 1. Execute the migration's upgrade changes
+        migration.upgrade(self.spanner_client)
 
-        # 2. Record the applied migration version in SchemaVersion
+        # 2. Record the applied migration in SchemaVersion
         self.set_schema_version(
-            version=migration.target_version,
+            creation_timestamp=migration.creation_timestamp,
             description=migration.description,
         )
 
         logger.info(
-            "Successfully applied migration %d -> %d",
-            migration.source_version,
-            migration.target_version,
+            "Successfully applied migration %s",
+            migration.creation_timestamp,
         )
 
-    def set_schema_version(self, version: int, description: str) -> None:
+    def set_schema_version(self, creation_timestamp: str, description: str) -> None:
         """Record an applied schema version in the SchemaVersion table.
 
         Args:
-            version: The applied version number to record.
+            creation_timestamp: The migration creation_timestamp to record.
             description: Description of the schema migration.
 
         Raises:
             RuntimeError: If inserting into SchemaVersion fails.
         """
         insert_query = (
-            "INSERT INTO SchemaVersion (Version, AppliedTimestamp, Description) "
-            "VALUES (@version, PENDING_COMMIT_TIMESTAMP(), @description)"
+            "INSERT INTO SchemaVersion (CreationTimestamp, AppliedTimestamp, Description) "
+            "VALUES (@creation_timestamp, PENDING_COMMIT_TIMESTAMP(), @description)"
         )
         params = {
-            "version": version,
+            "creation_timestamp": creation_timestamp,
             "description": description,
         }
         param_types = {
-            "version": spanner.param_types.INT64,
+            "creation_timestamp": spanner.param_types.STRING,
             "description": spanner.param_types.STRING,
         }
 
@@ -241,12 +207,12 @@ class MigrationRunner:
         )
         if dml_res.status != ExecutionStatus.SUCCESS:
             raise RuntimeError(
-                f"Failed to record migration version {version} in SchemaVersion: "
+                f"Failed to record migration {creation_timestamp} in SchemaVersion: "
                 f"{dml_res.error_message}"
             )
 
     def run_migrations(self) -> list[SchemaMigration]:
-        """Execute all pending migrations in sequential order.
+        """Execute all pending migrations in sequential chronological order.
 
         Returns:
             List of applied SchemaMigration instances.
@@ -254,14 +220,11 @@ class MigrationRunner:
         Raises:
             RuntimeError: If any migration fails during execution.
         """
-        current_version = self.get_current_version()
-        pending = self.get_pending_migrations(current_version=current_version)
+        applied_set = self.get_applied_migrations()
+        pending = self.get_pending_migrations(applied_migrations=applied_set)
 
         if not pending:
-            logger.info(
-                "Database is already up-to-date at version %d. No migrations to apply.",
-                current_version,
-            )
+            logger.info("Database is already up-to-date. No migrations to apply.")
             return []
 
         applied: list[SchemaMigration] = []
@@ -271,9 +234,8 @@ class MigrationRunner:
                 applied.append(migration)
             except Exception as e:
                 logger.error(
-                    "Migration %d -> %d failed: %s. Halting migration sequence.",
-                    migration.source_version,
-                    migration.target_version,
+                    "Migration %s failed: %s. Halting migration sequence.",
+                    migration.creation_timestamp,
                     e,
                 )
                 raise

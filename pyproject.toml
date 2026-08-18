@@ -129,6 +129,9 @@ extend-ignore = [
     "ANN202", # Ignore missing return types in private test functions
     "PLR2004"
 ]
+"packages/*/datacommons_*/migrations/migration_scripts/*.py" = [
+    "N999",   # Allow timestamp prefixes (e.g. 20260817000000_*.py) for migration scripts
+]
 "tests/**/*.py" = [
     "S101",   # Allow using `assert` in pytests
     "S105",   # Allow hardcoded mock passwords/tokens in tests

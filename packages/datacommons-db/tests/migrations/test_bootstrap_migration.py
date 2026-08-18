@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib
 from unittest.mock import MagicMock
 
 import pytest
@@ -20,10 +21,12 @@ from datacommons_db.clients import (
     ExecutionStatus,
     SpannerClient,
 )
-from datacommons_db.migrations.migration_scripts.migration_0001_bootstrap import (
-    _CREATE_SCHEMA_VERSION_TABLE_DDL,
-    Migration0001Bootstrap,
+
+_bootstrap_module = importlib.import_module(
+    "datacommons_db.migrations.migration_scripts.20260817000000_bootstrap"
 )
+Migration20260817000000Bootstrap = _bootstrap_module.Migration20260817000000Bootstrap
+_CREATE_SCHEMA_VERSION_TABLE_DDL = _bootstrap_module._CREATE_SCHEMA_VERSION_TABLE_DDL
 
 
 @pytest.fixture
@@ -35,25 +38,24 @@ def mock_spanner_client():
     return client
 
 
-def test_migration_0001_properties():
-    migration = Migration0001Bootstrap()
-    assert migration.source_version == 0
-    assert migration.target_version == 1
+def test_bootstrap_migration_properties():
+    migration = Migration20260817000000Bootstrap()
+    assert migration.creation_timestamp == "2026-08-17T00:00:00Z"
     assert (
         migration.description
         == "Add SchemaVersion table to bootstrap schema versioning."
     )
 
 
-def test_migration_0001_creates_schema_version_table(mock_spanner_client):
+def test_bootstrap_migration_creates_schema_version_table(mock_spanner_client):
     # SchemaVersion table does not exist initially
     mock_spanner_client.table_exists.return_value = False
     mock_spanner_client.execute_ddl.return_value = DdlResult(
         status=ExecutionStatus.SUCCESS
     )
 
-    migration = Migration0001Bootstrap()
-    migration.roll_forward(mock_spanner_client)
+    migration = Migration20260817000000Bootstrap()
+    migration.upgrade(mock_spanner_client)
 
     # Verify SchemaVersion DDL was executed
     mock_spanner_client.execute_ddl.assert_called_once_with(
@@ -61,27 +63,27 @@ def test_migration_0001_creates_schema_version_table(mock_spanner_client):
     )
 
 
-def test_migration_0001_skips_if_schema_version_already_exists(mock_spanner_client):
+def test_bootstrap_migration_skips_if_schema_version_already_exists(mock_spanner_client):
     # SchemaVersion table already exists
     mock_spanner_client.table_exists.return_value = True
 
-    migration = Migration0001Bootstrap()
-    migration.roll_forward(mock_spanner_client)
+    migration = Migration20260817000000Bootstrap()
+    migration.upgrade(mock_spanner_client)
 
     # DDL execution should be skipped
     mock_spanner_client.execute_ddl.assert_not_called()
 
 
-def test_migration_0001_schema_version_table_creation_fails(mock_spanner_client):
+def test_bootstrap_migration_schema_version_table_creation_fails(mock_spanner_client):
     mock_spanner_client.table_exists.return_value = False
     mock_spanner_client.execute_ddl.return_value = DdlResult(
         status=ExecutionStatus.ERROR,
         error_message="Failed to create table",
     )
 
-    migration = Migration0001Bootstrap()
+    migration = Migration20260817000000Bootstrap()
     with pytest.raises(
         RuntimeError,
         match="Failed to create SchemaVersion table: Failed to create table",
     ):
-        migration.roll_forward(mock_spanner_client)
+        migration.upgrade(mock_spanner_client)

@@ -27,17 +27,12 @@ class SchemaMigration(ABC):
 
     @property
     @abstractmethod
-    def source_version(self) -> int:
-        """Expected database version before applying this migration."""
-
-    @property
-    @abstractmethod
-    def target_version(self) -> int:
-        """Database version after applying this migration."""
+    def creation_timestamp(self) -> str:
+        """UTC ISO-8601 creation timestamp (e.g. '2026-08-17T15:30:00Z')."""
 
     @abstractmethod
-    def roll_forward(self, spanner_client: SpannerClient) -> None:
-        """Executes forward schema changes to upgrade the database from the source version to the target version.
+    def upgrade(self, spanner_client: SpannerClient) -> None:
+        """Executes forward schema changes to upgrade the database.
 
         Args:
             spanner_client: SpannerClient instance to execute DDL / DML.
