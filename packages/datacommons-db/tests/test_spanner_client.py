@@ -194,8 +194,11 @@ def fake_spanner_db():
         "datacommons_db.clients.spanner_client.spanner.Client"
     ) as mock_client_cls:
 
-        def fake_client_factory(project: str, credentials: object = None) -> MagicMock:
+        def fake_client_factory(
+            project: str, credentials: object = None, **kwargs: object
+        ) -> MagicMock:
             _ = credentials
+            _ = kwargs
             mock_client = MagicMock()
             mock_client.project = project
             mock_instance = MagicMock()
