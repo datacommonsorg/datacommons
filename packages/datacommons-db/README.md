@@ -118,6 +118,53 @@ if query_result.status == ExecutionStatus.SUCCESS:
 
 
 
+### Schema Migrations
+
+The package provides a timestamp-based schema migration framework with `SchemaMigration` and `MigrationRunner`.
+
+#### Running Migrations
+
+```python
+from datacommons_db.clients import SpannerClient
+from datacommons_db.migrations import MigrationRunner
+
+client = SpannerClient(
+    project_id="your-gcp-project",
+    instance_id="your-spanner-instance",
+    database_id="your-spanner-database",
+)
+
+runner = MigrationRunner(client)
+
+# Check applied migrations in SchemaMigrations table
+applied = runner.get_applied_migrations()
+print(f"Applied migrations: {applied}")
+
+# Run all pending migrations chronologically
+applied_migrations = runner.run_migrations()
+for migration in applied_migrations:
+    print(f"Applied: {migration.creation_timestamp} ({migration.description})")
+```
+
+#### Defining a Custom Migration
+
+Create a file in `datacommons_db/migrations/migration_scripts/` named `YYYYMMDDHHMMSS_<description>.py` (e.g. `20260920120000_add_custom_index.py`):
+
+```python
+from datacommons_db.clients import ExecutionStatus, SpannerClient
+from datacommons_db.migrations import SchemaMigration
+
+class Migration(SchemaMigration):
+    description: str = "Add custom index"
+    creation_timestamp: str = "2026-09-20T12:00:00Z"
+
+    def roll_forward(self, spanner_client: SpannerClient) -> None:
+        result = spanner_client.execute_ddl([
+            "CREATE INDEX CustomIndex ON Node (name)"
+        ])
+        if result.status != ExecutionStatus.SUCCESS:
+            raise RuntimeError(f"Migration failed: {result.error_message}")
+```
 
 ### SQLAlchemy ORM Usage
 

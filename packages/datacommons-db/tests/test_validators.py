@@ -54,7 +54,7 @@ def test_validate_resource_id_invalid(name: str, val: object):
         "Node",
         "Edge",
         "custom_table_123",
-        "SchemaVersion",
+        "SchemaMigrations",
     ],
 )
 def test_validate_table_name_valid(name: str):
