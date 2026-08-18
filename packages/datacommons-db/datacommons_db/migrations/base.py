@@ -23,7 +23,7 @@ class SchemaMigration(ABC):
     @property
     @abstractmethod
     def description(self) -> str:
-        """Short description of the schema migration."""
+        """Human-readable description of this schema migration."""
 
     @property
     @abstractmethod

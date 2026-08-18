@@ -25,7 +25,7 @@ CREATE TABLE SchemaVersion (
 """.strip()
 
 
-class Migration20260817000000Bootstrap(SchemaMigration):
+class Migration(SchemaMigration):
     """Bootstrap migration for initial schema setup and SchemaVersion table initialization."""
 
     description: str = "Add SchemaVersion table to bootstrap schema versioning."

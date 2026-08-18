@@ -67,6 +67,7 @@ class MigrationRunner:
 
         sorted_migrations = sorted(migrations, key=lambda m: m.creation_timestamp)
 
+        # Check that there are no duplicates
         seen_timestamps: set[str] = set()
         for migration in sorted_migrations:
             ts = migration.creation_timestamp
@@ -120,14 +121,21 @@ class MigrationRunner:
         if not self.spanner_client.table_exists("SchemaVersion"):
             return set()
 
-        query = "SELECT CreationTimestamp FROM SchemaVersion"
-        result = self.spanner_client.execute_query(query)
+        get_applied_migrations_query = "SELECT CreationTimestamp FROM SchemaVersion"
+        result = self.spanner_client.execute_query(get_applied_migrations_query)
         if result.status != ExecutionStatus.SUCCESS:
             raise RuntimeError(
                 f"Failed to query SchemaVersion table: {result.error_message}"
             )
 
-        return {str(row[0]) for row in result.rows}
+        applied_migrations: set[str] = set()
+        for row in result.rows:
+            if not isinstance(row, (list, tuple)) or len(row) == 0:
+                raise RuntimeError(
+                    f"Invalid or non-indexable row format in SchemaVersion query results: {row!r}"
+                )
+            applied_migrations.add(str(row[0]))
+        return applied_migrations
 
     def get_pending_migrations(
         self, applied_migrations: set[str] | None = None
@@ -187,7 +195,7 @@ class MigrationRunner:
         Raises:
             RuntimeError: If inserting into SchemaVersion fails.
         """
-        insert_query = (
+        insert_schema_version_dml = (
             "INSERT INTO SchemaVersion (CreationTimestamp, AppliedTimestamp, Description) "
             "VALUES (@creation_timestamp, PENDING_COMMIT_TIMESTAMP(), @description)"
         )
@@ -200,15 +208,15 @@ class MigrationRunner:
             "description": spanner.param_types.STRING,
         }
 
-        dml_res = self.spanner_client.execute_dml(
-            insert_query,
+        dml_result = self.spanner_client.execute_dml(
+            insert_schema_version_dml,
             params=params,
             param_types=param_types,
         )
-        if dml_res.status != ExecutionStatus.SUCCESS:
+        if dml_result.status != ExecutionStatus.SUCCESS:
             raise RuntimeError(
                 f"Failed to record migration {creation_timestamp} in SchemaVersion: "
-                f"{dml_res.error_message}"
+                f"{dml_result.error_message}"
             )
 
     def run_migrations(self) -> list[SchemaMigration]:

@@ -23,7 +23,7 @@ from google.cloud import spanner
 _bootstrap_module = importlib.import_module(
     "datacommons_db.migrations.migration_scripts.20260817000000_bootstrap"
 )
-Migration20260817000000Bootstrap = _bootstrap_module.Migration20260817000000Bootstrap
+MigrationBootstrap = _bootstrap_module.Migration
 
 
 class DummyMigration(SchemaMigration):
@@ -96,7 +96,7 @@ def test_validate_migrations_duplicate_timestamp():
 def test_discover_migrations(mock_spanner_client):
     runner = MigrationRunner(mock_spanner_client)
     assert len(runner.migrations) >= 1
-    assert isinstance(runner.migrations[0], Migration20260817000000Bootstrap)
+    assert isinstance(runner.migrations[0], MigrationBootstrap)
     assert runner.migrations[0].creation_timestamp == "2026-08-17T00:00:00Z"
 
 
@@ -134,6 +134,22 @@ def test_get_applied_migrations_with_records(mock_spanner_client):
     mock_spanner_client.execute_query.assert_called_once()
     query_arg = mock_spanner_client.execute_query.call_args[0][0]
     assert "SELECT CreationTimestamp FROM SchemaVersion" in query_arg
+
+
+def test_get_applied_migrations_malformed_row(mock_spanner_client):
+    mock_spanner_client.table_exists.return_value = True
+    # Test that empty row [] raises RuntimeError
+    mock_spanner_client.execute_query.return_value = QueryResult(
+        status=ExecutionStatus.SUCCESS,
+        rows=[[]],
+    )
+    runner = MigrationRunner(mock_spanner_client, migrations=[])
+
+    with pytest.raises(
+        RuntimeError,
+        match="Invalid or non-indexable row format in SchemaVersion query results",
+    ):
+        runner.get_applied_migrations()
 
 
 def test_get_applied_migrations_query_error(mock_spanner_client):
