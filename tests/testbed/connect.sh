@@ -246,6 +246,10 @@ if [[ "$ACTION" == "connect" ]]; then
   mkdir -p "$WORKSPACE_DIR"
 
   echo "==> [2/5] Pulling configuration from Secret Manager ($SECRET_NAME)..."
+  if [[ -f "$WORKSPACE_DIR/terraform.tfvars" ]]; then
+    cp "$WORKSPACE_DIR/terraform.tfvars" "$WORKSPACE_DIR/terraform.tfvars.bak"
+  fi
+
   if gcloud secrets describe "$SECRET_NAME" --project="$PROJECT" &>/dev/null; then
     gcloud secrets versions access latest \
       --secret="$SECRET_NAME" \
@@ -263,7 +267,12 @@ TFVARS
     fi
   fi
 
-  echo "==> [3/5] Setting up remote GCS backend state..."
+  # Copy root terraform definition files into workspace and symlink modules
+  echo "==> [3/5] Syncing Terraform scaffolding..."
+  cp "${INFRA_DCP_DIR}"/*.tf "$WORKSPACE_DIR/"
+  ln -sfn "${INFRA_DCP_DIR}/modules" "$WORKSPACE_DIR/modules"
+
+  echo "==> [4/5] Setting up remote GCS backend state..."
   cat <<BACKEND > "$WORKSPACE_DIR/backend.tf"
 terraform {
   backend "gcs" {
@@ -272,13 +281,6 @@ terraform {
   }
 }
 BACKEND
-
-  # Copy root terraform definition files into workspace and symlink modules
-  echo "==> [4/5] Syncing Terraform scaffolding..."
-  cp "${INFRA_DCP_DIR}/main.tf" "$WORKSPACE_DIR/main.tf"
-  cp "${INFRA_DCP_DIR}/variables.tf" "$WORKSPACE_DIR/variables.tf"
-  cp "${INFRA_DCP_DIR}/outputs.tf" "$WORKSPACE_DIR/outputs.tf"
-  ln -sfn "${INFRA_DCP_DIR}/modules" "$WORKSPACE_DIR/modules"
 
   (
     cd "$WORKSPACE_DIR"
@@ -355,16 +357,15 @@ elif [[ "$ACTION" == "push-config" ]]; then
   fi
 
   echo "==> Pushing local terraform.tfvars to Secret Manager ($SECRET_NAME)..."
-  if gcloud secrets describe "$SECRET_NAME" --project="$PROJECT" &>/dev/null; then
-    gcloud secrets versions add "$SECRET_NAME" \
-      --data-file="$TFVARS_FILE" \
-      --project="$PROJECT"
-  else
-    gcloud secrets create "$SECRET_NAME" \
-      --data-file="$TFVARS_FILE" \
-      --project="$PROJECT" \
-      --replication-policy="automatic"
+  if ! gcloud secrets describe "$SECRET_NAME" --project="$PROJECT" &>/dev/null; then
+    echo "Error: Secret '$SECRET_NAME' does not exist in project '$PROJECT'."
+    echo "Please ensure the testbed secret has been initialized by an administrator."
+    exit 1
   fi
+
+  gcloud secrets versions add "$SECRET_NAME" \
+    --data-file="$TFVARS_FILE" \
+    --project="$PROJECT"
   echo "==> Secret successfully updated in GCP Secret Manager!"
 
 else
