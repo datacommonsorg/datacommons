@@ -13,12 +13,14 @@
 # limitations under the License.
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
-from click.testing import CliRunner
+import click
 import pytest
-
-from datacommons_admin.admin_cli import admin, init
+from click.testing import CliRunner
+from datacommons_admin.admin_cli import admin
+from datacommons_db.clients.spanner_client import ExecutionStatus
+from datacommons_db.migrations.migration_runner import MigrationResult
 
 
 @pytest.fixture
@@ -219,6 +221,7 @@ def test_init_db_terraform_error(
     assert "Failed to run 'terraform output'" in result.output
 
 
+@patch("datacommons_admin.admin_cli._run_migrations")
 @patch("datacommons_admin.tf_utils.shutil.which")
 @patch("datacommons_admin.tf_utils.subprocess.run")
 @patch("datacommons_admin.ingestion_helper_client.AuthorizedSession")
@@ -228,13 +231,14 @@ def test_init_db_success(
     mock_session: patch,
     mock_run: patch,
     mock_which: patch,
+    mock_run_migrations: patch,
     runner: CliRunner,
 ) -> None:
     mock_which.return_value = "terraform"
     from unittest.mock import MagicMock
 
     mock_proc = MagicMock()
-    mock_proc.stdout = '{"ingestion_service_url": {"value": "https://mock-helper"}, "ingestion_workflow_service_account_email": {"value": "mock-orch-sa@mock.com"}, "spanner_instance_id": {"value": "mock-instance"}, "spanner_database_id": {"value": "mock-db"}}'
+    mock_proc.stdout = '{"ingestion_service_url": {"value": "https://mock-helper"}, "ingestion_workflow_service_account_email": {"value": "mock-orch-sa@mock.com"}, "spanner_instance_id": {"value": "mock-instance"}, "spanner_database_id": {"value": "mock-db"}, "project_id": {"value": "mock-proj"}}'
     mock_run.return_value = mock_proc
 
     mock_creds = MagicMock()
@@ -252,8 +256,10 @@ def test_init_db_success(
     assert "Successfully initialized Spanner database" in result.output
     assert "Details: DB Initialized" in result.output
     assert "Successfully seeded Spanner database" in result.output
+    mock_run_migrations.assert_called_once()
 
 
+@patch("datacommons_admin.admin_cli._run_migrations")
 @patch("datacommons_admin.tf_utils.shutil.which")
 @patch("datacommons_admin.tf_utils.subprocess.run")
 @patch("datacommons_admin.ingestion_helper_client.AuthorizedSession")
@@ -263,13 +269,14 @@ def test_init_db_success_no_details(
     mock_session: patch,
     mock_run: patch,
     mock_which: patch,
+    mock_run_migrations: patch,
     runner: CliRunner,
 ) -> None:
     mock_which.return_value = "terraform"
     from unittest.mock import MagicMock
 
     mock_proc = MagicMock()
-    mock_proc.stdout = '{"ingestion_service_url": {"value": "https://mock-helper"}, "ingestion_workflow_service_account_email": {"value": "mock-orch-sa@mock.com"}, "spanner_instance_id": {"value": "mock-instance"}, "spanner_database_id": {"value": "mock-db"}}'
+    mock_proc.stdout = '{"ingestion_service_url": {"value": "https://mock-helper"}, "ingestion_workflow_service_account_email": {"value": "mock-orch-sa@mock.com"}, "spanner_instance_id": {"value": "mock-instance"}, "spanner_database_id": {"value": "mock-db"}, "project_id": {"value": "mock-proj"}}'
     mock_run.return_value = mock_proc
 
     mock_creds = MagicMock()
@@ -287,8 +294,10 @@ def test_init_db_success_no_details(
     assert "Successfully initialized Spanner database" in result.output
     assert "Details:" not in result.output
     assert "Successfully seeded Spanner database" in result.output
+    mock_run_migrations.assert_called_once()
 
 
+@patch("datacommons_admin.admin_cli._run_migrations")
 @patch("datacommons_admin.tf_utils.shutil.which")
 @patch("datacommons_admin.tf_utils.subprocess.run")
 @patch("datacommons_admin.ingestion_helper_client.AuthorizedSession")
@@ -298,13 +307,14 @@ def test_init_db_init_only(
     mock_session: patch,
     mock_run: patch,
     mock_which: patch,
+    mock_run_migrations: patch,
     runner: CliRunner,
 ) -> None:
     mock_which.return_value = "terraform"
     from unittest.mock import MagicMock
 
     mock_proc = MagicMock()
-    mock_proc.stdout = '{"ingestion_service_url": {"value": "https://mock-helper"}, "ingestion_workflow_service_account_email": {"value": "mock-orch-sa@mock.com"}, "spanner_instance_id": {"value": "mock-instance"}, "spanner_database_id": {"value": "mock-db"}}'
+    mock_proc.stdout = '{"ingestion_service_url": {"value": "https://mock-helper"}, "ingestion_workflow_service_account_email": {"value": "mock-orch-sa@mock.com"}, "spanner_instance_id": {"value": "mock-instance"}, "spanner_database_id": {"value": "mock-db"}, "project_id": {"value": "mock-proj"}}'
     mock_run.return_value = mock_proc
 
     mock_creds = MagicMock()
@@ -321,6 +331,50 @@ def test_init_db_init_only(
     assert result.exit_code == 0
     assert "Successfully initialized Spanner database" in result.output
     assert "Seeding Spanner database" not in result.output
+    mock_run_migrations.assert_called_once()
+
+
+@patch("datacommons_admin.admin_cli._run_migrations")
+@patch("datacommons_admin.tf_utils.shutil.which")
+@patch("datacommons_admin.tf_utils.subprocess.run")
+@patch("datacommons_admin.ingestion_helper_client.AuthorizedSession")
+@patch("datacommons_admin.ingestion_helper_client.google.auth.default")
+def test_init_db_migration_failure_halts_before_seed(
+    mock_auth_default: patch,
+    mock_session: patch,
+    mock_run: patch,
+    mock_which: patch,
+    mock_run_migrations: patch,
+    runner: CliRunner,
+) -> None:
+    mock_which.return_value = "terraform"
+    from unittest.mock import MagicMock
+
+    mock_proc = MagicMock()
+    mock_proc.stdout = '{"ingestion_service_url": {"value": "https://mock-helper"}, "ingestion_workflow_service_account_email": {"value": "mock-orch-sa@mock.com"}, "spanner_instance_id": {"value": "mock-instance"}, "spanner_database_id": {"value": "mock-db"}, "project_id": {"value": "mock-proj"}}'
+    mock_run.return_value = mock_proc
+
+    mock_creds = MagicMock()
+    mock_auth_default.return_value = (mock_creds, "test-project")
+
+    mock_session_inst = MagicMock()
+    mock_resp = MagicMock()
+    mock_resp.ok = True
+    mock_resp.json.return_value = {"status": "success", "message": "DB Initialized"}
+    mock_session_inst.post.return_value = mock_resp
+    mock_session.return_value = mock_session_inst
+
+    mock_run_migrations.side_effect = click.ClickException("Migration failed")
+
+    result = runner.invoke(admin, ["init-db"])
+    assert result.exit_code != 0
+    assert "Successfully initialized Spanner database" in result.output
+    assert "Migration failed" in result.output
+    # Seeding should NOT be called if migrations fail
+    assert "Seeding Spanner database" not in result.output
+    assert "Successfully seeded Spanner database" not in result.output
+
+
 
 
 @patch("datacommons_admin.tf_utils.shutil.which")
@@ -338,7 +392,7 @@ def test_seed_db_success(
     from unittest.mock import MagicMock
 
     mock_proc = MagicMock()
-    mock_proc.stdout = '{"ingestion_service_url": {"value": "https://mock-helper"}, "ingestion_workflow_service_account_email": {"value": "mock-orch-sa@mock.com"}, "spanner_instance_id": {"value": "mock-instance"}, "spanner_database_id": {"value": "mock-db"}}'
+    mock_proc.stdout = '{"ingestion_service_url": {"value": "https://mock-helper"}, "ingestion_workflow_service_account_email": {"value": "mock-orch-sa@mock.com"}, "spanner_instance_id": {"value": "mock-instance"}, "spanner_database_id": {"value": "mock-db"}, "project_id": {"value": "mock-proj"}}'
     mock_run.return_value = mock_proc
 
     mock_creds = MagicMock()
@@ -579,3 +633,212 @@ def test_ingest_start_with_imports_success(
     called_payload = called_args["json"]
     assert "argument" in called_payload
     assert json.loads(called_payload["argument"]) == expected_arg
+
+
+@patch("datacommons_admin.tf_utils.shutil.which")
+@patch("datacommons_admin.tf_utils.subprocess.run")
+@patch("datacommons_admin.ingestion_helper_client.AuthorizedSession")
+@patch("datacommons_admin.ingestion_helper_client.google.auth.default")
+@patch("datacommons_admin.admin_cli.SpannerClient")
+@patch("datacommons_admin.admin_cli.MigrationRunner")
+def test_migrate_db_no_pending(
+    mock_runner_cls: patch,
+    mock_spanner_cls: patch,
+    mock_auth_default: patch,
+    mock_session: patch,
+    mock_run: patch,
+    mock_which: patch,
+    runner: CliRunner,
+) -> None:
+    mock_which.return_value = "terraform"
+    mock_spanner_cls.return_value = MagicMock()
+
+    mock_proc = MagicMock()
+    mock_proc.stdout = '{"ingestion_service_url": {"value": "https://mock-helper"}, "ingestion_workflow_service_account_email": {"value": "mock-orch-sa@mock.com"}, "spanner_instance_id": {"value": "mock-instance"}, "spanner_database_id": {"value": "mock-db"}, "project_id": {"value": "mock-proj"}}'
+    mock_run.return_value = mock_proc
+
+    mock_creds = MagicMock()
+    mock_auth_default.return_value = (mock_creds, "test-project")
+
+    mock_session_inst = MagicMock()
+    mock_session.return_value = mock_session_inst
+
+    mock_runner_inst = MagicMock()
+    mock_runner_inst.get_pending_migrations.return_value = []
+    mock_runner_cls.return_value = mock_runner_inst
+
+    result = runner.invoke(admin, ["migrate-db"])
+    assert result.exit_code == 0
+    assert "Database schema is already up-to-date" in result.output
+    # Lock should not be acquired when there are no pending migrations
+    mock_session_inst.post.assert_not_called()
+
+
+@patch("datacommons_admin.tf_utils.shutil.which")
+@patch("datacommons_admin.tf_utils.subprocess.run")
+@patch("datacommons_admin.ingestion_helper_client.AuthorizedSession")
+@patch("datacommons_admin.ingestion_helper_client.google.auth.default")
+@patch("datacommons_admin.admin_cli.SpannerClient")
+@patch("datacommons_admin.admin_cli.MigrationRunner")
+def test_migrate_db_with_pending_success(
+    mock_runner_cls: patch,
+    mock_spanner_cls: patch,
+    mock_auth_default: patch,
+    mock_session: patch,
+    mock_run: patch,
+    mock_which: patch,
+    runner: CliRunner,
+) -> None:
+    mock_which.return_value = "terraform"
+    mock_spanner_cls.return_value = MagicMock()
+
+    mock_proc = MagicMock()
+    mock_proc.stdout = '{"ingestion_service_url": {"value": "https://mock-helper"}, "ingestion_workflow_service_account_email": {"value": "mock-orch-sa@mock.com"}, "spanner_instance_id": {"value": "mock-instance"}, "spanner_database_id": {"value": "mock-db"}, "project_id": {"value": "mock-proj"}}'
+    mock_run.return_value = mock_proc
+
+    mock_creds = MagicMock()
+    mock_auth_default.return_value = (mock_creds, "test-project")
+
+    mock_session_inst = MagicMock()
+    mock_resp = MagicMock()
+    mock_resp.ok = True
+    mock_resp.json.return_value = {"status": "success"}
+    mock_session_inst.post.return_value = mock_resp
+    mock_session.return_value = mock_session_inst
+
+    mock_migration = MagicMock()
+    mock_migration.creation_timestamp = "20260817000000"
+    mock_migration.description = "Bootstrap migration"
+
+    mock_runner_inst = MagicMock()
+    mock_runner_inst.get_pending_migrations.return_value = [mock_migration]
+    mock_runner_inst.run_migrations.return_value = [
+        MigrationResult(
+            status=ExecutionStatus.SUCCESS,
+            creation_timestamp="20260817000000",
+            description="Bootstrap migration",
+        )
+    ]
+    mock_runner_cls.return_value = mock_runner_inst
+
+    result = runner.invoke(admin, ["migrate-db"])
+    assert result.exit_code == 0
+    assert "Found 1 pending schema migration" in result.output
+    assert "Applied migration 20260817000000: Bootstrap migration" in result.output
+    assert "Successfully applied all schema migrations!" in result.output
+
+    # Check lock acquired then released
+    assert mock_session_inst.post.call_count == 2
+    mock_session_inst.post.assert_any_call(
+        "https://mock-helper/database/lock/acquire",
+        json={"workflowId": "schema-migration", "timeout": 300},
+        timeout=300,
+    )
+    mock_session_inst.post.assert_any_call(
+        "https://mock-helper/database/lock/release",
+        json={"workflowId": "schema-migration"},
+        timeout=300,
+    )
+
+
+@patch("datacommons_admin.tf_utils.shutil.which")
+@patch("datacommons_admin.tf_utils.subprocess.run")
+@patch("datacommons_admin.ingestion_helper_client.AuthorizedSession")
+@patch("datacommons_admin.ingestion_helper_client.google.auth.default")
+@patch("datacommons_admin.admin_cli.SpannerClient")
+@patch("datacommons_admin.admin_cli.MigrationRunner")
+def test_migrate_db_failure_releases_lock(
+    mock_runner_cls: patch,
+    mock_spanner_cls: patch,
+    mock_auth_default: patch,
+    mock_session: patch,
+    mock_run: patch,
+    mock_which: patch,
+    runner: CliRunner,
+) -> None:
+    mock_which.return_value = "terraform"
+    mock_spanner_cls.return_value = MagicMock()
+
+    mock_proc = MagicMock()
+    mock_proc.stdout = '{"ingestion_service_url": {"value": "https://mock-helper"}, "ingestion_workflow_service_account_email": {"value": "mock-orch-sa@mock.com"}, "spanner_instance_id": {"value": "mock-instance"}, "spanner_database_id": {"value": "mock-db"}, "project_id": {"value": "mock-proj"}}'
+    mock_run.return_value = mock_proc
+
+    mock_creds = MagicMock()
+    mock_auth_default.return_value = (mock_creds, "test-project")
+
+    mock_session_inst = MagicMock()
+    mock_resp = MagicMock()
+    mock_resp.ok = True
+    mock_resp.json.return_value = {"status": "success"}
+    mock_session_inst.post.return_value = mock_resp
+    mock_session.return_value = mock_session_inst
+
+    mock_migration = MagicMock()
+    mock_migration.creation_timestamp = "20260817000000"
+    mock_migration.description = "Bootstrap migration"
+
+    mock_runner_inst = MagicMock()
+    mock_runner_inst.get_pending_migrations.return_value = [mock_migration]
+    mock_runner_inst.run_migrations.side_effect = RuntimeError("DDL operation failed")
+    mock_runner_cls.return_value = mock_runner_inst
+
+    result = runner.invoke(admin, ["migrate-db"])
+    assert result.exit_code != 0
+    assert "Failed to apply schema migrations: DDL operation failed" in result.output
+
+    # Ensure release_lock was still called in finally block
+    mock_session_inst.post.assert_any_call(
+        "https://mock-helper/database/lock/release",
+        json={"workflowId": "schema-migration"},
+        timeout=300,
+    )
+
+
+@patch("datacommons_admin.tf_utils.shutil.which")
+@patch("datacommons_admin.tf_utils.subprocess.run")
+@patch("datacommons_admin.ingestion_helper_client.AuthorizedSession")
+@patch("datacommons_admin.ingestion_helper_client.google.auth.default")
+@patch("datacommons_admin.admin_cli.SpannerClient")
+@patch("datacommons_admin.admin_cli.MigrationRunner")
+def test_migrate_db_lock_busy_error(
+    mock_runner_cls: patch,
+    mock_spanner_cls: patch,
+    mock_auth_default: patch,
+    mock_session: patch,
+    mock_run: patch,
+    mock_which: patch,
+    runner: CliRunner,
+) -> None:
+    mock_which.return_value = "terraform"
+    mock_spanner_cls.return_value = MagicMock()
+
+    mock_proc = MagicMock()
+    mock_proc.stdout = '{"ingestion_service_url": {"value": "https://mock-helper"}, "ingestion_workflow_service_account_email": {"value": "mock-orch-sa@mock.com"}, "spanner_instance_id": {"value": "mock-instance"}, "spanner_database_id": {"value": "mock-db"}, "project_id": {"value": "mock-proj"}}'
+    mock_run.return_value = mock_proc
+
+    mock_creds = MagicMock()
+    mock_auth_default.return_value = (mock_creds, "test-project")
+
+    mock_session_inst = MagicMock()
+    mock_resp = MagicMock()
+    mock_resp.ok = False
+    mock_resp.status_code = 503
+    mock_resp.json.return_value = {"detail": "Lock busy"}
+    mock_session_inst.post.return_value = mock_resp
+    mock_session.return_value = mock_session_inst
+
+    mock_migration = MagicMock()
+    mock_migration.creation_timestamp = "20260817000000"
+    mock_migration.description = "Bootstrap migration"
+
+    mock_runner_inst = MagicMock()
+    mock_runner_inst.get_pending_migrations.return_value = [mock_migration]
+    mock_runner_cls.return_value = mock_runner_inst
+
+    result = runner.invoke(admin, ["migrate-db"])
+    assert result.exit_code != 0
+    assert "Ingestion Helper returned HTTP 503" in result.output
+    assert "Please wait for active ingestions to finish before running migrations" in result.output
+
+
+

@@ -28,6 +28,17 @@ from datacommons_admin.infra_templates import (
     README_TEMPLATE,
     REMOTE_STATE_TEMPLATE,
 )
+from datacommons_admin.ingestion_helper_client import IngestionHelperClient
+from datacommons_admin.tf_utils import (
+    get_ingestion_service_url,
+    get_ingestion_workflow_service_account_email,
+    get_project_id,
+    get_spanner_database_id,
+    get_spanner_instance_id,
+)
+from datacommons_db.clients import SpannerClient
+from datacommons_db.migrations import MigrationRunner
+
 
 
 DEFAULT_BUCKET_LOCATION = "US"
@@ -508,34 +519,27 @@ def init(
     )
 
 
-def _setup_ingestion_client() -> Tuple[Any, str, str]:
+def _setup_ingestion_client() -> Tuple[Any, str, str, str]:
     click.secho(
         "Fetching ingestion service URL, workflow service account, and Spanner details from Terraform outputs...",
         fg="bright_black",
     )
 
-    from datacommons_admin.tf_utils import (
-        get_ingestion_service_url,
-        get_ingestion_workflow_service_account_email,
-        get_spanner_instance_id,
-        get_spanner_database_id,
-    )
-    from datacommons_admin.ingestion_helper_client import IngestionHelperClient
-
     url = get_ingestion_service_url()
     sa_email = get_ingestion_workflow_service_account_email()
+    project_id = get_project_id()
     instance_id = get_spanner_instance_id()
     database_id = get_spanner_database_id()
 
     click.secho(f"Found ingestion service URL: {url}", fg="green")
     click.secho(f"Found ingestion workflow service account: {sa_email}", fg="green")
     click.secho(
-        f"Found Spanner instance ID: {instance_id} / database ID: {database_id}",
+        f"Found Spanner details: project={project_id}, instance={instance_id}, database={database_id}",
         fg="green",
     )
 
     client = IngestionHelperClient(url, service_account_email=sa_email)
-    return client, instance_id, database_id
+    return client, project_id, instance_id, database_id
 
 
 def _run_seed_db(client: Any, instance_id: str, database_id: str) -> None:
@@ -550,6 +554,85 @@ def _run_seed_db(client: Any, instance_id: str, database_id: str) -> None:
         click.secho(f"Details: {message}", fg="bright_black")
 
 
+def _run_migrations(
+    client: Any, project_id: str, instance_id: str, database_id: str
+) -> None:
+    click.secho(
+        f"Checking schema migrations for Spanner database '{project_id}/{instance_id}/{database_id}'...",
+        fg="bright_black",
+    )
+
+    try:
+        spanner_client = SpannerClient(
+            project_id=project_id,
+            instance_id=instance_id,
+            database_id=database_id,
+        )
+        runner = MigrationRunner(spanner_client=spanner_client)
+        pending = runner.get_pending_migrations()
+    except Exception as e:
+        raise click.ClickException(f"Failed to check pending migrations: {e}") from e
+
+    if not pending:
+        click.secho(
+            "Database schema is already up-to-date. No migrations to apply.",
+            fg="green",
+        )
+        return
+
+    click.secho(f"Found {len(pending)} pending schema migration(s):", fg="cyan")
+    for m in pending:
+        click.echo(f"  - {m.creation_timestamp}: {m.description}")
+
+    click.secho(
+        "Acquiring database lock via the Ingestion Helper service...",
+        fg="bright_black",
+    )
+    try:
+        client.acquire_lock(workflow_id="schema-migration")
+    except Exception as e:
+        raise click.ClickException(
+            f"Could not acquire database lock: {e}\n"
+            "An ingestion workflow may currently be running. "
+            "Please wait for active ingestions to finish before running migrations."
+        ) from e
+
+    try:
+        click.secho("Applying pending schema migrations...", fg="bright_black")
+        results = runner.run_migrations()
+        for res in results:
+            click.secho(
+                f"  ✔ Applied migration {res.creation_timestamp}: {res.description}",
+                fg="green",
+            )
+        click.secho(
+            "Successfully applied all schema migrations!", fg="green", bold=True
+        )
+    except Exception as e:
+        raise click.ClickException(f"Failed to apply schema migrations: {e}") from e
+    finally:
+        click.secho(
+            "Releasing database lock via the Ingestion Helper service...",
+            fg="bright_black",
+        )
+        try:
+            client.release_lock(workflow_id="schema-migration")
+        except Exception as e:
+            click.secho(
+                f"Warning: Failed to release database lock: {e}",
+                fg="yellow",
+            )
+
+
+
+@admin.command(name="migrate-db")
+def migrate_db() -> None:
+    """Apply pending schema migrations to the Spanner database."""
+    click.secho("Datacommons Admin Migrate-DB", fg="cyan", bold=True)
+    client, project_id, instance_id, database_id = _setup_ingestion_client()
+    _run_migrations(client, project_id, instance_id, database_id)
+
+
 @admin.command(name="init-db")
 @click.option(
     "--init-only", is_flag=True, help="Only initialize the database without seeding."
@@ -557,7 +640,7 @@ def _run_seed_db(client: Any, instance_id: str, database_id: str) -> None:
 def init_db(init_only: bool) -> None:
     """Initialize (and by default seed) the Spanner database via the DCP Ingestion Helper service."""
     click.secho("Datacommons Admin Init-DB", fg="cyan", bold=True)
-    client, instance_id, database_id = _setup_ingestion_client()
+    client, project_id, instance_id, database_id = _setup_ingestion_client()
 
     click.secho(
         f"Initializing Spanner database '{instance_id}/{database_id}' via the Ingestion Helper service (this may take a few moments)...",
@@ -570,6 +653,8 @@ def init_db(init_only: bool) -> None:
     if message:
         click.secho(f"Details: {message}", fg="bright_black")
 
+    _run_migrations(client, project_id, instance_id, database_id)
+
     if not init_only:
         _run_seed_db(client, instance_id, database_id)
 
@@ -578,10 +663,12 @@ def init_db(init_only: bool) -> None:
 def seed_db() -> None:
     """Seed the Spanner database via the DCP Ingestion Helper service."""
     click.secho("Datacommons Admin Seed-DB", fg="cyan", bold=True)
-    client, instance_id, database_id = _setup_ingestion_client()
+    client, _project_id, instance_id, database_id = _setup_ingestion_client()
     _run_seed_db(client, instance_id, database_id)
+
 
 
 from datacommons_admin.ingest_cli import ingest
 
 admin.add_command(ingest)
+

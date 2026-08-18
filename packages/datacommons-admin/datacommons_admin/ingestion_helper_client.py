@@ -120,3 +120,34 @@ class IngestionHelperClient:
     def seed_database(self) -> dict:
         """Calls the seed_database endpoint on the ingestion helper service."""
         return self._call_endpoint("database/seed")
+
+    def acquire_lock(self, workflow_id: str, timeout: int = 300) -> dict:
+        """Acquires a distributed database lock via the ingestion helper service.
+
+        Args:
+            workflow_id: Identifier for the lock holder.
+            timeout: Maximum lock duration in seconds.
+
+        Returns:
+            API response dictionary from the Ingestion Helper service.
+        """
+        payload = {
+            "workflowId": workflow_id,
+            "timeout": timeout,
+        }
+        return self._call_endpoint("database/lock/acquire", payload=payload)
+
+    def release_lock(self, workflow_id: str) -> dict:
+        """Releases the distributed database lock via the ingestion helper service.
+
+        Args:
+            workflow_id: Identifier for the lock holder.
+
+        Returns:
+            API response dictionary from the Ingestion Helper service.
+        """
+        payload = {
+            "workflowId": workflow_id,
+        }
+        return self._call_endpoint("database/lock/release", payload=payload)
+
