@@ -70,7 +70,9 @@ def test_migration_scripts_filename_convention():
 def test_migration_creation_timestamps_are_valid_and_match_filename():
     """Verify that creation_timestamp is valid ISO-8601 UTC and matches the filename prefix."""
     discovered = MigrationRunner.discover_migrations()
-    assert discovered, "No migration scripts found. Expected at least 1 migration script."
+    assert discovered, (
+        "No migration scripts found. Expected at least 1 migration script."
+    )
 
     for migration in discovered:
         # 1. Format check
@@ -101,7 +103,9 @@ def test_migration_creation_timestamps_are_valid_and_match_filename():
 def test_migration_timestamps_are_unique_and_monotonic():
     """Verify that all migration creation_timestamps are strictly unique and monotonic."""
     discovered = MigrationRunner.discover_migrations()
-    assert discovered, "No migration scripts found. Expected at least 1 migration script."
+    assert discovered, (
+        "No migration scripts found. Expected at least 1 migration script."
+    )
 
     timestamps = [m.creation_timestamp for m in discovered]
     unique_timestamps = set(timestamps)
