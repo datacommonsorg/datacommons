@@ -259,13 +259,13 @@ def test_apply_migration_dml_failure(mock_spanner_client):
         runner.apply_migration(m)
 
 
-def test_set_schema_version_success(mock_spanner_client):
+def test_record_applied_migration_success(mock_spanner_client):
     mock_spanner_client.execute_dml.return_value = MagicMock(
         status=ExecutionStatus.SUCCESS,
         rows_affected=1,
     )
     runner = MigrationRunner(mock_spanner_client, migrations=[])
-    runner.set_schema_version(
+    runner.record_applied_migration(
         creation_timestamp="2026-08-17T11:00:00Z", description="Add table"
     )
 
@@ -281,7 +281,7 @@ def test_set_schema_version_success(mock_spanner_client):
     }
 
 
-def test_set_schema_version_failure(mock_spanner_client):
+def test_record_applied_migration_failure(mock_spanner_client):
     mock_spanner_client.execute_dml.return_value = MagicMock(
         status=ExecutionStatus.ERROR,
         error_message="Connection lost",
@@ -291,9 +291,27 @@ def test_set_schema_version_failure(mock_spanner_client):
         RuntimeError,
         match="Failed to record migration 2026-08-17T11:00:00Z in SchemaVersion: Connection lost",
     ):
-        runner.set_schema_version(
+        runner.record_applied_migration(
             creation_timestamp="2026-08-17T11:00:00Z", description="Add table"
         )
+
+
+def test_get_latest_applied_migration_empty(mock_spanner_client):
+    mock_spanner_client.table_exists.return_value = False
+    runner = MigrationRunner(mock_spanner_client, migrations=[])
+
+    assert runner.get_latest_applied_migration() is None
+
+
+def test_get_latest_applied_migration_with_records(mock_spanner_client):
+    mock_spanner_client.table_exists.return_value = True
+    mock_spanner_client.execute_query.return_value = QueryResult(
+        status=ExecutionStatus.SUCCESS,
+        rows=[["2026-08-17T10:00:00Z"], ["2026-08-17T12:00:00Z"], ["2026-08-17T11:00:00Z"]],
+    )
+    runner = MigrationRunner(mock_spanner_client, migrations=[])
+
+    assert runner.get_latest_applied_migration() == "2026-08-17T12:00:00Z"
 
 
 def test_run_migrations_all_applied(mock_spanner_client):

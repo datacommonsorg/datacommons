@@ -175,7 +175,7 @@ class MigrationRunner:
         migration.upgrade(self.spanner_client)
 
         # 2. Record the applied migration in SchemaVersion
-        self.set_schema_version(
+        self.record_applied_migration(
             creation_timestamp=migration.creation_timestamp,
             description=migration.description,
         )
@@ -185,8 +185,19 @@ class MigrationRunner:
             migration.creation_timestamp,
         )
 
-    def set_schema_version(self, creation_timestamp: str, description: str) -> None:
-        """Record an applied schema version in the SchemaVersion table.
+    def get_latest_applied_migration(self) -> str | None:
+        """Get the creation timestamp of the latest applied migration.
+
+        Returns:
+            The latest applied creation_timestamp string, or None if no migrations have been applied.
+        """
+        applied = self.get_applied_migrations()
+        return max(applied) if applied else None
+
+    def record_applied_migration(
+        self, creation_timestamp: str, description: str
+    ) -> None:
+        """Record an applied migration in the SchemaVersion table.
 
         Args:
             creation_timestamp: The migration creation_timestamp to record.
@@ -195,7 +206,7 @@ class MigrationRunner:
         Raises:
             RuntimeError: If inserting into SchemaVersion fails.
         """
-        insert_schema_version_dml = (
+        insert_applied_migration_record_dml = (
             "INSERT INTO SchemaVersion (CreationTimestamp, AppliedTimestamp, Description) "
             "VALUES (@creation_timestamp, PENDING_COMMIT_TIMESTAMP(), @description)"
         )
@@ -209,7 +220,7 @@ class MigrationRunner:
         }
 
         dml_result = self.spanner_client.execute_dml(
-            insert_schema_version_dml,
+            insert_applied_migration_record_dml,
             params=params,
             param_types=param_types,
         )
