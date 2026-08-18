@@ -143,8 +143,22 @@ class MigrationRunner:
 
         Returns:
             List of SchemaMigration instances that have not yet been applied.
+
+        Raises:
+            RuntimeError: If querying SchemaMigrations fails unexpectedly.
         """
         applied_migrations = self.get_applied_migrations()
+
+        known_timestamps = {m.creation_timestamp for m in self.migrations}
+        unknown_applied = applied_migrations - known_timestamps
+        if unknown_applied:
+            logger.warning(
+                "Database contains %d applied migration(s) not recognized by this codebase: %s. "
+                "The database schema may be newer than this application.",
+                len(unknown_applied),
+                sorted(unknown_applied),
+            )
+
         return [
             m for m in self.migrations if m.creation_timestamp not in applied_migrations
         ]
@@ -183,6 +197,9 @@ class MigrationRunner:
 
         Returns:
             The latest applied creation_timestamp string, or None if no migrations have been applied.
+
+        Raises:
+            RuntimeError: If querying SchemaMigrations fails unexpectedly.
         """
         applied = self.get_applied_migrations()
         return max(applied) if applied else None

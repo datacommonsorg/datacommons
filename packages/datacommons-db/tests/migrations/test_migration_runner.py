@@ -209,6 +209,22 @@ def test_get_pending_migrations(mock_spanner_client):
     assert runner.get_pending_migrations() == [m1, m3]
 
 
+def test_get_pending_migrations_unknown_applied_warning(mock_spanner_client, caplog):
+    m1 = DummyMigration("2026-08-17T10:00:00Z")
+    runner = MigrationRunner(mock_spanner_client, migrations=[m1])
+
+    mock_spanner_client.table_exists.return_value = True
+    mock_spanner_client.execute_query.return_value = QueryResult(
+        status=ExecutionStatus.SUCCESS,
+        rows=[["2026-08-17T10:00:00Z"], ["2026-09-01T00:00:00Z"]],
+    )
+
+    with caplog.at_level("WARNING"):
+        pending = runner.get_pending_migrations()
+        assert pending == []
+        assert "Database contains 1 applied migration(s) not recognized by this codebase" in caplog.text
+
+
 def test_apply_migration_success(mock_spanner_client):
     m = DummyMigration("2026-08-17T10:00:00Z", desc="Baseline")
     mock_spanner_client.execute_dml.return_value = MagicMock(
