@@ -61,8 +61,39 @@ steps:
           git push origin "v$tag_version" --force
         fi
 
-  # 2. Build and publish all Python packages to TestPyPI
+  # 2. Cross-tag container images and stage Dataflow Flex Template JSON
+  - name: 'google/cloud-sdk:slim'
+    id: 'tag-release-artifacts'
+    entrypoint: 'bash'
+    env:
+      - 'TARGET_VERSION=${_TARGET_VERSION}'
+      - 'DEFAULT_SOURCE_TAG=${_DEFAULT_SOURCE_TAG}'
+      - 'SERVICES_TAG=${_SERVICES_TAG}'
+      - 'PREPROCESSOR_TAG=${_PREPROCESSOR_TAG}'
+      - 'POSTPROCESSOR_TAG=${_POSTPROCESSOR_TAG}'
+      - 'INGESTION_HELPER_TAG=${_INGESTION_HELPER_TAG}'
+      - 'DATAFLOW_TAG=${_DATAFLOW_TAG}'
+    args:
+      - '-c'
+      - |
+        set -eo pipefail
+        if [ -n "$$DEFAULT_SOURCE_TAG" ] || [ -n "$$SERVICES_TAG" ] || [ -n "$$PREPROCESSOR_TAG" ] || [ -n "$$POSTPROCESSOR_TAG" ] || [ -n "$$INGESTION_HELPER_TAG" ] || [ -n "$$DATAFLOW_TAG" ]; then
+          echo "Tagging release artifacts and staging Dataflow template for $$TARGET_VERSION..."
+          args=(--target-tag "$$TARGET_VERSION")
+          [ -n "$$DEFAULT_SOURCE_TAG" ] && args+=(--default-source-tag "$$DEFAULT_SOURCE_TAG")
+          [ -n "$$SERVICES_TAG" ] && args+=(--services-tag "$$SERVICES_TAG")
+          [ -n "$$PREPROCESSOR_TAG" ] && args+=(--preprocessor-tag "$$PREPROCESSOR_TAG")
+          [ -n "$$POSTPROCESSOR_TAG" ] && args+=(--postprocessor-tag "$$POSTPROCESSOR_TAG")
+          [ -n "$$INGESTION_HELPER_TAG" ] && args+=(--ingestion-helper-tag "$$INGESTION_HELPER_TAG")
+          [ -n "$$DATAFLOW_TAG" ] && args+=(--dataflow-tag "$$DATAFLOW_TAG")
+          python3 deploy/scripts/tag_release_artifacts.py "$${args[@]}"
+        else
+          echo "No artifact source tags provided; skipping container image and Dataflow template tagging."
+        fi
+
+  # 3. Build and publish all Python packages to TestPyPI
   - name: 'ghcr.io/astral-sh/uv:python3.12-trixie-slim'
+    id: 'publish-testpypi-packages'
     entrypoint: 'python3'
     secretEnv:
       - 'TEST_PYPI_TOKEN'
@@ -80,6 +111,12 @@ substitutions:
   _GITHUB_BRANCH: 'main'
   _GITHUB_COMMIT: ''
   _TARGET_VERSION: ''
+  _DEFAULT_SOURCE_TAG: ''
+  _SERVICES_TAG: ''
+  _PREPROCESSOR_TAG: ''
+  _POSTPROCESSOR_TAG: ''
+  _INGESTION_HELPER_TAG: ''
+  _DATAFLOW_TAG: ''
 
 availableSecrets:
   secretManager:
