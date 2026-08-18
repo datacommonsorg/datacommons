@@ -375,8 +375,6 @@ def test_init_db_migration_failure_halts_before_seed(
     assert "Successfully seeded Spanner database" not in result.output
 
 
-
-
 @patch("datacommons_admin.tf_utils.shutil.which")
 @patch("datacommons_admin.tf_utils.subprocess.run")
 @patch("datacommons_admin.ingestion_helper_client.AuthorizedSession")
@@ -724,7 +722,10 @@ def test_migrate_db_with_pending_success(
     result = runner.invoke(admin, ["migrate-db"], input="y\n")
     assert result.exit_code == 0
     assert "Found 1 pending schema migration" in result.output
-    assert "Warning: Schema migrations will modify your Spanner database schema" in result.output
+    assert (
+        "Warning: Schema migrations will modify your Spanner database schema"
+        in result.output
+    )
     assert "Applied migration 20260817000000: Bootstrap migration" in result.output
     assert "Successfully applied all schema migrations!" in result.output
 
@@ -836,7 +837,10 @@ def test_migrate_db_user_cancels(
     result = runner.invoke(admin, ["migrate-db"], input="n\n")
     assert result.exit_code == 0
     assert "Found 1 pending schema migration" in result.output
-    assert "Warning: Schema migrations will modify your Spanner database schema" in result.output
+    assert (
+        "Warning: Schema migrations will modify your Spanner database schema"
+        in result.output
+    )
     assert "Migration cancelled." in result.output
     # No lock or migrations should be run
     mock_session_inst.post.assert_not_called()
@@ -883,7 +887,10 @@ def test_migrate_db_default_no_cancels(
     result = runner.invoke(admin, ["migrate-db"], input="\n")
     assert result.exit_code == 0
     assert "Found 1 pending schema migration" in result.output
-    assert "Warning: Schema migrations will modify your Spanner database schema" in result.output
+    assert (
+        "Warning: Schema migrations will modify your Spanner database schema"
+        in result.output
+    )
     assert "Migration cancelled." in result.output
     mock_session_inst.post.assert_not_called()
     mock_runner_inst.run_migrations.assert_not_called()
@@ -986,8 +993,7 @@ def test_migrate_db_lock_busy_error(
     result = runner.invoke(admin, ["migrate-db"], input="y\n")
     assert result.exit_code != 0
     assert "Ingestion Helper returned HTTP 503" in result.output
-    assert "Please wait for active ingestions to finish before running migrations" in result.output
-
-
-
-
+    assert (
+        "Please wait for active ingestions to finish before running migrations"
+        in result.output
+    )

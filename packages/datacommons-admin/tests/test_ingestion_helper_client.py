@@ -223,9 +223,7 @@ def test_unauthorized_error(
     with pytest.raises(click.ClickException) as exc_info:
         client.acquire_lock("schema-migration")
 
-    assert "HTTP 401 Unauthorized when calling Ingestion Helper" in str(
-        exc_info.value
-    )
+    assert "HTTP 401 Unauthorized when calling Ingestion Helper" in str(exc_info.value)
 
 
 @patch("datacommons_admin.ingestion_helper_client.AuthorizedSession")

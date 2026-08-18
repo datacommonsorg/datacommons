@@ -40,7 +40,6 @@ from datacommons_db.clients import SpannerClient
 from datacommons_db.migrations import MigrationRunner
 
 
-
 DEFAULT_BUCKET_LOCATION = "US"
 GITHUB_RAW_BASE_URL = "https://raw.githubusercontent.com/datacommonsorg/datacommons"
 GITHUB_REPO_URL = "https://github.com/datacommonsorg/datacommons.git"
@@ -538,14 +537,12 @@ def _setup_ingestion_client() -> Tuple[IngestionHelperClient, str, str, str]:
         fg="green",
     )
 
-    ingestion_helper_client = IngestionHelperClient(
-        url, service_account_email=sa_email
-    )
-    return ingestion_helper_client, project_id, instance_id, database_id
+    client = IngestionHelperClient(url, service_account_email=sa_email)
+    return client, project_id, instance_id, database_id
 
 
 def _run_seed_db(
-    ingestion_helper_client: IngestionHelperClient,
+    client: Any,
     instance_id: str,
     database_id: str,
 ) -> None:
@@ -553,7 +550,7 @@ def _run_seed_db(
         f"Seeding Spanner database '{instance_id}/{database_id}' via the Ingestion Helper service (this may take a few moments)...",
         fg="bright_black",
     )
-    result = ingestion_helper_client.seed_database()
+    result = client.seed_database()
     click.secho("Successfully seeded Spanner database!", fg="green", bold=True)
     message = result.get("message")
     if message:
@@ -575,9 +572,7 @@ def _create_migration_runner(
         raise click.ClickException(f"Failed to initialize migration runner: {e}") from e
 
 
-def _apply_migrations(
-    ingestion_helper_client: IngestionHelperClient, runner: MigrationRunner
-) -> None:
+def _apply_migrations(client: Any, runner: MigrationRunner) -> None:
     """Acquires a distributed database lock and applies all pending migrations."""
     # Attempt to acquire Spanner database lock via the Ingestion Helper service.
     click.secho(
@@ -585,7 +580,7 @@ def _apply_migrations(
         fg="bright_black",
     )
     try:
-        ingestion_helper_client.acquire_lock(workflow_id="schema-migration")
+        client.acquire_lock(workflow_id="schema-migration")
     except Exception as e:
         raise click.ClickException(
             f"Could not acquire database lock: {e}\n"
@@ -615,7 +610,7 @@ def _apply_migrations(
             fg="bright_black",
         )
         try:
-            ingestion_helper_client.release_lock(workflow_id="schema-migration")
+            client.release_lock(workflow_id="schema-migration")
         except Exception as e:
             click.secho(
                 f"Warning: Failed to release database lock: {e}",
@@ -637,7 +632,7 @@ def _confirm_migration(num_pending: int, instance_id: str, database_id: str) -> 
 
 
 def _run_migrations(
-    ingestion_helper_client: IngestionHelperClient,
+    client: IngestionHelperClient,
     project_id: str,
     instance_id: str,
     database_id: str,
@@ -646,7 +641,7 @@ def _run_migrations(
     """Checks, optionally confirms, and applies pending schema migrations to Spanner.
 
     Args:
-        ingestion_helper_client: IngestionHelperClient instance.
+        client: IngestionHelperClient instance.
         project_id: GCP project ID hosting the Spanner database.
         instance_id: Cloud Spanner instance ID.
         database_id: Cloud Spanner database ID.
@@ -677,12 +672,14 @@ def _run_migrations(
         click.echo(f"  - {m.creation_timestamp}: {m.description}")
 
     # Ask user for confirmation if not auto-approved
-    if not auto_approve and not _confirm_migration(len(pending), instance_id, database_id):
+    if not auto_approve and not _confirm_migration(
+        len(pending), instance_id, database_id
+    ):
         click.secho("Migration cancelled.", fg="yellow")
         return
 
     # Apply migrations
-    _apply_migrations(ingestion_helper_client, runner)
+    _apply_migrations(client, runner)
 
 
 @admin.command(name="migrate-db")
@@ -696,9 +693,9 @@ def _run_migrations(
 def migrate_db(auto_approve: bool) -> None:
     """Apply pending schema migrations to the Spanner database."""
     click.secho("Datacommons Admin Migrate-DB", fg="cyan", bold=True)
-    ingestion_helper_client, project_id, instance_id, database_id = _setup_ingestion_client()
+    client, project_id, instance_id, database_id = _setup_ingestion_client()
     _run_migrations(
-        ingestion_helper_client,
+        client,
         project_id,
         instance_id,
         database_id,
@@ -713,13 +710,13 @@ def migrate_db(auto_approve: bool) -> None:
 def init_db(init_only: bool) -> None:
     """Initialize (and by default seed) the Spanner database via the DCP Ingestion Helper service."""
     click.secho("Datacommons Admin Init-DB", fg="cyan", bold=True)
-    ingestion_helper_client, project_id, instance_id, database_id = _setup_ingestion_client()
+    client, project_id, instance_id, database_id = _setup_ingestion_client()
 
     click.secho(
         f"Initializing Spanner database '{instance_id}/{database_id}' via the Ingestion Helper service (this may take a few moments)...",
         fg="bright_black",
     )
-    result = ingestion_helper_client.initialize_database()
+    result = client.initialize_database()
 
     click.secho("Successfully initialized Spanner database!", fg="green", bold=True)
     message = result.get("message")
@@ -727,7 +724,7 @@ def init_db(init_only: bool) -> None:
         click.secho(f"Details: {message}", fg="bright_black")
 
     _run_migrations(
-        ingestion_helper_client,
+        client,
         project_id,
         instance_id,
         database_id,
@@ -735,19 +732,17 @@ def init_db(init_only: bool) -> None:
     )
 
     if not init_only:
-        _run_seed_db(ingestion_helper_client, instance_id, database_id)
+        _run_seed_db(client, instance_id, database_id)
 
 
 @admin.command(name="seed-db")
 def seed_db() -> None:
     """Seed the Spanner database via the DCP Ingestion Helper service."""
     click.secho("Datacommons Admin Seed-DB", fg="cyan", bold=True)
-    ingestion_helper_client, _project_id, instance_id, database_id = _setup_ingestion_client()
-    _run_seed_db(ingestion_helper_client, instance_id, database_id)
-
+    client, _project_id, instance_id, database_id = _setup_ingestion_client()
+    _run_seed_db(client, instance_id, database_id)
 
 
 from datacommons_admin.ingest_cli import ingest
 
 admin.add_command(ingest)
-

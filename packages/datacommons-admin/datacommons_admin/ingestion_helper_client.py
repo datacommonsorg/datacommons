@@ -150,4 +150,3 @@ class IngestionHelperClient:
             "workflowId": workflow_id,
         }
         return self._call_endpoint("database/lock/release", payload=payload)
-
