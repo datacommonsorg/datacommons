@@ -393,6 +393,7 @@ run_postprocessing_job:
                     - "--import_list"
                     - '$${json.encode_to_string(import_list)}'
                     - '$${if(generate_stat_var_groups, "--generate_stat_var_groups", "--no-generate_stat_var_groups")}'
+                    - "--generate_topic_list_edges"
                     - "--no-dry_run" 
         result: run_res
     - call_poll_postprocessing:
