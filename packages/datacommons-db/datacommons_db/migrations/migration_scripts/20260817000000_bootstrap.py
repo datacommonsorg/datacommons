@@ -38,11 +38,13 @@ class Migration(SchemaMigration):
             spanner_client: SpannerClient instance to execute DDL / DML.
 
         Raises:
-            RuntimeError: If DDL operation fails.
+            RuntimeError: If SchemaMigrations table already exists or DDL operation fails.
         """
-        if not spanner_client.table_exists("SchemaMigrations"):
-            result = spanner_client.execute_ddl([_CREATE_SCHEMA_MIGRATIONS_TABLE_DDL])
-            if result.status != ExecutionStatus.SUCCESS:
-                raise RuntimeError(
-                    f"Failed to create SchemaMigrations table: {result.error_message}"
-                )
+        if spanner_client.table_exists("SchemaMigrations"):
+            raise RuntimeError("Table 'SchemaMigrations' already exists.")
+
+        result = spanner_client.execute_ddl([_CREATE_SCHEMA_MIGRATIONS_TABLE_DDL])
+        if result.status != ExecutionStatus.SUCCESS:
+            raise RuntimeError(
+                f"Failed to create SchemaMigrations table: {result.error_message}"
+            )
