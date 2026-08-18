@@ -312,7 +312,11 @@ def test_get_latest_applied_migration_with_records(mock_spanner_client):
     mock_spanner_client.table_exists.return_value = True
     mock_spanner_client.execute_query.return_value = QueryResult(
         status=ExecutionStatus.SUCCESS,
-        rows=[["2026-08-17T10:00:00Z"], ["2026-08-17T12:00:00Z"], ["2026-08-17T11:00:00Z"]],
+        rows=[
+            ["2026-08-17T10:00:00Z"],
+            ["2026-08-17T12:00:00Z"],
+            ["2026-08-17T11:00:00Z"],
+        ],
     )
     runner = MigrationRunner(mock_spanner_client, migrations=[])
 
