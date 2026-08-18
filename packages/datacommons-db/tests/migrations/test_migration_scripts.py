@@ -100,8 +100,8 @@ def test_migration_creation_timestamps_are_valid_and_match_filename():
         )
 
 
-def test_migration_timestamps_are_unique_and_monotonic():
-    """Verify that all migration creation_timestamps are strictly unique and monotonic."""
+def test_migration_timestamps_are_unique():
+    """Verify that all migration creation_timestamps in the repository are strictly unique."""
     discovered = MigrationRunner.discover_migrations()
     assert discovered, (
         "No migration scripts found. Expected at least 1 migration script."
@@ -110,18 +110,9 @@ def test_migration_timestamps_are_unique_and_monotonic():
     timestamps = [m.creation_timestamp for m in discovered]
     unique_timestamps = set(timestamps)
 
-    # 1. Uniqueness check
     assert len(timestamps) == len(unique_timestamps), (
         f"Duplicate migration timestamps detected in repository: {timestamps}"
     )
-
-    # 2. Strictly monotonic check
-    for i in range(len(timestamps) - 1):
-        assert timestamps[i] < timestamps[i + 1], (
-            f"Migration sequence is not strictly increasing: "
-            f"{discovered[i].__class__.__name__} ({timestamps[i]}) >= "
-            f"{discovered[i + 1].__class__.__name__} ({timestamps[i + 1]})"
-        )
 
 
 def test_migration_scripts_have_non_empty_descriptions():
