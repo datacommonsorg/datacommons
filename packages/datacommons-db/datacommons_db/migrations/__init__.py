@@ -13,9 +13,13 @@
 # limitations under the License.
 
 from datacommons_db.migrations.base import SchemaMigration
-from datacommons_db.migrations.migration_runner import MigrationRunner
+from datacommons_db.migrations.migration_runner import (
+    MigrationResult,
+    MigrationRunner,
+)
 
 __all__ = [
+    "MigrationResult",
     "MigrationRunner",
     "SchemaMigration",
 ]

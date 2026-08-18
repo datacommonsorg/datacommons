@@ -16,6 +16,7 @@ import importlib
 import inspect
 import logging
 import pkgutil
+from dataclasses import dataclass
 
 from google.cloud import spanner
 
@@ -24,6 +25,23 @@ from datacommons_db.clients.spanner_client import ExecutionStatus, SpannerClient
 from datacommons_db.migrations.base import SchemaMigration
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class MigrationResult:
+    """Result of applying a schema migration.
+
+    Attributes:
+        status: ExecutionStatus enum (SUCCESS or ERROR).
+        creation_timestamp: UTC ISO-8601 creation timestamp of the migration.
+        description: Description of the schema migration.
+        error_message: Error message string if migration failed, None otherwise.
+    """
+
+    status: ExecutionStatus
+    creation_timestamp: str
+    description: str
+    error_message: str | None = None
 
 
 class MigrationRunner:
@@ -163,11 +181,14 @@ class MigrationRunner:
             m for m in self.migrations if m.creation_timestamp not in applied_migrations
         ]
 
-    def apply_migration(self, migration: SchemaMigration) -> None:
+    def apply_migration(self, migration: SchemaMigration) -> MigrationResult:
         """Apply a single migration and record its completion in SchemaMigrations.
 
         Args:
             migration: The SchemaMigration instance to apply.
+
+        Returns:
+            MigrationResult indicating successful execution.
 
         Raises:
             RuntimeError: If migration execution or recording in SchemaMigrations fails.
@@ -190,6 +211,11 @@ class MigrationRunner:
         logger.info(
             "Successfully applied migration %s",
             migration.creation_timestamp,
+        )
+        return MigrationResult(
+            status=ExecutionStatus.SUCCESS,
+            creation_timestamp=migration.creation_timestamp,
+            description=migration.description,
         )
 
     def get_latest_applied_migration(self) -> str | None:
@@ -240,11 +266,11 @@ class MigrationRunner:
                 f"{dml_result.error_message}"
             )
 
-    def run_migrations(self) -> list[SchemaMigration]:
+    def run_migrations(self) -> list[MigrationResult]:
         """Execute all pending migrations in sequential chronological order.
 
         Returns:
-            List of applied SchemaMigration instances.
+            List of MigrationResult instances for all applied migrations.
 
         Raises:
             RuntimeError: If any migration fails during execution.
@@ -255,11 +281,11 @@ class MigrationRunner:
             logger.info("Database is already up-to-date. No migrations to apply.")
             return []
 
-        applied: list[SchemaMigration] = []
+        results: list[MigrationResult] = []
         for migration in pending:
             try:
-                self.apply_migration(migration)
-                applied.append(migration)
+                result = self.apply_migration(migration)
+                results.append(result)
             except Exception as e:
                 logger.error(
                     "Migration %s failed: %s. Halting migration sequence.",
@@ -268,4 +294,4 @@ class MigrationRunner:
                 )
                 raise
 
-        return applied
+        return results

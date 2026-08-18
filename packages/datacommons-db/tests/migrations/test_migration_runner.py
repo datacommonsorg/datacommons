@@ -17,7 +17,11 @@ from unittest.mock import MagicMock
 
 import pytest
 from datacommons_db.clients import ExecutionStatus, QueryResult, SpannerClient
-from datacommons_db.migrations import MigrationRunner, SchemaMigration
+from datacommons_db.migrations import (
+    MigrationResult,
+    MigrationRunner,
+    SchemaMigration,
+)
 from google.cloud import spanner
 
 _bootstrap_module = importlib.import_module(
@@ -222,7 +226,10 @@ def test_get_pending_migrations_unknown_applied_warning(mock_spanner_client, cap
     with caplog.at_level("WARNING"):
         pending = runner.get_pending_migrations()
         assert pending == []
-        assert "Database contains 1 applied migration(s) not recognized by this codebase" in caplog.text
+        assert (
+            "Database contains 1 applied migration(s) not recognized by this codebase"
+            in caplog.text
+        )
 
 
 def test_apply_migration_success(mock_spanner_client):
@@ -233,8 +240,13 @@ def test_apply_migration_success(mock_spanner_client):
     )
 
     runner = MigrationRunner(mock_spanner_client, migrations=[m])
-    runner.apply_migration(m)
+    result = runner.apply_migration(m)
 
+    assert isinstance(result, MigrationResult)
+    assert result.status == ExecutionStatus.SUCCESS
+    assert result.creation_timestamp == "2026-08-17T10:00:00Z"
+    assert result.description == "Baseline"
+    assert result.error_message is None
     assert m.rolled_forward is True
     mock_spanner_client.execute_dml.assert_called_once()
     query_arg, kwargs = (
@@ -350,9 +362,15 @@ def test_run_migrations_all_applied(mock_spanner_client):
     )
 
     runner = MigrationRunner(mock_spanner_client, migrations=[m1, m2])
-    applied = runner.run_migrations()
+    results = runner.run_migrations()
 
-    assert applied == [m1, m2]
+    assert len(results) == 2
+    assert all(isinstance(r, MigrationResult) for r in results)
+    assert [r.creation_timestamp for r in results] == [
+        "2026-08-17T10:00:00Z",
+        "2026-08-17T11:00:00Z",
+    ]
+    assert all(r.status == ExecutionStatus.SUCCESS for r in results)
     assert m1.rolled_forward is True
     assert m2.rolled_forward is True
     assert mock_spanner_client.execute_dml.call_count == 2
