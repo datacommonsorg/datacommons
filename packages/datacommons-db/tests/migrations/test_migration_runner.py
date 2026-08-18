@@ -178,30 +178,35 @@ def test_get_pending_migrations(mock_spanner_client):
 
     runner = MigrationRunner(mock_spanner_client, migrations=[m1, m2, m3])
 
-    # Case 1: none applied
-    assert runner.get_pending_migrations(applied_migrations=set()) == [m1, m2, m3]
+    # Case 1: table missing -> none applied -> all pending
+    mock_spanner_client.table_exists.return_value = False
+    assert runner.get_pending_migrations() == [m1, m2, m3]
 
-    # Case 2: m1 applied
-    assert runner.get_pending_migrations(
-        applied_migrations={"2026-08-17T10:00:00Z"}
-    ) == [m2, m3]
-
-    # Case 3: all applied
-    assert (
-        runner.get_pending_migrations(
-            applied_migrations={
-                "2026-08-17T10:00:00Z",
-                "2026-08-17T11:00:00Z",
-                "2026-08-17T12:00:00Z",
-            }
-        )
-        == []
+    # Case 2: m1 applied -> m2 and m3 pending
+    mock_spanner_client.table_exists.return_value = True
+    mock_spanner_client.execute_query.return_value = QueryResult(
+        status=ExecutionStatus.SUCCESS,
+        rows=[["2026-08-17T10:00:00Z"]],
     )
+    assert runner.get_pending_migrations() == [m2, m3]
 
-    # Case 4: m2 applied, m1 and m3 pending
-    assert runner.get_pending_migrations(
-        applied_migrations={"2026-08-17T11:00:00Z"}
-    ) == [m1, m3]
+    # Case 3: all applied -> none pending
+    mock_spanner_client.execute_query.return_value = QueryResult(
+        status=ExecutionStatus.SUCCESS,
+        rows=[
+            ["2026-08-17T10:00:00Z"],
+            ["2026-08-17T11:00:00Z"],
+            ["2026-08-17T12:00:00Z"],
+        ],
+    )
+    assert runner.get_pending_migrations() == []
+
+    # Case 4: m2 applied -> m1 and m3 pending
+    mock_spanner_client.execute_query.return_value = QueryResult(
+        status=ExecutionStatus.SUCCESS,
+        rows=[["2026-08-17T11:00:00Z"]],
+    )
+    assert runner.get_pending_migrations() == [m1, m3]
 
 
 def test_apply_migration_success(mock_spanner_client):

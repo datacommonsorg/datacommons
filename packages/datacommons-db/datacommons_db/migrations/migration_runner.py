@@ -130,6 +130,7 @@ class MigrationRunner:
 
         applied_migrations: set[str] = set()
         for row in result.rows:
+            # Check each row for validity.
             if not isinstance(row, (list, tuple)) or len(row) == 0:
                 raise RuntimeError(
                     f"Invalid or non-indexable row format in SchemaMigrations query results: {row!r}"
@@ -137,21 +138,13 @@ class MigrationRunner:
             applied_migrations.add(str(row[0]))
         return applied_migrations
 
-    def get_pending_migrations(
-        self, applied_migrations: set[str] | None = None
-    ) -> list[SchemaMigration]:
+    def get_pending_migrations(self) -> list[SchemaMigration]:
         """Get the list of pending migrations to be applied in chronological order.
-
-        Args:
-            applied_migrations: Optional set of applied migration creation_timestamps.
-                If None, queries the database.
 
         Returns:
             List of SchemaMigration instances that have not yet been applied.
         """
-        if applied_migrations is None:
-            applied_migrations = self.get_applied_migrations()
-
+        applied_migrations = self.get_applied_migrations()
         return [
             m for m in self.migrations if m.creation_timestamp not in applied_migrations
         ]
@@ -239,8 +232,7 @@ class MigrationRunner:
         Raises:
             RuntimeError: If any migration fails during execution.
         """
-        applied_set = self.get_applied_migrations()
-        pending = self.get_pending_migrations(applied_migrations=applied_set)
+        pending = self.get_pending_migrations()
 
         if not pending:
             logger.info("Database is already up-to-date. No migrations to apply.")
