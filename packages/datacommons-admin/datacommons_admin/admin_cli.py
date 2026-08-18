@@ -541,11 +541,7 @@ def _setup_ingestion_client() -> Tuple[IngestionHelperClient, str, str, str]:
     return client, project_id, instance_id, database_id
 
 
-def _run_seed_db(
-    client: Any,
-    instance_id: str,
-    database_id: str,
-) -> None:
+def _run_seed_db(client: Any, instance_id: str, database_id: str) -> None:
     click.secho(
         f"Seeding Spanner database '{instance_id}/{database_id}' via the Ingestion Helper service (this may take a few moments)...",
         fg="bright_black",
