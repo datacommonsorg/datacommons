@@ -113,26 +113,26 @@ class MigrationRunner:
         """Query the target database to determine the set of applied migration creation timestamps.
 
         Returns:
-            Set of applied creation_timestamp strings, or empty set if SchemaVersion table does not exist.
+            Set of applied creation_timestamp strings, or empty set if SchemaMigrations table does not exist.
 
         Raises:
-            RuntimeError: If querying SchemaVersion fails unexpectedly.
+            RuntimeError: If querying SchemaMigrations fails unexpectedly.
         """
-        if not self.spanner_client.table_exists("SchemaVersion"):
+        if not self.spanner_client.table_exists("SchemaMigrations"):
             return set()
 
-        get_applied_migrations_query = "SELECT CreationTimestamp FROM SchemaVersion"
+        get_applied_migrations_query = "SELECT CreationTimestamp FROM SchemaMigrations"
         result = self.spanner_client.execute_query(get_applied_migrations_query)
         if result.status != ExecutionStatus.SUCCESS:
             raise RuntimeError(
-                f"Failed to query SchemaVersion table: {result.error_message}"
+                f"Failed to query SchemaMigrations table: {result.error_message}"
             )
 
         applied_migrations: set[str] = set()
         for row in result.rows:
             if not isinstance(row, (list, tuple)) or len(row) == 0:
                 raise RuntimeError(
-                    f"Invalid or non-indexable row format in SchemaVersion query results: {row!r}"
+                    f"Invalid or non-indexable row format in SchemaMigrations query results: {row!r}"
                 )
             applied_migrations.add(str(row[0]))
         return applied_migrations
@@ -157,13 +157,13 @@ class MigrationRunner:
         ]
 
     def apply_migration(self, migration: SchemaMigration) -> None:
-        """Apply a single migration and record its completion in SchemaVersion.
+        """Apply a single migration and record its completion in SchemaMigrations.
 
         Args:
             migration: The SchemaMigration instance to apply.
 
         Raises:
-            RuntimeError: If migration execution or recording in SchemaVersion fails.
+            RuntimeError: If migration execution or recording in SchemaMigrations fails.
         """
         logger.info(
             "Applying migration %s: %s",
@@ -174,7 +174,7 @@ class MigrationRunner:
         # 1. Execute the migration's upgrade changes
         migration.upgrade(self.spanner_client)
 
-        # 2. Record the applied migration in SchemaVersion
+        # 2. Record the applied migration in SchemaMigrations
         self.record_applied_migration(
             creation_timestamp=migration.creation_timestamp,
             description=migration.description,
@@ -197,17 +197,17 @@ class MigrationRunner:
     def record_applied_migration(
         self, creation_timestamp: str, description: str
     ) -> None:
-        """Record an applied migration in the SchemaVersion table.
+        """Record an applied migration in the SchemaMigrations table.
 
         Args:
             creation_timestamp: The migration creation_timestamp to record.
             description: Description of the schema migration.
 
         Raises:
-            RuntimeError: If inserting into SchemaVersion fails.
+            RuntimeError: If inserting into SchemaMigrations fails.
         """
         insert_applied_migration_record_dml = (
-            "INSERT INTO SchemaVersion (CreationTimestamp, AppliedTimestamp, Description) "
+            "INSERT INTO SchemaMigrations (CreationTimestamp, AppliedTimestamp, Description) "
             "VALUES (@creation_timestamp, PENDING_COMMIT_TIMESTAMP(), @description)"
         )
         params = {
@@ -226,7 +226,7 @@ class MigrationRunner:
         )
         if dml_result.status != ExecutionStatus.SUCCESS:
             raise RuntimeError(
-                f"Failed to record migration {creation_timestamp} in SchemaVersion: "
+                f"Failed to record migration {creation_timestamp} in SchemaMigrations: "
                 f"{dml_result.error_message}"
             )
 

@@ -105,7 +105,7 @@ def test_get_applied_migrations_table_missing(mock_spanner_client):
     runner = MigrationRunner(mock_spanner_client, migrations=[])
 
     assert runner.get_applied_migrations() == set()
-    mock_spanner_client.table_exists.assert_called_once_with("SchemaVersion")
+    mock_spanner_client.table_exists.assert_called_once_with("SchemaMigrations")
 
 
 def test_get_applied_migrations_empty_table(mock_spanner_client):
@@ -133,7 +133,7 @@ def test_get_applied_migrations_with_records(mock_spanner_client):
     }
     mock_spanner_client.execute_query.assert_called_once()
     query_arg = mock_spanner_client.execute_query.call_args[0][0]
-    assert "SELECT CreationTimestamp FROM SchemaVersion" in query_arg
+    assert "SELECT CreationTimestamp FROM SchemaMigrations" in query_arg
 
 
 def test_get_applied_migrations_malformed_row(mock_spanner_client):
@@ -147,7 +147,7 @@ def test_get_applied_migrations_malformed_row(mock_spanner_client):
 
     with pytest.raises(
         RuntimeError,
-        match="Invalid or non-indexable row format in SchemaVersion query results",
+        match="Invalid or non-indexable row format in SchemaMigrations query results",
     ):
         runner.get_applied_migrations()
 
@@ -161,7 +161,7 @@ def test_get_applied_migrations_query_error(mock_spanner_client):
     runner = MigrationRunner(mock_spanner_client, migrations=[])
 
     with pytest.raises(
-        RuntimeError, match="Failed to query SchemaVersion table: Query error"
+        RuntimeError, match="Failed to query SchemaMigrations table: Query error"
     ):
         runner.get_applied_migrations()
 
@@ -220,7 +220,7 @@ def test_apply_migration_success(mock_spanner_client):
         mock_spanner_client.execute_dml.call_args[0][0],
         mock_spanner_client.execute_dml.call_args[1],
     )
-    assert "INSERT INTO SchemaVersion" in query_arg
+    assert "INSERT INTO SchemaMigrations" in query_arg
     assert kwargs["params"] == {
         "creation_timestamp": "2026-08-17T10:00:00Z",
         "description": "Baseline",
@@ -254,7 +254,7 @@ def test_apply_migration_dml_failure(mock_spanner_client):
 
     with pytest.raises(
         RuntimeError,
-        match="Failed to record migration 2026-08-17T10:00:00Z in SchemaVersion: DML insert failed",
+        match="Failed to record migration 2026-08-17T10:00:00Z in SchemaMigrations: DML insert failed",
     ):
         runner.apply_migration(m)
 
@@ -274,7 +274,7 @@ def test_record_applied_migration_success(mock_spanner_client):
         mock_spanner_client.execute_dml.call_args[0][0],
         mock_spanner_client.execute_dml.call_args[1],
     )
-    assert "INSERT INTO SchemaVersion" in query_arg
+    assert "INSERT INTO SchemaMigrations" in query_arg
     assert kwargs["params"] == {
         "creation_timestamp": "2026-08-17T11:00:00Z",
         "description": "Add table",
@@ -289,7 +289,7 @@ def test_record_applied_migration_failure(mock_spanner_client):
     runner = MigrationRunner(mock_spanner_client, migrations=[])
     with pytest.raises(
         RuntimeError,
-        match="Failed to record migration 2026-08-17T11:00:00Z in SchemaVersion: Connection lost",
+        match="Failed to record migration 2026-08-17T11:00:00Z in SchemaMigrations: Connection lost",
     ):
         runner.record_applied_migration(
             creation_timestamp="2026-08-17T11:00:00Z", description="Add table"

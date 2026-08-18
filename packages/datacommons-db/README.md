@@ -136,7 +136,7 @@ client = SpannerClient(
 
 runner = MigrationRunner(client)
 
-# Check applied migrations in SchemaVersion table
+# Check applied migrations in SchemaMigrations table
 applied = runner.get_applied_migrations()
 print(f"Applied migrations: {applied}")
 
