@@ -1,0 +1,64 @@
+schema_version: "1.0"
+name: "custom_namespace"
+description: "UNICEF custom namespace education indicators"
+
+stages:
+  ingestion: true
+  postprocessing: true
+  serving_api: true
+  mcp_agent: true
+  sdmx: false
+
+ingestion:
+  dataset_dirs:
+    - "tests/integration/test_data/custom_namespace"
+  spanner_expectations:
+    exact_observation_count: 6
+    expected_nodes:
+      - subject_id: "UNICEFEducation"
+        expected_types: ["Provenance"]
+      - subject_id: "unicef/SchoolCompletionRate"
+        expected_types: ["StatisticalVariable"]
+      - subject_id: "unicef/YouthLiteracyRate"
+        expected_types: ["StatisticalVariable"]
+      - subject_id: "UNICEFGroup"
+        expected_types: ["StatVarGroup"]
+    expected_edges:
+      - subject_id: "UNICEFEducation"
+        predicate: "source"
+        object_id: "dc/s/UNICEF"
+      - subject_id: "unicef/SchoolCompletionRate"
+        predicate: "memberOf"
+        object_id: "UNICEFGroup"
+
+postprocessing:
+  svg_hierarchy:
+    expected_specialization_edges:
+      - subject_id: "UNICEFGroup"
+        parent_svg: "dc/g/Root"
+  indicator_resolutions:
+    - query: "school completion"
+      target: "custom_only"
+      expected_candidate_dcids: ["unicef/SchoolCompletionRate"]
+    - query: "youth literacy"
+      target: "custom_only"
+      expected_candidate_dcids: ["unicef/YouthLiteracyRate"]
+
+serving_api:
+  nodes:
+    - node_dcid: "unicef/SchoolCompletionRate"
+      expression: "->name"
+      expected_values: ["UNICEF School Completion Rate"]
+
+  point_observations:
+    - observation_about: ["country/USA"]
+      variables: ["unicef/SchoolCompletionRate"]
+      date: "LATEST"
+      expected_places_with_data: ["country/USA"]
+
+mcp_agent:
+  tool_calls:
+    - tool_name: "search_indicators"
+      arguments:
+        query: "school completion rate"
+      expected_match_dcids: ["unicef/SchoolCompletionRate"]

@@ -1,0 +1,26 @@
+{
+  "inputFiles": [
+    {
+      "pattern": "gender_wage_gap.*",
+      "provenance": "dcid:OECDGenderWageGap",
+      "columnMappings": {
+        "dcid:observationAbout": "entity",
+        "dcid:variableMeasured": "variable",
+        "dcid:observationDate": "date",
+        "dcid:value": "value",
+        "dcid:unit": "unit"
+      }
+    },
+    {
+      "pattern": "average_annual_wage.*",
+      "provenance": "dcid:OECDWages",
+      "columnMappings": {
+        "dcid:observationAbout": "entity",
+        "dcid:variableMeasured": "variable",
+        "dcid:observationDate": "date",
+        "dcid:value": "value",
+        "dcid:unit": "unit"
+      }
+    }
+  ]
+}

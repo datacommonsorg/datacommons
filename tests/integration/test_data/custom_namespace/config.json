@@ -1,0 +1,14 @@
+{
+  "inputFiles": [
+    {
+      "pattern": "unicef_education.*",
+      "provenance": "dcid:UNICEFEducation",
+      "columnMappings": {
+        "dcid:observationAbout": "geoId",
+        "dcid:variableMeasured": "variable",
+        "dcid:observationDate": "year",
+        "dcid:value": "value"
+      }
+    }
+  ]
+}

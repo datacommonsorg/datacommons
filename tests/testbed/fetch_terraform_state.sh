@@ -171,6 +171,7 @@ main() {
 
   INSTANCE=""
   PROJECT="$DEFAULT_PROJECT"
+  NO_SHELL=0
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -181,6 +182,10 @@ main() {
       --project)
         PROJECT="$2"
         shift 2
+        ;;
+      --no-shell)
+        NO_SHELL=1
+        shift
         ;;
       --help|-h)
         print_usage
