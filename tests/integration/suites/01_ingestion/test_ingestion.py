@@ -117,9 +117,8 @@ class TestCLIIngestion:
         # 4. Verify Spanner IngestionHistory record if table exists
         history = spanner_client.get_ingestion_history(exec_id)
         if history is not None:
-            status = history.get("Status") or history.get("status")
-            assert status == "SUCCEEDED", (
-                f"IngestionHistory status is '{status}', expected 'SUCCEEDED' for workflow '{exec_id}'"
+            assert history.get("Status") == "SUCCESS", (
+                f"IngestionHistory status is '{history.get('Status')}', expected 'SUCCESS' for workflow '{exec_id}'"
             )
 
 
