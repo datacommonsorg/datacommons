@@ -488,6 +488,7 @@ def auth_headers() -> dict:
             subprocess.check_output(
                 ["gcloud", "auth", "print-identity-token"],
                 stderr=subprocess.DEVNULL,
+                timeout=15,
             )
             .decode()
             .strip()
@@ -504,31 +505,35 @@ def dc_client(dcp_target: DCPTarget, auth_headers: dict):
     """Provides official datacommons-client Client connected to target testbed."""
     if not dcp_target.serving_url:
         pytest.skip("Serving URL not configured for target instance.")
+
+    orig_session_request = requests.Session.request
+    orig_requests_get = requests.get
+
+    def patched_session_request(self, method, url, *args, **kwargs):
+        if dcp_target.serving_url in str(url):
+            h = kwargs.get("headers", {}) or {}
+            h.update(auth_headers)
+            kwargs["headers"] = h
+        return orig_session_request(self, method, url, *args, **kwargs)
+
+    def patched_get(url, *args, **kwargs):
+        if dcp_target.serving_url in str(url):
+            h = kwargs.get("headers", {}) or {}
+            h.update(auth_headers)
+            kwargs["headers"] = h
+        return orig_requests_get(url, *args, **kwargs)
+
+    requests.Session.request = patched_session_request
+    requests.get = patched_get
+
     try:
-        orig_session_request = requests.Session.request
-        orig_requests_get = requests.get
-
-        def patched_session_request(self, method, url, *args, **kwargs):
-            if dcp_target.serving_url in str(url):
-                h = kwargs.get("headers", {}) or {}
-                h.update(auth_headers)
-                kwargs["headers"] = h
-            return orig_session_request(self, method, url, *args, **kwargs)
-
-        def patched_get(url, *args, **kwargs):
-            if dcp_target.serving_url in str(url):
-                h = kwargs.get("headers", {}) or {}
-                h.update(auth_headers)
-                kwargs["headers"] = h
-            return orig_requests_get(url, *args, **kwargs)
-
-        requests.Session.request = patched_session_request
-        requests.get = patched_get
-
         url = f"{dcp_target.serving_url}/core/api/v2"
-        return DataCommonsClient(url=url)
+        yield DataCommonsClient(url=url)
     except Exception as e:
         pytest.skip(f"datacommons-client not initialized: {e}")
+    finally:
+        requests.Session.request = orig_session_request
+        requests.get = orig_requests_get
 
 
 @pytest.fixture(scope="session")

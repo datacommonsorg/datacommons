@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import contextlib
+import shlex
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -67,7 +69,9 @@ class PreflightPermissionChecker:
             if choice in ("", "y", "yes"):
                 print(f"   Executing: {result.fix_command}...")
                 res = subprocess.run(
-                    result.fix_command, shell=True, text=True, check=False
+                    shlex.split(result.fix_command),
+                    text=True,
+                    check=False,
                 )
                 if res.returncode == 0:
                     print("   ✔ Permission successfully granted!")
@@ -199,8 +203,11 @@ class PreflightPermissionChecker:
 
             # Write and delete a probe file
             probe_blob = bucket.blob(".test_permission_probe")
-            probe_blob.upload_from_string("probe", timeout=10)
-            probe_blob.delete(timeout=10)
+            try:
+                probe_blob.upload_from_string("probe", timeout=10)
+            finally:
+                with contextlib.suppress(Exception):
+                    probe_blob.delete(timeout=10)
 
             print(f"  ✔ GCS bucket write access verified on gs://{bucket_name}")
             return PermissionCheckResult(

@@ -37,6 +37,7 @@ def _read_terraform_outputs(workspace_dir: Path) -> dict[str, Any]:
             cwd=str(workspace_dir),
             capture_output=True,
             text=True,
+            timeout=30,
             check=True,
         )
         data = json.loads(proc.stdout)

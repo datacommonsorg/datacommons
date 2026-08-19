@@ -122,7 +122,7 @@ class DatacommonsCLI:
         if cli_source == "testpypi":
             # Execute specific candidate version from TestPyPI
             pkg_spec = (
-                f"datacommons-dcp=={cli_version}" if cli_version else "datacommons-dcp"
+                f"datacommons-cli=={cli_version}" if cli_version else "datacommons-cli"
             )
             return [
                 "uv",
@@ -139,7 +139,7 @@ class DatacommonsCLI:
         if cli_source == "pypi":
             # Execute official published version from PyPI
             pkg_spec = (
-                f"datacommons-dcp=={cli_version}" if cli_version else "datacommons-dcp"
+                f"datacommons-cli=={cli_version}" if cli_version else "datacommons-cli"
             )
             return ["uv", "tool", "run", pkg_spec] + args
 
@@ -183,7 +183,7 @@ class DatacommonsCLI:
 
             try:
                 state = (
-                    subprocess.check_output(cmd, stderr=subprocess.DEVNULL)
+                    subprocess.check_output(cmd, stderr=subprocess.DEVNULL, timeout=30)
                     .decode()
                     .strip()
                 )

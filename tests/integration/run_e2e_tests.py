@@ -97,7 +97,7 @@ def run_e2e_tests(
     env = os.environ.copy()
     env["PYTHONPATH"] = f"{repo_root}:{env.get('PYTHONPATH', '')}"
 
-    subprocess.run(pytest_cmd, env=env, check=False)
+    res = subprocess.run(pytest_cmd, env=env, check=False)
 
     # Read and return structured report object if saved locally
     if not dest.startswith("gs://"):
@@ -108,6 +108,13 @@ def run_e2e_tests(
                     return json.load(f)
             except Exception:
                 pass
+
+    if res.returncode != 0:
+        return {
+            "status": "FAILED",
+            "report_destination": dest,
+            "error": "pytest run failed",
+        }
 
     return {"status": "COMPLETED", "report_destination": dest}
 
