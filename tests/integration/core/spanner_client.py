@@ -75,3 +75,17 @@ class SpannerClient:
         sql = "SELECT subject_id, name, value, types FROM Node WHERE subject_id = @sid LIMIT 1"
         rows = self.query(sql, params={"sid": subject_id})
         return rows[0] if rows else None
+
+    def get_ingestion_history(
+        self, workflow_execution_id: str
+    ) -> dict[str, Any] | None:
+        """Fetches the IngestionHistory record matching a WorkflowExecutionID."""
+        try:
+            sql = (
+                "SELECT WorkflowExecutionID, Status, CompletionTimestamp, IngestedImports "
+                "FROM IngestionHistory WHERE WorkflowExecutionID = @wid LIMIT 1"
+            )
+            rows = self.query(sql, params={"wid": workflow_execution_id})
+            return rows[0] if rows else None
+        except Exception:
+            return None
