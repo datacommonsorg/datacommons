@@ -556,7 +556,19 @@ def _run_seed_db(client: Any, instance_id: str, database_id: str) -> None:
 def _create_migration_runner(
     project_id: str, instance_id: str, database_id: str
 ) -> MigrationRunner:
-    """Initializes a SpannerClient and returns a MigrationRunner instance."""
+    """Initializes a SpannerClient and returns a MigrationRunner instance.
+
+    Args:
+        project_id: GCP project ID hosting the Spanner database.
+        instance_id: Cloud Spanner instance ID.
+        database_id: Cloud Spanner database ID.
+
+    Returns:
+        A MigrationRunner instance initialized with a SpannerClient.
+
+    Raises:
+        click.ClickException: If initialization of the SpannerClient or MigrationRunner fails.
+    """
     try:
         spanner_client = SpannerClient(
             project_id=project_id,
@@ -568,8 +580,19 @@ def _create_migration_runner(
         raise click.ClickException(f"Failed to initialize migration runner: {e}") from e
 
 
-def _apply_migrations(client: Any, runner: MigrationRunner) -> None:
-    """Acquires a distributed database lock and applies all pending migrations."""
+def _apply_migrations(client: Any, runner: MigrationRunner) -> bool:
+    """Acquires a distributed database lock and applies all pending migrations.
+
+    Args:
+        client: IngestionHelperClient instance used for database lock management.
+        runner: MigrationRunner instance used to execute schema migrations.
+
+    Returns:
+        True if all migrations were successfully applied.
+
+    Raises:
+        click.ClickException: If acquiring the database lock or applying migrations fails.
+    """
     lock_acquired = False
     try:
         # Attempt to acquire Spanner database lock via the Ingestion Helper service.
@@ -602,6 +625,7 @@ def _apply_migrations(client: Any, runner: MigrationRunner) -> None:
         click.secho(
             "Successfully applied all schema migrations!", fg="green", bold=True
         )
+        return True
     finally:
         if lock_acquired:
             click.secho(
@@ -618,7 +642,16 @@ def _apply_migrations(client: Any, runner: MigrationRunner) -> None:
 
 
 def _confirm_migration(num_pending: int, instance_id: str, database_id: str) -> bool:
-    """Displays a safety warning and prompts the user to confirm applying migrations."""
+    """Displays a safety warning and prompts the user to confirm applying migrations.
+
+    Args:
+        num_pending: Number of pending schema migrations.
+        instance_id: Cloud Spanner instance ID.
+        database_id: Cloud Spanner database ID.
+
+    Returns:
+        True if the user confirms the migration prompt, False otherwise.
+    """
     click.secho(
         "\nWarning: Schema migrations will modify your Spanner database schema. "
         "It is strongly recommended to create a database backup before proceeding in production environments.",
@@ -636,7 +669,7 @@ def _run_migrations(
     instance_id: str,
     database_id: str,
     auto_approve: bool = False,
-) -> None:
+) -> bool:
     """Checks, optionally confirms, and applies pending schema migrations to Spanner.
 
     Args:
@@ -645,6 +678,12 @@ def _run_migrations(
         instance_id: Cloud Spanner instance ID.
         database_id: Cloud Spanner database ID.
         auto_approve: If False, prompts user for interactive confirmation before applying.
+
+    Returns:
+        True if migrations were applied or database is already up-to-date, False if cancelled by the user.
+
+    Raises:
+        click.ClickException: If checking pending migrations, acquiring the database lock, or applying migrations fails.
     """
     click.secho(
         f"Checking schema migrations for Spanner database '{project_id}/{instance_id}/{database_id}'...",
@@ -664,7 +703,7 @@ def _run_migrations(
             "Database schema is already up-to-date. No migrations to apply.",
             fg="green",
         )
-        return
+        return True
 
     click.secho(f"Found {len(pending)} pending schema migration(s):", fg="cyan")
     for m in pending:
@@ -675,10 +714,10 @@ def _run_migrations(
         len(pending), instance_id, database_id
     ):
         click.secho("Migration cancelled.", fg="yellow")
-        return
+        return False
 
     # Apply migrations
-    _apply_migrations(client, runner)
+    return _apply_migrations(client, runner)
 
 
 @admin.command(name="migrate-db")
@@ -689,11 +728,21 @@ def _run_migrations(
     is_flag=True,
     help="Automatically confirm and apply pending migrations without prompting.",
 )
-def migrate_db(auto_approve: bool) -> None:
-    """Apply pending schema migrations to the Spanner database."""
+def migrate_db(auto_approve: bool) -> bool:
+    """Apply pending schema migrations to the Spanner database.
+
+    Args:
+        auto_approve: If True, automatically confirms and applies pending migrations without prompting.
+
+    Returns:
+        True if migrations were applied or database is already up-to-date, False if cancelled by the user.
+
+    Raises:
+        click.ClickException: If reading Terraform outputs, checking pending migrations, acquiring lock, or applying migrations fails.
+    """
     click.secho("Datacommons Admin Migrate-DB", fg="cyan", bold=True)
     client, project_id, instance_id, database_id = _setup_ingestion_client()
-    _run_migrations(
+    return _run_migrations(
         client,
         project_id,
         instance_id,
