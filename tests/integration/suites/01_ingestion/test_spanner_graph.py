@@ -20,7 +20,7 @@ from tests.integration.core.spanner_client import SpannerClient
 
 
 class TestSpannerGraphNodesAndEdges:
-    """Validates declared knowledge graph nodes and triples in Cloud Spanner Node and Edge tables."""
+    """Validates declared knowledge graph nodes and edges in Cloud Spanner Node and Edge tables."""
 
     def test_spanner_node_exists(
         self,

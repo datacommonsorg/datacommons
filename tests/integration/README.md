@@ -132,6 +132,9 @@ tests/integration/
 │   ├── config_schema.py           # Typed manifest schemas, loader, and multi-spec merger
 │   └── reporter.py                # Structured JSON reporter & timestamped GCS uploader
 │
+├── unit_tests/                    # Fast local unit tests (no GCP/network required)
+│   └── test_config_schema.py      # Schema parsing, loader, and multi-manifest merge tests
+│
 └── tools/                         # Developer utilities
     └── synthesizer.py             # Auto-generates test_spec.yaml from raw dataset folders
 ```

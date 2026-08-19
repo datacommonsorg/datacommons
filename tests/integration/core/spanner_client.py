@@ -63,10 +63,10 @@ class SpannerClient:
         except Exception:
             return 0
 
-    def get_subject_triples(
+    def get_subject_edges(
         self, subject_prefix: str, limit: int = 50
     ) -> list[dict[str, Any]]:
-        """Fetches Edge triples starting with a given prefix."""
+        """Fetches Edge records starting with a given subject prefix."""
         sql = "SELECT subject_id, predicate, object_id, provenance FROM Edge WHERE subject_id LIKE @pfx LIMIT @lim"
         return self.query(sql, params={"pfx": f"{subject_prefix}%", "lim": limit})
 

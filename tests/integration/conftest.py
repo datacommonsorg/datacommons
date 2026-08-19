@@ -13,21 +13,27 @@
 # limitations under the License.
 
 import json
-import os
+import subprocess
 import sys
+import time
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
+
+import pytest
+import requests
+from datacommons_client import DataCommonsClient
+from google.cloud import storage
 
 # Ensure repository root is in Python sys.path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-import pytest
-
 from tests.integration.core.cli_runner import DatacommonsCLI
 from tests.integration.core.config_schema import TestManifest, load_test_manifest
 from tests.integration.core.mcp_client import MCPClient
+from tests.integration.core.permissions import PreflightPermissionChecker
 from tests.integration.core.reporter import TestReporter
 from tests.integration.core.resolver import resolve_dcp_target
 from tests.integration.core.spanner_client import SpannerClient
@@ -136,7 +142,6 @@ def _format_config_display(config_paths: Any) -> str:
 def pytest_configure(config):
     """Initialize structured reporter at the start of the pytest session."""
     global _GLOBAL_REPORTER, _SESSION_START_TIME
-    import time
 
     _SESSION_START_TIME = time.time()
 
@@ -153,8 +158,26 @@ def pytest_configure(config):
     )
 
 
+INTEGRATION_FIXTURES = {
+    "expected_node_spec",
+    "expected_edge_spec",
+    "specialization_edge_spec",
+    "indicator_spec",
+    "node_query_spec",
+    "point_obs_spec",
+    "series_obs_spec",
+    "sdmx_data_spec",
+    "sdmx_avail_spec",
+    "mcp_tool_spec",
+}
+
+
 def pytest_generate_tests(metafunc):
     """Dynamically parameterizes test functions from the active test manifest YAMLs."""
+    # Skip parameterization if the test doesn't request any manifest-driven fixture (e.g. unit tests)
+    if not any(f in metafunc.fixturenames for f in INTEGRATION_FIXTURES):
+        return
+
     config_paths = metafunc.config.getoption("--test-config")
     if not config_paths:
         pytest.exit(
@@ -355,8 +378,6 @@ def pytest_sessionfinish(session, exitstatus):
     if _GLOBAL_REPORTER is None:
         return
 
-    import time
-
     _GLOBAL_REPORTER.report.duration_seconds = time.time() - _SESSION_START_TIME
 
     # Determine report destination (local path or GCS URI)
@@ -417,15 +438,11 @@ def dcp_target(request) -> DCPTarget:
     )
 
     if _GLOBAL_REPORTER is not None:
-        from dataclasses import asdict
-
         _GLOBAL_REPORTER.set_artifacts(asdict(target.artifacts))
         if target.artifacts.target_tag:
             _GLOBAL_REPORTER.report.target_tag = target.artifacts.target_tag
 
     # Preflight Permission Checks
-    from tests.integration.core.permissions import PreflightPermissionChecker
-
     checker = PreflightPermissionChecker(target)
     results = checker.verify_all()
     failed = [r for r in results if not r.passed]
@@ -467,8 +484,6 @@ def auth_headers() -> dict:
     """Provides default HTTP headers with GCP Cloud Run identity token if authenticated."""
     headers = {"X-Use-Multi-Entity-Schema": "true"}
     try:
-        import subprocess
-
         token = (
             subprocess.check_output(
                 ["gcloud", "auth", "print-identity-token"],
@@ -490,9 +505,6 @@ def dc_client(dcp_target: DCPTarget, auth_headers: dict):
     if not dcp_target.serving_url:
         pytest.skip("Serving URL not configured for target instance.")
     try:
-        import requests
-        from datacommons_client import DataCommonsClient
-
         orig_session_request = requests.Session.request
         orig_requests_get = requests.get
 
@@ -522,9 +534,9 @@ def dc_client(dcp_target: DCPTarget, auth_headers: dict):
 @pytest.fixture(scope="session")
 def mcp_client(dcp_target: DCPTarget, auth_headers: dict) -> MCPClient:
     """Provides client for executing MCP tools against {serving_url}/mcp."""
-    mcp_url = os.environ.get("DCP_MCP_URL", f"{dcp_target.serving_url}/mcp")
-    if not mcp_url:
-        pytest.skip("MCP URL not configured for target instance.")
+    if not dcp_target.serving_url:
+        pytest.skip("Serving URL not configured for target instance.")
+    mcp_url = f"{dcp_target.serving_url}/mcp"
     return MCPClient(mcp_url=mcp_url, auth_headers=auth_headers)
 
 
@@ -559,13 +571,11 @@ def seeded_testbed(dcp_target, dcp_cli, spanner_client, test_manifest, request):
 
     import_names = []
     dataset_dirs = test_manifest.ingestion.dataset_dirs or [
-        "tests/integration/datasets/oecd_wages"
+        "tests/integration/test_data/oecd_wages"
     ]
 
     if bucket_clean:
         try:
-            from google.cloud import storage
-
             storage_client = storage.Client(project=dcp_target.project_id)
             bucket = storage_client.bucket(bucket_clean)
 

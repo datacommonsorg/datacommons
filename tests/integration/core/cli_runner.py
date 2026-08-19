@@ -15,6 +15,7 @@
 import os
 import re
 import subprocess
+import time
 from dataclasses import dataclass
 
 from tests.integration.core.target import ArtifactConfig
@@ -125,8 +126,6 @@ class DatacommonsCLI:
         timeout_seconds: int = 2400,
     ) -> bool:
         """Polls workflow execution via gcloud CLI until completion."""
-        import time
-
         start_time = time.time()
         print(
             f"Waiting for Cloud Workflow execution '{execution_id}' via gcloud CLI..."

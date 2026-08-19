@@ -16,7 +16,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 
-from google.cloud import storage
+from google.cloud import spanner, storage
 
 from tests.integration.core.target import DCPTarget
 
@@ -230,8 +230,6 @@ class PreflightPermissionChecker:
             )
 
         try:
-            from google.cloud import spanner
-
             client = spanner.Client(project=self.target.project_id)
             inst = client.instance(self.target.spanner_instance)
             db = inst.database(self.target.spanner_database)
