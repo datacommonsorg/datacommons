@@ -367,10 +367,10 @@ BACKEND
 
     # Automatically navigate into the workspace directory
     if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
-      # Sourced mode (source ./connect.sh): changes directory in parent shell
+      # Sourced mode (source ./fetch_terraform_state.sh): changes directory in parent shell
       cd "$WORKSPACE_DIR"
     elif [[ -t 0 ]]; then
-      # Interactive execution (./connect.sh): launches shell inside workspace
+      # Interactive execution (./fetch_terraform_state.sh): launches shell inside workspace
       echo "==> Entered workspace: ${WORKSPACE_DIR}"
       echo ""
       cd "$WORKSPACE_DIR"

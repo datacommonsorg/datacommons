@@ -22,7 +22,7 @@ They allow any engineer on the team to **deploy and test custom container builds
                ┌────────────────────────────┴────────────────────────────┐
                │                                                         │
        1. Connect & Sync                                         3. Push & Persist
-   `./tests/testbed/connect.sh connect`                      `./tests/testbed/connect.sh push-config`
+   `./tests/testbed/fetch_terraform_state.sh connect`        `./tests/testbed/fetch_terraform_state.sh push-config`
    - Pulls tfvars from Secret Manager                        - Saves updated tfvars back to
    - Configures remote backend state                           Secret Manager so the whole team
    - Configures SA Impersonation for CLI                       stays in sync.
@@ -54,10 +54,10 @@ Run the connect script from the repository root:
 
 ```bash
 # Connect directly to testbed-1:
-./tests/testbed/connect.sh connect --instance testbed-1
+./tests/testbed/fetch_terraform_state.sh connect --instance testbed-1
 
 # OR run interactively to choose from available testbeds:
-./tests/testbed/connect.sh connect
+./tests/testbed/fetch_terraform_state.sh connect
 ```
 
 **What the script does automatically:**
@@ -120,7 +120,7 @@ uv run datacommons <command> ...
 datacommons <command> ...
 ```
 
-The CLI automatically impersonates the testbed's ingestion workflow service account using the TokenCreator IAM role that `connect.sh` configured in Step 1.
+The CLI automatically impersonates the testbed's ingestion workflow service account using the TokenCreator IAM role that `fetch_terraform_state.sh` configured in Step 1.
 
 If you ever need to manually bind the impersonation permission for a teammate:
 ```bash
@@ -141,7 +141,7 @@ gcloud iam service-accounts add-iam-policy-binding "SERVICE_ACCOUNT_EMAIL" \
 If you want your updated configuration or image to remain the **shared baseline** for the testbed:
 
 ```bash
-../../connect.sh push-config --instance testbed-1
+../../fetch_terraform_state.sh push-config --instance testbed-1
 ```
 
 **When to push:**
@@ -157,6 +157,6 @@ If you want your updated configuration or image to remain the **shared baseline*
 
 ### List All Registered Testbeds
 ```bash
-./tests/testbed/connect.sh list
+./tests/testbed/fetch_terraform_state.sh list
 ```
 Displays all registered testbed secrets in `datcom-dcp` and allows interactive selection to connect immediately.
