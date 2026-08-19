@@ -73,16 +73,6 @@ uv run python tests/integration/run_e2e_tests.py \
 
 ---
 
-## 🛠️ Auto-Synthesizing Tests for New Datasets
-
-When adding a new dataset with standard Data Commons files (`.csv`, `.mcf`, `config.json`), you can auto-generate the complete `test_spec.yaml` using the synthesizer tool:
-
-```bash
-uv run python tests/integration/tools/synthesizer.py tests/integration/test_data/my_new_dataset
-```
-
----
-
 ## 🎛️ CLI Package Testing (Local / TestPyPI / PyPI)
 
 ### Test Local CLI Development Source
