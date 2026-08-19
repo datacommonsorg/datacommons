@@ -589,7 +589,11 @@ def _apply_migrations(client: Any, runner: MigrationRunner) -> None:
 
         # Apply all pending migrations
         click.secho("Applying pending schema migrations...", fg="bright_black")
-        results = runner.run_migrations()
+        try:
+            results = runner.run_migrations()
+        except Exception as e:
+            raise click.ClickException(f"Failed to apply schema migrations: {e}") from e
+
         for res in results:
             click.secho(
                 f"  ✔ Applied migration {res.creation_timestamp}: {res.description}",
@@ -598,10 +602,6 @@ def _apply_migrations(client: Any, runner: MigrationRunner) -> None:
         click.secho(
             "Successfully applied all schema migrations!", fg="green", bold=True
         )
-    except click.ClickException:
-        raise
-    except Exception as e:
-        raise click.ClickException(f"Failed to apply schema migrations: {e}") from e
     finally:
         if lock_acquired:
             click.secho(
