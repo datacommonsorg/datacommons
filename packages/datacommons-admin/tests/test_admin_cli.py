@@ -19,6 +19,7 @@ import click
 import pytest
 from click.testing import CliRunner
 from datacommons_admin.admin_cli import admin
+from datacommons_admin.ingestion_helper_client import IngestionHelperClient
 from datacommons_db.clients.spanner_client import ExecutionStatus
 from datacommons_db.migrations.migration_runner import MigrationResult
 
@@ -747,7 +748,9 @@ def test_migrate_db_lock_busy_error(
     )
     mock_runner.get_pending_migrations.return_value = [mock_migration]
     mock_client.acquire_lock.side_effect = click.ClickException(
-        "Ingestion Helper returned HTTP 503"
+        "Could not acquire database lock: Ingestion Helper returned HTTP 503\n"
+        "An ingestion workflow may currently be running. "
+        "Please wait for active ingestions to finish before running migrations."
     )
 
     result = runner.invoke(admin, ["migrate-db", "-y"])
@@ -757,3 +760,4 @@ def test_migrate_db_lock_busy_error(
         "Please wait for active ingestions to finish before running migrations"
         in result.output
     )
+    mock_client.release_lock.assert_not_called()

@@ -130,12 +130,22 @@ class IngestionHelperClient:
 
         Returns:
             API response dictionary from the Ingestion Helper service.
+
+        Raises:
+            click.ClickException: If acquiring the database lock fails.
         """
         payload = {
             "workflowId": workflow_id,
             "timeout": timeout,
         }
-        return self._call_endpoint("database/lock/acquire", payload=payload)
+        try:
+            return self._call_endpoint("database/lock/acquire", payload=payload)
+        except click.ClickException as e:
+            raise click.ClickException(
+                f"Could not acquire database lock: {e.format_message()}\n"
+                "An ingestion workflow may currently be running. "
+                "Please wait for active ingestions to finish before running migrations."
+            ) from e
 
     def release_lock(self, workflow_id: str) -> dict:
         """Releases the distributed database lock via the ingestion helper service.
@@ -145,8 +155,16 @@ class IngestionHelperClient:
 
         Returns:
             API response dictionary from the Ingestion Helper service.
+
+        Raises:
+            click.ClickException: If releasing the database lock fails.
         """
         payload = {
             "workflowId": workflow_id,
         }
-        return self._call_endpoint("database/lock/release", payload=payload)
+        try:
+            return self._call_endpoint("database/lock/release", payload=payload)
+        except click.ClickException as e:
+            raise click.ClickException(
+                f"Could not release database lock: {e.format_message()}"
+            ) from e

@@ -593,29 +593,17 @@ def _apply_migrations(client: Any, runner: MigrationRunner) -> bool:
     Raises:
         click.ClickException: If acquiring the database lock or applying migrations fails.
     """
-    lock_acquired = False
-    try:
-        # Attempt to acquire Spanner database lock via the Ingestion Helper service.
-        click.secho(
-            "Acquiring database lock via the Ingestion Helper service...",
-            fg="bright_black",
-        )
-        try:
-            client.acquire_lock(workflow_id="schema-migration")
-            lock_acquired = True
-        except Exception as e:
-            raise click.ClickException(
-                f"Could not acquire database lock: {e}\n"
-                "An ingestion workflow may currently be running. "
-                "Please wait for active ingestions to finish before running migrations."
-            ) from e
+    # Attempt to acquire Spanner database lock via the Ingestion Helper service.
+    click.secho(
+        "Acquiring database lock via the Ingestion Helper service...",
+        fg="bright_black",
+    )
+    client.acquire_lock(workflow_id="schema-migration")
 
+    try:
         # Apply all pending migrations
         click.secho("Applying pending schema migrations...", fg="bright_black")
-        try:
-            results = runner.run_migrations()
-        except Exception as e:
-            raise click.ClickException(f"Failed to apply schema migrations: {e}") from e
+        results = runner.run_migrations()
 
         for res in results:
             click.secho(
@@ -626,19 +614,21 @@ def _apply_migrations(client: Any, runner: MigrationRunner) -> bool:
             "Successfully applied all schema migrations!", fg="green", bold=True
         )
         return True
+    except Exception as e:
+        raise click.ClickException(f"Failed to apply schema migrations: {e}") from e
     finally:
-        if lock_acquired:
+        # Always attempt to release the database lock after migration attempt
+        click.secho(
+            "Releasing database lock via the Ingestion Helper service...",
+            fg="bright_black",
+        )
+        try:
+            client.release_lock(workflow_id="schema-migration")
+        except Exception as e:
             click.secho(
-                "Releasing database lock via the Ingestion Helper service...",
-                fg="bright_black",
+                f"Warning: {e}",
+                fg="yellow",
             )
-            try:
-                client.release_lock(workflow_id="schema-migration")
-            except Exception as e:
-                click.secho(
-                    f"Warning: Failed to release database lock: {e}",
-                    fg="yellow",
-                )
 
 
 def _confirm_migration(num_pending: int, instance_id: str, database_id: str) -> bool:
