@@ -193,11 +193,11 @@ def test_merge_manifests_accumulates_specs():
             indicator_resolutions=[IndicatorResolutionSpec(query="literacy")],
         ),
         serving_api=ServingAPIManifestConfig(
-            nodes=[NodeQuerySpec(node_dcid="custom:foobar/YouthLiteracyRate")],
+            nodes=[NodeQuerySpec(node_dcid="foobar/YouthLiteracyRate")],
             point_observations=[
                 PointObservationSpec(
                     observation_about=["country/USA"],
-                    variables=["custom:foobar/YouthLiteracyRate"],
+                    variables=["foobar/YouthLiteracyRate"],
                 )
             ],
         ),

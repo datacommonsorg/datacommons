@@ -16,9 +16,9 @@ ingestion:
     expected_nodes:
       - subject_id: "FooBarCustomEducation"
         expected_types: ["Provenance"]
-      - subject_id: "custom:foobar/SchoolCompletionRate"
+      - subject_id: "foobar/SchoolCompletionRate"
         expected_types: ["StatisticalVariable"]
-      - subject_id: "custom:foobar/YouthLiteracyRate"
+      - subject_id: "foobar/YouthLiteracyRate"
         expected_types: ["StatisticalVariable"]
       - subject_id: "FooBarCustomGroup"
         expected_types: ["StatVarGroup"]
@@ -26,7 +26,7 @@ ingestion:
       - subject_id: "FooBarCustomEducation"
         predicate: "source"
         object_id: "dc/s/CustomFooBarSource"
-      - subject_id: "custom:foobar/SchoolCompletionRate"
+      - subject_id: "foobar/SchoolCompletionRate"
         predicate: "memberOf"
         object_id: "FooBarCustomGroup"
 
@@ -38,20 +38,20 @@ postprocessing:
   indicator_resolutions:
     - query: "school completion"
       target: "custom_only"
-      expected_candidate_dcids: ["custom:foobar/SchoolCompletionRate"]
+      expected_candidate_dcids: ["foobar/SchoolCompletionRate"]
     - query: "youth literacy"
       target: "custom_only"
-      expected_candidate_dcids: ["custom:foobar/YouthLiteracyRate"]
+      expected_candidate_dcids: ["foobar/YouthLiteracyRate"]
 
 serving_api:
   nodes:
-    - node_dcid: "custom:foobar/SchoolCompletionRate"
+    - node_dcid: "foobar/SchoolCompletionRate"
       expression: "->name"
       expected_values: ["FooBar School Completion Rate"]
 
   point_observations:
     - observation_about: ["country/USA"]
-      variables: ["custom:foobar/SchoolCompletionRate"]
+      variables: ["foobar/SchoolCompletionRate"]
       date: "LATEST"
       expected_places_with_data: ["country/USA"]
 
@@ -60,4 +60,4 @@ serving_api:
       - tool_name: "search_indicators"
         arguments:
           query: "school completion rate"
-        expected_match_dcids: ["custom:foobar/SchoolCompletionRate"]
+        expected_match_dcids: ["foobar/SchoolCompletionRate"]

@@ -14,7 +14,7 @@ typeOf: dcid:StatVarGroup
 name: "FooBar Education"
 specializationOf: dcid:dc/g/Root
 
-Node: dcid:custom:foobar/SchoolCompletionRate
+Node: dcid:foobar/SchoolCompletionRate
 typeOf: dcid:StatisticalVariable
 populationType: dcid:Person
 statType: dcid:measuredValue
@@ -23,7 +23,7 @@ name: "FooBar School Completion Rate"
 description: "Percentage of children completing relevant levels of education."
 memberOf: dcid:FooBarCustomGroup
 
-Node: dcid:custom:foobar/YouthLiteracyRate
+Node: dcid:foobar/YouthLiteracyRate
 typeOf: dcid:StatisticalVariable
 populationType: dcid:Person
 statType: dcid:measuredValue
