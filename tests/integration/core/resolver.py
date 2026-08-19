@@ -173,16 +173,16 @@ def resolve_dcp_target(
                 "Please specify --instance=<name> (e.g. --instance=testbed-1) or --workspace=<path>."
             )
 
-    # Auto-initialize workspace via connect.sh if missing
+    # Auto-initialize workspace via fetch_terraform_state.sh if missing
     if not workspace_path.exists() or not (workspace_path / ".terraform").exists():
         print(
-            f"\n==> [Resolver] Workspace '{workspace_path}' not initialized. Running connect.sh for '{instance_name}'..."
+            f"\n==> [Resolver] Workspace '{workspace_path}' not initialized. Running fetch_terraform_state.sh for '{instance_name}'..."
         )
-        connect_script = repo_root / "tests" / "testbed" / "connect.sh"
-        if connect_script.exists():
+        fetch_script = repo_root / "tests" / "testbed" / "fetch_terraform_state.sh"
+        if fetch_script.exists():
             subprocess.run(
                 [
-                    str(connect_script),
+                    str(fetch_script),
                     "connect",
                     "--instance",
                     instance_name,
@@ -200,7 +200,7 @@ def resolve_dcp_target(
         raise RuntimeError(
             f"\n❌ Error: Terraform workspace '{workspace_path}' is not connected or missing required output 'datacommons_service_url'.\n"
             f"Please connect to the target testbed workspace by running:\n"
-            f"  tests/testbed/connect.sh connect --instance {instance_name} --project {project}\n"
+            f"  tests/testbed/fetch_terraform_state.sh connect --instance {instance_name} --project {project}\n"
         )
 
     if not serving_url.startswith("http"):
