@@ -1,0 +1,33 @@
+Node: dcid:dc/s/CustomFooBarSource
+typeOf: dcid:Source
+name: "FooBar Global Education Analytics"
+url: "https://foobar-education.example.org"
+
+Node: dcid:FooBarCustomEducation
+typeOf: dcid:Provenance
+name: "FooBar Global Education Statistics"
+source: dcid:dc/s/CustomFooBarSource
+url: "https://foobar-education.example.org/overview"
+
+Node: dcid:FooBarCustomGroup
+typeOf: dcid:StatVarGroup
+name: "FooBar Education"
+specializationOf: dcid:dc/g/Root
+
+Node: dcid:custom:foobar/SchoolCompletionRate
+typeOf: dcid:StatisticalVariable
+populationType: dcid:Person
+statType: dcid:measuredValue
+measuredProperty: dcid:percent
+name: "FooBar School Completion Rate"
+description: "Percentage of children completing relevant levels of education."
+memberOf: dcid:FooBarCustomGroup
+
+Node: dcid:custom:foobar/YouthLiteracyRate
+typeOf: dcid:StatisticalVariable
+populationType: dcid:Person
+statType: dcid:measuredValue
+measuredProperty: dcid:percent
+name: "FooBar Youth Literacy Rate"
+description: "Percentage of youth ages 15-24 who can read and write."
+memberOf: dcid:FooBarCustomGroup

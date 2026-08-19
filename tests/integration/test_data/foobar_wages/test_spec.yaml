@@ -1,5 +1,5 @@
-name: "oecd_wages"
-description: "OECD average annual wages and gender wage gap statistical dataset"
+name: "foobar_wages"
+description: "FooBar average annual wages and gender wage gap statistical dataset"
 
 stages:
   ingestion: true
@@ -10,33 +10,33 @@ stages:
 
 ingestion:
   dataset_dirs:
-    - "tests/integration/test_data/oecd_wages"
+    - "tests/integration/test_data/foobar_wages"
   spanner_expectations:
     exact_observation_count: 1242
     expected_nodes:
-      - subject_id: "OECDWages"
+      - subject_id: "FooBarWages"
         expected_types: ["Provenance"]
       - subject_id: "average_annual_wage"
         expected_types: ["StatisticalVariable"]
       - subject_id: "gender_wage_gap"
         expected_types: ["StatisticalVariable"]
-      - subject_id: "OECDGroup"
+      - subject_id: "FooBarGroup"
         expected_types: ["StatVarGroup"]
     expected_edges:
-      - subject_id: "OECDGroup"
+      - subject_id: "FooBarGroup"
         predicate: "specializationOf"
         object_id: "dc/g/Root"
       - subject_id: "average_annual_wage"
         predicate: "memberOf"
-        object_id: "OECDGroup"
+        object_id: "FooBarGroup"
       - subject_id: "gender_wage_gap"
         predicate: "memberOf"
-        object_id: "OECDGroup"
+        object_id: "FooBarGroup"
 
 postprocessing:
   svg_hierarchy:
     expected_specialization_edges:
-      - subject_id: "OECDGroup"
+      - subject_id: "FooBarGroup"
         parent_svg: "dc/g/Root"
   indicator_resolutions:
     - query: "wages"
@@ -73,7 +73,7 @@ serving_api:
       - dataflow: "DC/DF_OBS/1.0.0/*/provenance"
         constraints:
           variableMeasured: "average_annual_wage"
-        expected_provenance: "OECDWages"
+        expected_provenance: "FooBarWages"
 
 mcp_agent:
   tool_calls:

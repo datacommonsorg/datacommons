@@ -39,9 +39,9 @@ from tests.integration.core.config_schema import (
 
 
 def test_load_single_manifest_by_name():
-    """Verifies that passing a dataset name (e.g. 'oecd_wages') resolves and loads its test_spec.yaml."""
-    manifest = load_test_manifest("oecd_wages")
-    assert manifest.name == "oecd_wages"
+    """Verifies that passing a dataset name (e.g. 'foobar_wages') resolves and loads its test_spec.yaml."""
+    manifest = load_test_manifest("foobar_wages")
+    assert manifest.name == "foobar_wages"
     assert manifest.stages.ingestion is True
     assert manifest.stages.serving_api is True
     assert manifest.ingestion.spanner_expectations.exact_observation_count == 1242
@@ -193,11 +193,11 @@ def test_merge_manifests_accumulates_specs():
             indicator_resolutions=[IndicatorResolutionSpec(query="literacy")],
         ),
         serving_api=ServingAPIManifestConfig(
-            nodes=[NodeQuerySpec(node_dcid="unicef/YouthLiteracyRate")],
+            nodes=[NodeQuerySpec(node_dcid="custom:foobar/YouthLiteracyRate")],
             point_observations=[
                 PointObservationSpec(
                     observation_about=["country/USA"],
-                    variables=["unicef/YouthLiteracyRate"],
+                    variables=["custom:foobar/YouthLiteracyRate"],
                 )
             ],
         ),
@@ -217,11 +217,11 @@ def test_merge_manifests_accumulates_specs():
 def test_load_test_manifest_multi_sources():
     """Verifies loading multiple manifests via a list or comma-separated string."""
     # Multi-item list
-    merged_list = load_test_manifest(["oecd_wages", "custom_namespace"])
-    assert merged_list.name == "oecd_wages+custom_namespace"
+    merged_list = load_test_manifest(["foobar_wages", "custom_namespace"])
+    assert merged_list.name == "foobar_wages+custom_namespace"
     assert merged_list.ingestion.spanner_expectations.exact_observation_count == 1248
 
     # Comma-separated string
-    merged_str = load_test_manifest("oecd_wages,custom_namespace")
-    assert merged_str.name == "oecd_wages+custom_namespace"
+    merged_str = load_test_manifest("foobar_wages,custom_namespace")
+    assert merged_str.name == "foobar_wages+custom_namespace"
     assert merged_str.ingestion.spanner_expectations.exact_observation_count == 1248

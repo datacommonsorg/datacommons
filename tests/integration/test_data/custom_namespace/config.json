@@ -1,8 +1,8 @@
 {
   "inputFiles": [
     {
-      "pattern": "unicef_education.*",
-      "provenance": "dcid:UNICEFEducation",
+      "pattern": "foobar_education.*",
+      "provenance": "dcid:FooBarCustomEducation",
       "columnMappings": {
         "dcid:observationAbout": "geoId",
         "dcid:variableMeasured": "variable",

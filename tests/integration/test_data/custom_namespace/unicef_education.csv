@@ -1,7 +1,0 @@
-geoId,year,variable,value
-country/USA,2020,undata:unicef/SchoolCompletionRate,95.2
-country/FRA,2020,undata:unicef/SchoolCompletionRate,94.1
-country/JPN,2020,undata:unicef/SchoolCompletionRate,98.5
-country/USA,2020,undata:unicef/YouthLiteracyRate,99.1
-country/FRA,2020,undata:unicef/YouthLiteracyRate,99.0
-country/JPN,2020,undata:unicef/YouthLiteracyRate,99.5

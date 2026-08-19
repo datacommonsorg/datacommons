@@ -177,7 +177,7 @@ def main():
         "--test-config",
         action="append",
         required=True,
-        help="Path or name of dataset specs (e.g. oecd_wages, custom_namespace). Can be repeated.",
+        help="Path or name of dataset specs (e.g. foobar_wages, custom_namespace). Can be repeated.",
     )
     parser.add_argument(
         "--report-output",

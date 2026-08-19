@@ -16,7 +16,7 @@ It exercises all core components of the platform across 4 execution stages:
 ```bash
 uv run python tests/integration/run_e2e_tests.py \
     --instance testbed-1 \
-    --test-config oecd_wages \
+    --test-config foobar_wages \
     --reuse-data
 ```
 
@@ -25,7 +25,7 @@ You can combine multiple dataset specs directly on the CLI:
 ```bash
 uv run python tests/integration/run_e2e_tests.py \
     --instance testbed-1 \
-    --test-config oecd_wages \
+    --test-config foobar_wages \
     --test-config custom_namespace \
     --reuse-data
 ```
@@ -35,14 +35,14 @@ uv run python tests/integration/run_e2e_tests.py \
 # Run only Serving API suite:
 uv run python tests/integration/run_e2e_tests.py \
     --instance testbed-1 \
-    --test-config oecd_wages \
+    --test-config foobar_wages \
     --suite 03_serving_api \
     --reuse-data
 
 # Run only Ingestion suite:
 uv run python tests/integration/run_e2e_tests.py \
     --instance testbed-1 \
-    --test-config oecd_wages \
+    --test-config foobar_wages \
     --suite 01_ingestion
 ```
 
@@ -57,7 +57,7 @@ The runner automatically generates structured JSON reports with timestamp-sorted
 ```bash
 uv run python tests/integration/run_e2e_tests.py \
     --instance testbed-1 \
-    --test-config oecd_wages \
+    --test-config foobar_wages \
     --report-output ./test_reports/ \
     --reuse-data
 ```
@@ -66,7 +66,7 @@ uv run python tests/integration/run_e2e_tests.py \
 ```bash
 uv run python tests/integration/run_e2e_tests.py \
     --instance testbed-1 \
-    --test-config oecd_wages \
+    --test-config foobar_wages \
     --report-output gs://testbed-1-dc-artifacts-datcom-dcp/integration_tests/ \
     --reuse-data
 ```
@@ -89,7 +89,7 @@ uv run python tests/integration/tools/synthesizer.py tests/integration/test_data
 ```bash
 uv run python tests/integration/run_e2e_tests.py \
     --instance testbed-1 \
-    --test-config oecd_wages \
+    --test-config foobar_wages \
     --cli-source local
 ```
 
@@ -97,7 +97,7 @@ uv run python tests/integration/run_e2e_tests.py \
 ```bash
 uv run python tests/integration/run_e2e_tests.py \
     --instance testbed-1 \
-    --test-config oecd_wages \
+    --test-config foobar_wages \
     --cli-source testpypi \
     --cli-version 1.1.2rc1
 ```
@@ -113,8 +113,8 @@ tests/integration/
 ├── conftest.py                    # Pytest lifecycle hooks & dynamic parameterization
 │
 ├── test_data/                     # Benchmark datasets & self-contained test specs
-│   ├── oecd_wages/                # OECD Wages CSV, MCF, config.json, test_spec.yaml
-│   └── custom_namespace/          # UNICEF custom schemas, MCF, test_spec.yaml
+│   ├── foobar_wages/              # FooBar Wages CSV, MCF, config.json, test_spec.yaml
+│   └── custom_namespace/          # Custom namespace schemas, MCF, test_spec.yaml
 │
 ├── suites/                        # Generic, dataset-agnostic test suites
 │   ├── 01_ingestion/              # CLI Ingestion & Cloud Spanner graph verification

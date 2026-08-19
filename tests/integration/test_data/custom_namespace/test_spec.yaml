@@ -1,5 +1,5 @@
 name: "custom_namespace"
-description: "UNICEF custom namespace education indicators"
+description: "FooBar custom namespace education indicators"
 
 stages:
   ingestion: true
@@ -14,50 +14,50 @@ ingestion:
   spanner_expectations:
     exact_observation_count: 6
     expected_nodes:
-      - subject_id: "UNICEFEducation"
+      - subject_id: "FooBarCustomEducation"
         expected_types: ["Provenance"]
-      - subject_id: "unicef/SchoolCompletionRate"
+      - subject_id: "custom:foobar/SchoolCompletionRate"
         expected_types: ["StatisticalVariable"]
-      - subject_id: "unicef/YouthLiteracyRate"
+      - subject_id: "custom:foobar/YouthLiteracyRate"
         expected_types: ["StatisticalVariable"]
-      - subject_id: "UNICEFGroup"
+      - subject_id: "FooBarCustomGroup"
         expected_types: ["StatVarGroup"]
     expected_edges:
-      - subject_id: "UNICEFEducation"
+      - subject_id: "FooBarCustomEducation"
         predicate: "source"
-        object_id: "dc/s/UNICEF"
-      - subject_id: "unicef/SchoolCompletionRate"
+        object_id: "dc/s/CustomFooBarSource"
+      - subject_id: "custom:foobar/SchoolCompletionRate"
         predicate: "memberOf"
-        object_id: "UNICEFGroup"
+        object_id: "FooBarCustomGroup"
 
 postprocessing:
   svg_hierarchy:
     expected_specialization_edges:
-      - subject_id: "UNICEFGroup"
+      - subject_id: "FooBarCustomGroup"
         parent_svg: "dc/g/Root"
   indicator_resolutions:
     - query: "school completion"
       target: "custom_only"
-      expected_candidate_dcids: ["unicef/SchoolCompletionRate"]
+      expected_candidate_dcids: ["custom:foobar/SchoolCompletionRate"]
     - query: "youth literacy"
       target: "custom_only"
-      expected_candidate_dcids: ["unicef/YouthLiteracyRate"]
+      expected_candidate_dcids: ["custom:foobar/YouthLiteracyRate"]
 
 serving_api:
   nodes:
-    - node_dcid: "unicef/SchoolCompletionRate"
+    - node_dcid: "custom:foobar/SchoolCompletionRate"
       expression: "->name"
-      expected_values: ["UNICEF School Completion Rate"]
+      expected_values: ["FooBar School Completion Rate"]
 
   point_observations:
     - observation_about: ["country/USA"]
-      variables: ["unicef/SchoolCompletionRate"]
+      variables: ["custom:foobar/SchoolCompletionRate"]
       date: "LATEST"
       expected_places_with_data: ["country/USA"]
 
-mcp_agent:
-  tool_calls:
-    - tool_name: "search_indicators"
-      arguments:
-        query: "school completion rate"
-      expected_match_dcids: ["unicef/SchoolCompletionRate"]
+  mcp_agent:
+    tool_calls:
+      - tool_name: "search_indicators"
+        arguments:
+          query: "school completion rate"
+        expected_match_dcids: ["custom:foobar/SchoolCompletionRate"]
