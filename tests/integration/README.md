@@ -73,6 +73,26 @@ uv run python tests/integration/run_e2e_tests.py \
 
 ---
 
+## 📡 Continuous Prober Setup (GCP Cloud Run Job + Cloud Scheduler)
+
+You can deploy the integration test harness as an automated **GCP Cloud Run Job** triggered by **Cloud Scheduler** every 15 minutes:
+
+### 1. Build Container & Deploy Prober to GCP
+```bash
+./tests/integration/prober/deploy_prober.sh \
+    --instance testbed-1 \
+    --test-config foobar_wages \
+    --schedule "*/15 * * * *"
+```
+
+### 2. What `deploy_prober.sh` Automates:
+1. **Cloud Build**: Builds `gcr.io/datcom-dcp/dcp-integration-prober:latest` using [`tests/integration/prober/Dockerfile`](file:///Users/gmechali/Desktop/datacommons/datacommons_platform/tests/integration/prober/Dockerfile).
+2. **Cloud Run Job**: Provisions serverless job `dcp-prober-testbed-1` running `--reuse-data` mode ($\sim 30$ seconds).
+3. **Cloud Scheduler**: Sets up cron job `dcp-prober-trigger-testbed-1` triggering execution every 15 minutes.
+4. **GCS Reporting**: Streams machine-readable execution reports to `gs://dcp-testbed-1-datcom-dcp/prober_reports/latest.json`.
+
+---
+
 ## 🎛️ CLI Package Testing (Local / TestPyPI / PyPI)
 
 ### Test Local CLI Development Source
@@ -101,6 +121,15 @@ tests/integration/
 ├── README.md                      # This documentation
 ├── run_e2e_tests.py               # Master CLI & programmatic runner
 ├── conftest.py                    # Pytest lifecycle hooks & dynamic parameterization
+│
+├── prober/                        # Automated GCP Prober deployment & container setup
+│   ├── Dockerfile                 # Prober & CI/CD container image definition
+│   ├── deploy_prober.sh           # Cloud Build & Terraform deployment script
+│   ├── prober_runner.py           # Ephemeral instance orchestrator (Retries & Teardown)
+│   └── terraform/                 # Infrastructure-as-Code for Prober deployment
+│       ├── main.tf                # Service Account, Secret Manager, Cloud Run Job & Scheduler
+│       ├── variables.tf           # Terraform variables
+│       └── outputs.tf             # Terraform outputs
 │
 ├── test_data/                     # Benchmark datasets & self-contained test specs
 │   ├── foobar_wages/              # FooBar Wages CSV, MCF, config.json, test_spec.yaml
