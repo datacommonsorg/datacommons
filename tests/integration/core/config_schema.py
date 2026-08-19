@@ -152,7 +152,6 @@ class MCPAgentManifestConfig:
 @dataclass
 class TestManifest:
     __test__ = False
-    schema_version: str = "1.0"
     name: str = "custom_test_manifest"
     description: str = ""
     stages: StageGating = field(default_factory=StageGating)
@@ -316,7 +315,6 @@ def merge_manifests(manifests: Sequence[TestManifest]) -> TestManifest:
     mcp_agent = MCPAgentManifestConfig(tool_calls=tool_calls)
 
     return TestManifest(
-        schema_version="1.0",
         name=merged_name,
         description=merged_desc,
         stages=stages,

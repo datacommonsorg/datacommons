@@ -1,4 +1,3 @@
-schema_version: "1.0"
 name: "oecd_wages"
 description: "OECD average annual wages and gender wage gap statistical dataset"
 

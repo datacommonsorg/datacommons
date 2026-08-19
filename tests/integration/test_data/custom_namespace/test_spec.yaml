@@ -1,4 +1,3 @@
-schema_version: "1.0"
 name: "custom_namespace"
 description: "UNICEF custom namespace education indicators"
 
