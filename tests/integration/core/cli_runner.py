@@ -21,6 +21,18 @@ from dataclasses import dataclass
 from tests.integration.core.target import ArtifactConfig
 
 
+def format_cli_output(
+    title: str, stdout: str = "", stderr: str = "", indent: str = "  "
+) -> str:
+    """Formats command execution output into a structured, readable block."""
+    lines = [f"\n{title}"]
+    if stdout:
+        lines.extend(f"{indent}│ {line}" for line in stdout.rstrip().splitlines())
+    if stderr:
+        lines.extend(f"{indent}⚠ {line}" for line in stderr.rstrip().splitlines())
+    return "\n".join(lines)
+
+
 @dataclass
 class CLIResult:
     """Encapsulates the execution result of a Data Commons CLI invocation."""
@@ -33,6 +45,14 @@ class CLIResult:
     @property
     def output(self) -> str:
         return f"{self.stdout}\n{self.stderr}".strip()
+
+    def print_formatted(self, header: str = "[DCP CLI]") -> None:
+        """Prints indented, formatted command execution output."""
+        print(
+            format_cli_output(
+                f"{header} $ {' '.join(self.command)}", self.stdout, self.stderr
+            )
+        )
 
     def extract_execution_id(self) -> str | None:
         """Extracts the Cloud Workflow Execution ID from CLI output."""
@@ -56,7 +76,11 @@ class DatacommonsCLI:
         self.artifacts = artifacts or ArtifactConfig()
 
     def run(
-        self, args: list[str], env: dict | None = None, timeout: int = 120
+        self,
+        args: list[str],
+        env: dict | None = None,
+        timeout: int = 120,
+        echo: bool = True,
     ) -> CLIResult:
         """Executes a datacommons CLI command within the workspace context."""
         full_env = os.environ.copy()
@@ -75,12 +99,17 @@ class DatacommonsCLI:
             check=False,
         )
 
-        return CLIResult(
+        res = CLIResult(
             command=cmd,
             exit_code=proc.returncode,
             stdout=proc.stdout,
             stderr=proc.stderr,
         )
+
+        if echo:
+            res.print_formatted()
+
+        return res
 
     def _build_command(self, args: list[str]) -> list[str]:
         cli_source = self.artifacts.cli_source.lower()
@@ -128,7 +157,7 @@ class DatacommonsCLI:
         """Polls workflow execution via gcloud CLI until completion."""
         start_time = time.time()
         print(
-            f"Waiting for Cloud Workflow execution '{execution_id}' via gcloud CLI..."
+            f"  └─► Monitoring Cloud Workflow execution '{execution_id}' ({workflow_name})..."
         )
 
         cmd = [
@@ -143,8 +172,10 @@ class DatacommonsCLI:
             "--format=value(state)",
         ]
 
+        last_state = None
+        last_logged_time = 0
         while True:
-            elapsed = time.time() - start_time
+            elapsed = int(time.time() - start_time)
             if elapsed > timeout_seconds:
                 raise TimeoutError(
                     f"Workflow execution {execution_id} timed out after {timeout_seconds}s"
@@ -156,7 +187,15 @@ class DatacommonsCLI:
                     .decode()
                     .strip()
                 )
+                if state != last_state or (elapsed - last_logged_time >= 60):
+                    print(f"      [{elapsed}s] Workflow State: {state}")
+                    last_state = state
+                    last_logged_time = elapsed
+
                 if state == "SUCCEEDED":
+                    print(
+                        f"  ✔ Ingestion & postprocessing completed successfully in {elapsed}s!"
+                    )
                     return True
                 if state in ("FAILED", "CANCELLED"):
                     raise RuntimeError(

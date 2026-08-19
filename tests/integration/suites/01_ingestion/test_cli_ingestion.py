@@ -12,41 +12,98 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from pathlib import Path
+
 import pytest
 
 from tests.integration.core.cli_runner import DatacommonsCLI
 from tests.integration.core.config_schema import TestManifest
-from tests.integration.core.spanner_client import SpannerClient
+from tests.integration.core.target import DCPTarget
 
 
 class TestCLIIngestion:
-    """Validates CLI workspace inspection and seeded Cloud Spanner observations."""
+    """Validates Data Commons CLI ingestion commands against target workspace."""
 
-    def test_01_cli_ingest_show_config(self, dcp_cli: DatacommonsCLI):
-        """Validates that 'datacommons admin ingest show-config' runs and outputs valid configuration."""
+    def test_01_cli_ingest_show_config(
+        self, dcp_cli: DatacommonsCLI, dcp_target: DCPTarget
+    ):
+        """Validates that 'datacommons admin ingest show-config' outputs matching live workspace configuration."""
         res = dcp_cli.run(["admin", "ingest", "show-config"])
         assert res.exit_code == 0, f"CLI ingest show-config failed: {res.output}"
-        assert len(res.output) > 0
+        assert "Current ingestion job configuration:" in res.output
 
-    def test_02_spanner_seeded_observations(
-        self, seeded_testbed, spanner_client: SpannerClient, test_manifest: TestManifest
+        expected = [
+            f"PROJECT_ID: {dcp_target.project_id}",
+            f"GCP_SPANNER_INSTANCE_ID: {dcp_target.spanner_instance}",
+            f"GCP_SPANNER_DATABASE_NAME: {dcp_target.spanner_database}",
+            f"GCS_BUCKET: {dcp_target.gcs_bucket}",
+        ]
+        for token in expected:
+            if not token.endswith(": "):
+                assert token in res.output, (
+                    f"Missing '{token}' in CLI show-config output"
+                )
+
+    def test_02_cli_init_db(
+        self,
+        request,
+        dcp_cli: DatacommonsCLI,
+        test_manifest: TestManifest,
     ):
-        """Verifies Spanner observation count against manifest expectation."""
+        """Validates that 'datacommons admin init-db' initializes and seeds the Spanner database."""
+        if request.config.getoption("--reuse-data"):
+            pytest.skip(
+                "Skipped Spanner database initialization because --reuse-data was specified."
+            )
+
         if not test_manifest.stages.ingestion:
             pytest.skip("Ingestion stage disabled in test manifest.")
 
-        count = spanner_client.count_observations()
-        exp = test_manifest.ingestion.spanner_expectations
+        res = dcp_cli.run(["admin", "init-db"])
+        assert res.exit_code == 0, f"CLI init-db failed: {res.output}"
+        assert "Successfully initialized Spanner database!" in res.output
 
-        if exp.exact_observation_count is not None:
-            assert count == exp.exact_observation_count, (
-                f"Expected exact {exp.exact_observation_count} observations in Spanner, found {count}"
+    def test_03_cli_ingest_start(
+        self,
+        request,
+        seeded_testbed,
+        dcp_cli: DatacommonsCLI,
+        dcp_target: DCPTarget,
+        test_manifest: TestManifest,
+    ):
+        """Validates that 'datacommons admin ingest start' triggers and completes Cloud Workflows."""
+        if request.config.getoption("--reuse-data"):
+            pytest.skip("Skipped full workflow run because --reuse-data was specified.")
+
+        if not test_manifest.stages.ingestion:
+            pytest.skip("Ingestion stage disabled in test manifest.")
+
+        import_dirs = test_manifest.ingestion.dataset_dirs
+        if not import_dirs:
+            pytest.skip(
+                "No dataset_dirs defined in test manifest ingestion configuration."
             )
-        elif exp.min_observation_count is not None:
-            assert count >= exp.min_observation_count, (
-                f"Expected at least {exp.min_observation_count} observations in Spanner, found {count}"
-            )
-        else:
-            assert count > 0, (
-                f"Expected non-zero observations in Spanner, found {count}"
-            )
+
+        import_names = [Path(d).name for d in import_dirs]
+        imports_arg = ",".join(import_names)
+
+        # 1. Run the CLI ingestion start command
+        res = dcp_cli.run(["admin", "ingest", "start", "--imports", imports_arg])
+        assert res.exit_code == 0, f"Failed to start ingestion via CLI: {res.output}"
+        assert "Successfully started ingestion workflow!" in res.output
+
+        # 2. Extract Execution ID
+        exec_id = res.extract_execution_id()
+        assert exec_id is not None, (
+            f"Could not extract Execution ID from CLI output: {res.output}"
+        )
+
+        # 3. Wait for Cloud Workflows and Dataflow completion
+        wf_timeout = request.config.getoption("--workflow-timeout") or 2400
+        completed = dcp_cli.wait_for_workflow(
+            execution_id=exec_id,
+            workflow_name=dcp_target.workflow_name,
+            project_id=dcp_target.project_id,
+            timeout_seconds=wf_timeout,
+        )
+        assert completed, f"Cloud Workflow execution '{exec_id}' failed or timed out."

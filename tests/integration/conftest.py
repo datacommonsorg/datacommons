@@ -570,9 +570,11 @@ def seeded_testbed(dcp_target, dcp_cli, spanner_client, test_manifest, request):
     bucket_clean = bucket_raw.replace("gs://", "").strip().split("/")[0]
 
     import_names = []
-    dataset_dirs = test_manifest.ingestion.dataset_dirs or [
-        "tests/integration/test_data/oecd_wages"
-    ]
+    dataset_dirs = test_manifest.ingestion.dataset_dirs
+    if not dataset_dirs:
+        raise ValueError(
+            f"❌ Error: Test manifest '{test_manifest.name}' has no ingestion.dataset_dirs defined."
+        )
 
     if bucket_clean:
         try:
@@ -597,32 +599,4 @@ def seeded_testbed(dcp_target, dcp_cli, spanner_client, test_manifest, request):
         except Exception as e:
             print(f"    [Warning] Could not upload datasets to GCS: {e}")
 
-    # 2. Initialize Spanner Database via CLI
-    print("\n[Data Setup] Initializing Spanner database via CLI...")
-    init_res = dcp_cli.run(["admin", "init-db"])
-    if init_res.exit_code != 0:
-        print(f"[Warning] init-db output: {init_res.output}")
-
-    # 3. Trigger Ingestion Workflow via CLI with explicit --imports
-    imports_arg = ",".join(import_names) if import_names else "oecd_wages"
-    print(
-        f"[Data Setup] Starting Ingestion Workflow via CLI (imports: {imports_arg})..."
-    )
-    ingest_res = dcp_cli.run(["admin", "ingest", "start", "--imports", imports_arg])
-    assert ingest_res.exit_code == 0, (
-        f"Failed to start ingestion via CLI: {ingest_res.output}"
-    )
-
-    # 4. Wait for Workflow and Dataflow Completion via CLI
-    exec_id = ingest_res.extract_execution_id()
-    if exec_id:
-        wf_timeout = request.config.getoption("--workflow-timeout") or 2400
-        dcp_cli.wait_for_workflow(
-            execution_id=exec_id,
-            workflow_name=dcp_target.workflow_name,
-            project_id=dcp_target.project_id,
-            timeout_seconds=wf_timeout,
-        )
-
-    print("[Data Setup] Ingestion and Postprocessing complete!")
     return dcp_target
