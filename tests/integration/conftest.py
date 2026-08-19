@@ -184,7 +184,7 @@ def pytest_generate_tests(metafunc):
             "\n❌ Error: --test-config is required.\n"
             "Please specify one or more dataset names or manifest YAMLs, for example:\n"
             "  --test-config=foobar_wages\n"
-            "  --test-config=foobar_wages --test-config=custom_namespace\n",
+            "  --test-config=foobar_wages --test-config=foobar_education\n",
             returncode=1,
         )
     manifest = load_test_manifest(config_paths)

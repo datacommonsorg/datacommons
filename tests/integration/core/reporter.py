@@ -111,7 +111,7 @@ class TestReporter:
     def generate_filename(self) -> str:
         """
         Generates a timestamp-prefixed, context-rich filename that sorts chronologically:
-        e.g. 20260819T150116Z_testbed-1_foobar_wages+custom_namespace_a37dc799_PASSED.json
+        e.g. 20260819T150116Z_testbed-1_foobar_wages+foobar_education_a37dc799_PASSED.json
         """
         try:
             dt = datetime.datetime.fromisoformat(

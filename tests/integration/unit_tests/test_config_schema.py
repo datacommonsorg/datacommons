@@ -51,9 +51,9 @@ def test_load_single_manifest_by_name():
 def test_load_single_manifest_by_relative_path():
     """Verifies loading a manifest via a relative path."""
     manifest = load_test_manifest(
-        "tests/integration/test_data/custom_namespace/test_spec.yaml"
+        "tests/integration/test_data/foobar_education/test_spec.yaml"
     )
-    assert manifest.name == "custom_namespace"
+    assert manifest.name == "foobar_education"
     assert manifest.stages.sdmx is False
     assert manifest.ingestion.spanner_expectations.exact_observation_count == 6
 
@@ -217,11 +217,11 @@ def test_merge_manifests_accumulates_specs():
 def test_load_test_manifest_multi_sources():
     """Verifies loading multiple manifests via a list or comma-separated string."""
     # Multi-item list
-    merged_list = load_test_manifest(["foobar_wages", "custom_namespace"])
-    assert merged_list.name == "foobar_wages+custom_namespace"
+    merged_list = load_test_manifest(["foobar_wages", "foobar_education"])
+    assert merged_list.name == "foobar_wages+foobar_education"
     assert merged_list.ingestion.spanner_expectations.exact_observation_count == 1248
 
     # Comma-separated string
-    merged_str = load_test_manifest("foobar_wages,custom_namespace")
-    assert merged_str.name == "foobar_wages+custom_namespace"
+    merged_str = load_test_manifest("foobar_wages,foobar_education")
+    assert merged_str.name == "foobar_wages+foobar_education"
     assert merged_str.ingestion.spanner_expectations.exact_observation_count == 1248

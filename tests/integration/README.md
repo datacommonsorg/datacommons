@@ -26,7 +26,7 @@ You can combine multiple dataset specs directly on the CLI:
 uv run python tests/integration/run_e2e_tests.py \
     --instance testbed-1 \
     --test-config foobar_wages \
-    --test-config custom_namespace \
+    --test-config foobar_education \
     --reuse-data
 ```
 
@@ -114,7 +114,7 @@ tests/integration/
 │
 ├── test_data/                     # Benchmark datasets & self-contained test specs
 │   ├── foobar_wages/              # FooBar Wages CSV, MCF, config.json, test_spec.yaml
-│   └── custom_namespace/          # Custom namespace schemas, MCF, test_spec.yaml
+│   └── foobar_education/          # FooBar Education CSV, MCF, config.json, test_spec.yaml
 │
 ├── suites/                        # Generic, dataset-agnostic test suites
 │   ├── 01_ingestion/              # CLI Ingestion & Cloud Spanner graph verification

@@ -1,5 +1,5 @@
-name: "custom_namespace"
-description: "FooBar custom namespace education indicators"
+name: "foobar_education"
+description: "FooBar education indicators dataset"
 
 stages:
   ingestion: true
@@ -10,7 +10,7 @@ stages:
 
 ingestion:
   dataset_dirs:
-    - "tests/integration/test_data/custom_namespace"
+    - "tests/integration/test_data/foobar_education"
   spanner_expectations:
     exact_observation_count: 6
     expected_nodes:
