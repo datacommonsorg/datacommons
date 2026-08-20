@@ -188,24 +188,42 @@ resource "google_monitoring_notification_channel" "email" {
   }
 }
 
-# 6. Cloud Monitoring Alert Policy for Prober Execution Failures
+# 6. Log-Based Gauge Metric for Structured Prober Execution Summary
+resource "google_logging_metric" "prober_status" {
+  name        = "${var.prober_name}_status"
+  project     = var.project_id
+  description = "Gauge metric tracking DCP Prober execution status (0=PASSED, 1=FAILED)"
+
+  filter = "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"${google_cloud_run_v2_job.prober_job.name}\" AND jsonPayload.event_type=\"PROBER_EXECUTION_SUMMARY\""
+
+  metric_descriptor {
+    metric_kind = "GAUGE"
+    value_type  = "INT64"
+    unit        = "1"
+  }
+
+  value_extractor = "EXTRACT(jsonPayload.status_code)"
+}
+
+# 7. Cloud Monitoring Alert Policy for Prober Execution Failures
 resource "google_monitoring_alert_policy" "prober_failure" {
   display_name = "ALERT: DCP Prober Execution Failed"
   project      = var.project_id
   combiner     = "OR"
 
   conditions {
-    display_name = "Cloud Run Job Execution Failure"
+    display_name = "Prober Status Failed (status_code > 0)"
 
     condition_threshold {
-      filter          = "resource.type = \"cloud_run_job\" AND resource.label.job_name = \"${google_cloud_run_v2_job.prober_job.name}\" AND metric.type = \"run.googleapis.com/job/completed_execution_count\" AND metric.label.result = \"failed\""
+      filter          = "resource.type = \"cloud_run_job\" AND resource.label.job_name = \"${google_cloud_run_v2_job.prober_job.name}\" AND metric.type = \"logging.googleapis.com/user/${google_logging_metric.prober_status.name}\""
       duration        = "0s"
       comparison      = "COMPARISON_GT"
       threshold_value = 0
 
       aggregations {
-        alignment_period   = "60s"
-        per_series_aligner = "ALIGN_COUNT"
+        alignment_period     = "60s"
+        per_series_aligner   = "ALIGN_MAX"
+        cross_series_reducer = "REDUCE_MAX"
       }
     }
   }
