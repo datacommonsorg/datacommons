@@ -358,26 +358,12 @@ BACKEND
     echo " SUCCESS: Connected to '${INSTANCE}'"
     echo " Workspace directory: ${WORKSPACE_DIR}"
     echo ""
-    echo " Ready to deploy:"
-    echo "   1. Edit terraform.tfvars (uncomment custom images or version overrides)"
-    echo "   2. Run 'terraform apply' to deploy"
-    echo "   3. Run '$0 push-config --instance ${INSTANCE}' when done"
+    echo " Next Steps:"
+    echo "   1. cd ${WORKSPACE_DIR}"
+    echo "   2. Edit terraform.tfvars (if needed)"
+    echo "   3. terraform apply"
     echo "================================================================================"
     echo ""
-
-    # Automatically navigate into the workspace directory
-    if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
-      # Sourced mode (source ./fetch_terraform_state.sh): changes directory in parent shell
-      cd "$WORKSPACE_DIR"
-    elif [[ -t 0 ]]; then
-      # Interactive execution (./fetch_terraform_state.sh): launches shell inside workspace
-      echo "==> Entered workspace: ${WORKSPACE_DIR}"
-      echo ""
-      cd "$WORKSPACE_DIR"
-      exec "${SHELL:-bash}"
-    else
-      cd "$WORKSPACE_DIR"
-    fi
 
   # ==============================================================================
   # ACTION: PUSH-CONFIG
