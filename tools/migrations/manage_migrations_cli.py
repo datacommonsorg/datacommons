@@ -24,7 +24,7 @@ COMMANDS:
      Auto-generates a timestamped migration script (e.g. 20260819135412_my_change.py)
      pre-populated with license header, SchemaMigration subclass, and UTC ISO-8601 creation_timestamp.
 
-  2. update <target>
+  2. update <target> [-y/--yes]
      Re-timestamps an existing migration script with the current UTC time (both in filename
      and creation_timestamp attribute). Used when resolving merge conflicts as multiple developers
      add migrations concurrently.
@@ -69,10 +69,11 @@ def cli() -> None:
 )
 def create_command(
     name: str,
-    description: str | None,
+    description: str | None = None,
 ) -> None:
     """Create a new timestamped schema migration script."""
     try:
+        # Generate new migration script boilerplate on disk
         target_file, iso_ts, desc = manage_migrations_utils.create_migration_file(
             name=name,
             description=description,
@@ -82,14 +83,21 @@ def create_command(
         raise click.ClickException(str(e)) from e
 
     click.secho("✔ Successfully created migration script:", fg="green", bold=True)
-    click.echo(f"  - File:        {target_file}")
+    click.echo(f"  - File:        {target_file.name}")
     click.echo(f"  - Timestamp:   {iso_ts}")
     click.echo(f"  - Description: {desc}")
 
 
 @cli.command(name="update")
 @click.argument("target")
-def update_command(target: str) -> None:
+@click.option(
+    "-y",
+    "--yes",
+    is_flag=True,
+    default=False,
+    help="Automatically confirm update without interactive prompt.",
+)
+def update_command(target: str, *, yes: bool = False) -> None:
     """Re-timestamp an existing migration script with the current UTC time."""
     try:
         # Locate target migration file and validate filename format
@@ -112,7 +120,7 @@ def update_command(target: str) -> None:
         click.echo("Planned changes:")
         click.echo(f"  - Rename to:      {new_filename}")
         click.echo(f"  - New timestamp:  {new_iso}")
-        if not click.confirm("Proceed with update?", default=False):
+        if not yes and not click.confirm("Proceed with update?", default=False):
             click.echo("Aborted without making changes.")
             return
 

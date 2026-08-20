@@ -154,6 +154,27 @@ def test_cli_update_command_aborted(runner: CliRunner, tmp_path: Path) -> None:
     assert len(list(tmp_path.glob("*.py"))) == 1
 
 
+def test_cli_update_command_with_yes_flag(runner: CliRunner, tmp_path: Path) -> None:
+    file_path = tmp_path / "20260817000000_add_user.py"
+    file_path.write_text(
+        manage_migrations_utils.generate_migration_content(
+            "Add User", "2026-08-17T00:00:00Z"
+        )
+    )
+
+    result = runner.invoke(
+        cli,
+        ["update", "add_user", "-y"],
+    )
+
+    assert result.exit_code == 0
+    assert "Planned changes:" in result.output
+    assert "Proceed with update?" not in result.output
+    assert "Successfully updated migration script" in result.output
+    assert not file_path.exists()
+    assert len(list(tmp_path.glob("*_add_user.py"))) == 1
+
+
 def test_cli_update_command_not_found_raises(runner: CliRunner, tmp_path: Path) -> None:
     result = runner.invoke(
         cli,
