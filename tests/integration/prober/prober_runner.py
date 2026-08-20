@@ -116,55 +116,31 @@ def main():
     print(f"  Workspace:     {workspace_dir}")
     print("=" * 80)
 
-    # 1. Dynamically upgrade CLI packages to latest main branch from GitHub
-    print(
-        "\n==> Upgrading datacommons CLI packages to latest main branch from GitHub..."
-    )
-    run_cmd_with_retry(
-        [
-            "uv",
-            "pip",
-            "install",
-            "--upgrade",
-            "git+https://github.com/datacommonsorg/platform.git@main#subdirectory=packages/datacommons-cli",
-            "git+https://github.com/datacommonsorg/platform.git@main#subdirectory=packages/datacommons-admin",
-        ],
-        max_attempts=3,
-        initial_delay=5.0,
-        check=False,
-    )
-
-    # 2. Scaffold Ephemeral Workspace via 'datacommons admin init --tf-git-ref main'
+    # 1. Scaffold Ephemeral Workspace directly from canonical infra/dcp
+    source_dir = REPO_ROOT / "infra" / "dcp"
     if workspace_dir.exists():
         shutil.rmtree(workspace_dir)
-    workspace_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(
+        source_dir,
+        workspace_dir,
+        ignore=shutil.ignore_patterns("backup*", ".terraform*", "*.tfstate*"),
+    )
 
     bucket_name = f"tf-state-dcp-prober-{args.project}"
 
-    init_cmd = [
-        "uv",
-        "run",
-        "datacommons",
-        "admin",
-        "init",
-        f"--project-id={args.project}",
-        f"--instance-name={instance_name}",
-        "--tf-git-ref=main",
-        "--tf-remote-state",
-        f"--tf-state-bucket={bucket_name}",
-        f"--tf-state-prefix=ephemeral/{instance_name}",
-        "--force",
-    ]
-    dc_api_key = os.environ.get("DC_API_KEY", "")
-    if dc_api_key:
-        init_cmd.append(f"--dc-api-key={dc_api_key}")
-
-    run_cmd_with_retry(
-        init_cmd,
-        cwd=workspace_dir,
-        max_attempts=3,
-        initial_delay=5.0,
+    backend_tf = workspace_dir / "backend.tf"
+    backend_tf.write_text(
+        f"""
+terraform {{
+  backend "gcs" {{
+    bucket = "{bucket_name}"
+    prefix = "ephemeral/{instance_name}"
+  }}
+}}
+"""
     )
+
+    dc_api_key = os.environ.get("DC_API_KEY", "")
 
     # Load static prober_overrides.tfvars template and append dynamic runtime variables
     static_tfvars_path = (
