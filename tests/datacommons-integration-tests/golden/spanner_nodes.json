@@ -1,9 +1,9 @@
 [
   {
     "name": "",
-    "subject_id": "Annual rates pai:B6bETuBs05/fIp/9iZA4visxwBM7FD+/5SfBW9dhMY8=",
+    "subject_id": "Annual rates pai:QcxCPxjZLzhnx8nxh4X/zaFLgx5n5sARyMQTUU7O6xM=",
     "types": [],
-    "value": "Annual rates paid per employee in full-time equivalent unit in the total economy."
+    "value": "Annual rates paid per employee in full-time equivalent unit in the total economy"
   },
   {
     "name": "",
@@ -31,9 +31,9 @@
   },
   {
     "name": "",
-    "subject_id": "OECD:h51azc2lGm8bAOv+d1E9mxn1dEmchnmX7h+2sfpt27A=",
+    "subject_id": "oecd:OECD:h51azc2lGm8bAOv+d1E9mxn1dEmchnmX7h+2sfpt27A=",
     "types": [],
-    "value": "OECD"
+    "value": "oecd:OECD"
   },
   {
     "name": "OECD Gender Wage Gap",
@@ -99,11 +99,11 @@
   },
   {
     "name": "Average annual wage",
-    "subject_id": "average_annual_wage",
+    "subject_id": "Annual_Average_Wage",
     "types": [
       "StatisticalVariable"
     ],
-    "value": "average_annual_wage"
+    "value": "Annual_Average_Wage"
   },
   {
     "name": "Data Commons Variables",
@@ -115,11 +115,11 @@
   },
   {
     "name": "Gender wage gap",
-    "subject_id": "gender_wage_gap",
+    "subject_id": "Difference_Average_Wages_To_Male_Average_Wages",
     "types": [
       "StatisticalVariable"
     ],
-    "value": "gender_wage_gap"
+    "value": "Difference_Average_Wages_To_Male_Average_Wages"
   },
   {
     "name": "",
