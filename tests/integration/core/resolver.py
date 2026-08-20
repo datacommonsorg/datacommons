@@ -189,7 +189,6 @@ def resolve_dcp_target(
                     instance_name,
                     "--project",
                     project,
-                    "--no-shell",
                 ],
                 check=False,
             )
