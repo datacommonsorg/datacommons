@@ -28,6 +28,13 @@ def runner() -> CliRunner:
     return CliRunner()
 
 
+@pytest.fixture(autouse=True)
+def mock_migrations_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Isolates CLI tests to a temporary directory."""
+    monkeypatch.setattr("tools.migrations.migrations.DEFAULT_MIGRATIONS_DIR", tmp_path)
+    return tmp_path
+
+
 # ==============================================================================
 # Click CLI Command Tests (tools/migrations/migrations.py)
 # ==============================================================================
@@ -41,8 +48,6 @@ def test_cli_create_command(runner: CliRunner, tmp_path: Path) -> None:
             "add_observations",
             "-d",
             "Add Observation table",
-            "--dir",
-            str(tmp_path),
         ],
     )
 
@@ -69,15 +74,15 @@ def test_cli_create_command_duplicate_raises(
         "tools.migrations.migration_utils.get_utc_timestamps",
         lambda _target_dt=None: ("20260819120000", "2026-08-19T12:00:00Z"),
     )
-    res1 = runner.invoke(cli, ["create", "add_table", "--dir", str(tmp_path)])
+    res1 = runner.invoke(cli, ["create", "add_table"])
     assert res1.exit_code == 0
 
-    res2 = runner.invoke(cli, ["create", "add_table", "--dir", str(tmp_path)])
+    res2 = runner.invoke(cli, ["create", "add_table"])
     assert res2.exit_code != 0
     assert "already exists" in res2.output
 
 
-def test_cli_update_command(runner: CliRunner, tmp_path: Path) -> None:
+def test_cli_update_command_confirmed(runner: CliRunner, tmp_path: Path) -> None:
     file_path = tmp_path / "20260817000000_add_user.py"
     file_path.write_text(
         migration_utils.generate_migration_content("Add User", "2026-08-17T00:00:00Z")
@@ -85,10 +90,13 @@ def test_cli_update_command(runner: CliRunner, tmp_path: Path) -> None:
 
     result = runner.invoke(
         cli,
-        ["update", "add_user", "--dir", str(tmp_path)],
+        ["update", "add_user"],
+        input="y\n",
     )
 
     assert result.exit_code == 0
+    assert "Planned changes:" in result.output
+    assert "Proceed with update?" in result.output
     assert "Successfully updated migration script" in result.output
     assert not file_path.exists()
 
@@ -98,10 +106,30 @@ def test_cli_update_command(runner: CliRunner, tmp_path: Path) -> None:
     assert not updated_files[0].name.startswith("20260817000000_")
 
 
+def test_cli_update_command_aborted(runner: CliRunner, tmp_path: Path) -> None:
+    file_path = tmp_path / "20260817000000_add_user.py"
+    file_path.write_text(
+        migration_utils.generate_migration_content("Add User", "2026-08-17T00:00:00Z")
+    )
+
+    result = runner.invoke(
+        cli,
+        ["update", "add_user"],
+        input="n\n",
+    )
+
+    assert result.exit_code == 0
+    assert "Planned changes:" in result.output
+    assert "Aborted without making changes." in result.output
+    # Original file should remain untouched
+    assert file_path.exists()
+    assert len(list(tmp_path.glob("*.py"))) == 1
+
+
 def test_cli_update_command_not_found_raises(runner: CliRunner, tmp_path: Path) -> None:
     result = runner.invoke(
         cli,
-        ["update", "missing_table", "--dir", str(tmp_path)],
+        ["update", "missing_table"],
     )
     assert result.exit_code != 0
     assert "No migration script found matching" in result.output
@@ -119,7 +147,7 @@ def test_cli_list_command(runner: CliRunner, tmp_path: Path) -> None:
         )
     )
 
-    result = runner.invoke(cli, ["list", "--dir", str(tmp_path)])
+    result = runner.invoke(cli, ["list"])
 
     assert result.exit_code == 0
     assert "Found 2 migration script(s)" in result.output
@@ -130,6 +158,6 @@ def test_cli_list_command(runner: CliRunner, tmp_path: Path) -> None:
 
 
 def test_cli_list_command_empty_dir(runner: CliRunner, tmp_path: Path) -> None:
-    result = runner.invoke(cli, ["list", "--dir", str(tmp_path)])
+    result = runner.invoke(cli, ["list"])
     assert result.exit_code == 0
     assert "No migration scripts found" in result.output
