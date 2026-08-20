@@ -20,7 +20,7 @@ from datacommons_admin import __version__
 from datacommons_admin.admin_cli import admin
 
 
-@patch("datacommons_admin.init.scaffold_utils._get_github_templates")
+@patch("datacommons_admin.init.utils.scaffold_utils._get_github_templates")
 def test_init_success_with_options(
     mock_get_templates, runner: CliRunner, tmp_path: Path
 ) -> None:
@@ -60,7 +60,7 @@ def test_init_success_with_options(
         assert 'dc_api_key = "test-key"' in tfvars_content
 
 
-@patch("datacommons_admin.init.scaffold_utils._get_github_templates")
+@patch("datacommons_admin.init.utils.scaffold_utils._get_github_templates")
 def test_init_success_with_deprecated_namespace_flag(
     mock_get_templates, runner: CliRunner, tmp_path: Path
 ) -> None:
@@ -91,7 +91,7 @@ def test_init_success_with_deprecated_namespace_flag(
         assert 'instance_name  = "legacy-namespace"' in tfvars_content
 
 
-@patch("datacommons_admin.init.scaffold_utils._get_github_templates")
+@patch("datacommons_admin.init.utils.scaffold_utils._get_github_templates")
 def test_init_success_with_prompts(
     mock_get_templates, runner: CliRunner, tmp_path: Path
 ) -> None:
@@ -116,7 +116,7 @@ def test_init_success_with_prompts(
         assert 'instance_name  = "prompt-instance"' in tfvars_content
 
 
-@patch("datacommons_admin.init.scaffold_utils._get_github_templates")
+@patch("datacommons_admin.init.utils.scaffold_utils._get_github_templates")
 def test_init_existing_folder_force(
     mock_get_templates, runner: CliRunner, tmp_path: Path
 ) -> None:
@@ -152,7 +152,7 @@ def test_init_existing_folder_force(
         assert 'module "stack"' in main_tf.read_text()
 
 
-@patch("datacommons_admin.init.scaffold_utils._get_github_templates")
+@patch("datacommons_admin.init.utils.scaffold_utils._get_github_templates")
 @patch("datacommons_admin.init.init_cli._configure_remote_state")
 def test_init_remote_state(
     mock_configure, mock_get_templates, runner: CliRunner, tmp_path: Path
@@ -189,7 +189,7 @@ def test_init_remote_state(
         assert 'bucket = "mock-bucket-name"' in backend_content
 
 
-@patch("datacommons_admin.init.scaffold_utils._get_github_templates")
+@patch("datacommons_admin.init.utils.scaffold_utils._get_github_templates")
 def test_init_uses_default_ref_v_prefixed(
     mock_get_templates, runner: CliRunner, tmp_path: Path
 ) -> None:

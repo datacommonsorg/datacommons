@@ -27,7 +27,7 @@ def mock_migration_setup():
     with (
         patch("datacommons_admin.db.db_cli._setup_ingestion_client") as mock_setup,
         patch(
-            "datacommons_admin.db.migration_utils._create_migration_runner"
+            "datacommons_admin.db.utils.migration_utils._create_migration_runner"
         ) as mock_runner_factory,
     ):
         mock_client = MagicMock()

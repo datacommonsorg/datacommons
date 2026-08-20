@@ -18,7 +18,7 @@ import click
 from google.api_core import exceptions
 from google.cloud import storage
 
-from datacommons_admin.utils.ui_utils import (
+from datacommons_admin.shared_utils.ui_utils import (
     _confirm,
     _log_resolved_value,
 )

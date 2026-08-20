@@ -19,12 +19,12 @@ import urllib.request
 
 import click
 
-from datacommons_admin.init.infra_templates import (
+from datacommons_admin.init.utils.infra_templates import (
     BACKEND_TF_TEMPLATE,
     README_TEMPLATE,
     REMOTE_STATE_TEMPLATE,
 )
-from datacommons_admin.utils.ui_utils import (
+from datacommons_admin.shared_utils.ui_utils import (
     _log_resolved_value,
     _prompt,
 )

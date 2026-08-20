@@ -15,12 +15,12 @@
 import click
 
 from datacommons_admin import __version__
-from datacommons_admin.init.gcs_utils import (
+from datacommons_admin.init.utils.gcs_utils import (
     DEFAULT_BUCKET_LOCATION,
     _configure_remote_state,
     _get_default_state_prefix,
 )
-from datacommons_admin.init.scaffold_utils import (
+from datacommons_admin.init.utils.scaffold_utils import (
     _check_existing_files,
     _resolve_project_config,
     _setup_dcp_config_dir,

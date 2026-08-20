@@ -16,8 +16,8 @@ from typing import Any
 
 import click
 
-from datacommons_admin.db.ingestion_helper_client import IngestionHelperClient
-from datacommons_admin.utils.ui_utils import _confirm
+from datacommons_admin.db.clients.ingestion_helper_client import IngestionHelperClient
+from datacommons_admin.shared_utils.ui_utils import _confirm
 from datacommons_db.clients import SpannerClient
 from datacommons_db.migrations import MigrationRunner
 

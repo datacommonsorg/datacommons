@@ -16,9 +16,9 @@ from typing import Any, Tuple
 
 import click
 
-from datacommons_admin.db.ingestion_helper_client import IngestionHelperClient
-from datacommons_admin.db.migration_utils import _run_migrations
-from datacommons_admin.utils.tf_utils import (
+from datacommons_admin.db.clients.ingestion_helper_client import IngestionHelperClient
+from datacommons_admin.db.utils.migration_utils import _run_migrations
+from datacommons_admin.shared_utils.tf_utils import (
     get_ingestion_service_url,
     get_ingestion_workflow_service_account_email,
     get_project_id,
