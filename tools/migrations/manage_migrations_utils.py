@@ -25,6 +25,10 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+FILENAME_PATTERN = re.compile(r"^(\d{14})_([a-z0-9_]+)\.py$")
+ISO_8601_UTC_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+NAME_PATTERN = re.compile(r"^[a-z0-9_]+$")
+
 
 def _resolve_default_migrations_dir() -> Path:
     """Resolves the default migrations directory via package discovery or monorepo fallback."""
@@ -48,11 +52,6 @@ def _resolve_default_migrations_dir() -> Path:
 
 
 DEFAULT_MIGRATIONS_DIR = _resolve_default_migrations_dir()
-
-
-FILENAME_PATTERN = re.compile(r"^(\d{14})_([a-z0-9_]+)\.py$")
-ISO_8601_UTC_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
-NAME_PATTERN = re.compile(r"^[a-z0-9_]+$")
 
 
 @dataclass(frozen=True)
@@ -108,7 +107,7 @@ def sanitize_name(raw_name: str) -> str:
     return cleaned
 
 
-def get_utc_timestamps(
+def generate_utc_timestamps(
     target_dt: datetime.datetime | None = None,
 ) -> tuple[str, str]:
     """Generates the file prefix timestamp and ISO-8601 creation timestamp string.
@@ -120,6 +119,7 @@ def get_utc_timestamps(
         Tuple of (filename_prefix_timestamp, iso_8601_creation_timestamp).
     """
     dt = target_dt or datetime.datetime.now(datetime.UTC)
+    # Ensure datetime is timezone-aware and normalized to UTC
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=datetime.UTC)
     else:
@@ -128,6 +128,21 @@ def get_utc_timestamps(
     prefix_ts = dt.strftime("%Y%m%d%H%M%S")
     iso_ts = dt.strftime("%Y-%m-%dT%H:%M:%SZ")
     return prefix_ts, iso_ts
+
+
+def escape_docstring(text: str) -> str:
+    """Escapes a text string for safe inclusion within triple-quoted docstrings.
+
+    Args:
+        text: Raw input string to be included in a docstring.
+
+    Returns:
+        Escaped string safe to embed inside triple quotes.
+    """
+    escaped = text.replace("\\", "\\\\").replace('"""', r"\"\"\"")
+    if escaped.endswith('"'):
+        escaped = escaped[:-1] + r"\""
+    return escaped
 
 
 def generate_migration_content(description: str, creation_timestamp: str) -> str:
@@ -141,7 +156,8 @@ def generate_migration_content(description: str, creation_timestamp: str) -> str
         Formatted Python source code string.
     """
     current_year = datetime.datetime.now(datetime.UTC).year
-    escaped_desc = description.replace('"', '\\"')
+    desc_literal = repr(description)
+    safe_docstring = escape_docstring(description)
 
     return f'''# Copyright {current_year} Google LLC.
 #
@@ -162,9 +178,9 @@ from datacommons_db.migrations.base import SchemaMigration
 
 
 class Migration(SchemaMigration):
-    """{description}"""
+    """{safe_docstring}"""
 
-    description: str = "{escaped_desc}"
+    description: str = {desc_literal}
     creation_timestamp: str = "{creation_timestamp}"
 
     def upgrade(self, spanner_client: SpannerClient) -> None:
@@ -219,7 +235,7 @@ def create_migration_file(
         else sanitized.replace("_", " ").capitalize()
     )
 
-    prefix_ts, iso_ts = get_utc_timestamps(target_dt)
+    prefix_ts, iso_ts = generate_utc_timestamps(target_dt)
     filename = f"{prefix_ts}_{sanitized}.py"
     target_file = target_dir / filename
 
@@ -251,7 +267,7 @@ def find_migration_file(target: str, migrations_dir: Path | None = None) -> Path
     target_dir = migrations_dir or DEFAULT_MIGRATIONS_DIR
     target_path = Path(target)
 
-    # 1. Direct path check
+    # First, try direct path check
     if target_path.is_file():
         return target_path.resolve()
 
@@ -260,6 +276,8 @@ def find_migration_file(target: str, migrations_dir: Path | None = None) -> Path
 
     if not target_dir.is_dir():
         raise FileNotFoundError(f"Migrations directory does not exist: {target_dir}")
+
+    # Otherwise, try matching against all migration filenames
 
     # Clean target for matching
     cleaned_target = target.strip()
@@ -276,9 +294,13 @@ def find_migration_file(target: str, migrations_dir: Path | None = None) -> Path
         if not f.name.startswith("_") and f.name != "__init__.py"
     ]
 
+    # Match against scripts by:
+    # 1. Full stem (e.g. '20260817000000_bootstrap')
+    # 2. Timestamp prefix (e.g. '20260817000000')
+    # 3. Change name (e.g. 'bootstrap' or sanitized 'Add-Node' -> 'add_node')
     matches: list[Path] = []
     for script in all_scripts:
-        stem = script.stem  # e.g. "20260817000000_bootstrap"
+        stem = script.stem
         match = FILENAME_PATTERN.match(script.name)
         if stem == cleaned_target:
             matches.append(script)
@@ -339,13 +361,17 @@ def update_migration_file(
         )
 
     change_name = match.group(2)
-    new_prefix, new_iso = get_utc_timestamps(target_dt)
+    new_prefix, new_iso = generate_utc_timestamps(target_dt)
     new_filename = f"{new_prefix}_{change_name}.py"
     new_path = file_path.parent / new_filename
 
+    # Ensure target doesn't already exist if renamed
+    if new_path != file_path and new_path.exists():
+        raise FileExistsError(f"Target migration file already exists: {new_path.name}")
+
     content = file_path.read_text(encoding="utf-8")
 
-    # Replace creation_timestamp attribute
+    # Substitute creation_timestamp attribute in memory
     ts_pattern = re.compile(
         r'(creation_timestamp\s*(?::\s*str)?\s*=\s*["\'])[^"\']+(["\'])'
     )
@@ -361,10 +387,6 @@ def update_migration_file(
         ast.parse(updated_content, filename=str(new_path))
     except SyntaxError as e:
         raise ValueError(f"Updated migration script has syntax errors: {e}") from e
-
-    # If new filename is different from old filename, ensure target doesn't already exist
-    if new_path != file_path and new_path.exists():
-        raise FileExistsError(f"Target migration file already exists: {new_path.name}")
 
     # Write updated content and remove old file if renamed
     new_path.write_text(updated_content, encoding="utf-8")
@@ -389,6 +411,7 @@ def discover_migrations(
     if not target_dir.is_dir():
         return []
 
+    # Collect and sort migration script files chronologically by filename
     script_files = sorted(
         [
             f
@@ -406,6 +429,7 @@ def discover_migrations(
 
         desc = ""
         creation_ts = ""
+        # Extract description and timestamp attributes from script content
         try:
             content = script.read_text(encoding="utf-8")
             desc_match = re.search(
@@ -423,6 +447,7 @@ def discover_migrations(
         except (OSError, UnicodeDecodeError):
             desc = "<error reading file>"
 
+        # Fallback: derive ISO timestamp from the 14-digit prefix if missing from source
         if not creation_ts and match:
             p = match.group(1)
             creation_ts = f"{p[:4]}-{p[4:6]}-{p[6:8]}T{p[8:10]}:{p[10:12]}:{p[12:14]}Z"

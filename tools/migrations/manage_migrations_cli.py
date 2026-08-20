@@ -101,7 +101,7 @@ def update_command(target: str) -> None:
                 f"Invalid migration filename format: {file_path.name}"
             )
         now = datetime.datetime.now(datetime.UTC)
-        new_prefix, new_iso = manage_migrations_utils.get_utc_timestamps(now)
+        new_prefix, new_iso = manage_migrations_utils.generate_utc_timestamps(now)
         new_filename = f"{new_prefix}_{match.group(2)}.py"
 
         click.echo(f"Found migration script: {file_path.name}")

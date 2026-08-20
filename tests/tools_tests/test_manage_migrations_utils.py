@@ -55,15 +55,15 @@ def test_sanitize_name_invalid_raises() -> None:
         manage_migrations_utils.sanitize_name("add_node@table!")
 
 
-def test_get_utc_timestamps_explicit_datetime() -> None:
+def test_generate_utc_timestamps_explicit_datetime() -> None:
     dt = datetime.datetime(2026, 8, 19, 13, 54, 12, tzinfo=datetime.UTC)
-    prefix, iso = manage_migrations_utils.get_utc_timestamps(dt)
+    prefix, iso = manage_migrations_utils.generate_utc_timestamps(dt)
     assert prefix == "20260819135412"
     assert iso == "2026-08-19T13:54:12Z"
 
 
-def test_get_utc_timestamps_default_now() -> None:
-    prefix, iso = manage_migrations_utils.get_utc_timestamps()
+def test_generate_utc_timestamps_default_now() -> None:
+    prefix, iso = manage_migrations_utils.generate_utc_timestamps()
     assert len(prefix) == 14
     assert prefix.isdigit()
     assert manage_migrations_utils.ISO_8601_UTC_PATTERN.match(iso)
@@ -77,10 +77,48 @@ def test_generate_migration_content_valid_ast() -> None:
     parsed = ast.parse(content)
     assert parsed is not None
 
-    assert 'description: str = "Add User table"' in content
+    assert f"description: str = {repr('Add User table')}" in content
     assert 'creation_timestamp: str = "2026-08-19T13:54:12Z"' in content
     assert "class Migration(SchemaMigration):" in content
     assert "def upgrade(self, spanner_client: SpannerClient) -> None:" in content
+
+
+def test_escape_docstring_plain_text() -> None:
+    assert (
+        manage_migrations_utils.escape_docstring("Simple description")
+        == "Simple description"
+    )
+
+
+def test_escape_docstring_triple_quotes() -> None:
+    assert (
+        manage_migrations_utils.escape_docstring('Contains """ quotes')
+        == r"Contains \"\"\" quotes"
+    )
+
+
+def test_escape_docstring_trailing_quote() -> None:
+    assert (
+        manage_migrations_utils.escape_docstring('Ends with quote "')
+        == r"Ends with quote \""
+    )
+
+
+def test_escape_docstring_backslashes() -> None:
+    assert (
+        manage_migrations_utils.escape_docstring(r"Path \to\file") == r"Path \\to\\file"
+    )
+
+
+def test_generate_migration_content_handles_quotes_and_special_chars() -> None:
+    desc = r'Add "User" & \'Group\' table with \ path and """ triple quotes'
+    content = manage_migrations_utils.generate_migration_content(
+        description=desc,
+        creation_timestamp="2026-08-19T13:54:12Z",
+    )
+    parsed = ast.parse(content)
+    assert parsed is not None
+    assert f"description: str = {repr(desc)}" in content
 
 
 def test_create_migration_file_success(tmp_path: Path) -> None:

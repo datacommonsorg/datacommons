@@ -66,7 +66,7 @@ def test_cli_create_command(runner: CliRunner, tmp_path: Path) -> None:
     assert match is not None
 
     content = created_file.read_text()
-    assert 'description: str = "Add Observation table"' in content
+    assert f"description: str = {repr('Add Observation table')}" in content
     assert "SchemaMigration" in content
 
 
@@ -74,7 +74,7 @@ def test_cli_create_command_duplicate_raises(
     runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
-        "tools.migrations.manage_migrations_utils.get_utc_timestamps",
+        "tools.migrations.manage_migrations_utils.generate_utc_timestamps",
         lambda _target_dt=None: ("20260819120000", "2026-08-19T12:00:00Z"),
     )
     res1 = runner.invoke(cli, ["create", "add_table"])
