@@ -23,6 +23,7 @@ Production-hardened, resilient orchestrator that:
 """
 
 import argparse
+import json
 import os
 import shutil
 import signal
@@ -161,7 +162,10 @@ auth_google_datacommons_api_key     = "{dc_api_key}"
 """
     )
 
+    deploy_success = False
+    destroy_success = True
     test_exit_code = 1
+
     try:
         # 2. Resilient Terraform Init & Apply
         print("\n==> Step 1: Provisioning isolated DCP infrastructure via Terraform...")
@@ -182,6 +186,7 @@ auth_google_datacommons_api_key     = "{dc_api_key}"
             max_attempts=3,
             initial_delay=15.0,
         )
+        deploy_success = True
 
         # 3. Execute Integration Test Suite
         print(
@@ -220,6 +225,7 @@ auth_google_datacommons_api_key     = "{dc_api_key}"
                 initial_delay=15.0,
                 check=False,
             )
+            destroy_success = destroy_res.returncode == 0
             if destroy_res.returncode != 0:
                 print(
                     "  ⚠️ Warning: Terraform destroy encountered errors during cleanup."
@@ -230,7 +236,25 @@ auth_google_datacommons_api_key     = "{dc_api_key}"
         else:
             print(f"\n⚠️ --skip-destroy was set. Workspace retained at: {workspace_dir}")
 
-    sys.exit(test_exit_code)
+        overall_passed = deploy_success and (test_exit_code == 0) and destroy_success
+        prober_summary = {
+            "event_type": "PROBER_EXECUTION_SUMMARY",
+            "instance_name": instance_name,
+            "status": "PASSED" if overall_passed else "FAILED",
+            "status_code": 0 if overall_passed else 1,
+            "stages": {
+                "deploy": "PASSED" if deploy_success else "FAILED",
+                "integration_tests": "PASSED" if test_exit_code == 0 else "FAILED",
+                "destroy": "PASSED" if destroy_success else "FAILED",
+            },
+        }
+        print("\n" + "=" * 80)
+        print("PROBER EXECUTION SUMMARY:")
+        print(json.dumps(prober_summary, indent=2))
+        print("=" * 80 + "\n")
+
+    final_exit = 0 if overall_passed else (test_exit_code if test_exit_code != 0 else 1)
+    sys.exit(final_exit)
 
 
 if __name__ == "__main__":
