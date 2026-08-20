@@ -32,8 +32,8 @@ variable "prober_name" {
 
 variable "container_image" {
   type        = string
-  description = "Container image URI for prober"
-  default     = "gcr.io/datcom-dcp/dcp-integration-prober:latest"
+  description = "Container image URI for prober (stored in datcom-ci registry)"
+  default     = "gcr.io/datcom-ci/dcp-prober:latest"
 }
 
 variable "schedule" {
@@ -52,4 +52,11 @@ variable "alert_email" {
   type        = string
   description = "Notification email address for prober failure alerts"
   default     = ""
+}
+
+variable "dc_api_key" {
+  type        = string
+  description = "Data Commons API Key for prober infrastructure"
+  default     = ""
+  sensitive   = true
 }

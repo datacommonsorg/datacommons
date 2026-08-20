@@ -25,8 +25,10 @@ Production-hardened, resilient orchestrator that:
 import argparse
 import os
 import shutil
+import signal
 import subprocess
 import sys
+import tempfile
 import time
 import uuid
 from pathlib import Path
@@ -94,12 +96,19 @@ def main():
     )
     args = parser.parse_args()
 
+    def handle_signal(signum, frame):
+        print(f"\n⚠️ Received signal {signum}. Triggering emergency teardown...")
+        sys.exit(1)
+
+    signal.signal(signal.SIGTERM, handle_signal)
+    signal.signal(signal.SIGINT, handle_signal)
+
     # Generate unique instance name for state isolation
     run_id = str(uuid.uuid4())[:8]
     instance_name = f"prober-{run_id}"
 
-    template_dir = REPO_ROOT / "tests" / "testbed" / "workspaces" / "testbed-1"
-    workspace_dir = REPO_ROOT / "tests" / "testbed" / "workspaces" / instance_name
+    source_dir = REPO_ROOT / "infra" / "dcp"
+    workspace_dir = Path(tempfile.gettempdir()) / instance_name
 
     print("=" * 80)
     print("STARTING RESILIENT EPHEMERAL DCP PROBER")
@@ -108,23 +117,30 @@ def main():
     print(f"  Workspace:     {workspace_dir}")
     print("=" * 80)
 
-    # 1. Scaffold Ephemeral Workspace
+    # 1. Scaffold Ephemeral Workspace directly from canonical infra/dcp
     if workspace_dir.exists():
         shutil.rmtree(workspace_dir)
-    shutil.copytree(template_dir, workspace_dir)
+    shutil.copytree(
+        source_dir,
+        workspace_dir,
+        ignore=shutil.ignore_patterns("backup*", ".terraform*", "*.tfstate*"),
+    )
+
+    bucket_name = f"tf-state-dcp-prober-{args.project}"
 
     backend_tf = workspace_dir / "backend.tf"
-    if backend_tf.exists():
-        backend_tf.write_text(
-            f"""
+    backend_tf.write_text(
+        f"""
 terraform {{
   backend "gcs" {{
-    bucket = "tf-state-{instance_name}-{args.project}"
-    prefix = "terraform/state"
+    bucket = "{bucket_name}"
+    prefix = "ephemeral/{instance_name}"
   }}
 }}
 """
-        )
+    )
+
+    dc_api_key = os.environ.get("DC_API_KEY", "")
 
     # Inject Prober-specific variable overrides
     auto_tfvars = workspace_dir / "prober_overrides.auto.tfvars"
@@ -132,9 +148,13 @@ terraform {{
         f"""# Prober Ephemeral Overrides
 instance_name                       = "{instance_name}"
 project_id                          = "{args.project}"
+dcp_version                         = "latest"
+spanner_create_instance             = true
+spanner_create_database             = true
 spanner_create_bigquery_reservation = false
 stateless_deletion_protection       = false
 stateful_deletion_protection        = false
+auth_google_datacommons_api_key     = "{dc_api_key}"
 """
     )
 
@@ -142,7 +162,11 @@ stateful_deletion_protection        = false
     try:
         # 2. Resilient Terraform Init & Apply
         print("\n==> Step 1: Provisioning isolated DCP infrastructure via Terraform...")
-        run_cmd_with_retry(["terraform", "init"], cwd=workspace_dir, max_attempts=3)
+        run_cmd_with_retry(
+            ["terraform", "init", "-reconfigure"],
+            cwd=workspace_dir,
+            max_attempts=3,
+        )
         run_cmd_with_retry(
             [
                 "terraform",
