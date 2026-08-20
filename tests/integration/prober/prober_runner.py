@@ -155,6 +155,8 @@ spanner_create_bigquery_reservation = false
 stateless_deletion_protection       = false
 stateful_deletion_protection        = false
 auth_google_datacommons_api_key     = "{dc_api_key}"
+ingestion_dataflow_ip_configuration = "WORKER_IP_PRIVATE"
+ingestion_dataflow_subnetwork       = "regions/us-central1/subnetworks/default"
 """
     )
 
