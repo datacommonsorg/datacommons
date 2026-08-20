@@ -107,7 +107,6 @@ def main():
     run_id = str(uuid.uuid4())[:8]
     instance_name = f"prober-{run_id}"
 
-    source_dir = REPO_ROOT / "infra" / "dcp"
     workspace_dir = Path(tempfile.gettempdir()) / instance_name
 
     print("=" * 80)
@@ -117,46 +116,72 @@ def main():
     print(f"  Workspace:     {workspace_dir}")
     print("=" * 80)
 
-    # 1. Scaffold Ephemeral Workspace directly from canonical infra/dcp
+    # 1. Dynamically upgrade CLI packages to latest main branch from GitHub
+    print(
+        "\n==> Upgrading datacommons CLI packages to latest main branch from GitHub..."
+    )
+    run_cmd_with_retry(
+        [
+            "uv",
+            "pip",
+            "install",
+            "--upgrade",
+            "git+https://github.com/datacommonsorg/platform.git@main#subdirectory=packages/datacommons-cli",
+            "git+https://github.com/datacommonsorg/platform.git@main#subdirectory=packages/datacommons-admin",
+        ],
+        max_attempts=3,
+        initial_delay=5.0,
+        check=False,
+    )
+
+    # 2. Scaffold Ephemeral Workspace via 'datacommons admin init --tf-git-ref main'
     if workspace_dir.exists():
         shutil.rmtree(workspace_dir)
-    shutil.copytree(
-        source_dir,
-        workspace_dir,
-        ignore=shutil.ignore_patterns("backup*", ".terraform*", "*.tfstate*"),
-    )
+    workspace_dir.mkdir(parents=True, exist_ok=True)
 
     bucket_name = f"tf-state-dcp-prober-{args.project}"
 
-    backend_tf = workspace_dir / "backend.tf"
-    backend_tf.write_text(
-        f"""
-terraform {{
-  backend "gcs" {{
-    bucket = "{bucket_name}"
-    prefix = "ephemeral/{instance_name}"
-  }}
-}}
-"""
+    init_cmd = [
+        "uv",
+        "run",
+        "datacommons",
+        "admin",
+        "init",
+        f"--project-id={args.project}",
+        f"--instance-name={instance_name}",
+        "--tf-git-ref=main",
+        "--tf-remote-state",
+        f"--tf-state-bucket={bucket_name}",
+        f"--tf-state-prefix=ephemeral/{instance_name}",
+        "--force",
+    ]
+    dc_api_key = os.environ.get("DC_API_KEY", "")
+    if dc_api_key:
+        init_cmd.append(f"--dc-api-key={dc_api_key}")
+
+    run_cmd_with_retry(
+        init_cmd,
+        cwd=workspace_dir,
+        max_attempts=3,
+        initial_delay=5.0,
     )
 
-    dc_api_key = os.environ.get("DC_API_KEY", "")
+    # Load static prober_overrides.tfvars template and append dynamic runtime variables
+    static_tfvars_path = (
+        REPO_ROOT / "tests" / "integration" / "prober" / "prober_overrides.tfvars"
+    )
+    static_overrides = (
+        static_tfvars_path.read_text() if static_tfvars_path.exists() else ""
+    )
 
-    # Inject Prober-specific variable overrides
     auto_tfvars = workspace_dir / "prober_overrides.auto.tfvars"
     auto_tfvars.write_text(
-        f"""# Prober Ephemeral Overrides
+        f"""{static_overrides}
+
+# Dynamic Runtime Overrides
 instance_name                       = "{instance_name}"
 project_id                          = "{args.project}"
-dcp_version                         = "latest"
-spanner_create_instance             = true
-spanner_create_database             = true
-spanner_create_bigquery_reservation = false
-stateless_deletion_protection       = false
-stateful_deletion_protection        = false
 auth_google_datacommons_api_key     = "{dc_api_key}"
-ingestion_dataflow_ip_configuration = "WORKER_IP_PRIVATE"
-ingestion_dataflow_subnetwork       = "regions/us-central1/subnetworks/default"
 """
     )
 
