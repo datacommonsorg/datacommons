@@ -39,11 +39,12 @@ def mock_migrations_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path
 
 
 # ==============================================================================
-# Click CLI Command Tests (tools/migrations/manage_migrations_cli.py)
+# 1. 'create' Command Tests
 # ==============================================================================
 
 
 def test_cli_create_command(runner: CliRunner, tmp_path: Path) -> None:
+    """Verifies creating a new migration script with custom description."""
     result = runner.invoke(
         cli,
         [
@@ -70,9 +71,33 @@ def test_cli_create_command(runner: CliRunner, tmp_path: Path) -> None:
     assert "SchemaMigration" in content
 
 
+def test_cli_create_command_default_description(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    """Verifies create command generates a default capitalized description if omitted."""
+    result = runner.invoke(cli, ["create", "add_indexes"])
+
+    assert result.exit_code == 0
+    assert "Successfully created migration script" in result.output
+    assert "Add indexes" in result.output
+
+    created_files = list(tmp_path.glob("*_add_indexes.py"))
+    assert len(created_files) == 1
+    content = created_files[0].read_text()
+    assert f"description: str = {repr('Add indexes')}" in content
+
+
+def test_cli_create_command_invalid_name_raises(runner: CliRunner) -> None:
+    """Verifies create command exits with an error for invalid migration names."""
+    result = runner.invoke(cli, ["create", "invalid@name!"])
+    assert result.exit_code != 0
+    assert "Invalid migration name" in result.output
+
+
 def test_cli_create_command_duplicate_raises(
     runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Verifies create command exits with an error if target file already exists."""
     monkeypatch.setattr(
         "tools.migrations.manage_migrations_utils.generate_utc_timestamps",
         lambda _target_dt=None: ("20260819120000", "2026-08-19T12:00:00Z"),
@@ -85,7 +110,13 @@ def test_cli_create_command_duplicate_raises(
     assert "already exists" in res2.output
 
 
+# ==============================================================================
+# 2. 'update' Command Tests
+# ==============================================================================
+
+
 def test_cli_update_command_confirmed(runner: CliRunner, tmp_path: Path) -> None:
+    """Verifies updating a migration script when user confirms interactive prompt."""
     file_path = tmp_path / "20260817000000_add_user.py"
     file_path.write_text(
         manage_migrations_utils.generate_migration_content(
@@ -112,6 +143,7 @@ def test_cli_update_command_confirmed(runner: CliRunner, tmp_path: Path) -> None
 
 
 def test_cli_update_command_lenient_matching(runner: CliRunner, tmp_path: Path) -> None:
+    """Verifies updating a migration script using lenient name matching with spaces."""
     file_path = tmp_path / "20260817000000_add_user.py"
     file_path.write_text(
         manage_migrations_utils.generate_migration_content(
@@ -133,6 +165,7 @@ def test_cli_update_command_lenient_matching(runner: CliRunner, tmp_path: Path) 
 
 
 def test_cli_update_command_aborted(runner: CliRunner, tmp_path: Path) -> None:
+    """Verifies aborting an update when user responds 'n' to confirmation prompt."""
     file_path = tmp_path / "20260817000000_add_user.py"
     file_path.write_text(
         manage_migrations_utils.generate_migration_content(
@@ -149,12 +182,12 @@ def test_cli_update_command_aborted(runner: CliRunner, tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert "Planned changes:" in result.output
     assert "Aborted without making changes." in result.output
-    # Original file should remain untouched
     assert file_path.exists()
     assert len(list(tmp_path.glob("*.py"))) == 1
 
 
 def test_cli_update_command_with_yes_flag(runner: CliRunner, tmp_path: Path) -> None:
+    """Verifies updating a migration script with -y flag bypasses confirmation prompt."""
     file_path = tmp_path / "20260817000000_add_user.py"
     file_path.write_text(
         manage_migrations_utils.generate_migration_content(
@@ -176,6 +209,7 @@ def test_cli_update_command_with_yes_flag(runner: CliRunner, tmp_path: Path) -> 
 
 
 def test_cli_update_command_not_found_raises(runner: CliRunner, tmp_path: Path) -> None:
+    """Verifies update command exits with an error if target migration is not found."""
     result = runner.invoke(
         cli,
         ["update", "missing_table"],
@@ -184,7 +218,25 @@ def test_cli_update_command_not_found_raises(runner: CliRunner, tmp_path: Path) 
     assert "No migration script found matching" in result.output
 
 
+def test_cli_update_command_invalid_filename_format_raises(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    """Verifies update command exits with an error when target script filename is invalid."""
+    bad_file = tmp_path / "invalid_script.py"
+    bad_file.write_text("class Migration: pass\n")
+
+    result = runner.invoke(cli, ["update", str(bad_file), "-y"])
+    assert result.exit_code != 0
+    assert "Invalid migration filename format" in result.output
+
+
+# ==============================================================================
+# 3. 'list' Command Tests
+# ==============================================================================
+
+
 def test_cli_list_command(runner: CliRunner, tmp_path: Path) -> None:
+    """Verifies listing discovered migration scripts with table formatting and metadata."""
     (tmp_path / "20260817000000_bootstrap.py").write_text(
         manage_migrations_utils.generate_migration_content(
             "Bootstrap schema", "2026-08-17T00:00:00Z"
@@ -210,6 +262,7 @@ def test_cli_list_command(runner: CliRunner, tmp_path: Path) -> None:
 
 
 def test_cli_list_command_empty_dir(runner: CliRunner, tmp_path: Path) -> None:
+    """Verifies list command message when no migration scripts are found."""
     result = runner.invoke(cli, ["list"])
     assert result.exit_code == 0
     assert "No migration scripts found" in result.output
