@@ -39,7 +39,7 @@ test = [
 
 
 [project.scripts]
-manage-migrations = "tools.migrations.migrations:cli"
+manage-migrations = "tools.migrations.manage_migrations_cli:cli"
 
 [project.urls]
 Documentation = "https://github.com/datacommonsorg/datacommons#readme"

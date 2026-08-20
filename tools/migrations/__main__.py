@@ -14,7 +14,7 @@
 
 """Entry point for python -m tools.migrations."""
 
-from tools.migrations.migrations import cli
+from tools.migrations.manage_migrations_cli import cli
 
 if __name__ == "__main__":
     cli()

@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""tools.migrations.migrations - Developer DevOps CLI for Schema Migrations.
+"""tools.migrations.manage_migrations_cli - Developer DevOps CLI for Schema Migrations.
 
 PURPOSE:
   Provides internal developer CLI tooling for creating, updating, and listing
@@ -55,7 +55,7 @@ if str(REPO_ROOT) not in sys.path:
 
 import click
 
-from tools.migrations import migration_utils
+from tools.migrations import manage_migrations_utils
 
 
 @click.group(
@@ -79,10 +79,10 @@ def create_command(
 ) -> None:
     """Create a new timestamped schema migration script."""
     try:
-        target_file, iso_ts, desc = migration_utils.create_migration_file(
+        target_file, iso_ts, desc = manage_migrations_utils.create_migration_file(
             name=name,
             description=description,
-            migrations_dir=migration_utils.DEFAULT_MIGRATIONS_DIR,
+            migrations_dir=manage_migrations_utils.DEFAULT_MIGRATIONS_DIR,
         )
     except (ValueError, FileExistsError) as e:
         raise click.ClickException(str(e)) from e
@@ -98,15 +98,15 @@ def create_command(
 def update_command(target: str) -> None:
     """Re-timestamp an existing migration script with the current UTC time."""
     try:
-        file_path = migration_utils.find_migration_file(
-            target, migration_utils.DEFAULT_MIGRATIONS_DIR
+        file_path = manage_migrations_utils.find_migration_file(
+            target, manage_migrations_utils.DEFAULT_MIGRATIONS_DIR
         )
-        match = migration_utils.FILENAME_PATTERN.match(file_path.name)
+        match = manage_migrations_utils.FILENAME_PATTERN.match(file_path.name)
         if not match:
             raise click.ClickException(
                 f"Invalid migration filename format: {file_path.name}"
             )
-        new_prefix, new_iso = migration_utils.get_utc_timestamps()
+        new_prefix, new_iso = manage_migrations_utils.get_utc_timestamps()
         new_filename = f"{new_prefix}_{match.group(2)}.py"
 
         click.echo(f"Found migration script: {file_path.name}")
@@ -117,9 +117,9 @@ def update_command(target: str) -> None:
             click.echo("Aborted without making changes.")
             return
 
-        old_file, new_file, new_iso = migration_utils.update_migration_file(
+        old_file, new_file, new_iso = manage_migrations_utils.update_migration_file(
             target=file_path,
-            migrations_dir=migration_utils.DEFAULT_MIGRATIONS_DIR,
+            migrations_dir=manage_migrations_utils.DEFAULT_MIGRATIONS_DIR,
         )
     except (FileNotFoundError, ValueError, FileExistsError) as e:
         raise click.ClickException(str(e)) from e
@@ -133,8 +133,8 @@ def update_command(target: str) -> None:
 @cli.command(name="list")
 def list_command() -> None:
     """List all migration scripts in chronological order."""
-    migrations = migration_utils.discover_migrations(
-        migration_utils.DEFAULT_MIGRATIONS_DIR
+    migrations = manage_migrations_utils.discover_migrations(
+        manage_migrations_utils.DEFAULT_MIGRATIONS_DIR
     )
 
     if not migrations:

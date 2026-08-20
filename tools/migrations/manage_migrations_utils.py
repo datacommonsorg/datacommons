@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""tools.migrations.migration_utils - Core Utilities for Migration Management.
+"""tools.migrations.manage_migrations_utils - Core Utilities for Migration Management.
 
 Provides pure Python helper functions for creating, updating, resolving,
 and discovering Spanner schema migration scripts in packages/datacommons-db.

@@ -12,15 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""CLI command tests for developer migration DevOps tooling (tools/migrations/migrations.py)."""
+"""CLI command tests for developer migration DevOps tooling (tools/migrations/manage_migrations_cli.py)."""
 
 from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
 
-from tools.migrations import migration_utils
-from tools.migrations.migrations import cli
+from tools.migrations import manage_migrations_utils
+from tools.migrations.manage_migrations_cli import cli
 
 
 @pytest.fixture
@@ -32,13 +32,14 @@ def runner() -> CliRunner:
 def mock_migrations_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Isolates CLI tests to a temporary directory."""
     monkeypatch.setattr(
-        "tools.migrations.migration_utils.DEFAULT_MIGRATIONS_DIR", tmp_path
+        "tools.migrations.manage_migrations_utils.DEFAULT_MIGRATIONS_DIR",
+        tmp_path,
     )
     return tmp_path
 
 
 # ==============================================================================
-# Click CLI Command Tests (tools/migrations/migrations.py)
+# Click CLI Command Tests (tools/migrations/manage_migrations_cli.py)
 # ==============================================================================
 
 
@@ -61,7 +62,7 @@ def test_cli_create_command(runner: CliRunner, tmp_path: Path) -> None:
     created_file = created_files[0]
 
     assert created_file.name.endswith("_add_observations.py")
-    match = migration_utils.FILENAME_PATTERN.match(created_file.name)
+    match = manage_migrations_utils.FILENAME_PATTERN.match(created_file.name)
     assert match is not None
 
     content = created_file.read_text()
@@ -73,7 +74,7 @@ def test_cli_create_command_duplicate_raises(
     runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
-        "tools.migrations.migration_utils.get_utc_timestamps",
+        "tools.migrations.manage_migrations_utils.get_utc_timestamps",
         lambda _target_dt=None: ("20260819120000", "2026-08-19T12:00:00Z"),
     )
     res1 = runner.invoke(cli, ["create", "add_table"])
@@ -87,7 +88,9 @@ def test_cli_create_command_duplicate_raises(
 def test_cli_update_command_confirmed(runner: CliRunner, tmp_path: Path) -> None:
     file_path = tmp_path / "20260817000000_add_user.py"
     file_path.write_text(
-        migration_utils.generate_migration_content("Add User", "2026-08-17T00:00:00Z")
+        manage_migrations_utils.generate_migration_content(
+            "Add User", "2026-08-17T00:00:00Z"
+        )
     )
 
     result = runner.invoke(
@@ -111,7 +114,9 @@ def test_cli_update_command_confirmed(runner: CliRunner, tmp_path: Path) -> None
 def test_cli_update_command_aborted(runner: CliRunner, tmp_path: Path) -> None:
     file_path = tmp_path / "20260817000000_add_user.py"
     file_path.write_text(
-        migration_utils.generate_migration_content("Add User", "2026-08-17T00:00:00Z")
+        manage_migrations_utils.generate_migration_content(
+            "Add User", "2026-08-17T00:00:00Z"
+        )
     )
 
     result = runner.invoke(
@@ -139,12 +144,12 @@ def test_cli_update_command_not_found_raises(runner: CliRunner, tmp_path: Path) 
 
 def test_cli_list_command(runner: CliRunner, tmp_path: Path) -> None:
     (tmp_path / "20260817000000_bootstrap.py").write_text(
-        migration_utils.generate_migration_content(
+        manage_migrations_utils.generate_migration_content(
             "Bootstrap schema", "2026-08-17T00:00:00Z"
         )
     )
     (tmp_path / "20260818120000_add_node.py").write_text(
-        migration_utils.generate_migration_content(
+        manage_migrations_utils.generate_migration_content(
             "Add Node table", "2026-08-18T12:00:00Z"
         )
     )
