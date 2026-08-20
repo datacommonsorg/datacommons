@@ -171,6 +171,6 @@ uv run pytest packages/datacommons-db/tests/migrations/
 uv run pytest tests/tools_tests/
 
 # 3. Run linter and formatting checks
-uv run ruff check tools/ packages/datacommons-db/
+uv run ruff check tools/ packages/datacommons-db/datacommons_db/migrations
 uv run ruff format --check
 ```
