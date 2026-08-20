@@ -47,6 +47,7 @@ class MigrationInfo:
     Attributes:
         index: 1-based chronological index.
         prefix_timestamp: 14-digit prefix timestamp (YYYYMMDDHHMMSS).
+        creation_timestamp: UTC ISO-8601 timestamp string (YYYY-MM-DDTHH:MM:SSZ).
         filename: Migration script filename.
         file_path: Absolute path to the migration script.
         description: Human-readable description extracted from migration class.
@@ -54,6 +55,7 @@ class MigrationInfo:
 
     index: int
     prefix_timestamp: str
+    creation_timestamp: str
     filename: str
     file_path: Path
     description: str
@@ -388,6 +390,7 @@ def discover_migrations(
         prefix = match.group(1) if match else "INVALID"
 
         desc = ""
+        creation_ts = ""
         try:
             content = script.read_text(encoding="utf-8")
             desc_match = re.search(
@@ -395,13 +398,25 @@ def discover_migrations(
             )
             if desc_match:
                 desc = desc_match.group(1)
+
+            ts_match = re.search(
+                r'creation_timestamp\s*(?::\s*str)?\s*=\s*["\']([^"\']+)["\']',
+                content,
+            )
+            if ts_match:
+                creation_ts = ts_match.group(1)
         except (OSError, UnicodeDecodeError):
             desc = "<error reading file>"
+
+        if not creation_ts and match:
+            p = match.group(1)
+            creation_ts = f"{p[:4]}-{p[4:6]}-{p[6:8]}T{p[8:10]}:{p[10:12]}:{p[12:14]}Z"
 
         results.append(
             MigrationInfo(
                 index=idx,
                 prefix_timestamp=prefix,
+                creation_timestamp=creation_ts,
                 filename=filename,
                 file_path=script,
                 description=desc,

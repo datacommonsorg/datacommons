@@ -146,20 +146,20 @@ def list_command() -> None:
 
     # Table headers
     header_idx = "#".ljust(4)
-    header_prefix = "Timestamp (File)".ljust(18)
+    header_ts = "Timestamp (UTC)".ljust(22)
     header_filename = "Filename".ljust(42)
     header_desc = "Description"
     click.secho(
-        f"  {header_idx} {header_prefix} {header_filename} {header_desc}",
+        f"  {header_idx} {header_ts} {header_filename} {header_desc}",
         bold=True,
     )
-    click.echo(f"  {'-' * 4} {'-' * 18} {'-' * 42} {'-' * 30}")
+    click.echo(f"  {'-' * 4} {'-' * 22} {'-' * 42} {'-' * 30}")
 
     for info in migrations:
         row_idx = str(info.index).ljust(4)
-        row_prefix = info.prefix_timestamp.ljust(18)
+        row_ts = info.creation_timestamp.ljust(22)
         row_filename = info.filename.ljust(42)
-        click.echo(f"  {row_idx} {row_prefix} {row_filename} {info.description}")
+        click.echo(f"  {row_idx} {row_ts} {row_filename} {info.description}")
 
 
 if __name__ == "__main__":

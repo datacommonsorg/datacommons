@@ -252,11 +252,13 @@ def test_discover_migrations(tmp_path: Path) -> None:
     assert len(discovered) == 2
     assert discovered[0].index == 1
     assert discovered[0].prefix_timestamp == "20260817000000"
+    assert discovered[0].creation_timestamp == "2026-08-17T00:00:00Z"
     assert discovered[0].filename == "20260817000000_bootstrap.py"
     assert discovered[0].description == "Bootstrap schema"
 
     assert discovered[1].index == 2
     assert discovered[1].prefix_timestamp == "20260818120000"
+    assert discovered[1].creation_timestamp == "2026-08-18T12:00:00Z"
     assert discovered[1].filename == "20260818120000_add_node.py"
     assert discovered[1].description == "Add Node table"
 

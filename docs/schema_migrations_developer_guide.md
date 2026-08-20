@@ -117,10 +117,10 @@ uv run manage-migrations list
 ```text
 Found 2 migration script(s):
 
-  #    Timestamp (File)   Filename                                   Description
-  ---- ------------------ ------------------------------------------ ------------------------------
-  1    20260817000000     20260817000000_bootstrap.py                Add SchemaMigrations table to bootstrap schema migrations.
-  2    20260819173510     20260819173510_add_edge_indexes.py         Add composite index on Edge object_value and predicate
+  #    Timestamp (UTC)        Filename                                   Description
+  ---- ---------------------- ------------------------------------------ ------------------------------
+  1    2026-08-17T00:00:00Z   20260817000000_bootstrap.py                Add SchemaMigrations table to bootstrap schema migrations.
+  2    2026-08-19T17:35:10Z   20260819173510_add_edge_indexes.py         Add composite index on Edge object_value and predicate
 ```
 
 ---

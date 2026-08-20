@@ -179,6 +179,9 @@ def test_cli_list_command(runner: CliRunner, tmp_path: Path) -> None:
 
     assert result.exit_code == 0
     assert "Found 2 migration script(s)" in result.output
+    assert "Timestamp (UTC)" in result.output
+    assert "2026-08-17T00:00:00Z" in result.output
+    assert "2026-08-18T12:00:00Z" in result.output
     assert "20260817000000_bootstrap.py" in result.output
     assert "20260818120000_add_node.py" in result.output
     assert "Bootstrap schema" in result.output
