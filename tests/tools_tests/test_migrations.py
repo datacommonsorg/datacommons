@@ -31,7 +31,9 @@ def runner() -> CliRunner:
 @pytest.fixture(autouse=True)
 def mock_migrations_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Isolates CLI tests to a temporary directory."""
-    monkeypatch.setattr("tools.migrations.migrations.DEFAULT_MIGRATIONS_DIR", tmp_path)
+    monkeypatch.setattr(
+        "tools.migrations.migration_utils.DEFAULT_MIGRATIONS_DIR", tmp_path
+    )
     return tmp_path
 
 
