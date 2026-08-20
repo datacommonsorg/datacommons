@@ -27,10 +27,20 @@ set -eo pipefail
 PROBER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${PROBER_DIR}/../../.." && pwd)"
 
-PROJECT="datcom-dcp"
+# Auto-detect active gcloud project as default
+DETECTED_PROJECT=$(gcloud config get-value project 2>/dev/null || true)
+if [[ -z "$DETECTED_PROJECT" || "$DETECTED_PROJECT" == "(unset)" ]]; then
+  DETECTED_PROJECT="datcom-dcp"
+fi
+
+PROJECT="${DETECTED_PROJECT}"
+PROBER_NAME="dcp-prober"
 TEST_CONFIG="foobar_wages"
 SCHEDULE="0 */1 * * *"
 LOCATION="us-central1"
+NON_INTERACTIVE=false
+
+SKIP_BUILD=false
 
 print_usage() {
   cat <<HELP
@@ -40,10 +50,14 @@ Usage:
   $0 [options]
 
 Options:
-  --project <id>        GCP Project ID (default: ${PROJECT})
+  --project <id>        GCP Project ID (default: active gcloud project '${PROJECT}')
+  --prober-name <name>  Resource name prefix (default: ${PROBER_NAME})
   --test-config <name>  Test manifest name (default: ${TEST_CONFIG})
   --schedule <cron>     Cron schedule for prober (default: "${SCHEDULE}")
+  --alert-email <email> Optional email address for failure alerts
   --location <region>   GCP Region (default: ${LOCATION})
+  --skip-build          Skip container image build step (reuses existing image)
+  --non-interactive     Skip interactive prompts and use defaults/flags
   --help                Show this help message
 HELP
 }
@@ -52,19 +66,46 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --project)
       PROJECT="$2"
+      NON_INTERACTIVE=true
+      shift 2
+      ;;
+    --prober-name)
+      PROBER_NAME="$2"
+      NON_INTERACTIVE=true
       shift 2
       ;;
     --test-config)
       TEST_CONFIG="$2"
+      NON_INTERACTIVE=true
       shift 2
       ;;
     --schedule)
       SCHEDULE="$2"
+      NON_INTERACTIVE=true
+      shift 2
+      ;;
+    --alert-email)
+      ALERT_EMAIL="$2"
+      NON_INTERACTIVE=true
+      shift 2
+      ;;
+    --dc-api-key)
+      DC_API_KEY="$2"
+      NON_INTERACTIVE=true
       shift 2
       ;;
     --location)
       LOCATION="$2"
+      NON_INTERACTIVE=true
       shift 2
+      ;;
+    --skip-build)
+      SKIP_BUILD=true
+      shift 1
+      ;;
+    --non-interactive)
+      NON_INTERACTIVE=true
+      shift 1
       ;;
     --help|-h)
       print_usage
@@ -78,30 +119,86 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-IMAGE_URI="gcr.io/${PROJECT}/dcp-integration-prober:latest"
+# Interactive Prompting if running in TTY and no flags were passed
+if [[ -t 0 && "$NON_INTERACTIVE" == "false" ]]; then
+  echo "================================================================================"
+  echo "DCP INTEGRATION PROBER INTERACTIVE SETUP"
+  echo "================================================================================"
+  
+  read -p "Enter GCP Project ID [${PROJECT}]: " INPUT_PROJECT
+  PROJECT="${INPUT_PROJECT:-$PROJECT}"
+
+  read -p "Enter Prober Resource Name [${PROBER_NAME}]: " INPUT_NAME
+  PROBER_NAME="${INPUT_NAME:-$PROBER_NAME}"
+
+  read -p "Enter Cron Schedule [${SCHEDULE}]: " INPUT_SCHEDULE
+  SCHEDULE="${INPUT_SCHEDULE:-$SCHEDULE}"
+
+  read -p "Enter GCP Region [${LOCATION}]: " INPUT_LOCATION
+  LOCATION="${INPUT_LOCATION:-$LOCATION}"
+
+  read -p "Enter Alert Notification Email (optional) [none]: " INPUT_ALERT_EMAIL
+  ALERT_EMAIL="${INPUT_ALERT_EMAIL:-$ALERT_EMAIL}"
+
+  read -p "Enter Data Commons API Key (optional) [none]: " INPUT_DC_API_KEY
+  DC_API_KEY="${INPUT_DC_API_KEY:-$DC_API_KEY}"
+  echo ""
+fi
+
+REGISTRY_PROJECT="datcom-ci"
+IMAGE_URI="gcr.io/${REGISTRY_PROJECT}/${PROBER_NAME}:latest"
+STATE_BUCKET="tf-state-${PROBER_NAME}-${PROJECT}"
+
+# Check for existing Remote Terraform State
+STATE_STATUS="NEW (creating fresh state bucket)"
+if gcloud storage buckets describe "gs://${STATE_BUCKET}" --project="${PROJECT}" &>/dev/null; then
+  if gcloud storage ls "gs://${STATE_BUCKET}/**" &>/dev/null; then
+    STATE_STATUS="EXISTING (will reconnect & update active Prober resources)"
+  else
+    STATE_STATUS="EXISTING BUCKET (bucket exists, state will be initialized)"
+  fi
+fi
 
 echo "================================================================================"
 echo "DEPLOYING DCP INTEGRATION PROBER VIA TERRAFORM"
-echo "  Project ID:       ${PROJECT}"
-echo "  Test Config:      ${TEST_CONFIG}"
-echo "  Cron Schedule:    ${SCHEDULE}"
-echo "  Container Image:  ${IMAGE_URI}"
+echo "  Target GCP Project: ${PROJECT}"
+echo "  Registry Project:   ${REGISTRY_PROJECT}"
+echo "  Prober Name:        ${PROBER_NAME}"
+echo "  Test Config:        ${TEST_CONFIG}"
+echo "  Cron Schedule:      ${SCHEDULE}"
+echo "  GCP Region:         ${LOCATION}"
+echo "  Container Image:    ${IMAGE_URI}"
+echo "  State Bucket:       gs://${STATE_BUCKET}"
+echo "  State Status:       ${STATE_STATUS}"
 echo "================================================================================"
 
-# 1. Build and push container image using Cloud Build
+# Confirm before proceeding if running interactively
+if [[ -t 0 && "$NON_INTERACTIVE" == "false" ]]; then
+  echo ""
+  read -p "Do you want to proceed with this deployment? [Y/n]: " CONFIRM_DEPLOY
+  CONFIRM_DEPLOY="${CONFIRM_DEPLOY:-Y}"
+  if [[ "$CONFIRM_DEPLOY" != "Y" && "$CONFIRM_DEPLOY" != "y" ]]; then
+    echo "Deployment cancelled by user."
+    exit 0
+  fi
+fi
+
+# 1. Build and push container image using Cloud Build to datcom-ci (unless skipped)
 echo ""
-echo "==> Step 1: Building container image via Cloud Build..."
-gcloud builds submit \
-  --config=/dev/null \
-  --tag="${IMAGE_URI}" \
-  --project="${PROJECT}" \
-  --file=tests/integration/prober/Dockerfile \
-  "${REPO_ROOT}"
+if [[ "$SKIP_BUILD" == "false" ]]; then
+  echo "==> Step 1: Building container image via Cloud Build in '${REGISTRY_PROJECT}'..."
+  gcloud builds submit \
+    --config="${PROBER_DIR}/cloudbuild.yaml" \
+    --substitutions="_IMAGE_URI=${IMAGE_URI}" \
+    --project="${REGISTRY_PROJECT}" \
+    "${REPO_ROOT}"
+else
+  echo "==> Step 1: Skipping container image build (--skip-build specified). Reusing existing '${IMAGE_URI}'."
+fi
 
 # 2. Deploy Prober GCP Infrastructure via Terraform
 echo ""
 echo "==> Step 2: Provisioning Prober GCP infrastructure via Terraform..."
-STATE_BUCKET="tf-state-dcp-prober-${PROJECT}"
 
 # Ensure GCS remote state bucket exists
 gcloud storage buckets create "gs://${STATE_BUCKET}" --project="${PROJECT}" --location="${LOCATION}" 2>/dev/null || true
@@ -112,16 +209,19 @@ terraform init -backend-config="bucket=${STATE_BUCKET}" -reconfigure
 terraform apply -auto-approve \
   -var="project_id=${PROJECT}" \
   -var="region=${LOCATION}" \
+  -var="prober_name=${PROBER_NAME}" \
   -var="container_image=${IMAGE_URI}" \
   -var="schedule=${SCHEDULE}" \
-  -var="test_config=${TEST_CONFIG}"
+  -var="test_config=${TEST_CONFIG}" \
+  -var="alert_email=${ALERT_EMAIL}" \
+  -var="dc_api_key=${DC_API_KEY}"
 
 echo ""
 echo "================================================================================"
 echo " ✔ PROBER TERRAFORM DEPLOYMENT COMPLETE!"
 echo "   Terraform state & variables saved to GCP Secret Manager:"
-echo "   Secret ID: dcp-prober-tfvars"
+echo "   Secret ID: ${PROBER_NAME}-tfvars"
 echo ""
 echo "   To fetch terraform.tfvars anytime, run:"
-echo "   gcloud secrets versions access latest --secret=dcp-prober-tfvars --project=${PROJECT} > terraform.tfvars"
+echo "   gcloud secrets versions access latest --secret=${PROBER_NAME}-tfvars --project=${PROJECT} > terraform.tfvars"
 echo "================================================================================"

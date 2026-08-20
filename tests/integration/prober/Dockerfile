@@ -19,10 +19,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     gnupg \
     unzip \
+    ca-certificates \
     && echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list \
     && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg \
-    && echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(gpg --arch) main" | tee /etc/apt/sources.list.d/hashicorp.list \
     && curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com bookworm main" | tee /etc/apt/sources.list.d/hashicorp.list \
     && apt-get update && apt-get install -y google-cloud-cli terraform \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*

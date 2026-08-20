@@ -37,6 +37,24 @@ provider "google" {
   region  = var.region
 }
 
+# Enable required GCP APIs for Prober
+resource "google_project_service" "prober_apis" {
+  for_each = toset([
+    "cloudscheduler.googleapis.com",
+    "run.googleapis.com",
+    "secretmanager.googleapis.com",
+    "iam.googleapis.com",
+    "monitoring.googleapis.com",
+    "cloudresourcemanager.googleapis.com",
+    "serviceusage.googleapis.com",
+    "storage.googleapis.com"
+  ])
+
+  project            = var.project_id
+  service            = each.key
+  disable_on_destroy = false
+}
+
 # 1. Prober Service Account
 resource "google_service_account" "prober_sa" {
   account_id   = "${var.prober_name}-sa"
@@ -44,20 +62,16 @@ resource "google_service_account" "prober_sa" {
   project      = var.project_id
 }
 
-# IAM Role Assignments for Prober Service Account
-resource "google_project_iam_member" "prober_roles" {
-  for_each = toset([
-    "roles/spanner.admin",
-    "roles/workflows.admin",
-    "roles/run.admin",
-    "roles/storage.admin",
-    "roles/iam.serviceAccountTokenCreator",
-    "roles/secretmanager.admin",
-    "roles/resourcemanager.projectIamAdmin"
-  ])
-
+# Project Owner & Service Account Token Creator Role Assignments for Prober Service Account
+resource "google_project_iam_member" "prober_owner" {
   project = var.project_id
-  role    = each.key
+  role    = "roles/owner"
+  member  = "serviceAccount:${google_service_account.prober_sa.email}"
+}
+
+resource "google_project_iam_member" "prober_token_creator" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountTokenCreator"
   member  = "serviceAccount:${google_service_account.prober_sa.email}"
 }
 
@@ -81,10 +95,29 @@ prober_name     = "${var.prober_name}"
 container_image = "${var.container_image}"
 schedule        = "${var.schedule}"
 test_config     = "${var.test_config}"
+alert_email     = "${var.alert_email}"
 EOF
 }
 
-# 3. Cloud Run Job for Ephemeral Prober Execution
+# 3. GCS Bucket for Storing Historical Prober Reports
+resource "google_storage_bucket" "prober_reports" {
+  name                        = "${var.prober_name}-reports-${var.project_id}"
+  location                    = var.region
+  project                     = var.project_id
+  force_destroy               = false
+  uniform_bucket_level_access = true
+
+  lifecycle_rule {
+    condition {
+      age = 90
+    }
+    action {
+      type = "Delete"
+    }
+  }
+}
+
+# 4. Cloud Run Job for Ephemeral Prober Execution
 resource "google_cloud_run_v2_job" "prober_job" {
   name     = var.prober_name
   location = var.region
@@ -92,6 +125,7 @@ resource "google_cloud_run_v2_job" "prober_job" {
 
   template {
     template {
+      max_retries     = 0
       service_account = google_service_account.prober_sa.email
       timeout         = "3600s"
 
@@ -101,8 +135,13 @@ resource "google_cloud_run_v2_job" "prober_job" {
         args = [
           "--project", var.project_id,
           "--test-config", var.test_config,
-          "--report-output", "gs://dcp-prober-reports-${var.project_id}/reports/"
+          "--report-output", "gs://${google_storage_bucket.prober_reports.name}/reports/"
         ]
+
+        env {
+          name  = "DC_API_KEY"
+          value = var.dc_api_key
+        }
 
         resources {
           limits = {
@@ -124,12 +163,15 @@ resource "google_cloud_scheduler_job" "prober_cron" {
   project     = var.project_id
   region      = var.region
 
+  depends_on = [google_project_service.prober_apis]
+
   http_target {
     http_method = "POST"
     uri         = "https://${var.region}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${var.project_id}/jobs/${google_cloud_run_v2_job.prober_job.name}:run"
 
     oauth_token {
       service_account_email = google_service_account.prober_sa.email
+      scope                 = "https://www.googleapis.com/auth/cloud-platform"
     }
   }
 }
@@ -171,23 +213,7 @@ resource "google_monitoring_alert_policy" "prober_failure" {
   notification_channels = var.alert_email != "" ? [google_monitoring_notification_channel.email[0].name] : []
 
   documentation {
-    content   = "DCP Integration Prober job '${google_cloud_run_v2_job.prober_job.name}' failed on GCP project '${var.project_id}'. Check historical GCS reports at gs://dcp-prober-reports-${var.project_id}/reports/"
+    content   = "DCP Integration Prober job '${google_cloud_run_v2_job.prober_job.name}' failed on GCP project '${var.project_id}'. Check historical GCS reports at gs://${google_storage_bucket.prober_reports.name}/reports/"
     mime_type = "text/markdown"
   }
-}
-
-# Outputs
-output "prober_service_account_email" {
-  value       = google_service_account.prober_sa.email
-  description = "Prober Service Account Email"
-}
-
-output "prober_cloud_run_job_name" {
-  value       = google_cloud_run_v2_job.prober_job.name
-  description = "Cloud Run Job Name"
-}
-
-output "prober_scheduler_job_name" {
-  value       = google_cloud_scheduler_job.prober_cron.name
-  description = "Cloud Scheduler Job Name"
 }
