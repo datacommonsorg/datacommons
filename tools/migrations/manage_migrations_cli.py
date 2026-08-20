@@ -92,6 +92,7 @@ def create_command(
 def update_command(target: str) -> None:
     """Re-timestamp an existing migration script with the current UTC time."""
     try:
+        # Locate target migration file and validate filename format
         file_path = manage_migrations_utils.find_migration_file(
             target, manage_migrations_utils.DEFAULT_MIGRATIONS_DIR
         )
@@ -100,10 +101,13 @@ def update_command(target: str) -> None:
             raise click.ClickException(
                 f"Invalid migration filename format: {file_path.name}"
             )
+
+        # Generate new timestamp and projected filename
         now = datetime.datetime.now(datetime.UTC)
         new_prefix, new_iso = manage_migrations_utils.generate_utc_timestamps(now)
         new_filename = f"{new_prefix}_{match.group(2)}.py"
 
+        # Preview planned changes and prompt user for confirmation
         click.echo(f"Found migration script: {file_path.name}")
         click.echo("Planned changes:")
         click.echo(f"  - Rename to:      {new_filename}")
@@ -112,6 +116,7 @@ def update_command(target: str) -> None:
             click.echo("Aborted without making changes.")
             return
 
+        # Apply timestamp update and rename file
         old_file, new_file, new_iso = manage_migrations_utils.update_migration_file(
             target=file_path,
             migrations_dir=manage_migrations_utils.DEFAULT_MIGRATIONS_DIR,
@@ -129,18 +134,21 @@ def update_command(target: str) -> None:
 @cli.command(name="list")
 def list_command() -> None:
     """List all migration scripts in chronological order."""
+    # Discover all migration scripts with metadata
     migrations = manage_migrations_utils.discover_migrations(
         manage_migrations_utils.DEFAULT_MIGRATIONS_DIR
     )
 
+    # Handle case where no migrations are found
     if not migrations:
         click.echo("No migration scripts found.")
         return
 
+    # Print summary header
     click.secho(f"Found {len(migrations)} migration script(s):", fg="cyan", bold=True)
     click.echo()
 
-    # Table headers
+    # Format and print table headers
     header_idx = "#".ljust(4)
     header_ts = "Timestamp (UTC)".ljust(22)
     header_filename = "Filename".ljust(42)
@@ -151,6 +159,7 @@ def list_command() -> None:
     )
     click.echo(f"  {'-' * 4} {'-' * 22} {'-' * 42} {'-' * 30}")
 
+    # Print each migration record in chronological order
     for info in migrations:
         row_idx = str(info.index).ljust(4)
         row_ts = info.creation_timestamp.ljust(22)
