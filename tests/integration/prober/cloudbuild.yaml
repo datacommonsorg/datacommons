@@ -16,11 +16,16 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
+      - '--build-arg'
+      - 'COMMIT_SHA=$_COMMIT_SHA'
       - '-t'
       - '$_IMAGE_URI'
+      - '-t'
+      - '$_LATEST_IMAGE_URI'
       - '-f'
       - 'tests/integration/prober/Dockerfile'
       - '.'
 
 images:
   - '$_IMAGE_URI'
+  - '$_LATEST_IMAGE_URI'

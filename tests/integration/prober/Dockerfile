@@ -33,6 +33,11 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 WORKDIR /app
 
+# Inject Git Commit SHA build metadata into container environment
+ARG COMMIT_SHA=unknown
+ENV COMMIT_SHA=$COMMIT_SHA
+ENV PYTHONUNBUFFERED=1
+
 # Copy dependency specifications, Terraform modules, and test harness
 COPY pyproject.toml uv.lock ./
 COPY packages/ ./packages/

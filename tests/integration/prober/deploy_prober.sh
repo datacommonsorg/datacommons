@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 # Copyright 2026 Google LLC.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -36,8 +35,11 @@ fi
 PROJECT="${DETECTED_PROJECT}"
 PROBER_NAME="dcp-prober"
 TEST_CONFIG="foobar_wages"
-SCHEDULE="0 */1 * * *"
+SCHEDULE="0 */3 * * *"
 LOCATION="us-central1"
+ALERT_EMAIL=""
+DC_API_KEY=""
+IMAGE_TAG="latest"
 NON_INTERACTIVE=false
 
 SKIP_BUILD=false
@@ -55,7 +57,9 @@ Options:
   --test-config <name>  Test manifest name (default: ${TEST_CONFIG})
   --schedule <cron>     Cron schedule for prober (default: "${SCHEDULE}")
   --alert-email <email> Optional email address for failure alerts
+  --dc-api-key <key>    Optional Data Commons API Key
   --location <region>   GCP Region (default: ${LOCATION})
+  --image-tag <tag>     Custom image tag for registry (default: ${IMAGE_TAG})
   --skip-build          Skip container image build step (reuses existing image)
   --non-interactive     Skip interactive prompts and use defaults/flags
   --help                Show this help message
@@ -96,6 +100,11 @@ while [[ $# -gt 0 ]]; do
       ;;
     --location)
       LOCATION="$2"
+      NON_INTERACTIVE=true
+      shift 2
+      ;;
+    --image-tag)
+      IMAGE_TAG="$2"
       NON_INTERACTIVE=true
       shift 2
       ;;
@@ -146,7 +155,13 @@ if [[ -t 0 && "$NON_INTERACTIVE" == "false" ]]; then
 fi
 
 REGISTRY_PROJECT="datcom-ci"
-IMAGE_URI="gcr.io/${REGISTRY_PROJECT}/${PROBER_NAME}:latest"
+REGISTRY_LOCATION="us"
+REGISTRY_REPO="datcom-tools"
+REGISTRY_BASE="${REGISTRY_LOCATION}-docker.pkg.dev/${REGISTRY_PROJECT}/${REGISTRY_REPO}"
+IMAGE_NAME="datacommons-platform-prober"
+
+IMAGE_URI="${REGISTRY_BASE}/${IMAGE_NAME}:${IMAGE_TAG}"
+LATEST_IMAGE_URI="${REGISTRY_BASE}/${IMAGE_NAME}:latest"
 STATE_BUCKET="tf-state-${PROBER_NAME}-${PROJECT}"
 
 # Check for existing Remote Terraform State
@@ -168,6 +183,7 @@ echo "  Test Config:        ${TEST_CONFIG}"
 echo "  Cron Schedule:      ${SCHEDULE}"
 echo "  GCP Region:         ${LOCATION}"
 echo "  Container Image:    ${IMAGE_URI}"
+echo "  Latest Image Tag:   ${LATEST_IMAGE_URI}"
 echo "  State Bucket:       gs://${STATE_BUCKET}"
 echo "  State Status:       ${STATE_STATUS}"
 echo "================================================================================"
@@ -183,17 +199,31 @@ if [[ -t 0 && "$NON_INTERACTIVE" == "false" ]]; then
   fi
 fi
 
+PROBER_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
+
 # 1. Build and push container image using Cloud Build to datcom-ci (unless skipped)
 echo ""
 if [[ "$SKIP_BUILD" == "false" ]]; then
   echo "==> Step 1: Building container image via Cloud Build in '${REGISTRY_PROJECT}'..."
+  echo "    Prober Commit SHA: ${PROBER_COMMIT:0:8}"
   gcloud builds submit \
     --config="${PROBER_DIR}/cloudbuild.yaml" \
-    --substitutions="_IMAGE_URI=${IMAGE_URI}" \
+    --substitutions="_IMAGE_URI=${IMAGE_URI},_LATEST_IMAGE_URI=${LATEST_IMAGE_URI},_COMMIT_SHA=${PROBER_COMMIT}" \
     --project="${REGISTRY_PROJECT}" \
     "${REPO_ROOT}"
 else
   echo "==> Step 1: Skipping container image build (--skip-build specified). Reusing existing '${IMAGE_URI}'."
+fi
+
+# Ensure target project's Cloud Run Service Agent has permission to pull cross-project image from datcom-ci Artifact Registry
+PROJECT_NUMBER=$(gcloud projects describe "${PROJECT}" --format="value(projectNumber)" 2>/dev/null || true)
+if [[ -n "$PROJECT_NUMBER" ]]; then
+  CLOUD_RUN_ROBOT="service-${PROJECT_NUMBER}@serverless-robot-prod.iam.gserviceaccount.com"
+  gcloud artifacts repositories add-iam-policy-binding "${REGISTRY_REPO}" \
+    --location="${REGISTRY_LOCATION}" \
+    --project="${REGISTRY_PROJECT}" \
+    --member="serviceAccount:${CLOUD_RUN_ROBOT}" \
+    --role="roles/artifactregistry.reader" &>/dev/null || true
 fi
 
 # 2. Deploy Prober GCP Infrastructure via Terraform
@@ -213,8 +243,8 @@ terraform apply -auto-approve \
   -var="container_image=${IMAGE_URI}" \
   -var="schedule=${SCHEDULE}" \
   -var="test_config=${TEST_CONFIG}" \
-  -var="alert_email=${ALERT_EMAIL}" \
-  -var="dc_api_key=${DC_API_KEY}"
+  -var="alert_email=${ALERT_EMAIL:-}" \
+  -var="dc_api_key=${DC_API_KEY:-}"
 
 echo ""
 echo "================================================================================"

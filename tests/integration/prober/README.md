@@ -51,6 +51,24 @@ If you only modified Terraform files or environment variables and don't need to 
 
 ---
 
+## 🔐 Cross-Project Artifact Registry Permissions
+
+When deploying the prober to a new GCP Project (`--project <TARGET_PROJECT_ID>`), the target Cloud Run job in that project must have read access to pull the container image from the central Artifact Registry repository (`datcom-tools` in `datcom-ci`).
+
+[`deploy_prober.sh`](file:///Users/gmechali/Desktop/datacommons/datacommons_platform/tests/integration/prober/deploy_prober.sh) handles this automatically during deployment. If deploying manually or via a CI/CD service account, run the following `gcloud` command once to grant the required reader role:
+
+```bash
+PROJECT_NUMBER=$(gcloud projects describe <TARGET_PROJECT_ID> --format="value(projectNumber)")
+
+gcloud artifacts repositories add-iam-policy-binding datcom-tools \
+  --location=us \
+  --project=datcom-ci \
+  --member="serviceAccount:service-${PROJECT_NUMBER}@serverless-robot-prod.iam.gserviceaccount.com" \
+  --role="roles/artifactregistry.reader"
+```
+
+---
+
 ## 🧪 Running Prober Runner Locally / Debugging
 
 ### Run Full Ephemeral Cycle Locally

@@ -143,13 +143,19 @@ terraform {{
 
     dc_api_key = os.environ.get("DC_API_KEY", "")
 
-    # Load static prober_overrides.tfvars template and append dynamic runtime variables
-    static_tfvars_path = (
-        REPO_ROOT / "tests" / "integration" / "prober" / "prober_overrides.tfvars"
+    # Load version-controlled prober_overrides.tfvars.template and append dynamic runtime variables
+    template_tfvars_path = (
+        REPO_ROOT
+        / "tests"
+        / "integration"
+        / "prober"
+        / "prober_overrides.tfvars.template"
     )
-    static_overrides = (
-        static_tfvars_path.read_text() if static_tfvars_path.exists() else ""
-    )
+    if not template_tfvars_path.exists():
+        raise FileNotFoundError(
+            f"Required prober overrides template not found at: {template_tfvars_path}"
+        )
+    static_overrides = template_tfvars_path.read_text()
 
     auto_tfvars = workspace_dir / "prober_overrides.auto.tfvars"
     auto_tfvars.write_text(
@@ -167,7 +173,28 @@ auth_google_datacommons_api_key     = "{dc_api_key}"
     test_exit_code = 1
 
     try:
-        # 2. Resilient Terraform Init & Apply
+        # 0. Fetch & install live datacommons-cli from GitHub main at runtime
+        print(
+            "\n==> Step 0: Fetching live datacommons-cli package from GitHub main branch..."
+        )
+        try:
+            run_cmd_with_retry(
+                [
+                    "uv",
+                    "pip",
+                    "install",
+                    "--force-reinstall",
+                    "git+https://github.com/gmechali/datacommons_platform.git@main#subdirectory=packages/datacommons-cli",
+                ],
+                cwd=workspace_dir,
+                max_attempts=2,
+            )
+        except Exception as err:
+            print(
+                f"⚠️  Warning: Failed to fetch live main CLI from GitHub ({err}). Reusing container workspace CLI."
+            )
+
+        # 1. Resilient Terraform Init & Apply
         print("\n==> Step 1: Provisioning isolated DCP infrastructure via Terraform...")
         run_cmd_with_retry(
             ["terraform", "init", "-reconfigure"],
