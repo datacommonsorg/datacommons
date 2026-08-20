@@ -42,6 +42,8 @@ class TestRunReport:
     cli_version: str
     target_tag: str
     git_commit: str
+    main_git_commit: str = "unknown"
+    prober_git_commit: str = "unknown"
     artifacts: dict[str, Any] = field(default_factory=dict)
     total_tests: int = 0
     passed_tests: int = 0
@@ -68,6 +70,9 @@ class TestReporter:
         resolved_tag = target_tag or "latest"
         config_name = Path(test_config).stem if test_config else "benchmark"
 
+        main_sha = os.environ.get("MAIN_COMMIT_SHA") or self._get_main_git_commit()
+        prober_sha = os.environ.get("COMMIT_SHA") or self._get_prober_git_commit()
+
         self.report = TestRunReport(
             timestamp=datetime.datetime.now(datetime.UTC).isoformat(),
             target_instance=target_instance,
@@ -76,7 +81,9 @@ class TestReporter:
             cli_source=cli_source,
             cli_version=resolved_cli_ver,
             target_tag=resolved_tag,
-            git_commit=self._get_git_commit(),
+            git_commit=main_sha,
+            main_git_commit=main_sha,
+            prober_git_commit=prober_sha,
             artifacts=artifacts or {},
         )
 
@@ -96,7 +103,48 @@ class TestReporter:
         except Exception:
             return "local-dev"
 
-    def _get_git_commit(self) -> str:
+    def _get_main_git_commit(self) -> str:
+        # 1. Query remote Git repository live at runtime
+        try:
+            remote_url = os.environ.get(
+                "GIT_REMOTE_URL",
+                "https://github.com/gmechali/datacommons_platform.git",
+            )
+            out = (
+                subprocess.check_output(
+                    ["git", "ls-remote", remote_url, "main"],
+                    stderr=subprocess.DEVNULL,
+                    timeout=10,
+                )
+                .decode()
+                .strip()
+            )
+            if out:
+                return out.split()[0]
+        except Exception:
+            pass
+
+        # 2. Try local git rev-parse origin/main
+        try:
+            return (
+                subprocess.check_output(
+                    ["git", "rev-parse", "origin/main"],
+                    stderr=subprocess.DEVNULL,
+                    timeout=5,
+                )
+                .decode()
+                .strip()
+            )
+        except Exception:
+            pass
+
+        return os.environ.get("MAIN_COMMIT_SHA", "unknown")
+
+    def _get_prober_git_commit(self) -> str:
+        env_sha = os.environ.get("COMMIT_SHA") or os.environ.get("GIT_COMMIT")
+        if env_sha and env_sha != "unknown":
+            return env_sha
+
         try:
             return (
                 subprocess.check_output(
@@ -106,7 +154,10 @@ class TestReporter:
                 .strip()
             )
         except Exception:
-            return os.environ.get("COMMIT_SHA", "unknown")
+            return "unknown"
+
+    def _get_git_commit(self) -> str:
+        return self._get_main_git_commit()
 
     def generate_filename(self) -> str:
         """

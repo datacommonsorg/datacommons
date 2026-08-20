@@ -99,6 +99,30 @@ alert_email     = "${var.alert_email}"
 EOF
 }
 
+# Secret Manager Secret for Data Commons API Key
+resource "google_secret_manager_secret" "prober_api_key" {
+  count     = var.dc_api_key != "" ? 1 : 0
+  secret_id = "${var.prober_name}-api-key"
+  project   = var.project_id
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "prober_api_key_version" {
+  count       = var.dc_api_key != "" ? 1 : 0
+  secret      = google_secret_manager_secret.prober_api_key[0].id
+  secret_data = var.dc_api_key
+}
+
+resource "google_secret_manager_secret_iam_member" "prober_sa_api_key_accessor" {
+  count     = var.dc_api_key != "" ? 1 : 0
+  secret_id = google_secret_manager_secret.prober_api_key[0].id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.prober_sa.email}"
+}
+
 # 3. GCS Bucket for Storing Historical Prober Reports
 resource "google_storage_bucket" "prober_reports" {
   name                        = "${var.prober_name}-reports-${var.project_id}"
@@ -124,6 +148,9 @@ resource "google_cloud_run_v2_job" "prober_job" {
   project  = var.project_id
 
   template {
+    labels = {
+      "deploy-timestamp" = lower(replace(timestamp(), "/[^a-z0-9_-]/", "-"))
+    }
     template {
       max_retries     = 0
       service_account = google_service_account.prober_sa.email
@@ -138,9 +165,17 @@ resource "google_cloud_run_v2_job" "prober_job" {
           "--report-output", "gs://${google_storage_bucket.prober_reports.name}/reports/"
         ]
 
-        env {
-          name  = "DC_API_KEY"
-          value = var.dc_api_key
+        dynamic "env" {
+          for_each = var.dc_api_key != "" ? [1] : []
+          content {
+            name = "DC_API_KEY"
+            value_source {
+              secret_key_ref {
+                secret  = google_secret_manager_secret.prober_api_key[0].secret_id
+                version = "latest"
+              }
+            }
+          }
         }
 
         resources {
@@ -188,21 +223,18 @@ resource "google_monitoring_notification_channel" "email" {
   }
 }
 
-# 6. Log-Based Gauge Metric for Structured Prober Execution Summary
-resource "google_logging_metric" "prober_status" {
-  name        = "${var.prober_name}_status"
+# 6. Log-Based Metric for Structured Prober Execution Failures
+resource "google_logging_metric" "prober_failure_count" {
+  name        = "${var.prober_name}_failure_count"
   project     = var.project_id
-  description = "Gauge metric tracking DCP Prober execution status (0=PASSED, 1=FAILED)"
+  description = "Log-based counter metric incremented whenever a DCP prober execution fails"
 
-  filter = "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"${google_cloud_run_v2_job.prober_job.name}\" AND jsonPayload.event_type=\"PROBER_EXECUTION_SUMMARY\""
+  filter = "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"${google_cloud_run_v2_job.prober_job.name}\" AND jsonPayload.event_type=\"PROBER_EXECUTION_SUMMARY\" AND jsonPayload.status=\"FAILED\""
 
   metric_descriptor {
-    metric_kind = "GAUGE"
+    metric_kind = "DELTA"
     value_type  = "INT64"
-    unit        = "1"
   }
-
-  value_extractor = "EXTRACT(jsonPayload.status_code)"
 }
 
 # 7. Cloud Monitoring Alert Policy for Prober Execution Failures
@@ -212,18 +244,18 @@ resource "google_monitoring_alert_policy" "prober_failure" {
   combiner     = "OR"
 
   conditions {
-    display_name = "Prober Status Failed (status_code > 0)"
+    display_name = "Prober Execution Failure Event"
 
     condition_threshold {
-      filter          = "resource.type = \"cloud_run_job\" AND resource.label.job_name = \"${google_cloud_run_v2_job.prober_job.name}\" AND metric.type = \"logging.googleapis.com/user/${google_logging_metric.prober_status.name}\""
-      duration        = "0s"
-      comparison      = "COMPARISON_GT"
-      threshold_value = 0
+      filter                  = "resource.type = \"cloud_run_job\" AND resource.label.job_name = \"${google_cloud_run_v2_job.prober_job.name}\" AND metric.type = \"logging.googleapis.com/user/${google_logging_metric.prober_failure_count.name}\""
+      duration                = "60s"
+      comparison              = "COMPARISON_GT"
+      threshold_value         = 0
+      evaluation_missing_data = "EVALUATION_MISSING_DATA_INACTIVE"
 
       aggregations {
-        alignment_period     = "60s"
-        per_series_aligner   = "ALIGN_MAX"
-        cross_series_reducer = "REDUCE_MAX"
+        alignment_period   = "60s"
+        per_series_aligner = "ALIGN_DELTA"
       }
     }
   }
