@@ -351,10 +351,10 @@ def update_migration_file(
     if new_path != file_path and new_path.exists():
         raise FileExistsError(f"Target migration file already exists: {new_path.name}")
 
-    # Write updated content and rename if needed
+    # Write updated content and remove old file if renamed
+    new_path.write_text(updated_content, encoding="utf-8")
     if new_path != file_path:
         file_path.unlink()
-    new_path.write_text(updated_content, encoding="utf-8")
 
     return file_path, new_path, new_iso
 

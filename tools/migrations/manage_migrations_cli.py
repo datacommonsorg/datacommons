@@ -45,6 +45,7 @@ USAGE EXAMPLES:
   uv run manage-migrations list
 """
 
+import datetime
 import sys
 from pathlib import Path
 
@@ -106,7 +107,8 @@ def update_command(target: str) -> None:
             raise click.ClickException(
                 f"Invalid migration filename format: {file_path.name}"
             )
-        new_prefix, new_iso = manage_migrations_utils.get_utc_timestamps()
+        now = datetime.datetime.now(datetime.UTC)
+        new_prefix, new_iso = manage_migrations_utils.get_utc_timestamps(now)
         new_filename = f"{new_prefix}_{match.group(2)}.py"
 
         click.echo(f"Found migration script: {file_path.name}")
@@ -120,6 +122,7 @@ def update_command(target: str) -> None:
         old_file, new_file, new_iso = manage_migrations_utils.update_migration_file(
             target=file_path,
             migrations_dir=manage_migrations_utils.DEFAULT_MIGRATIONS_DIR,
+            target_dt=now,
         )
     except (FileNotFoundError, ValueError, FileExistsError) as e:
         raise click.ClickException(str(e)) from e
