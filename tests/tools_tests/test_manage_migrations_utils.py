@@ -196,6 +196,15 @@ def test_find_migration_file_by_prefix_or_filename(tmp_path: Path) -> None:
         )
         == mig1
     )
+    # By Path object directly
+    assert manage_migrations_utils.find_migration_file(mig1, tmp_path) == mig1
+    # By relative Path within directory
+    assert (
+        manage_migrations_utils.find_migration_file(
+            Path("20260817000000_bootstrap.py"), tmp_path
+        )
+        == mig1
+    )
 
 
 def test_find_migration_file_lenient_matching(tmp_path: Path) -> None:

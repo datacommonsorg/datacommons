@@ -250,11 +250,14 @@ def create_migration_file(
     return target_file, iso_ts, desc
 
 
-def find_migration_file(target: str, migrations_dir: Path | None = None) -> Path:
+def find_migration_file(
+    target: str | Path,
+    migrations_dir: Path | None = None,
+) -> Path:
     """Locates an existing migration file by name, prefix, or relative/absolute path.
 
     Args:
-        target: Target identifier (e.g. filename, change name, prefix, or path).
+        target: Target identifier or Path (e.g. filename, change name, prefix, or path).
         migrations_dir: Directory containing migration scripts.
 
     Returns:
@@ -271,8 +274,8 @@ def find_migration_file(target: str, migrations_dir: Path | None = None) -> Path
     if target_path.is_file():
         return target_path.resolve()
 
-    if (target_dir / target).is_file():
-        return (target_dir / target).resolve()
+    if (target_dir / target_path).is_file():
+        return (target_dir / target_path).resolve()
 
     if not target_dir.is_dir():
         raise FileNotFoundError(f"Migrations directory does not exist: {target_dir}")
@@ -280,9 +283,8 @@ def find_migration_file(target: str, migrations_dir: Path | None = None) -> Path
     # Otherwise, try matching against all migration filenames
 
     # Clean target for matching
-    cleaned_target = target.strip()
-    if cleaned_target.endswith(".py"):
-        cleaned_target = cleaned_target[:-3]
+    target_name = target_path.name if isinstance(target, Path) else target.strip()
+    cleaned_target = target_name[:-3] if target_name.endswith(".py") else target_name
 
     sanitized_target: str | None = None
     with contextlib.suppress(ValueError):
@@ -346,11 +348,7 @@ def update_migration_file(
         ValueError: If file is malformed or creation_timestamp is not found.
         FileExistsError: If new target filename already exists.
     """
-    file_path = (
-        target
-        if isinstance(target, Path)
-        else find_migration_file(target, migrations_dir)
-    )
+    file_path = find_migration_file(target, migrations_dir)
 
     filename = file_path.name
     match = FILENAME_PATTERN.match(filename)
