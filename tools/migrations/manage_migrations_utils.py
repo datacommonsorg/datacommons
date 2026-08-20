@@ -19,6 +19,7 @@ and discovering Spanner schema migration scripts in packages/datacommons-db.
 """
 
 import ast
+import contextlib
 import datetime
 import re
 from dataclasses import dataclass
@@ -164,7 +165,9 @@ class Migration(SchemaMigration):
         # ])
         # if result.status != ExecutionStatus.SUCCESS:
         #     raise RuntimeError(f"Failed to apply migration: {{result.error_message}}")
-        raise NotImplementedError("Migration upgrade logic has not been implemented yet.")
+        raise NotImplementedError(
+            "Migration upgrade logic has not been implemented yet."
+        )
 '''
 
 
@@ -246,6 +249,10 @@ def find_migration_file(target: str, migrations_dir: Path | None = None) -> Path
     if cleaned_target.endswith(".py"):
         cleaned_target = cleaned_target[:-3]
 
+    sanitized_target: str | None = None
+    with contextlib.suppress(ValueError):
+        sanitized_target = sanitize_name(cleaned_target)
+
     all_scripts = [
         f
         for f in target_dir.glob("*.py")
@@ -260,7 +267,9 @@ def find_migration_file(target: str, migrations_dir: Path | None = None) -> Path
             matches.append(script)
         elif match:
             prefix, change_name = match.group(1), match.group(2)
-            if cleaned_target in (prefix, change_name):
+            if cleaned_target in (prefix, change_name) or (
+                sanitized_target and change_name == sanitized_target
+            ):
                 matches.append(script)
 
     if not matches:

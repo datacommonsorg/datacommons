@@ -160,6 +160,24 @@ def test_find_migration_file_by_prefix_or_filename(tmp_path: Path) -> None:
     )
 
 
+def test_find_migration_file_lenient_matching(tmp_path: Path) -> None:
+    mig = tmp_path / "20260818120000_test_migration.py"
+    mig.write_text("class Migration: pass")
+
+    # Match with spaces
+    assert (
+        manage_migrations_utils.find_migration_file("test migration", tmp_path) == mig
+    )
+    # Match with hyphens
+    assert (
+        manage_migrations_utils.find_migration_file("test-migration", tmp_path) == mig
+    )
+    # Match with mixed casing
+    assert (
+        manage_migrations_utils.find_migration_file("Test Migration", tmp_path) == mig
+    )
+
+
 def test_find_migration_file_not_found(tmp_path: Path) -> None:
     with pytest.raises(
         FileNotFoundError, match="No migration script found matching 'missing'"
