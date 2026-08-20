@@ -25,15 +25,30 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_MIGRATIONS_DIR = (
-    REPO_ROOT
-    / "packages"
-    / "datacommons-db"
-    / "datacommons_db"
-    / "migrations"
-    / "migration_scripts"
-)
+
+def _resolve_default_migrations_dir() -> Path:
+    """Resolves the default migrations directory via package discovery or monorepo fallback."""
+    try:
+        import datacommons_db.migrations.migration_scripts as mig_pkg
+
+        if mig_pkg.__file__:
+            return Path(mig_pkg.__file__).resolve().parent
+    except (ImportError, AttributeError):
+        pass
+
+    # Fallback to repository layout if package is not installed in environment
+    return (
+        Path(__file__).resolve().parents[2]
+        / "packages"
+        / "datacommons-db"
+        / "datacommons_db"
+        / "migrations"
+        / "migration_scripts"
+    )
+
+
+DEFAULT_MIGRATIONS_DIR = _resolve_default_migrations_dir()
+
 
 FILENAME_PATTERN = re.compile(r"^(\d{14})_([a-z0-9_]+)\.py$")
 ISO_8601_UTC_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")

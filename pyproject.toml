@@ -125,9 +125,6 @@ extend-ignore = [
     "S603",   # Subprocess call check in automation scripts
     "S607",   # Partial executable path in automation scripts
 ]
-"tools/**/*.py" = [
-    "E402",   # Allow sys.path setup before imports
-]
 "packages/*/tests/**/*.py" = [
     "S101",   # Allow using `assert` in pytests
     "ANN001", # Ignore missing type annotations in test files
