@@ -256,6 +256,11 @@ def tag_all_artifacts(
         "dataflow": (normalize_tag(dataflow_tag) if dataflow_tag else default_src),
     }
 
+    # Redirect abandoned 'latest' alias to 'stable' for Dataflow template and image
+    # (mirroring Terraform logic in infra/dcp/main.tf)
+    if resolved_sources.get("dataflow") == "latest":
+        resolved_sources["dataflow"] = "stable"
+
     # Validate that every artifact has a resolved source tag
     missing_sources = [k for k, v in resolved_sources.items() if not v]
     if missing_sources:
