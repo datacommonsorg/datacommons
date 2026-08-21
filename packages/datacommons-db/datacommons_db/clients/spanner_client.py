@@ -86,6 +86,8 @@ class SpannerClient:
         instance_id: str,
         database_id: str,
         credentials: Credentials | None = None,
+        *,
+        disable_builtin_metrics: bool = True,
     ) -> None:
         """Initialize the SpannerClient.
 
@@ -94,6 +96,7 @@ class SpannerClient:
             instance_id: Cloud Spanner instance ID.
             database_id: Cloud Spanner database ID.
             credentials: Optional Google Cloud credentials object.
+            disable_builtin_metrics: Whether to disable built-in Cloud Monitoring metrics export.
         """
         validate_resource_id("project_id", project_id)
         validate_resource_id("instance_id", instance_id)
@@ -103,7 +106,11 @@ class SpannerClient:
         self.instance_id = instance_id
         self.database_id = database_id
 
-        self.client = spanner.Client(project=project_id, credentials=credentials)
+        self.client = spanner.Client(
+            project=project_id,
+            credentials=credentials,
+            disable_builtin_metrics=disable_builtin_metrics,
+        )
         self.instance = self.client.instance(self.instance_id)
         self.database = self.instance.database(self.database_id)
 
