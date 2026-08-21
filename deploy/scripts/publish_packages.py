@@ -85,7 +85,10 @@ def _build_wheels(tmp_dist_dir: Path) -> None:
             check=False,
         )
         if result.returncode != 0:
-            print(f"\n❌ BUILD FAILED for package '{pkg_name}':\n{result.stderr}")
+            print(
+                f"\n❌ BUILD FAILED for package '{pkg_name}':\n"
+                f"{result.stderr or result.stdout}"
+            )
             sys.exit(1)
     print("  ✓ All package wheels built successfully.\n")
 
@@ -209,9 +212,9 @@ def _publish_wheels(tmp_dist_dir: Path, target: str, token: str) -> None:
     for pkg_name in PUBLISHED_PACKAGES:
         pkg_dist_name = pkg_name.replace("-", "_")
         artifacts = sorted(
-            set(tmp_dist_dir.glob(f"{pkg_dist_name}-*.whl"))
-            | set(tmp_dist_dir.glob(f"{pkg_dist_name}-*.tar.gz"))
-            | set(tmp_dist_dir.glob(f"{pkg_name}-*.tar.gz"))
+            set(tmp_dist_dir.glob(f"{pkg_dist_name}-[0-9]*.whl"))
+            | set(tmp_dist_dir.glob(f"{pkg_dist_name}-[0-9]*.tar.gz"))
+            | set(tmp_dist_dir.glob(f"{pkg_name}-[0-9]*.tar.gz"))
         )
         if not artifacts:
             sys.exit(
