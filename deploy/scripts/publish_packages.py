@@ -95,8 +95,8 @@ def _build_wheels(tmp_dist_dir: Path) -> None:
             for dep_pkg in PUBLISHED_PACKAGES:
                 if dep_pkg != pkg_name:
                     modified_toml = re.sub(
-                        rf'"{re.escape(dep_pkg)}(?:\s*[=><~][^"]*)?"',
-                        f'"{dep_pkg}=={pkg_version}"',
+                        rf'(["\']){re.escape(dep_pkg)}(?:\s*[=><~][^"\']*)?\1',
+                        rf'\1{dep_pkg}=={pkg_version}\1',
                         modified_toml,
                     )
             if modified_toml != original_toml:
