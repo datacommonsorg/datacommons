@@ -301,7 +301,10 @@ def tag_all_artifacts(
         dry_run=dry_run,
     )
 
-    print("\nAll release artifacts tagged and staged successfully!")
+    if dry_run:
+        print("\nDry-run complete. No artifacts were modified.")
+    else:
+        print("\nAll release artifacts tagged and staged successfully!")
 
 
 def main() -> None:

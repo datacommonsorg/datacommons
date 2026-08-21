@@ -615,6 +615,8 @@ class TestTagReleaseArtifacts:
         assert "gcloud container images add-tag" in captured
         assert "gcloud artifacts docker tags add" in captured
         assert "[DRY-RUN]" in captured
+        assert "Dry-run complete. No artifacts were modified." in captured
+        assert "All release artifacts tagged and staged successfully!" not in captured
 
     def test_tag_all_artifacts_wholesale_promotion(
         self, capsys: pytest.CaptureFixture
