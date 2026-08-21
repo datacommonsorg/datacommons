@@ -88,8 +88,22 @@ variable "artifacts_bucket_name" {
   default     = ""
 }
 
-variable "vpc_connector_id" {
-  type = string
+variable "network_id" {
+  type        = string
+  description = "VPC network ID or self_link for Direct VPC Egress"
+  default     = null
+}
+
+variable "subnet_id" {
+  type        = string
+  description = "Subnet ID or self_link for Direct VPC Egress"
+  default     = null
+}
+
+variable "vpc_egress_mode" {
+  type        = string
+  description = "VPC egress mode (PRIVATE_RANGES_ONLY or ALL_TRAFFIC)"
+  default     = "PRIVATE_RANGES_ONLY"
 }
 
 variable "use_spanner" {

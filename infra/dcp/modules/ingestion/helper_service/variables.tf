@@ -48,10 +48,22 @@ variable "enable_embeddings_generation" {
   description = "Flag to enable embedding generation"
 }
 
-variable "vpc_connector_id" {
+variable "network_id" {
   type        = string
-  description = "VPC access connector ID for Cloud Run"
-  default     = ""
+  description = "VPC network ID or self_link for Direct VPC Egress"
+  default     = null
+}
+
+variable "subnet_id" {
+  type        = string
+  description = "Subnet ID or self_link for Direct VPC Egress"
+  default     = null
+}
+
+variable "vpc_egress_mode" {
+  type        = string
+  description = "VPC egress mode (PRIVATE_RANGES_ONLY or ALL_TRAFFIC)"
+  default     = "PRIVATE_RANGES_ONLY"
 }
 
 variable "redis_host" {

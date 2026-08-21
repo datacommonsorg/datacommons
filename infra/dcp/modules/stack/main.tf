@@ -1,5 +1,16 @@
-data "google_compute_network" "default" {
-  name = var.redis_config.vpc_network_name
+module "network" {
+  source = "../network"
+
+  enable              = var.network_config.enable
+  create_vpc          = var.network_config.create_vpc
+  project_id          = var.global.project_id
+  region              = var.global.region
+  instance_name       = var.global.instance_name
+  network_name        = var.network_config.network_name
+  subnet_cidr         = var.network_config.subnet_cidr
+  enable_cloud_nat    = var.network_config.enable_cloud_nat
+  existing_network_id = var.network_config.existing_network_id
+  existing_subnet_id  = var.network_config.existing_subnet_id
 }
 
 locals {
@@ -122,7 +133,9 @@ module "ingestion_preprocessing_job" {
   cpu                           = var.ingestion_config.preprocessing_job_cpu
   memory                        = var.ingestion_config.preprocessing_job_memory
   timeout                       = var.ingestion_config.preprocessing_job_timeout
-  vpc_connector_id              = var.redis_config.enable ? module.redis[0].connector_id : null
+  network_id                    = module.network.network_id
+  subnet_id                     = module.network.subnet_id
+  vpc_egress_mode               = var.network_config.vpc_egress_mode != null ? var.network_config.vpc_egress_mode : "PRIVATE_RANGES_ONLY"
   bucket_name                   = module.storage.artifacts_bucket_name
   input_path                    = var.ingestion_config.input_path
   ingestion_artifacts_path      = var.ingestion_config.ingestion_artifacts_path
@@ -141,7 +154,7 @@ module "ingestion_preprocessing_job" {
     }
   }
 
-  depends_on = [module.auth]
+  depends_on = [module.auth, module.network]
 }
 
 module "ingestion_postprocessing_job" {
@@ -156,7 +169,9 @@ module "ingestion_postprocessing_job" {
   cpu                            = var.ingestion_config.postprocessing_job_cpu
   memory                         = var.ingestion_config.postprocessing_job_memory
   timeout                        = var.ingestion_config.postprocessing_job_timeout
-  vpc_connector_id               = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].connector_id : null
+  network_id                     = module.network.network_id
+  subnet_id                      = module.network.subnet_id
+  vpc_egress_mode                = var.network_config.vpc_egress_mode != null ? var.network_config.vpc_egress_mode : "PRIVATE_RANGES_ONLY"
   spanner_instance_id            = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
   spanner_database_id            = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
   bigquery_connection_id         = var.spanner_config.enable ? module.spanner[0].bigquery_connection_id : ""
@@ -165,6 +180,8 @@ module "ingestion_postprocessing_job" {
   enable_spanner_embeddings      = var.spanner_config.enable_embeddings_generation
   enable_bigquery_connection     = var.spanner_config.enable && var.spanner_config.enable_bigquery_connection
   env_vars                       = local.cloud_run_shared_env_variables
+
+  depends_on = [module.network]
 }
 
 module "ingestion_dataflow" {
@@ -193,12 +210,16 @@ module "ingestion_helper_service" {
   use_spanner                  = var.spanner_config.enable
   enable_embeddings_generation = var.spanner_config.enable_embeddings_generation
 
-  # Redis configuration for cache clearing
-  vpc_connector_id         = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].connector_id : null
+  # Direct VPC Egress from network module
+  network_id               = module.network.network_id
+  subnet_id                = module.network.subnet_id
+  vpc_egress_mode          = var.network_config.vpc_egress_mode != null ? var.network_config.vpc_egress_mode : "PRIVATE_RANGES_ONLY"
   redis_host               = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
   redis_port               = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
   ingestion_artifacts_path = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
   skip_container_restarts  = var.global.skip_container_restarts
+
+  depends_on = [module.network]
 }
 
 
@@ -219,7 +240,7 @@ module "ingestion_workflow" {
   enable_redis_cache_clearing         = var.redis_config.enable
   ingestion_artifacts_path            = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
   dataflow_ip_configuration           = var.ingestion_config.dataflow_ip_configuration
-  dataflow_subnetwork                 = var.ingestion_config.dataflow_subnetwork
+  dataflow_subnetwork                 = var.ingestion_config.dataflow_subnetwork != "" ? var.ingestion_config.dataflow_subnetwork : (module.network.subnet_url != null ? module.network.subnet_url : "")
   dataflow_template_gcs_path          = var.ingestion_config.dataflow_template_gcs_path
   dataflow_max_workers                = var.ingestion_config.dataflow_max_workers
   dataflow_num_workers                = var.ingestion_config.dataflow_num_workers
@@ -244,9 +265,9 @@ module "redis" {
   location_id             = var.redis_config.location_id
   alternative_location_id = var.redis_config.alternative_location_id
   replica_count           = var.redis_config.replica_count
-  vpc_network_id          = data.google_compute_network.default.id
-  vpc_connector_cidr      = var.redis_config.vpc_connector_cidr
-  enable_connector        = true
+  vpc_network_id          = module.network.network_id != null && module.network.network_id != "" ? module.network.network_id : "projects/${var.global.project_id}/global/networks/default"
+
+  depends_on = [module.network]
 }
 
 module "auth" {
@@ -278,7 +299,9 @@ module "datacommons_services" {
   enable_mcp                    = var.datacommons_services_config.enable_mcp
   mcp_instructions_path         = var.datacommons_services_config.instructions_path
   artifacts_bucket_name         = module.storage.artifacts_bucket_name
-  vpc_connector_id              = var.redis_config.enable ? module.redis[0].connector_id : null
+  network_id                    = module.network.network_id
+  subnet_id                     = module.network.subnet_id
+  vpc_egress_mode               = var.network_config.vpc_egress_mode != null ? var.network_config.vpc_egress_mode : "PRIVATE_RANGES_ONLY"
   use_spanner                   = var.spanner_config.enable
   env_vars = concat(local.cloud_run_shared_env_variables, [
     {
@@ -290,7 +313,7 @@ module "datacommons_services" {
   resolve_with_spanner_embeddings = var.datacommons_services_config.resolve_with_spanner_embeddings
   website_search_scope            = var.datacommons_services_config.website_search_scope
 
-  depends_on = [module.ingestion_preprocessing_job]
+  depends_on = [module.ingestion_preprocessing_job, module.network]
 }
 
 check "spanner_instance_id_provided" {
@@ -429,4 +452,29 @@ resource "google_service_account_iam_member" "ingestion_workflow_act_as_serving_
   service_account_id = "projects/${var.global.project_id}/serviceAccounts/${module.datacommons_services[0].service_account_email}"
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
+# =============================================================================
+# Architecture & Dependency Validations
+# =============================================================================
+resource "terraform_data" "redis_network_validation" {
+  lifecycle {
+    precondition {
+      condition     = !var.redis_config.enable || var.network_config.enable
+      error_message = "enable_redis is set to true, but enable_network is false. Cloud Memorystore for Redis instances only have private IP addresses and require VPC networking to be accessible from Cloud Run services."
+    }
+  }
+}
+
+resource "terraform_data" "dataflow_subnet_validation" {
+  lifecycle {
+    precondition {
+      condition = (
+        var.ingestion_config.dataflow_ip_configuration != "WORKER_IP_PRIVATE" ||
+        (var.ingestion_config.dataflow_subnetwork != null && var.ingestion_config.dataflow_subnetwork != "") ||
+        (var.network_config.enable && module.network.subnet_url != null && module.network.subnet_url != "")
+      )
+      error_message = "dataflow_ip_configuration is set to 'WORKER_IP_PRIVATE', which requires a valid subnetwork. Ensure enable_network is true and a subnet is available, or provide dataflow_subnetwork."
+    }
+  }
 }

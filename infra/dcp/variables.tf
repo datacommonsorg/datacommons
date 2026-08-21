@@ -94,11 +94,63 @@ variable "storage_artifacts_bucket_name" {
 }
 
 # =============================================================================
+# Network Module
+# =============================================================================
+
+variable "enable_network" {
+  description = "Enable VPC networking for DCP services and ingestion jobs"
+  type        = bool
+  default     = true
+}
+
+variable "network_create_vpc" {
+  description = "Whether to provision a new custom VPC and subnet. Set to false to attach to an existing/Shared VPC."
+  type        = bool
+  default     = true
+}
+
+variable "network_name" {
+  description = "Name of the VPC network (used if network_create_vpc = true or for existing network lookup)."
+  type        = string
+  default     = "dc-vpc"
+}
+
+variable "network_subnet_cidr" {
+  description = "CIDR range for the private subnet."
+  type        = string
+  default     = "10.0.0.0/24"
+}
+
+variable "network_enable_cloud_nat" {
+  description = "Whether to provision a Cloud Router and Cloud NAT for secure outbound internet egress from private workers."
+  type        = bool
+  default     = false
+}
+
+variable "network_existing_network_id" {
+  description = "Network ID or self_link when attaching to an existing/Shared VPC."
+  type        = string
+  default     = null
+}
+
+variable "network_existing_subnet_id" {
+  description = "Subnet ID or self_link when attaching to an existing/Shared VPC."
+  type        = string
+  default     = null
+}
+
+variable "network_vpc_egress_mode" {
+  description = "VPC egress mode for Cloud Run services and jobs (PRIVATE_RANGES_ONLY or ALL_TRAFFIC). Set to ALL_TRAFFIC to route outbound internet traffic through Cloud NAT."
+  type        = string
+  default     = "PRIVATE_RANGES_ONLY"
+}
+
+# =============================================================================
 # Redis Module
 # =============================================================================
 
 variable "enable_redis" {
-  description = "Enable a Memorystore Redis instance for caching"
+  description = "Enable a Memorystore Redis instance for caching. NOTE: Cloud Memorystore instances only have private IP addresses and require VPC networking (enable_network = true) to be accessible from Cloud Run services."
   type        = bool
   default     = false
 }
@@ -137,18 +189,6 @@ variable "redis_replica_count" {
   description = "The number of read replicas for the Redis instance"
   type        = number
   default     = 1
-}
-
-variable "redis_vpc_network_name" {
-  description = "VPC network name"
-  type        = string
-  default     = "default"
-}
-
-variable "redis_vpc_connector_cidr" {
-  description = "CIDR range for the VPC Access Connector"
-  type        = string
-  default     = "10.13.0.0/28"
 }
 
 # =============================================================================
@@ -433,13 +473,13 @@ variable "ingestion_helper_service_image" {
 # =============================================================================
 
 variable "ingestion_dataflow_ip_configuration" {
-  description = "IP configuration for Dataflow workers (WORKER_IP_UNSPECIFIED, WORKER_IP_PUBLIC, WORKER_IP_PRIVATE). Set to WORKER_IP_PRIVATE when a compute.vmExternalIpAccess org policy restricts VMs from obtaining external IPs."
+  description = "IP configuration for Dataflow workers (WORKER_IP_UNSPECIFIED, WORKER_IP_PUBLIC, WORKER_IP_PRIVATE). Set to WORKER_IP_PRIVATE when a compute.vmExternalIpAccess org policy restricts VMs from obtaining external IPs. NOTE: WORKER_IP_PRIVATE requires enable_network = true or an explicitly configured ingestion_dataflow_subnetwork."
   type        = string
   default     = "WORKER_IP_UNSPECIFIED"
 }
 
 variable "ingestion_dataflow_subnetwork" {
-  description = "Subnetwork for Dataflow workers. Required when ingestion_dataflow_ip_configuration is WORKER_IP_PRIVATE. Format: regions/{region}/subnetworks/{subnetwork}."
+  description = "Subnetwork for Dataflow workers. Automatically populated from the network module when enable_network = true. If enable_network = false and WORKER_IP_PRIVATE is used, this variable must be explicitly provided. Format: regions/{region}/subnetworks/{subnetwork} or full self_link."
   type        = string
   default     = ""
 }

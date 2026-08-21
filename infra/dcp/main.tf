@@ -40,7 +40,6 @@ resource "google_project_service" "apis" {
     "sqladmin.googleapis.com",
     "redis.googleapis.com",
     "secretmanager.googleapis.com",
-    "vpcaccess.googleapis.com",
     "artifactregistry.googleapis.com",
     "compute.googleapis.com"
     ], var.enable_spanner ? ["spanner.googleapis.com"] : [],
@@ -107,6 +106,17 @@ locals {
     website_search_scope            = var.datacommons_services_website_search_scope
   }
 
+  network_config = {
+    enable              = var.enable_network
+    create_vpc          = var.network_create_vpc
+    network_name        = var.network_name != "" ? var.network_name : "dc-vpc"
+    subnet_cidr         = var.network_subnet_cidr
+    enable_cloud_nat    = var.network_enable_cloud_nat
+    existing_network_id = var.network_existing_network_id
+    existing_subnet_id  = var.network_existing_subnet_id
+    vpc_egress_mode     = var.network_vpc_egress_mode
+  }
+
   auth_config = {
     google_datacommons_api_key = var.auth_google_datacommons_api_key
     google_maps_api_key        = var.auth_google_maps_api_key
@@ -121,8 +131,6 @@ locals {
     location_id             = var.redis_location_id
     alternative_location_id = var.redis_alternative_location_id
     replica_count           = var.redis_replica_count
-    vpc_network_name        = var.redis_vpc_network_name
-    vpc_connector_cidr      = var.redis_vpc_connector_cidr
   }
 
   ingestion_config = {
@@ -166,6 +174,7 @@ module "stack" {
   source = "./modules/stack"
 
   global                          = local.global_config
+  network_config                  = local.network_config
   spanner_config                  = local.spanner_config
   storage_create_artifacts_bucket = var.storage_create_artifacts_bucket
   storage_artifacts_bucket_name   = var.storage_artifacts_bucket_name
