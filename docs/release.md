@@ -24,7 +24,7 @@ The release process follows three sequential stages:
    - **Action:** Create and publish a GitHub Release with tag `vX.Y.Z` on `main`. The [Cloud Build trigger `dcp-production-deployment`](https://console.cloud.google.com/cloud-build/triggers/edit/da2c3b51-0f87-44c5-a125-6024b4436bbb?project=datcom-ci) in `datcom-ci` automatically runs [`deploy/release.yaml`](../deploy/release.yaml), validates that committed files and remote release artifacts exist for `X.Y.Z`, and publishes official wheels to **PyPI**.
 
 > [!IMPORTANT]
-> **Package Build & Distribution Order:** Public packages are built and published in strict topological dependency order via [`deploy/scripts/publish_packages.py`](../deploy/scripts/publish_packages.py) (`datacommons-db` -> `datacommons-admin` -> `datacommons-cli`), satisfying the `datacommons-db==VERSION` and `datacommons-admin==VERSION` requirements on PyPI and TestPyPI.
+> **Clean-Room Pre-Publish Verification & Topological Order:** Before publishing packages to TestPyPI or PyPI, [`deploy/scripts/publish_packages.py`](../deploy/scripts/publish_packages.py) builds all wheels into an isolated temporary directory, creates a sandbox `uv venv`, and verifies dependency resolution against PyPI along with runtime smoke tests (module imports and CLI execution). If any dependency is unresolvable or if packaged data assets (e.g. `schema.sql`) are missing, the release aborts before any upload. Packages are published in strict topological dependency order (`datacommons-db` -> `datacommons-admin` -> `datacommons-cli`), satisfying lockstep version pins (`datacommons-db==VERSION` and `datacommons-admin==VERSION`).
 
 ---
 
@@ -56,7 +56,7 @@ gcloud builds submit \
 1. Clones the target commit and runs `apply_version_bump.py "X.Y.ZrcN"` to update `VERSION`, `packages/*/VERSION`, `infra/dcp/variables.tf`, and lock `datacommons-admin==X.Y.ZrcN`.
 2. Creates a local commit and force-pushes Git tag `vX.Y.ZrcN` to GitHub (*`main` branch remains clean*).
 3. Runs [`tag_release_artifacts.py`](../deploy/scripts/tag_release_artifacts.py) to cross-tag all 5 container images and stage the rendered Dataflow Flex Template JSON spec in GCS.
-4. Runs `publish_packages.py --target testpypi` to build and upload wheels to **TestPyPI** in topological order.
+4. Runs `publish_packages.py --target testpypi` to verify package resolution & imports in an isolated sandbox, then upload candidate wheels to **TestPyPI** in topological order.
 
 #### Step 2: Verify Release Candidate on Staging
 - [ ] **TestPyPI Package Check:** Confirm wheels exist at `https://test.pypi.org/project/datacommons-cli/X.Y.ZrcN/`.
@@ -128,12 +128,16 @@ gcloud builds submit \
   - Asserts `packages/datacommons-cli/pyproject.toml` locks `datacommons-admin==X.Y.Z`.
   - Asserts `infra/dcp/variables.tf` defaults `dcp_version = "X.Y.Z"`.
   - **Remote Verification:** Asserts all 5 container images exist in GCR / Artifact Registry and the Dataflow Flex Template exists in GCS at tag `X.Y.Z`.
-* Runs `deploy/scripts/publish_packages.py --target pypi` to build and upload wheels to **Official PyPI** in topological order.
+* Runs `deploy/scripts/publish_packages.py --target pypi` to verify package resolution & imports in an isolated sandbox, then upload official wheels to **Official PyPI** in topological order.
 
 > [!TIP]
-> Maintainers can run a local pre-flight consistency check before drafting a release:
+> Maintainers can run local pre-flight checks before staging or releasing:
 > ```bash
+> # Verify version consistency across all repo files:
 > python3 deploy/scripts/validate_release_version.py vX.Y.Z
+>
+> # Test complete package build, sandbox installation, and CLI smoke test locally:
+> python3 deploy/scripts/publish_packages.py --dry-run
 > ```
 
 #### Step 2: Verify Production Release
