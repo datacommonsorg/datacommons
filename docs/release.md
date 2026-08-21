@@ -63,12 +63,14 @@ gcloud builds submit \
 - [ ] **CLI Installation Test:** Install the candidate in an isolated terminal:
   ```bash
   uv tool install --force \
-    --index-url https://test.pypi.org/simple/ \
-    --extra-index-url https://pypi.org/simple/ \
+    --default-index https://test.pypi.org/simple/ \
+    --index https://pypi.org/simple/ \
+    --index-strategy unsafe-first-match \
+    --prerelease=allow \
     "datacommons-cli==X.Y.ZrcN"
 
   datacommons --version
-  # Output: Data Commons CLI vX.Y.ZrcN
+  # Output: Data Commons CLI, version X.Y.ZrcN
   ```
 - [ ] **Scaffolding & Terraform Plan Test:** Initialize a test deployment stack:
   ```bash
