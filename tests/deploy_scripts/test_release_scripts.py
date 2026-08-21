@@ -615,6 +615,8 @@ class TestTagReleaseArtifacts:
         assert "gcloud container images add-tag" in captured
         assert "gcloud artifacts docker tags add" in captured
         assert "[DRY-RUN]" in captured
+        assert "Dry-run complete. No artifacts were modified." in captured
+        assert "All release artifacts tagged and staged successfully!" not in captured
 
     def test_tag_all_artifacts_wholesale_promotion(
         self, capsys: pytest.CaptureFixture
@@ -636,6 +638,66 @@ class TestTagReleaseArtifacts:
         assert "postprocessor     : 1.1.2rc2 -> 1.1.2" in captured
         assert "ingestion_helper  : 1.1.2rc2 -> 1.1.2" in captured
         assert "dataflow          : 1.1.2rc2 -> 1.1.2" in captured
+
+    def test_tag_all_artifacts_redirects_dataflow_latest_to_stable(
+        self, capsys: pytest.CaptureFixture
+    ) -> None:
+        """// Test: test_tag_all_artifacts_redirects_dataflow_latest_to_stable
+
+        // Situation: tag_all_artifacts is called with default_source_tag="latest".
+        // Expectation: dataflow image and template spec redirect to 'stable', while
+        other images preserve 'latest'.
+        """
+        tagger.tag_all_artifacts(
+            target_tag="1.1.2rc1",
+            default_source_tag="latest",
+            dry_run=True,
+        )
+        captured = capsys.readouterr().out
+        assert "services          : latest -> 1.1.2rc1" in captured
+        assert "preprocessor      : latest -> 1.1.2rc1" in captured
+        assert "postprocessor     : latest -> 1.1.2rc1" in captured
+        assert "ingestion_helper  : latest -> 1.1.2rc1" in captured
+        assert "dataflow          : stable -> 1.1.2rc1" in captured
+        assert "ingestion-stable.json -> ingestion-1.1.2rc1.json" in captured
+
+    def test_tag_all_artifacts_dataflow_override_latest_to_stable(
+        self, capsys: pytest.CaptureFixture
+    ) -> None:
+        """// Test: test_tag_all_artifacts_dataflow_override_latest_to_stable
+
+        // Situation: dataflow_tag="latest" is explicitly passed with a different default_source_tag.
+        // Expectation: dataflow image and template spec redirect to 'stable'.
+        """
+        tagger.tag_all_artifacts(
+            target_tag="1.1.2rc1",
+            default_source_tag="1.1.1",
+            dataflow_tag="latest",
+            dry_run=True,
+        )
+        captured = capsys.readouterr().out
+        assert "services          : 1.1.1 -> 1.1.2rc1" in captured
+        assert "dataflow          : stable -> 1.1.2rc1" in captured
+        assert "ingestion-stable.json -> ingestion-1.1.2rc1.json" in captured
+
+    def test_tag_all_artifacts_preserves_explicit_dataflow_version(
+        self, capsys: pytest.CaptureFixture
+    ) -> None:
+        """// Test: test_tag_all_artifacts_preserves_explicit_dataflow_version
+
+        // Situation: An explicit non-latest dataflow_tag is passed when default_source_tag="latest".
+        // Expectation: dataflow uses the explicit tag without redirecting to 'stable'.
+        """
+        tagger.tag_all_artifacts(
+            target_tag="1.1.2rc1",
+            default_source_tag="latest",
+            dataflow_tag="1.1.0",
+            dry_run=True,
+        )
+        captured = capsys.readouterr().out
+        assert "services          : latest -> 1.1.2rc1" in captured
+        assert "dataflow          : 1.1.0 -> 1.1.2rc1" in captured
+        assert "ingestion-1.1.0.json -> ingestion-1.1.2rc1.json" in captured
 
     def test_tag_all_artifacts_missing_source_tag_aborts(self) -> None:
         """// Test: test_tag_all_artifacts_missing_source_tag_aborts
