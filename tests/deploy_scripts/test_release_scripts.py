@@ -78,7 +78,7 @@ def mock_monorepo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         "[project]\n"
         'name = "datacommons-admin"\n'
         "dependencies = [\n"
-        '  "datacommons-db",\n'
+        '  "datacommons-db==1.0.0",\n'
         "]\n"
     )
     (admin_dir / "VERSION").write_text("1.0.0\n")
@@ -152,7 +152,12 @@ class TestApplyVersionBump:
         tf_content = (mock_monorepo / "infra/dcp/variables.tf").read_text()
         assert f'default     = "{expected_version}"' in tf_content
 
-        # 4. datacommons-cli pyproject.toml
+        # 4. Lockstep subpackage dependencies
+        admin_toml = (
+            mock_monorepo / "packages/datacommons-admin/pyproject.toml"
+        ).read_text()
+        assert f'"datacommons-db=={expected_version}"' in admin_toml
+
         cli_toml = (
             mock_monorepo / "packages/datacommons-cli/pyproject.toml"
         ).read_text()
@@ -217,6 +222,22 @@ class TestApplyVersionBump:
             bumper.apply_version_bump("1.2.3")
         assert "datacommons-admin dependency not found" in str(exc_info.value)
 
+    def test_apply_version_bump_missing_db_dep_aborts(
+        self, mock_monorepo: Path
+    ) -> None:
+        """// Test: test_apply_version_bump_missing_db_dep_aborts
+
+        // Situation: datacommons-admin pyproject.toml is missing datacommons-db
+        dependency.
+        // Expectation: Script calls sys.exit with specific error message.
+        """
+        (mock_monorepo / "packages/datacommons-admin/pyproject.toml").write_text(
+            '[project]\nname = "datacommons-admin"\ndependencies = ["click"]\n'
+        )
+        with pytest.raises(SystemExit) as exc_info:
+            bumper.apply_version_bump("1.2.3")
+        assert "datacommons-db dependency not found" in str(exc_info.value)
+
 
 # ==============================================================================
 # Suite 2: validate_release_version.py
@@ -255,26 +276,34 @@ class TestValidateReleaseVersion:
         ) or "Target version cannot be empty" in str(exc_info.value)
 
     @pytest.mark.parametrize(
-        "mismatched_dep",
+        ("manifest_path", "mismatched_dep"),
         [
-            '"datacommons-admin==1.0.00"',
-            '"datacommons-admin==1.0.0rc1"',
-            '"datacommons-admin>=1.0.0"',
-            '"datacommons-admin~=1.0.0"',
-            '"datacommons-admin"',
+            ("packages/datacommons-cli/pyproject.toml", '"datacommons-admin==1.0.00"'),
+            (
+                "packages/datacommons-cli/pyproject.toml",
+                '"datacommons-admin==1.0.0rc1"',
+            ),
+            ("packages/datacommons-cli/pyproject.toml", '"datacommons-admin>=1.0.0"'),
+            ("packages/datacommons-cli/pyproject.toml", '"datacommons-admin~=1.0.0"'),
+            ("packages/datacommons-cli/pyproject.toml", '"datacommons-admin"'),
+            ("packages/datacommons-admin/pyproject.toml", '"datacommons-db==1.0.00"'),
+            ("packages/datacommons-admin/pyproject.toml", '"datacommons-db==1.0.0rc1"'),
+            ("packages/datacommons-admin/pyproject.toml", '"datacommons-db>=1.0.0"'),
+            ("packages/datacommons-admin/pyproject.toml", '"datacommons-db~=1.0.0"'),
+            ("packages/datacommons-admin/pyproject.toml", '"datacommons-db"'),
         ],
     )
     def test_validate_release_version_catches_dependency_mismatches(
-        self, mock_monorepo: Path, mismatched_dep: str
+        self, mock_monorepo: Path, manifest_path: str, mismatched_dep: str
     ) -> None:
         """// Test: test_validate_release_version_catches_dependency_mismatches
 
-        // Situation: datacommons-cli pyproject.toml locks a loose or mismatched
-        version.
+        // Situation: Subpackage pyproject.toml locks a loose or mismatched version.
         // Expectation: validate_release_version aborts with exit code 1.
         """
-        (mock_monorepo / "packages/datacommons-cli/pyproject.toml").write_text(
-            f'[project]\nname = "datacommons-cli"\ndependencies = [{mismatched_dep}]\n'
+        pkg_name = Path(manifest_path).parent.name
+        (mock_monorepo / manifest_path).write_text(
+            f'[project]\nname = "{pkg_name}"\ndependencies = [{mismatched_dep}]\n'
         )
         with pytest.raises(SystemExit) as exc_info:
             validator.validate_release_version("1.0.0")
@@ -604,50 +633,6 @@ class TestPublishPackages:
             )
 
         assert expected_err in str(exc_info.value)
-
-    def test_publish_packages_dynamically_pins_dependencies_and_restores(
-        self, mock_monorepo: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """// Test: test_publish_packages_dynamically_pins_dependencies_and_restores
-
-        // Situation: datacommons-admin has unpinned datacommons-db in pyproject.toml.
-        // Expectation: During uv build, pyproject.toml is temporarily modified to lock
-        // datacommons-db==VERSION, and afterwards restored to its unpinned state.
-        """
-        captured_tomls: dict[str, str] = {}
-
-        def mock_subprocess_run(
-            cmd, cwd=None, env=None, capture_output=False, text=False, check=False
-        ):
-            if cmd[:2] == ["uv", "build"]:
-                toml = (cwd / "pyproject.toml").read_text()
-                captured_tomls[cwd.name] = toml
-                out_dir = Path(cmd[cmd.index("--out-dir") + 1])
-                pkg_name = Path(cwd).name.replace("-", "_")
-                (out_dir / f"{pkg_name}-1.0.0-py3-none-any.whl").touch()
-                (out_dir / f"{pkg_name}-1.0.0.tar.gz").touch()
-            elif cmd[:2] == ["uv", "venv"]:
-                venv_dir = Path(cmd[2])
-                bin_dir = venv_dir / ("Scripts" if sys.platform == "win32" else "bin")
-                bin_dir.mkdir(parents=True, exist_ok=True)
-                (bin_dir / "python").touch()
-                (bin_dir / "datacommons").touch()
-            return MagicMock(returncode=0, stdout="", stderr="")
-
-        monkeypatch.setattr(subprocess, "run", mock_subprocess_run)
-
-        admin_toml = mock_monorepo / "packages/datacommons-admin/pyproject.toml"
-        assert '"datacommons-db"' in admin_toml.read_text()
-        assert '"datacommons-db==' not in admin_toml.read_text()
-
-        publisher.publish_packages(target="pypi", token_env=None, dry_run=True)
-
-        # During build, admin toml had datacommons-db==1.0.0
-        assert '"datacommons-db==1.0.0"' in captured_tomls["datacommons-admin"]
-
-        # After build, admin toml in filesystem is restored to unpinned state
-        assert '"datacommons-db"' in admin_toml.read_text()
-        assert '"datacommons-db==' not in admin_toml.read_text()
 
     def test_publish_packages_build_failure_aborts_immediately(
         self, mock_monorepo: Path, monkeypatch: pytest.MonkeyPatch

@@ -41,7 +41,6 @@ USAGE:
 
 import argparse
 import os
-import re
 import subprocess
 import sys
 import tempfile
@@ -74,50 +73,26 @@ def _build_wheels(tmp_dist_dir: Path) -> None:
     print("========================================================================")
     for pkg_name in PUBLISHED_PACKAGES:
         pkg_dir = REPO_ROOT / "packages" / pkg_name
-        pyproject_file = pkg_dir / "pyproject.toml"
-        version_file = pkg_dir / "VERSION"
-        if not pkg_dir.is_dir() or not pyproject_file.is_file():
+        if not pkg_dir.is_dir() or not (pkg_dir / "pyproject.toml").is_file():
             sys.exit(
                 f"Error: Package directory 'packages/{pkg_name}' does not exist or is"
                 " missing pyproject.toml."
             )
 
-        pkg_version = (
-            version_file.read_text().strip()
-            if version_file.is_file()
-            else (REPO_ROOT / "VERSION").read_text().strip()
+        print(f"  -> Building {pkg_name}...")
+        result = subprocess.run(
+            ["uv", "build", "--out-dir", str(tmp_dist_dir)],
+            cwd=pkg_dir,
+            capture_output=True,
+            text=True,
+            check=False,
         )
-
-        print(f"  -> Building {pkg_name} (version {pkg_version})...")
-        original_toml = pyproject_file.read_text()
-        try:
-            modified_toml = original_toml
-            for dep_pkg in PUBLISHED_PACKAGES:
-                if dep_pkg != pkg_name:
-                    modified_toml = re.sub(
-                        rf'(["\']){re.escape(dep_pkg)}(?:\s*[=><~][^"\']*)?\1',
-                        rf'\1{dep_pkg}=={pkg_version}\1',
-                        modified_toml,
-                    )
-            if modified_toml != original_toml:
-                pyproject_file.write_text(modified_toml)
-
-            result = subprocess.run(
-                ["uv", "build", "--out-dir", str(tmp_dist_dir)],
-                cwd=pkg_dir,
-                capture_output=True,
-                text=True,
-                check=False,
+        if result.returncode != 0:
+            print(
+                f"\n❌ BUILD FAILED for package '{pkg_name}':\n"
+                f"{result.stderr or result.stdout}"
             )
-            if result.returncode != 0:
-                print(
-                    f"\n❌ BUILD FAILED for package '{pkg_name}':\n"
-                    f"{result.stderr or result.stdout}"
-                )
-                sys.exit(1)
-        finally:
-            if pyproject_file.read_text() != original_toml:
-                pyproject_file.write_text(original_toml)
+            sys.exit(1)
     print("  ✓ All package wheels built successfully.\n")
 
 
