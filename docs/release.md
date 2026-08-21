@@ -128,6 +128,7 @@ gcloud builds submit \
   - Asserts root `VERSION == X.Y.Z`.
   - Asserts all `packages/*/VERSION == X.Y.Z`.
   - Asserts `packages/datacommons-cli/pyproject.toml` locks `datacommons-admin==X.Y.Z`.
+  - Asserts `packages/datacommons-admin/pyproject.toml` locks `datacommons-db==X.Y.Z`.
   - Asserts `infra/dcp/variables.tf` defaults `dcp_version = "X.Y.Z"`.
   - **Remote Verification:** Asserts all 5 container images exist in GCR / Artifact Registry and the Dataflow Flex Template exists in GCS at tag `X.Y.Z`.
 * Runs `deploy/scripts/publish_packages.py --target pypi` to verify package resolution & imports in an isolated sandbox, then upload official wheels to **Official PyPI** in topological order.
