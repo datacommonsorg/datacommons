@@ -151,6 +151,18 @@ variable "redis_vpc_connector_cidr" {
   default     = "10.13.0.0/28"
 }
 
+variable "redis_vpc_connector_min_instances" {
+  description = "Minimum number of VPC Access Connector instances. Lower values reduce baseline cost."
+  type        = number
+  default     = 2
+}
+
+variable "redis_vpc_connector_max_instances" {
+  description = "Maximum number of VPC Access Connector instances."
+  type        = number
+  default     = 10
+}
+
 # =============================================================================
 # Spanner Module
 # =============================================================================
@@ -277,6 +289,18 @@ variable "datacommons_services_memory" {
   description = "Memory limit for the Data Commons services container"
   type        = string
   default     = "16G"
+}
+
+variable "datacommons_services_cpu_idle" {
+  description = "When true, CPU is only allocated during request processing (cheaper for low-traffic services). When false, CPU is always allocated (better performance, avoids cold starts within running instances)."
+  type        = bool
+  default     = false
+}
+
+variable "datacommons_services_startup_cpu_boost" {
+  description = "Temporarily boost CPU allocation during container startup to reduce cold start latency."
+  type        = bool
+  default     = true
 }
 
 variable "datacommons_services_allow_unauthenticated_access" {
@@ -428,6 +452,18 @@ variable "ingestion_helper_service_image" {
   default     = null
 }
 
+variable "ingestion_helper_service_cpu_idle" {
+  description = "When true, CPU is only allocated during request processing (cheaper for low-traffic services). When false, CPU is always allocated."
+  type        = bool
+  default     = null
+}
+
+variable "ingestion_helper_service_startup_cpu_boost" {
+  description = "Temporarily boost CPU allocation during container startup to reduce cold start latency."
+  type        = bool
+  default     = null
+}
+
 # =============================================================================
 # Ingestion - Dataflow Network Configuration
 # =============================================================================
@@ -497,6 +533,13 @@ check "ingestion_dataflow_workers_limits" {
   assert {
     condition     = var.ingestion_dataflow_max_workers >= var.ingestion_dataflow_num_workers
     error_message = "The ingestion_dataflow_max_workers must be greater than or equal to ingestion_dataflow_num_workers."
+  }
+}
+
+check "redis_vpc_connector_instances_limits" {
+  assert {
+    condition     = var.redis_vpc_connector_max_instances >= var.redis_vpc_connector_min_instances
+    error_message = "The redis_vpc_connector_max_instances must be greater than or equal to redis_vpc_connector_min_instances."
   }
 }
 
