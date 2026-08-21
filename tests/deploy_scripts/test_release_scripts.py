@@ -62,11 +62,23 @@ def mock_monorepo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     pkgs_dir = tmp_path / "packages"
     pkgs_dir.mkdir()
 
+    # datacommons-db
+    db_dir = pkgs_dir / "datacommons-db"
+    db_dir.mkdir()
+    (db_dir / "pyproject.toml").write_text(
+        '[project]\nname = "datacommons-db"\nversion = "1.0.0"\n'
+    )
+    (db_dir / "VERSION").write_text("1.0.0\n")
+
     # datacommons-admin
     admin_dir = pkgs_dir / "datacommons-admin"
     admin_dir.mkdir()
     (admin_dir / "pyproject.toml").write_text(
-        '[project]\nname = "datacommons-admin"\nversion = "1.0.0"\n'
+        "[project]\n"
+        'name = "datacommons-admin"\n'
+        "dependencies = [\n"
+        '  "datacommons-db",\n'
+        "]\n"
     )
     (admin_dir / "VERSION").write_text("1.0.0\n")
 
@@ -125,6 +137,9 @@ class TestApplyVersionBump:
         assert (mock_monorepo / "VERSION").read_text().strip() == expected_version
 
         # 2. Subpackage VERSION files
+        assert (
+            mock_monorepo / "packages/datacommons-db/VERSION"
+        ).read_text().strip() == expected_version
         assert (
             mock_monorepo / "packages/datacommons-admin/VERSION"
         ).read_text().strip() == expected_version
@@ -393,8 +408,8 @@ class TestPublishPackages:
 
         // Situation: publish_packages runs with --target pypi and valid auth token.
         // Expectation:
-        //   1. datacommons-admin is built and published strictly before
-        datacommons-cli.
+        //   1. datacommons-db is built and published strictly before datacommons-admin,
+        //      which is published before datacommons-cli.
         //   2. UV_PUBLISH_TOKEN is passed in env; --token is NEVER in argv.
         """
         monkeypatch.setenv("PYPI_SECRET", "super-secret-token")
@@ -410,25 +425,34 @@ class TestPublishPackages:
             target="pypi", token_env="PYPI_SECRET", dry_run=False
         )
 
-        # Verify exact sequence: build admin -> publish admin -> build cli -> publish cli
-        assert len(executed_calls) == 4
+        # Verify exact sequence: build db -> publish db -> build admin -> publish admin -> build cli -> publish cli
+        assert len(executed_calls) == 6
 
-        # Step 1: Build admin
+        # Step 1: Build DB
         assert executed_calls[0]["cmd"] == ["uv", "build", "--out-dir", "dist"]
-        assert executed_calls[0]["cwd"] == mock_monorepo / "packages/datacommons-admin"
+        assert executed_calls[0]["cwd"] == mock_monorepo / "packages/datacommons-db"
 
-        # Step 2: Publish admin (assert token security)
+        # Step 2: Publish DB (assert token security)
         assert executed_calls[1]["cmd"] == ["uv", "publish"]
         assert "--token" not in executed_calls[1]["cmd"]
         assert executed_calls[1]["env"]["UV_PUBLISH_TOKEN"] == "super-secret-token"
 
-        # Step 3: Build CLI
+        # Step 3: Build Admin
         assert executed_calls[2]["cmd"] == ["uv", "build", "--out-dir", "dist"]
-        assert executed_calls[2]["cwd"] == mock_monorepo / "packages/datacommons-cli"
+        assert executed_calls[2]["cwd"] == mock_monorepo / "packages/datacommons-admin"
 
-        # Step 4: Publish CLI
+        # Step 4: Publish Admin (assert token security)
         assert executed_calls[3]["cmd"] == ["uv", "publish"]
+        assert "--token" not in executed_calls[3]["cmd"]
         assert executed_calls[3]["env"]["UV_PUBLISH_TOKEN"] == "super-secret-token"
+
+        # Step 5: Build CLI
+        assert executed_calls[4]["cmd"] == ["uv", "build", "--out-dir", "dist"]
+        assert executed_calls[4]["cwd"] == mock_monorepo / "packages/datacommons-cli"
+
+        # Step 6: Publish CLI
+        assert executed_calls[5]["cmd"] == ["uv", "publish"]
+        assert executed_calls[5]["env"]["UV_PUBLISH_TOKEN"] == "super-secret-token"
 
     def test_publish_packages_testpypi_url_flag(
         self, mock_monorepo: Path, monkeypatch: pytest.MonkeyPatch
@@ -453,7 +477,7 @@ class TestPublishPackages:
         )
 
         publish_cmds = [cmd for cmd in executed_cmds if cmd[0:2] == ["uv", "publish"]]
-        assert len(publish_cmds) == 2
+        assert len(publish_cmds) == 3
         for cmd in publish_cmds:
             assert cmd == [
                 "uv",
@@ -480,7 +504,7 @@ class TestPublishPackages:
 
         publisher.publish_packages(target="pypi", token_env=None, dry_run=True)
 
-        assert len(executed_cmds) == 2
+        assert len(executed_cmds) == 3
         assert all(cmd == ["uv", "build", "--out-dir", "dist"] for cmd in executed_cmds)
 
     @pytest.mark.parametrize(
@@ -523,6 +547,10 @@ class TestPublishPackages:
         // Situation: Stale dist/ and build/ directories exist before building.
         // Expectation: Stale directories are deleted before uv build is called.
         """
+        db_dist = mock_monorepo / "packages/datacommons-db/dist"
+        db_dist.mkdir()
+        (db_dist / "stale_db.whl").touch()
+
         admin_dist = mock_monorepo / "packages/datacommons-admin/dist"
         admin_dist.mkdir()
         (admin_dist / "stale.whl").touch()
@@ -533,22 +561,55 @@ class TestPublishPackages:
 
         publisher.publish_packages(target="pypi", token_env=None, dry_run=True)
 
+        assert not (db_dist / "stale_db.whl").exists()
         assert not (admin_dist / "stale.whl").exists()
+
+    def test_publish_packages_dynamically_pins_dependencies_and_restores(
+        self, mock_monorepo: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """// Test: test_publish_packages_dynamically_pins_dependencies_and_restores
+
+        // Situation: datacommons-admin has unpinned datacommons-db in pyproject.toml.
+        // Expectation: During uv build, pyproject.toml is temporarily modified to lock
+        // datacommons-db==VERSION, and afterwards restored to its unpinned state.
+        """
+        captured_tomls: dict[str, str] = {}
+
+        def mock_subprocess_run(cmd, cwd=None, **kwargs):
+            if cmd == ["uv", "build", "--out-dir", "dist"]:
+                toml = (cwd / "pyproject.toml").read_text()
+                captured_tomls[cwd.name] = toml
+            return MagicMock(returncode=0)
+
+        monkeypatch.setattr(subprocess, "run", mock_subprocess_run)
+
+        admin_toml = mock_monorepo / "packages/datacommons-admin/pyproject.toml"
+        assert '"datacommons-db"' in admin_toml.read_text()
+        assert '"datacommons-db==' not in admin_toml.read_text()
+
+        publisher.publish_packages(target="pypi", token_env=None, dry_run=True)
+
+        # During build, admin toml had datacommons-db==1.0.0
+        assert '"datacommons-db==1.0.0"' in captured_tomls["datacommons-admin"]
+
+        # After build, admin toml in filesystem is restored to unpinned state
+        assert '"datacommons-db"' in admin_toml.read_text()
+        assert '"datacommons-db==' not in admin_toml.read_text()
 
     def test_publish_packages_build_failure_aborts_immediately(
         self, mock_monorepo: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """// Test: test_publish_packages_build_failure_aborts_immediately
 
-        // Situation: uv build fails on datacommons-admin.
-        // Expectation: Subprocess error is raised immediately and second package is
-        never processed.
+        // Situation: uv build fails on datacommons-db.
+        // Expectation: Subprocess error is raised immediately and subsequent packages
+        are never processed.
         """
         calls = []
 
         def failing_run(cmd, cwd=None, **kwargs):
             calls.append(cwd.name)
-            if "admin" in cwd.name:
+            if "db" in cwd.name:
                 raise subprocess.CalledProcessError(1, cmd)
             return MagicMock(returncode=0)
 
@@ -557,7 +618,7 @@ class TestPublishPackages:
         with pytest.raises(subprocess.CalledProcessError):
             publisher.publish_packages(target="pypi", token_env=None, dry_run=True)
 
-        assert calls == ["datacommons-admin"]
+        assert calls == ["datacommons-db"]
 
 
 # ==============================================================================

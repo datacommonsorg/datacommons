@@ -144,12 +144,12 @@ def validate_release_version(
         m = re.search(r'["\']datacommons-admin\s*==\s*([^"\']+)["\']', toml_content)
         if not m:
             errors.append(
-                f"packages/datacommons-cli/pyproject.toml does not lock"
+                "packages/datacommons-cli/pyproject.toml does not lock"
                 f" datacommons-admin=={target_version}."
             )
         elif m.group(1) != target_version:
             errors.append(
-                f"packages/datacommons-cli/pyproject.toml locks datacommons-admin to"
+                "packages/datacommons-cli/pyproject.toml locks datacommons-admin to"
                 f" '{m.group(1)}' instead of target '{target_version}'."
             )
         else:

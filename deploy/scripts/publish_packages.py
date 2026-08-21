@@ -21,8 +21,9 @@ PURPOSE:
 
 SINGLE SOURCE OF TRUTH:
   PUBLISHED_PACKAGES defines the authoritative list and build order for public
-  distribution. datacommons-admin MUST be published before datacommons-cli
-  due to the lockstep dependency pin (datacommons-admin==VERSION).
+  distribution. datacommons-db MUST be published before datacommons-admin,
+  and datacommons-admin MUST be published before datacommons-cli due to
+  lockstep dependency pins (datacommons-db==VERSION, datacommons-admin==VERSION).
 
 USAGE:
   python3 deploy/scripts/publish_packages.py --target <pypi|testpypi> --token-env <ENV_VAR_NAME>
@@ -40,6 +41,7 @@ USAGE:
 
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -48,8 +50,10 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # SINGLE SOURCE OF TRUTH: Authoritative list and order of packages for distribution.
-# datacommons-admin MUST be published before datacommons-cli.
+# datacommons-db MUST be published before datacommons-admin, and datacommons-admin
+# MUST be published before datacommons-cli.
 PUBLISHED_PACKAGES = [
+    "datacommons-db",
     "datacommons-admin",
     "datacommons-cli",
 ]
@@ -104,11 +108,37 @@ def publish_packages(
                 shutil.rmtree(egg_info)
 
         # 2. Build distribution wheel and sdist with uv
-        subprocess.run(
-            ["uv", "build", "--out-dir", "dist"],
-            cwd=pkg_dir,
-            check=True,
+        # Dynamically pin dependencies on internal packages to the release version
+        # during build, then restore pyproject.toml to avoid hardcoding in git.
+        pyproject_file = pkg_dir / "pyproject.toml"
+        version_file = pkg_dir / "VERSION"
+        pkg_version = (
+            version_file.read_text().strip()
+            if version_file.is_file()
+            else (REPO_ROOT / "VERSION").read_text().strip()
         )
+        original_toml = pyproject_file.read_text()
+        try:
+            modified_toml = original_toml
+            for dep_pkg in PUBLISHED_PACKAGES:
+                if dep_pkg != pkg_name:
+                    modified_toml = re.sub(
+                        rf'"{re.escape(dep_pkg)}(?:\s*[=><~][^"]*)?"',
+                        f'"{dep_pkg}=={pkg_version}"',
+                        modified_toml,
+                    )
+            if modified_toml != original_toml:
+                pyproject_file.write_text(modified_toml)
+
+            subprocess.run(
+                ["uv", "build", "--out-dir", "dist"],
+                cwd=pkg_dir,
+                check=True,
+            )
+        finally:
+            if pyproject_file.read_text() != original_toml:
+                pyproject_file.write_text(original_toml)
+
         print(f"[{pkg_name}] Build completed successfully.")
 
         # 3. Publish to PyPI / TestPyPI

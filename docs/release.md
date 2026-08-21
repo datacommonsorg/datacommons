@@ -24,7 +24,7 @@ The release process follows three sequential stages:
    - **Action:** Create and publish a GitHub Release with tag `vX.Y.Z` on `main`. The [Cloud Build trigger `dcp-production-deployment`](https://console.cloud.google.com/cloud-build/triggers/edit/da2c3b51-0f87-44c5-a125-6024b4436bbb?project=datcom-ci) in `datcom-ci` automatically runs [`deploy/release.yaml`](../deploy/release.yaml), validates that committed files and remote release artifacts exist for `X.Y.Z`, and publishes official wheels to **PyPI**.
 
 > [!IMPORTANT]
-> **Package Build & Distribution Order:** Public packages are built and published in strict topological dependency order via [`deploy/scripts/publish_packages.py`](../deploy/scripts/publish_packages.py) (`datacommons-admin` before `datacommons-cli`), satisfying the `datacommons-admin==VERSION` requirement on PyPI and TestPyPI.
+> **Package Build & Distribution Order:** Public packages are built and published in strict topological dependency order via [`deploy/scripts/publish_packages.py`](../deploy/scripts/publish_packages.py) (`datacommons-db` -> `datacommons-admin` -> `datacommons-cli`), satisfying the `datacommons-db==VERSION` and `datacommons-admin==VERSION` requirements on PyPI and TestPyPI.
 
 ---
 
@@ -125,7 +125,7 @@ gcloud builds submit \
 * Runs `deploy/scripts/validate_release_version.py "vX.Y.Z" --check-remote-artifacts` to perform **strict pre-publish validation**:
   - Asserts root `VERSION == X.Y.Z`.
   - Asserts all `packages/*/VERSION == X.Y.Z`.
-  - Asserts `datacommons-cli/pyproject.toml` locks `datacommons-admin==X.Y.Z`.
+  - Asserts `packages/datacommons-cli/pyproject.toml` locks `datacommons-admin==X.Y.Z`.
   - Asserts `infra/dcp/variables.tf` defaults `dcp_version = "X.Y.Z"`.
   - **Remote Verification:** Asserts all 5 container images exist in GCR / Artifact Registry and the Dataflow Flex Template exists in GCS at tag `X.Y.Z`.
 * Runs `deploy/scripts/publish_packages.py --target pypi` to build and upload wheels to **Official PyPI** in topological order.
@@ -144,7 +144,7 @@ gcloud builds submit \
   datacommons --version
   # Output: Data Commons CLI vX.Y.Z
   ```
-- [ ] **Lockstep Dependency Check:** Run `pip list | grep datacommons` to confirm `datacommons-cli` and `datacommons-admin` are both at `X.Y.Z`.
+- [ ] **Lockstep Dependency Check:** Run `pip list | grep datacommons` to confirm `datacommons-cli`, `datacommons-admin`, and `datacommons-db` are all at `X.Y.Z`.
 
 ---
 
