@@ -63,11 +63,23 @@ def mock_monorepo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     pkgs_dir = tmp_path / "packages"
     pkgs_dir.mkdir()
 
+    # datacommons-db
+    db_dir = pkgs_dir / "datacommons-db"
+    db_dir.mkdir()
+    (db_dir / "pyproject.toml").write_text(
+        '[project]\nname = "datacommons-db"\nversion = "1.0.0"\n'
+    )
+    (db_dir / "VERSION").write_text("1.0.0\n")
+
     # datacommons-admin
     admin_dir = pkgs_dir / "datacommons-admin"
     admin_dir.mkdir()
     (admin_dir / "pyproject.toml").write_text(
-        '[project]\nname = "datacommons-admin"\nversion = "1.0.0"\n'
+        "[project]\n"
+        'name = "datacommons-admin"\n'
+        "dependencies = [\n"
+        '  "datacommons-db==1.0.0",\n'
+        "]\n"
     )
     (admin_dir / "VERSION").write_text("1.0.0\n")
 
@@ -127,6 +139,9 @@ class TestApplyVersionBump:
 
         # 2. Subpackage VERSION files
         assert (
+            mock_monorepo / "packages/datacommons-db/VERSION"
+        ).read_text().strip() == expected_version
+        assert (
             mock_monorepo / "packages/datacommons-admin/VERSION"
         ).read_text().strip() == expected_version
         assert (
@@ -137,7 +152,12 @@ class TestApplyVersionBump:
         tf_content = (mock_monorepo / "infra/dcp/variables.tf").read_text()
         assert f'default     = "{expected_version}"' in tf_content
 
-        # 4. datacommons-cli pyproject.toml
+        # 4. Lockstep subpackage dependencies
+        admin_toml = (
+            mock_monorepo / "packages/datacommons-admin/pyproject.toml"
+        ).read_text()
+        assert f'"datacommons-db=={expected_version}"' in admin_toml
+
         cli_toml = (
             mock_monorepo / "packages/datacommons-cli/pyproject.toml"
         ).read_text()
@@ -202,6 +222,22 @@ class TestApplyVersionBump:
             bumper.apply_version_bump("1.2.3")
         assert "datacommons-admin dependency not found" in str(exc_info.value)
 
+    def test_apply_version_bump_missing_db_dep_aborts(
+        self, mock_monorepo: Path
+    ) -> None:
+        """// Test: test_apply_version_bump_missing_db_dep_aborts
+
+        // Situation: datacommons-admin pyproject.toml is missing datacommons-db
+        dependency.
+        // Expectation: Script calls sys.exit with specific error message.
+        """
+        (mock_monorepo / "packages/datacommons-admin/pyproject.toml").write_text(
+            '[project]\nname = "datacommons-admin"\ndependencies = ["click"]\n'
+        )
+        with pytest.raises(SystemExit) as exc_info:
+            bumper.apply_version_bump("1.2.3")
+        assert "datacommons-db dependency not found" in str(exc_info.value)
+
 
 # ==============================================================================
 # Suite 2: validate_release_version.py
@@ -240,26 +276,34 @@ class TestValidateReleaseVersion:
         ) or "Target version cannot be empty" in str(exc_info.value)
 
     @pytest.mark.parametrize(
-        "mismatched_dep",
+        ("manifest_path", "mismatched_dep"),
         [
-            '"datacommons-admin==1.0.00"',
-            '"datacommons-admin==1.0.0rc1"',
-            '"datacommons-admin>=1.0.0"',
-            '"datacommons-admin~=1.0.0"',
-            '"datacommons-admin"',
+            ("packages/datacommons-cli/pyproject.toml", '"datacommons-admin==1.0.00"'),
+            (
+                "packages/datacommons-cli/pyproject.toml",
+                '"datacommons-admin==1.0.0rc1"',
+            ),
+            ("packages/datacommons-cli/pyproject.toml", '"datacommons-admin>=1.0.0"'),
+            ("packages/datacommons-cli/pyproject.toml", '"datacommons-admin~=1.0.0"'),
+            ("packages/datacommons-cli/pyproject.toml", '"datacommons-admin"'),
+            ("packages/datacommons-admin/pyproject.toml", '"datacommons-db==1.0.00"'),
+            ("packages/datacommons-admin/pyproject.toml", '"datacommons-db==1.0.0rc1"'),
+            ("packages/datacommons-admin/pyproject.toml", '"datacommons-db>=1.0.0"'),
+            ("packages/datacommons-admin/pyproject.toml", '"datacommons-db~=1.0.0"'),
+            ("packages/datacommons-admin/pyproject.toml", '"datacommons-db"'),
         ],
     )
     def test_validate_release_version_catches_dependency_mismatches(
-        self, mock_monorepo: Path, mismatched_dep: str
+        self, mock_monorepo: Path, manifest_path: str, mismatched_dep: str
     ) -> None:
         """// Test: test_validate_release_version_catches_dependency_mismatches
 
-        // Situation: datacommons-cli pyproject.toml locks a loose or mismatched
-        version.
+        // Situation: Subpackage pyproject.toml locks a loose or mismatched version.
         // Expectation: validate_release_version aborts with exit code 1.
         """
-        (mock_monorepo / "packages/datacommons-cli/pyproject.toml").write_text(
-            f'[project]\nname = "datacommons-cli"\ndependencies = [{mismatched_dep}]\n'
+        pkg_name = Path(manifest_path).parent.name
+        (mock_monorepo / manifest_path).write_text(
+            f'[project]\nname = "{pkg_name}"\ndependencies = [{mismatched_dep}]\n'
         )
         with pytest.raises(SystemExit) as exc_info:
             validator.validate_release_version("1.0.0")
@@ -394,9 +438,9 @@ class TestPublishPackages:
 
         // Situation: publish_packages runs with --target pypi and valid auth token.
         // Expectation:
-        //   1. All packages are built into tmp_dist_dir.
+        //   1. All packages (db, admin, cli) are built into tmp_dist_dir.
         //   2. Clean-room verification runs (venv, install, import, cli).
-        //   3. Packages are published strictly in topological order (admin before cli).
+        //   3. Packages are published strictly in topological order (db -> admin -> cli).
         //   4. UV_PUBLISH_TOKEN is passed in env; --token is NEVER in argv.
         """
         monkeypatch.setenv("PYPI_SECRET", "super-secret-token")
@@ -426,11 +470,12 @@ class TestPublishPackages:
             target="pypi", token_env="PYPI_SECRET", dry_run=False
         )
 
-        # 1. Verify build calls
+        # 1. Verify build calls (all 3 packages)
         build_calls = [c for c in executed_calls if c["cmd"][:2] == ["uv", "build"]]
-        assert len(build_calls) == 2
-        assert build_calls[0]["cwd"] == mock_monorepo / "packages/datacommons-admin"
-        assert build_calls[1]["cwd"] == mock_monorepo / "packages/datacommons-cli"
+        assert len(build_calls) == 3
+        assert build_calls[0]["cwd"] == mock_monorepo / "packages/datacommons-db"
+        assert build_calls[1]["cwd"] == mock_monorepo / "packages/datacommons-admin"
+        assert build_calls[2]["cwd"] == mock_monorepo / "packages/datacommons-cli"
 
         # 2. Verify venv creation
         venv_calls = [c for c in executed_calls if c["cmd"][:2] == ["uv", "venv"]]
@@ -441,6 +486,7 @@ class TestPublishPackages:
             c for c in executed_calls if c["cmd"][:3] == ["uv", "pip", "install"]
         ]
         assert len(install_calls) == 1
+        assert any("datacommons_db" in arg for arg in install_calls[0]["cmd"])
         assert any("datacommons_admin" in arg for arg in install_calls[0]["cmd"])
         assert any("datacommons_cli" in arg for arg in install_calls[0]["cmd"])
         assert "--find-links" in install_calls[0]["cmd"]
@@ -451,7 +497,7 @@ class TestPublishPackages:
         ]
         assert len(import_calls) == 1
         assert (
-            "import datacommons_admin; import datacommons_cli"
+            "import datacommons_db; import datacommons_admin; import datacommons_cli"
             in import_calls[0]["cmd"][-1]
         )
 
@@ -465,9 +511,10 @@ class TestPublishPackages:
 
         # 6. Verify topological publish calls and masked token
         publish_calls = [c for c in executed_calls if c["cmd"][:2] == ["uv", "publish"]]
-        assert len(publish_calls) == 2
-        assert "datacommons_admin" in publish_calls[0]["cmd"][-1]
-        assert "datacommons_cli" in publish_calls[1]["cmd"][-1]
+        assert len(publish_calls) == 3
+        assert "datacommons_db" in publish_calls[0]["cmd"][-1]
+        assert "datacommons_admin" in publish_calls[1]["cmd"][-1]
+        assert "datacommons_cli" in publish_calls[2]["cmd"][-1]
         for p_call in publish_calls:
             assert "--token" not in p_call["cmd"]
             assert p_call["env"]["UV_PUBLISH_TOKEN"] == "super-secret-token"
@@ -508,7 +555,7 @@ class TestPublishPackages:
         )
 
         publish_cmds = [cmd for cmd in executed_cmds if cmd[:2] == ["uv", "publish"]]
-        assert len(publish_cmds) == 2
+        assert len(publish_cmds) == 3
         for cmd in publish_cmds:
             assert "--publish-url" in cmd
             assert "https://test.pypi.org/legacy/" in cmd

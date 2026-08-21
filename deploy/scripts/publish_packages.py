@@ -21,8 +21,9 @@ PURPOSE:
 
 SINGLE SOURCE OF TRUTH:
   PUBLISHED_PACKAGES defines the authoritative list and build order for public
-  distribution. datacommons-admin MUST be published before datacommons-cli
-  due to the lockstep dependency pin (datacommons-admin==VERSION).
+  distribution. datacommons-db MUST be published before datacommons-admin,
+  and datacommons-admin MUST be published before datacommons-cli due to
+  lockstep dependency pins (datacommons-db==VERSION, datacommons-admin==VERSION).
 
 USAGE:
   python3 deploy/scripts/publish_packages.py --target <pypi|testpypi> --token-env <ENV_VAR_NAME>
@@ -48,8 +49,10 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # SINGLE SOURCE OF TRUTH: Authoritative list and order of packages for distribution.
-# datacommons-admin MUST be published before datacommons-cli.
+# datacommons-db MUST be published before datacommons-admin, and datacommons-admin
+# MUST be published before datacommons-cli.
 PUBLISHED_PACKAGES = [
+    "datacommons-db",
     "datacommons-admin",
     "datacommons-cli",
 ]

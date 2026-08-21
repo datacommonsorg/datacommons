@@ -57,6 +57,11 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # Synchronized with apply_version_bump.py.
 VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+(?:(?:a|b|rc)\d+)?(?:\.dev\d+)?$")
 
+LOCKSTEP_DEPENDENCIES = [
+    ("packages/datacommons-admin/pyproject.toml", "datacommons-db"),
+    ("packages/datacommons-cli/pyproject.toml", "datacommons-admin"),
+]
+
 # Registry mappings for remote artifact verification
 ARTIFACT_IMAGE_MAP = {
     "services": "gcr.io/datcom-ci/datacommons-services",
@@ -135,28 +140,27 @@ def validate_release_version(
                 else:
                     print(f"  [OK] {rel_path}: {pkg_v}")
 
-    # 3. Validate datacommons-cli pyproject.toml lockstep dependency pin
-    cli_toml = REPO_ROOT / "packages/datacommons-cli/pyproject.toml"
-    if not cli_toml.exists():
-        errors.append("packages/datacommons-cli/pyproject.toml does not exist.")
-    else:
-        toml_content = cli_toml.read_text()
-        m = re.search(r'["\']datacommons-admin\s*==\s*([^"\']+)["\']', toml_content)
+    # 3. Validate lockstep dependency pins in subpackages
+    for manifest_rel_path, dep_pkg in LOCKSTEP_DEPENDENCIES:
+        manifest_file = REPO_ROOT / manifest_rel_path
+        if not manifest_file.exists():
+            errors.append(f"{manifest_rel_path} does not exist.")
+            continue
+        content = manifest_file.read_text()
+        m = re.search(
+            rf'["\']{re.escape(dep_pkg)}\s*==\s*([^"\']+)["\']',
+            content,
+        )
         if not m:
             errors.append(
-                f"packages/datacommons-cli/pyproject.toml does not lock"
-                f" datacommons-admin=={target_version}."
+                f"{manifest_rel_path} does not lock {dep_pkg}=={target_version}."
             )
         elif m.group(1) != target_version:
             errors.append(
-                f"packages/datacommons-cli/pyproject.toml locks datacommons-admin to"
-                f" '{m.group(1)}' instead of target '{target_version}'."
+                f"{manifest_rel_path} locks {dep_pkg} to '{m.group(1)}' instead of target '{target_version}'."
             )
         else:
-            print(
-                f"  [OK] packages/datacommons-cli/pyproject.toml:"
-                f" datacommons-admin=={target_version}"
-            )
+            print(f"  [OK] {manifest_rel_path}: {dep_pkg}=={target_version}")
 
     # 4. Validate Terraform dcp_version default in infra/dcp/variables.tf
     tf_file = REPO_ROOT / "infra/dcp/variables.tf"
