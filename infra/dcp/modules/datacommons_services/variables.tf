@@ -70,6 +70,12 @@ variable "mcp_instructions_path" {
 }
 
 
+variable "enable_embeddings_generation" {
+  description = "Enable embedding generation and Vertex AI inference."
+  type        = bool
+  default     = true
+}
+
 variable "website_search_scope" {
   type        = string
   default     = ""

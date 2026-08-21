@@ -13,7 +13,7 @@ locals {
       "roles/workflows.invoker"
     ],
     var.use_spanner ? ["roles/spanner.databaseUser"] : [],
-    var.use_spanner ? ["roles/aiplatform.user"] : []
+    var.use_spanner && var.enable_embeddings_generation ? ["roles/aiplatform.user"] : []
   ))
 }
 
