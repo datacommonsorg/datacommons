@@ -402,7 +402,9 @@ class TestPublishPackages:
         monkeypatch.setenv("PYPI_SECRET", "super-secret-token")
         executed_calls: list[dict] = []
 
-        def mock_subprocess_run(cmd, cwd=None, env=None, capture_output=False, text=False, check=False):
+        def mock_subprocess_run(
+            cmd, cwd=None, env=None, capture_output=False, text=False, check=False
+        ):
             executed_calls.append({"cmd": cmd, "cwd": cwd, "env": env})
             # Simulate creating wheel artifacts when uv build is called
             if cmd[:2] == ["uv", "build"]:
@@ -435,19 +437,30 @@ class TestPublishPackages:
         assert len(venv_calls) == 1
 
         # 3. Verify pip install in sandbox
-        install_calls = [c for c in executed_calls if c["cmd"][:3] == ["uv", "pip", "install"]]
+        install_calls = [
+            c for c in executed_calls if c["cmd"][:3] == ["uv", "pip", "install"]
+        ]
         assert len(install_calls) == 1
         assert any("datacommons_admin" in arg for arg in install_calls[0]["cmd"])
         assert any("datacommons_cli" in arg for arg in install_calls[0]["cmd"])
         assert "--find-links" in install_calls[0]["cmd"]
 
         # 4. Verify module import test
-        import_calls = [c for c in executed_calls if "-c" in c["cmd"] and "import" in c["cmd"][-1]]
+        import_calls = [
+            c for c in executed_calls if "-c" in c["cmd"] and "import" in c["cmd"][-1]
+        ]
         assert len(import_calls) == 1
-        assert "import datacommons_admin; import datacommons_cli" in import_calls[0]["cmd"][-1]
+        assert (
+            "import datacommons_admin; import datacommons_cli"
+            in import_calls[0]["cmd"][-1]
+        )
 
         # 5. Verify CLI entrypoint checks
-        cli_calls = [c for c in executed_calls if Path(c["cmd"][0]).name.startswith("datacommons")]
+        cli_calls = [
+            c
+            for c in executed_calls
+            if Path(c["cmd"][0]).name.startswith("datacommons")
+        ]
         assert len(cli_calls) == 3  # --version, --help, admin --help
 
         # 6. Verify topological publish calls and masked token
@@ -471,7 +484,9 @@ class TestPublishPackages:
         monkeypatch.setenv("TEST_PYPI_TOKEN", "mock-test-token")
         executed_cmds: list[list[str]] = []
 
-        def mock_subprocess_run(cmd, cwd=None, env=None, capture_output=False, text=False, check=False):
+        def mock_subprocess_run(
+            cmd, cwd=None, env=None, capture_output=False, text=False, check=False
+        ):
             executed_cmds.append(cmd)
             if cmd[:2] == ["uv", "build"]:
                 out_dir = Path(cmd[cmd.index("--out-dir") + 1])
@@ -499,7 +514,10 @@ class TestPublishPackages:
             assert "https://test.pypi.org/legacy/" in cmd
 
     def test_publish_packages_dry_run_skips_uploads(
-        self, mock_monorepo: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+        self,
+        mock_monorepo: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture,
     ) -> None:
         """// Test: test_publish_packages_dry_run_skips_uploads
 
@@ -508,7 +526,9 @@ class TestPublishPackages:
         """
         executed_cmds: list[list[str]] = []
 
-        def mock_subprocess_run(cmd, cwd=None, env=None, capture_output=False, text=False, check=False):
+        def mock_subprocess_run(
+            cmd, cwd=None, env=None, capture_output=False, text=False, check=False
+        ):
             executed_cmds.append(cmd)
             if cmd[:2] == ["uv", "build"]:
                 out_dir = Path(cmd[cmd.index("--out-dir") + 1])
@@ -531,7 +551,9 @@ class TestPublishPackages:
         assert len(publish_cmds) == 0
         captured = capsys.readouterr().out
         assert "[DRY RUN - VERIFY ONLY]" in captured
-        assert "Clean-room pre-publish verification succeeded for all packages" in captured
+        assert (
+            "Clean-room pre-publish verification succeeded for all packages" in captured
+        )
 
     @pytest.mark.parametrize(
         ("token_env_name", "env_dict", "expected_err"),
@@ -573,6 +595,7 @@ class TestPublishPackages:
         // Situation: uv build fails on datacommons-admin.
         // Expectation: Script aborts with exit code 1 and subsequent steps are skipped.
         """
+
         def failing_run(cmd, cwd=None, **kwargs):
             if cmd[:2] == ["uv", "build"] and Path(cwd).name == "datacommons-admin":
                 return MagicMock(returncode=1, stderr="Build syntax error")
@@ -586,13 +609,17 @@ class TestPublishPackages:
         assert exc_info.value.code == 1
 
     def test_publish_packages_install_failure_aborts(
-        self, mock_monorepo: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+        self,
+        mock_monorepo: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture,
     ) -> None:
         """// Test: test_publish_packages_install_failure_aborts
 
         // Situation: uv pip install in sandbox fails (e.g. missing dependency datacommons-db).
         // Expectation: Script aborts with exit code 1, prints diagnostic banner, and skips publish.
         """
+
         def failing_run(cmd, cwd=None, **kwargs):
             if cmd[:2] == ["uv", "build"]:
                 out_dir = Path(cmd[cmd.index("--out-dir") + 1])
@@ -604,7 +631,10 @@ class TestPublishPackages:
                 bin_dir.mkdir(parents=True, exist_ok=True)
                 (bin_dir / "python").touch()
             elif cmd[:3] == ["uv", "pip", "install"]:
-                return MagicMock(returncode=1, stderr="No matching distribution found for datacommons-db")
+                return MagicMock(
+                    returncode=1,
+                    stderr="No matching distribution found for datacommons-db",
+                )
             return MagicMock(returncode=0)
 
         monkeypatch.setattr(subprocess, "run", failing_run)
@@ -614,17 +644,24 @@ class TestPublishPackages:
 
         assert exc_info.value.code == 1
         captured = capsys.readouterr().out
-        assert "PRE-PUBLISH VERIFICATION FAILED: Dependency Resolution / Install Error" in captured
+        assert (
+            "PRE-PUBLISH VERIFICATION FAILED: Dependency Resolution / Install Error"
+            in captured
+        )
         assert "No matching distribution found for datacommons-db" in captured
 
     def test_publish_packages_import_failure_aborts(
-        self, mock_monorepo: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+        self,
+        mock_monorepo: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture,
     ) -> None:
         """// Test: test_publish_packages_import_failure_aborts
 
         // Situation: Module import fails in sandbox (e.g. missing schema.sql asset).
         // Expectation: Script aborts with exit code 1, prints diagnostic banner, and skips publish.
         """
+
         def failing_run(cmd, cwd=None, **kwargs):
             if cmd[:2] == ["uv", "build"]:
                 out_dir = Path(cmd[cmd.index("--out-dir") + 1])
@@ -636,7 +673,9 @@ class TestPublishPackages:
                 bin_dir.mkdir(parents=True, exist_ok=True)
                 (bin_dir / "python").touch()
             elif "-c" in cmd and "import" in cmd[-1]:
-                return MagicMock(returncode=1, stderr="FileNotFoundError: No such file 'schema.sql'")
+                return MagicMock(
+                    returncode=1, stderr="FileNotFoundError: No such file 'schema.sql'"
+                )
             return MagicMock(returncode=0)
 
         monkeypatch.setattr(subprocess, "run", failing_run)
@@ -646,17 +685,24 @@ class TestPublishPackages:
 
         assert exc_info.value.code == 1
         captured = capsys.readouterr().out
-        assert "PRE-PUBLISH VERIFICATION FAILED: Module Import / Runtime Asset Error" in captured
+        assert (
+            "PRE-PUBLISH VERIFICATION FAILED: Module Import / Runtime Asset Error"
+            in captured
+        )
         assert "FileNotFoundError" in captured
 
     def test_publish_packages_cli_smoke_failure_aborts(
-        self, mock_monorepo: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+        self,
+        mock_monorepo: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture,
     ) -> None:
         """// Test: test_publish_packages_cli_smoke_failure_aborts
 
         // Situation: CLI command crashes during smoke test.
         // Expectation: Script aborts with exit code 1, prints diagnostic banner, and skips publish.
         """
+
         def failing_run(cmd, cwd=None, **kwargs):
             if cmd[:2] == ["uv", "build"]:
                 out_dir = Path(cmd[cmd.index("--out-dir") + 1])
@@ -669,7 +715,10 @@ class TestPublishPackages:
                 (bin_dir / "python").touch()
                 (bin_dir / "datacommons").touch()
             elif Path(cmd[0]).name.startswith("datacommons") and "--version" in cmd:
-                return MagicMock(returncode=1, stderr="Traceback (most recent call last): RuntimeError: corrupted entrypoint")
+                return MagicMock(
+                    returncode=1,
+                    stderr="Traceback (most recent call last): RuntimeError: corrupted entrypoint",
+                )
             return MagicMock(returncode=0)
 
         monkeypatch.setattr(subprocess, "run", failing_run)
@@ -679,7 +728,47 @@ class TestPublishPackages:
 
         assert exc_info.value.code == 1
         captured = capsys.readouterr().out
-        assert "PRE-PUBLISH VERIFICATION FAILED: CLI command 'datacommons --version' crashed" in captured
+        assert (
+            "PRE-PUBLISH VERIFICATION FAILED: CLI command 'datacommons --version' crashed"
+            in captured
+        )
+
+    def test_publish_packages_missing_cli_binary_aborts(
+        self,
+        mock_monorepo: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture,
+    ) -> None:
+        """// Test: test_publish_packages_missing_cli_binary_aborts
+
+        // Situation: datacommons-cli is published but datacommons binary was not created.
+        // Expectation: Script aborts with exit code 1, prints diagnostic message, and skips publish.
+        """
+
+        def failing_run(cmd, cwd=None, **kwargs):
+            if cmd[:2] == ["uv", "build"]:
+                out_dir = Path(cmd[cmd.index("--out-dir") + 1])
+                pkg_name = Path(cwd).name.replace("-", "_")
+                (out_dir / f"{pkg_name}-1.0.0-py3-none-any.whl").touch()
+            elif cmd[:2] == ["uv", "venv"]:
+                venv_dir = Path(cmd[2])
+                bin_dir = venv_dir / ("Scripts" if sys.platform == "win32" else "bin")
+                bin_dir.mkdir(parents=True, exist_ok=True)
+                (bin_dir / "python").touch()
+                # Simulate datacommons binary missing (e.g. broken console_scripts)
+            return MagicMock(returncode=0)
+
+        monkeypatch.setattr(subprocess, "run", failing_run)
+
+        with pytest.raises(SystemExit) as exc_info:
+            publisher.publish_packages(target="pypi", token_env=None, dry_run=True)
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr().out
+        assert (
+            "PRE-PUBLISH VERIFICATION FAILED: CLI entrypoint 'datacommons' was not created"
+            in captured
+        )
 
 
 # ==============================================================================

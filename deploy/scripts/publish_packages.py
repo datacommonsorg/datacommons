@@ -134,7 +134,9 @@ def _verify_packages(tmp_dist_dir: Path, tmp_venv_dir: Path) -> None:
     )
     if install_res.returncode != 0:
         print("\n" + "=" * 72)
-        print("❌ PRE-PUBLISH VERIFICATION FAILED: Dependency Resolution / Install Error")
+        print(
+            "❌ PRE-PUBLISH VERIFICATION FAILED: Dependency Resolution / Install Error"
+        )
         print("=" * 72)
         print(install_res.stderr or install_res.stdout)
         print("\nAborting release. No packages were uploaded.")
@@ -163,8 +165,18 @@ def _verify_packages(tmp_dist_dir: Path, tmp_venv_dir: Path) -> None:
     print("  ✓ Module imports succeeded.")
 
     # Smoke Test Layer 2: CLI Console Scripts (for CLI packages)
-    cli_bin = _get_venv_bin(tmp_venv_dir, "datacommons")
-    if cli_bin.exists():
+    if "datacommons-cli" in PUBLISHED_PACKAGES:
+        cli_bin = _get_venv_bin(tmp_venv_dir, "datacommons")
+        if not cli_bin.exists():
+            print("\n" + "=" * 72)
+            print(
+                "❌ PRE-PUBLISH VERIFICATION FAILED: CLI entrypoint 'datacommons' was"
+                " not created during installation."
+            )
+            print("=" * 72)
+            print("\nAborting release. No packages were uploaded.")
+            sys.exit(1)
+
         print("  -> Testing CLI console scripts...")
         for cmd_args in [["--version"], ["--help"], ["admin", "--help"]]:
             cli_res = subprocess.run(
@@ -197,8 +209,9 @@ def _publish_wheels(tmp_dist_dir: Path, target: str, token: str) -> None:
     for pkg_name in PUBLISHED_PACKAGES:
         pkg_dist_name = pkg_name.replace("-", "_")
         artifacts = sorted(
-            list(tmp_dist_dir.glob(f"{pkg_dist_name}-*.whl"))
-            + list(tmp_dist_dir.glob(f"{pkg_dist_name}-*.tar.gz"))
+            set(tmp_dist_dir.glob(f"{pkg_dist_name}-*.whl"))
+            | set(tmp_dist_dir.glob(f"{pkg_dist_name}-*.tar.gz"))
+            | set(tmp_dist_dir.glob(f"{pkg_name}-*.tar.gz"))
         )
         if not artifacts:
             sys.exit(
