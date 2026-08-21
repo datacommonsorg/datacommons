@@ -52,7 +52,7 @@ variable "billing_project_id" {
 variable "dcp_version" {
   description = "The version of the Data Commons Platform to deploy. This controls the default tag for Docker images and template paths if specific overrides are not provided."
   type        = string
-  default     = "1.1.0"
+  default     = "1.1.2"
 }
 
 # =============================================================================
@@ -230,7 +230,7 @@ variable "spanner_bigquery_reservation_slot_capacity" {
 variable "spanner_bigquery_reservation_max_slots" {
   description = "Maximum slots for BigQuery reservation autoscaling"
   type        = number
-  default     = 400
+  default     = 100
 }
 
 # =============================================================================
@@ -479,6 +479,12 @@ variable "ingestion_dataflow_worker_machine_type" {
     condition     = length(var.ingestion_dataflow_worker_machine_type) > 0
     error_message = "The ingestion_dataflow_worker_machine_type must not be empty."
   }
+}
+
+variable "skip_container_restarts" {
+  description = "Set to true to skip updating container restart timestamps, speeding up terraform apply when container images have not changed."
+  type        = bool
+  default     = false
 }
 
 check "ingestion_dataflow_workers_limits" {

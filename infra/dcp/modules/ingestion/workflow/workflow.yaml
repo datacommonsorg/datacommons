@@ -150,7 +150,7 @@ main:
           steps:
             - handle_lock_busy:
                 switch:
-                  - condition: '$${default(map.get(e, "code"), 0) == 400 and lock_retries < max_lock_retries}'
+                  - condition: '$${default(map.get(e, "code"), 0) == 503 and lock_retries < max_lock_retries}'
                     next: increment_retries_and_wait
             - unhandled_error:
                 raise: $${e}
@@ -393,7 +393,8 @@ run_postprocessing_job:
                     - "--import_list"
                     - '$${json.encode_to_string(import_list)}'
                     - '$${if(generate_stat_var_groups, "--generate_stat_var_groups", "--no-generate_stat_var_groups")}'
-                    - "--no-dry_run" 
+                    - "--generate_topic_list_edges"
+                    - "--no-dry_run"
         result: run_res
     - call_poll_postprocessing:
         call: poll_cloud_run_job_execution
