@@ -69,8 +69,11 @@ variable "mcp_instructions_path" {
   default     = null
 }
 
-variable "resolve_with_spanner_embeddings" {
-  type = bool
+
+variable "enable_embeddings_generation" {
+  description = "Enable embedding generation and Vertex AI inference."
+  type        = bool
+  default     = true
 }
 
 variable "website_search_scope" {

@@ -1,6 +1,6 @@
 # This file overrides Mixer feature flags for local integration tests.
 # It is mounted as '/workspace/deploy/featureflags/custom.yaml' inside the website container,
-# which gets activated when RESOLVE_WITH_SPANNER_EMBEDDINGS=true is set in the environment.
+# which overrides canonical feature flags when running local docker-compose tests.
 #
 # Doing this enables testing the new schema layout without changing production website code.
 flags:
