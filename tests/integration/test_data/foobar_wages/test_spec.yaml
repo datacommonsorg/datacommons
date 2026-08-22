@@ -1,0 +1,83 @@
+name: "foobar_wages"
+description: "FooBar average annual wages and gender wage gap statistical dataset"
+
+stages:
+  ingestion: true
+  postprocessing: true
+  serving_api: true
+  mcp_agent: true
+  sdmx: true
+
+ingestion:
+  dataset_dirs:
+    - "tests/integration/test_data/foobar_wages"
+  spanner_expectations:
+    exact_observation_count: 1242
+    expected_nodes:
+      - subject_id: "FooBarWages"
+        expected_types: ["Provenance"]
+      - subject_id: "average_annual_wage"
+        expected_types: ["StatisticalVariable"]
+      - subject_id: "gender_wage_gap"
+        expected_types: ["StatisticalVariable"]
+      - subject_id: "FooBarGroup"
+        expected_types: ["StatVarGroup"]
+    expected_edges:
+      - subject_id: "FooBarGroup"
+        predicate: "specializationOf"
+        object_id: "dc/g/Root"
+      - subject_id: "average_annual_wage"
+        predicate: "memberOf"
+        object_id: "FooBarGroup"
+      - subject_id: "gender_wage_gap"
+        predicate: "memberOf"
+        object_id: "FooBarGroup"
+
+postprocessing:
+  svg_hierarchy:
+    expected_specialization_edges:
+      - subject_id: "FooBarGroup"
+        parent_svg: "dc/g/Root"
+  indicator_resolutions:
+    - query: "wages"
+      target: "custom_only"
+      expected_candidate_dcids: ["average_annual_wage", "gender_wage_gap"]
+
+serving_api:
+  nodes:
+    - node_dcid: "average_annual_wage"
+      expression: "->name"
+      expected_values: ["Average annual wage"]
+
+  point_observations:
+    - observation_about: ["country/USA", "country/CAN"]
+      variables: ["average_annual_wage"]
+      date: "LATEST"
+      expected_places_with_data: ["country/USA", "country/CAN"]
+
+  series_observations:
+    - observation_about: ["country/USA", "country/CAN", "country/FRA"]
+      variables: ["gender_wage_gap"]
+      min_series_length: 5
+
+  sdmx_3_0:
+    data_queries:
+      - dataflow: "DC/DF_OBS/1.0.0/*"
+        constraints:
+          variableMeasured: "average_annual_wage"
+          observationAbout: "country/USA"
+          TIME_PERIOD: "LATEST"
+        format: "csv"
+        expected_csv_contains: ["variableMeasured", "average_annual_wage", "country/USA"]
+    availability_queries:
+      - dataflow: "DC/DF_OBS/1.0.0/*/provenance"
+        constraints:
+          variableMeasured: "average_annual_wage"
+        expected_provenance: "FooBarWages"
+
+mcp_agent:
+  tool_calls:
+    - tool_name: "search_indicators"
+      arguments:
+        query: "wages"
+      expected_match_dcids: ["average_annual_wage"]
