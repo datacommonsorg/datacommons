@@ -195,7 +195,7 @@ auth_google_datacommons_api_key     = "{dc_api_key}"
                     "pip",
                     "install",
                     "--force-reinstall",
-                    "git+https://github.com/gmechali/datacommons_platform.git@main#subdirectory=packages/datacommons-cli",
+                    "git+https://github.com/datacommonsorg/datacommons_platform.git@main#subdirectory=packages/datacommons-cli",
                 ],
                 cwd=workspace_dir,
                 max_attempts=2,

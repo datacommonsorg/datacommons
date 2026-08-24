@@ -63,32 +63,18 @@ def main():
 
     # 1. Clean GCS Buckets
     print("\n==> 1. Checking GCS Buckets...")
-    buckets_output = subprocess.run(
-        [
-            "gcloud",
-            "storage",
-            "buckets",
-            "list",
-            f"--project={PROJECT}",
-            "--format=json",
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if buckets_output.returncode == 0:
-        buckets = json.loads(buckets_output.stdout)
-        for b in buckets:
-            name = b.get("name", "")
-            if name.startswith("prober-") and "-dc-artifacts-" in name:
-                if confirm_delete("GCS Bucket", f"gs://{name}"):
-                    print(f"  Deleting bucket gs://{name}...")
-                    subprocess.run(
-                        ["gcloud", "storage", "rm", "--recursive", f"gs://{name}"],
-                        check=False,
-                    )
-                else:
-                    print(f"  Skipped gs://{name}")
+    buckets = run_gcloud(["storage", "buckets", "list"])
+    for b in buckets:
+        name = b.get("name", "")
+        if name.startswith("prober-") and "-dc-artifacts-" in name:
+            if confirm_delete("GCS Bucket", f"gs://{name}"):
+                print(f"  Deleting bucket gs://{name}...")
+                subprocess.run(
+                    ["gcloud", "storage", "rm", "--recursive", f"gs://{name}"],
+                    check=False,
+                )
+            else:
+                print(f"  Skipped gs://{name}")
 
     # 2. Clean Secret Manager Secrets
     print("\n==> 2. Checking Secret Manager Secrets...")

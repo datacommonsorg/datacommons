@@ -227,11 +227,15 @@ fi
 PROJECT_NUMBER=$(gcloud projects describe "${PROJECT}" --format="value(projectNumber)" 2>/dev/null || true)
 if [[ -n "$PROJECT_NUMBER" ]]; then
   CLOUD_RUN_ROBOT="service-${PROJECT_NUMBER}@serverless-robot-prod.iam.gserviceaccount.com"
-  gcloud artifacts repositories add-iam-policy-binding "${REGISTRY_REPO}" \
+  if ! gcloud artifacts repositories add-iam-policy-binding "${REGISTRY_REPO}" \
     --location="${REGISTRY_LOCATION}" \
     --project="${REGISTRY_PROJECT}" \
     --member="serviceAccount:${CLOUD_RUN_ROBOT}" \
-    --role="roles/artifactregistry.reader" &>/dev/null || true
+    --role="roles/artifactregistry.reader" &>/dev/null; then
+      echo "⚠️  Warning: Could not automatically grant Artifact Registry reader permission on '${REGISTRY_PROJECT}'."
+      echo "   If the Cloud Run Job fails to pull the image, please ensure an administrator runs:"
+      echo "   gcloud artifacts repositories add-iam-policy-binding ${REGISTRY_REPO} --location=${REGISTRY_LOCATION} --project=${REGISTRY_PROJECT} --member=\"serviceAccount:${CLOUD_RUN_ROBOT}\" --role=\"roles/artifactregistry.reader\""
+  fi
 fi
 
 # 2. Deploy Prober GCP Infrastructure via Terraform
@@ -239,7 +243,10 @@ echo ""
 echo "==> Step 2: Provisioning Prober GCP infrastructure via Terraform..."
 
 # Ensure GCS remote state bucket exists
-gcloud storage buckets create "gs://${STATE_BUCKET}" --project="${PROJECT}" --location="${LOCATION}" 2>/dev/null || true
+if ! gcloud storage buckets describe "gs://${STATE_BUCKET}" --project="${PROJECT}" &>/dev/null; then
+  echo "==> Creating GCS remote state bucket gs://${STATE_BUCKET}..."
+  gcloud storage buckets create "gs://${STATE_BUCKET}" --project="${PROJECT}" --location="${LOCATION}"
+fi
 
 cd "${PROBER_DIR}/terraform"
 

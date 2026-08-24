@@ -33,7 +33,7 @@ variable "prober_name" {
 variable "container_image" {
   type        = string
   description = "Container image URI for prober (stored in datcom-ci registry)"
-  default     = "gcr.io/datcom-ci/dcp-prober:latest"
+  default     = "us-docker.pkg.dev/datcom-ci/datcom-tools/datacommons-platform-prober:latest"
 }
 
 variable "schedule" {
