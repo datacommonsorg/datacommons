@@ -868,9 +868,7 @@ class TestTagReleaseArtifacts:
         assert "preprocessor      : 1.1.1 -> 1.1.2rc1" in captured
         assert "postprocessor     : 1.1.1 -> 1.1.2rc1" in captured
         assert "ingestion_helper  : 1.1.1 -> 1.1.2rc1" in captured
-        assert (
-            "dataflow_image    : [from template 1.1.1] -> 1.1.2rc1" in captured
-        )
+        assert "dataflow_image    : [from template 1.1.1] -> 1.1.2rc1" in captured
         assert "ingestion-1.1.1.json -> ingestion-1.1.2rc1.json" in captured
         assert "gcloud container images add-tag" in captured
         assert "[DRY-RUN]" in captured
@@ -896,9 +894,7 @@ class TestTagReleaseArtifacts:
         assert "preprocessor      : 1.1.2rc2 -> 1.1.2" in captured
         assert "postprocessor     : 1.1.2rc2 -> 1.1.2" in captured
         assert "ingestion_helper  : 1.1.2rc2 -> 1.1.2" in captured
-        assert (
-            "dataflow_image    : [from template 1.1.2rc2] -> 1.1.2" in captured
-        )
+        assert "dataflow_image    : [from template 1.1.2rc2] -> 1.1.2" in captured
         assert "ingestion-1.1.2rc2.json -> ingestion-1.1.2.json" in captured
 
     def test_tag_all_artifacts_redirects_dataflow_latest_to_stable(
@@ -919,9 +915,7 @@ class TestTagReleaseArtifacts:
         assert "preprocessor      : latest -> 1.1.2rc1" in captured
         assert "postprocessor     : latest -> 1.1.2rc1" in captured
         assert "ingestion_helper  : latest -> 1.1.2rc1" in captured
-        assert (
-            "dataflow_image    : [from template stable] -> 1.1.2rc1" in captured
-        )
+        assert "dataflow_image    : [from template stable] -> 1.1.2rc1" in captured
         assert "ingestion-stable.json -> ingestion-1.1.2rc1.json" in captured
 
     def test_tag_all_artifacts_dataflow_override_latest_to_stable(
@@ -940,9 +934,7 @@ class TestTagReleaseArtifacts:
         )
         captured = capsys.readouterr().out
         assert "services          : 1.1.1 -> 1.1.2rc1" in captured
-        assert (
-            "dataflow_image    : [from template stable] -> 1.1.2rc1" in captured
-        )
+        assert "dataflow_image    : [from template stable] -> 1.1.2rc1" in captured
         assert "ingestion-stable.json -> ingestion-1.1.2rc1.json" in captured
 
     def test_tag_all_artifacts_explicit_dataflow_image_override(
@@ -960,9 +952,7 @@ class TestTagReleaseArtifacts:
             dry_run=True,
         )
         captured = capsys.readouterr().out
-        assert (
-            "dataflow_image    : custom-worker-sha -> 1.1.2rc1" in captured
-        )
+        assert "dataflow_image    : custom-worker-sha -> 1.1.2rc1" in captured
         assert "ingestion-stable.json -> ingestion-1.1.2rc1.json" in captured
         assert "custom-worker-sha (explicit override)" in captured
 
@@ -982,9 +972,7 @@ class TestTagReleaseArtifacts:
         )
         captured = capsys.readouterr().out
         assert "services          : latest -> 1.1.2rc1" in captured
-        assert (
-            "dataflow_image    : [from template 1.1.0] -> 1.1.2rc1" in captured
-        )
+        assert "dataflow_image    : [from template 1.1.0] -> 1.1.2rc1" in captured
         assert "ingestion-1.1.0.json -> ingestion-1.1.2rc1.json" in captured
 
     def test_tag_all_artifacts_missing_source_tag_aborts(self) -> None:
@@ -1072,7 +1060,10 @@ class TestTagReleaseArtifacts:
         tag_calls = [
             c
             for c in executed_cmds
-            if len(c) >= 6 and c[0] == "gcloud" and c[1] == "artifacts" and c[2] == "docker"
+            if len(c) >= 6
+            and c[0] == "gcloud"
+            and c[1] == "artifacts"
+            and c[2] == "docker"
         ]
         assert len(tag_calls) == 1
         assert (
@@ -1137,7 +1128,10 @@ class TestTagReleaseArtifacts:
         tag_calls = [
             c
             for c in executed_cmds
-            if len(c) >= 6 and c[0] == "gcloud" and c[1] == "artifacts" and c[2] == "docker"
+            if len(c) >= 6
+            and c[0] == "gcloud"
+            and c[1] == "artifacts"
+            and c[2] == "docker"
         ]
         assert len(tag_calls) == 1
         assert (
@@ -1251,4 +1245,3 @@ class TestTagReleaseArtifacts:
                 dry_run=False,
             )
         assert "gcloud" in str(exc_info.value)
-

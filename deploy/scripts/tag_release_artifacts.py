@@ -304,9 +304,7 @@ def tag_all_artifacts(
 
     # Dataflow Flex Template resolution
     resolved_template_tag = (
-        normalize_tag(dataflow_template_tag)
-        if dataflow_template_tag
-        else default_src
+        normalize_tag(dataflow_template_tag) if dataflow_template_tag else default_src
     )
     # Redirect abandoned 'latest' alias to 'stable' for Dataflow template
     # (mirroring Terraform logic in infra/dcp/main.tf)
