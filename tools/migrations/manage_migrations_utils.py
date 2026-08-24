@@ -373,24 +373,53 @@ def update_migration_file(
 
     content = file_path.read_text(encoding="utf-8")
 
-    # Validate syntax of existing script before modification
+    # Parse and validate syntax of existing script
     try:
-        ast.parse(content, filename=str(file_path))
+        tree = ast.parse(content, filename=str(file_path))
     except SyntaxError as e:
         raise ValueError(
             f"Target migration script '{file_path.name}' has syntax errors: {e}"
         ) from e
 
-    # Substitute creation_timestamp attribute in memory
-    ts_pattern = re.compile(
-        r'(creation_timestamp\s*(?::\s*str)?\s*=\s*["\'])[^"\']+(["\'])'
-    )
-    if not ts_pattern.search(content):
+    # Locate creation_timestamp attribute assignment node via AST
+    target_node = None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            for t in node.targets:
+                if (
+                    isinstance(t, ast.Name)
+                    and t.id == "creation_timestamp"
+                    and node.value
+                    and isinstance(node.value, ast.Constant)
+                ):
+                    target_node = node.value
+                    break
+        elif isinstance(node, ast.AnnAssign):
+            if (
+                isinstance(node.target, ast.Name)
+                and node.target.id == "creation_timestamp"
+                and node.value
+                and isinstance(node.value, ast.Constant)
+            ):
+                target_node = node.value
+                break
+        if target_node:
+            break
+
+    if not target_node or target_node.lineno is None or target_node.col_offset is None:
         raise ValueError(
             f"Could not find 'creation_timestamp' attribute in {file_path.name}"
         )
 
-    updated_content = ts_pattern.sub(rf"\g<1>{new_iso}\g<2>", content)
+    # Perform precise character span replacement to preserve all comments and formatting
+    lines = content.splitlines(keepends=True)
+    line_idx = target_node.lineno - 1
+    start_col = target_node.col_offset
+    end_col = target_node.end_col_offset
+
+    line = lines[line_idx]
+    lines[line_idx] = line[:start_col] + f'"{new_iso}"' + line[end_col:]
+    updated_content = "".join(lines)
 
     # Validate syntax of updated content
     try:

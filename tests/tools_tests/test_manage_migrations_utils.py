@@ -353,6 +353,39 @@ def test_update_migration_file_success(tmp_path: Path) -> None:
     ast.parse(content)
 
 
+def test_update_migration_file_only_updates_first_occurrence(tmp_path: Path) -> None:
+    """Verifies update_migration_file AST replacement only updates class attribute and preserves comments/SQL."""
+    file_path = tmp_path / "20260817000000_audit_table.py"
+    initial_content = """# Copyright 2026 Google LLC.
+# Top-of-file comment mentioning creation_timestamp = "1999-01-01T00:00:00Z"
+from datacommons_db.migrations.base import SchemaMigration
+
+class Migration(SchemaMigration):
+    description: str = "Audit table"
+    creation_timestamp: str = "2026-08-17T00:00:00Z"
+
+    def upgrade(self, spanner_client):
+        # SQL query mentioning creation_timestamp = "..."
+        query = 'UPDATE Audit SET creation_timestamp = "2020-01-01T00:00:00Z"'
+"""
+    file_path.write_text(initial_content)
+
+    dt = datetime.datetime(2026, 8, 20, 10, 0, 0, tzinfo=datetime.UTC)
+    _, new_path, new_iso = manage_migrations_utils.update_migration_file(
+        target=file_path,
+        migrations_dir=tmp_path,
+        target_dt=dt,
+    )
+
+    updated = new_path.read_text()
+    # Header comment must be untouched
+    assert '# Top-of-file comment mentioning creation_timestamp = "1999-01-01T00:00:00Z"' in updated
+    # Class attribute must be updated
+    assert 'creation_timestamp: str = "2026-08-20T10:00:00Z"' in updated
+    # Second occurrence (inside upgrade method / SQL query) must NOT be modified
+    assert 'UPDATE Audit SET creation_timestamp = "2020-01-01T00:00:00Z"' in updated
+
+
 def test_update_migration_file_invalid_filename_raises(tmp_path: Path) -> None:
     """Verifies that updating a file not conforming to YYYYMMDDHHMMSS_<name>.py raises ValueError."""
     bad_file = tmp_path / "not_a_valid_migration.py"
