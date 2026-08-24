@@ -112,15 +112,15 @@ def test_escape_docstring_trailing_double_and_triple_quotes() -> None:
     """Verifies strings ending with multiple quotes are safely escaped without mangling."""
     assert (
         manage_migrations_utils.escape_docstring('Ends with two quotes ""')
-        == r'Ends with two quotes "\"'
+        == r"Ends with two quotes \"\""
     )
     assert (
         manage_migrations_utils.escape_docstring('Ends with triple quotes """')
-        == r'Ends with triple quotes \"\"\"'
+        == r"Ends with triple quotes \"\"\""
     )
     assert (
         manage_migrations_utils.escape_docstring('Ends with four quotes """"')
-        == r'Ends with four quotes \"\"\"\"'
+        == r"Ends with four quotes \"\"\"\""
     )
 
 
@@ -130,8 +130,8 @@ def test_escape_docstring_backslashes() -> None:
         manage_migrations_utils.escape_docstring(r"Path \to\file") == r"Path \\to\\file"
     )
     assert (
-        manage_migrations_utils.escape_docstring(r'Ends with backslash and quote \"')
-        == r'Ends with backslash and quote \\\"'
+        manage_migrations_utils.escape_docstring(r"Ends with backslash and quote \"")
+        == r"Ends with backslash and quote \\\""
     )
 
 
@@ -158,7 +158,7 @@ def test_generate_migration_content_handles_quotes_and_special_chars() -> None:
         'Ends with four quotes """" ',
         'Ends with quote "',
         'Ends with two quotes ""',
-        r'Ends with backslash and quote \"',
+        r"Ends with backslash and quote \"",
     ]
     for desc in test_descriptions:
         content = manage_migrations_utils.generate_migration_content(

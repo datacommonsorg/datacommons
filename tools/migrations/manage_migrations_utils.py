@@ -139,13 +139,7 @@ def escape_docstring(text: str) -> str:
     Returns:
         Escaped string safe to embed inside triple quotes.
     """
-    escaped = text.replace("\\", "\\\\").replace('"""', r"\"\"\"")
-    if escaped.endswith('"'):
-        # Only escape if the trailing quote is not already escaped (preceded by an even number of backslashes)
-        num_backslashes = len(escaped[:-1]) - len(escaped[:-1].rstrip("\\"))
-        if num_backslashes % 2 == 0:
-            escaped = escaped[:-1] + r"\""
-    return escaped
+    return text.replace("\\", "\\\\").replace('"', r'\"')
 
 
 def generate_migration_content(description: str, creation_timestamp: str) -> str:
