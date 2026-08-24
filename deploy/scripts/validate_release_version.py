@@ -62,16 +62,21 @@ LOCKSTEP_DEPENDENCIES = [
     ("packages/datacommons-cli/pyproject.toml", "datacommons-admin"),
 ]
 
-# Registry mappings for remote artifact verification
-ARTIFACT_IMAGE_MAP = {
+# 1. Standard Cloud Run Container Images
+CONTAINER_IMAGE_MAP = {
     "services": "gcr.io/datcom-ci/datacommons-services",
     "preprocessor": "gcr.io/datcom-ci/datacommons-data",
     "postprocessor": "gcr.io/datcom-ci/datacommons-aggregation-helper",
     "ingestion_helper": "gcr.io/datcom-ci/datacommons-ingestion-helper",
-    "dataflow": "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion",
 }
 
-DEFAULT_TEMPLATE_GCS_BASE = "gs://datcom-templates/templates/flex"
+# 2. Dataflow Flex Template & Worker Image Artifacts
+DATAFLOW_CONFIG = {
+    "image_repo": "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion",
+    "template_gcs_base": "gs://datcom-templates/templates/flex",
+}
+
+DEFAULT_TEMPLATE_GCS_BASE = DATAFLOW_CONFIG["template_gcs_base"]
 
 
 def validate_release_version(
@@ -194,28 +199,17 @@ def validate_release_version(
                 " but was not found in PATH."
             )
         else:
-            # A. Check container images in GCR/Artifact Registry
-            for artifact, repo in ARTIFACT_IMAGE_MAP.items():
+            # A. Check standard Cloud Run container images in GCR
+            for artifact, repo in CONTAINER_IMAGE_MAP.items():
                 image_ref = f"{repo}:{target_version}"
-                if "pkg.dev" in repo:
-                    cmd = [
-                        "gcloud",
-                        "artifacts",
-                        "docker",
-                        "images",
-                        "describe",
-                        image_ref,
-                        "--format=json",
-                    ]
-                else:
-                    cmd = [
-                        "gcloud",
-                        "container",
-                        "images",
-                        "describe",
-                        image_ref,
-                        "--format=json",
-                    ]
+                cmd = [
+                    "gcloud",
+                    "container",
+                    "images",
+                    "describe",
+                    image_ref,
+                    "--format=json",
+                ]
                 res = subprocess.run(cmd, check=False, capture_output=True, text=True)
                 if res.returncode != 0:
                     detail = (
@@ -228,7 +222,27 @@ def validate_release_version(
                 else:
                     print(f"  [OK] Container Image ({artifact}): {image_ref}")
 
-            # B. Check Dataflow Flex Template spec in GCS
+            # B. Check Dataflow worker container image in Artifact Registry
+            df_image_ref = f"{DATAFLOW_CONFIG['image_repo']}:{target_version}"
+            cmd = [
+                "gcloud",
+                "artifacts",
+                "docker",
+                "images",
+                "describe",
+                df_image_ref,
+                "--format=json",
+            ]
+            res = subprocess.run(cmd, check=False, capture_output=True, text=True)
+            if res.returncode != 0:
+                detail = f" Details: {res.stderr.strip()}" if res.stderr.strip() else ""
+                errors.append(
+                    f"Dataflow worker container image '{df_image_ref}' does not exist in Artifact Registry.{detail}"
+                )
+            else:
+                print(f"  [OK] Dataflow Worker Image: {df_image_ref}")
+
+            # C. Check Dataflow Flex Template spec in GCS
             template_uri = (
                 f"{template_gcs_base.rstrip('/')}/ingestion-{target_version}.json"
             )

@@ -60,24 +60,22 @@ import sys
 import tempfile
 from pathlib import Path
 
-# Single Source of Truth: Registry image repository mappings
+# 1. Standard Cloud Run Container Images
 CONTAINER_IMAGE_MAP = {
     "services": "gcr.io/datcom-ci/datacommons-services",
     "preprocessor": "gcr.io/datcom-ci/datacommons-data",
     "postprocessor": "gcr.io/datcom-ci/datacommons-aggregation-helper",
     "ingestion_helper": "gcr.io/datcom-ci/datacommons-ingestion-helper",
 }
-DATAFLOW_IMAGE_REPO = (
-    "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion"
-)
 
-# Backwards compatibility alias
-ARTIFACT_IMAGE_MAP = {
-    **CONTAINER_IMAGE_MAP,
-    "dataflow": DATAFLOW_IMAGE_REPO,
+# 2. Dataflow Flex Template & Worker Image Artifacts
+DATAFLOW_CONFIG = {
+    "image_repo": "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion",
+    "template_gcs_base": "gs://datcom-templates/templates/flex",
 }
 
-DEFAULT_TEMPLATE_GCS_BASE = "gs://datcom-templates/templates/flex"
+DATAFLOW_IMAGE_REPO = DATAFLOW_CONFIG["image_repo"]
+DEFAULT_TEMPLATE_GCS_BASE = DATAFLOW_CONFIG["template_gcs_base"]
 
 # Anchored SemVer / PEP 440 regex matching releases (1.2.3), pre-releases (1.2.3rc1),
 # and development versions (1.2.0.dev0).

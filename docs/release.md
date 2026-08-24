@@ -11,7 +11,7 @@ The release process follows three sequential stages:
 1. **Stage 1: Stage a Release Candidate (RC) in TestPyPI**
    - **Pipeline:** `deploy/staging.yaml`
    - **Scripts:** [`apply_version_bump.py`](../deploy/scripts/apply_version_bump.py), [`tag_release_artifacts.py`](../deploy/scripts/tag_release_artifacts.py), [`publish_packages.py`](../deploy/scripts/publish_packages.py)
-   - **Action:** Run `deploy/staging.yaml` with your target candidate version (e.g. `X.Y.ZrcN`) and artifact source tags. The build ephemerally bumps version files in-container, cross-tags the release container images and Dataflow Flex Template spec (see [`ARTIFACT_IMAGE_MAP`](../deploy/scripts/tag_release_artifacts.py)), pushes Git tag `vX.Y.ZrcN` to GitHub (*`main` branch remains untouched*), and publishes candidate wheels to **TestPyPI** for staging verification.
+   - **Action:** Run `deploy/staging.yaml` with your target candidate version (e.g. `X.Y.ZrcN`) and artifact source tags. The build ephemerally bumps version files in-container, cross-tags the release container images and Dataflow Flex Template spec (see [`CONTAINER_IMAGE_MAP` & `DATAFLOW_CONFIG`](../deploy/scripts/tag_release_artifacts.py)), pushes Git tag `vX.Y.ZrcN` to GitHub (*`main` branch remains untouched*), and publishes candidate wheels to **TestPyPI** for staging verification.
 
 2. **Stage 2: Open & Merge Version Bump PR**
    - **Pipeline:** `deploy/bump_version.yaml`
