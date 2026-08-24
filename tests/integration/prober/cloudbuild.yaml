@@ -14,18 +14,23 @@
 
 steps:
   - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
     args:
-      - 'build'
-      - '--build-arg'
-      - 'COMMIT_SHA=$_COMMIT_SHA'
-      - '-t'
-      - '$_IMAGE_URI'
-      - '-t'
-      - '$_LATEST_IMAGE_URI'
-      - '-f'
-      - 'tests/integration/prober/Dockerfile'
-      - '.'
+      - '-c'
+      - |
+        docker pull $_LATEST_IMAGE_URI || true
+        docker build \
+          --build-arg COMMIT_SHA=$_COMMIT_SHA \
+          --cache-from $_LATEST_IMAGE_URI \
+          -t $_IMAGE_URI \
+          -t $_LATEST_IMAGE_URI \
+          -f tests/integration/prober/Dockerfile \
+          .
 
 images:
   - '$_IMAGE_URI'
   - '$_LATEST_IMAGE_URI'
+
+options:
+  machineType: 'E2_HIGHCPU_8'
+

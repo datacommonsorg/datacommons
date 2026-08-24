@@ -286,10 +286,14 @@ auth_google_datacommons_api_key     = "{dc_api_key}"
                 "destroy": "PASSED" if destroy_success else "FAILED",
             },
         }
-        print("\n" + "=" * 80)
-        print("PROBER EXECUTION SUMMARY:")
-        print(json.dumps(prober_summary, indent=2))
-        print("=" * 80 + "\n")
+        # 1. Single-line structured JSON output for Cloud Logging jsonPayload ingestion
+        print(json.dumps(prober_summary), flush=True)
+
+        # 2. Formatted human-readable summary
+        print("\n" + "=" * 80, flush=True)
+        print("PROBER EXECUTION SUMMARY:", flush=True)
+        print(json.dumps(prober_summary, indent=2), flush=True)
+        print("=" * 80 + "\n", flush=True)
 
     final_exit = 0 if overall_passed else (test_exit_code if test_exit_code != 0 else 1)
     sys.exit(final_exit)

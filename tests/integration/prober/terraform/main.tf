@@ -247,11 +247,26 @@ resource "google_monitoring_alert_policy" "prober_failure" {
     display_name = "Prober Execution Failure Event"
 
     condition_threshold {
-      filter                  = "resource.type = \"cloud_run_job\" AND resource.label.job_name = \"${google_cloud_run_v2_job.prober_job.name}\" AND metric.type = \"logging.googleapis.com/user/${google_logging_metric.prober_failure_count.name}\""
-      duration                = "60s"
-      comparison              = "COMPARISON_GT"
-      threshold_value         = 0
-      evaluation_missing_data = "EVALUATION_MISSING_DATA_INACTIVE"
+      filter          = "resource.type = \"cloud_run_job\" AND resource.label.job_name = \"${google_cloud_run_v2_job.prober_job.name}\" AND metric.type = \"logging.googleapis.com/user/${google_logging_metric.prober_failure_count.name}\""
+      duration        = "0s"
+      comparison      = "COMPARISON_GT"
+      threshold_value = 0
+
+      aggregations {
+        alignment_period   = "60s"
+        per_series_aligner = "ALIGN_DELTA"
+      }
+    }
+  }
+
+  conditions {
+    display_name = "Cloud Run Job Execution Failure"
+
+    condition_threshold {
+      filter          = "resource.type = \"cloud_run_job\" AND resource.label.job_name = \"${google_cloud_run_v2_job.prober_job.name}\" AND metric.type = \"run.googleapis.com/job/completed_execution_count\" AND metric.label.result = \"failed\""
+      duration        = "0s"
+      comparison      = "COMPARISON_GT"
+      threshold_value = 0
 
       aggregations {
         alignment_period   = "60s"

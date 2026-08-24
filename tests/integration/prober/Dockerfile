@@ -14,38 +14,42 @@
 
 FROM python:3.13-slim
 
-# Install system dependencies (google-cloud-cli, terraform, & curl)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    gnupg \
-    unzip \
-    ca-certificates \
-    && echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list \
-    && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg \
-    && curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg \
-    && echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com bookworm main" | tee /etc/apt/sources.list.d/hashicorp.list \
-    && apt-get update && apt-get install -y google-cloud-cli terraform \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install uv package manager
+# Copy standalone static binaries for terraform and uv
+COPY --from=hashicorp/terraform:1.10 /bin/terraform /bin/terraform
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+
+# Install system dependencies (ca-certificates, git, google-cloud-cli) and clean up in a single layer
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    git \
+    gnupg \
+    && echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list \
+    && curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg \
+    && apt-get update && apt-get install -y --no-install-recommends google-cloud-cli \
+    && apt-get purge -y --auto-remove gnupg \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /usr/share/doc /usr/share/man
 
 WORKDIR /app
 
-# Inject Git Commit SHA build metadata into container environment
+# Environment settings to eliminate build caches and runtime buffering
 ARG COMMIT_SHA=unknown
-ENV COMMIT_SHA=$COMMIT_SHA
-ENV PYTHONUNBUFFERED=1
+ENV COMMIT_SHA=$COMMIT_SHA \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    UV_NO_CACHE=1
 
-# Copy dependency specifications, Terraform modules, and test harness
+# 1. Copy dependency specifications and workspace packages
 COPY pyproject.toml uv.lock ./
 COPY packages/ ./packages/
+
+# 2. Pre-install dependencies (cached unless dependencies change)
+RUN uv sync --frozen || uv sync
+
+# 3. Copy Terraform modules and test harness
 COPY infra/ ./infra/
 COPY tests/ ./tests/
-
-# Sync dependencies
-RUN uv sync --frozen || uv sync
 
 # Default entrypoint executes the ephemeral prober runner (Provision -> Test -> Destroy)
 ENTRYPOINT ["uv", "run", "python", "tests/integration/prober/prober_runner.py"]
