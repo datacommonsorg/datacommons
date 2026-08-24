@@ -266,3 +266,23 @@ def test_cli_list_command_empty_dir(runner: CliRunner, tmp_path: Path) -> None:
     result = runner.invoke(cli, ["list"])
     assert result.exit_code == 0
     assert "No migration scripts found" in result.output
+
+
+def test_cli_list_command_dynamic_width_long_filenames(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    """Verifies list command dynamically adjusts column width for long migration filenames."""
+    long_filename = "20260819173510_add_external_observation_identifier_indexes.py"
+    (tmp_path / long_filename).write_text(
+        manage_migrations_utils.generate_migration_content(
+            "Add External Observation Identifier Indexes", "2026-08-19T17:35:10Z"
+        )
+    )
+
+    result = runner.invoke(cli, ["list"])
+    assert result.exit_code == 0
+    assert "Found 1 migration script(s)" in result.output
+    assert long_filename in result.output
+    # Header divider should dynamically scale with filename length
+    assert "-" * len(long_filename) in result.output
+    assert "Add External Observation Identifier Indexes" in result.output

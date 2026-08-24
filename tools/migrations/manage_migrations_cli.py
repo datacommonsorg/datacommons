@@ -156,22 +156,30 @@ def list_command() -> None:
     click.secho(f"Found {len(migrations)} migration script(s):", fg="cyan", bold=True)
     click.echo()
 
+    # Dynamically compute column width for Filename to prevent column misalignment
+    idx_col_width = 4
+    ts_col_width = 22
+    fn_col_width = max(len("Filename"), max(len(m.filename) for m in migrations))
+    desc_divider_width = 30
+
     # Format and print table headers
-    header_idx = "#".ljust(4)
-    header_ts = "Timestamp (UTC)".ljust(22)
-    header_filename = "Filename".ljust(42)
+    header_idx = "#".ljust(idx_col_width)
+    header_ts = "Timestamp (UTC)".ljust(ts_col_width)
+    header_filename = "Filename".ljust(fn_col_width)
     header_desc = "Description"
     click.secho(
         f"  {header_idx} {header_ts} {header_filename} {header_desc}",
         bold=True,
     )
-    click.echo(f"  {'-' * 4} {'-' * 22} {'-' * 42} {'-' * 30}")
+    click.echo(
+        f"  {'-' * idx_col_width} {'-' * ts_col_width} {'-' * fn_col_width} {'-' * desc_divider_width}"
+    )
 
     # Print each migration record in chronological order
     for info in migrations:
-        row_idx = str(info.index).ljust(4)
-        row_ts = info.creation_timestamp.ljust(22)
-        row_filename = info.filename.ljust(42)
+        row_idx = str(info.index).ljust(idx_col_width)
+        row_ts = info.creation_timestamp.ljust(ts_col_width)
+        row_filename = info.filename.ljust(fn_col_width)
         click.echo(f"  {row_idx} {row_ts} {row_filename} {info.description}")
 
 
