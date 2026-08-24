@@ -49,7 +49,7 @@ gcloud builds submit \
 * `_PREPROCESSOR_TAG`: Source tag for `datacommons-data` (preprocessor).
 * `_POSTPROCESSOR_TAG`: Source tag for `datacommons-aggregation-helper` (postprocessor).
 * `_INGESTION_HELPER_TAG`: Source tag for `datacommons-ingestion-helper`.
-* `_DATAFLOW_TEMPLATE_TAG` (or `_DATAFLOW_TAG`): Source tag for Dataflow Flex Template spec in GCS (redirects `latest` to `stable`).
+* `_DATAFLOW_TEMPLATE_TAG`: Source tag for Dataflow Flex Template spec in GCS (redirects `latest` to `stable`).
 * `_DATAFLOW_IMAGE_TAG`: Optional explicit override for Dataflow worker image tag. If omitted, dynamically extracted from the source Flex Template JSON.
 * `_GITHUB_COMMIT`: Optional commit SHA on datacommons repository (defaults to `_GITHUB_BRANCH` / `main`).
 

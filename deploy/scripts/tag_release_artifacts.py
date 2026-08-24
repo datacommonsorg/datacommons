@@ -266,7 +266,6 @@ def tag_all_artifacts(
     preprocessor_tag: str | None = None,
     postprocessor_tag: str | None = None,
     ingestion_helper_tag: str | None = None,
-    dataflow_tag: str | None = None,
     dataflow_template_tag: str | None = None,
     dataflow_image_tag: str | None = None,
     template_gcs_base: str = DEFAULT_TEMPLATE_GCS_BASE,
@@ -307,8 +306,8 @@ def tag_all_artifacts(
 
     # Dataflow Flex Template resolution
     resolved_template_tag = (
-        normalize_tag(dataflow_template_tag or dataflow_tag)
-        if (dataflow_template_tag or dataflow_tag)
+        normalize_tag(dataflow_template_tag)
+        if dataflow_template_tag
         else default_src
     )
     # Redirect abandoned 'latest' alias to 'stable' for Dataflow template
@@ -415,12 +414,6 @@ def main() -> None:
         help="Source tag for datacommons-ingestion-helper image.",
     )
     parser.add_argument(
-        "--dataflow-tag",
-        "--dataflow-source-tag",
-        dest="dataflow_tag",
-        help="Source tag for Dataflow Flex Template spec (alias for --dataflow-template-tag).",
-    )
-    parser.add_argument(
         "--dataflow-template-tag",
         "--dataflow-template-source-tag",
         dest="dataflow_template_tag",
@@ -455,7 +448,6 @@ def main() -> None:
         preprocessor_tag=args.preprocessor_tag,
         postprocessor_tag=args.postprocessor_tag,
         ingestion_helper_tag=args.ingestion_helper_tag,
-        dataflow_tag=args.dataflow_tag,
         dataflow_template_tag=args.dataflow_template_tag,
         dataflow_image_tag=args.dataflow_image_tag,
         template_gcs_base=args.template_bucket,

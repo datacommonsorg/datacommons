@@ -929,13 +929,13 @@ class TestTagReleaseArtifacts:
     ) -> None:
         """// Test: test_tag_all_artifacts_dataflow_override_latest_to_stable
 
-        // Situation: dataflow_tag="latest" is explicitly passed with a different default_source_tag.
+        // Situation: dataflow_template_tag="latest" is explicitly passed with a different default_source_tag.
         // Expectation: dataflow template spec redirects to 'stable'.
         """
         tagger.tag_all_artifacts(
             target_tag="1.1.2rc1",
             default_source_tag="1.1.1",
-            dataflow_tag="latest",
+            dataflow_template_tag="latest",
             dry_run=True,
         )
         captured = capsys.readouterr().out
