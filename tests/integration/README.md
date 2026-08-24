@@ -79,17 +79,18 @@ You can deploy the integration test harness as an automated **GCP Cloud Run Job*
 
 ### 1. Build Container & Deploy Prober to GCP
 ```bash
-./tests/integration/prober/deploy_prober.sh \
-    --instance testbed-1 \
+./tests/integration/prober/deploy/deploy_prober.sh \
+    --project datcom-dcp \
     --test-config foobar_wages \
-    --schedule "*/15 * * * *"
+    --schedule "0 */3 * * *"
 ```
 
 ### 2. What `deploy_prober.sh` Automates:
-1. **Cloud Build**: Builds `gcr.io/datcom-dcp/dcp-integration-prober:latest` using [`tests/integration/prober/Dockerfile`](file:///Users/gmechali/Desktop/datacommons/datacommons_platform/tests/integration/prober/Dockerfile).
-2. **Cloud Run Job**: Provisions serverless job `dcp-prober-testbed-1` running `--reuse-data` mode ($\sim 30$ seconds).
-3. **Cloud Scheduler**: Sets up cron job `dcp-prober-trigger-testbed-1` triggering execution every 15 minutes.
-4. **GCS Reporting**: Streams machine-readable execution reports to `gs://dcp-testbed-1-datcom-dcp/prober_reports/latest.json`.
+1. **Cloud Build**: Builds container image using [`tests/integration/prober/deploy/Dockerfile`](file:///Users/gmechali/Desktop/datacommons/datacommons_platform/tests/integration/prober/deploy/Dockerfile).
+2. **Cloud Run Job**: Provisions serverless job `dcp-prober` running ephemeral end-to-end cycles.
+3. **Cloud Scheduler**: Sets up cron job triggering execution automatically.
+4. **GCS Reporting**: Streams machine-readable execution reports to GCS reports bucket.
+5. **Alerting**: Sets up Cloud Monitoring alert policies and email notifications.
 
 ---
 
@@ -123,13 +124,19 @@ tests/integration/
 ├── conftest.py                    # Pytest lifecycle hooks & dynamic parameterization
 │
 ├── prober/                        # Automated GCP Prober deployment & container setup
-│   ├── Dockerfile                 # Prober & CI/CD container image definition
-│   ├── deploy_prober.sh           # Cloud Build & Terraform deployment script
 │   ├── prober_runner.py           # Ephemeral instance orchestrator (Retries & Teardown)
-│   └── terraform/                 # Infrastructure-as-Code for Prober deployment
-│       ├── main.tf                # Service Account, Secret Manager, Cloud Run Job & Scheduler
-│       ├── variables.tf           # Terraform variables
-│       └── outputs.tf             # Terraform outputs
+│   ├── prober_overrides.tfvars.template # Baseline overrides for ephemeral instances
+│   ├── deploy/                    # Container build & deployment automation
+│   │   ├── deploy_prober.sh       # Cloud Build & Terraform deployment script
+│   │   ├── Dockerfile             # Prober container image definition
+│   │   └── cloudbuild.yaml        # Cloud Build pipeline configuration
+│   ├── terraform/                 # Infrastructure-as-Code for Prober deployment
+│   │   ├── backend.tf             # Remote GCS state locking
+│   │   ├── main.tf                # Service Account, Secret Manager, Cloud Run Job & Scheduler
+│   │   ├── variables.tf           # Terraform variables
+│   │   └── outputs.tf             # Terraform outputs
+│   └── tools/                     # Prober janitor and operational utilities
+│       └── cleanup_prober_trash.py # Emergency cleanup tool for orphaned prober-* resources
 │
 ├── test_data/                     # Benchmark datasets & self-contained test specs
 │   ├── foobar_wages/              # FooBar Wages CSV, MCF, config.json, test_spec.yaml

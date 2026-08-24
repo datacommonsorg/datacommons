@@ -23,7 +23,8 @@
 
 set -eo pipefail
 
-PROBER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEPLOY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROBER_DIR="$(cd "${DEPLOY_DIR}/.." && pwd)"
 REPO_ROOT="$(cd "${PROBER_DIR}/../../.." && pwd)"
 
 # Auto-detect active gcloud project as default
@@ -214,7 +215,7 @@ if [[ "$SKIP_BUILD" == "false" ]]; then
   echo "==> Step 1: Building container image via Cloud Build in '${REGISTRY_PROJECT}'..."
   echo "    Prober Commit SHA: ${PROBER_COMMIT:0:8}"
   gcloud builds submit \
-    --config="${PROBER_DIR}/cloudbuild.yaml" \
+    --config="${DEPLOY_DIR}/cloudbuild.yaml" \
     --substitutions="_IMAGE_URI=${IMAGE_URI},_LATEST_IMAGE_URI=${LATEST_IMAGE_URI},_COMMIT_SHA=${PROBER_COMMIT}" \
     --project="${REGISTRY_PROJECT}" \
     "${REPO_ROOT}"

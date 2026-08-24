@@ -33,20 +33,20 @@ flowchart TD
 Run the main deployment script:
 
 ```bash
-./tests/integration/prober/deploy_prober.sh
+./tests/integration/prober/deploy/deploy_prober.sh
 ```
 
 Or pass the Data Commons API Key directly via CLI flag:
 
 ```bash
-./tests/integration/prober/deploy_prober.sh --dc-api-key "YOUR_DATACOMMONS_API_KEY"
+./tests/integration/prober/deploy/deploy_prober.sh --dc-api-key "YOUR_DATACOMMONS_API_KEY"
 ```
 
 ### 2. Fast Deploy (Skip Container Build)
 If you only modified Terraform files or environment variables and don't need to rebuild the Docker image:
 
 ```bash
-./tests/integration/prober/deploy_prober.sh --skip-build
+./tests/integration/prober/deploy/deploy_prober.sh --skip-build
 ```
 
 ---
@@ -55,7 +55,7 @@ If you only modified Terraform files or environment variables and don't need to 
 
 When deploying the prober to a new GCP Project (`--project <TARGET_PROJECT_ID>`), the target Cloud Run job in that project must have read access to pull the container image from the central Artifact Registry repository (`datcom-tools` in `datcom-ci`).
 
-[`deploy_prober.sh`](file:///Users/gmechali/Desktop/datacommons/datacommons_platform/tests/integration/prober/deploy_prober.sh) handles this automatically during deployment. If deploying manually or via a CI/CD service account, run the following `gcloud` command once to grant the required reader role:
+[`deploy_prober.sh`](file:///Users/gmechali/Desktop/datacommons/datacommons_platform/tests/integration/prober/deploy/deploy_prober.sh) handles this automatically during deployment. If deploying manually or via a CI/CD service account, run the following `gcloud` command once to grant the required reader role:
 
 ```bash
 PROJECT_NUMBER=$(gcloud projects describe <TARGET_PROJECT_ID> --format="value(projectNumber)")
@@ -95,7 +95,7 @@ uv run python tests/integration/prober/prober_runner.py \
 If any past runs left orphaned GCP resources prior to proper cleanup configuration, run the safe, interactive cleanup utility:
 
 ```bash
-python3 tests/integration/tools/cleanup_prober_trash.py
+python3 tests/integration/prober/tools/cleanup_prober_trash.py
 ```
 
 ### Inspected Resources (13 GCP Types)
@@ -120,12 +120,18 @@ The cleanup script inspects and prompts `[y/N]` before deleting:
 
 ```text
 tests/integration/prober/
-├── Dockerfile              # Multi-stage container build with Terraform & Google Cloud SDK
-├── cloudbuild.yaml         # Cloud Build pipeline configuration
-├── deploy_prober.sh        # One-click deployment script
-├── prober_runner.py        # Resilient orchestrator with state isolation & retry logic
-└── terraform/              # Terraform module for Cloud Run Job & Scheduler trigger
-    ├── main.tf
-    ├── outputs.tf
-    └── variables.tf
+├── README.md                          # Prober architecture, CLI usage, and ops guide
+├── prober_runner.py                   # Resilient orchestrator with state isolation & retry logic
+├── prober_overrides.tfvars.template   # Baseline Terraform overrides for ephemeral instances
+├── deploy/                            # Deployment automation & container builds
+│   ├── deploy_prober.sh               # One-click deployment script
+│   ├── Dockerfile                     # Multi-stage container build
+│   └── cloudbuild.yaml                # Layer-cached Cloud Build configuration
+├── terraform/                         # Terraform module for Cloud Run Job & Scheduler trigger
+│   ├── backend.tf
+│   ├── main.tf
+│   ├── outputs.tf
+│   └── variables.tf
+└── tools/                             # Operational utilities
+    └── cleanup_prober_trash.py        # Safe cleanup janitor for orphaned prober-* resources
 ```

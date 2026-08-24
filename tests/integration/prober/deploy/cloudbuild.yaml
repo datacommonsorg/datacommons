@@ -24,7 +24,7 @@ steps:
           --cache-from $_LATEST_IMAGE_URI \
           -t $_IMAGE_URI \
           -t $_LATEST_IMAGE_URI \
-          -f tests/integration/prober/Dockerfile \
+          -f tests/integration/prober/deploy/Dockerfile \
           .
 
 images:
