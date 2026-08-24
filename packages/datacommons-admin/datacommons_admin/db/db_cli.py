@@ -16,15 +16,15 @@ from typing import Any, Tuple
 
 import click
 
-from datacommons_admin.clients import IngestionHelperClient
-from datacommons_admin.db.utils.migration_utils import _run_migrations
-from datacommons_admin.shared_utils.tf_utils import (
+from datacommons_admin.core.clients import IngestionHelperClient
+from datacommons_admin.core.utils.tf_utils import (
     get_ingestion_service_url,
     get_ingestion_workflow_service_account_email,
     get_project_id,
     get_spanner_database_id,
     get_spanner_instance_id,
 )
+from datacommons_admin.db.utils.migration_utils import _run_migrations
 
 
 def _setup_ingestion_client() -> Tuple[IngestionHelperClient, str, str, str]:

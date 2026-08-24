@@ -24,7 +24,7 @@ from datacommons_admin.init.utils.infra_templates import (
     README_TEMPLATE,
     REMOTE_STATE_TEMPLATE,
 )
-from datacommons_admin.shared_utils.ui_utils import (
+from datacommons_admin.core.utils.ui_utils import (
     _log_resolved_value,
     _prompt,
 )

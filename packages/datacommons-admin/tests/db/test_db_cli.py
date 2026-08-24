@@ -20,7 +20,7 @@ from click.testing import CliRunner
 from datacommons_admin.admin_cli import admin
 
 
-@patch("datacommons_admin.shared_utils.tf_utils.shutil.which")
+@patch("datacommons_admin.core.utils.tf_utils.shutil.which")
 def test_init_db_no_terraform(mock_which, runner: CliRunner) -> None:
     mock_which.return_value = None
     result = runner.invoke(admin, ["init-db"])
@@ -28,8 +28,8 @@ def test_init_db_no_terraform(mock_which, runner: CliRunner) -> None:
     assert "Terraform CLI not found" in result.output
 
 
-@patch("datacommons_admin.shared_utils.tf_utils.shutil.which")
-@patch("datacommons_admin.shared_utils.tf_utils.subprocess.run")
+@patch("datacommons_admin.core.utils.tf_utils.shutil.which")
+@patch("datacommons_admin.core.utils.tf_utils.subprocess.run")
 def test_init_db_terraform_error(mock_run, mock_which, runner: CliRunner) -> None:
     mock_which.return_value = "terraform"
     mock_run.side_effect = subprocess.CalledProcessError(
@@ -41,10 +41,10 @@ def test_init_db_terraform_error(mock_run, mock_which, runner: CliRunner) -> Non
 
 
 @patch("datacommons_admin.db.db_cli._run_migrations")
-@patch("datacommons_admin.shared_utils.tf_utils.shutil.which")
-@patch("datacommons_admin.shared_utils.tf_utils.subprocess.run")
-@patch("datacommons_admin.clients.ingestion_helper_client.AuthorizedSession")
-@patch("datacommons_admin.clients.ingestion_helper_client.google.auth.default")
+@patch("datacommons_admin.core.utils.tf_utils.shutil.which")
+@patch("datacommons_admin.core.utils.tf_utils.subprocess.run")
+@patch("datacommons_admin.core.clients.ingestion_helper_client.AuthorizedSession")
+@patch("datacommons_admin.core.clients.ingestion_helper_client.google.auth.default")
 def test_init_db_success(
     mock_auth_default,
     mock_session,
@@ -78,10 +78,10 @@ def test_init_db_success(
 
 
 @patch("datacommons_admin.db.db_cli._run_migrations")
-@patch("datacommons_admin.shared_utils.tf_utils.shutil.which")
-@patch("datacommons_admin.shared_utils.tf_utils.subprocess.run")
-@patch("datacommons_admin.clients.ingestion_helper_client.AuthorizedSession")
-@patch("datacommons_admin.clients.ingestion_helper_client.google.auth.default")
+@patch("datacommons_admin.core.utils.tf_utils.shutil.which")
+@patch("datacommons_admin.core.utils.tf_utils.subprocess.run")
+@patch("datacommons_admin.core.clients.ingestion_helper_client.AuthorizedSession")
+@patch("datacommons_admin.core.clients.ingestion_helper_client.google.auth.default")
 def test_init_db_success_no_details(
     mock_auth_default,
     mock_session,
@@ -115,10 +115,10 @@ def test_init_db_success_no_details(
 
 
 @patch("datacommons_admin.db.db_cli._run_migrations")
-@patch("datacommons_admin.shared_utils.tf_utils.shutil.which")
-@patch("datacommons_admin.shared_utils.tf_utils.subprocess.run")
-@patch("datacommons_admin.clients.ingestion_helper_client.AuthorizedSession")
-@patch("datacommons_admin.clients.ingestion_helper_client.google.auth.default")
+@patch("datacommons_admin.core.utils.tf_utils.shutil.which")
+@patch("datacommons_admin.core.utils.tf_utils.subprocess.run")
+@patch("datacommons_admin.core.clients.ingestion_helper_client.AuthorizedSession")
+@patch("datacommons_admin.core.clients.ingestion_helper_client.google.auth.default")
 def test_init_db_init_only(
     mock_auth_default,
     mock_session,
@@ -151,10 +151,10 @@ def test_init_db_init_only(
 
 
 @patch("datacommons_admin.db.db_cli._run_migrations")
-@patch("datacommons_admin.shared_utils.tf_utils.shutil.which")
-@patch("datacommons_admin.shared_utils.tf_utils.subprocess.run")
-@patch("datacommons_admin.clients.ingestion_helper_client.AuthorizedSession")
-@patch("datacommons_admin.clients.ingestion_helper_client.google.auth.default")
+@patch("datacommons_admin.core.utils.tf_utils.shutil.which")
+@patch("datacommons_admin.core.utils.tf_utils.subprocess.run")
+@patch("datacommons_admin.core.clients.ingestion_helper_client.AuthorizedSession")
+@patch("datacommons_admin.core.clients.ingestion_helper_client.google.auth.default")
 def test_init_db_migration_failure_halts_before_seed(
     mock_auth_default,
     mock_session,
@@ -190,10 +190,10 @@ def test_init_db_migration_failure_halts_before_seed(
     assert "Successfully seeded Spanner database" not in result.output
 
 
-@patch("datacommons_admin.shared_utils.tf_utils.shutil.which")
-@patch("datacommons_admin.shared_utils.tf_utils.subprocess.run")
-@patch("datacommons_admin.clients.ingestion_helper_client.AuthorizedSession")
-@patch("datacommons_admin.clients.ingestion_helper_client.google.auth.default")
+@patch("datacommons_admin.core.utils.tf_utils.shutil.which")
+@patch("datacommons_admin.core.utils.tf_utils.subprocess.run")
+@patch("datacommons_admin.core.clients.ingestion_helper_client.AuthorizedSession")
+@patch("datacommons_admin.core.clients.ingestion_helper_client.google.auth.default")
 def test_seed_db_success(
     mock_auth_default,
     mock_session,

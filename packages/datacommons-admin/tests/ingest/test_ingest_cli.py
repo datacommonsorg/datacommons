@@ -19,10 +19,10 @@ from click.testing import CliRunner
 from datacommons_admin.admin_cli import admin
 
 
-@patch("datacommons_admin.shared_utils.tf_utils.shutil.which")
-@patch("datacommons_admin.shared_utils.tf_utils.subprocess.run")
-@patch("datacommons_admin.clients.ingestion_job_client.AuthorizedSession")
-@patch("datacommons_admin.clients.ingestion_job_client.google.auth.default")
+@patch("datacommons_admin.core.utils.tf_utils.shutil.which")
+@patch("datacommons_admin.core.utils.tf_utils.subprocess.run")
+@patch("datacommons_admin.core.clients.ingestion_job_client.AuthorizedSession")
+@patch("datacommons_admin.core.clients.ingestion_job_client.google.auth.default")
 def test_ingest_start_success(
     mock_auth_default,
     mock_session,
@@ -89,10 +89,10 @@ def test_ingest_start_fails_without_imports_flag(runner: CliRunner) -> None:
     assert "Missing option '--imports'" in result.output
 
 
-@patch("datacommons_admin.shared_utils.tf_utils.shutil.which")
-@patch("datacommons_admin.shared_utils.tf_utils.subprocess.run")
-@patch("datacommons_admin.clients.ingestion_job_client.AuthorizedSession")
-@patch("datacommons_admin.clients.ingestion_job_client.google.auth.default")
+@patch("datacommons_admin.core.utils.tf_utils.shutil.which")
+@patch("datacommons_admin.core.utils.tf_utils.subprocess.run")
+@patch("datacommons_admin.core.clients.ingestion_job_client.AuthorizedSession")
+@patch("datacommons_admin.core.clients.ingestion_job_client.google.auth.default")
 def test_ingest_show_config_success(
     mock_auth_default,
     mock_session,
@@ -135,10 +135,10 @@ def test_ingest_show_config_success(
     assert "API_KEY: [SECRET: secret-api-key]" in result.output
 
 
-@patch("datacommons_admin.shared_utils.tf_utils.shutil.which")
-@patch("datacommons_admin.shared_utils.tf_utils.subprocess.run")
-@patch("datacommons_admin.clients.ingestion_job_client.AuthorizedSession")
-@patch("datacommons_admin.clients.ingestion_job_client.google.auth.default")
+@patch("datacommons_admin.core.utils.tf_utils.shutil.which")
+@patch("datacommons_admin.core.utils.tf_utils.subprocess.run")
+@patch("datacommons_admin.core.clients.ingestion_job_client.AuthorizedSession")
+@patch("datacommons_admin.core.clients.ingestion_job_client.google.auth.default")
 def test_ingest_start_with_imports_success(
     mock_auth_default,
     mock_session,

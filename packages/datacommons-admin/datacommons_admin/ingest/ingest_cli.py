@@ -15,8 +15,8 @@
 import click
 import re
 
-from datacommons_admin.clients import IngestionJobClient
-from datacommons_admin.shared_utils.tf_utils import (
+from datacommons_admin.core.clients import IngestionJobClient
+from datacommons_admin.core.utils.tf_utils import (
     get_ingestion_prep_job_name,
     get_ingestion_workflow_service_account_email,
     get_project_id,

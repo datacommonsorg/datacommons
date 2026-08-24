@@ -12,10 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datacommons_admin.clients.ingestion_helper_client import IngestionHelperClient
-from datacommons_admin.clients.ingestion_job_client import IngestionJobClient
+from datacommons_admin.core.utils import tf_utils, ui_utils
 
 __all__ = [
-    "IngestionHelperClient",
-    "IngestionJobClient",
+    "tf_utils",
+    "ui_utils",
 ]
