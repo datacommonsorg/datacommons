@@ -215,6 +215,22 @@ def test_create_migration_file_duplicate_raises(tmp_path: Path) -> None:
         )
 
 
+def test_create_migration_file_syntax_error_raises(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Verifies create_migration_file validates AST syntax and raises ValueError on invalid syntax."""
+    monkeypatch.setattr(
+        manage_migrations_utils,
+        "generate_migration_content",
+        lambda desc, ts: "def invalid_python_syntax(:",
+    )
+    with pytest.raises(ValueError, match="Generated migration script has syntax errors"):
+        manage_migrations_utils.create_migration_file(
+            name="broken_script",
+            migrations_dir=tmp_path,
+        )
+
+
 # ==============================================================================
 # 5. find_migration_file Tests
 # ==============================================================================
@@ -383,6 +399,18 @@ def test_update_migration_file_missing_attribute_raises(tmp_path: Path) -> None:
         )
 
 
+def test_update_migration_file_syntax_error_preflight_raises(tmp_path: Path) -> None:
+    """Verifies update_migration_file validates target file syntax before modification and raises ValueError."""
+    file_path = tmp_path / "20260817000000_broken.py"
+    file_path.write_text("class Migration:\n  creation_timestamp = '2026-08-17T00:00:00Z'\n  def (\n")
+
+    with pytest.raises(ValueError, match="has syntax errors"):
+        manage_migrations_utils.update_migration_file(
+            target=file_path,
+            migrations_dir=tmp_path,
+        )
+
+
 # ==============================================================================
 # 7. discover_migrations Tests
 # ==============================================================================
@@ -432,6 +460,17 @@ def test_discover_migrations_prefix_fallback_timestamp(tmp_path: Path) -> None:
         discovered[0].description
         == "Legacy migration without explicit timestamp attribute"
     )
+
+
+def test_discover_migrations_syntax_error_handled(tmp_path: Path) -> None:
+    """Verifies discover_migrations handles files with syntax errors gracefully without raising."""
+    bad_script = tmp_path / "20260819150000_syntax_error.py"
+    bad_script.write_text("class Migration:\n  def broken(\n")
+
+    discovered = manage_migrations_utils.discover_migrations(tmp_path)
+    assert len(discovered) == 1
+    assert discovered[0].filename == "20260819150000_syntax_error.py"
+    assert discovered[0].description.startswith("<syntax error:")
 
 
 def test_discover_migrations_empty_or_missing_dir(tmp_path: Path) -> None:

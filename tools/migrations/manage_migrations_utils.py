@@ -242,6 +242,13 @@ def create_migration_file(
         )
 
     content = generate_migration_content(desc, iso_ts)
+
+    # Validate syntax before writing to disk
+    try:
+        ast.parse(content, filename=str(target_file))
+    except SyntaxError as e:
+        raise ValueError(f"Generated migration script has syntax errors: {e}") from e
+
     target_file.write_text(content, encoding="utf-8")
 
     return target_file, iso_ts, desc
@@ -366,6 +373,14 @@ def update_migration_file(
 
     content = file_path.read_text(encoding="utf-8")
 
+    # Validate syntax of existing script before modification
+    try:
+        ast.parse(content, filename=str(file_path))
+    except SyntaxError as e:
+        raise ValueError(
+            f"Target migration script '{file_path.name}' has syntax errors: {e}"
+        ) from e
+
     # Substitute creation_timestamp attribute in memory
     ts_pattern = re.compile(
         r'(creation_timestamp\s*(?::\s*str)?\s*=\s*["\'])[^"\']+(["\'])'
@@ -424,21 +439,45 @@ def discover_migrations(
 
         desc = ""
         creation_ts = ""
-        # Extract description and timestamp attributes from script content
+        # Extract description and timestamp attributes from script content via AST
         try:
             content = script.read_text(encoding="utf-8")
-            desc_match = re.search(
-                r'description\s*(?::\s*str)?\s*=\s*["\']([^"\']+)["\']', content
-            )
-            if desc_match:
-                desc = desc_match.group(1)
+            tree = ast.parse(content, filename=str(script))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ClassDef):
+                    # Check for docstring if description attribute is absent
+                    class_doc = ast.get_docstring(node)
+                    if class_doc and not desc:
+                        desc = class_doc.strip()
 
-            ts_match = re.search(
-                r'creation_timestamp\s*(?::\s*str)?\s*=\s*["\']([^"\']+)["\']',
-                content,
-            )
-            if ts_match:
-                creation_ts = ts_match.group(1)
+                if isinstance(node, ast.Assign):
+                    for target in node.targets:
+                        if isinstance(target, ast.Name):
+                            if (
+                                target.id == "description"
+                                and isinstance(node.value, ast.Constant)
+                                and isinstance(node.value.value, str)
+                            ):
+                                desc = node.value.value
+                            elif (
+                                target.id == "creation_timestamp"
+                                and isinstance(node.value, ast.Constant)
+                                and isinstance(node.value.value, str)
+                            ):
+                                creation_ts = node.value.value
+                elif isinstance(node, ast.AnnAssign):
+                    if (
+                        isinstance(node.target, ast.Name)
+                        and node.value
+                        and isinstance(node.value, ast.Constant)
+                        and isinstance(node.value.value, str)
+                    ):
+                        if node.target.id == "description":
+                            desc = node.value.value
+                        elif node.target.id == "creation_timestamp":
+                            creation_ts = node.value.value
+        except SyntaxError as e:
+            desc = f"<syntax error: {e.msg}>"
         except (OSError, UnicodeDecodeError):
             desc = "<error reading file>"
 
