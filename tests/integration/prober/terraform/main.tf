@@ -62,18 +62,16 @@ resource "google_service_account" "prober_sa" {
   project      = var.project_id
 }
 
-# Scoped Role Assignments for Prober Service Account
-resource "google_project_iam_member" "prober_roles" {
-  for_each = toset([
-    "roles/editor",
-    "roles/resourcemanager.projectIamAdmin",
-    "roles/secretmanager.admin",
-    "roles/iam.serviceAccountTokenCreator",
-    "roles/serviceusage.apiKeysAdmin"
-  ])
-
+# Project Owner & Service Account Token Creator Role Assignments for Prober Service Account
+resource "google_project_iam_member" "prober_owner" {
   project = var.project_id
-  role    = each.key
+  role    = "roles/owner"
+  member  = "serviceAccount:${google_service_account.prober_sa.email}"
+}
+
+resource "google_project_iam_member" "prober_token_creator" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountTokenCreator"
   member  = "serviceAccount:${google_service_account.prober_sa.email}"
 }
 
