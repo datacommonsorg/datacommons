@@ -174,6 +174,8 @@ class DatacommonsCLI:
 
         last_state = None
         last_logged_time = 0
+        consecutive_failures = 0
+        max_consecutive_failures = 5
         while True:
             elapsed = int(time.time() - start_time)
             if elapsed > timeout_seconds:
@@ -187,7 +189,13 @@ class DatacommonsCLI:
                     .decode()
                     .strip()
                 )
-            except (subprocess.SubprocessError, subprocess.TimeoutExpired):
+                consecutive_failures = 0
+            except (subprocess.SubprocessError, subprocess.TimeoutExpired) as e:
+                consecutive_failures += 1
+                if consecutive_failures >= max_consecutive_failures:
+                    raise RuntimeError(
+                        f"Failed to query workflow execution status {max_consecutive_failures} consecutive times: {e}"
+                    ) from e
                 time.sleep(15)
                 continue
 

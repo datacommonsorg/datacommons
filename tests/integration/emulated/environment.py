@@ -153,11 +153,12 @@ class EmulatedEnvironment:
                 if file_path.is_file() and not file_path.name.startswith("."):
                     with open(file_path, "rb") as f:
                         data = f.read()
-                    requests.post(
+                    resp = requests.post(
                         f"{self.gcs_url}/upload/storage/v1/b/test-bucket/o?uploadType=media&name=ingestion/input/{import_name}/{file_path.name}",
                         data=data,
                         timeout=10,
                     )
+                    resp.raise_for_status()
 
         # 3. Run Apache Beam data processor
         imports_arg = ",".join(import_names) if import_names else "wages"

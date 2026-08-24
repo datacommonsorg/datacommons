@@ -203,10 +203,14 @@ class PreflightPermissionChecker:
                 pass
 
         fix_cmd = (
-            f"gcloud iam service-accounts add-iam-policy-binding '{sa_email}' "
-            f"--member='{member_spec}' "
-            f"--role='roles/iam.serviceAccountTokenCreator' "
-            f"--project='{self.target.project_id}'"
+            (
+                f"gcloud iam service-accounts add-iam-policy-binding '{sa_email}' "
+                f"--member='{member_spec}' "
+                f"--role='roles/iam.serviceAccountTokenCreator' "
+                f"--project='{self.target.project_id}'"
+            )
+            if self.current_user
+            else None
         )
         return PermissionCheckResult(
             passed=False,
@@ -261,10 +265,14 @@ class PreflightPermissionChecker:
             )
         except Exception as e:
             fix_cmd = (
-                f"gcloud storage buckets add-iam-policy-binding 'gs://{bucket_name}' "
-                f"--member='{member_spec}' "
-                f"--role='roles/storage.objectAdmin' "
-                f"--project='{self.target.project_id}'"
+                (
+                    f"gcloud storage buckets add-iam-policy-binding 'gs://{bucket_name}' "
+                    f"--member='{member_spec}' "
+                    f"--role='roles/storage.objectAdmin' "
+                    f"--project='{self.target.project_id}'"
+                )
+                if self.current_user
+                else None
             )
             return PermissionCheckResult(
                 passed=False,
@@ -310,10 +318,14 @@ class PreflightPermissionChecker:
             )
         except Exception as e:
             fix_cmd = (
-                f"gcloud spanner instances add-iam-policy-binding '{self.target.spanner_instance}' "
-                f"--member='{member_spec}' "
-                f"--role='roles/spanner.databaseUser' "
-                f"--project='{self.target.project_id}'"
+                (
+                    f"gcloud spanner instances add-iam-policy-binding '{self.target.spanner_instance}' "
+                    f"--member='{member_spec}' "
+                    f"--role='roles/spanner.databaseUser' "
+                    f"--project='{self.target.project_id}'"
+                )
+                if self.current_user
+                else None
             )
             return PermissionCheckResult(
                 passed=False,
