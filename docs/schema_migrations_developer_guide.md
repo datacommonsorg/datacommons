@@ -78,6 +78,9 @@ The `<target>` argument can be:
 - The 14-digit timestamp prefix (e.g. `20260817000000`)
 - A relative or absolute file path
 
+Alternatively, you can manually adjust the timestamp prefix in the filename and update the `creation_timestamp` in the `Migration` class.
+Migrations will always be run chronologically in timestamp order, so make sure the timestamp prefix is set correctly relative to other migrations.
+
 #### Example Interaction:
 
 ```text
