@@ -828,7 +828,7 @@ To verify that the workflow has completed, click the `Workflow Console Link` in 
 
 To verify that the data has been imported correctly:
 
-1. Go to <code>https://console.cloud.google.com/spanner/instances/<vaf>INSTANCE</var>/databases/<var>DATABASE</var>/details/table</code>.
+1. Go to <code>https://console.cloud.google.com/spanner/instances/<var>INSTANCE</var>/databases/<var>DATABASE</var>/details/table</code>.
 2. From the list of tables, click the **Timeseries** table link.
 3. From the left pane menu, click **Data** to view data.
 
