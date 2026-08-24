@@ -14,6 +14,7 @@
 
 """CLI command tests for developer migration DevOps tooling (tools/migrations/manage_migrations_cli.py)."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -67,7 +68,7 @@ def test_cli_create_command(runner: CliRunner, tmp_path: Path) -> None:
     assert match is not None
 
     content = created_file.read_text()
-    assert f"description: str = {repr('Add Observation table')}" in content
+    assert f"description: str = {json.dumps('Add Observation table')}" in content
     assert "SchemaMigration" in content
 
 
@@ -84,7 +85,7 @@ def test_cli_create_command_default_description(
     created_files = list(tmp_path.glob("*_add_indexes.py"))
     assert len(created_files) == 1
     content = created_files[0].read_text()
-    assert f"description: str = {repr('Add indexes')}" in content
+    assert f"description: str = {json.dumps('Add indexes')}" in content
 
 
 def test_cli_create_command_invalid_name_raises(runner: CliRunner) -> None:

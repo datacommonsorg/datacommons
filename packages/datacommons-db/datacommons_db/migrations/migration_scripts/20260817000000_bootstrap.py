@@ -26,7 +26,6 @@ CREATE TABLE SchemaMigrations (
 
 
 class Migration(SchemaMigration):
-
     description: str = "Add SchemaMigrations table to bootstrap schema migrations."
     creation_timestamp: str = "2026-08-17T00:00:00Z"
 

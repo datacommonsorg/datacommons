@@ -16,6 +16,7 @@
 
 import ast
 import datetime
+import json
 from pathlib import Path
 
 import pytest
@@ -93,7 +94,7 @@ def test_generate_migration_content_valid_ast() -> None:
     parsed = ast.parse(content)
     assert parsed is not None
 
-    assert f"description: str = {repr('Add User table')}" in content
+    assert f"description: str = {json.dumps('Add User table')}" in content
     assert 'creation_timestamp: str = "2026-08-19T13:54:12Z"' in content
     assert "class Migration(SchemaMigration):" in content
     assert "def upgrade(self, spanner_client: SpannerClient) -> None:" in content
@@ -124,7 +125,7 @@ def test_generate_migration_content_handles_quotes_and_special_chars() -> None:
             if isinstance(item, ast.AnnAssign) and item.target.id == "description"
         )
         assert desc_node.value.value == desc
-        assert f"description: str = {repr(desc)}" in content
+        assert f"description: str = {json.dumps(desc)}" in content
 
 
 # ==============================================================================

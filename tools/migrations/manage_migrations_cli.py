@@ -159,7 +159,7 @@ def list_command() -> None:
     # Dynamically compute column width for Filename to prevent column misalignment
     idx_col_width = 4
     ts_col_width = 22
-    fn_col_width = max(len("Filename"), max(len(m.filename) for m in migrations))
+    fn_col_width = max(len("Filename"), *(len(m.filename) for m in migrations))
     desc_divider_width = 30
 
     # Format and print table headers

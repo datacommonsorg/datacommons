@@ -21,6 +21,7 @@ and discovering Spanner schema migration scripts in packages/datacommons-db.
 import ast
 import contextlib
 import datetime
+import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -141,7 +142,7 @@ def generate_migration_content(description: str, creation_timestamp: str) -> str
         Formatted Python source code string.
     """
     current_year = datetime.datetime.now(datetime.UTC).year
-    desc_literal = repr(description)
+    desc_literal = json.dumps(description)
 
     return f'''# Copyright {current_year} Google LLC.
 #
@@ -162,7 +163,6 @@ from datacommons_db.migrations.base import SchemaMigration
 
 
 class Migration(SchemaMigration):
-
     description: str = {desc_literal}
     creation_timestamp: str = "{creation_timestamp}"
 
@@ -380,15 +380,15 @@ def update_migration_file(
                 ):
                     target_node = node.value
                     break
-        elif isinstance(node, ast.AnnAssign):
-            if (
-                isinstance(node.target, ast.Name)
-                and node.target.id == "creation_timestamp"
-                and node.value
-                and isinstance(node.value, ast.Constant)
-            ):
-                target_node = node.value
-                break
+        elif (
+            isinstance(node, ast.AnnAssign)
+            and isinstance(node.target, ast.Name)
+            and node.target.id == "creation_timestamp"
+            and node.value
+            and isinstance(node.value, ast.Constant)
+        ):
+            target_node = node.value
+            break
         if target_node:
             break
 
@@ -480,17 +480,17 @@ def discover_migrations(
                                 and isinstance(node.value.value, str)
                             ):
                                 creation_ts = node.value.value
-                elif isinstance(node, ast.AnnAssign):
-                    if (
-                        isinstance(node.target, ast.Name)
-                        and node.value
-                        and isinstance(node.value, ast.Constant)
-                        and isinstance(node.value.value, str)
-                    ):
-                        if node.target.id == "description":
-                            desc = node.value.value
-                        elif node.target.id == "creation_timestamp":
-                            creation_ts = node.value.value
+                elif (
+                    isinstance(node, ast.AnnAssign)
+                    and isinstance(node.target, ast.Name)
+                    and node.value
+                    and isinstance(node.value, ast.Constant)
+                    and isinstance(node.value.value, str)
+                ):
+                    if node.target.id == "description":
+                        desc = node.value.value
+                    elif node.target.id == "creation_timestamp":
+                        creation_ts = node.value.value
         except SyntaxError as e:
             desc = f"<syntax error: {e.msg}>"
         except (OSError, UnicodeDecodeError):
