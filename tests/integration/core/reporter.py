@@ -151,7 +151,11 @@ class TestReporter:
         instance = self.report.target_instance or "unknown"
         datasets = self.report.test_config or "benchmark"
         commit = self.report.git_commit[:8] if self.report.git_commit else "latest"
-        status = "PASSED" if self.report.failed_tests == 0 else "FAILED"
+        status = (
+            "PASSED"
+            if (self.report.failed_tests == 0 and self.report.total_tests > 0)
+            else "FAILED"
+        )
         clean_datasets = re.sub(r"[^a-zA-Z0-9_\-+]", "_", datasets)
 
         return f"{ts_str}_{instance}_{clean_datasets}_{commit}_{status}.json"
@@ -188,7 +192,11 @@ class TestReporter:
         )
 
     def to_dict(self) -> dict[str, Any]:
-        status = "PASSED" if self.report.failed_tests == 0 else "FAILED"
+        status = (
+            "PASSED"
+            if (self.report.failed_tests == 0 and self.report.total_tests > 0)
+            else "FAILED"
+        )
         return {
             "status": status,
             "summary": {
