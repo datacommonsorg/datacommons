@@ -141,7 +141,10 @@ def escape_docstring(text: str) -> str:
     """
     escaped = text.replace("\\", "\\\\").replace('"""', r"\"\"\"")
     if escaped.endswith('"'):
-        escaped = escaped[:-1] + r"\""
+        # Only escape if the trailing quote is not already escaped (preceded by an even number of backslashes)
+        num_backslashes = len(escaped[:-1]) - len(escaped[:-1].rstrip("\\"))
+        if num_backslashes % 2 == 0:
+            escaped = escaped[:-1] + r"\""
     return escaped
 
 

@@ -108,10 +108,30 @@ def test_escape_docstring_trailing_quote() -> None:
     )
 
 
+def test_escape_docstring_trailing_double_and_triple_quotes() -> None:
+    """Verifies strings ending with multiple quotes are safely escaped without mangling."""
+    assert (
+        manage_migrations_utils.escape_docstring('Ends with two quotes ""')
+        == r'Ends with two quotes "\"'
+    )
+    assert (
+        manage_migrations_utils.escape_docstring('Ends with triple quotes """')
+        == r'Ends with triple quotes \"\"\"'
+    )
+    assert (
+        manage_migrations_utils.escape_docstring('Ends with four quotes """"')
+        == r'Ends with four quotes \"\"\"\"'
+    )
+
+
 def test_escape_docstring_backslashes() -> None:
     """Verifies backslashes are escaped to avoid escape sequence warnings."""
     assert (
         manage_migrations_utils.escape_docstring(r"Path \to\file") == r"Path \\to\\file"
+    )
+    assert (
+        manage_migrations_utils.escape_docstring(r'Ends with backslash and quote \"')
+        == r'Ends with backslash and quote \\\"'
     )
 
 
@@ -132,14 +152,25 @@ def test_generate_migration_content_valid_ast() -> None:
 
 def test_generate_migration_content_handles_quotes_and_special_chars() -> None:
     """Verifies migration content generation handles complex quotes, backslashes, and characters."""
-    desc = r'Add "User" & \'Group\' table with \ path and """ triple quotes'
-    content = manage_migrations_utils.generate_migration_content(
-        description=desc,
-        creation_timestamp="2026-08-19T13:54:12Z",
-    )
-    parsed = ast.parse(content)
-    assert parsed is not None
-    assert f"description: str = {repr(desc)}" in content
+    test_descriptions = [
+        r'Add "User" & \'Group\' table with \ path and """ triple quotes',
+        'Ends with triple quotes """',
+        'Ends with four quotes """" ',
+        'Ends with quote "',
+        'Ends with two quotes ""',
+        r'Ends with backslash and quote \"',
+    ]
+    for desc in test_descriptions:
+        content = manage_migrations_utils.generate_migration_content(
+            description=desc,
+            creation_timestamp="2026-08-19T13:54:12Z",
+        )
+        parsed = ast.parse(content)
+        assert parsed is not None
+        # Verify the docstring extracted from AST exactly matches the original description
+        cls_node = parsed.body[2]  # Migration class node
+        assert ast.get_docstring(cls_node) == desc
+        assert f"description: str = {repr(desc)}" in content
 
 
 # ==============================================================================
