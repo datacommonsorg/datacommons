@@ -97,10 +97,10 @@ def tag_container_image(
     dry_run: bool = False,
 ) -> None:
     """Adds a new tag to an existing container image in GCR/Artifact Registry."""
-    src_image = f"{repo}:{src_tag}"
+    src_image = src_tag if "/" in src_tag else f"{repo}:{src_tag}"
     target_image = f"{repo}:{target_tag}"
 
-    if "pkg.dev" in repo:
+    if "pkg.dev" in repo or "pkg.dev" in src_image:
         cmd = [
             "gcloud",
             "artifacts",
@@ -228,32 +228,12 @@ def stage_dataflow_artifacts(
         print(f"             Source Image:    {src_image}")
 
         # 4. Tag the source image to target tag in Artifact Registry
-        tag_cmd = [
-            "gcloud",
-            "artifacts",
-            "docker",
-            "tags",
-            "add",
-            src_image,
-            target_image,
-            "--quiet",
-        ]
-        print(f"  [DATAFLOW IMAGE] Tagging {src_image} -> {target_image}")
-        try:
-            res = subprocess.run(
-                tag_cmd,
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-            if res.stdout.strip():
-                print(f"                   {res.stdout.strip()}")
-        except subprocess.CalledProcessError as e:
-            sys.exit(
-                f"Error: Failed to tag Dataflow image '{src_image}' -> '{target_image}'.\n"
-                f"Command: {' '.join(tag_cmd)}\n"
-                f"Details: {e.stderr.strip() or e.stdout.strip()}"
-            )
+        tag_container_image(
+            repo=dataflow_image_repo,
+            src_tag=src_image,
+            target_tag=target_tag,
+            dry_run=dry_run,
+        )
 
         # 5. Update JSON template and upload to target URI
         data["image"] = target_image
