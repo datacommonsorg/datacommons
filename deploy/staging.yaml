@@ -13,48 +13,121 @@
 # limitations under the License.
 
 steps:
-  # 1. Set lockstep version across __init__.py files and root pyproject.toml using inline python
-  - name: 'python:3.12-slim'
+  # 1. Clone target commit/branch, apply version bump, and push RC tag to GitHub
+  - name: 'ghcr.io/astral-sh/uv:python3.12-trixie-slim'
+    id: 'apply-version-bump'
     entrypoint: 'bash'
+    secretEnv: ['GH_TOKEN']
     env:
-      - 'TAG_NAME=$TAG_NAME'
+      - 'TARGET_VERSION=${_TARGET_VERSION}'
+      - 'GITHUB_COMMIT=${_GITHUB_COMMIT}'
     args:
       - '-c'
       - |
-        tag_version=$${TAG_NAME#v}
-        echo "Updating version files to $tag_version"
-        echo "$tag_version" > VERSION
-        python3 -c "import glob, re; [open(f, 'w').write(re.sub(r'^__version__ = [\"\'].*[\"\']', '__version__ = \"'\"$tag_version\"'\"', content, flags=re.MULTILINE)) for f in glob.glob('packages/*/datacommons_*/__init__.py') for content in [open(f, 'r').read()]]"
-        python3 -c "import re, sys; content = open('infra/dcp/variables.tf').read(); updated, count = re.subn(r'(variable\s+\"dcp_version\"\s+\{[^}]*default\s*=\s*\")[^\"]+(\")', r'\g<1>' + '$tag_version' + r'\g<2>', content); open('infra/dcp/variables.tf', 'w').write(updated) if count else sys.exit('Error: dcp_version default value not found or updated in variables.tf')"
+        set -eo pipefail
+        apt-get update && apt-get install -y git
 
-  # 2. Build and publish all Python packages to TestPyPI
-  - name: 'ghcr.io/astral-sh/uv:python3.12-trixie-slim'
+        if [ -z "$$TARGET_VERSION" ]; then
+          echo "ERROR: Substitution _TARGET_VERSION is required (e.g. _TARGET_VERSION='1.2.3rc1')."
+          exit 1
+        fi
+        tag_version="$$TARGET_VERSION"
+
+        if [ -n "$$GH_TOKEN" ]; then
+          git config --global url."https://${_GITHUB_AUTHOR}:$$GH_TOKEN@github.com/".insteadOf "https://github.com/"
+          git config --global user.email "${_GITHUB_AUTHOR}@users.noreply.github.com"
+          git config --global user.name "${_GITHUB_AUTHOR}"
+        fi
+
+        # Determine target ref: substitution _GITHUB_COMMIT > default _GITHUB_BRANCH
+        target_ref="$$GITHUB_COMMIT"
+        if [ -z "$target_ref" ]; then
+          target_ref="${_GITHUB_BRANCH}"
+        fi
+
+        echo "Cloning repository and checking out target ref '$target_ref'..."
+        rm -rf /workspace/* /workspace/.[!.]*
+        git clone "https://github.com/${_GITHUB_ORG}/${_GITHUB_REPO}.git" /workspace
+        cd /workspace
+        git checkout "$target_ref"
+
+        echo "Applying version bump for staging release candidate $tag_version..."
+        python3 deploy/scripts/apply_version_bump.py "$tag_version"
+
+        if [ -n "$$GH_TOKEN" ]; then
+          echo "Creating local RC commit and tagging v$tag_version on GitHub..."
+          git add -u
+          git diff-index --quiet HEAD || git commit -m "chore(rc): bump version files for v$tag_version"
+          git tag -f "v$tag_version"
+          git push origin "v$tag_version" --force
+        fi
+
+  # 2. Cross-tag container images and stage Dataflow Flex Template JSON
+  - name: 'google/cloud-sdk:slim'
+    id: 'tag-release-artifacts'
     entrypoint: 'bash'
+    env:
+      - 'TARGET_VERSION=${_TARGET_VERSION}'
+      - 'DEFAULT_SOURCE_TAG=${_DEFAULT_SOURCE_TAG}'
+      - 'SERVICES_TAG=${_SERVICES_TAG}'
+      - 'PREPROCESSOR_TAG=${_PREPROCESSOR_TAG}'
+      - 'POSTPROCESSOR_TAG=${_POSTPROCESSOR_TAG}'
+      - 'INGESTION_HELPER_TAG=${_INGESTION_HELPER_TAG}'
+      - 'DATAFLOW_TEMPLATE_TAG=${_DATAFLOW_TEMPLATE_TAG}'
+      - 'DATAFLOW_IMAGE_TAG=${_DATAFLOW_IMAGE_TAG}'
+    args:
+      - '-c'
+      - |
+        set -eo pipefail
+        if [ -n "$$DEFAULT_SOURCE_TAG" ] || [ -n "$$SERVICES_TAG" ] || [ -n "$$PREPROCESSOR_TAG" ] || [ -n "$$POSTPROCESSOR_TAG" ] || [ -n "$$INGESTION_HELPER_TAG" ] || [ -n "$$DATAFLOW_TEMPLATE_TAG" ] || [ -n "$$DATAFLOW_IMAGE_TAG" ]; then
+          echo "Tagging release artifacts and staging Dataflow template for $$TARGET_VERSION..."
+          args=(--target-tag "$$TARGET_VERSION")
+          [ -n "$$DEFAULT_SOURCE_TAG" ] && args+=(--default-source-tag "$$DEFAULT_SOURCE_TAG")
+          [ -n "$$SERVICES_TAG" ] && args+=(--services-tag "$$SERVICES_TAG")
+          [ -n "$$PREPROCESSOR_TAG" ] && args+=(--preprocessor-tag "$$PREPROCESSOR_TAG")
+          [ -n "$$POSTPROCESSOR_TAG" ] && args+=(--postprocessor-tag "$$POSTPROCESSOR_TAG")
+          [ -n "$$INGESTION_HELPER_TAG" ] && args+=(--ingestion-helper-tag "$$INGESTION_HELPER_TAG")
+          [ -n "$$DATAFLOW_TEMPLATE_TAG" ] && args+=(--dataflow-template-tag "$$DATAFLOW_TEMPLATE_TAG")
+          [ -n "$$DATAFLOW_IMAGE_TAG" ] && args+=(--dataflow-image-tag "$$DATAFLOW_IMAGE_TAG")
+          python3 deploy/scripts/tag_release_artifacts.py "$${args[@]}"
+        else
+          echo "No artifact source tags provided; skipping container image and Dataflow template tagging."
+        fi
+
+  # 3. Build and publish all Python packages to TestPyPI
+  - name: 'ghcr.io/astral-sh/uv:python3.12-trixie-slim'
+    id: 'publish-testpypi-packages'
+    entrypoint: 'python3'
     secretEnv:
       - 'TEST_PYPI_TOKEN'
     args:
-      - '-c'
-      - |
-        for pkg in packages/*; do
-          pkg_name=$(basename "$pkg")
-          if [ "$pkg_name" = "datacommons-db" ] || [ "$pkg_name" = "datacommons-api" ] || [ "$pkg_name" = "datacommons-schema" ]; then
-            echo "Skipping experimental package $pkg_name..."
-            continue
-          fi
-          if [ -d "$pkg" ] && [ -f "$pkg/pyproject.toml" ]; then
-            echo "Building and publishing $pkg..."
-            cd "$pkg"
-            rm -rf dist/ build/ *.egg-info
-            uv build --out-dir dist
-            uv publish --token $$TEST_PYPI_TOKEN --publish-url https://test.pypi.org/legacy/
-            cd -
-          fi
-        done
+      - 'deploy/scripts/publish_packages.py'
+      - '--target'
+      - 'testpypi'
+      - '--token-env'
+      - 'TEST_PYPI_TOKEN'
+
+substitutions:
+  _GITHUB_AUTHOR: 'datacommons-robot-author'
+  _GITHUB_ORG: 'datacommonsorg'
+  _GITHUB_REPO: 'datacommons'
+  _GITHUB_BRANCH: 'main'
+  _GITHUB_COMMIT: ''
+  _TARGET_VERSION: ''
+  _DEFAULT_SOURCE_TAG: ''
+  _SERVICES_TAG: ''
+  _PREPROCESSOR_TAG: ''
+  _POSTPROCESSOR_TAG: ''
+  _INGESTION_HELPER_TAG: ''
+  _DATAFLOW_TEMPLATE_TAG: ''
+  _DATAFLOW_IMAGE_TAG: ''
 
 availableSecrets:
   secretManager:
   - versionName: projects/$PROJECT_ID/secrets/TEST_PYPI_TOKEN/versions/latest
     env: 'TEST_PYPI_TOKEN'
+  - versionName: projects/$PROJECT_ID/secrets/agent-toolkit-github-pat/versions/latest
+    env: 'GH_TOKEN'
 
 options:
   logging: CLOUD_LOGGING_ONLY

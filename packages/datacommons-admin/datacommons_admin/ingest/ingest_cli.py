@@ -15,8 +15,8 @@
 import click
 import re
 
-from datacommons_admin.ingestion_job_client import IngestionJobClient
-from datacommons_admin.tf_utils import (
+from datacommons_admin.core.clients import IngestionJobClient
+from datacommons_admin.core.utils.tf_utils import (
     get_ingestion_prep_job_name,
     get_ingestion_workflow_service_account_email,
     get_project_id,
@@ -34,10 +34,10 @@ def ingest() -> None:
 @click.option(
     "--imports",
     "imports",
-    default=None,
+    required=True,
     help="The names of the imports to run (comma-separated).",
 )
-def start(imports: str | None = None) -> None:
+def start(imports: str) -> None:
     """Start a data ingestion job execution."""
     click.secho("Datacommons Admin Ingest Start", fg="cyan", bold=True)
     click.secho(

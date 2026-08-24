@@ -1,15 +1,15 @@
 # Data Commons Database Module
 
-This module provides the database models for the Data Commons project, implementing a graph database using Google Cloud Spanner and SQLAlchemy. It defines the core data models for nodes, edges, and observations in a graph structure.
+This module provides the database models and client primitives for the Data Commons project, implementing a graph database using Google Cloud Spanner and SQLAlchemy. It defines the core data models for nodes, edges, observations, and schema migration version tracking.
 
 ## Features
 
-- SQLAlchemy ORM models for nodes, edges, and observations
-- Graph database implementation using Google Cloud Spanner
-- JSON-LD document support for data import/export
-- Efficient querying with proper indexing
-- Relationship management between nodes and edges
-- Provenance tracking for all relationships
+- **Direct Cloud Spanner Client (`SpannerClient`)**: Client for Spanner database operations, DDL execution, parameterized DML, and point-in-time snapshot queries.
+- **SQLAlchemy ORM models**: Declarative models for nodes, edges, and observations.
+- **Graph database implementation**: Built on top of Google Cloud Spanner.
+- **JSON-LD document support**: Model support for data import/export.
+- **Efficient indexing & querying**: Full-text and composite indexing for graph traversals.
+- **Provenance tracking**: Complete auditability for all graph entities and relationships.
 
 ## Data Model
 
@@ -43,21 +43,141 @@ This module provides the database models for the Data Commons project, implement
 
 ## Usage
 
-### Basic Setup
+### Cloud Spanner Client
+
+The package provides `SpannerClient` for direct Spanner operations, DDL execution, and query execution.
+
+#### Initialization
+
+```python
+from datacommons_db.clients import SpannerClient
+
+client = SpannerClient(
+    project_id="your-gcp-project",
+    instance_id="your-spanner-instance",
+    database_id="your-spanner-database",
+)
+```
+
+
+#### Checking Tables
+
+```python
+# Check if a specific table exists in information_schema
+if not client.table_exists("Node"):
+    print("Node table not found")
+```
+
+#### Executing DDL Statements
+
+`execute_ddl()` accepts a list of DDL statement strings and waits for Spanner Long-Running Operations (LROs) to complete, returning a `DdlResult`:
+
+```python
+from datacommons_db.clients import ExecutionStatus
+
+ddl_result = client.execute_ddl([
+    """
+    CREATE TABLE CustomTable (
+        id STRING(64) NOT NULL,
+        name STRING(MAX)
+    ) PRIMARY KEY (id)
+    """,
+    "CREATE TABLE TableB (id INT64) PRIMARY KEY (id)",
+])
+if ddl_result.status != ExecutionStatus.SUCCESS:
+    print(f"DDL failed: {ddl_result.error_message}")
+```
+
+
+#### Executing Queries & DML
+
+```python
+from google.cloud import spanner
+from datacommons_db.clients import ExecutionStatus
+
+# Parameterized DML transaction (returns DmlResult)
+dml_result = client.execute_dml(
+    "UPDATE CustomTable SET name = @name WHERE id = @id",
+    params={"name": "New Name", "id": "123"},
+    param_types={"name": spanner.param_types.STRING, "id": spanner.param_types.STRING},
+)
+if dml_result.status == ExecutionStatus.SUCCESS:
+    print(f"Rows affected: {dml_result.rows_affected}")
+else:
+    print(f"DML failed: {dml_result.error_message}")
+
+# Point-in-time Snapshot query (returns QueryResult)
+query_result = client.execute_query(
+    "SELECT id, name FROM CustomTable WHERE id = @id",
+    params={"id": "123"},
+    param_types={"id": spanner.param_types.STRING},
+)
+if query_result.status == ExecutionStatus.SUCCESS:
+    print(f"Queried rows: {query_result.rows}")
+```
+
+
+
+### Schema Migrations
+
+The package provides a timestamp-based schema migration framework with `SchemaMigration` and `MigrationRunner`.
+
+#### Running Migrations
+
+```python
+from datacommons_db.clients import SpannerClient
+from datacommons_db.migrations import MigrationRunner
+
+client = SpannerClient(
+    project_id="your-gcp-project",
+    instance_id="your-spanner-instance",
+    database_id="your-spanner-database",
+)
+
+runner = MigrationRunner(client)
+
+# Check applied migrations in SchemaMigrations table
+applied = runner.get_applied_migrations()
+print(f"Applied migrations: {applied}")
+
+# Run all pending migrations chronologically
+applied_migrations = runner.run_migrations()
+for migration in applied_migrations:
+    print(f"Applied: {migration.creation_timestamp} ({migration.description})")
+```
+
+#### Defining a Custom Migration
+
+Create a file in `datacommons_db/migrations/migration_scripts/` named `YYYYMMDDHHMMSS_<description>.py` (e.g. `20260920120000_add_custom_index.py`):
+
+```python
+from datacommons_db.clients import ExecutionStatus, SpannerClient
+from datacommons_db.migrations import SchemaMigration
+
+class Migration(SchemaMigration):
+    description: str = "Add custom index"
+    creation_timestamp: str = "2026-09-20T12:00:00Z"
+
+    def roll_forward(self, spanner_client: SpannerClient) -> None:
+        result = spanner_client.execute_ddl([
+            "CREATE INDEX CustomIndex ON Node (name)"
+        ])
+        if result.status != ExecutionStatus.SUCCESS:
+            raise RuntimeError(f"Migration failed: {result.error_message}")
+```
+
+### SQLAlchemy ORM Usage
 
 ```python
 from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from datacommons_db.models.node import NodeModel
 from datacommons_db.models.edge import EdgeModel
 
 # Initialize database connection
 engine = create_engine('spanner:///projects/your-project/instances/your-instance/databases/your-database')
 
-# Create tables
-Base.metadata.create_all(engine)
-
 # Create a session
-from sqlalchemy.orm import sessionmaker
 Session = sessionmaker(bind=engine)
 session = Session()
 

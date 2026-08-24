@@ -1,0 +1,14 @@
+{
+  "inputFiles": [
+    {
+      "pattern": "foobar_education.*",
+      "provenance": "dcid:FooBarCustomEducation",
+      "columnMappings": {
+        "dcid:observationAbout": "geoId",
+        "dcid:variableMeasured": "variable",
+        "dcid:observationDate": "year",
+        "dcid:value": "value"
+      }
+    }
+  ]
+}
