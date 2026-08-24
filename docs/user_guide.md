@@ -30,6 +30,7 @@ The following section describes how the Platform differs from Custom Data Common
 * Input data files can be configured as separate imports. 
 * Data can be rebuilt on a per-import basis, instead of rebuilding all data. 
 * There is no NL Server.
+* There is no web server or `website` repo.
 
 ### Workflow
 
@@ -42,7 +43,7 @@ The following section describes how the Platform differs from Custom Data Common
 ### Schema
 
 * Observations can contain up to 3 entities/places. 
-* Data sources and provenances are defined in MCF (not config.json).
+* Data sources and provenances are defined in MCF (not `config.json`).
 * `config.json` has several new configuration fields.
 * CSV column headings must be mapped to DCIDs (no built-in default names).
 
@@ -152,9 +153,7 @@ Here are some variables you may wish to modify:
 | `storage_create_artifacts_bucket` | `true` | Create a new Cloud Storage bucket to store your CSV, MCF and `config.json` files.<br/>If you already have a bucket in the same project that you want to reuse, set this to `false` and provide the name of your bucket using `storage_artifacts_bucket_name`.<br/>**Note:** We do not recommend reusing a bucket in which you have previously stored Data Commons data.This risks unintended data corruption or deletion. | 
 | `ingestion_input_path` | `ingestion/input` | The Cloud Storage folder where you will store your input files (MCF, CSV, config.json). |
 | `spanner_create_instance` | `true` | Creates a new Cloud Spanner instance. If you want to reduce costs, and already have a Spanner instance that you want to reuse, set this to `false` and provide the name of the instance using `spanner_instance_id`.<br/>**Note:** If you are creating multiple deployments, e.g. dev and prod, we recommend that you reuse a single instance (but not a database): set this to `false` for all other deployments. |
-| `spanner_create_bigquery_reservation` | `true` | Data Commons uses [BigQuery federated queries](https://docs.cloud.google.com/bigquery/docs/federated-queries-intro) internally to write data to Spanner. The first time you create a deployment in a given region, set this to `true` to create a BigQuery capacity reservation.<br/>**Important!** The reservation must only be created *once*, for the first deployment instance.There can only be one reservation per project per region. If another is created in the same deployment or other deployments in the same project/region, the ingestion pipeline will fail. On the other hand, if you set the variable to `false` after creation, Terraform will destroy it and break other deployments. The solution is to remove the resource from Terraform tracking in the first deployment; please see [Handle resource creation special variables](#handle) for procedures. | 
-| `datacommons_services_image` | `gcr.io/datcom-ci/datacommons-services:1.1.1` | If you have a [customized image](https://docs.datacommons.org/custom_dc/image.html#build-repo) that you have uploaded to the Artifact Registry, change this to the Docker container URL, including name and tag. | 
-| `datacommons_services_allow_unauthenticated_access` | `false` |  This disallows public access to the web services and APIs: services are private and users must have a minimum of the [Cloud Run Invoker role](https://docs.cloud.google.com/run/docs/authenticating/public). See [Authentication overview | Cloud Run](https://docs.cloud.google.com/run/docs/authenticating/overview) for more details.<br/>During development, you may wish to set this to  `true` (users can only discover the services if they know the (long) URL) to simplify iteration. Or see [Authenticate developers | Cloud Run](https://docs.cloud.google.com/run/docs/authenticating/developers) for easy alternatives, such as running a local Cloud Run Proxy. |
+| `spanner_create_bigquery_reservation` | `true` | Data Commons uses [BigQuery federated queries](https://docs.cloud.google.com/bigquery/docs/federated-queries-intro) internally to write data to Spanner. The first time you create a deployment in a given region, set this to `true` to create a BigQuery capacity reservation.<br/>**Important!** The reservation must only be created *once*, for the first deployment instance.There can only be one reservation per project per region. If another is created in the same deployment or other deployments in the same project/region, the ingestion pipeline will fail. On the other hand, if you set the variable to `false` after creation, Terraform will destroy it and break other deployments. The solution is to remove the resource from Terraform tracking in the first deployment; please see [Handle resource creation special variables](#handle) for procedures. |
 | `enable_redis` | `false` | Google Cloud [Memorystore for Redis](https://docs.cloud.google.com/memorystore/docs/redis/memorystore-for-redis-overview) is a caching service that speeds up website and API performance. We recommend keeping it disabled during development. When you launch to production, depending on your traffic load, you may wish to enable it. | 
 | `stateful_deletion_protection`  | `false` | Determines whether you will be allowed to destroy your "stateful" resources which are Spanner, and the Artifacts GCS bucket. We recommend setting this to `true` for production. | 
 | `stateless_deletion_protection` |  `false` | Determines whether you will be allowed to `destroy` your "stateless" resources which are the resources that can be re-spun up with no data loss (Cloud Run Service/Jobs, Redis, Workflow etc…). We recommend setting this to true for production. | 
@@ -396,7 +395,7 @@ You define your source(s) in MCF. For example, let's say you get data from the I
 
 ```
 Node: ioc:IOC
-typeOf: dcid:Source
+typeOf: dcs:Source
 name: "International Olympic Committee"
 domain: "olympics.com"
 url: "https://olympics.com/ioc"
@@ -454,16 +453,16 @@ A variable must refer to one or more entities, defined as `observationProperties
 To define variables that only involve a single entity, e.g. one location, see [Define statistical variables in MCF](https://docs.datacommons.org/custom_dc/custom_data.html#mcf) and be sure to add the following:
 
 * A custom namespace prefix
-* An additional property: `observationProperties: dcid:observationAbout`. 
+* An additional property: `observationProperties: dcs:observationAbout`. 
 
 The following example defines a variable that provides per-country measurements (assume there is an existing property called `cigaretteSmoking`):
 
 ```
-Node: who:PercentageCigaretteSmokingAdults
+Node: who:Ratio_CigaretteSmoking_Adults
 typeOf: dcs:StatisticalVariable
 name: "Prevalence of current cigarette smoking among adults (%)"
 description: "Percentage of adults that currently smoke cigarettes"
-populationType: schema:Person
+populationType: dcid:Adult
 measuredProperty: dcid:cigaretteSmoking
 observationProperties: dcs:observationAbout
 statType: dcid:Ratio
@@ -502,11 +501,11 @@ In the case of places, you don't need to define the actual places, such as count
 In this example, we're going to revisit the smoking variable. In this case, observations are broken down by country and sex. We can reuse existing properties in Data Commons, namely country and gender as observation properties.
 
 ```
-Node: who:PercentageCigaretteSmokingAdultsByGender
+Node: who:Ratio_CigaretteSmoking_Adults_ByGender
 typeOf: dcs:StatisticalVariable
 name: "Prevalence of current cigarette smoking among adults, by sex"
 description: "Percentage of smokers in the adult population, broken down into male and female"
-populationType: schema:Person
+populationType: schema:Adult
 measuredProperty: dcid:cigaretteSmoking
 statType: dcid:Ratio
 observationProperties: dcs:country, dcs:gender
@@ -522,12 +521,12 @@ If you would like to view your variables in the Statistical Variable Explorer, y
 
 For single-entity observations, the structure is the same as that defined in [Prepare the CSV observation files](https://docs.datacommons.org/custom_dc/custom_data.html#exp_csv), with the exception that there are no built-in default column names. You must map column names to DCIDs, as described in [Step 6: Write your config.json file](#config). Column names can be anything you want, and columns can be in any order.
 
-Here's an example of a CSV file of observations for the corresponding to the `PercentCigaretteSmokingAdults` variable:
+Here's an example of a CSV file of observations for the corresponding to the `Ratio_CigaretteSmoking_Adults` variable:
 
 ```
 variable,country,year,value
-who:PercentCigaretteSmokingAdults,dcid:country/AFG,2019,7.5
-who:PercentCigaretteSmokingAdults,dcid:country/ARE,2018,6.3
+who:Ratio_CigaretteSmoking_Adults,dcid:country/AFG,2019,7.5
+who:Ratio_CigaretteSmoking_Adults,dcid:country/ARE,2018,6.3
 ```
 
 #### Prepare a multiple-entity observations file
@@ -536,14 +535,14 @@ For multiple-entity observations, in addition to the [standard required and opti
 
 ```
 variable,sex,country,year,value
-who:PercentCigaretteSmokingAdultsByGender,dcid:Female,dcid:country/AFG,2019,1.2
-who:PercentCigaretteSmokingAdultsByGender,dcid:Male,dcid:country/AFG,2019,13.4
-who:PercentCigaretteSmokingAdultsByGender,dcid:Female,dcid:country/AGO,2016,1.8
-who:PercentCigaretteSmokingAdultsByGender,dcid:Male,dcid:country/AGO,2016,14.3
-who:PercentCigaretteSmokingAdultsByGender,dcid:Female,dcid:country/ALB,2018,4.5
-who:PercentCigaretteSmokingAdultsByGender,dcid:Male,dcid:country/ALB,2018,35.7
-who:PercentCigaretteSmokingAdultsByGender,dcid:Male,dcid:country/ARE,2018,11.1
-who:PercentCigaretteSmokingAdultsByGender,dcid:Female,dcid:country/ARE,2018,1.6
+who:Ratio_CigaretteSmoking_Adults_ByGender,dcid:Female,dcid:country/AFG,2019,1.2
+who:Ratio_CigaretteSmoking_Adults_ByGender,dcid:Male,dcid:country/AFG,2019,13.4
+who:Ratio_CigaretteSmoking_Adults_ByGender,dcid:Female,dcid:country/AGO,2016,1.8
+who:Ratio_CigaretteSmoking_Adults_ByGender,dcid:Male,dcid:country/AGO,2016,14.3
+who:Ratio_CigaretteSmoking_Adults_ByGender,dcid:Female,dcid:country/ALB,2018,4.5
+who:Ratio_CigaretteSmoking_Adults_ByGender,dcid:Male,dcid:country/ALB,2018,35.7
+who:Ratio_CigaretteSmoking_Adults_ByGender,dcid:Male,dcid:country/ARE,2018,11.1
+who:Ratio_CigaretteSmoking_Adults_ByGender,dcid:Female,dcid:country/ARE,2018,1.6
 ```
 
 The heading columns can be whatever you want; the observation properties don't have to match the edges you defined in MCF.
@@ -838,21 +837,6 @@ To issue SQL or GQL queries, go back to the table details page and click **Spann
 * To verify the creation of new nodes, such as statistical variables, provenances or new classes/entities, use the **Node** table.
 * To verify the creation of new properties and view triples, use the **Edge** table.
 * To verify observations data, use the **TimeSeries** and **Observation** table. 
-
-
-## View your service and running application
-
-**Note:** To view the Cloud Run Service, you must have a minimum of the Run Developer role. To view your running application, you must have a minimum of the Run Invoker role.
-
-The name of the service container is set by the `datacommons_services_name` Terraform variable. If you didn't set it explicitly, by default it is set to <code><var>INSTANCE_NAME</var>-dc-datacommons-service></code>. To look it up, from your Terraform directory, run:
-
-```
-terraform output datacommons_services_name
-```
-
-To view the service, go to <code>https://console.cloud.google.com/run/services?project=<var>PROJECT_ID</var></code> and click on the service name. At the top of the service details page, you can find the link to the website URL. The URL is in the form <code>https://<var>SERVICE_NAME</var>-<var>XXXXXXXX</var>-<var>REGION</var>.a.run.app</code>. 
-
-> **Note**: If you kept the Terraform variable `datacommons_services_allow_unauthenticated_access` setting as false, the URL will not be clickable and you will not be able to access the service without providing authentication tokens. To simplify this during development purposes, you can run the Cloud CLI [Cloud Run Proxy](https://docs.cloud.google.com/run/docs/authenticating/developers#testing) to connect from a local proxy to your service in GCP. See [Authenticate developers](https://docs.cloud.google.com/run/docs/authenticating/developers#proxy) for details. Alternatively, if you are not concerned about public access to your site (users would still need to have the URL to discover it), set the variable to `true` and rerun `terraform apply`.
 
 
 ## Query data using SDMX
@@ -1636,18 +1620,3 @@ This likely indicates that the BigQuery reservation for your project was deleted
 2. From the left panel, select **Workload management**.
 3. From the **Capacity Management** tab, from the **Location** menu, select a location.
 4. Under **Slot Reservations**, you should see a default entry. If you don't, check all the other locations. If there is no reservation, you need to create one: In your Terraform configuration, set `spanner_create_bigquery_reservation = true` and rerun `terraform apply`. Also see [Handle resource creation variables](#handle) for further details.
-
-### Web service problems
-
-In general, whenever you encounter problems with any Google Cloud Run service, check the Logs page for your Cloud Run service, to get detailed output from the services.
-
-####  "Error: Forbidden: Your client does not have permission to get URL / from this server” or web app link is not live in Cloud Run Service details console page
-
-This indicates that the Terraform option to control public access on your web application, `make_services_public`, is set to `false`. In this case, the application requires authenticated requests but you have not provided an authentication token. To work around this:
-
-* Configure authorized users and run a local Cloud Run Proxy. See [Authenticate developers](https://docs.cloud.google.com/run/docs/authenticating/developers) for details.
-* If you're not worried about unauthorized access (the application link must be known for a user to access it), temporarily set `make_services_public = true` and rerun` terraform apply`.
-
-#### "502 Bad Gateway"
-
-This is usually a transient error that indicates that the services container is being restarted. It generally only lasts a few seconds.
