@@ -69,6 +69,7 @@ Prober infrastructure and cron schedules are deployed via Terraform with **Remot
 
 * **Cloud Run Job**: [Cloud Run Job: `dcp-prober`](https://console.cloud.google.com/run/jobs/details/us-central1/dcp-prober/executions?project=datcom-dcp)
 * **Cloud Scheduler Trigger**: [Cloud Scheduler Job: `dcp-prober-cron`](https://console.cloud.google.com/cloudscheduler/jobs/edit/us-central1/dcp-prober-cron?project=datcom-dcp)
+* **Active Integration Test Config**: [`foobar_wages`](file:///Users/gmechali/Desktop/datacommons/datacommons_platform/tests/integration/test_data/foobar_wages/test_spec.yaml) (exercises 1,242 observations, SVG hierarchy, Vertex AI natural language embeddings, REST/SDMX 3.0 APIs, and MCP tools)
 * **Terraform Remote State Bucket**: [`gs://tf-state-dcp-prober-datcom-dcp`](https://console.cloud.google.com/storage/browser/tf-state-dcp-prober-datcom-dcp?project=datcom-dcp)
 * **Container Image in Artifact Registry**: [`us-docker.pkg.dev/datcom-ci/datcom-tools/datacommons-platform-prober:latest`](https://console.cloud.google.com/artifacts/docker/datcom-ci/us/datcom-tools/datacommons-platform-prober?project=datcom-ci)
 * **Prober Data Commons API Key**: [Secret Manager: `dcp-prober-api-key`](https://console.cloud.google.com/security/secret-manager/secret/dcp-prober-api-key/versions?project=datcom-dcp)
