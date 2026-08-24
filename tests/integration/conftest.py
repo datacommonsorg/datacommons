@@ -431,32 +431,12 @@ def dcp_target(request, test_manifest) -> DCPTarget:
     )
 
     instance_opt = request.config.getoption("--instance")
-    if instance_opt in ("local", "emulated"):
-        from tests.integration.emulated.manager import EmulatedStackManager
-
-        reuse_data_opt = request.config.getoption("--reuse-data", False)
-        manager = EmulatedStackManager()
-        target = manager.start(test_manifest, artifacts, reuse_data=reuse_data_opt)
-        if _GLOBAL_REPORTER is not None:
-            _GLOBAL_REPORTER.set_artifacts(asdict(target.artifacts))
-            if target.artifacts.target_tag:
-                _GLOBAL_REPORTER.report.target_tag = target.artifacts.target_tag
-        yield target
-        if not request.config.getoption("--reuse-data"):
-            manager.stop()
-        return
-
     target = resolve_dcp_target(
         instance=instance_opt,
         project=request.config.getoption("--project"),
         workspace=request.config.getoption("--workspace"),
         artifacts=artifacts,
     )
-
-    if _GLOBAL_REPORTER is not None:
-        _GLOBAL_REPORTER.set_artifacts(asdict(target.artifacts))
-        if target.artifacts.target_tag:
-            _GLOBAL_REPORTER.report.target_tag = target.artifacts.target_tag
 
     # Preflight Permission Checks
     checker = PreflightPermissionChecker(target)
@@ -473,7 +453,23 @@ def dcp_target(request, test_manifest) -> DCPTarget:
             returncode=1,
         )
 
-    return target
+    env = None
+    if instance_opt in ("local", "emulated"):
+        from tests.integration.emulated.environment import EmulatedEnvironment
+
+        env = EmulatedEnvironment()
+        reuse_data_opt = request.config.getoption("--reuse-data", default=False)
+        env.start(manifest=test_manifest, reuse_data=reuse_data_opt)
+
+    if _GLOBAL_REPORTER is not None:
+        _GLOBAL_REPORTER.set_artifacts(asdict(target.artifacts))
+        if target.artifacts.target_tag:
+            _GLOBAL_REPORTER.report.target_tag = target.artifacts.target_tag
+
+    yield target
+
+    if env is not None and not request.config.getoption("--reuse-data"):
+        env.stop()
 
 
 @pytest.fixture(scope="session")

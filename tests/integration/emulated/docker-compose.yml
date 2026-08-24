@@ -3,19 +3,18 @@ services:
     image: ${SPANNER_IMAGE:-us-docker.pkg.dev/spanner-omni/images/spanner-omni:2026.r1-beta.2}
     container_name: itest-spanner
     ports:
-      - "${SPANNER_GRPC_PORT:-9010}:${SPANNER_INTERNAL_GRPC_PORT:-15000}"
-      - "${SPANNER_REST_PORT:-9020}:${SPANNER_INTERNAL_REST_PORT:-15020}"
+      - "9010:15000"
+      - "9020:15020"
     command: ${SPANNER_COMMAND:-start-single-server}
     networks:
       - test-network
+
   gcs:
     image: fsouza/fake-gcs-server:1.47.8
     container_name: itest-gcs
     ports:
       - "9099:9099"
     command: -scheme http -port 9099 -data /data -external-url http://gcs:9099
-    volumes:
-      - ./gcs_seed:/data
     networks:
       - test-network
 
@@ -23,11 +22,8 @@ services:
     image: ${PROCESSOR_IMAGE:-gcr.io/datcom-ci/datacommons-data:latest}
     platform: linux/amd64
     container_name: itest-datacommons-data-processor
-    volumes:
-      - ./container_assets/patch_credentials.py:/app/patch/sitecustomize.py
     environment:
-      - PYTHONPATH=/app/patch
-      - SPANNER_EMULATOR_HOST=spanner:${SPANNER_INTERNAL_GRPC_PORT:-15000}
+      - SPANNER_EMULATOR_HOST=spanner:15000
       - STORAGE_EMULATOR_HOST=http://gcs:9099
       - DC_API_KEY=${DC_API_KEY:-dummy-key}
       - INPUT_DIR=gs://test-bucket/ingestion/input
@@ -50,13 +46,10 @@ services:
     platform: linux/amd64
     container_name: itest-ingestion-helper
     ports:
-      - "${HELPER_PORT:-8081}:8080"
-    volumes:
-      - ./container_assets/patch_credentials.py:/app/patch/sitecustomize.py
+      - "8081:8080"
     environment:
-      - PYTHONPATH=/app/patch
       - PORT=8080
-      - SPANNER_EMULATOR_HOST=spanner:${SPANNER_INTERNAL_GRPC_PORT:-15000}
+      - SPANNER_EMULATOR_HOST=spanner:15000
       - STORAGE_EMULATOR_HOST=http://gcs:9099
       - OUTPUT_DIR=gs://test-bucket/output
       - PROJECT_ID=default
@@ -71,24 +64,17 @@ services:
     extra_hosts:
       - "metadata.google.internal:127.0.0.1"
 
-
   website:
-    # Use latest services to run tests on head code.
     image: ${SERVICES_IMAGE:-gcr.io/datcom-ci/datacommons-services:latest}
     platform: linux/amd64
     container_name: itest-website
     ports:
-      - "${WEBSITE_PORT:-8082}:8080"
+      - "8082:8080"
     volumes:
-      - ./container_assets/patch_credentials.py:/workspace/patch/sitecustomize.py
-      - ./config/feature_flags.yaml:/workspace/deploy/featureflags/custom.yaml
-      - ./container_assets/generate_feature_flags.py:/workspace/generate_feature_flags.py
-      - ./container_assets/entrypoint_website.sh:/workspace/entrypoint_website.sh
-    entrypoint: ["/bin/bash", "/workspace/entrypoint_website.sh"]
+      - ./config/feature_flags.yaml:/workspace/deploy/featureflags/dcp.yaml:ro
     environment:
-      - PYTHONPATH=/workspace/patch
       - PORT=8080
-      - SPANNER_EMULATOR_HOST=spanner:${SPANNER_INTERNAL_GRPC_PORT:-15000}
+      - SPANNER_EMULATOR_HOST=spanner:15000
       - STORAGE_EMULATOR_HOST=http://gcs:9099
       - OUTPUT_DIR=gs://test-bucket/output
       - RESOLVE_WITH_SPANNER_EMBEDDINGS=true
@@ -115,7 +101,7 @@ services:
     image: python:3.11-slim
     container_name: itest-mock-nl-server
     volumes:
-      - ./container_assets/mock_nl_server.py:/app/mock_nl_server.py
+      - ./mock/nl_server.py:/app/mock_nl_server.py
     command: python /app/mock_nl_server.py
     networks:
       - test-network
