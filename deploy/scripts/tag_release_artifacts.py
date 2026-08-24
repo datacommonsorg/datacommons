@@ -156,19 +156,24 @@ def stage_dataflow_artifacts(
     target_uri = f"{gcs_base.rstrip('/')}/ingestion-{target_tag}.json"
     target_image = f"{dataflow_image_repo}:{target_tag}"
 
+    src_image = (
+        (
+            image_tag
+            if ("/" in image_tag or ":" in image_tag)
+            else f"{dataflow_image_repo}:{image_tag}"
+        )
+        if image_tag
+        else None
+    )
+
     print("  [DATAFLOW] Staging Dataflow Flex Template & Tagging Worker Image:")
     print(f"             Source Template: {src_uri}")
     print(f"             Target Template: {target_uri}")
     print(f"             Target Image:    {target_image}")
 
     if dry_run:
-        if image_tag:
-            src_img = (
-                image_tag
-                if ("/" in image_tag or ":" in image_tag)
-                else f"{dataflow_image_repo}:{image_tag}"
-            )
-            print(f"             Source Image:    {src_img} (explicit override)")
+        if src_image:
+            print(f"             Source Image:    {src_image} (explicit override)")
         else:
             print(
                 f"             Source Image:    [dynamic from template {src_uri}['image']]"
@@ -210,13 +215,7 @@ def stage_dataflow_artifacts(
             )
 
         # 3. Resolve source container image
-        if image_tag:
-            src_image = (
-                image_tag
-                if ("/" in image_tag or ":" in image_tag)
-                else f"{dataflow_image_repo}:{image_tag}"
-            )
-        else:
+        if not src_image:
             src_image = data.get("image")
             if not src_image or not isinstance(src_image, str):
                 sys.exit(
