@@ -245,22 +245,17 @@ resource "google_monitoring_alert_policy" "prober_failure" {
   combiner     = "OR"
 
   conditions {
-    display_name = "DCP Prober Test Failure"
+    display_name = "DCP Prober Execution Failure"
 
     condition_matched_log {
       filter = "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"${google_cloud_run_v2_job.prober_job.name}\" AND jsonPayload.event_type=\"PROBER_EXECUTION_SUMMARY\" AND jsonPayload.status=\"FAILED\""
     }
   }
 
-  conditions {
-    display_name = "Cloud Run Job Execution Failure"
-
-    condition_matched_log {
-      filter = "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"${google_cloud_run_v2_job.prober_job.name}\" AND severity>=ERROR"
-    }
-  }
-
   alert_strategy {
+    notification_rate_limit {
+      period = "300s"
+    }
     auto_close = "604800s" # 7 days
   }
 
