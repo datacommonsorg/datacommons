@@ -84,9 +84,9 @@ jobs:
         run: |
           TAG="${{ steps.image-tag.outputs.tag }}"
           
-          uv run python3 tests/datacommons-integration-tests/gcp_test_runner.py \
-            --project-id datcom-ci \
-            --dcp-version "$TAG" \
-            --dc-api-key "$DC_API_KEY"
+          uv run pytest tests/integration/suites/ \
+            --instance=testbed-1 \
+            --test-config=foobar_wages \
+            --target-tag="$TAG"
 
 

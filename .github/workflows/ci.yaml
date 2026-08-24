@@ -51,17 +51,9 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked
 
-      # Runs the integration tests using Docker Compose.
-      # Note: This tests the local Python package code on the host runner against
-      # pre-built backend service containers. By default, the containers pull
-      # the `:latest` image tags defined in docker-compose.test.yml.
-      # To validate against a specific release version or pinned tag (e.g. during a release candidate build),
-      # you can override the target images by setting the env variables, for example:
-      # env:
-      #   HELPER_IMAGE: gcr.io/datcom-ci/datacommons-ingestion-helper:v1.2.3rc1
-      #   SERVICES_IMAGE: gcr.io/datcom-ci/datacommons-services:v1.2.3rc1
+      # Runs the integration tests using the local emulated Docker Compose stack.
       - name: Run hermetic integration test
-        run: uv run pytest -s tests/datacommons-integration-tests/run_local_integration_test.py
+        run: uv run pytest tests/integration/suites/03_serving_api/ --instance=local --test-config=foobar_wages
 
 
 
