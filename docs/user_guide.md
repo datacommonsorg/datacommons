@@ -209,7 +209,7 @@ The service account name is <code><var>INSTANCE_NAME</var>-dc-ing-wf-sa@datcom-w
 
 To run the datacommons CLI commands that execute these processes, you need to impersonate the service account using your own credentials. To do so, you create a one-time IAM binding that gives your account permission to act as the service account.
 
-1. Ensure you have authenticated as in [step 1](?tab=t.0#heading=h.x1qynmw36hbi).
+1. Ensure you have authenticated as in [step 1](#step-1-authenticate-to-google-cloud-platform).
 1. Optionally, from your Terraform directory, run the following to get the name of the service account:
    ```shell
    terraform output ingestion_workflow_service_account_email
