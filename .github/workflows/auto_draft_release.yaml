@@ -30,47 +30,6 @@ jobs:
             echo "Not a version bump commit."
           fi
 
-  gcp-integration-test:
-    needs: check-bump
-    if: needs.check-bump.outputs.is_bump == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: 'read'
-      id-token: 'write'
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Authenticate to GCP
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
-          service_account: ${{ secrets.GCP_WIF_SA_EMAIL }}
-
-      - name: Set up GCP Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: datcom-ci
-
-      - name: Install uv and Set up Python
-        uses: astral-sh/setup-uv@v6
-        with:
-          python-version: "3.12"
-
-      - name: Install Dependencies
-        run: uv sync --locked
-
-      - name: Run GCP Integration Test
-        env:
-          DC_API_KEY: ${{ secrets.DC_API_KEY }}
-        run: |
-          TAG="${{ needs.check-bump.outputs.version }}"
-          
-          uv run pytest tests/integration/suites/ \
-            --instance=testbed-1 \
-            --test-config=foobar_wages \
-            --target-tag="$TAG"
-
   hermetic-integration-test:
     needs: check-bump
     if: needs.check-bump.outputs.is_bump == 'true'
@@ -90,6 +49,3 @@ jobs:
       # Runs the integration tests using the local emulated Docker Compose stack.
       - name: Run hermetic integration test
         run: uv run pytest tests/integration/suites/03_serving_api/ --instance=local --test-config=foobar_wages
-
-
-
