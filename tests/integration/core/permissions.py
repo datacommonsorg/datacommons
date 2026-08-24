@@ -83,7 +83,7 @@ class PreflightPermissionChecker:
 
     def verify_all(self) -> list[PermissionCheckResult]:
         """Runs all permission checks and interactively offers fixes for any failures."""
-        if self.target.instance_name in ("local", "emulated"):
+        if self.target.is_local:
             print("\n[Preflight] Running on local emulator (Skipping GCP IAM checks).")
             return [
                 PermissionCheckResult(

@@ -35,7 +35,7 @@ class TestCLIIngestion:
         self, dcp_cli: DatacommonsCLI, dcp_target: DCPTarget
     ):
         """Validates that 'datacommons admin ingest show-config' outputs matching live workspace configuration."""
-        if dcp_target.instance_name in ("local", "emulated"):
+        if dcp_target.is_local:
             pytest.skip(
                 "CLI workspace config test only runs against GCP cloud workspaces."
             )
@@ -64,7 +64,7 @@ class TestCLIIngestion:
         test_manifest: TestManifest,
     ):
         """Validates that 'datacommons admin init-db' initializes and seeds the Spanner database."""
-        if dcp_target.instance_name in ("local", "emulated"):
+        if dcp_target.is_local:
             pytest.skip(
                 "Local emulator initializes database automatically in environment setup."
             )
@@ -91,7 +91,7 @@ class TestCLIIngestion:
         test_manifest: TestManifest,
     ):
         """Validates that 'datacommons admin ingest start' triggers and completes Cloud Workflows."""
-        if dcp_target.instance_name in ("local", "emulated"):
+        if dcp_target.is_local:
             pytest.skip(
                 "Local emulator runs ingestion pipeline automatically in environment setup."
             )

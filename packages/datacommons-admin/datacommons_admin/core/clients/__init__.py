@@ -12,20 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import click
+from datacommons_admin.core.clients.ingestion_helper_client import (
+    IngestionHelperClient,
+)
+from datacommons_admin.core.clients.ingestion_job_client import IngestionJobClient
 
-from datacommons_admin.db.db_cli import init_db, migrate_db, seed_db
-from datacommons_admin.ingest.ingest_cli import ingest
-from datacommons_admin.init.init_cli import init
-
-
-@click.group()
-def admin() -> None:
-    """Manage a Data Commons Platform instance in Google Cloud"""
-
-
-admin.add_command(init)
-admin.add_command(init_db)
-admin.add_command(seed_db)
-admin.add_command(migrate_db)
-admin.add_command(ingest)
+__all__ = [
+    "IngestionHelperClient",
+    "IngestionJobClient",
+]

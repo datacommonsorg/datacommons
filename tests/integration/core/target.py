@@ -13,6 +13,35 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
+from enum import StrEnum
+
+
+class TargetType(StrEnum):
+    """Target deployment environment type for integration tests."""
+
+    LOCAL = "local"
+    EMULATED = "emulated"
+    GCP = "gcp"
+
+    @classmethod
+    def from_instance(cls, instance: str | None) -> "TargetType":
+        """Resolves an instance name or option string to TargetType enum."""
+        if not instance:
+            return cls.GCP
+        val = instance.strip().lower()
+        if val in (cls.LOCAL.value, cls.EMULATED.value):
+            return cls.LOCAL
+        return cls.GCP
+
+    @property
+    def is_local(self) -> bool:
+        """Returns True if the target is local / emulated."""
+        return self in (TargetType.LOCAL, TargetType.EMULATED)
+
+    @property
+    def is_gcp(self) -> bool:
+        """Returns True if the target is a live GCP cloud environment."""
+        return self == TargetType.GCP
 
 
 @dataclass
@@ -36,6 +65,7 @@ class DCPTarget:
     project_id: str
     instance_name: str
     workspace_dir: str
+    target_type: TargetType = TargetType.GCP
     serving_url: str = ""
     helper_url: str = ""
     spanner_instance: str = ""
@@ -44,3 +74,13 @@ class DCPTarget:
     workflow_sa_email: str = ""
     gcs_bucket: str = ""
     artifacts: ArtifactConfig = field(default_factory=ArtifactConfig)
+
+    @property
+    def is_local(self) -> bool:
+        """Returns True if target is a local emulated stack."""
+        return self.target_type.is_local
+
+    @property
+    def is_gcp(self) -> bool:
+        """Returns True if target is a live GCP cloud environment."""
+        return self.target_type.is_gcp

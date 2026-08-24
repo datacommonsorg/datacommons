@@ -18,7 +18,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from tests.integration.core.target import ArtifactConfig, DCPTarget
+from tests.integration.core.target import ArtifactConfig, DCPTarget, TargetType
 
 
 def _get_repo_root() -> Path:
@@ -243,11 +243,13 @@ def resolve_dcp_target(
     artifacts = artifacts or ArtifactConfig()
 
     # 1. Resolve Local Emulated vs Cloud Workspace Directory
-    if instance in ("local", "emulated"):
+    target_type = TargetType.from_instance(instance)
+    if target_type.is_local:
         return DCPTarget(
             project_id="default",
             instance_name="local",
             workspace_dir=str(repo_root / "tests" / "integration" / "emulated"),
+            target_type=TargetType.LOCAL,
             serving_url="http://localhost:8082",
             helper_url="http://localhost:8081",
             spanner_instance="default",

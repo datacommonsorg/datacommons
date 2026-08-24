@@ -25,6 +25,7 @@ import time
 from pathlib import Path
 
 import requests
+from google.cloud import spanner
 
 from tests.integration.core.config_schema import TestManifest
 
@@ -82,14 +83,17 @@ class EmulatedEnvironment:
             f"{self.helper_url}/docs", "Ingestion Helper", timeout_secs=60
         )
 
-        # 2. Initialize database schema DDL and base ontology
+        # 2. Create database instance on Spanner emulator if not present
+        self._create_spanner_database()
+
+        # 3. Initialize database schema DDL and base ontology
         self._initialize_database()
 
-        # 3. Ingest test dataset if specified
+        # 4. Ingest test dataset if specified
         if manifest and manifest.stages.ingestion and manifest.ingestion.dataset_dirs:
             self._ingest_dataset(manifest)
 
-        # 4. Start serving tier (Mock NL + Website)
+        # 5. Start serving tier (Mock NL + Website)
         print(">>> Starting Mock NL and Website services...")
         self._compose_up("mock-nl-server", "website")
         self._wait_for_ready(f"{self.serving_url}/healthz", "Website", timeout_secs=60)
@@ -113,6 +117,16 @@ class EmulatedEnvironment:
     def _compose_up(self, *services: str) -> None:
         cmd = ["docker", "compose", "-f", str(COMPOSE_FILE), "up", "-d", *services]
         subprocess.run(cmd, cwd=str(EMULATED_DIR), check=True)
+
+    def _create_spanner_database(self) -> None:
+        print(">>> Ensuring Spanner emulator instance and database exist...")
+        client = spanner.Client(project="default")
+        instance = client.instance("default")
+        with contextlib.suppress(Exception):
+            instance.create()
+        database = instance.database("test-db")
+        with contextlib.suppress(Exception):
+            database.create()
 
     def _initialize_database(self) -> None:
         print(">>> Initializing database schema DDL via Ingestion Helper...")

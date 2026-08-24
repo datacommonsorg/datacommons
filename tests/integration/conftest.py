@@ -455,7 +455,7 @@ def dcp_target(request, test_manifest) -> DCPTarget:
         )
 
     env = None
-    if instance_opt in ("local", "emulated"):
+    if target.is_local:
         from tests.integration.emulated.environment import EmulatedEnvironment
 
         os.environ["SPANNER_EMULATOR_HOST"] = "localhost:9010"

@@ -22,7 +22,10 @@ services:
     image: ${PROCESSOR_IMAGE:-gcr.io/datcom-ci/datacommons-data:latest}
     platform: linux/amd64
     container_name: itest-datacommons-data-processor
+    volumes:
+      - ./mock/sitecustomize.py:/app/patch/sitecustomize.py
     environment:
+      - PYTHONPATH=/app/patch
       - SPANNER_EMULATOR_HOST=spanner:15000
       - STORAGE_EMULATOR_HOST=http://gcs:9099
       - DC_API_KEY=${DC_API_KEY:-dummy-key}
@@ -47,7 +50,10 @@ services:
     container_name: itest-ingestion-helper
     ports:
       - "8081:8080"
+    volumes:
+      - ./mock/sitecustomize.py:/app/patch/sitecustomize.py
     environment:
+      - PYTHONPATH=/app/patch
       - PORT=8080
       - SPANNER_EMULATOR_HOST=spanner:15000
       - STORAGE_EMULATOR_HOST=http://gcs:9099
@@ -72,7 +78,9 @@ services:
       - "8082:8080"
     volumes:
       - ./config/feature_flags.yaml:/workspace/deploy/featureflags/dcp.yaml:ro
+      - ./mock/sitecustomize.py:/workspace/patch/sitecustomize.py
     environment:
+      - PYTHONPATH=/workspace/patch
       - PORT=8080
       - SPANNER_EMULATOR_HOST=spanner:15000
       - STORAGE_EMULATOR_HOST=http://gcs:9099
