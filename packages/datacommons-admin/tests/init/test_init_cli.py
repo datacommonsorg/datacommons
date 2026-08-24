@@ -124,9 +124,7 @@ def test_init_existing_folder_force(isolated_runner: CliRunner) -> None:
     "datacommons_admin.init.init_cli._configure_remote_state",
     return_value="mock-bucket-name",
 )
-def test_init_remote_state(
-    mock_configure, isolated_runner: CliRunner
-) -> None:
+def test_init_remote_state(mock_configure, isolated_runner: CliRunner) -> None:
     result = isolated_runner.invoke(
         admin,
         [

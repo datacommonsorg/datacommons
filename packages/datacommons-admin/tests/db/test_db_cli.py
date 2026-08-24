@@ -22,9 +22,7 @@ from datacommons_admin.admin_cli import admin
 
 
 def test_init_db_no_terraform(runner: CliRunner) -> None:
-    with patch(
-        "datacommons_admin.core.utils.tf_utils.shutil.which", return_value=None
-    ):
+    with patch("datacommons_admin.core.utils.tf_utils.shutil.which", return_value=None):
         result = runner.invoke(admin, ["init-db"])
         assert result.exit_code != 0
         assert "Terraform CLI not found" in result.output
