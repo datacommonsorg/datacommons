@@ -104,6 +104,15 @@ def main():
     signal.signal(signal.SIGTERM, handle_signal)
     signal.signal(signal.SIGINT, handle_signal)
 
+    # Configure strictly scoped environment to prevent local/inherited leakage
+    os.environ.pop("GOOGLE_USER_PROJECT_OVERRIDE", None)
+    os.environ.pop("BILLING_PROJECT_ID", None)
+    os.environ["GOOGLE_CLOUD_PROJECT"] = args.project
+    os.environ["CLOUDSDK_CORE_PROJECT"] = args.project
+    os.environ["CLOUDSDK_BILLING_QUOTA_PROJECT"] = args.project
+    os.environ["TF_VAR_project_id"] = args.project
+    os.environ["TF_VAR_billing_project_id"] = args.project
+
     # Generate unique instance name for state isolation
     run_id = str(uuid.uuid4())[:8]
     instance_name = f"prober-{run_id}"
@@ -124,7 +133,9 @@ def main():
     shutil.copytree(
         source_dir,
         workspace_dir,
-        ignore=shutil.ignore_patterns("backup*", ".terraform*", "*.tfstate*"),
+        ignore=shutil.ignore_patterns(
+            "backup*", ".terraform*", "*.tfstate*", "*.tfvars*", ".env*"
+        ),
     )
 
     bucket_name = f"tf-state-dcp-prober-{args.project}"

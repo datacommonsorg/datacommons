@@ -38,7 +38,7 @@ TEST_CONFIG="foobar_wages"
 SCHEDULE="0 */3 * * *"
 LOCATION="us-central1"
 ALERT_EMAIL=""
-DC_API_KEY=""
+DC_API_KEY="${DC_API_KEY:-}"
 IMAGE_TAG="latest"
 NON_INTERACTIVE=false
 
@@ -153,6 +153,13 @@ if [[ -t 0 && "$NON_INTERACTIVE" == "false" ]]; then
   DC_API_KEY="${INPUT_DC_API_KEY:-$DC_API_KEY}"
   echo ""
 fi
+
+# Strictly scope environment to target project to prevent local active configuration leakage
+export GOOGLE_CLOUD_PROJECT="${PROJECT}"
+export CLOUDSDK_CORE_PROJECT="${PROJECT}"
+export CLOUDSDK_BILLING_QUOTA_PROJECT="${PROJECT}"
+export TF_VAR_project_id="${PROJECT}"
+export TF_VAR_billing_project_id="${PROJECT}"
 
 REGISTRY_PROJECT="datcom-ci"
 REGISTRY_LOCATION="us"
