@@ -422,7 +422,7 @@ def test_manifest(request) -> TestManifest:
 
 
 @pytest.fixture(scope="session")
-def dcp_target(request) -> DCPTarget:
+def dcp_target(request, test_manifest) -> DCPTarget:
     """Provides resolved DCP target environment context to all tests."""
     artifacts = ArtifactConfig(
         cli_source=request.config.getoption("--cli-source"),
@@ -430,8 +430,23 @@ def dcp_target(request) -> DCPTarget:
         target_tag=request.config.getoption("--target-tag"),
     )
 
+    instance_opt = request.config.getoption("--instance")
+    if instance_opt in ("local", "emulated"):
+        from tests.integration.emulated.manager import EmulatedStackManager
+
+        manager = EmulatedStackManager()
+        target = manager.start(test_manifest, artifacts)
+        if _GLOBAL_REPORTER is not None:
+            _GLOBAL_REPORTER.set_artifacts(asdict(target.artifacts))
+            if target.artifacts.target_tag:
+                _GLOBAL_REPORTER.report.target_tag = target.artifacts.target_tag
+        yield target
+        if not request.config.getoption("--reuse-data"):
+            manager.stop()
+        return
+
     target = resolve_dcp_target(
-        instance=request.config.getoption("--instance"),
+        instance=instance_opt,
         project=request.config.getoption("--project"),
         workspace=request.config.getoption("--workspace"),
         artifacts=artifacts,
@@ -482,7 +497,11 @@ def spanner_client(dcp_target: DCPTarget) -> SpannerClient:
 @pytest.fixture(scope="session")
 def auth_headers() -> dict:
     """Provides default HTTP headers with GCP Cloud Run identity token if authenticated."""
-    headers = {"X-Use-Multi-Entity-Schema": "true"}
+    headers = {
+        "X-Use-Multi-Entity-Schema": "true",
+        "X-Use-Normalized-Schema": "true",
+        "x-use-normalized-schema": "true",
+    }
     try:
         token = (
             subprocess.check_output(
@@ -559,6 +578,9 @@ def seeded_testbed(dcp_target, dcp_cli, spanner_client, test_manifest, request):
                 f"\n[Data Setup] Reusing {count} existing observations in Spanner. Skipping ingestion!"
             )
             return dcp_target
+
+    if dcp_target.instance_name in ("local", "emulated"):
+        return dcp_target
 
     if not test_manifest.stages.ingestion:
         print(

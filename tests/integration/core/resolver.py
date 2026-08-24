@@ -242,7 +242,12 @@ def resolve_dcp_target(
     repo_root = _get_repo_root()
     artifacts = artifacts or ArtifactConfig()
 
-    # 1. Resolve Workspace Directory
+    # 1. Resolve Local Emulated vs Cloud Workspace Directory
+    if instance in ("local", "emulated"):
+        from tests.integration.emulated.manager import EmulatedStackManager
+
+        return EmulatedStackManager().get_target(artifacts)
+
     if workspace:
         workspace_path = Path(workspace).resolve()
         instance_name = instance or workspace_path.name

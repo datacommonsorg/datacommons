@@ -1,0 +1,18 @@
+# Feature flags configuration for local hermetic integration tests in Mixer.
+flags:
+  UseSpannerGraph: true
+  UseMultiEntitySchema: true
+  SpannerGraphDatabase: test-db
+  UseStaleReads: false
+  EnableEmbeddingsResolver: false
+  EnableSpannerSearchEmbeddings: true
+  V2DivertFraction: 1.0
+  EnableSDMXDataApi: true
+  SDMXRemotePlaceExpansionLimit: 10000
+  UseNewIngestionHistorySchema: true
+  UseSpannerKeyValueStore: true
+  ContainedInPlaceAncestorFirstTypes:
+    - Place
+  ContainedInPlacePreferTimeSeriesScanPlaceTypes:
+    - Place
+  ContainedInPlaceEntityScanMinVariables: 50

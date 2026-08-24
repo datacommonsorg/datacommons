@@ -24,7 +24,7 @@ services:
     platform: linux/amd64
     container_name: itest-datacommons-data-processor
     volumes:
-      - ./patch_credentials.py:/app/patch/sitecustomize.py
+      - ./container_assets/patch_credentials.py:/app/patch/sitecustomize.py
     environment:
       - PYTHONPATH=/app/patch
       - SPANNER_EMULATOR_HOST=spanner:${SPANNER_INTERNAL_GRPC_PORT:-15000}
@@ -52,7 +52,7 @@ services:
     ports:
       - "${HELPER_PORT:-8081}:8080"
     volumes:
-      - ./patch_credentials.py:/app/patch/sitecustomize.py
+      - ./container_assets/patch_credentials.py:/app/patch/sitecustomize.py
     environment:
       - PYTHONPATH=/app/patch
       - PORT=8080
@@ -80,8 +80,10 @@ services:
     ports:
       - "${WEBSITE_PORT:-8082}:8080"
     volumes:
-      - ./patch_credentials.py:/workspace/patch/sitecustomize.py
-      - ./custom_feature_flags.yaml:/workspace/deploy/featureflags/custom.yaml
+      - ./container_assets/patch_credentials.py:/workspace/patch/sitecustomize.py
+      - ./config/feature_flags.yaml:/workspace/deploy/featureflags/custom.yaml
+      - ./container_assets/entrypoint_website.sh:/workspace/entrypoint_website.sh
+    entrypoint: ["/bin/bash", "/workspace/entrypoint_website.sh"]
     environment:
       - PYTHONPATH=/workspace/patch
       - PORT=8080
@@ -112,7 +114,7 @@ services:
     image: python:3.11-slim
     container_name: itest-mock-nl-server
     volumes:
-      - ./mock_nl_server.py:/app/mock_nl_server.py
+      - ./container_assets/mock_nl_server.py:/app/mock_nl_server.py
     command: python /app/mock_nl_server.py
     networks:
       - test-network
