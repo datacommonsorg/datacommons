@@ -1303,7 +1303,7 @@ This example gets all observations about women in European countries, for a mult
 ###### Request
 
 <pre>
-curl -g "https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/data/dataflow/DC/DF_OBS/1.0.0/*?c[variableMeasured]=who/Adult_curr_cig_smokers_by_sex&c[country.containedInPlace+]=europe &c[country.typeOf]=Country&c[sex]=Female"
+curl -g "https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/data/dataflow/DC/DF_OBS/1.0.0/*?c[variableMeasured]=who/Adult_curr_cig_smokers_by_sex&c[country.containedInPlace+]=europe&c[country.typeOf]=Country&c[sex]=Female"
 </pre>
 
 ###### Response
