@@ -379,7 +379,10 @@ class Migration(SchemaMigration):
 
     updated = new_path.read_text()
     # Header comment must be untouched
-    assert '# Top-of-file comment mentioning creation_timestamp = "1999-01-01T00:00:00Z"' in updated
+    assert (
+        '# Top-of-file comment mentioning creation_timestamp = "1999-01-01T00:00:00Z"'
+        in updated
+    )
     # Class attribute must be updated
     assert 'creation_timestamp: str = "2026-08-20T10:00:00Z"' in updated
     # Second occurrence (inside upgrade method / SQL query) must NOT be modified
