@@ -11,3 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+from datacommons_admin.clients.ingestion_helper_client import IngestionHelperClient
+from datacommons_admin.clients.ingestion_job_client import IngestionJobClient
+
+__all__ = [
+    "IngestionHelperClient",
+    "IngestionJobClient",
+]

@@ -43,8 +43,8 @@ def test_init_db_terraform_error(mock_run, mock_which, runner: CliRunner) -> Non
 @patch("datacommons_admin.db.db_cli._run_migrations")
 @patch("datacommons_admin.shared_utils.tf_utils.shutil.which")
 @patch("datacommons_admin.shared_utils.tf_utils.subprocess.run")
-@patch("datacommons_admin.db.clients.ingestion_helper_client.AuthorizedSession")
-@patch("datacommons_admin.db.clients.ingestion_helper_client.google.auth.default")
+@patch("datacommons_admin.clients.ingestion_helper_client.AuthorizedSession")
+@patch("datacommons_admin.clients.ingestion_helper_client.google.auth.default")
 def test_init_db_success(
     mock_auth_default,
     mock_session,
@@ -80,8 +80,8 @@ def test_init_db_success(
 @patch("datacommons_admin.db.db_cli._run_migrations")
 @patch("datacommons_admin.shared_utils.tf_utils.shutil.which")
 @patch("datacommons_admin.shared_utils.tf_utils.subprocess.run")
-@patch("datacommons_admin.db.clients.ingestion_helper_client.AuthorizedSession")
-@patch("datacommons_admin.db.clients.ingestion_helper_client.google.auth.default")
+@patch("datacommons_admin.clients.ingestion_helper_client.AuthorizedSession")
+@patch("datacommons_admin.clients.ingestion_helper_client.google.auth.default")
 def test_init_db_success_no_details(
     mock_auth_default,
     mock_session,
@@ -117,8 +117,8 @@ def test_init_db_success_no_details(
 @patch("datacommons_admin.db.db_cli._run_migrations")
 @patch("datacommons_admin.shared_utils.tf_utils.shutil.which")
 @patch("datacommons_admin.shared_utils.tf_utils.subprocess.run")
-@patch("datacommons_admin.db.clients.ingestion_helper_client.AuthorizedSession")
-@patch("datacommons_admin.db.clients.ingestion_helper_client.google.auth.default")
+@patch("datacommons_admin.clients.ingestion_helper_client.AuthorizedSession")
+@patch("datacommons_admin.clients.ingestion_helper_client.google.auth.default")
 def test_init_db_init_only(
     mock_auth_default,
     mock_session,
@@ -153,8 +153,8 @@ def test_init_db_init_only(
 @patch("datacommons_admin.db.db_cli._run_migrations")
 @patch("datacommons_admin.shared_utils.tf_utils.shutil.which")
 @patch("datacommons_admin.shared_utils.tf_utils.subprocess.run")
-@patch("datacommons_admin.db.clients.ingestion_helper_client.AuthorizedSession")
-@patch("datacommons_admin.db.clients.ingestion_helper_client.google.auth.default")
+@patch("datacommons_admin.clients.ingestion_helper_client.AuthorizedSession")
+@patch("datacommons_admin.clients.ingestion_helper_client.google.auth.default")
 def test_init_db_migration_failure_halts_before_seed(
     mock_auth_default,
     mock_session,
@@ -192,8 +192,8 @@ def test_init_db_migration_failure_halts_before_seed(
 
 @patch("datacommons_admin.shared_utils.tf_utils.shutil.which")
 @patch("datacommons_admin.shared_utils.tf_utils.subprocess.run")
-@patch("datacommons_admin.db.clients.ingestion_helper_client.AuthorizedSession")
-@patch("datacommons_admin.db.clients.ingestion_helper_client.google.auth.default")
+@patch("datacommons_admin.clients.ingestion_helper_client.AuthorizedSession")
+@patch("datacommons_admin.clients.ingestion_helper_client.google.auth.default")
 def test_seed_db_success(
     mock_auth_default,
     mock_session,
