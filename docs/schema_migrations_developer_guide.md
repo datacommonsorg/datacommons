@@ -62,14 +62,14 @@ uv run manage-migrations create add_edge_indexes -d "Add composite index on Edge
 
 ---
 
-### B. Resolving Merge Conflicts & Re-timestamping (`update`)
+### B. Resolving Merge Conflicts & Re-timestamping (`bump`)
 
 When multiple developers add migration scripts concurrently, timestamp collisions or out-of-order branches can occur during rebase or merge. 
 
-Use `update` to refresh an existing migration script with the current UTC timestamp:
+Use `bump` to refresh an existing migration script with the current UTC timestamp:
 
 ```bash
-uv run manage-migrations update <target>
+uv run manage-migrations bump <target>
 ```
 
 The `<target>` argument can be:
@@ -84,15 +84,15 @@ Migrations will always be run chronologically in timestamp order, so make sure t
 #### Example Interaction:
 
 ```text
-$ uv run manage-migrations update add_edge_indexes
+$ uv run manage-migrations bump add_edge_indexes
 
 Found migration script: 20260817000000_add_edge_indexes.py
 Planned changes:
   - Rename to:      20260819173510_add_edge_indexes.py
   - New timestamp:  2026-08-19T17:35:10Z
 
-Proceed with update? [y/N]: y
-✔ Successfully updated migration script:
+Proceed with bump? [y/N]: y
+✔ Successfully bumped migration script:
   - Old File:      20260817000000_add_edge_indexes.py
   - New File:      20260819173510_add_edge_indexes.py
   - New Timestamp: 2026-08-19T17:35:10Z

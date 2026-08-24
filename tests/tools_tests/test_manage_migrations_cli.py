@@ -111,12 +111,12 @@ def test_cli_create_command_duplicate_raises(
 
 
 # ==============================================================================
-# 2. 'update' Command Tests
+# 2. 'bump' Command Tests
 # ==============================================================================
 
 
-def test_cli_update_command_confirmed(runner: CliRunner, tmp_path: Path) -> None:
-    """Verifies updating a migration script when user confirms interactive prompt."""
+def test_cli_bump_command_confirmed(runner: CliRunner, tmp_path: Path) -> None:
+    """Verifies bumping a migration script when user confirms interactive prompt."""
     file_path = tmp_path / "20260817000000_add_user.py"
     file_path.write_text(
         manage_migrations_utils.generate_migration_content(
@@ -126,14 +126,14 @@ def test_cli_update_command_confirmed(runner: CliRunner, tmp_path: Path) -> None
 
     result = runner.invoke(
         cli,
-        ["update", "add_user"],
+        ["bump", "add_user"],
         input="y\n",
     )
 
     assert result.exit_code == 0
     assert "Planned changes:" in result.output
-    assert "Proceed with update?" in result.output
-    assert "Successfully updated migration script" in result.output
+    assert "Proceed with bump?" in result.output
+    assert "Successfully bumped migration script" in result.output
     assert not file_path.exists()
 
     updated_files = list(tmp_path.glob("*.py"))
@@ -142,8 +142,8 @@ def test_cli_update_command_confirmed(runner: CliRunner, tmp_path: Path) -> None
     assert not updated_files[0].name.startswith("20260817000000_")
 
 
-def test_cli_update_command_lenient_matching(runner: CliRunner, tmp_path: Path) -> None:
-    """Verifies updating a migration script using lenient name matching with spaces."""
+def test_cli_bump_command_lenient_matching(runner: CliRunner, tmp_path: Path) -> None:
+    """Verifies bumping a migration script using lenient name matching with spaces."""
     file_path = tmp_path / "20260817000000_add_user.py"
     file_path.write_text(
         manage_migrations_utils.generate_migration_content(
@@ -153,19 +153,19 @@ def test_cli_update_command_lenient_matching(runner: CliRunner, tmp_path: Path) 
 
     result = runner.invoke(
         cli,
-        ["update", "add user"],
+        ["bump", "add user"],
         input="y\n",
     )
 
     assert result.exit_code == 0
     assert "Planned changes:" in result.output
-    assert "Successfully updated migration script" in result.output
+    assert "Successfully bumped migration script" in result.output
     assert not file_path.exists()
     assert len(list(tmp_path.glob("*_add_user.py"))) == 1
 
 
-def test_cli_update_command_aborted(runner: CliRunner, tmp_path: Path) -> None:
-    """Verifies aborting an update when user responds 'n' to confirmation prompt."""
+def test_cli_bump_command_aborted(runner: CliRunner, tmp_path: Path) -> None:
+    """Verifies aborting a bump when user responds 'n' to confirmation prompt."""
     file_path = tmp_path / "20260817000000_add_user.py"
     file_path.write_text(
         manage_migrations_utils.generate_migration_content(
@@ -175,7 +175,7 @@ def test_cli_update_command_aborted(runner: CliRunner, tmp_path: Path) -> None:
 
     result = runner.invoke(
         cli,
-        ["update", "add_user"],
+        ["bump", "add_user"],
         input="n\n",
     )
 
@@ -186,8 +186,8 @@ def test_cli_update_command_aborted(runner: CliRunner, tmp_path: Path) -> None:
     assert len(list(tmp_path.glob("*.py"))) == 1
 
 
-def test_cli_update_command_with_yes_flag(runner: CliRunner, tmp_path: Path) -> None:
-    """Verifies updating a migration script with -y flag bypasses confirmation prompt."""
+def test_cli_bump_command_with_yes_flag(runner: CliRunner, tmp_path: Path) -> None:
+    """Verifies bumping a migration script with -y flag bypasses confirmation prompt."""
     file_path = tmp_path / "20260817000000_add_user.py"
     file_path.write_text(
         manage_migrations_utils.generate_migration_content(
@@ -197,35 +197,35 @@ def test_cli_update_command_with_yes_flag(runner: CliRunner, tmp_path: Path) -> 
 
     result = runner.invoke(
         cli,
-        ["update", "add_user", "-y"],
+        ["bump", "add_user", "-y"],
     )
 
     assert result.exit_code == 0
     assert "Planned changes:" in result.output
-    assert "Proceed with update?" not in result.output
-    assert "Successfully updated migration script" in result.output
+    assert "Proceed with bump?" not in result.output
+    assert "Successfully bumped migration script" in result.output
     assert not file_path.exists()
     assert len(list(tmp_path.glob("*_add_user.py"))) == 1
 
 
-def test_cli_update_command_not_found_raises(runner: CliRunner, tmp_path: Path) -> None:
-    """Verifies update command exits with an error if target migration is not found."""
+def test_cli_bump_command_not_found_raises(runner: CliRunner, tmp_path: Path) -> None:
+    """Verifies bump command exits with an error if target migration is not found."""
     result = runner.invoke(
         cli,
-        ["update", "missing_table"],
+        ["bump", "missing_table"],
     )
     assert result.exit_code != 0
     assert "No migration script found matching" in result.output
 
 
-def test_cli_update_command_invalid_filename_format_raises(
+def test_cli_bump_command_invalid_filename_format_raises(
     runner: CliRunner, tmp_path: Path
 ) -> None:
-    """Verifies update command exits with an error when target script filename is invalid."""
+    """Verifies bump command exits with an error when target script filename is invalid."""
     bad_file = tmp_path / "invalid_script.py"
     bad_file.write_text("class Migration: pass\n")
 
-    result = runner.invoke(cli, ["update", str(bad_file), "-y"])
+    result = runner.invoke(cli, ["bump", str(bad_file), "-y"])
     assert result.exit_code != 0
     assert "Invalid migration filename format" in result.output
 

@@ -24,7 +24,7 @@ COMMANDS:
      Auto-generates a timestamped migration script (e.g. 20260819135412_my_change.py)
      pre-populated with license header, SchemaMigration subclass, and UTC ISO-8601 creation_timestamp.
 
-  2. update <target> [-y/--yes]
+  2. bump <target> [-y/--yes]
      Re-timestamps an existing migration script with the current UTC time (both in filename
      and creation_timestamp attribute). Used when resolving merge conflicts as multiple developers
      add migrations concurrently.
@@ -36,10 +36,10 @@ USAGE EXAMPLES:
   # Create a new migration script
   uv run manage-migrations create add_node_tables -d "Add Node and Edge tables"
 
-  # Update an existing migration script during merge conflict / rebase
-  uv run manage-migrations update add_node_tables
+  # Bump an existing migration script during merge conflict / rebase
+  uv run manage-migrations bump add_node_tables
   # or by filename
-  uv run manage-migrations update 20260819135412_add_node_tables.py
+  uv run manage-migrations bump 20260819135412_add_node_tables.py
 
   # List all migrations
   uv run manage-migrations list
@@ -88,16 +88,16 @@ def create_command(
     click.echo(f"  - Description: {desc}")
 
 
-@cli.command(name="update")
+@cli.command(name="bump")
 @click.argument("target")
 @click.option(
     "-y",
     "--yes",
     is_flag=True,
     default=False,
-    help="Automatically confirm update without interactive prompt.",
+    help="Automatically confirm bump without interactive prompt.",
 )
-def update_command(target: str, *, yes: bool = False) -> None:
+def bump_command(target: str, *, yes: bool = False) -> None:
     """Re-timestamp an existing migration script with the current UTC time."""
     try:
         # Locate target migration file and validate filename format
@@ -120,7 +120,7 @@ def update_command(target: str, *, yes: bool = False) -> None:
         click.echo("Planned changes:")
         click.echo(f"  - Rename to:      {new_filename}")
         click.echo(f"  - New timestamp:  {new_iso}")
-        if not yes and not click.confirm("Proceed with update?", default=False):
+        if not yes and not click.confirm("Proceed with bump?", default=False):
             click.echo("Aborted without making changes.")
             return
 
@@ -133,7 +133,7 @@ def update_command(target: str, *, yes: bool = False) -> None:
     except (FileNotFoundError, ValueError, FileExistsError) as e:
         raise click.ClickException(str(e)) from e
 
-    click.secho("✔ Successfully updated migration script:", fg="green", bold=True)
+    click.secho("✔ Successfully bumped migration script:", fg="green", bold=True)
     click.echo(f"  - Old File:      {old_file.name}")
     click.echo(f"  - New File:      {new_file.name}")
     click.echo(f"  - New Timestamp: {new_iso}")
