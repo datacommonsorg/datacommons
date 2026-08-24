@@ -94,17 +94,20 @@ class TestReporter:
         main_sha = os.environ.get("MAIN_COMMIT_SHA")
 
         if not main_sha or main_sha == "unknown":
-            remote_url = os.environ.get(
-                "GIT_REMOTE_URL",
-                "https://github.com/datacommonsorg/datacommons_platform.git",
-            )
-            out = self._run_cmd(["git", "ls-remote", remote_url, "main"], timeout=5)
-            parts = out.split()
-            main_sha = (
-                parts[0]
-                if parts
-                else self._run_cmd(["git", "rev-parse", "origin/main"])
-            )
+            main_sha = self._run_cmd(
+                ["git", "rev-parse", "origin/main"]
+            ) or self._run_cmd(["git", "rev-parse", "main"])
+
+            if not main_sha:
+                remote_url = os.environ.get(
+                    "GIT_REMOTE_URL",
+                    "https://github.com/datacommonsorg/datacommons.git",
+                )
+                out = self._run_cmd(
+                    ["git", "ls-remote", remote_url, "main"], timeout=5
+                )
+                parts = out.split()
+                main_sha = parts[0] if parts else ""
 
         return main_sha or "unknown", prober_sha or "unknown"
 

@@ -125,7 +125,7 @@ def _resolve_deployed_artifacts(
         if rname == "ingestion_orchestrator":
             source = attrs.get("source_contents", "")
             match = re.search(
-                r"containerSpecGcsPath:\s*['\"]?(gs://[^\s'\"\\,]+\.json)['\"]?",
+                r"['\"]?containerSpecGcsPath['\"]?\s*:\s*['\"]?(gs://[^\s'\"\\,]+\.json)['\"]?",
                 source,
             )
             if match:
@@ -160,8 +160,17 @@ def _resolve_deployed_artifacts(
 def _resolve_image_digest(uri: str) -> str:
     if "@sha256:" in uri:
         return uri
-    digest = _exec_cmd(
+    cmd = (
         [
+            "gcloud",
+            "container",
+            "images",
+            "describe",
+            uri,
+            "--format=value(image_summary.digest)",
+        ]
+        if "gcr.io/" in uri
+        else [
             "gcloud",
             "artifacts",
             "docker",
@@ -171,6 +180,7 @@ def _resolve_image_digest(uri: str) -> str:
             "--format=value(image_summary.digest)",
         ]
     )
+    digest = _exec_cmd(cmd)
     base = uri.split("@")[0]
     if ":" in base:
         last_slash = base.rfind("/")
