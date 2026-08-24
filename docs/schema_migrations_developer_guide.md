@@ -168,13 +168,10 @@ class Migration(SchemaMigration):
 Always verify that your migration script conforms to repository standards and passes automated tests:
 
 ```bash
-# 1. Run migration discovery and script validation tests
-uv run pytest packages/datacommons-db/tests/migrations/
+# 1. Validate your migration script syntax, timestamps, and structure
+uv run pytest packages/datacommons-db/tests/migrations/test_migration_scripts.py
 
-# 2. Run developer tooling tests
-uv run pytest tests/tools_tests/
-
-# 3. Run linter and formatting checks
-uv run ruff check tools/ packages/datacommons-db/datacommons_db/migrations
+# 2. Run linter and formatting checks
+uv run ruff check packages/datacommons-db/datacommons_db/migrations/
 uv run ruff format --check
 ```
