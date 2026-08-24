@@ -130,18 +130,6 @@ def generate_utc_timestamps(
     return prefix_ts, iso_ts
 
 
-def escape_docstring(text: str) -> str:
-    """Escapes a text string for safe inclusion within triple-quoted docstrings.
-
-    Args:
-        text: Raw input string to be included in a docstring.
-
-    Returns:
-        Escaped string safe to embed inside triple quotes.
-    """
-    return text.replace("\\", "\\\\").replace('"', r"\"")
-
-
 def generate_migration_content(description: str, creation_timestamp: str) -> str:
     """Generates boilerplate Python source code for a new SchemaMigration script.
 
@@ -154,7 +142,6 @@ def generate_migration_content(description: str, creation_timestamp: str) -> str
     """
     current_year = datetime.datetime.now(datetime.UTC).year
     desc_literal = repr(description)
-    safe_docstring = escape_docstring(description)
 
     return f'''# Copyright {current_year} Google LLC.
 #
@@ -175,7 +162,6 @@ from datacommons_db.migrations.base import SchemaMigration
 
 
 class Migration(SchemaMigration):
-    """{safe_docstring}"""
 
     description: str = {desc_literal}
     creation_timestamp: str = "{creation_timestamp}"

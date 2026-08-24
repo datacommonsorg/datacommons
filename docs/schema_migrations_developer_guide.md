@@ -140,7 +140,6 @@ from datacommons_db.migrations.base import SchemaMigration
 
 
 class Migration(SchemaMigration):
-    """Add composite index on Edge object_value and predicate."""
 
     description: str = "Add composite index on Edge object_value and predicate"
     creation_timestamp: str = "2026-08-19T17:35:10Z"

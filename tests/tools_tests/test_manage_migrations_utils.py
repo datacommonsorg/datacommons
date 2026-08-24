@@ -80,59 +80,8 @@ def test_generate_utc_timestamps_default_now() -> None:
 
 
 # ==============================================================================
-# 3. escape_docstring & Template Generation Tests
+# 3. Template Generation Tests
 # ==============================================================================
-
-
-def test_escape_docstring_plain_text() -> None:
-    """Verifies plain strings are unchanged by escape_docstring."""
-    assert (
-        manage_migrations_utils.escape_docstring("Simple description")
-        == "Simple description"
-    )
-
-
-def test_escape_docstring_triple_quotes() -> None:
-    """Verifies triple double quotes are properly escaped."""
-    assert (
-        manage_migrations_utils.escape_docstring('Contains """ quotes')
-        == r"Contains \"\"\" quotes"
-    )
-
-
-def test_escape_docstring_trailing_quote() -> None:
-    """Verifies trailing double quote is escaped to prevent syntax issues."""
-    assert (
-        manage_migrations_utils.escape_docstring('Ends with quote "')
-        == r"Ends with quote \""
-    )
-
-
-def test_escape_docstring_trailing_double_and_triple_quotes() -> None:
-    """Verifies strings ending with multiple quotes are safely escaped without mangling."""
-    assert (
-        manage_migrations_utils.escape_docstring('Ends with two quotes ""')
-        == r"Ends with two quotes \"\""
-    )
-    assert (
-        manage_migrations_utils.escape_docstring('Ends with triple quotes """')
-        == r"Ends with triple quotes \"\"\""
-    )
-    assert (
-        manage_migrations_utils.escape_docstring('Ends with four quotes """"')
-        == r"Ends with four quotes \"\"\"\""
-    )
-
-
-def test_escape_docstring_backslashes() -> None:
-    """Verifies backslashes are escaped to avoid escape sequence warnings."""
-    assert (
-        manage_migrations_utils.escape_docstring(r"Path \to\file") == r"Path \\to\\file"
-    )
-    assert (
-        manage_migrations_utils.escape_docstring(r"Ends with backslash and quote \"")
-        == r"Ends with backslash and quote \\\""
-    )
 
 
 def test_generate_migration_content_valid_ast() -> None:
@@ -167,9 +116,14 @@ def test_generate_migration_content_handles_quotes_and_special_chars() -> None:
         )
         parsed = ast.parse(content)
         assert parsed is not None
-        # Verify the docstring extracted from AST exactly matches the original description
+        # Verify the description attribute extracted from AST exactly matches the original description
         cls_node = parsed.body[2]  # Migration class node
-        assert ast.get_docstring(cls_node) == desc
+        desc_node = next(
+            item
+            for item in cls_node.body
+            if isinstance(item, ast.AnnAssign) and item.target.id == "description"
+        )
+        assert desc_node.value.value == desc
         assert f"description: str = {repr(desc)}" in content
 
 
