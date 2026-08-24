@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Validates CLI Cloud Workflow ingestion commands and Spanner graph persistence."""
+
 from pathlib import Path
 
 import pytest
@@ -27,14 +29,16 @@ from tests.integration.core.target import DCPTarget
 
 
 class TestCLIIngestion:
-    """Validates Data Commons CLI ingestion commands against target workspace."""
+    """Validates Data Commons CLI workflow orchestration commands against target workspace."""
 
     def test_01_cli_ingest_show_config(
         self, dcp_cli: DatacommonsCLI, dcp_target: DCPTarget
     ):
         """Validates that 'datacommons admin ingest show-config' outputs matching live workspace configuration."""
         if dcp_target.instance_name in ("local", "emulated"):
-            pytest.skip("CLI workspace config test only runs against cloud workspaces.")
+            pytest.skip(
+                "CLI workspace config test only runs against GCP cloud workspaces."
+            )
 
         res = dcp_cli.run(["admin", "ingest", "show-config"])
         assert res.exit_code == 0, f"CLI ingest show-config failed: {res.output}"
@@ -61,7 +65,9 @@ class TestCLIIngestion:
     ):
         """Validates that 'datacommons admin init-db' initializes and seeds the Spanner database."""
         if dcp_target.instance_name in ("local", "emulated"):
-            pytest.skip("Local emulator initializes database automatically in environment setup.")
+            pytest.skip(
+                "Local emulator initializes database automatically in environment setup."
+            )
 
         if request.config.getoption("--reuse-data"):
             pytest.skip(
@@ -86,7 +92,10 @@ class TestCLIIngestion:
     ):
         """Validates that 'datacommons admin ingest start' triggers and completes Cloud Workflows."""
         if dcp_target.instance_name in ("local", "emulated"):
-            pytest.skip("Local emulator runs ingestion pipeline automatically in environment setup.")
+            pytest.skip(
+                "Local emulator runs ingestion pipeline automatically in environment setup."
+            )
+
         if request.config.getoption("--reuse-data"):
             pytest.skip("Skipped full workflow run because --reuse-data was specified.")
 
@@ -127,12 +136,12 @@ class TestCLIIngestion:
         history = spanner_client.get_ingestion_history(exec_id)
         if history is not None:
             assert history.get("Status") == "SUCCESS", (
-                f"IngestionHistory status is '{history.get('Status')}', expected 'SUCCESS' for workflow '{exec_id}'"
+                f"IngestionHistory record for '{exec_id}' has non-success status: {history}"
             )
 
 
 class TestSpannerGraph:
-    """Validates declared knowledge graph nodes and edges in Cloud Spanner Node and Edge tables."""
+    """Validates that expected nodes, properties, and edges exist in Cloud Spanner."""
 
     def test_04_spanner_node_exists(
         self,
@@ -140,20 +149,22 @@ class TestSpannerGraph:
         spanner_client: SpannerClient,
         expected_node_spec: ExpectedNode | None,
     ):
-        """Verifies specific node exists in Spanner Node table with expected types."""
+        """Verifies that declared node and required types exist in Spanner Node table."""
         if not expected_node_spec:
-            pytest.skip("No nodes defined in manifest or ingestion stage disabled.")
+            pytest.skip(
+                "No expected nodes defined in manifest or ingestion stage disabled."
+            )
 
         node = spanner_client.get_node(expected_node_spec.subject_id)
         assert node is not None, (
-            f"Expected node '{expected_node_spec.subject_id}' not found in Spanner Node table"
+            f"Node '{expected_node_spec.subject_id}' not found in Spanner Node table."
         )
 
         if expected_node_spec.expected_types:
-            node_types = node.get("types", []) or []
+            actual_types = str(node.get("types", ""))
             for t in expected_node_spec.expected_types:
-                assert t in node_types or any(t in str(x) for x in node_types), (
-                    f"Node '{expected_node_spec.subject_id}' missing expected type '{t}'. Actual types: {node_types}"
+                assert t in actual_types, (
+                    f"Expected type '{t}' in node '{expected_node_spec.subject_id}', got: {actual_types}"
                 )
 
     def test_05_spanner_edge_exists(
@@ -162,21 +173,16 @@ class TestSpannerGraph:
         spanner_client: SpannerClient,
         expected_edge_spec: ExpectedEdge | None,
     ):
-        """Verifies specific (subject, predicate, object) edge exists in Spanner Edge table."""
+        """Verifies that declared relationship edge exists in Spanner Edge table."""
         if not expected_edge_spec:
-            pytest.skip("No edges defined in manifest or ingestion stage disabled.")
+            pytest.skip(
+                "No expected edges defined in manifest or ingestion stage disabled."
+            )
 
-        sql = (
-            "SELECT subject_id, predicate, object_id FROM Edge "
-            "WHERE subject_id = @sid AND predicate = @pred AND object_id = @obj LIMIT 1"
-        )
-        params = {
-            "sid": expected_edge_spec.subject_id,
-            "pred": expected_edge_spec.predicate,
-            "obj": expected_edge_spec.object_id,
-        }
-        rows = spanner_client.query(sql, params=params)
-        assert len(rows) > 0, (
-            f"Expected edge ({expected_edge_spec.subject_id} -> {expected_edge_spec.predicate} -> {expected_edge_spec.object_id}) "
-            "not found in Spanner Edge table"
+        assert spanner_client.edge_exists(
+            subject_id=expected_edge_spec.subject_id,
+            predicate=expected_edge_spec.predicate,
+            object_id=expected_edge_spec.object_id,
+        ), (
+            f"Edge ({expected_edge_spec.subject_id}) -[{expected_edge_spec.predicate}]-> ({expected_edge_spec.object_id}) not found in Spanner Edge table."
         )

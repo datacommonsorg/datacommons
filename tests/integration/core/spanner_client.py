@@ -76,6 +76,25 @@ class SpannerClient:
         rows = self.query(sql, params={"sid": subject_id})
         return rows[0] if rows else None
 
+    def node_exists(self, subject_id: str) -> bool:
+        """Checks whether a Node with the given subject_id exists."""
+        return self.get_node(subject_id) is not None
+
+    def get_node_property(self, subject_id: str, prop_name: str) -> Any:
+        """Returns the value of a property on a Node."""
+        node = self.get_node(subject_id)
+        if not node:
+            return None
+        return node.get(prop_name)
+
+    def edge_exists(self, subject_id: str, predicate: str, object_id: str) -> bool:
+        """Checks whether an Edge with subject, predicate, and object exists."""
+        sql = "SELECT 1 FROM Edge WHERE subject_id = @sid AND predicate = @pred AND object_id = @oid LIMIT 1"
+        rows = self.query(
+            sql, params={"sid": subject_id, "pred": predicate, "oid": object_id}
+        )
+        return len(rows) > 0
+
     def get_ingestion_history(
         self, workflow_execution_id: str
     ) -> dict[str, Any] | None:
