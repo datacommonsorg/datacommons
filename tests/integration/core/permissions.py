@@ -115,72 +115,93 @@ class PreflightPermissionChecker:
     def check_service_account_impersonation(self) -> PermissionCheckResult:
         """Verifies TokenCreator role on the Workflow Service Account."""
         sa_email = self.target.workflow_sa_email
-        if not sa_email or not self.current_user:
+        if not sa_email:
             return PermissionCheckResult(
-                passed=True,
+                passed=False,
                 name="Service Account Impersonation",
-                details="Skipped (SA or user account not resolved)",
+                details="Workflow Service Account email could not be resolved from Terraform workspace (missing output 'ingestion_workflow_service_account_email').",
             )
 
-        cmd = [
-            "gcloud",
-            "iam",
-            "service-accounts",
-            "get-iam-policy",
-            sa_email,
-            f"--project={self.target.project_id}",
-            f"--filter=bindings.role=roles/iam.serviceAccountTokenCreator AND bindings.members=user:{self.current_user}",
-            "--format=value(bindings.role)",
-        ]
-
+        # 1. Directly test token creation / impersonation capability
+        # This handles project-level roles (roles/owner, roles/iam.serviceAccountTokenCreator)
+        # as well as resource-level service account IAM bindings accurately.
         try:
-            out = (
-                subprocess.check_output(cmd, stderr=subprocess.DEVNULL).decode().strip()
+            res = subprocess.run(
+                [
+                    "gcloud",
+                    "auth",
+                    "print-access-token",
+                    f"--impersonate-service-account={sa_email}",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False,
             )
-            if "roles/iam.serviceAccountTokenCreator" in out:
-                print(f"  ✔ TokenCreator IAM role verified on {sa_email}")
+            if res.returncode == 0 and res.stdout.strip():
+                print(f"  ✔ TokenCreator IAM permission verified on {sa_email}")
                 return PermissionCheckResult(
                     passed=True,
                     name="Service Account Impersonation",
-                    details=f"Verified for {self.current_user} on {sa_email}",
+                    details=f"Impersonation verified for {sa_email}",
                 )
         except Exception:
             pass
 
-        # Try to automatically grant if user has admin rights
-        grant_cmd = [
-            "gcloud",
-            "iam",
-            "service-accounts",
-            "add-iam-policy-binding",
-            sa_email,
-            f"--member=user:{self.current_user}",
-            "--role=roles/iam.serviceAccountTokenCreator",
-            f"--project={self.target.project_id}",
-            "--quiet",
-        ]
-        try:
-            res = subprocess.run(grant_cmd, capture_output=True, text=True, check=False)
-            if res.returncode == 0:
-                print(f"  ✔ Automatically granted TokenCreator IAM role on {sa_email}")
-                return PermissionCheckResult(
-                    passed=True,
-                    name="Service Account Impersonation",
-                    details="Automatically granted TokenCreator role",
+        member_type = (
+            "serviceAccount"
+            if (self.current_user and "gserviceaccount.com" in self.current_user)
+            else "user"
+        )
+        member_spec = (
+            f"{member_type}:{self.current_user}"
+            if self.current_user
+            else "current identity"
+        )
+
+        # Try to automatically grant if user/SA has admin rights
+        if self.current_user:
+            grant_cmd = [
+                "gcloud",
+                "iam",
+                "service-accounts",
+                "add-iam-policy-binding",
+                sa_email,
+                f"--member={member_spec}",
+                "--role=roles/iam.serviceAccountTokenCreator",
+                f"--project={self.target.project_id}",
+                "--quiet",
+            ]
+            try:
+                res = subprocess.run(
+                    grant_cmd, capture_output=True, text=True, check=False
                 )
-        except Exception:
-            pass
+                if res.returncode == 0:
+                    print(
+                        f"  ✔ Automatically granted TokenCreator IAM role on {sa_email}"
+                    )
+                    print("  ⏳ Waiting 10 seconds for GCP IAM policy propagation...")
+                    import time
+
+                    time.sleep(10)
+                    return PermissionCheckResult(
+                        passed=True,
+                        name="Service Account Impersonation",
+                        details="Automatically granted TokenCreator role",
+                    )
+            except Exception:
+                pass
 
         fix_cmd = (
             f"gcloud iam service-accounts add-iam-policy-binding '{sa_email}' "
-            f"--member='user:{self.current_user}' "
+            f"--member='{member_spec}' "
             f"--role='roles/iam.serviceAccountTokenCreator' "
             f"--project='{self.target.project_id}'"
         )
         return PermissionCheckResult(
             passed=False,
             name="Service Account Impersonation",
-            details=f"User '{self.current_user}' lacks TokenCreator role on '{sa_email}'",
+            details=f"Identity '{member_spec}' lacks TokenCreator role on '{sa_email}'",
             fix_command=fix_cmd,
         )
 
@@ -194,8 +215,21 @@ class PreflightPermissionChecker:
 
         if not bucket_name:
             return PermissionCheckResult(
-                passed=True, name="GCS Bucket Access", details="Skipped"
+                passed=False,
+                name="GCS Bucket Access",
+                details="Artifacts GCS bucket could not be resolved from Terraform workspace (missing output 'storage_artifacts_bucket_name').",
             )
+
+        member_type = (
+            "serviceAccount"
+            if (self.current_user and "gserviceaccount.com" in self.current_user)
+            else "user"
+        )
+        member_spec = (
+            f"{member_type}:{self.current_user}"
+            if self.current_user
+            else "current identity"
+        )
 
         try:
             client = storage.Client(project=self.target.project_id)
@@ -218,7 +252,7 @@ class PreflightPermissionChecker:
         except Exception as e:
             fix_cmd = (
                 f"gcloud storage buckets add-iam-policy-binding 'gs://{bucket_name}' "
-                f"--member='user:{self.current_user}' "
+                f"--member='{member_spec}' "
                 f"--role='roles/storage.objectAdmin' "
                 f"--project='{self.target.project_id}'"
             )
@@ -233,8 +267,21 @@ class PreflightPermissionChecker:
         """Verifies Spanner database read permissions."""
         if not self.target.spanner_instance or not self.target.spanner_database:
             return PermissionCheckResult(
-                passed=True, name="Spanner Access", details="Skipped"
+                passed=False,
+                name="Spanner Access",
+                details="Spanner instance or database could not be resolved from Terraform workspace (missing output 'spanner_instance_id' or 'spanner_database_id').",
             )
+
+        member_type = (
+            "serviceAccount"
+            if (self.current_user and "gserviceaccount.com" in self.current_user)
+            else "user"
+        )
+        member_spec = (
+            f"{member_type}:{self.current_user}"
+            if self.current_user
+            else "current identity"
+        )
 
         try:
             client = spanner.Client(project=self.target.project_id)
@@ -254,7 +301,7 @@ class PreflightPermissionChecker:
         except Exception as e:
             fix_cmd = (
                 f"gcloud spanner instances add-iam-policy-binding '{self.target.spanner_instance}' "
-                f"--member='user:{self.current_user}' "
+                f"--member='{member_spec}' "
                 f"--role='roles/spanner.databaseUser' "
                 f"--project='{self.target.project_id}'"
             )
