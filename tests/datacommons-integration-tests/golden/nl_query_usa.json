@@ -10,7 +10,7 @@
                 "tiles": [
                   {
                     "statVarKey": [
-                      "Annual_Average_Wage"
+                      "average_annual_wage"
                     ],
                     "title": "Average Annual Wage in United States of America",
                     "type": "LINE"
@@ -22,7 +22,7 @@
                   {
                     "description": "Average Annual Wage in United States of America",
                     "statVarKey": [
-                      "Annual_Average_Wage"
+                      "average_annual_wage"
                     ],
                     "title": "Average Annual Wage in United States of America",
                     "type": "HIGHLIGHT"
@@ -31,14 +31,14 @@
               }
             ],
             "denom": "Count_Person",
-            "description": "Annual rates paid per employee in full-time equivalent unit in the total economy",
-            "title": "Average annual wage"
+            "description": "Annual rates paid per employee in full-time equivalent unit in the total economy.",
+            "title": "Average Annual Wage"
           }
         ],
         "statVarSpec": {
-          "Annual_Average_Wage": {
+          "average_annual_wage": {
             "name": "Average annual wage",
-            "statVar": "Annual_Average_Wage"
+            "statVar": "average_annual_wage"
           }
         }
       }
@@ -85,7 +85,7 @@
         "sessionId": "007_999999999",
         "skipRelatedThings": false,
         "variables": [
-          "Annual_Average_Wage"
+          "average_annual_wage"
         ]
       },
       "llm_resp": {},
@@ -127,8 +127,8 @@
             "growth_ranking_type": null,
             "is_topic_peer_group": false,
             "orig_sv_map": {
-              "Annual_Average_Wage": [
-                "Annual_Average_Wage"
+              "average_annual_wage": [
+                "average_annual_wage"
               ]
             },
             "props": [],
@@ -137,7 +137,7 @@
             "source_topic": "",
             "svpg_id": "",
             "svs": [
-              "Annual_Average_Wage"
+              "average_annual_wage"
             ],
             "title": "",
             "title_suffix": ""
@@ -157,18 +157,18 @@
           "props": [],
           "ranking_types": [],
           "sv_place_latest_date": {
-            "Average_Annual_Wage": {
+            "average_annual_wage": {
               "country/USA": ""
             }
           },
           "svs": [
-            "Average_Annual_Wage"
+            "average_annual_wage"
           ]
         }
       ],
       "session_id": "007_999999999",
       "svs": [
-        "Average_Annual_Wage"
+        "average_annual_wage"
       ]
     }
   ],
