@@ -103,9 +103,7 @@ class TestReporter:
                     "GIT_REMOTE_URL",
                     "https://github.com/datacommonsorg/datacommons.git",
                 )
-                out = self._run_cmd(
-                    ["git", "ls-remote", remote_url, "main"], timeout=5
-                )
+                out = self._run_cmd(["git", "ls-remote", remote_url, "main"], timeout=5)
                 parts = out.split()
                 main_sha = parts[0] if parts else ""
 

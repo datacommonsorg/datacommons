@@ -149,9 +149,15 @@ class PreflightPermissionChecker:
             pass
 
         member_type = (
-            "serviceAccount" if (self.current_user and "gserviceaccount.com" in self.current_user) else "user"
+            "serviceAccount"
+            if (self.current_user and "gserviceaccount.com" in self.current_user)
+            else "user"
         )
-        member_spec = f"{member_type}:{self.current_user}" if self.current_user else "current identity"
+        member_spec = (
+            f"{member_type}:{self.current_user}"
+            if self.current_user
+            else "current identity"
+        )
 
         # Try to automatically grant if user/SA has admin rights
         if self.current_user:
@@ -167,9 +173,13 @@ class PreflightPermissionChecker:
                 "--quiet",
             ]
             try:
-                res = subprocess.run(grant_cmd, capture_output=True, text=True, check=False)
+                res = subprocess.run(
+                    grant_cmd, capture_output=True, text=True, check=False
+                )
                 if res.returncode == 0:
-                    print(f"  ✔ Automatically granted TokenCreator IAM role on {sa_email}")
+                    print(
+                        f"  ✔ Automatically granted TokenCreator IAM role on {sa_email}"
+                    )
                     print("  ⏳ Waiting 10 seconds for GCP IAM policy propagation...")
                     import time
 
@@ -211,9 +221,15 @@ class PreflightPermissionChecker:
             )
 
         member_type = (
-            "serviceAccount" if (self.current_user and "gserviceaccount.com" in self.current_user) else "user"
+            "serviceAccount"
+            if (self.current_user and "gserviceaccount.com" in self.current_user)
+            else "user"
         )
-        member_spec = f"{member_type}:{self.current_user}" if self.current_user else "current identity"
+        member_spec = (
+            f"{member_type}:{self.current_user}"
+            if self.current_user
+            else "current identity"
+        )
 
         try:
             client = storage.Client(project=self.target.project_id)
@@ -257,9 +273,15 @@ class PreflightPermissionChecker:
             )
 
         member_type = (
-            "serviceAccount" if (self.current_user and "gserviceaccount.com" in self.current_user) else "user"
+            "serviceAccount"
+            if (self.current_user and "gserviceaccount.com" in self.current_user)
+            else "user"
         )
-        member_spec = f"{member_type}:{self.current_user}" if self.current_user else "current identity"
+        member_spec = (
+            f"{member_type}:{self.current_user}"
+            if self.current_user
+            else "current identity"
+        )
 
         try:
             client = spanner.Client(project=self.target.project_id)
