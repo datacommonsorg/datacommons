@@ -224,7 +224,9 @@ def test_create_migration_file_syntax_error_raises(
         "generate_migration_content",
         lambda desc, ts: "def invalid_python_syntax(:",
     )
-    with pytest.raises(ValueError, match="Generated migration script has syntax errors"):
+    with pytest.raises(
+        ValueError, match="Generated migration script has syntax errors"
+    ):
         manage_migrations_utils.create_migration_file(
             name="broken_script",
             migrations_dir=tmp_path,
@@ -402,7 +404,9 @@ def test_update_migration_file_missing_attribute_raises(tmp_path: Path) -> None:
 def test_update_migration_file_syntax_error_preflight_raises(tmp_path: Path) -> None:
     """Verifies update_migration_file validates target file syntax before modification and raises ValueError."""
     file_path = tmp_path / "20260817000000_broken.py"
-    file_path.write_text("class Migration:\n  creation_timestamp = '2026-08-17T00:00:00Z'\n  def (\n")
+    file_path.write_text(
+        "class Migration:\n  creation_timestamp = '2026-08-17T00:00:00Z'\n  def (\n"
+    )
 
     with pytest.raises(ValueError, match="has syntax errors"):
         manage_migrations_utils.update_migration_file(

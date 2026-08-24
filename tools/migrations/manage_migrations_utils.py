@@ -139,7 +139,7 @@ def escape_docstring(text: str) -> str:
     Returns:
         Escaped string safe to embed inside triple quotes.
     """
-    return text.replace("\\", "\\\\").replace('"', r'\"')
+    return text.replace("\\", "\\\\").replace('"', r"\"")
 
 
 def generate_migration_content(description: str, creation_timestamp: str) -> str:
