@@ -422,7 +422,7 @@ You declare provenances for your data files in an MCF file. Here is an example o
 
 ```
 Node: oecd:OECDWages
-typeOf: dcid:Provenance
+typeOf: dcs:Provenance
 name: "OECD Average Annual Wages"
 source: dcid:dc/s/OrganisationForEconomicCo-operationAndDevelopmentOecd
 url: "https://www.oecd.org/en/data/indicators/average-annual-wages.html"
@@ -478,7 +478,6 @@ There are many common properties already available in base Data Commons. To chec
 
 If there is no existing property you can reuse, you'll need to declare custom observation properties. For example, let's say you are tracking exchanges (of people, funds, etc.) between 2 countries. You could define the source and destination countries as observation properties as follows:
 
-
 ```
 Node: mynamespace:sourceCountry
 typeOf: schema:Property
@@ -494,7 +493,6 @@ rangeIncludes: schema:Country
 ```
 
 In the case of places, you don't need to define the actual places, such as countries, since they all exist in base Data Commons. However, if the property represented something different, for example, an organization, and there are no existing nodes representing the relevant organizations in your data, you'd need to define them as [custom entities](https://docs.datacommons.org/custom_dc/custom_entities.html). 
-
 
 ##### Step 4b: Define the variable
 
@@ -606,7 +604,6 @@ In the following examples, all files constitute a single import.
 
 This uses the MCF and CSV examples listed above. There is a single MCF file that defines all nodes (variables, provenances, statvar groups) for all observations. Let's say the the files are organized into the same directory, as follows:
 
-
 ```
 ingestion_base /
   |- my_import_directory /    
@@ -623,11 +620,11 @@ The config.json file would be as follows:
   "inputFiles": [
     {
       "pattern": "schema.mcf",
-      "provenance": "dcid:UN_WHO"
+      "provenance": "who:UN_WHO"
      },
      {
       "pattern": "smokers_single_entity.csv",
-      "provenance": "dcid:UN_WHO",
+      "provenance": "who:UN_WHO",
       "columnMappings": {
         "dcid:variableMeasured": "variable",
         "dcid:observationAbout": "country",
@@ -637,7 +634,7 @@ The config.json file would be as follows:
     },
     {
       "pattern": "smokers_multi_entity.csv",
-      "provenance": "dcid:UN_WHO",
+      "provenance": "who:UN_WHO",
       "columnMappings": {
         "dcid:variableMeasured": "variable",
         "dcid:country": "country",
