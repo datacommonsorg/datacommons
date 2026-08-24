@@ -153,8 +153,6 @@ Here are some variables you may wish to modify:
 | `ingestion_input_path` | `ingestion/input` | The Cloud Storage folder where you will store your input files (MCF, CSV, config.json). |
 | `spanner_create_instance` | `true` | Creates a new Cloud Spanner instance. If you want to reduce costs, and already have a Spanner instance that you want to reuse, set this to `false` and provide the name of the instance using `spanner_instance_id`.<br/>**Note:** If you are creating multiple deployments, e.g. dev and prod, we recommend that you reuse a single instance (but not a database): set this to `false` for all other deployments. |
 | `spanner_create_bigquery_reservation` | `true` | Data Commons uses [BigQuery federated queries](https://docs.cloud.google.com/bigquery/docs/federated-queries-intro) internally to write data to Spanner. The first time you create a deployment in a given region, set this to `true` to create a BigQuery capacity reservation.<br/>**Important!** The reservation must only be created *once*, for the first deployment instance.There can only be one reservation per project per region. If another is created in the same deployment or other deployments in the same project/region, the ingestion pipeline will fail. On the other hand, if you set the variable to `false` after creation, Terraform will destroy it and break other deployments. The solution is to remove the resource from Terraform tracking in the first deployment; please see [Handle resource creation special variables](#handle) for procedures. | 
-| `datacommons_services_image` | `gcr.io/datcom-ci/datacommons-services:1.1.1` | If you have a [customized image](https://docs.datacommons.org/custom_dc/image.html#build-repo) that you have uploaded to the Artifact Registry, change this to the Docker container URL, including name and tag. | 
-| `datacommons_services_allow_unauthenticated_access` | `false` |  This disallows public access to the web services and APIs: services are private and users must have a minimum of the [Cloud Run Invoker role](https://docs.cloud.google.com/run/docs/authenticating/public). See [Authentication overview | Cloud Run](https://docs.cloud.google.com/run/docs/authenticating/overview) for more details.<br/>During development, you may wish to set this to  `true` (users can only discover the services if they know the (long) URL) to simplify iteration. Or see [Authenticate developers | Cloud Run](https://docs.cloud.google.com/run/docs/authenticating/developers) for easy alternatives, such as running a local Cloud Run Proxy. |
 | `enable_redis` | `false` | Google Cloud [Memorystore for Redis](https://docs.cloud.google.com/memorystore/docs/redis/memorystore-for-redis-overview) is a caching service that speeds up website and API performance. We recommend keeping it disabled during development. When you launch to production, depending on your traffic load, you may wish to enable it. | 
 | `stateful_deletion_protection`  | `false` | Determines whether you will be allowed to destroy your "stateful" resources which are Spanner, and the Artifacts GCS bucket. We recommend setting this to `true` for production. | 
 | `stateless_deletion_protection` |  `false` | Determines whether you will be allowed to `destroy` your "stateless" resources which are the resources that can be re-spun up with no data loss (Cloud Run Service/Jobs, Redis, Workflow etc…). We recommend setting this to true for production. | 
@@ -838,21 +836,6 @@ To issue SQL or GQL queries, go back to the table details page and click **Spann
 * To verify the creation of new nodes, such as statistical variables, provenances or new classes/entities, use the **Node** table.
 * To verify the creation of new properties and view triples, use the **Edge** table.
 * To verify observations data, use the **TimeSeries** and **Observation** table. 
-
-
-## View your service and running application
-
-**Note:** To view the Cloud Run Service, you must have a minimum of the Run Developer role. To view your running application, you must have a minimum of the Run Invoker role.
-
-The name of the service container is set by the `datacommons_services_name` Terraform variable. If you didn't set it explicitly, by default it is set to <code><var>INSTANCE_NAME</var>-dc-datacommons-service></code>. To look it up, from your Terraform directory, run:
-
-```
-terraform output datacommons_services_name
-```
-
-To view the service, go to <code>https://console.cloud.google.com/run/services?project=<var>PROJECT_ID</var></code> and click on the service name. At the top of the service details page, you can find the link to the website URL. The URL is in the form <code>https://<var>SERVICE_NAME</var>-<var>XXXXXXXX</var>-<var>REGION</var>.a.run.app</code>. 
-
-> **Note**: If you kept the Terraform variable `datacommons_services_allow_unauthenticated_access` setting as false, the URL will not be clickable and you will not be able to access the service without providing authentication tokens. To simplify this during development purposes, you can run the Cloud CLI [Cloud Run Proxy](https://docs.cloud.google.com/run/docs/authenticating/developers#testing) to connect from a local proxy to your service in GCP. See [Authenticate developers](https://docs.cloud.google.com/run/docs/authenticating/developers#proxy) for details. Alternatively, if you are not concerned about public access to your site (users would still need to have the URL to discover it), set the variable to `true` and rerun `terraform apply`.
 
 
 ## Query data using SDMX
