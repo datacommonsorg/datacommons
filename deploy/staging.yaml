@@ -15,6 +15,7 @@
 steps:
   # 1. Clone target commit/branch, apply version bump, and push RC tag to GitHub
   - name: 'ghcr.io/astral-sh/uv:python3.12-trixie-slim'
+    id: 'apply-version-bump'
     entrypoint: 'bash'
     secretEnv: ['GH_TOKEN']
     env:
