@@ -122,11 +122,6 @@ class PreflightPermissionChecker:
                 details="Skipped (SA or user account not resolved)",
             )
 
-        member_type = (
-            "serviceAccount" if "gserviceaccount.com" in self.current_user else "user"
-        )
-        member_spec = f"{member_type}:{self.current_user}"
-
         cmd = [
             "gcloud",
             "iam",
@@ -134,7 +129,7 @@ class PreflightPermissionChecker:
             "get-iam-policy",
             sa_email,
             f"--project={self.target.project_id}",
-            f"--filter=bindings.role=roles/iam.serviceAccountTokenCreator AND bindings.members={member_spec}",
+            f"--filter=bindings.role=roles/iam.serviceAccountTokenCreator AND bindings.members=user:{self.current_user}",
             "--format=value(bindings.role)",
         ]
 
@@ -147,19 +142,19 @@ class PreflightPermissionChecker:
                 return PermissionCheckResult(
                     passed=True,
                     name="Service Account Impersonation",
-                    details=f"Verified for {member_spec} on {sa_email}",
+                    details=f"Verified for {self.current_user} on {sa_email}",
                 )
         except Exception:
             pass
 
-        # Try to automatically grant if user/SA has admin rights
+        # Try to automatically grant if user has admin rights
         grant_cmd = [
             "gcloud",
             "iam",
             "service-accounts",
             "add-iam-policy-binding",
             sa_email,
-            f"--member={member_spec}",
+            f"--member=user:{self.current_user}",
             "--role=roles/iam.serviceAccountTokenCreator",
             f"--project={self.target.project_id}",
             "--quiet",
@@ -168,10 +163,6 @@ class PreflightPermissionChecker:
             res = subprocess.run(grant_cmd, capture_output=True, text=True, check=False)
             if res.returncode == 0:
                 print(f"  ✔ Automatically granted TokenCreator IAM role on {sa_email}")
-                print("  ⏳ Waiting 10 seconds for GCP IAM policy propagation...")
-                import time
-
-                time.sleep(10)
                 return PermissionCheckResult(
                     passed=True,
                     name="Service Account Impersonation",
@@ -182,14 +173,14 @@ class PreflightPermissionChecker:
 
         fix_cmd = (
             f"gcloud iam service-accounts add-iam-policy-binding '{sa_email}' "
-            f"--member='{member_spec}' "
+            f"--member='user:{self.current_user}' "
             f"--role='roles/iam.serviceAccountTokenCreator' "
             f"--project='{self.target.project_id}'"
         )
         return PermissionCheckResult(
             passed=False,
             name="Service Account Impersonation",
-            details=f"Identity '{member_spec}' lacks TokenCreator role on '{sa_email}'",
+            details=f"User '{self.current_user}' lacks TokenCreator role on '{sa_email}'",
             fix_command=fix_cmd,
         )
 

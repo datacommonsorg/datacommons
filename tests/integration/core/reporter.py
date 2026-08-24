@@ -42,8 +42,6 @@ class TestRunReport:
     cli_version: str
     target_tag: str
     git_commit: str
-    main_git_commit: str = "unknown"
-    prober_git_commit: str = "unknown"
     artifacts: dict[str, Any] = field(default_factory=dict)
     total_tests: int = 0
     passed_tests: int = 0
@@ -66,9 +64,9 @@ class TestReporter:
         target_tag: str | None = None,
         artifacts: dict[str, Any] | None = None,
     ):
+        resolved_cli_ver = cli_version or self._auto_detect_cli_version()
+        resolved_tag = target_tag or "latest"
         config_name = Path(test_config).stem if test_config else "benchmark"
-        main_sha, prober_sha = self._resolve_git_shas()
-        resolved_cli_ver = cli_version or self._auto_detect_cli_version(main_sha)
 
         self.report = TestRunReport(
             timestamp=datetime.datetime.now(datetime.UTC).isoformat(),
@@ -77,59 +75,38 @@ class TestReporter:
             test_config=config_name,
             cli_source=cli_source,
             cli_version=resolved_cli_ver,
-            target_tag=target_tag or "latest",
-            git_commit=main_sha,
-            main_git_commit=main_sha,
-            prober_git_commit=prober_sha,
+            target_tag=resolved_tag,
+            git_commit=self._get_git_commit(),
             artifacts=artifacts or {},
         )
 
-    def _resolve_git_shas(self) -> tuple[str, str]:
-        """Resolves (main_git_commit, prober_git_commit) cleanly."""
-        prober_sha = (
-            os.environ.get("COMMIT_SHA")
-            or os.environ.get("GIT_COMMIT")
-            or self._run_cmd(["git", "rev-parse", "HEAD"])
-        )
-        main_sha = os.environ.get("MAIN_COMMIT_SHA")
-
-        if not main_sha or main_sha == "unknown":
-            remote_url = os.environ.get(
-                "GIT_REMOTE_URL",
-                "https://github.com/gmechali/datacommons_platform.git",
+    def _auto_detect_cli_version(self) -> str:
+        try:
+            out = (
+                subprocess.check_output(
+                    ["datacommons", "--version"], stderr=subprocess.DEVNULL
+                )
+                .decode()
+                .strip()
             )
-            out = self._run_cmd(["git", "ls-remote", remote_url, "main"], timeout=5)
-            main_sha = (
-                out.split()[0]
-                if out
-                else self._run_cmd(["git", "rev-parse", "origin/main"])
-            )
+            match = re.search(r"version\s+([0-9a-zA-Z\.\-]+)", out, re.IGNORECASE)
+            if match:
+                return match.group(1)
+            return out or "local-dev"
+        except Exception:
+            return "local-dev"
 
-        return main_sha or "unknown", prober_sha or "unknown"
-
-    def _auto_detect_cli_version(self, main_sha: str) -> str:
-        out = self._run_cmd(["datacommons", "--version"])
-        match = (
-            re.search(r"version\s+([0-9a-zA-Z\.\-]+)", out, re.IGNORECASE)
-            if out
-            else None
-        )
-        ver_str = match.group(1) if match else (out or "0.0.0")
-
-        short_sha = main_sha[:8] if main_sha and main_sha != "unknown" else ""
-        return (
-            f"{ver_str} ({short_sha})" if short_sha and "(" not in ver_str else ver_str
-        )
-
-    def _run_cmd(self, cmd: list[str], timeout: int = 5) -> str:
+    def _get_git_commit(self) -> str:
         try:
             return (
-                subprocess.check_output(cmd, stderr=subprocess.DEVNULL, timeout=timeout)
+                subprocess.check_output(
+                    ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL
+                )
                 .decode()
                 .strip()
             )
         except Exception:
-            return ""
+            return os.environ.get("COMMIT_SHA", "unknown")
 
     def generate_filename(self) -> str:
         """

@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import json
-import re
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -62,158 +61,89 @@ def _find_container_images(data: Any) -> list[str]:
     return images
 
 
-def _load_terraform_state(workspace_dir: Path) -> dict | None:
-    """Loads local terraform.tfstate or pulls from remote backend."""
+def _extract_images_from_terraform_state(workspace_dir: Path) -> dict[str, str]:
+    """Extracts live deployed container images from Terraform state."""
+    state_data = None
+
+    # Try local state file first
     tfstate_file = workspace_dir / "terraform.tfstate"
     if tfstate_file.exists():
         try:
             with open(tfstate_file, encoding="utf-8") as f:
-                return json.load(f)
+                state_data = json.load(f)
         except Exception:
             pass
 
-    if (workspace_dir / ".terraform").exists():
-        proc = subprocess.run(
-            ["terraform", "state", "pull"],
-            cwd=str(workspace_dir),
-            capture_output=True,
-            text=True,
-            timeout=15,
-            check=False,
-        )
-        if proc.returncode == 0 and proc.stdout:
-            try:
-                return json.loads(proc.stdout)
-            except Exception:
-                pass
-    return None
+    # If no local state file, pull from remote backend
+    if not state_data and (workspace_dir / ".terraform").exists():
+        try:
+            proc = subprocess.run(
+                ["terraform", "state", "pull"],
+                cwd=str(workspace_dir),
+                capture_output=True,
+                text=True,
+                timeout=15,
+                check=False,
+            )
+            if proc.returncode == 0 and proc.stdout:
+                state_data = json.loads(proc.stdout)
+        except Exception:
+            pass
+
+    images: dict[str, str] = {}
+    if not state_data or not isinstance(state_data, dict):
+        return images
+
+    for resource in state_data.get("resources", []):
+        rname = resource.get("name", "")
+        found = _find_container_images(resource.get("instances", []))
+        if rname and found:
+            images[rname] = found[0]
+
+    return images
 
 
 def _resolve_deployed_artifacts(
     workspace_dir: Path, artifacts: ArtifactConfig | None = None
 ) -> ArtifactConfig:
-    """Extracts exact deployed container image digests and Dataflow templates from Terraform state."""
+    """Extracts the exact deployed image versions and templates from Terraform state."""
     artifacts = artifacts or ArtifactConfig()
-    state_data = _load_terraform_state(workspace_dir) or {}
+    state_images = _extract_images_from_terraform_state(workspace_dir)
 
-    resource_map = {
-        "dc_web_service": "services_image",
-        "ingestion_helper": "helper_image",
-        "dc_data_job": "preprocessing_image",
-        "dc_postprocessing_job": "postprocessing_image",
+    required_resources = {
+        "services_image": "dc_web_service",
+        "helper_image": "ingestion_helper",
+        "preprocessing_image": "dc_data_job",
+        "postprocessing_image": "dc_postprocessing_job",
     }
 
     resolved = {}
-    template_path = None
+    missing = []
+    for field_name, resource_name in required_resources.items():
+        img = state_images.get(resource_name)
+        if not img:
+            missing.append(resource_name)
+        else:
+            resolved[field_name] = img
 
-    # Inspect exact resource names from Terraform state
-    for resource in state_data.get("resources", []):
-        rname = resource.get("name", "")
-        instances = resource.get("instances", [])
-        if not instances:
-            continue
-
-        attrs = instances[0].get("attributes", {})
-
-        # Extract container images for Cloud Run services and jobs
-        if rname in resource_map:
-            imgs = _find_container_images(instances)
-            if imgs:
-                resolved[resource_map[rname]] = imgs[0]
-
-        # Extract Dataflow template GCS path from Workflow source_contents
-        if rname == "ingestion_orchestrator":
-            source = attrs.get("source_contents", "")
-            match = re.search(
-                r"containerSpecGcsPath:\s*['\"]?(gs://[^\s'\"\\,]+\.json)['\"]?",
-                source,
-            )
-            if match:
-                template_path = match.group(1)
-
-    missing = [field for field in resource_map.values() if field not in resolved]
-    if missing or not template_path:
+    if missing:
         raise RuntimeError(
-            f"❌ Error: Could not find deployed artifacts for missing fields in Terraform state at '{workspace_dir}': "
-            f"missing_images={missing}, missing_template={template_path is None}."
+            f"❌ Error: Could not find deployed container images for {missing} in Terraform state at '{workspace_dir}'."
         )
 
-    raw_artifacts = {
-        **resolved,
-        "dataflow_template_gcs_path": template_path,
-    }
-
-    digests = _resolve_artifact_digests(raw_artifacts)
+    services_img = resolved["services_image"]
+    dcp_version = services_img.split(":")[-1] if ":" in services_img else "unknown"
 
     return ArtifactConfig(
         cli_source=artifacts.cli_source,
         cli_version=artifacts.cli_version,
-        target_tag=artifacts.target_tag or "latest",
-        services_image=digests["services_image"],
-        helper_image=digests["helper_image"],
-        preprocessing_image=digests["preprocessing_image"],
-        postprocessing_image=digests["postprocessing_image"],
-        dataflow_template_gcs_path=digests["dataflow_template_gcs_path"],
+        target_tag=dcp_version,
+        services_image=resolved["services_image"],
+        helper_image=resolved["helper_image"],
+        preprocessing_image=resolved["preprocessing_image"],
+        postprocessing_image=resolved["postprocessing_image"],
+        dataflow_template_gcs_path=f"gs://datcom-templates/templates/flex/ingestion-{dcp_version}.json",
     )
-
-
-def _resolve_image_digest(uri: str) -> str:
-    if "@sha256:" in uri:
-        return uri
-    digest = _exec_cmd(
-        [
-            "gcloud",
-            "container",
-            "images",
-            "describe",
-            uri,
-            "--format=value(image_summary.digest)",
-        ]
-    )
-    base = uri.split(":")[0].split("@")[0]
-    return f"{base}@{digest}" if digest and digest.startswith("sha256:") else uri
-
-
-def _resolve_gcs_generation(uri: str) -> str:
-    if "#" in uri:
-        return uri
-    gen = _exec_cmd(
-        [
-            "gcloud",
-            "storage",
-            "objects",
-            "describe",
-            uri,
-            "--format=value(generation)",
-        ]
-    )
-    return f"{uri}#{gen}" if gen and gen.isdigit() else uri
-
-
-def _resolve_artifact_digests(artifacts: dict[str, str]) -> dict[str, str]:
-    """Resolves container image tags to sha256 digests and GCS paths to generation IDs."""
-    resolved = {}
-    for key, val in artifacts.items():
-        if not isinstance(val, str):
-            resolved[key] = val
-        elif "gcr.io/" in val or "pkg.dev/" in val:
-            resolved[key] = _resolve_image_digest(val)
-        elif val.startswith("gs://"):
-            resolved[key] = _resolve_gcs_generation(val)
-        else:
-            resolved[key] = val
-    return resolved
-
-
-def _exec_cmd(cmd: list[str], timeout: int = 5) -> str:
-    try:
-        return (
-            subprocess.check_output(cmd, stderr=subprocess.DEVNULL, timeout=timeout)
-            .decode()
-            .strip()
-        )
-    except Exception:
-        return ""
 
 
 def resolve_dcp_target(
