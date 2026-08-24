@@ -28,9 +28,10 @@ flowchart LR
 ```
 
 ### Key Capabilities
-- **State Isolation**: Reuses a single persistent state bucket (`tf-state-dcp-prober-${PROJECT}`) while dynamically generating unique execution prefixes (`ephemeral/prober-{uuid}/default.tfstate`). Eliminates cross-run state pollution and bucket creation rate limits.
-- **Guaranteed Teardown**: Python `try ... finally` blocks and signal handlers guarantee that `terraform destroy -auto-approve` runs on success, test failure, provisioning error, or container cancellation.
-- **Zero Retries at Container Level**: `max_retries = 0` on the Cloud Run Job prevents duplicate job executions when a test legitimately fails, while internal retry loops handle transient GCP API rate limits automatically.
+- **State & Environment Isolation**: Uses unique execution prefixes (`ephemeral/prober-{uuid}/default.tfstate`) in a single state bucket and strictly scopes GCP environment variables to prevent local/inherited quota leakage.
+- **Guaranteed Teardown**: Python `try ... finally` blocks and `SIGTERM`/`SIGINT` signal handlers guarantee that `terraform destroy -auto-approve` executes on test failure, uncaught exception, or container cancellation.
+- **Structured Cloud Logging & Instant Alerts**: Emits single-line structured JSON logs (`jsonPayload`) for Cloud Logging, triggering dual-condition Cloud Monitoring email alerts instantly (`0s` evaluation duration) on any test or job failure.
+- **Full Platform Lifecycle Coverage**: Tests the entire live stack in sequence — Terraform Provisioning $\to$ Ingestion Dataflows $\to$ SVG Hierarchy & Embeddings $\to$ REST & SDMX 3.0 APIs $\to$ MCP Agents $\to$ 100% Teardown.
 
 ---
 
@@ -45,7 +46,7 @@ Run the main deployment script:
   --prober-name dcp-prober \
   --test-config foobar_wages \
   --schedule "0 */3 * * *" \
-  --alert-email gmechali@google.com \
+  --alert-email datacommons-alerts+dcp-prober@google.com \
   --location us-central1 \
   --dc-api-key "YOUR_DATACOMMONS_API_KEY" \
   --non-interactive
