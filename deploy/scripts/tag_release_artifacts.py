@@ -61,12 +61,20 @@ import tempfile
 from pathlib import Path
 
 # Single Source of Truth: Registry image repository mappings
-ARTIFACT_IMAGE_MAP = {
+CONTAINER_IMAGE_MAP = {
     "services": "gcr.io/datcom-ci/datacommons-services",
     "preprocessor": "gcr.io/datcom-ci/datacommons-data",
     "postprocessor": "gcr.io/datcom-ci/datacommons-aggregation-helper",
     "ingestion_helper": "gcr.io/datcom-ci/datacommons-ingestion-helper",
-    "dataflow": "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion",
+}
+DATAFLOW_IMAGE_REPO = (
+    "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion"
+)
+
+# Backwards compatibility alias
+ARTIFACT_IMAGE_MAP = {
+    **CONTAINER_IMAGE_MAP,
+    "dataflow": DATAFLOW_IMAGE_REPO,
 }
 
 DEFAULT_TEMPLATE_GCS_BASE = "gs://datcom-templates/templates/flex"
@@ -136,33 +144,45 @@ def tag_container_image(
         )
 
 
-def stage_dataflow_template(
+def stage_dataflow_artifacts(
     gcs_base: str,
-    src_tag: str,
+    template_tag: str,
     target_tag: str,
-    dataflow_image_repo: str,
+    dataflow_image_repo: str = DATAFLOW_IMAGE_REPO,
+    image_tag: str | None = None,
     *,
     dry_run: bool = False,
 ) -> None:
-    """Downloads source template spec, updates internal image pointer, and uploads to target."""
-    src_uri = f"{gcs_base.rstrip('/')}/ingestion-{src_tag}.json"
+    """Downloads source template spec, resolves source image, tags worker image, and uploads target template."""
+    src_uri = f"{gcs_base.rstrip('/')}/ingestion-{template_tag}.json"
     target_uri = f"{gcs_base.rstrip('/')}/ingestion-{target_tag}.json"
     target_image = f"{dataflow_image_repo}:{target_tag}"
 
-    print("  [TEMPLATE] Staging Dataflow Flex Template:")
-    print(f"             Source:      {src_uri}")
-    print(f"             Destination: {target_uri}")
-    print(f"             Image Ref:   {target_image}")
+    print("  [DATAFLOW] Staging Dataflow Flex Template & Tagging Worker Image:")
+    print(f"             Source Template: {src_uri}")
+    print(f"             Target Template: {target_uri}")
+    print(f"             Target Image:    {target_image}")
 
     if dry_run:
+        if image_tag:
+            src_img = (
+                image_tag
+                if ("/" in image_tag or ":" in image_tag)
+                else f"{dataflow_image_repo}:{image_tag}"
+            )
+            print(f"             Source Image:    {src_img} (explicit override)")
+        else:
+            print(
+                f"             Source Image:    [dynamic from template {src_uri}['image']]"
+            )
         print(
-            f"             [DRY-RUN] Would download {src_uri}, set image={target_image}, and upload to {target_uri}"
+            f"             [DRY-RUN] Would download {src_uri}, tag image -> {target_image}, set image={target_image}, and upload to {target_uri}"
         )
         return
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
-        local_src = tmp_path / f"ingestion-{src_tag}.json"
+        local_src = tmp_path / f"ingestion-{template_tag}.json"
         local_target = tmp_path / f"ingestion-{target_tag}.json"
 
         # 1. Download source template spec
@@ -181,7 +201,7 @@ def stage_dataflow_template(
                 f"Details: {e.stderr.strip() or e.stdout.strip()}"
             )
 
-        # 2. Parse and update image pointer inside JSON
+        # 2. Parse and validate JSON template structure
         try:
             data = json.loads(local_src.read_text(encoding="utf-8"))
             if not isinstance(data, dict):
@@ -191,10 +211,54 @@ def stage_dataflow_template(
                 f"Error: Failed to parse JSON in downloaded template '{src_uri}': {e}"
             )
 
+        # 3. Resolve source container image
+        if image_tag:
+            src_image = (
+                image_tag
+                if ("/" in image_tag or ":" in image_tag)
+                else f"{dataflow_image_repo}:{image_tag}"
+            )
+        else:
+            src_image = data.get("image")
+            if not src_image or not isinstance(src_image, str):
+                sys.exit(
+                    f"Error: Source template '{src_uri}' missing valid 'image' property (got: {src_image})."
+                )
+
+        print(f"             Source Image:    {src_image}")
+
+        # 4. Tag the source image to target tag in Artifact Registry
+        tag_cmd = [
+            "gcloud",
+            "artifacts",
+            "docker",
+            "tags",
+            "add",
+            src_image,
+            target_image,
+            "--quiet",
+        ]
+        print(f"  [DATAFLOW IMAGE] Tagging {src_image} -> {target_image}")
+        try:
+            res = subprocess.run(
+                tag_cmd,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            if res.stdout.strip():
+                print(f"                   {res.stdout.strip()}")
+        except subprocess.CalledProcessError as e:
+            sys.exit(
+                f"Error: Failed to tag Dataflow image '{src_image}' -> '{target_image}'.\n"
+                f"Command: {' '.join(tag_cmd)}\n"
+                f"Details: {e.stderr.strip() or e.stdout.strip()}"
+            )
+
+        # 5. Update JSON template and upload to target URI
         data["image"] = target_image
         local_target.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
-        # 3. Upload updated template spec to target URI
         cp_out_cmd = ["gcloud", "storage", "cp", str(local_target), target_uri]
         try:
             subprocess.run(
@@ -211,6 +275,10 @@ def stage_dataflow_template(
             )
 
 
+# Backward compatibility alias
+stage_dataflow_template = stage_dataflow_artifacts
+
+
 def tag_all_artifacts(
     target_tag: str,
     default_source_tag: str | None = None,
@@ -219,6 +287,8 @@ def tag_all_artifacts(
     postprocessor_tag: str | None = None,
     ingestion_helper_tag: str | None = None,
     dataflow_tag: str | None = None,
+    dataflow_template_tag: str | None = None,
+    dataflow_image_tag: str | None = None,
     template_gcs_base: str = DEFAULT_TEMPLATE_GCS_BASE,
     *,
     dry_run: bool = False,
@@ -253,16 +323,28 @@ def tag_all_artifacts(
         "ingestion_helper": (
             normalize_tag(ingestion_helper_tag) if ingestion_helper_tag else default_src
         ),
-        "dataflow": (normalize_tag(dataflow_tag) if dataflow_tag else default_src),
     }
 
-    # Redirect abandoned 'latest' alias to 'stable' for Dataflow template and image
+    # Dataflow Flex Template resolution
+    resolved_template_tag = (
+        normalize_tag(dataflow_template_tag or dataflow_tag)
+        if (dataflow_template_tag or dataflow_tag)
+        else default_src
+    )
+    # Redirect abandoned 'latest' alias to 'stable' for Dataflow template
     # (mirroring Terraform logic in infra/dcp/main.tf)
-    if resolved_sources.get("dataflow") == "latest":
-        resolved_sources["dataflow"] = "stable"
+    if resolved_template_tag == "latest":
+        resolved_template_tag = "stable"
 
-    # Validate that every artifact has a resolved source tag
+    resolved_image_tag = (
+        normalize_tag(dataflow_image_tag) if dataflow_image_tag else None
+    )
+
+    # Validate that every required artifact has a resolved source tag
     missing_sources = [k for k, v in resolved_sources.items() if not v]
+    if not resolved_template_tag:
+        missing_sources.append("dataflow_template")
+
     if missing_sources:
         sys.exit(
             f"Error: Missing source tag for artifact(s): {', '.join(missing_sources)}.\n"
@@ -272,17 +354,24 @@ def tag_all_artifacts(
     print("=" * 72)
     print(f"RELEASE ARTIFACT TAGGING PLAN -> Target: '{target_tag}'")
     print("=" * 72)
-    for artifact, repo in ARTIFACT_IMAGE_MAP.items():
+    for artifact, repo in CONTAINER_IMAGE_MAP.items():
         src = resolved_sources[artifact]
         print(f"  * {artifact:<18}: {src} -> {target_tag} ({repo})")
+
+    df_img_plan = (
+        f"{resolved_image_tag} -> {target_tag}"
+        if resolved_image_tag
+        else f"[from template {resolved_template_tag}] -> {target_tag}"
+    )
+    print(f"  * {'dataflow_image':<18}: {df_img_plan} ({DATAFLOW_IMAGE_REPO})")
     print(
-        f"  * {'flex_template':<18}: ingestion-{resolved_sources['dataflow']}.json -> ingestion-{target_tag}.json"
+        f"  * {'flex_template':<18}: ingestion-{resolved_template_tag}.json -> ingestion-{target_tag}.json"
     )
     print("=" * 72)
 
-    # 1. Tag container images
-    print("\n1. Tagging Container Images:")
-    for artifact, repo in ARTIFACT_IMAGE_MAP.items():
+    # 1. Tag standard container images
+    print("\n1. Tagging Standard Container Images:")
+    for artifact, repo in CONTAINER_IMAGE_MAP.items():
         src = resolved_sources[artifact]
         tag_container_image(
             repo=repo,
@@ -291,13 +380,14 @@ def tag_all_artifacts(
             dry_run=dry_run,
         )
 
-    # 2. Stage Dataflow Flex Template JSON
-    print("\n2. Staging Dataflow Flex Template:")
-    stage_dataflow_template(
+    # 2. Stage Dataflow Flex Template JSON & Tag Worker Image
+    print("\n2. Staging Dataflow Flex Template & Tagging Worker Image:")
+    stage_dataflow_artifacts(
         gcs_base=template_gcs_base,
-        src_tag=resolved_sources["dataflow"],
+        template_tag=resolved_template_tag,
         target_tag=target_tag,
-        dataflow_image_repo=ARTIFACT_IMAGE_MAP["dataflow"],
+        dataflow_image_repo=DATAFLOW_IMAGE_REPO,
+        image_tag=resolved_image_tag,
         dry_run=dry_run,
     )
 
@@ -348,7 +438,22 @@ def main() -> None:
         "--dataflow-tag",
         "--dataflow-source-tag",
         dest="dataflow_tag",
-        help="Source tag for Dataflow worker image and template spec.",
+        help="Source tag for Dataflow Flex Template spec (alias for --dataflow-template-tag).",
+    )
+    parser.add_argument(
+        "--dataflow-template-tag",
+        "--dataflow-template-source-tag",
+        dest="dataflow_template_tag",
+        help="Source tag for Dataflow Flex Template spec in GCS (e.g. 'stable' or '1.1.2').",
+    )
+    parser.add_argument(
+        "--dataflow-image-tag",
+        "--dataflow-image-source-tag",
+        dest="dataflow_image_tag",
+        help=(
+            "Optional explicit override for Dataflow worker image tag. "
+            "If omitted, automatically resolved from the source Flex Template JSON."
+        ),
     )
     parser.add_argument(
         "--template-bucket",
@@ -371,6 +476,8 @@ def main() -> None:
         postprocessor_tag=args.postprocessor_tag,
         ingestion_helper_tag=args.ingestion_helper_tag,
         dataflow_tag=args.dataflow_tag,
+        dataflow_template_tag=args.dataflow_template_tag,
+        dataflow_image_tag=args.dataflow_image_tag,
         template_gcs_base=args.template_bucket,
         dry_run=args.dry_run,
     )

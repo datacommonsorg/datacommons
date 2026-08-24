@@ -853,7 +853,7 @@ class TestTagReleaseArtifacts:
 
         // Situation: tag_all_artifacts is called with a default baseline and a
         services override in dry-run mode.
-        // Expectation: All 5 images and the template are planned correctly and
+        // Expectation: All container images and the template are planned correctly and
         displayed in output.
         """
         tagger.tag_all_artifacts(
@@ -868,10 +868,11 @@ class TestTagReleaseArtifacts:
         assert "preprocessor      : 1.1.1 -> 1.1.2rc1" in captured
         assert "postprocessor     : 1.1.1 -> 1.1.2rc1" in captured
         assert "ingestion_helper  : 1.1.1 -> 1.1.2rc1" in captured
-        assert "dataflow          : 1.1.1 -> 1.1.2rc1" in captured
+        assert (
+            "dataflow_image    : [from template 1.1.1] -> 1.1.2rc1" in captured
+        )
         assert "ingestion-1.1.1.json -> ingestion-1.1.2rc1.json" in captured
         assert "gcloud container images add-tag" in captured
-        assert "gcloud artifacts docker tags add" in captured
         assert "[DRY-RUN]" in captured
         assert "Dry-run complete. No artifacts were modified." in captured
         assert "All release artifacts tagged and staged successfully!" not in captured
@@ -895,7 +896,10 @@ class TestTagReleaseArtifacts:
         assert "preprocessor      : 1.1.2rc2 -> 1.1.2" in captured
         assert "postprocessor     : 1.1.2rc2 -> 1.1.2" in captured
         assert "ingestion_helper  : 1.1.2rc2 -> 1.1.2" in captured
-        assert "dataflow          : 1.1.2rc2 -> 1.1.2" in captured
+        assert (
+            "dataflow_image    : [from template 1.1.2rc2] -> 1.1.2" in captured
+        )
+        assert "ingestion-1.1.2rc2.json -> ingestion-1.1.2.json" in captured
 
     def test_tag_all_artifacts_redirects_dataflow_latest_to_stable(
         self, capsys: pytest.CaptureFixture
@@ -903,8 +907,7 @@ class TestTagReleaseArtifacts:
         """// Test: test_tag_all_artifacts_redirects_dataflow_latest_to_stable
 
         // Situation: tag_all_artifacts is called with default_source_tag="latest".
-        // Expectation: dataflow image and template spec redirect to 'stable', while
-        other images preserve 'latest'.
+        // Expectation: dataflow template redirects to 'stable', while other images preserve 'latest'.
         """
         tagger.tag_all_artifacts(
             target_tag="1.1.2rc1",
@@ -916,7 +919,9 @@ class TestTagReleaseArtifacts:
         assert "preprocessor      : latest -> 1.1.2rc1" in captured
         assert "postprocessor     : latest -> 1.1.2rc1" in captured
         assert "ingestion_helper  : latest -> 1.1.2rc1" in captured
-        assert "dataflow          : stable -> 1.1.2rc1" in captured
+        assert (
+            "dataflow_image    : [from template stable] -> 1.1.2rc1" in captured
+        )
         assert "ingestion-stable.json -> ingestion-1.1.2rc1.json" in captured
 
     def test_tag_all_artifacts_dataflow_override_latest_to_stable(
@@ -925,7 +930,7 @@ class TestTagReleaseArtifacts:
         """// Test: test_tag_all_artifacts_dataflow_override_latest_to_stable
 
         // Situation: dataflow_tag="latest" is explicitly passed with a different default_source_tag.
-        // Expectation: dataflow image and template spec redirect to 'stable'.
+        // Expectation: dataflow template spec redirects to 'stable'.
         """
         tagger.tag_all_artifacts(
             target_tag="1.1.2rc1",
@@ -935,26 +940,51 @@ class TestTagReleaseArtifacts:
         )
         captured = capsys.readouterr().out
         assert "services          : 1.1.1 -> 1.1.2rc1" in captured
-        assert "dataflow          : stable -> 1.1.2rc1" in captured
+        assert (
+            "dataflow_image    : [from template stable] -> 1.1.2rc1" in captured
+        )
         assert "ingestion-stable.json -> ingestion-1.1.2rc1.json" in captured
+
+    def test_tag_all_artifacts_explicit_dataflow_image_override(
+        self, capsys: pytest.CaptureFixture
+    ) -> None:
+        """// Test: test_tag_all_artifacts_explicit_dataflow_image_override
+
+        // Situation: dataflow_image_tag="custom-worker-sha" is explicitly provided.
+        // Expectation: Plan shows custom-worker-sha as dataflow_image source.
+        """
+        tagger.tag_all_artifacts(
+            target_tag="1.1.2rc1",
+            default_source_tag="latest",
+            dataflow_image_tag="custom-worker-sha",
+            dry_run=True,
+        )
+        captured = capsys.readouterr().out
+        assert (
+            "dataflow_image    : custom-worker-sha -> 1.1.2rc1" in captured
+        )
+        assert "ingestion-stable.json -> ingestion-1.1.2rc1.json" in captured
+        assert "custom-worker-sha (explicit override)" in captured
 
     def test_tag_all_artifacts_preserves_explicit_dataflow_version(
         self, capsys: pytest.CaptureFixture
     ) -> None:
         """// Test: test_tag_all_artifacts_preserves_explicit_dataflow_version
 
-        // Situation: An explicit non-latest dataflow_tag is passed when default_source_tag="latest".
-        // Expectation: dataflow uses the explicit tag without redirecting to 'stable'.
+        // Situation: An explicit non-latest dataflow_template_tag is passed when default_source_tag="latest".
+        // Expectation: dataflow template uses the explicit tag without redirecting to 'stable'.
         """
         tagger.tag_all_artifacts(
             target_tag="1.1.2rc1",
             default_source_tag="latest",
-            dataflow_tag="1.1.0",
+            dataflow_template_tag="1.1.0",
             dry_run=True,
         )
         captured = capsys.readouterr().out
         assert "services          : latest -> 1.1.2rc1" in captured
-        assert "dataflow          : 1.1.0 -> 1.1.2rc1" in captured
+        assert (
+            "dataflow_image    : [from template 1.1.0] -> 1.1.2rc1" in captured
+        )
         assert "ingestion-1.1.0.json -> ingestion-1.1.2rc1.json" in captured
 
     def test_tag_all_artifacts_missing_source_tag_aborts(self) -> None:
@@ -977,8 +1007,7 @@ class TestTagReleaseArtifacts:
     ) -> None:
         """// Test: test_tag_all_artifacts_malformed_target_tag_aborts
 
-        // Situation: tag_all_artifacts is called with an invalid/malformed target
-        tag.
+        // Situation: tag_all_artifacts is called with an invalid/malformed target tag.
         // Expectation: Script calls sys.exit rejecting invalid version format.
         """
         with pytest.raises(SystemExit) as exc_info:
@@ -990,32 +1019,33 @@ class TestTagReleaseArtifacts:
             exc_info.value
         ) or "Target tag cannot be empty" in str(exc_info.value)
 
-    def test_stage_dataflow_template_mutates_json(
+    def test_stage_dataflow_artifacts_dynamic_image_resolution_and_tagging(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """// Test: test_stage_dataflow_template_mutates_json
+        """// Test: test_stage_dataflow_artifacts_dynamic_image_resolution_and_tagging
 
-        // Situation: stage_dataflow_template executes gcloud storage cp to download
-        and upload.
-        // Expectation: The downloaded JSON has its 'image' key updated to the target
-        image repo:tag.
+        // Situation: stage_dataflow_artifacts downloads template JSON, extracts underlying
+        image reference, tags the image in Artifact Registry, and uploads new template.
+        // Expectation: The image from JSON is tagged and the uploaded JSON points to target tag.
         """
-        source_json = tmp_path / "ingestion-1.1.1.json"
+        source_json = tmp_path / "ingestion-stable.json"
         source_json.write_text(
             json.dumps(
                 {
                     "image": (
-                        "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion:1.1.1"
+                        "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion:f756c2f"
                     ),
-                    "sdk_info": {"language": "PYTHON"},
+                    "sdk_info": {"language": "JAVA"},
                 },
                 indent=2,
             )
         )
 
         uploaded_content = {}
+        executed_cmds = []
 
         def mock_gcloud_run(cmd, **kwargs):
+            executed_cmds.append(cmd)
             if cmd[0] == "gcloud" and cmd[1] == "storage" and cmd[2] == "cp":
                 src = cmd[3]
                 dst = cmd[4]
@@ -1024,23 +1054,130 @@ class TestTagReleaseArtifacts:
                 elif dst.startswith("gs://"):
                     uploaded_content["data"] = json.loads(Path(src).read_text())
                 return MagicMock(returncode=0)
+            elif cmd[0] == "gcloud" and cmd[1] == "artifacts":
+                return MagicMock(returncode=0)
             return MagicMock(returncode=0)
 
         monkeypatch.setattr(subprocess, "run", mock_gcloud_run)
 
-        tagger.stage_dataflow_template(
+        tagger.stage_dataflow_artifacts(
             gcs_base="gs://datcom-templates/templates/flex",
-            src_tag="1.1.1",
-            target_tag="1.1.2rc1",
+            template_tag="stable",
+            target_tag="1.1.3rc2",
             dataflow_image_repo="us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion",
             dry_run=False,
         )
 
+        # 1. Verify docker tag call used extracted image
+        tag_calls = [
+            c
+            for c in executed_cmds
+            if len(c) >= 6 and c[0] == "gcloud" and c[1] == "artifacts" and c[2] == "docker"
+        ]
+        assert len(tag_calls) == 1
+        assert (
+            tag_calls[0][5]
+            == "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion:f756c2f"
+        )
+        assert (
+            tag_calls[0][6]
+            == "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion:1.1.3rc2"
+        )
+
+        # 2. Verify uploaded template JSON
         assert (
             uploaded_content["data"]["image"]
-            == "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion:1.1.2rc1"
+            == "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion:1.1.3rc2"
         )
-        assert uploaded_content["data"]["sdk_info"]["language"] == "PYTHON"
+        assert uploaded_content["data"]["sdk_info"]["language"] == "JAVA"
+
+    def test_stage_dataflow_artifacts_explicit_image_override(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """// Test: test_stage_dataflow_artifacts_explicit_image_override
+
+        // Situation: stage_dataflow_artifacts is called with explicit image_tag="custom-sha".
+        // Expectation: The explicit image is tagged instead of reading template['image'].
+        """
+        source_json = tmp_path / "ingestion-stable.json"
+        source_json.write_text(
+            json.dumps(
+                {
+                    "image": (
+                        "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion:old-sha"
+                    ),
+                },
+                indent=2,
+            )
+        )
+
+        executed_cmds = []
+
+        def mock_gcloud_run(cmd, **kwargs):
+            executed_cmds.append(cmd)
+            if cmd[0] == "gcloud" and cmd[1] == "storage" and cmd[2] == "cp":
+                src = cmd[3]
+                dst = cmd[4]
+                if src.startswith("gs://"):
+                    Path(dst).write_text(source_json.read_text())
+                return MagicMock(returncode=0)
+            return MagicMock(returncode=0)
+
+        monkeypatch.setattr(subprocess, "run", mock_gcloud_run)
+
+        tagger.stage_dataflow_artifacts(
+            gcs_base="gs://datcom-templates/templates/flex",
+            template_tag="stable",
+            target_tag="1.1.3rc2",
+            image_tag="custom-sha",
+            dataflow_image_repo="us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion",
+            dry_run=False,
+        )
+
+        tag_calls = [
+            c
+            for c in executed_cmds
+            if len(c) >= 6 and c[0] == "gcloud" and c[1] == "artifacts" and c[2] == "docker"
+        ]
+        assert len(tag_calls) == 1
+        assert (
+            tag_calls[0][5]
+            == "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion:custom-sha"
+        )
+        assert (
+            tag_calls[0][6]
+            == "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion:1.1.3rc2"
+        )
+
+    def test_stage_dataflow_artifacts_missing_image_in_template_aborts(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """// Test: test_stage_dataflow_artifacts_missing_image_in_template_aborts
+
+        // Situation: Downloaded template JSON has no 'image' field.
+        // Expectation: Script aborts with clear error message.
+        """
+        no_image_json = tmp_path / "no_image.json"
+        no_image_json.write_text(json.dumps({"metadata": {}}))
+
+        def mock_gcloud_run(cmd, **kwargs):
+            if cmd[0] == "gcloud" and cmd[1] == "storage" and cmd[2] == "cp":
+                dst = cmd[4]
+                Path(dst).write_text(no_image_json.read_text())
+                return MagicMock(returncode=0)
+            return MagicMock(returncode=0)
+
+        monkeypatch.setattr(subprocess, "run", mock_gcloud_run)
+
+        with pytest.raises(SystemExit) as exc_info:
+            tagger.stage_dataflow_artifacts(
+                gcs_base="gs://datcom-templates/templates/flex",
+                template_tag="stable",
+                target_tag="1.1.3rc2",
+                dataflow_image_repo="us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion",
+                dry_run=False,
+            )
+        assert "missing valid 'image' property" in str(exc_info.value)
 
     def test_tag_container_image_failure_aborts(
         self, monkeypatch: pytest.MonkeyPatch
@@ -1085,9 +1222,9 @@ class TestTagReleaseArtifacts:
         monkeypatch.setattr(subprocess, "run", mock_gcloud_run)
 
         with pytest.raises(SystemExit) as exc_info:
-            tagger.stage_dataflow_template(
+            tagger.stage_dataflow_artifacts(
                 gcs_base="gs://datcom-templates/templates/flex",
-                src_tag="1.1.1",
+                template_tag="1.1.1",
                 target_tag="1.1.2",
                 dataflow_image_repo="us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion",
                 dry_run=False,
@@ -1114,3 +1251,4 @@ class TestTagReleaseArtifacts:
                 dry_run=False,
             )
         assert "gcloud" in str(exc_info.value)
+
