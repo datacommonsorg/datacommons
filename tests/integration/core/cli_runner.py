@@ -187,22 +187,23 @@ class DatacommonsCLI:
                     .decode()
                     .strip()
                 )
-                if state != last_state or (elapsed - last_logged_time >= 60):
-                    print(f"      [{elapsed}s] Workflow State: {state}")
-                    last_state = state
-                    last_logged_time = elapsed
+            except (subprocess.SubprocessError, subprocess.TimeoutExpired):
+                time.sleep(15)
+                continue
 
-                if state == "SUCCEEDED":
-                    print(
-                        f"  ✔ Ingestion & postprocessing completed successfully in {elapsed}s!"
-                    )
-                    return True
-                if state in ("FAILED", "CANCELLED"):
-                    raise RuntimeError(
-                        f"Workflow execution {execution_id} finished with state: {state}"
-                    )
-            except Exception as e:
-                if "finished with state" in str(e) or "timed out" in str(e):
-                    raise
+            if state != last_state or (elapsed - last_logged_time >= 60):
+                print(f"      [{elapsed}s] Workflow State: {state}")
+                last_state = state
+                last_logged_time = elapsed
+
+            if state == "SUCCEEDED":
+                print(
+                    f"  ✔ Ingestion & postprocessing completed successfully in {elapsed}s!"
+                )
+                return True
+            if state in ("FAILED", "CANCELLED"):
+                raise RuntimeError(
+                    f"Workflow execution {execution_id} finished with state: {state}"
+                )
 
             time.sleep(15)
