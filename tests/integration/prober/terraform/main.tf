@@ -239,46 +239,36 @@ resource "google_logging_metric" "prober_failure_count" {
 
 # 7. Cloud Monitoring Alert Policy for Prober Execution Failures
 resource "google_monitoring_alert_policy" "prober_failure" {
-  display_name = "ALERT: DCP Prober Execution Failed"
+  display_name = "🚨 DCP Prober Failure: ${google_cloud_run_v2_job.prober_job.name}"
   project      = var.project_id
+  severity     = "CRITICAL"
   combiner     = "OR"
 
   conditions {
-    display_name = "Prober Execution Failure Event"
+    display_name = "DCP Prober Test Failure"
 
-    condition_threshold {
-      filter          = "resource.type = \"cloud_run_job\" AND resource.label.job_name = \"${google_cloud_run_v2_job.prober_job.name}\" AND metric.type = \"logging.googleapis.com/user/${google_logging_metric.prober_failure_count.name}\""
-      duration        = "0s"
-      comparison      = "COMPARISON_GT"
-      threshold_value = 0
-
-      aggregations {
-        alignment_period   = "60s"
-        per_series_aligner = "ALIGN_DELTA"
-      }
+    condition_matched_log {
+      filter = "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"${google_cloud_run_v2_job.prober_job.name}\" AND jsonPayload.event_type=\"PROBER_EXECUTION_SUMMARY\" AND jsonPayload.status=\"FAILED\""
     }
   }
 
   conditions {
     display_name = "Cloud Run Job Execution Failure"
 
-    condition_threshold {
-      filter          = "resource.type = \"cloud_run_job\" AND resource.label.job_name = \"${google_cloud_run_v2_job.prober_job.name}\" AND metric.type = \"run.googleapis.com/job/completed_execution_count\" AND metric.label.result = \"failed\""
-      duration        = "0s"
-      comparison      = "COMPARISON_GT"
-      threshold_value = 0
-
-      aggregations {
-        alignment_period   = "60s"
-        per_series_aligner = "ALIGN_DELTA"
-      }
+    condition_matched_log {
+      filter = "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"${google_cloud_run_v2_job.prober_job.name}\" AND severity>=ERROR"
     }
+  }
+
+  alert_strategy {
+    auto_close = "604800s" # 7 days
   }
 
   notification_channels = var.alert_email != "" ? [google_monitoring_notification_channel.email[0].name] : []
 
   documentation {
-    content   = "DCP Integration Prober job '${google_cloud_run_v2_job.prober_job.name}' failed on GCP project '${var.project_id}'. Check historical GCS reports at gs://${google_storage_bucket.prober_reports.name}/reports/"
+    subject   = "🚨 [CRITICAL] DCP Prober Failed on ${var.project_id}"
+    content   = "DCP Integration Prober job '${google_cloud_run_v2_job.prober_job.name}' failed on GCP project '${var.project_id}'.\n\nCheck execution logs and historical GCS reports at:\n`gs://${google_storage_bucket.prober_reports.name}/reports/`"
     mime_type = "text/markdown"
   }
 }

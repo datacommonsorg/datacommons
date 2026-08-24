@@ -86,7 +86,7 @@ You can deploy the integration test harness as an automated **GCP Cloud Run Job*
 ```
 
 ### 2. What `deploy_prober.sh` Automates:
-1. **Cloud Build**: Builds container image using [`tests/integration/prober/deploy/Dockerfile`](file:///Users/gmechali/Desktop/datacommons/datacommons_platform/tests/integration/prober/deploy/Dockerfile).
+1. **Cloud Build**: Builds container image using [`tests/integration/prober/deploy/Dockerfile`](https://github.com/datacommonsorg/datacommons/blob/main/tests/integration/prober/deploy/Dockerfile).
 2. **Cloud Run Job**: Provisions serverless job `dcp-prober` running ephemeral end-to-end cycles.
 3. **Cloud Scheduler**: Sets up cron job triggering execution automatically.
 4. **GCS Reporting**: Streams machine-readable execution reports to GCS reports bucket.

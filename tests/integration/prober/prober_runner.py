@@ -104,15 +104,6 @@ def main():
     signal.signal(signal.SIGTERM, handle_signal)
     signal.signal(signal.SIGINT, handle_signal)
 
-    # Configure strictly scoped environment to prevent local/inherited leakage
-    os.environ.pop("GOOGLE_USER_PROJECT_OVERRIDE", None)
-    os.environ.pop("BILLING_PROJECT_ID", None)
-    os.environ["GOOGLE_CLOUD_PROJECT"] = args.project
-    os.environ["CLOUDSDK_CORE_PROJECT"] = args.project
-    os.environ["CLOUDSDK_BILLING_QUOTA_PROJECT"] = args.project
-    os.environ["TF_VAR_project_id"] = args.project
-    os.environ["TF_VAR_billing_project_id"] = args.project
-
     # Generate unique instance name for state isolation
     run_id = str(uuid.uuid4())[:8]
     instance_name = f"prober-{run_id}"
@@ -133,9 +124,7 @@ def main():
     shutil.copytree(
         source_dir,
         workspace_dir,
-        ignore=shutil.ignore_patterns(
-            "backup*", ".terraform*", "*.tfstate*", "*.tfvars*", ".env*"
-        ),
+        ignore=shutil.ignore_patterns("backup*", ".terraform*", "*.tfstate*"),
     )
 
     bucket_name = f"tf-state-dcp-prober-{args.project}"
@@ -195,7 +184,7 @@ auth_google_datacommons_api_key     = "{dc_api_key}"
                     "pip",
                     "install",
                     "--force-reinstall",
-                    "git+https://github.com/datacommonsorg/datacommons_platform.git@main#subdirectory=packages/datacommons-cli",
+                    "git+https://github.com/datacommonsorg/datacommons.git@main#subdirectory=packages/datacommons-cli",
                 ],
                 cwd=workspace_dir,
                 max_attempts=2,
