@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -457,6 +458,8 @@ def dcp_target(request, test_manifest) -> DCPTarget:
     if instance_opt in ("local", "emulated"):
         from tests.integration.emulated.environment import EmulatedEnvironment
 
+        os.environ["SPANNER_EMULATOR_HOST"] = "localhost:9010"
+        os.environ["STORAGE_EMULATOR_HOST"] = "http://localhost:9099"
         env = EmulatedEnvironment()
         reuse_data_opt = request.config.getoption("--reuse-data", default=False)
         env.start(manifest=test_manifest, reuse_data=reuse_data_opt)
