@@ -57,13 +57,21 @@ class DockerComposeStack:
         gcs_port: int = 9099,
         mock_nl_port: int = 6060,
     ):
-        self.website_port = _get_free_port(website_port)
-        self.helper_port = _get_free_port(helper_port)
-        self.spanner_grpc_port = _get_free_port(spanner_grpc_port)
-        self.spanner_rest_port = _get_free_port(spanner_rest_port)
-        self.gcs_port = gcs_port
-        self.mock_nl_port = _get_free_port(mock_nl_port)
+        self.website_port = int(os.environ.get("WEBSITE_PORT", website_port))
+        self.helper_port = int(os.environ.get("HELPER_PORT", helper_port))
+        self.spanner_grpc_port = int(os.environ.get("SPANNER_GRPC_PORT", spanner_grpc_port))
+        self.spanner_rest_port = int(os.environ.get("SPANNER_REST_PORT", spanner_rest_port))
+        self.gcs_port = int(os.environ.get("GCS_PORT", gcs_port))
+        self.mock_nl_port = int(os.environ.get("MOCK_NL_PORT", mock_nl_port))
         self._is_running = False
+
+    def is_healthy(self) -> bool:
+        """Checks if local website and spanner containers are already running and healthy."""
+        try:
+            resp = requests.get(f"http://localhost:{self.website_port}/healthz", timeout=1)
+            return resp.status_code == 200
+        except Exception:
+            return False
 
     def get_compose_env(self, artifacts: ArtifactConfig | None = None) -> dict[str, str]:
         """Constructs environment variables for Docker Compose."""

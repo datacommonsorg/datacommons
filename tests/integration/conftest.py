@@ -434,8 +434,9 @@ def dcp_target(request, test_manifest) -> DCPTarget:
     if instance_opt in ("local", "emulated"):
         from tests.integration.emulated.manager import EmulatedStackManager
 
+        reuse_data_opt = request.config.getoption("--reuse-data", False)
         manager = EmulatedStackManager()
-        target = manager.start(test_manifest, artifacts)
+        target = manager.start(test_manifest, artifacts, reuse_data=reuse_data_opt)
         if _GLOBAL_REPORTER is not None:
             _GLOBAL_REPORTER.set_artifacts(asdict(target.artifacts))
             if target.artifacts.target_tag:
@@ -497,11 +498,7 @@ def spanner_client(dcp_target: DCPTarget) -> SpannerClient:
 @pytest.fixture(scope="session")
 def auth_headers() -> dict:
     """Provides default HTTP headers with GCP Cloud Run identity token if authenticated."""
-    headers = {
-        "X-Use-Multi-Entity-Schema": "true",
-        "X-Use-Normalized-Schema": "true",
-        "x-use-normalized-schema": "true",
-    }
+    headers = {"X-Use-Multi-Entity-Schema": "true"}
     try:
         token = (
             subprocess.check_output(

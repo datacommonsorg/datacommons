@@ -57,8 +57,15 @@ class EmulatedStackManager:
         self,
         manifest: TestManifest | None = None,
         artifacts: ArtifactConfig | None = None,
+        reuse_data: bool = False,
     ) -> DCPTarget:
         """Starts all Docker services, seeds schema & data, and returns the target."""
+        if reuse_data and self.stack.is_healthy():
+            print("\n" + "=" * 80)
+            print("⚡ [Emulated Stack] Reusing already running local containers (--reuse-data enabled)!")
+            print("=" * 80 + "\n")
+            return self.stack.get_target(artifacts)
+
         print("\n" + "=" * 80)
         print("🚀 [Emulated Stack] Bootstrapping hermetic local Docker Compose environment...")
         print("=" * 80)

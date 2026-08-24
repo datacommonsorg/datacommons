@@ -41,8 +41,6 @@ class TestSDMXAPI:
         headers = dict(auth_headers)
         headers["X-Log-SDMX"] = "true"
         headers["X-Use-Multi-Entity-Schema"] = "true"
-        headers["X-Use-Normalized-Schema"] = "true"
-        headers["x-use-normalized-schema"] = "true"
 
         url = f"{dcp_target.serving_url}/core/api/sdmx/v3/data/dataflow/{sdmx_data_spec.dataflow}"
         params = {"format": sdmx_data_spec.format}
@@ -75,8 +73,6 @@ class TestSDMXAPI:
         headers = dict(auth_headers)
         headers["X-Log-SDMX"] = "true"
         headers["X-Use-Multi-Entity-Schema"] = "true"
-        headers["X-Use-Normalized-Schema"] = "true"
-        headers["x-use-normalized-schema"] = "true"
 
         url = f"{dcp_target.serving_url}/core/api/sdmx/v3/availability/dataflow/{sdmx_avail_spec.dataflow}"
         params = {}

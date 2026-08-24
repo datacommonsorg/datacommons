@@ -82,6 +82,7 @@ services:
     volumes:
       - ./container_assets/patch_credentials.py:/workspace/patch/sitecustomize.py
       - ./config/feature_flags.yaml:/workspace/deploy/featureflags/custom.yaml
+      - ./container_assets/generate_feature_flags.py:/workspace/generate_feature_flags.py
       - ./container_assets/entrypoint_website.sh:/workspace/entrypoint_website.sh
     entrypoint: ["/bin/bash", "/workspace/entrypoint_website.sh"]
     environment:
