@@ -2,7 +2,7 @@
 
 [TOC]
 
-## About Data Commons Platform
+## About Data Commons Platform {#architecture}
 
 The following diagram shows the architecture of Data Commons Platform.
 
@@ -158,8 +158,7 @@ Here are some variables you may wish to modify:
 | `enable_redis` | `false` | Google Cloud [Memorystore for Redis](https://docs.cloud.google.com/memorystore/docs/redis/memorystore-for-redis-overview) is a caching service that speeds up website and API performance. We recommend keeping it disabled during development. When you launch to production, depending on your traffic load, you may wish to enable it. | 
 | `stateful_deletion_protection`  | `false` | Determines whether you will be allowed to destroy your "stateful" resources which are Spanner, and the Artifacts GCS bucket. We recommend setting this to `true` for production. | 
 | `stateless_deletion_protection` |  `false` | Determines whether you will be allowed to `destroy` your "stateless" resources which are the resources that can be re-spun up with no data loss (Cloud Run Service/Jobs, Redis, Workflow etc…). We recommend setting this to true for production. | 
-| `spanner_version_retention_period` | `24h` | The Spanner database is configured to retain data for this period. Within this time frame, all mutations are kept and there is the ability to do point-in-time-restore.<br/>It also provides the ability to query Spanner at any timestamp within the time frame.This means that data can be queried even during ingestion of large imports, without the risk of serving from a corrupted database while data is being modified.<br/>In case of failures mid-ingestion, you have the time of this retention period to resolve it before your requests start to serve data on  a potentially corrupted database. (See [Restore database from backup](#restore) for details.)<br/>You can increase the value up to 7 days, but it does incur additional cost. To learn more, see [Point-in-time recovery (PITR) overview](https://docs.cloud.google.com/spanner/docs/pitr). | 
-
+| `spanner_version_retention_period` | `24h` | The Spanner database is configured to retain data for this period. Within this time frame, all mutations are kept and there is the ability to do point-in-time-restore.<br/>It also provides the ability to query Spanner at any timestamp within the time frame.This means that data can be queried even during ingestion of large imports, without the risk of serving from a corrupted database while data is being modified.<br/>In case of failures mid-ingestion, you have the time of this retention period to resolve it before your requests start to serve data on  a potentially corrupted database. (See [Restore database from backup](#restore) for details.)<br/>You can increase the value up to 7 days, but it does incur additional cost. To learn more, see [Point-in-time recovery (PITR) overview](https://docs.cloud.google.com/spanner/docs/pitr). |
 
 ### Step 4: Run the Terraform deployment
 
@@ -167,7 +166,7 @@ This step does the following:
 
 * Creates various [service accounts](https://docs.cloud.google.com/iam/docs/service-account-overview) for your project and instance name and assigns them various permissions ([IAM roles](https://docs.cloud.google.com/iam/docs/roles-overview))
 * Enables all necessary APIs. (For the full list of APIs enabled, see the `main.tf` file in your Terraform directory.)
-* Provisions and deploys all the infrastructure components listed in the [architecture section]() above
+* Provisions and deploys all the infrastructure components listed in the [architecture section](#architecture) above
 * Stores all secrets (API keys and database passwords) in the [Cloud Secret Manager](https://cloud.google.com/secret-manager/docs/overview).
 * Creates a URL for accessing your service in the browser
 
@@ -600,12 +599,11 @@ Here is the general structure of the file:
 * The `columnMappings` section maps heading columns in the matched CSV files to DCIDs. (It is not needed for MCF files.) The first 3 mappings are always required, regardless of the number of entities. At least one entity mapping must be present. Additional entity mappings are required for each custom observation property present in your CSVs.
 * The _ENTITY_ can be `dcid:observationAbout` or any existing property or custom property you have defined in the MCF.
 
-
 #### Examples
 
 In the following examples, all files constitute a single import.
 
-##### Example 1: 1 shared MCF file, mixed-entity CSV files, single provenance
+##### Example 1: 1 shared MCF file, mixed-entity CSV files, single provenance {#ex1}
 
 This uses the MCF and CSV examples listed above. There is a single MCF file that defines all nodes (variables, provenances, statvar groups) for all observations. Let's say the the files are organized into the same directory, as follows:
 
@@ -653,7 +651,7 @@ The config.json file would be as follows:
 }
 ```
 
-##### Example 2: 1 shared MCF file, 2 specific MCF files, mixed-entity CSV files, 1 provenance
+##### Example 2: 1 shared MCF file, 2 specific MCF files, mixed-entity CSV files, 1 provenance {#ex2}
 
 In this example, we imagine this scenario, which is a good design pattern:
 
@@ -708,7 +706,7 @@ The config.json file could be as follows:
 }
 ```
 
-##### Example 3: 2 specific MCF files, 2 single-entity CSV files, 2 provenances, 2 subdirectories
+##### Example 3: 2 specific MCF files, 2 single-entity CSV files, 2 provenances, 2 subdirectories {#ex3}
 
 This example is similar to the one above, except it uses different provenances instead of different types of variables. We'll imagine that there are no shared nodes, so no shared, top-level MCF file. Instead, there is one MCF file for one provenance and its variables, and a second MCF for a second provenance and its variables. The file structure is like this:
 
@@ -755,7 +753,7 @@ The `config.json `file would look like this:
 
 ## Import your data {#import-your-data}
 
-### Step 1: Upload your data files
+### Step 1: Upload your data files {#upload}
 
 In this step, you upload your CSV, MCF and `config.json` files to a new or existing Google Cloud Storage bucket.
 
@@ -800,7 +798,7 @@ gcloud storage cp -r gs://<var>SOURCE_GCS_BUCKET</var>/<var>FOLDER</var>/* gs://
 
 To verify that your files are uploaded correctly, go to <code>https://console.cloud.google.com/storage/browser/<var>GCS_BUCKET.</var></code>
 
-### Step 2: Run the ingestion workflow
+### Step 2: Run the ingestion workflow {#workflow}
 
 This step runs the pipeline to convert your data files into Spanner table data. You run this procedure every time you make updates to your data.
 
@@ -854,7 +852,7 @@ terraform output datacommons_services_name
 
 To view the service, go to <code>https://console.cloud.google.com/run/services?project=<var>PROJECT_ID</var></code> and click on the service name. At the top of the service details page, you can find the link to the website URL. The URL is in the form <code>https://<var>SERVICE_NAME</var>-<var>XXXXXXXX</var>-<var>REGION</var>.a.run.app</code>. 
 
-Note: If you kept the Terraform variable `datacommons_services_allow_unauthenticated_access` setting as false, the URL will not be clickable and you will not be able to access the service without providing authentication tokens. To simplify this during development purposes, you can run the Cloud CLI [Cloud Run Proxy](https://docs.cloud.google.com/run/docs/authenticating/developers#testing) to connect from a local proxy to your service in GCP. See [Authenticate developers | Cloud Run](https://docs.cloud.google.com/run/docs/authenticating/developers#proxy) for details. Alternatively, if you are not concerned about public access to your site (users would still need to have the URL to discover it), set the variable to `true` and rerun `terraform apply`.
+> **Note**: If you kept the Terraform variable `datacommons_services_allow_unauthenticated_access` setting as false, the URL will not be clickable and you will not be able to access the service without providing authentication tokens. To simplify this during development purposes, you can run the Cloud CLI [Cloud Run Proxy](https://docs.cloud.google.com/run/docs/authenticating/developers#testing) to connect from a local proxy to your service in GCP. See [Authenticate developers](https://docs.cloud.google.com/run/docs/authenticating/developers#proxy) for details. Alternatively, if you are not concerned about public access to your site (users would still need to have the URL to discover it), set the variable to `true` and rerun `terraform apply`.
 
 
 ## Query data using SDMX
@@ -910,7 +908,7 @@ https://<var>YOUR_APPLICATION_URL</var>/core/api/sdmx/v3/availability/dataflow/D
 | _OBSERVATION_FIELD_ <br/> Required | The property for which available data should be returned. Supported properties are:<ul><li><code>observationAbout</code>: Return all entities/places that have data for this variable. Use this for single-entity statistical variables. </li><li>Custom <code>observationProperties</code> dimension: Return all entities that have data for this custom property. Use this for multi-entity statistical variables. </li><li><code>provenance</code>: Return all provenances associated with observations for this variable.</li><li><code>unit</code>: Return all units that are specified in observations associated with this variable</li><li><code>measurementMethod</code>: Return all measurement methods that are specified in observations associated with this variable.</li><li><code>observationPeriod</code>: Return all observation periods that are specified in observations associated with this variable.</li></ul> | n/a |
 | `variableMeasured`<br/>Required | The statistical variable(s) about which you are looking up data availability. | Comma-separated list of statistical variable DCIDs |
 | _OBSERVATION_FIELD_ <br/> Optional | Additional property or properties by which you would like to filter results. The _OBSERVATION_FIELD_ is any of the properties listed above.<br/>For custom observation properties, up to 3 are supported.<br/>In addition, for place-type entities, you can filter by place type and parent, using the qualifiers `containedInPlace+` and `typeOf`. If you use these, you must specify both parameters. See the examples below for the syntax.<br/>Multiple filter properties are ANDed together. | <ul><li>For `observationAbout`, custom observation properties, and `provenance`: comma-separated list of DCID values for the selected observation property.</li><li>For all others: see [Prepare and load your own data](https://docs.datacommons.org/custom_dc/custom_data.html#exp_csv).</li></ul>Each value applies to all variables specified in the `variableMeasured` parameter. |
-| `TIME_PERIOD` <br/> Optional | Filter results by a specific time period. If not specified, defaults to all results. | Comma-separated dates, in the format _YYYY_, _YYYY_-_>MM_, or _YYYY_-_MM_-_DD_. |
+| `TIME_PERIOD` <br/> Optional | Filter results by a specific time period. If not specified, defaults to all results. | Comma-separated dates, in the format _YYYY_, _YYYY_-_MM_, or _YYYY_-_MM_-_DD_. |
 
 At this time, the following parameters are accepted but redundant:
 
@@ -1014,12 +1012,9 @@ curl -g "https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/availability/datafl
 }
 ```
 
-
-
 ##### Example 2: Get places that have data for a specific variable, filtered by type and parent place
 
 This example gets all the countries in North America that have data for the variable `average_annual_wage`.
-
 
 ###### Request
 
@@ -1028,7 +1023,6 @@ curl -g "https://APPLICATION_URL/core/api/sdmx/v3/availability/dataflow/DC/DF_OB
 ```
 
 ###### Response
-
 
 ```
 {
@@ -1063,22 +1057,17 @@ curl -g "https://APPLICATION_URL/core/api/sdmx/v3/availability/dataflow/DC/DF_OB
 }
 ```
 
-
 ##### Example 3: Get all the entities that have data for a specific value of a custom property, for a multi-entity variable
 
 This example gets all the countries that have data about females for a multi-entity variable, `Adult_curr_cig_smokers_by_sex`. This variable is defined with 2 custom properties:` country` and `sex`.
 
-
 ###### Request
-
 
 <pre>
 curl -g "https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/availability/dataflow/DC/DF_OBS/1.0.0/*/country?c[variableMeasured]=Adult_curr_cig_smokers_by_sex&c[sex]=Female"
 </pre>
 
-
 ###### Response
-
 
 ```
 {
@@ -1114,12 +1103,9 @@ curl -g "https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/availability/datafl
 }
 ```
 
-
-
 ##### Example 4: Get the entities that have data for a specific property of a multi-entity variable, filtered by entity (place) type and parent
 
 This example gets the countries in Europe that have data about females, for a multi-entity variable, `Adult_curr_cig_smokers_by_sex`.
-
 
 ###### Request
 
@@ -1127,10 +1113,7 @@ This example gets the countries in Europe that have data about females, for a mu
 https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/availability/dataflow/DC/DF_OBS/1.0.0/*/country?c[variableMeasured]=who/Adult_curr_cig_smokers_by_sex&c[sex]=Female&c[country.containedInPlace+]=europe&c[country.typeOf]=Country
 </pre>
 
-
-
 ###### Response
-
 
 ```
 {
@@ -1181,80 +1164,11 @@ https://<var>YOUR_APPLICATION_URL</var>/core/api/sdmx/v3/data/dataflow/DC/DF_OBS
 #### Query parameters
 
 
-<table>
-  <tr>
-   <td><strong>Parameter</strong>
-   </td>
-   <td><strong>Description</strong>
-   </td>
-   <td><strong>Valid values</strong>
-   </td>
-  </tr>
-  <tr>
-   <td><code>variableMeasured</code>
-<p>
-Required
-   </td>
-   <td>The statistical variable(s) for which you are retrieving observations. 
-   </td>
-   <td>Comma-separated list of statistical variable DCIDs. 
-   </td>
-  </tr>
-  <tr>
-   <td><var>OBSERVATION_FIELD</var>
-<p>
-Required
-   </td>
-   <td>One or more properties by which to filter observations for the selected variable(s). If you have specified multiple values for <code>variableMeasured</code>, you must specify the same observation property filters for all.
-<p>
-Multiple filter properties are ANDed together.
-<p>
-Supported properties are:
-<ul>
-
-<li><code>observationAbout</code>: Return observations for the selected entities/places. Use this for single-entity statistical variables.
-<p>
-
-    For place entities, you can further refine this with <code>containedInPlace+</code> and <code>typeOf</code>. See below for examples.</li>
-
-<li>Custom <code>observationProperties</code> dimension: Return observations for the selected custom properties. Use this for multi-entity variables. Up to 3 properties are supported. 
-<p>
-
-    For properties representing place types, you can further refine this with <code>containedInPlace+</code> and <code>typeOf</code>. See below for examples.</li>
-
-<li><code>provenance</code>: Return observations for the selected provenance(s) only.</li>
-
-<li><code>unit</code>: Return observations for the specified unit(s) only.</li>
-
-<li><code>measurementMethod</code>: Return observations that use the specified measurement(s) only.</li>
-
-<li><code>observationPeriod</code>: Return observations that use the specified observation period(s) only.</li>
-
-<li><code>scalingFactor</code>: Return observations that use the specified scaling factor(s) only. </li>
-</ul>
-   </td>
-   <td>
-<ul>
-
-<li>For <code>observationAbout</code>, custom observation properties, and <code>provenance</code>: comma-separated list of DCID values for the selected observation property. </li>
-
-<li>For all others: see <a href="https://docs.datacommons.org/custom_dc/custom_data.html#exp_csv">Prepare and load your own data - Docs</a>.
-Each value applies to all variables specified in the <code>variableMeasured</code> parameter.</li>
-</ul>
-   </td>
-  </tr>
-  <tr>
-   <td><code>TIME_PERIOD</code>
-<p>
-Optional
-   </td>
-   <td>Filter observations by a specific time period. If not specified, all observations are returned.
-   </td>
-   <td>Comma-separated dates, in the format <var>YYYY</var>, <var>YYYY</var>-<var>MM</var>, or <var>YYYY</var>-<var>MM</var>-<var>DD</var>, or the constant <code>LATEST</code>.
-   </td>
-  </tr>
-</table>
-
+| **Parameter** | **Description** | **Valid values** |
+|:--------------|:----------------|:-----------------|
+| `variableMeasured` <br/>Required  | The statistical variable(s) for which you are retrieving observations. |  Comma-separated list of statistical variable DCIDs. | 
+| _OBSERVATION_FIELD_ <br/>Required | One or more properties by which to filter observations for the selected variable(s). If you have specified multiple values for `variableMeasured`, you must specify the same observation property filters for all. <br/>Multiple filter properties are ANDed together.<br/>Supported properties are:<ul><li>`observationAbout`: Return observations for the selected entities/places. Use this for single-entity statistical variables.<br/>For place entities, you can further refine this with `containedInPlace+` and `typeOf`. See below for examples.</li><li>Custom `observationProperties` dimensions: Return observations for the selected custom properties. Use this for multi-entity variables. Up to 3 properties are supported.<br/>For properties representing place types, you can further refine this with `containedInPlace+` and `typeOf`. See below for examples.</li><li>`provenance`: Return observations for the selected provenance(s) only.</li><li>`unit`: Return observations for the specified unit(s) only.</li><li>`measurementMethod`: Return observations that use the specified measurement(s) only.</li><li>`observationPeriod`: Return observations that use the specified observation period(s) only.</li><li>`scalingFactor`: Return observations that use the specified scaling factor(s) only. </li></ul> | <ul><li>For `observationAbout`, custom observation properties, and `provenance`: comma-separated list of DCID values for the selected observation property. </li><li>For all others: see [Prepare and load your data](https://docs.datacommons.org/custom_dc/custom_data.html#exp_csv).</li></ul>Each value applies to all variables specified in the <code>variableMeasured</code> parameter. |
+| `TIME_PERIOD` <br>Optional | Filter observations by a specific time period. If not specified, all observations are returned. | Comma-separated dates, in the format _YYYY_, _YYYY_-_MM_, or _YYYY_-_MM_-_DD_, or the constant `LATEST`. |
 
 At this time, the following parameters are accepted but redundant:
 
@@ -1275,7 +1189,6 @@ dataflow,DC:DF_OBS(1.0.0),I,<var>VARIABLE_NAME1</var>,<var>ENTITY_NAME1</var>,<v
 ...
 </pre>
 
-
 All matching facets are returned. For any of the optional observation properties, if they are empty in the result observations, `NotApplicable` is returned. For `scalingFactor` only, an empty value is left empty.
 
 If you run your query in a browser, the response will automatically be downloaded as a CSV file called `dc_data.csv`.
@@ -1283,11 +1196,9 @@ If you run your query in a browser, the response will automatically be downloade
 
 #### Examples
 
-
-##### Example 1: Get all observations for one variable, for one entity (place)
+##### Example 1: Get all observations for one variable, for one entity (place) 
 
 This example gets all observations for the variable `average_annual_wage`, for the United States.
-
 
 ###### Request
 
@@ -1296,8 +1207,7 @@ This example gets all observations for the variable `average_annual_wage`, for t
 curl -g "https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/data/dataflow/DC/DF_OBS/1.0.0/*?c[variableMeasured]=average_annual_wage&c[observationAbout]=country/USA"
 ```
 
-
-Response
+###### Response
 
 (truncated)
 
@@ -1315,7 +1225,6 @@ dataflow,DC:DF_OBS(1.0.0),I,average_annual_wage,country/USA,USD,NotApplicable,No
 
 This example gets the latest observations for the variable `average_annual_wage`, for the United States.
 
-
 ###### Request
 
 <pre>
@@ -1326,7 +1235,6 @@ curl -g "https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/data/dataflow/DC/DF
 
 (truncated)
 
-
 ```
 STRUCTURE,STRUCTURE_ID,ACTION,variableMeasured,observationAbout,unit,measurementMethod,observationPeriod,provenance,TIME_PERIOD,OBS_VALUE,scalingFactor,facetId
 dataflow,DC:DF_OBS(1.0.0),I,average_annual_wage,country/USA,USD,NotApplicable,NotApplicable,OECDWages,2021,74737.84535,,6776878780070711562
@@ -1336,14 +1244,13 @@ dataflow,DC:DF_OBS(1.0.0),I,average_annual_wage,country/USA,USD,NotApplicable,No
 
 This example gets the observations for the variable `average_annual_wage`, for the United States for 2020 and 2021.
 
-
-##### Request
+###### Request
 
 <pre>
 curl -g "https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/data/dataflow/DC/DF_OBS/1.0.0/*?c[variableMeasured]=average_annual_wage&c[observationAbout]=country/USA&c[TIME_PERIOD]=2020,2021"
-</var>
+</var></pre>
 
-##### Response
+###### Response
 
 ```
 STRUCTURE,STRUCTURE_ID,ACTION,variableMeasured,observationAbout,unit,measurementMethod,observationPeriod,provenance,TIME_PERIOD,OBS_VALUE,scalingFactor,facetId
@@ -1351,20 +1258,18 @@ dataflow,DC:DF_OBS(1.0.0),I,average_annual_wage,country/USA,USD,NotApplicable,No
 dataflow,DC:DF_OBS(1.0.0),I,average_annual_wage,country/USA,USD,NotApplicable,NotApplicable,OECDWages,2021,74737.84535,,6776878780070711562
 ```
 
-
 ##### Example 4: Get the latest observations for one variable, for all places of a specific type and parent
 
 This example gets the latest observations for the variable `average_annual_wage`, for all countries in North America.
 
-
-##### Request
+###### Request
 
 <pre>
 curl -g "https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/data/dataflow/DC/DF_OBS/1.0.0/*?c[variableMeasured]=average_annual_wage&c[observationAbout.containedInPlace+]=northamerica&c[observationAbout.typeOf]=Country&c[TIME_PERIOD]=LATEST"
 </pre>
 
 
-##### Response
+###### Response
 
 ```
 STRUCTURE,STRUCTURE_ID,ACTION,variableMeasured,observationAbout,unit,measurementMethod,observationPeriod,provenance,TIME_PERIOD,OBS_VALUE,scalingFactor,facetId
@@ -1373,19 +1278,17 @@ dataflow,DC:DF_OBS(1.0.0),I,average_annual_wage,country/MEX,USD,NotApplicable,No
 dataflow,DC:DF_OBS(1.0.0),I,average_annual_wage,country/USA,USD,NotApplicable,NotApplicable,OECDWages,2021,74737.84535,,6776878780070711562
 ```
 
-Example 5: Get all the observations for a multi-entity variable for 1 entity (place) 
+##### Example 5: Get all the observations for a multi-entity variable for 1 entity (place) 
 
 This example gets all observations for Albania, for a multi-entity variable` Adult_curr_cig_smokers_by_sex`.
 
 ###### Request
 
-
 <pre>
 curl -g "https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/data/dataflow/DC/DF_OBS/1.0.0/*?c[variableMeasured]=who/Adult_curr_cig_smokers_by_sex&c[country]=country/ALB"
-```
+</pre>
 
 ###### Response
-
 
 ```
 STRUCTURE,STRUCTURE_ID,ACTION,variableMeasured,country,sex,unit,measurementMethod,observationPeriod,provenance,TIME_PERIOD,OBS_VALUE,scalingFactor,facetId
@@ -1393,14 +1296,11 @@ dataflow,DC:DF_OBS(1.0.0),I,who/Adult_curr_cig_smokers_by_sex,country/ALB,Female
 dataflow,DC:DF_OBS(1.0.0),I,who/Adult_curr_cig_smokers_by_sex,country/ALB,Male,NotApplicable,NotApplicable,NotApplicable,UN_WHO,2018,35.7,,13905847005863890490
 ```
 
-
-Example 6: Get all the observations for a specific property for a multi-entity variable, for 2 entities (places)
+###### Example 6: Get all the observations for a specific property for a multi-entity variable, for 2 entities (places)
 
 This example gets all observations about females in Albania, for a multi-entity variable` Adult_curr_cig_smokers_by_sex`.
 
-
 ###### Request
-
 
 <pre>
 curl -g "https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/data/dataflow/DC/DF_OBS/1.0.0/*?c[variableMeasured]=who/Adult_curr_cig_smokers_by_sex&c[country]=country/ALB&c[sex]=Female"
@@ -1408,28 +1308,22 @@ curl -g "https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/data/dataflow/DC/DF
 
 ###### Response
 
-
 ```
 STRUCTURE,STRUCTURE_ID,ACTION,variableMeasured,country,sex,unit,measurementMethod,observationPeriod,provenance,TIME_PERIOD,OBS_VALUE,scalingFactor,facetId
 dataflow,DC:DF_OBS(1.0.0),I,who/Adult_curr_cig_smokers_by_sex,country/ALB,Female,NotApplicable,NotApplicable,NotApplicable,UN_WHO,2018,4.5,,13905847005863890490
 ```
 
-
-Example 6: Get all the observations for a multi-entity variable for females for places of a specific type and parent
+##### Example 6: Get all the observations for a multi-entity variable for females for places of a specific type and parent
 
 This example gets all observations about women in European countries, for a multi-entity variable` Adult_curr_cig_smokers_by_sex`.
 
-
 ###### Request
-
 
 <pre>
 curl -g "https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/data/dataflow/DC/DF_OBS/1.0.0/*?c[variableMeasured]=who/Adult_curr_cig_smokers_by_sex&c[country.containedInPlace+]=europe &c[country.typeOf]=Country&c[sex]=Female"
 </pre>
 
-
 ###### Response
-
 
 ```
 STRUCTURE,STRUCTURE_ID,ACTION,variableMeasured,country,sex,unit,measurementMethod,observationPeriod,provenance,TIME_PERIOD,OBS_VALUE,scalingFactor,facetId
@@ -1438,18 +1332,16 @@ dataflow,DC:DF_OBS(1.0.0),I,who/Adult_curr_cig_smokers_by_sex,country/ALB,Female
 
 ## Update your instance {#update-your-instance}
 
-
 ### Update imported data
 
 To update data you've already imported:
 
-1. If necessary, make changes to your [schema MCF file(s)]().
-2. If necessary, make changes to your <code>[config.json file(s)]()</code> (e.g. to add new CSV files, new directories, etc.).
-3. [Upload the new/updated files to Cloud Storage]().
-4. [Run the ingestion workflow]() as usual. 
+1. If necessary, make changes to your schema MCF file(s).
+2. If necessary, make changes to your [`config.json` file(s)](#config) (e.g. to add new CSV files, new directories, etc.).
+3. [Upload the new/updated files to Cloud Storage](#upload).
+4. [Run the ingestion workflow](#workflow) as usual. 
 
-**Note:** If your import depends on "shared" MCF files (which are assigned to a different provenance), you do not need to reingest those files unless they have changed. Conversely, if you do make changes to the shared files, you will need to reingest all imports that depend on them.
-
+> **Note:** If your import depends on "shared" MCF files (which are assigned to a different provenance), you do not need to reingest those files unless they have changed. Conversely, if you do make changes to the shared files, you will need to reingest all imports that depend on them.
 
 ### Delete data
 
@@ -1463,21 +1355,20 @@ The general procedure for deleting data at the file level is as follows:
 
 1. For the relevant import, delete all nodes (statistical variables, entities, properties, statistical variable groups) from the schema MCF file(s) that pertain to the CSV observation file(s) you want to remove — *except *the provenance definition. See below for examples.
 2. In the `config.json `file, remove the entries for the CSV files to remove. You may need to revise patterns to no longer match those files. See below for examples. 
-3. [Upload the new/updated files to Cloud Storage]().
-4. [Run the ingestion workflow]() as usual.
+3. [Upload the new/updated files to Cloud Storage](#upload).
+4. [Run the ingestion workflow](#workflow) as usual.
 
 
 #### Examples
 
 ##### Example 1: Delete all data from an import with a single MCF file
 
-For [example 1]() above, you would do the following:
+For [example 1](#ex1) above, you would do the following:
 
 * Delete all definitions from the `schema.mcf` file except the provenance. 
 * Remove the CSV input files from the `config.json` file. 
 
 The `config.json` would look like this:
-
 
 ```
 {
@@ -1490,17 +1381,14 @@ The `config.json` would look like this:
 } 
 ```
 
-
-
 ##### Example 2: Delete all data from an import with 2 data-specific MCFs
 
-For [example 3]() above, you would do the following:
+For [example 3](#ex3) above, you would do the following:
 
 * Delete all the definitions from the MCF files in the subdirectories (`provenance1/schema1.mcf` and `provenance2/schema2.mcf`), except the provenances. 
 * Revise the input file patterns in `config.json` to only reference the MCF files.
 
 The `config.json` would look like this:
-
 
 ```
 {
@@ -1518,10 +1406,9 @@ The `config.json` would look like this:
 }
 ```
 
-
 ##### Example 3: Delete one CSV file from an import with 1 shared MCF 
 
-For [example 1]() above, let's assume you want to remove `smokers_single_entity.csv`.
+For [example 1](#ex1) above, let's assume you want to remove `smokers_single_entity.csv`.
 
 You would do the following:
 
@@ -1554,7 +1441,7 @@ The `config.json` file would look like this:
 
 ##### Example 4: Delete 1 CSV file in an import with 1 shared MCF and 2 data-specific MCFs
 
-For [example 2]() above, let's assume you want to remove the file `single_entity_files/smokers_single_entity.csv`. To do so, you would:
+For [example 2](#ex2) above, let's assume you want to remove the file `single_entity_files/smokers_single_entity.csv`. To do so, you would:
 
 * Remove the file `single_entity_files/single_entity_schema.mcf`.
 * Remove the entry for `single_entity_files/smokers_single_entity.csv` in the `config.json` file.
@@ -1590,7 +1477,7 @@ Whenever you need to make changes to your deployment, including pointing to a ne
 
 We recommend that you do not use Cloud Console or gcloud to edit your configuration. If you try to run Terraform again, it will override any changes you have made outside of Terraform. Make all changes inside Terraform to ensure your deployment state is synchronized at all times.
 
-**Important:** Please be sure to read the section below regarding [special resource creation variables]() before proceeding.
+**Important:** Please be sure to read the section below regarding [special resource creation variables](#handle) before proceeding.
 
 To make deployment changes:
 
@@ -1600,13 +1487,13 @@ To make deployment changes:
 4. Run `terraform apply`.
 5. If you have made data changes, rerun the data ingestion workflow, which automatically restarts the web service as well:
 
-    ```
-    uvx datacommons-cli ingest start
-    ```
+  ```
+  uvx datacommons-cli ingest start
+  ```
 
 If you have only made changes affecting the web service (such as updating the image container tag) and want to skip running the full ingestion workflow, simply rerun `terraform apply`.
 
-To deploy several Data Commons Platform instances, in multiple environments (e.g. dev, staging, pre-prod etc.), you should use Terraform Workspaces. See [Manage multiple Terraform deployments](https://docs.datacommons.org/custom_dc/deploy_cloud.html#multiple ) for details. (Substitute the Terraform modules directory with your  [newly created Terraform directory]().)
+To deploy several Data Commons Platform instances, in multiple environments (e.g. dev, staging, pre-prod etc.), you should use Terraform Workspaces. See [Manage multiple Terraform deployments](https://docs.datacommons.org/custom_dc/deploy_cloud.html#multiple) for details. (Substitute the Terraform modules directory with your Terraform directory.)
 
 
 ### Handle resource creation variables {#handle}
@@ -1631,62 +1518,9 @@ Terraform maintains state across the lifecycle of a deployment. For stateful and
     ```
     terraform state rm module.stack.module.spanner[0].google_bigquery_reservation.default[0]
     terraform state rm module.stack.module.spanner[0].google_bigquery_reservation_assignment.project_assignment[0]
-
     ```
 3. Set `spanner_create_bigquery_reservation = false` before running `terraform apply` again.
 4. In any new deployments in the same project and region, set the variable to `false` from the very start.
-
-
-## Advanced procedures {#advanced-procedures}
-
-### Run a local service image and connect to Spanner in GCP
-
-If you are customizing the website, or want to run a local services image and connect to the Spanner database in GCP, you can use this procedure.
-
-This procedure assumes you have:
-
-* Installed Docker
-* [Cloned the Github Datacommons website repository](https://docs.datacommons.org/custom_dc/quickstart.html#clone) and [configured a website/custom_dc/env.list](https://docs.datacommons.org/custom_dc/quickstart.html#env-vars) file with the necessary variables
-* [Built a custom image](https://docs.datacommons.org/custom_dc/image.html#build-repo) or [pulled the latest Data Commons-provided image](https://docs.datacommons.org/custom_dc/image.html#prebuilt)
-
-
-#### Step 1: Set environment variables
-
-1. Optionally, look up the name of your Cloud Run service and region, from your Terraform directory, run:
-
-    ```
-    terraform output datacommons_services_name
-    terraform output region
-
-    ```
-2. Look up the GCP and Spanner environment variables and values that were configured by Terraform on the Data Commons web service:
-
-    <pre>
-    gcloud run services describe <var>SERVICE_NAME</var> --region <var>REGION</var>
-    </pre>
-
-3. In the output, look for the `Env vars` section.
-4. In a separate console window, go to the root directory where you have cloned the Github Data Commons `website` repo.
-5. Open the `env.list` file (or a copy) for editing.
-6. Override values for existing variables in the `env.list` file and copy new variables and values to the file. (Be sure to separate variables and values by a `=` sign, with no spaces.) 
-
-
-#### Step 2: Start the local container
-
-From the root directory of your `website` repo, run the following:
-
-<pre>
-docker run -it \
-    -p 8080:8080 \
-    -e DEBUG=true \
-    --env-file $PWD/custom_dc/env.list \
-    -e GOOGLE_APPLICATION_CREDENTIALS=/gcp/creds.json \
-    -v $HOME/.config/gcloud/application_default_credentials.json:/gcp/creds.json:ro \
-<var>IMAGE_NAME</var>
-</pre>
-
-The <code><var>IMAGE_NAME</var></code> is the name and tag of a prebuilt (`gcr.io/datcom-ci/datacommons-services:stable`) or custom-built image. 
-
 
 ## Emergency procedures {#emergency-procedures}
 
@@ -1710,10 +1544,10 @@ However, Data Commons will not start serving such corrupted data for the duratio
 However, if you are *not* able to successfully reimport data before the retention period expires, you will incur data loss and/or corruption. To mitigate data loss and/or corruption if it has occurred, you can restore from a backup with the last known good data: by default, Spanner does daily full backups. To restore from a backup:
 
 1. Go to <code>https://console.cloud.google.com/spanner/instances/<var>SPANNER_INSTANCE_ID</var>/details/backups/list</code> to view saved backups.
-2. Follow any of the procedures in [Restore from a backup](https://docs.cloud.google.com/spanner/docs/backup/restore-backups#restore-database-backup)
+2. Follow any of the procedures in [Restore from a backup](https://docs.cloud.google.com/spanner/docs/backup/restore-backups#restore-database-backup).
 3. In your Terraform configuration file, update the `spanner-database-id` variable to the new destination database name you have specified, and run `terraform apply`.
 
-If you import data more frequently than once a day, you will need to create manual backups immediately after every successful ingestion. See [Create backups | Spanner | Google Cloud Documentation](https://docs.cloud.google.com/spanner/docs/backup/create-backups) for details.
+If you import data more frequently than once a day, you will need to create manual backups immediately after every successful ingestion. See [Create backups](https://docs.cloud.google.com/spanner/docs/backup/create-backups) for details.
 
 
 ### Release database lock from ingestion workflow {#release}
@@ -1757,8 +1591,6 @@ In general, to troubleshoot any GCP problems, you should go to the Cloud Console
 
 This normally indicates a missing, invalid, or expired API key. To check if the API key you have provided in your `terraform.tfvars` file is valid, do the following:
 
-
-
 1. In your browser, try to make any REST API call using the key, for example:
 
     <pre>
@@ -1801,9 +1633,9 @@ If your Cloud Workflow fails with the following error:
 This likely indicates that the BigQuery reservation for your project was deleted from the Terraform deployment where it was originally set, or was never created, in the location where the ingestion workflow runs. To verify that this is the problem:
 
 1. Go to <code>https://console.cloud.google.com/bigquery?project=<var>YOUR_PROJECT_ID.</var></code>
-2. From the left panel, select <strong>Workload management</strong>.
-3. From the <strong>Capacity Management </strong>tab, from the <strong>Location</strong> menu, select a location.
-4. Under <strong>Slot Reservations</strong>, you should see a default entry. If you don't, check all the other locations. If there is no reservation, you need to create one: In your Terraform configuration, set <code>spanner_create_bigquery_reservation = true</code> and rerun `terraform apply`. Also see [Handle resource creation variables](#handle) for further details.
+2. From the left panel, select **Workload management**.
+3. From the **Capacity Management** tab, from the **Location** menu, select a location.
+4. Under **Slot Reservations**, you should see a default entry. If you don't, check all the other locations. If there is no reservation, you need to create one: In your Terraform configuration, set `spanner_create_bigquery_reservation = true` and rerun `terraform apply`. Also see [Handle resource creation variables](#handle) for further details.
 
 ### Web service problems
 
@@ -1813,7 +1645,7 @@ In general, whenever you encounter problems with any Google Cloud Run service, c
 
 This indicates that the Terraform option to control public access on your web application, `make_services_public`, is set to `false`. In this case, the application requires authenticated requests but you have not provided an authentication token. To work around this:
 
-* Configure authorized users and run a local Cloud Run Proxy. See [Authenticate developers | Cloud Run](https://docs.cloud.google.com/run/docs/authenticating/developers) for details.
+* Configure authorized users and run a local Cloud Run Proxy. See [Authenticate developers](https://docs.cloud.google.com/run/docs/authenticating/developers) for details.
 * If you're not worried about unauthorized access (the application link must be known for a user to access it), temporarily set `make_services_public = true` and rerun` terraform apply`.
 
 #### "502 Bad Gateway"
