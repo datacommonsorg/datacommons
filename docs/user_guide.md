@@ -852,7 +852,6 @@ The base URL for SDMX endpoints is:
 <var>YOUR_APPLICATION_URL</var>/core/api/sdmx/v3/
 </pre>
 
-
 The currently supported endpoints are:
 
 |    **API**         |    **URI path**   |    **Description**     |
@@ -911,7 +910,7 @@ The Availability API returns responses in SDMX-JSON format 2.0.0. It looks like 
   "data": {
     "dataConstraints": [
       {
-        "id": "DF_OBS_AVAILABILITY",
+     c:\Users\kmoscoe\Downloads\dcp_prod.png   "id": "DF_OBS_AVAILABILITY",
         "agencyID": "DC",
         "version": "1.0.0",
         "name": "Available DF_OBS data",
