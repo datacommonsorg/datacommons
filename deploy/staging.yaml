@@ -15,6 +15,7 @@
 steps:
   # 1. Clone target commit/branch, apply version bump, and push RC tag to GitHub
   - name: 'ghcr.io/astral-sh/uv:python3.12-trixie-slim'
+    id: 'apply-version-bump'
     entrypoint: 'bash'
     secretEnv: ['GH_TOKEN']
     env:
@@ -72,12 +73,13 @@ steps:
       - 'PREPROCESSOR_TAG=${_PREPROCESSOR_TAG}'
       - 'POSTPROCESSOR_TAG=${_POSTPROCESSOR_TAG}'
       - 'INGESTION_HELPER_TAG=${_INGESTION_HELPER_TAG}'
-      - 'DATAFLOW_TAG=${_DATAFLOW_TAG}'
+      - 'DATAFLOW_TEMPLATE_TAG=${_DATAFLOW_TEMPLATE_TAG}'
+      - 'DATAFLOW_IMAGE_TAG=${_DATAFLOW_IMAGE_TAG}'
     args:
       - '-c'
       - |
         set -eo pipefail
-        if [ -n "$$DEFAULT_SOURCE_TAG" ] || [ -n "$$SERVICES_TAG" ] || [ -n "$$PREPROCESSOR_TAG" ] || [ -n "$$POSTPROCESSOR_TAG" ] || [ -n "$$INGESTION_HELPER_TAG" ] || [ -n "$$DATAFLOW_TAG" ]; then
+        if [ -n "$$DEFAULT_SOURCE_TAG" ] || [ -n "$$SERVICES_TAG" ] || [ -n "$$PREPROCESSOR_TAG" ] || [ -n "$$POSTPROCESSOR_TAG" ] || [ -n "$$INGESTION_HELPER_TAG" ] || [ -n "$$DATAFLOW_TEMPLATE_TAG" ] || [ -n "$$DATAFLOW_IMAGE_TAG" ]; then
           echo "Tagging release artifacts and staging Dataflow template for $$TARGET_VERSION..."
           args=(--target-tag "$$TARGET_VERSION")
           [ -n "$$DEFAULT_SOURCE_TAG" ] && args+=(--default-source-tag "$$DEFAULT_SOURCE_TAG")
@@ -85,7 +87,8 @@ steps:
           [ -n "$$PREPROCESSOR_TAG" ] && args+=(--preprocessor-tag "$$PREPROCESSOR_TAG")
           [ -n "$$POSTPROCESSOR_TAG" ] && args+=(--postprocessor-tag "$$POSTPROCESSOR_TAG")
           [ -n "$$INGESTION_HELPER_TAG" ] && args+=(--ingestion-helper-tag "$$INGESTION_HELPER_TAG")
-          [ -n "$$DATAFLOW_TAG" ] && args+=(--dataflow-tag "$$DATAFLOW_TAG")
+          [ -n "$$DATAFLOW_TEMPLATE_TAG" ] && args+=(--dataflow-template-tag "$$DATAFLOW_TEMPLATE_TAG")
+          [ -n "$$DATAFLOW_IMAGE_TAG" ] && args+=(--dataflow-image-tag "$$DATAFLOW_IMAGE_TAG")
           python3 deploy/scripts/tag_release_artifacts.py "$${args[@]}"
         else
           echo "No artifact source tags provided; skipping container image and Dataflow template tagging."
@@ -116,7 +119,8 @@ substitutions:
   _PREPROCESSOR_TAG: ''
   _POSTPROCESSOR_TAG: ''
   _INGESTION_HELPER_TAG: ''
-  _DATAFLOW_TAG: ''
+  _DATAFLOW_TEMPLATE_TAG: ''
+  _DATAFLOW_IMAGE_TAG: ''
 
 availableSecrets:
   secretManager:

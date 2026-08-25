@@ -11,7 +11,7 @@ The release process follows three sequential stages:
 1. **Stage 1: Stage a Release Candidate (RC) in TestPyPI**
    - **Pipeline:** `deploy/staging.yaml`
    - **Scripts:** [`apply_version_bump.py`](../deploy/scripts/apply_version_bump.py), [`tag_release_artifacts.py`](../deploy/scripts/tag_release_artifacts.py), [`publish_packages.py`](../deploy/scripts/publish_packages.py)
-   - **Action:** Run `deploy/staging.yaml` with your target candidate version (e.g. `X.Y.ZrcN`) and artifact source tags. The build ephemerally bumps version files in-container, cross-tags the release container images and Dataflow Flex Template spec (see [`ARTIFACT_IMAGE_MAP`](../deploy/scripts/tag_release_artifacts.py)), pushes Git tag `vX.Y.ZrcN` to GitHub (*`main` branch remains untouched*), and publishes candidate wheels to **TestPyPI** for staging verification.
+   - **Action:** Run `deploy/staging.yaml` with your target candidate version (e.g. `X.Y.ZrcN`) and artifact source tags. The build ephemerally bumps version files in-container, cross-tags the release container images and Dataflow Flex Template spec (see [`CONTAINER_IMAGE_MAP` & `DATAFLOW_CONFIG`](../deploy/scripts/tag_release_artifacts.py)), pushes Git tag `vX.Y.ZrcN` to GitHub (*`main` branch remains untouched*), and publishes candidate wheels to **TestPyPI** for staging verification.
 
 2. **Stage 2: Open & Merge Version Bump PR**
    - **Pipeline:** `deploy/bump_version.yaml`
@@ -44,12 +44,13 @@ gcloud builds submit \
 
 **Substitutions Reference:**
 * `_TARGET_VERSION`: The target candidate version tag (e.g. `1.1.2rc1`) [Required].
-* `_DEFAULT_SOURCE_TAG`: Baseline source tag inherited by all 5 container images and the Dataflow template unless overridden.
+* `_DEFAULT_SOURCE_TAG`: Baseline source tag inherited by all container images and the Dataflow template unless overridden.
 * `_SERVICES_TAG`: Source tag or commit SHA for `datacommons-services`.
 * `_PREPROCESSOR_TAG`: Source tag for `datacommons-data` (preprocessor).
 * `_POSTPROCESSOR_TAG`: Source tag for `datacommons-aggregation-helper` (postprocessor).
 * `_INGESTION_HELPER_TAG`: Source tag for `datacommons-ingestion-helper`.
-* `_DATAFLOW_TAG`: Source tag for Dataflow worker image and GCS template spec.
+* `_DATAFLOW_TEMPLATE_TAG`: Source tag for Dataflow Flex Template spec in GCS (redirects `latest` to `stable`).
+* `_DATAFLOW_IMAGE_TAG`: Optional explicit override for Dataflow worker image tag. If omitted, dynamically extracted from the source Flex Template JSON.
 * `_GITHUB_COMMIT`: Optional commit SHA on datacommons repository (defaults to `_GITHUB_BRANCH` / `main`).
 
 **What this step does:**

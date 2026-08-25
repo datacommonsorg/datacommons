@@ -24,6 +24,7 @@ steps:
 
   # 2. Build and publish all Python packages to PyPI
   - name: 'ghcr.io/astral-sh/uv:python3.12-trixie-slim'
+    id: 'publish-pypi-packages'
     entrypoint: 'python3'
     secretEnv:
       - 'PYPI_TOKEN'
