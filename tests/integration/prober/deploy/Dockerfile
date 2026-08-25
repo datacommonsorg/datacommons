@@ -45,7 +45,7 @@ COPY pyproject.toml uv.lock ./
 COPY packages/ ./packages/
 
 # 2. Pre-install dependencies (cached unless dependencies change)
-RUN uv sync --frozen || uv sync
+RUN uv sync --frozen --no-install-project || uv sync --no-install-project
 
 # 3. Copy test harness and runner
 COPY tests/ ./tests/
