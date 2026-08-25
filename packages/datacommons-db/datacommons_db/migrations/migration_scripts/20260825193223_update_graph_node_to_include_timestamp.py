@@ -61,6 +61,3 @@ CREATE OR REPLACE PROPERTY GRAPH DCGraph
         )
         if result.status != ExecutionStatus.SUCCESS:
             raise RuntimeError(f"Failed to apply migration: {result.error_message}")
-        raise NotImplementedError(
-            "Migration upgrade logic has not been implemented yet."
-        )
