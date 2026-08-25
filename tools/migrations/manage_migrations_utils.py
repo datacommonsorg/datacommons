@@ -30,7 +30,28 @@ NAME_PATTERN = re.compile(r"^[a-z0-9_]+$")
 
 
 def _resolve_default_migrations_dir() -> Path:
-    """Resolves the default migrations directory via package discovery or monorepo fallback."""
+    """Resolves the default migrations directory.
+
+    Searches upward from the current file and working directory to locate the
+    local source tree migration scripts before falling back to package discovery.
+    """
+    rel_migration_path = (
+        Path("packages")
+        / "datacommons-db"
+        / "datacommons_db"
+        / "migrations"
+        / "migration_scripts"
+    )
+
+    # Search upward from this file and current working directory
+    search_origins = [Path(__file__).resolve(), Path.cwd().resolve()]
+    for origin in search_origins:
+        for parent in [origin, *origin.parents]:
+            candidate = parent / rel_migration_path
+            if candidate.is_dir():
+                return candidate
+
+    # Fallback to imported package path if running in a non-standard environment
     try:
         import datacommons_db.migrations.migration_scripts as mig_pkg
 
@@ -39,15 +60,8 @@ def _resolve_default_migrations_dir() -> Path:
     except (ImportError, AttributeError):
         pass
 
-    # Fallback to repository layout if package is not installed in environment
-    return (
-        Path(__file__).resolve().parents[2]
-        / "packages"
-        / "datacommons-db"
-        / "datacommons_db"
-        / "migrations"
-        / "migration_scripts"
-    )
+    # Default fallback path relative to repository layout
+    return Path(__file__).resolve().parents[2] / rel_migration_path
 
 
 DEFAULT_MIGRATIONS_DIR = _resolve_default_migrations_dir()
