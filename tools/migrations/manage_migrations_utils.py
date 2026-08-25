@@ -22,6 +22,7 @@ import ast
 import datetime
 import json
 import re
+from importlib import resources
 from pathlib import Path
 
 FILENAME_PATTERN = re.compile(r"^(\d{14})_([a-z0-9_]+)\.py$")
@@ -129,50 +130,17 @@ def generate_migration_content(description: str, creation_timestamp: str) -> str
     Returns:
         Formatted Python source code string.
     """
-    current_year = datetime.datetime.now(datetime.UTC).year
+    current_year = str(datetime.datetime.now(datetime.UTC).year)
     desc_literal = json.dumps(description)
 
-    return f'''# Copyright {current_year} Google LLC.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-from datacommons_db.clients.spanner_client import ExecutionStatus, SpannerClient
-from datacommons_db.migrations.base import SchemaMigration
-
-
-class Migration(SchemaMigration):
-    description: str = {desc_literal}
-    creation_timestamp: str = "{creation_timestamp}"
-
-    def upgrade(self, spanner_client: SpannerClient) -> None:
-        """Executes forward schema changes to upgrade the database.
-
-        Args:
-            spanner_client: SpannerClient instance to execute DDL / DML.
-
-        Raises:
-            RuntimeError: If any DDL or DML operation fails.
-        """
-        # Example DDL execution:
-        # result = spanner_client.execute_ddl([
-        #     "CREATE TABLE ExampleTable (Id STRING(64) NOT NULL) PRIMARY KEY (Id)"
-        # ])
-        # if result.status != ExecutionStatus.SUCCESS:
-        #     raise RuntimeError(f"Failed to apply migration: {{result.error_message}}")
-        raise NotImplementedError(
-            "Migration upgrade logic has not been implemented yet."
-        )
-'''
+    template_text = (
+        resources.files("tools.migrations.templates")
+        .joinpath("migration_template.py")
+        .read_text(encoding="utf-8")
+    )
+    content = template_text.replace("2026 Google LLC", f"{current_year} Google LLC")
+    content = content.replace('"__DESCRIPTION__"', desc_literal)
+    return content.replace('"__CREATION_TIMESTAMP__"', f'"{creation_timestamp}"')
 
 
 def create_migration_file(

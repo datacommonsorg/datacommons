@@ -137,6 +137,10 @@ extend-ignore = [
 "packages/*/datacommons_*/migrations/migration_scripts/*.py" = [
     "N999",   # Allow timestamp prefixes (e.g. 20260817000000_*.py) for migration scripts
 ]
+"tools/migrations/templates/*.py" = [
+    "ERA001", # Allow example commented-out code in migration template
+    "F401",   # Allow pre-imported modules in migration template
+]
 "tools/**/tests/*.py" = [
     "S101",   # Allow using `assert` in pytests
 ]
@@ -182,7 +186,15 @@ build-backend = "setuptools.build_meta"
 manage-migrations = "tools.migrations.manage_migrations_cli:cli"
 
 [tool.setuptools]
-packages = ["tools", "tools.migrations", "tools.migrations.tests"]
+packages = [
+    "tools",
+    "tools.migrations",
+    "tools.migrations.templates",
+    "tools.migrations.tests",
+]
+
+[tool.setuptools.package-data]
+"tools.migrations" = ["templates/*"]
 
 [tool.setuptools.dynamic]
 version = {file = "VERSION"}
