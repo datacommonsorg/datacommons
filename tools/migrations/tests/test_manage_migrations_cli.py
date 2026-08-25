@@ -96,13 +96,13 @@ def test_cli_create_command_invalid_name_raises(runner: CliRunner) -> None:
 
 
 def test_cli_create_command_duplicate_raises(
-    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    runner: CliRunner, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Verifies attempting to create a duplicate migration file with the same timestamp errors out."""
     fixed_now = "20260819120000", "2026-08-19T12:00:00Z"
     monkeypatch.setattr(
         "tools.migrations.manage_migrations_utils.generate_utc_timestamps",
-        lambda *args, **kwargs: fixed_now,
+        lambda *_, **__: fixed_now,
     )
 
     res1 = runner.invoke(cli, ["create", "duplicate_name"])
@@ -118,7 +118,7 @@ def test_cli_create_command_os_error_raises(
 ) -> None:
     """Verifies filesystem OSError is caught and surfaced as a clean ClickException."""
 
-    def mock_create_error(*args, **kwargs):
+    def mock_create_error(*_args: object, **_kwargs: object) -> None:
         raise PermissionError("Permission denied: cannot write to migrations dir")
 
     monkeypatch.setattr(
