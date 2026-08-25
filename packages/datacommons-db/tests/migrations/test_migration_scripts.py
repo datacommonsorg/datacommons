@@ -20,6 +20,7 @@ creation timestamps matching their filename prefixes, and define valid migration
 Any malformed migration script submitted in a PR will fail these tests and block merge in CI.
 """
 
+import ast
 import datetime
 import inspect
 import re
@@ -136,4 +137,33 @@ def test_migration_upgrade_signature():
         )
         assert callable(migration.upgrade), (
             f"Migration {migration.__class__.__name__} 'upgrade' attribute must be callable"
+        )
+
+
+def test_all_migration_scripts_valid_ast_structure():
+    """Statically verifies that all migration script files parse as valid AST and define required elements."""
+    scripts_dir = Path(datacommons_db.migrations.migration_scripts.__file__).parent
+    script_files = [
+        f
+        for f in scripts_dir.glob("*.py")
+        if not f.name.startswith("_") and f.name != "__init__.py"
+    ]
+
+    for script_file in script_files:
+        content = script_file.read_text(encoding="utf-8")
+        tree = ast.parse(content, filename=str(script_file))
+        assert tree is not None, f"Failed to parse AST for {script_file.name}"
+
+        # Find Migration class definition
+        class_defs = [node for node in tree.body if isinstance(node, ast.ClassDef)]
+        assert len(class_defs) >= 1, (
+            f"{script_file.name} must define at least one class (SchemaMigration subclass)"
+        )
+
+        mig_class = class_defs[0]
+        method_names = {
+            node.name for node in mig_class.body if isinstance(node, ast.FunctionDef)
+        }
+        assert "upgrade" in method_names, (
+            f"{script_file.name} class {mig_class.name} must define an 'upgrade' method"
         )

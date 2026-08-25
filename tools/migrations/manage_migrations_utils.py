@@ -1,0 +1,217 @@
+# Copyright 2026 Google LLC.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""tools.migrations.manage_migrations_utils - Core Utilities for Migration Management.
+
+Provides pure Python helper functions for creating and validating
+Spanner schema migration scripts in packages/datacommons-db.
+"""
+
+import ast
+import datetime
+import json
+import re
+from pathlib import Path
+
+FILENAME_PATTERN = re.compile(r"^(\d{14})_([a-z0-9_]+)\.py$")
+ISO_8601_UTC_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+NAME_PATTERN = re.compile(r"^[a-z0-9_]+$")
+
+
+def _resolve_default_migrations_dir() -> Path:
+    """Resolves the default migrations directory via package discovery or monorepo fallback."""
+    try:
+        import datacommons_db.migrations.migration_scripts as mig_pkg
+
+        if mig_pkg.__file__:
+            return Path(mig_pkg.__file__).resolve().parent
+    except (ImportError, AttributeError):
+        pass
+
+    # Fallback to repository layout if package is not installed in environment
+    return (
+        Path(__file__).resolve().parents[2]
+        / "packages"
+        / "datacommons-db"
+        / "datacommons_db"
+        / "migrations"
+        / "migration_scripts"
+    )
+
+
+DEFAULT_MIGRATIONS_DIR = _resolve_default_migrations_dir()
+
+
+def sanitize_name(raw_name: str) -> str:
+    """Sanitizes and validates a migration change name into snake_case.
+
+    Args:
+        raw_name: Raw input name from user.
+
+    Returns:
+        Sanitized snake_case name string.
+
+    Raises:
+        ValueError: If the resulting name is empty or invalid.
+    """
+    cleaned = raw_name.strip().lower()
+    # Replace whitespace and hyphens with underscores
+    cleaned = re.sub(r"[\s\-]+", "_", cleaned)
+    # Remove duplicate underscores
+    cleaned = re.sub(r"_+", "_", cleaned)
+    # Strip leading/trailing underscores
+    cleaned = cleaned.strip("_")
+
+    if not cleaned:
+        raise ValueError("Migration name cannot be empty.")
+
+    if not NAME_PATTERN.match(cleaned):
+        raise ValueError(
+            f"Invalid migration name '{raw_name}'. "
+            "Name must contain only lowercase letters, digits, and underscores."
+        )
+
+    return cleaned
+
+
+def generate_utc_timestamps(
+    target_dt: datetime.datetime | None = None,
+) -> tuple[str, str]:
+    """Generates the file prefix timestamp and ISO-8601 creation timestamp string.
+
+    Args:
+        target_dt: Optional specific datetime (defaults to current UTC time).
+
+    Returns:
+        Tuple of (filename_prefix_timestamp, iso_8601_creation_timestamp).
+    """
+    dt = target_dt or datetime.datetime.now(datetime.UTC)
+    # Ensure datetime is timezone-aware and normalized to UTC
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=datetime.UTC)
+    else:
+        dt = dt.astimezone(datetime.UTC)
+
+    prefix_ts = dt.strftime("%Y%m%d%H%M%S")
+    iso_ts = dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    return prefix_ts, iso_ts
+
+
+def generate_migration_content(description: str, creation_timestamp: str) -> str:
+    """Generates boilerplate Python source code for a new SchemaMigration script.
+
+    Args:
+        description: Human-readable description string.
+        creation_timestamp: UTC ISO-8601 formatted timestamp string.
+
+    Returns:
+        Formatted Python source code string.
+    """
+    current_year = datetime.datetime.now(datetime.UTC).year
+    desc_literal = json.dumps(description)
+
+    return f'''# Copyright {current_year} Google LLC.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from datacommons_db.clients.spanner_client import ExecutionStatus, SpannerClient
+from datacommons_db.migrations.base import SchemaMigration
+
+
+class Migration(SchemaMigration):
+    description: str = {desc_literal}
+    creation_timestamp: str = "{creation_timestamp}"
+
+    def upgrade(self, spanner_client: SpannerClient) -> None:
+        """Executes forward schema changes to upgrade the database.
+
+        Args:
+            spanner_client: SpannerClient instance to execute DDL / DML.
+
+        Raises:
+            RuntimeError: If any DDL or DML operation fails.
+        """
+        # Example DDL execution:
+        # result = spanner_client.execute_ddl([
+        #     "CREATE TABLE ExampleTable (Id STRING(64) NOT NULL) PRIMARY KEY (Id)"
+        # ])
+        # if result.status != ExecutionStatus.SUCCESS:
+        #     raise RuntimeError(f"Failed to apply migration: {{result.error_message}}")
+        raise NotImplementedError(
+            "Migration upgrade logic has not been implemented yet."
+        )
+'''
+
+
+def create_migration_file(
+    name: str,
+    description: str | None = None,
+    migrations_dir: Path | None = None,
+    target_dt: datetime.datetime | None = None,
+) -> tuple[Path, str, str]:
+    """Creates a new timestamped migration script file from template.
+
+    Args:
+        name: Name of the migration change.
+        description: Optional human-readable description string.
+        migrations_dir: Directory to place the script in (defaults to datacommons-db migration_scripts).
+        target_dt: Optional specific datetime (defaults to current UTC time).
+
+    Returns:
+        Tuple of (created_file_path, iso_creation_timestamp, resolved_description).
+
+    Raises:
+        ValueError: If name is invalid.
+        FileExistsError: If target migration file already exists.
+    """
+    target_dir = migrations_dir or DEFAULT_MIGRATIONS_DIR
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    sanitized = sanitize_name(name)
+    desc = (
+        description.strip()
+        if description and description.strip()
+        else sanitized.replace("_", " ").capitalize()
+    )
+
+    prefix_ts, iso_ts = generate_utc_timestamps(target_dt)
+    filename = f"{prefix_ts}_{sanitized}.py"
+    target_file = target_dir / filename
+
+    if target_file.exists():
+        raise FileExistsError(
+            f"Migration file '{filename}' already exists in {target_dir}"
+        )
+
+    content = generate_migration_content(desc, iso_ts)
+
+    # Validate syntax before writing to disk
+    try:
+        ast.parse(content, filename=str(target_file))
+    except SyntaxError as e:
+        raise ValueError(f"Generated migration script has syntax errors: {e}") from e
+
+    target_file.write_text(content, encoding="utf-8")
+
+    return target_file, iso_ts, desc
