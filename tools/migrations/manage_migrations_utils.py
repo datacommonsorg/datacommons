@@ -320,28 +320,40 @@ def update_migration_file(
             f"Target migration script '{file_path.name}' has syntax errors: {e}"
         ) from e
 
-    # Locate creation_timestamp attribute assignment node via AST
+    # Locate creation_timestamp attribute assignment node within SchemaMigration class via AST
     target_node = None
     for node in ast.walk(tree):
-        if isinstance(node, ast.Assign):
-            for t in node.targets:
-                if (
-                    isinstance(t, ast.Name)
-                    and t.id == "creation_timestamp"
-                    and node.value
-                    and isinstance(node.value, ast.Constant)
+        if isinstance(node, ast.ClassDef):
+            is_schema_migration = any(
+                (isinstance(base, ast.Name) and base.id == "SchemaMigration")
+                or (isinstance(base, ast.Attribute) and base.attr == "SchemaMigration")
+                for base in node.bases
+            )
+            if not is_schema_migration:
+                continue
+
+            for body_node in node.body:
+                if isinstance(body_node, ast.Assign):
+                    for t in body_node.targets:
+                        if (
+                            isinstance(t, ast.Name)
+                            and t.id == "creation_timestamp"
+                            and body_node.value
+                            and isinstance(body_node.value, ast.Constant)
+                        ):
+                            target_node = body_node.value
+                            break
+                elif (
+                    isinstance(body_node, ast.AnnAssign)
+                    and isinstance(body_node.target, ast.Name)
+                    and body_node.target.id == "creation_timestamp"
+                    and body_node.value
+                    and isinstance(body_node.value, ast.Constant)
                 ):
-                    target_node = node.value
+                    target_node = body_node.value
                     break
-        elif (
-            isinstance(node, ast.AnnAssign)
-            and isinstance(node.target, ast.Name)
-            and node.target.id == "creation_timestamp"
-            and node.value
-            and isinstance(node.value, ast.Constant)
-        ):
-            target_node = node.value
-            break
+                if target_node:
+                    break
         if target_node:
             break
 

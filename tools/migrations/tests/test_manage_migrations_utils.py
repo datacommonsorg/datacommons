@@ -458,3 +458,38 @@ def test_update_migration_file_syntax_error_preflight_raises(tmp_path: Path) -> 
             target=file_path,
             migrations_dir=tmp_path,
         )
+
+
+def test_update_migration_file_ignores_other_classes_and_module_vars(
+    tmp_path: Path,
+) -> None:
+    """Verifies update_migration_file targets SchemaMigration subclass and ignores other classes/variables."""
+    file_path = tmp_path / "20260817000000_audit_table.py"
+    initial_content = """# Copyright 2026 Google LLC.
+from datacommons_db.migrations.base import SchemaMigration
+
+creation_timestamp = "1999-01-01T00:00:00Z"
+
+class OtherClass:
+    creation_timestamp = "2000-01-01T00:00:00Z"
+
+class Migration(SchemaMigration):
+    description: str = "Audit table"
+    creation_timestamp: str = "2026-08-17T00:00:00Z"
+
+    def upgrade(self, spanner_client):
+        pass
+"""
+    file_path.write_text(initial_content)
+
+    dt = datetime.datetime(2026, 8, 20, 10, 0, 0, tzinfo=datetime.UTC)
+    _, new_path, new_iso = manage_migrations_utils.update_migration_file(
+        target=file_path,
+        migrations_dir=tmp_path,
+        target_dt=dt,
+    )
+
+    updated = new_path.read_text()
+    assert 'creation_timestamp = "1999-01-01T00:00:00Z"' in updated
+    assert 'creation_timestamp = "2000-01-01T00:00:00Z"' in updated
+    assert 'creation_timestamp: str = "2026-08-20T10:00:00Z"' in updated
