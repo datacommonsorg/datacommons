@@ -154,13 +154,22 @@ def test_all_migration_scripts_valid_ast_structure():
         tree = ast.parse(content, filename=str(script_file))
         assert tree is not None, f"Failed to parse AST for {script_file.name}"
 
-        # Find Migration class definition
-        class_defs = [node for node in tree.body if isinstance(node, ast.ClassDef)]
-        assert len(class_defs) >= 1, (
-            f"{script_file.name} must define at least one class (SchemaMigration subclass)"
+        # Find the SchemaMigration subclass definition
+        migration_classes = [
+            node
+            for node in tree.body
+            if isinstance(node, ast.ClassDef)
+            and any(
+                (isinstance(base, ast.Name) and base.id == "SchemaMigration")
+                or (isinstance(base, ast.Attribute) and base.attr == "SchemaMigration")
+                for base in node.bases
+            )
+        ]
+        assert len(migration_classes) == 1, (
+            f"{script_file.name} must define exactly one 'SchemaMigration' subclass"
         )
 
-        mig_class = class_defs[0]
+        mig_class = migration_classes[0]
         method_names = {
             node.name for node in mig_class.body if isinstance(node, ast.FunctionDef)
         }
