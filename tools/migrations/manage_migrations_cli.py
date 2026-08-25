@@ -23,10 +23,22 @@ COMMANDS:
      Auto-generates a timestamped migration script (e.g. 20260819135412_my_change.py)
      pre-populated with license header, SchemaMigration subclass, and UTC ISO-8601 creation_timestamp.
 
+  2. bump <target> [-y/--yes]
+     Re-timestamps an existing migration script with the current UTC time (both in filename
+     and creation_timestamp attribute). Used when resolving merge conflicts as multiple developers
+     add migrations concurrently.
+
 USAGE EXAMPLES:
   # Create a new migration script
   uv run manage-migrations create add_node_tables -d "Add Node and Edge tables"
+
+  # Bump an existing migration script during merge conflict / rebase
+  uv run manage-migrations bump add_node_tables
+  # or by filename
+  uv run manage-migrations bump 20260819135412_add_node_tables.py
 """
+
+import datetime
 
 import click
 
@@ -66,6 +78,54 @@ def create_command(
     click.echo(f"  - File:        {target_file.name}")
     click.echo(f"  - Timestamp:   {iso_ts}")
     click.echo(f"  - Description: {desc}")
+
+
+@cli.command(name="bump")
+@click.argument("target")
+@click.option(
+    "-y",
+    "--yes",
+    is_flag=True,
+    default=False,
+    help="Automatically confirm bump without interactive prompt.",
+)
+def bump_command(target: str, *, yes: bool = False) -> None:
+    """Re-timestamp an existing migration script with the current UTC time."""
+    try:
+        # Locate target migration file and validate filename format
+        file_path = manage_migrations_utils.find_migration_file(target)
+        match = manage_migrations_utils.FILENAME_PATTERN.match(file_path.name)
+        if not match:
+            raise click.ClickException(
+                f"Invalid migration filename format: {file_path.name}"
+            )
+
+        # Generate new timestamp and projected filename
+        now = datetime.datetime.now(datetime.UTC)
+        new_prefix, new_iso = manage_migrations_utils.generate_utc_timestamps(now)
+        new_filename = f"{new_prefix}_{match.group(2)}.py"
+
+        # Preview planned changes and prompt user for confirmation
+        click.echo(f"Found migration script: {file_path.name}")
+        click.echo("Planned changes:")
+        click.echo(f"  - Rename to:      {new_filename}")
+        click.echo(f"  - New timestamp:  {new_iso}")
+        if not yes and not click.confirm("Proceed with bump?", default=False):
+            click.echo("Aborted without making changes.")
+            return
+
+        # Apply timestamp update and rename file
+        old_file, new_file, new_iso = manage_migrations_utils.update_migration_file(
+            target=file_path,
+            target_dt=now,
+        )
+    except (ValueError, OSError) as e:
+        raise click.ClickException(str(e)) from e
+
+    click.secho("✔ Successfully bumped migration script:", fg="green", bold=True)
+    click.echo(f"  - Old File:      {old_file.name}")
+    click.echo(f"  - New File:      {new_file.name}")
+    click.echo(f"  - New Timestamp: {new_iso}")
 
 
 if __name__ == "__main__":

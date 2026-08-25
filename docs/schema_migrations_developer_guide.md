@@ -36,7 +36,7 @@ Every migration script follows standard repository conventions:
 
 The `manage-migrations` CLI is registered as a workspace command in [`pyproject.toml`](../pyproject.toml). You can run it with `uv run manage-migrations <command>` or directly as `manage-migrations <command>` if your virtual environment is active.
 
-### Creating a New Migration (`create`)
+### A. Creating a New Migration (`create`)
 
 To generate a new timestamped migration script with boilerplate pre-filled:
 
@@ -59,6 +59,53 @@ uv run manage-migrations create add_edge_indexes -d "Add composite index on Edge
 2. Generates the current UTC timestamp (e.g. `20260819173000` and `2026-08-19T17:30:00Z`).
 3. Creates `packages/datacommons-db/datacommons_db/migrations/migration_scripts/20260819173000_add_edge_indexes.py`.
 4. Populates the file with the Apache 2.0 license header, typed `Migration` class, and empty `upgrade()` method.
+
+---
+
+### B. Resolving Merge Conflicts & Re-timestamping (`bump`)
+
+When multiple developers add migration scripts concurrently, timestamp collisions or out-of-order branches can occur during rebase or merge. 
+
+Use `bump` to refresh an existing migration script with the current UTC timestamp:
+
+```bash
+uv run manage-migrations bump <target>
+```
+
+The `<target>` argument can be:
+- The change name (e.g. `add_edge_indexes`)
+- The full filename (e.g. `20260817000000_add_edge_indexes.py`)
+- The 14-digit timestamp prefix (e.g. `20260817000000`)
+- A relative or absolute file path
+
+To reorder a series of migrations, you could `bump` each of the migration scripts in the order you want them to be run.
+
+Alternatively, you can manually adjust the timestamp prefix in the filename and update the `creation_timestamp` in the `Migration` class.
+Migrations will always be run chronologically in timestamp order, so make sure the timestamp prefix is set correctly relative to other migrations.
+
+#### Example Interaction:
+
+```text
+$ uv run manage-migrations bump add_edge_indexes
+
+Found migration script: 20260817000000_add_edge_indexes.py
+Planned changes:
+  - Rename to:      20260819173510_add_edge_indexes.py
+  - New timestamp:  2026-08-19T17:35:10Z
+
+Proceed with bump? [y/N]: y
+✔ Successfully bumped migration script:
+  - Old File:      20260817000000_add_edge_indexes.py
+  - New File:      20260819173510_add_edge_indexes.py
+  - New Timestamp: 2026-08-19T17:35:10Z
+```
+
+#### What this does:
+1. Locates the target migration script.
+2. Prompts for confirmation showing the planned new filename and timestamp.
+3. Updates `creation_timestamp: str = "..."` inside the script.
+4. Validates Python syntax using AST parsing.
+5. Renames the file on disk to match the new timestamp.
 
 ---
 

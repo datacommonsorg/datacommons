@@ -19,6 +19,7 @@ Spanner schema migration scripts in packages/datacommons-db.
 """
 
 import ast
+import contextlib
 import datetime
 import json
 import re
@@ -194,3 +195,180 @@ def create_migration_file(
     target_file.write_text(content, encoding="utf-8")
 
     return target_file, iso_ts, desc
+
+
+def find_migration_file(
+    target: str | Path,
+    migrations_dir: Path | None = None,
+) -> Path:
+    """Locates an existing migration file by name, prefix, or relative/absolute path.
+
+    Args:
+        target: Target identifier or Path (e.g. filename, change name, prefix, or path).
+        migrations_dir: Directory containing migration scripts.
+
+    Returns:
+        Path to the matching migration script.
+
+    Raises:
+        FileNotFoundError: If migrations directory or matching file is not found.
+        ValueError: If multiple matching files exist (ambiguous target).
+    """
+    target_dir = migrations_dir or get_default_migrations_dir()
+    target_path = Path(target)
+
+    # First, try direct path check
+    if target_path.is_file():
+        return target_path.resolve()
+
+    if (target_dir / target_path).is_file():
+        return (target_dir / target_path).resolve()
+
+    if not target_dir.is_dir():
+        raise FileNotFoundError(f"Migrations directory does not exist: {target_dir}")
+
+    # Otherwise, try matching against all migration filenames
+
+    # Clean target for matching
+    target_name = target_path.name if isinstance(target, Path) else target.strip()
+    cleaned_target = target_name[:-3] if target_name.endswith(".py") else target_name
+
+    sanitized_target: str | None = None
+    with contextlib.suppress(ValueError):
+        sanitized_target = sanitize_name(cleaned_target)
+
+    all_scripts = [
+        f
+        for f in target_dir.glob("*.py")
+        if not f.name.startswith("_") and f.name != "__init__.py"
+    ]
+
+    matches: list[Path] = []
+    for script in all_scripts:
+        stem = script.stem
+        match = FILENAME_PATTERN.match(script.name)
+        if stem == cleaned_target:
+            matches.append(script)
+        elif match:
+            prefix, change_name = match.group(1), match.group(2)
+            if cleaned_target in (prefix, change_name) or (
+                sanitized_target and change_name == sanitized_target
+            ):
+                matches.append(script)
+
+    if not matches:
+        raise FileNotFoundError(
+            f"No migration script found matching '{target}' in {target_dir}"
+        )
+
+    if len(matches) > 1:
+        match_names = ", ".join(m.name for m in matches)
+        raise ValueError(
+            f"Ambiguous target '{target}'. Matches multiple migration files: {match_names}. "
+            "Please specify the full filename."
+        )
+
+    return matches[0]
+
+
+def update_migration_file(
+    target: str | Path,
+    migrations_dir: Path | None = None,
+    target_dt: datetime.datetime | None = None,
+) -> tuple[Path, Path, str]:
+    """Re-timestamps an existing migration script file and renames it.
+
+    Args:
+        target: Target identifier or Path to the existing migration script.
+        migrations_dir: Directory containing migration scripts.
+        target_dt: Optional specific datetime (defaults to current UTC time).
+
+    Returns:
+        Tuple of (old_file_path, new_file_path, new_iso_timestamp).
+
+    Raises:
+        FileNotFoundError: If target file is not found.
+        ValueError: If file is malformed or creation_timestamp is not found.
+        FileExistsError: If new target filename already exists.
+    """
+    file_path = find_migration_file(target, migrations_dir)
+
+    filename = file_path.name
+    match = FILENAME_PATTERN.match(filename)
+    if not match:
+        raise ValueError(
+            f"Migration filename '{filename}' does not match expected convention "
+            "'YYYYMMDDHHMMSS_<description>.py'"
+        )
+
+    change_name = match.group(2)
+    new_prefix, new_iso = generate_utc_timestamps(target_dt)
+    new_filename = f"{new_prefix}_{change_name}.py"
+    new_path = file_path.parent / new_filename
+
+    # Ensure target doesn't already exist if renamed
+    if new_path != file_path and new_path.exists():
+        raise FileExistsError(f"Target migration file already exists: {new_path.name}")
+
+    content = file_path.read_text(encoding="utf-8")
+
+    # Parse and validate syntax of existing script
+    try:
+        tree = ast.parse(content, filename=str(file_path))
+    except SyntaxError as e:
+        raise ValueError(
+            f"Target migration script '{file_path.name}' has syntax errors: {e}"
+        ) from e
+
+    # Locate creation_timestamp attribute assignment node via AST
+    target_node = None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            for t in node.targets:
+                if (
+                    isinstance(t, ast.Name)
+                    and t.id == "creation_timestamp"
+                    and node.value
+                    and isinstance(node.value, ast.Constant)
+                ):
+                    target_node = node.value
+                    break
+        elif (
+            isinstance(node, ast.AnnAssign)
+            and isinstance(node.target, ast.Name)
+            and node.target.id == "creation_timestamp"
+            and node.value
+            and isinstance(node.value, ast.Constant)
+        ):
+            target_node = node.value
+            break
+        if target_node:
+            break
+
+    if not target_node or target_node.lineno is None or target_node.col_offset is None:
+        raise ValueError(
+            f"Could not find 'creation_timestamp' attribute in {file_path.name}"
+        )
+
+    # Perform precise character span replacement to preserve all comments and formatting
+    lines = content.splitlines(keepends=True)
+    line_idx = target_node.lineno - 1
+    start_col = target_node.col_offset
+    end_col = target_node.end_col_offset
+
+    line = lines[line_idx]
+    lines[line_idx] = line[:start_col] + f'"{new_iso}"' + line[end_col:]
+    updated_content = "".join(lines)
+
+    # Validate syntax of updated content
+    try:
+        ast.parse(updated_content, filename=str(new_path))
+    except SyntaxError as e:
+        raise ValueError(f"Updated migration script has syntax errors: {e}") from e
+
+    # Write updated content and remove old file if renamed
+    new_path.write_text(updated_content, encoding="utf-8")
+    if new_path != file_path:
+        file_path.unlink()
+
+    return file_path, new_path, new_iso

@@ -240,3 +240,221 @@ def test_create_migration_file_invalid_name_raises(tmp_path: Path) -> None:
             migrations_dir=tmp_path,
         )
     assert len(list(tmp_path.glob("*.py"))) == 0
+
+
+# ==============================================================================
+# 5. find_migration_file Tests
+# ==============================================================================
+
+
+def test_find_migration_file_by_change_name(tmp_path: Path) -> None:
+    """Verifies locating migration files by change name identifier."""
+    mig1 = tmp_path / "20260817000000_bootstrap.py"
+    mig1.write_text("class Migration: pass")
+    mig2 = tmp_path / "20260818120000_add_node.py"
+    mig2.write_text("class Migration: pass")
+
+    found = manage_migrations_utils.find_migration_file("bootstrap", tmp_path)
+    assert found == mig1
+
+    found2 = manage_migrations_utils.find_migration_file("add_node", tmp_path)
+    assert found2 == mig2
+
+
+def test_find_migration_file_by_prefix_or_filename(tmp_path: Path) -> None:
+    """Verifies locating migration files by 14-digit prefix, filename, stem, or Path object."""
+    mig1 = tmp_path / "20260817000000_bootstrap.py"
+    mig1.write_text("class Migration: pass")
+
+    # By 14-digit prefix
+    assert (
+        manage_migrations_utils.find_migration_file("20260817000000", tmp_path) == mig1
+    )
+    # By filename
+    assert (
+        manage_migrations_utils.find_migration_file(
+            "20260817000000_bootstrap.py", tmp_path
+        )
+        == mig1
+    )
+    # By stem
+    assert (
+        manage_migrations_utils.find_migration_file(
+            "20260817000000_bootstrap", tmp_path
+        )
+        == mig1
+    )
+    # By Path object directly
+    assert manage_migrations_utils.find_migration_file(mig1, tmp_path) == mig1
+    # By relative Path within directory
+    assert (
+        manage_migrations_utils.find_migration_file(
+            Path("20260817000000_bootstrap.py"), tmp_path
+        )
+        == mig1
+    )
+
+
+def test_find_migration_file_lenient_matching(tmp_path: Path) -> None:
+    """Verifies locating migration files with spaces, hyphens, and mixed casing."""
+    mig = tmp_path / "20260818120000_test_migration.py"
+    mig.write_text("class Migration: pass")
+
+    # Match with spaces
+    assert (
+        manage_migrations_utils.find_migration_file("test migration", tmp_path) == mig
+    )
+    # Match with hyphens
+    assert (
+        manage_migrations_utils.find_migration_file("test-migration", tmp_path) == mig
+    )
+    # Match with mixed casing
+    assert (
+        manage_migrations_utils.find_migration_file("Test Migration", tmp_path) == mig
+    )
+
+
+def test_find_migration_file_not_found(tmp_path: Path) -> None:
+    """Verifies find_migration_file raises FileNotFoundError when no match is found."""
+    with pytest.raises(
+        FileNotFoundError, match="No migration script found matching 'missing'"
+    ):
+        manage_migrations_utils.find_migration_file("missing", tmp_path)
+
+
+def test_find_migration_file_ambiguous_raises(tmp_path: Path) -> None:
+    """Verifies find_migration_file raises ValueError when target matches multiple files."""
+    (tmp_path / "20260817000000_add_node.py").write_text("class Migration: pass")
+    (tmp_path / "20260818000000_add_node.py").write_text("class Migration: pass")
+
+    with pytest.raises(ValueError, match="Ambiguous target 'add_node'"):
+        manage_migrations_utils.find_migration_file("add_node", tmp_path)
+
+
+# ==============================================================================
+# 6. update_migration_file Tests
+# ==============================================================================
+
+
+def test_update_migration_file_success(tmp_path: Path) -> None:
+    """Verifies re-timestamping and renaming of an existing migration file."""
+    file_path = tmp_path / "20260817000000_my_change.py"
+    file_path.write_text(
+        manage_migrations_utils.generate_migration_content(
+            "My Change", "2026-08-17T00:00:00Z"
+        )
+    )
+
+    dt = datetime.datetime(2026, 8, 19, 16, 30, 0, tzinfo=datetime.UTC)
+    old_path, new_path, new_iso = manage_migrations_utils.update_migration_file(
+        target=file_path,
+        migrations_dir=tmp_path,
+        target_dt=dt,
+    )
+
+    assert not file_path.exists()
+    assert new_path.exists()
+    assert new_path.name == "20260819163000_my_change.py"
+    assert new_iso == "2026-08-19T16:30:00Z"
+
+    content = new_path.read_text()
+    assert 'creation_timestamp: str = "2026-08-19T16:30:00Z"' in content
+    ast.parse(content)
+
+
+def test_update_migration_file_only_updates_first_occurrence(tmp_path: Path) -> None:
+    """Verifies update_migration_file AST replacement only updates class attribute and preserves comments/SQL."""
+    file_path = tmp_path / "20260817000000_audit_table.py"
+    initial_content = """# Copyright 2026 Google LLC.
+# Top-of-file comment mentioning creation_timestamp = "1999-01-01T00:00:00Z"
+from datacommons_db.migrations.base import SchemaMigration
+
+class Migration(SchemaMigration):
+    description: str = "Audit table"
+    creation_timestamp: str = "2026-08-17T00:00:00Z"
+
+    def upgrade(self, spanner_client):
+        # SQL query mentioning creation_timestamp = "..."
+        query = 'UPDATE Audit SET creation_timestamp = "2020-01-01T00:00:00Z"'
+"""
+    file_path.write_text(initial_content)
+
+    dt = datetime.datetime(2026, 8, 20, 10, 0, 0, tzinfo=datetime.UTC)
+    _, new_path, new_iso = manage_migrations_utils.update_migration_file(
+        target=file_path,
+        migrations_dir=tmp_path,
+        target_dt=dt,
+    )
+
+    updated = new_path.read_text()
+    # Header comment must be untouched
+    assert (
+        '# Top-of-file comment mentioning creation_timestamp = "1999-01-01T00:00:00Z"'
+        in updated
+    )
+    # Class attribute must be updated
+    assert 'creation_timestamp: str = "2026-08-20T10:00:00Z"' in updated
+    # Second occurrence (inside upgrade method / SQL query) must NOT be modified
+    assert 'UPDATE Audit SET creation_timestamp = "2020-01-01T00:00:00Z"' in updated
+
+
+def test_update_migration_file_invalid_filename_raises(tmp_path: Path) -> None:
+    """Verifies that updating a file not conforming to YYYYMMDDHHMMSS_<name>.py raises ValueError."""
+    bad_file = tmp_path / "not_a_valid_migration.py"
+    bad_file.write_text("class Migration: pass\n")
+
+    with pytest.raises(ValueError, match="does not match expected convention"):
+        manage_migrations_utils.update_migration_file(
+            target=bad_file,
+            migrations_dir=tmp_path,
+        )
+
+
+def test_update_migration_file_target_exists_raises(tmp_path: Path) -> None:
+    """Verifies that update_migration_file fails fast with FileExistsError if target filename already exists."""
+    dt = datetime.datetime(2026, 8, 19, 12, 0, 0, tzinfo=datetime.UTC)
+    source_file = tmp_path / "20260817000000_my_change.py"
+    source_file.write_text(
+        manage_migrations_utils.generate_migration_content(
+            "My Change", "2026-08-17T00:00:00Z"
+        )
+    )
+
+    # Pre-create the target file that would collide
+    collision_file = tmp_path / "20260819120000_my_change.py"
+    collision_file.write_text("class Existing: pass\n")
+
+    with pytest.raises(FileExistsError, match="Target migration file already exists"):
+        manage_migrations_utils.update_migration_file(
+            target=source_file,
+            migrations_dir=tmp_path,
+            target_dt=dt,
+        )
+
+
+def test_update_migration_file_missing_attribute_raises(tmp_path: Path) -> None:
+    """Verifies update_migration_file raises ValueError if creation_timestamp attribute is missing."""
+    file_path = tmp_path / "20260817000000_bad.py"
+    file_path.write_text("class Migration: pass\n")
+
+    with pytest.raises(
+        ValueError, match="Could not find 'creation_timestamp' attribute"
+    ):
+        manage_migrations_utils.update_migration_file(
+            target=file_path,
+            migrations_dir=tmp_path,
+        )
+
+
+def test_update_migration_file_syntax_error_preflight_raises(tmp_path: Path) -> None:
+    """Verifies update_migration_file validates target file syntax before modification and raises ValueError."""
+    file_path = tmp_path / "20260817000000_broken.py"
+    file_path.write_text(
+        "class Migration:\n  creation_timestamp = '2026-08-17T00:00:00Z'\n  def (\n"
+    )
+
+    with pytest.raises(ValueError, match="has syntax errors"):
+        manage_migrations_utils.update_migration_file(
+            target=file_path,
+            migrations_dir=tmp_path,
+        )
