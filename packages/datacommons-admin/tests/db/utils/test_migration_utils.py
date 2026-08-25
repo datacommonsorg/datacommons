@@ -44,6 +44,13 @@ def mock_migration_setup():
         yield mock_client, mock_runner
 
 
+@pytest.fixture
+def mock_pending_migration() -> MagicMock:
+    return MagicMock(
+        creation_timestamp="20260817000000", description="Bootstrap migration"
+    )
+
+
 def test_migrate_db_no_pending(
     mock_migration_setup: tuple[MagicMock, MagicMock], runner: CliRunner
 ) -> None:
@@ -59,15 +66,13 @@ def test_migrate_db_no_pending(
 @pytest.mark.parametrize(("args", "input_str"), [(["-y"], None), ([], "y\n")])
 def test_migrate_db_apply_success(
     mock_migration_setup: tuple[MagicMock, MagicMock],
+    mock_pending_migration: MagicMock,
     runner: CliRunner,
     args: list[str],
     input_str: str | None,
 ) -> None:
     mock_client, mock_runner = mock_migration_setup
-    mock_migration = MagicMock(
-        creation_timestamp="20260817000000", description="Bootstrap migration"
-    )
-    mock_runner.get_pending_migrations.return_value = [mock_migration]
+    mock_runner.get_pending_migrations.return_value = [mock_pending_migration]
     mock_runner.run_migrations.return_value = [
         MigrationResult(
             status=ExecutionStatus.SUCCESS,
@@ -89,14 +94,12 @@ def test_migrate_db_apply_success(
 @pytest.mark.parametrize("input_str", ["n\n", "\n"])
 def test_migrate_db_user_cancels(
     mock_migration_setup: tuple[MagicMock, MagicMock],
+    mock_pending_migration: MagicMock,
     runner: CliRunner,
     input_str: str,
 ) -> None:
     mock_client, mock_runner = mock_migration_setup
-    mock_migration = MagicMock(
-        creation_timestamp="20260817000000", description="Bootstrap migration"
-    )
-    mock_runner.get_pending_migrations.return_value = [mock_migration]
+    mock_runner.get_pending_migrations.return_value = [mock_pending_migration]
 
     result = runner.invoke(admin, ["migrate-db"], input=input_str)
     assert result.exit_code == 0
@@ -111,13 +114,12 @@ def test_migrate_db_user_cancels(
 
 
 def test_migrate_db_failure_releases_lock(
-    mock_migration_setup: tuple[MagicMock, MagicMock], runner: CliRunner
+    mock_migration_setup: tuple[MagicMock, MagicMock],
+    mock_pending_migration: MagicMock,
+    runner: CliRunner,
 ) -> None:
     mock_client, mock_runner = mock_migration_setup
-    mock_migration = MagicMock(
-        creation_timestamp="20260817000000", description="Bootstrap migration"
-    )
-    mock_runner.get_pending_migrations.return_value = [mock_migration]
+    mock_runner.get_pending_migrations.return_value = [mock_pending_migration]
     mock_runner.run_migrations.side_effect = RuntimeError("DDL operation failed")
 
     result = runner.invoke(admin, ["migrate-db", "-y"])
@@ -128,13 +130,12 @@ def test_migrate_db_failure_releases_lock(
 
 
 def test_migrate_db_lock_busy_error(
-    mock_migration_setup: tuple[MagicMock, MagicMock], runner: CliRunner
+    mock_migration_setup: tuple[MagicMock, MagicMock],
+    mock_pending_migration: MagicMock,
+    runner: CliRunner,
 ) -> None:
     mock_client, mock_runner = mock_migration_setup
-    mock_migration = MagicMock(
-        creation_timestamp="20260817000000", description="Bootstrap migration"
-    )
-    mock_runner.get_pending_migrations.return_value = [mock_migration]
+    mock_runner.get_pending_migrations.return_value = [mock_pending_migration]
     mock_client.acquire_lock.side_effect = click.ClickException(
         "Could not acquire database lock: Ingestion Helper returned HTTP 503\n"
         "An ingestion workflow may currently be running. "

@@ -13,66 +13,16 @@
 # limitations under the License.
 
 import json
-from unittest.mock import MagicMock, patch
 
+import pytest
 from click.testing import CliRunner
 from datacommons_admin.admin_cli import admin
 
 
-@patch("datacommons_admin.core.utils.tf_utils.shutil.which")
-@patch("datacommons_admin.core.utils.tf_utils.subprocess.run")
-@patch("datacommons_admin.core.clients.ingestion_job_client.AuthorizedSession")
-@patch("datacommons_admin.core.clients.ingestion_job_client.google.auth.default")
+@pytest.mark.usefixtures("mock_terraform_ingest", "mock_job_session")
 def test_ingest_start_success(
-    mock_auth_default,
-    mock_session,
-    mock_run,
-    mock_which,
     runner: CliRunner,
-    mock_tf_output_ingest: str,
 ) -> None:
-    mock_which.return_value = "terraform"
-    mock_proc = MagicMock()
-    mock_proc.stdout = mock_tf_output_ingest
-    mock_run.return_value = mock_proc
-
-    mock_creds = MagicMock()
-    mock_auth_default.return_value = (mock_creds, "test-project")
-
-    mock_session_inst = MagicMock()
-
-    # Mock GET for get_config
-    mock_get_resp = MagicMock()
-    mock_get_resp.ok = True
-    mock_get_resp.json.return_value = {
-        "template": {
-            "template": {
-                "containers": [
-                    {
-                        "env": [
-                            {"name": "TEMP_LOCATION", "value": "gs://mock-bucket/temp"},
-                            {
-                                "name": "GCP_SPANNER_INSTANCE_ID",
-                                "value": "mock-instance",
-                            },
-                            {"name": "GCP_SPANNER_DATABASE_NAME", "value": "mock-db"},
-                            {"name": "REGION", "value": "us-central1"},
-                        ]
-                    }
-                ]
-            }
-        }
-    }
-    mock_session_inst.get.return_value = mock_get_resp
-
-    mock_resp = MagicMock()
-    mock_resp.ok = True
-    mock_resp.json.return_value = {
-        "name": "projects/mock-proj/locations/us-central1/workflows/mock-workflow/executions/exec-123"
-    }
-    mock_session_inst.post.return_value = mock_resp
-    mock_session.return_value = mock_session_inst
-
     result = runner.invoke(admin, ["ingest", "start", "--imports", "mock-import"])
     assert result.exit_code == 0
     assert "Successfully started ingestion workflow!" in result.output
@@ -89,30 +39,12 @@ def test_ingest_start_fails_without_imports_flag(runner: CliRunner) -> None:
     assert "Missing option '--imports'" in result.output
 
 
-@patch("datacommons_admin.core.utils.tf_utils.shutil.which")
-@patch("datacommons_admin.core.utils.tf_utils.subprocess.run")
-@patch("datacommons_admin.core.clients.ingestion_job_client.AuthorizedSession")
-@patch("datacommons_admin.core.clients.ingestion_job_client.google.auth.default")
+@pytest.mark.usefixtures("mock_terraform_ingest")
 def test_ingest_show_config_success(
-    mock_auth_default,
-    mock_session,
-    mock_run,
-    mock_which,
+    mock_job_session,
     runner: CliRunner,
-    mock_tf_output_ingest: str,
 ) -> None:
-    mock_which.return_value = "terraform"
-    mock_proc = MagicMock()
-    mock_proc.stdout = mock_tf_output_ingest
-    mock_run.return_value = mock_proc
-
-    mock_creds = MagicMock()
-    mock_auth_default.return_value = (mock_creds, "test-project")
-
-    mock_session_inst = MagicMock()
-    mock_resp = MagicMock()
-    mock_resp.ok = True
-    mock_resp.json.return_value = {
+    mock_job_session.get.return_value.json.return_value = {
         "template": {
             "template": {
                 "containers": [
@@ -126,69 +58,17 @@ def test_ingest_show_config_success(
             }
         }
     }
-    mock_session_inst.get.return_value = mock_resp
-    mock_session.return_value = mock_session_inst
-
     result = runner.invoke(admin, ["ingest", "show-config"])
     assert result.exit_code == 0
     assert "GCS_BUCKET: my-test-bucket" in result.output
     assert "API_KEY: [SECRET: secret-api-key]" in result.output
 
 
-@patch("datacommons_admin.core.utils.tf_utils.shutil.which")
-@patch("datacommons_admin.core.utils.tf_utils.subprocess.run")
-@patch("datacommons_admin.core.clients.ingestion_job_client.AuthorizedSession")
-@patch("datacommons_admin.core.clients.ingestion_job_client.google.auth.default")
+@pytest.mark.usefixtures("mock_terraform_ingest")
 def test_ingest_start_with_imports_success(
-    mock_auth_default,
-    mock_session,
-    mock_run,
-    mock_which,
+    mock_job_session,
     runner: CliRunner,
-    mock_tf_output_ingest: str,
 ) -> None:
-    mock_which.return_value = "terraform"
-    mock_proc = MagicMock()
-    mock_proc.stdout = mock_tf_output_ingest
-    mock_run.return_value = mock_proc
-
-    mock_creds = MagicMock()
-    mock_auth_default.return_value = (mock_creds, "test-project")
-
-    mock_session_inst = MagicMock()
-
-    # Mock GET for get_config
-    mock_get_resp = MagicMock()
-    mock_get_resp.ok = True
-    mock_get_resp.json.return_value = {
-        "template": {
-            "template": {
-                "containers": [
-                    {
-                        "env": [
-                            {"name": "TEMP_LOCATION", "value": "gs://mock-bucket/temp"},
-                            {
-                                "name": "GCP_SPANNER_INSTANCE_ID",
-                                "value": "mock-instance",
-                            },
-                            {"name": "GCP_SPANNER_DATABASE_NAME", "value": "mock-db"},
-                            {"name": "REGION", "value": "us-central1"},
-                        ]
-                    }
-                ]
-            }
-        }
-    }
-    mock_session_inst.get.return_value = mock_get_resp
-
-    mock_resp = MagicMock()
-    mock_resp.ok = True
-    mock_resp.json.return_value = {
-        "name": "projects/mock-proj/locations/us-central1/workflows/mock-workflow/executions/exec-123"
-    }
-    mock_session_inst.post.return_value = mock_resp
-    mock_session.return_value = mock_session_inst
-
     result = runner.invoke(admin, ["ingest", "start", "--imports", "oecd,doubleup"])
     assert result.exit_code == 0
     assert "Successfully started ingestion workflow!" in result.output
@@ -202,7 +82,7 @@ def test_ingest_start_with_imports_success(
     }
 
     # Verify the API was called with the correct argument
-    called_args = mock_session_inst.post.call_args[1]
+    called_args = mock_job_session.post.call_args[1]
     assert called_args["timeout"] == 300
     called_payload = called_args["json"]
     assert "argument" in called_payload
