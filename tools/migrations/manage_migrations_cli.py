@@ -59,7 +59,7 @@ def create_command(
             name=name,
             description=description,
         )
-    except (ValueError, FileExistsError) as e:
+    except (ValueError, OSError) as e:
         raise click.ClickException(str(e)) from e
 
     click.secho("✔ Successfully created migration script:", fg="green", bold=True)

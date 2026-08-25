@@ -111,3 +111,21 @@ def test_cli_create_command_duplicate_raises(
     res2 = runner.invoke(cli, ["create", "duplicate_name"])
     assert res2.exit_code != 0
     assert "already exists" in res2.output
+
+
+def test_cli_create_command_os_error_raises(
+    runner: CliRunner, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Verifies filesystem OSError is caught and surfaced as a clean ClickException."""
+
+    def mock_create_error(*args, **kwargs):
+        raise PermissionError("Permission denied: cannot write to migrations dir")
+
+    monkeypatch.setattr(
+        "tools.migrations.manage_migrations_utils.create_migration_file",
+        mock_create_error,
+    )
+
+    result = runner.invoke(cli, ["create", "test_permission_error"])
+    assert result.exit_code != 0
+    assert "Permission denied: cannot write to migrations dir" in result.output
