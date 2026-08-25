@@ -40,12 +40,13 @@ ENV COMMIT_SHA=$COMMIT_SHA \
     PYTHONDONTWRITEBYTECODE=1 \
     UV_NO_CACHE=1
 
-# 1. Copy dependency specifications and workspace packages
-COPY pyproject.toml uv.lock ./
+# 1. Copy dependency specifications, project metadata, tools, and workspace packages
+COPY pyproject.toml uv.lock VERSION README.md LICENSE ./
 COPY packages/ ./packages/
+COPY tools/ ./tools/
 
 # 2. Pre-install dependencies (cached unless dependencies change)
-RUN uv sync --frozen --no-install-project || uv sync --no-install-project
+RUN uv sync --frozen || uv sync
 
 # 3. Copy test harness and runner
 COPY tests/ ./tests/

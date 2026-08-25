@@ -114,6 +114,7 @@ def provision_infra(
         [
             "uv",
             "run",
+            "--no-sync",
             "datacommons",
             "admin",
             "init",
@@ -154,9 +155,7 @@ def provision_infra(
         )
 
     # Step 3: Terraform Init & Apply
-    print(
-        "\n==> [Phase 1.3] Executing Terraform Init & Apply with retry backoff..."
-    )
+    print("\n==> [Phase 1.3] Executing Terraform Init & Apply with retry backoff...")
     run_cmd_with_retry(
         ["terraform", "init", "-reconfigure"],
         cwd=instance_dir,
@@ -191,6 +190,7 @@ def run_tests(
         [
             "uv",
             "run",
+            "--no-sync",
             "python",
             str(e2e_script),
             f"--workspace={instance_dir}",
@@ -229,9 +229,7 @@ def teardown_infra(
         )
         destroy_success = destroy_res.returncode == 0
         if not destroy_success:
-            print(
-                "  ⚠️ Warning: Terraform destroy encountered errors during cleanup."
-            )
+            print("  ⚠️ Warning: Terraform destroy encountered errors during cleanup.")
     elif skip_destroy:
         print(
             f"==> [Phase 3.1] Skipping 'terraform destroy' (--skip-destroy set). Workspace kept at: {instance_dir}"
@@ -337,9 +335,7 @@ def main():
             skip_destroy=args.skip_destroy,
         )
 
-        overall_passed = (
-            deploy_success and (test_exit_code == 0) and destroy_success
-        )
+        overall_passed = deploy_success and (test_exit_code == 0) and destroy_success
         prober_summary = {
             "event_type": "PROBER_EXECUTION_SUMMARY",
             "instance_name": instance_name,
@@ -347,9 +343,7 @@ def main():
             "status_code": 0 if overall_passed else 1,
             "stages": {
                 "deploy": "PASSED" if deploy_success else "FAILED",
-                "integration_tests": (
-                    "PASSED" if test_exit_code == 0 else "FAILED"
-                ),
+                "integration_tests": ("PASSED" if test_exit_code == 0 else "FAILED"),
                 "destroy": "PASSED" if destroy_success else "FAILED",
             },
         }
@@ -362,9 +356,7 @@ def main():
         print(json.dumps(prober_summary, indent=2), flush=True)
         print("=" * 80 + "\n", flush=True)
 
-    final_exit = (
-        0 if overall_passed else (test_exit_code if test_exit_code != 0 else 1)
-    )
+    final_exit = 0 if overall_passed else (test_exit_code if test_exit_code != 0 else 1)
     sys.exit(final_exit)
 
 

@@ -129,7 +129,14 @@ def main():
             if confirm_delete("Secret", name):
                 print(f"  Deleting secret {name}...")
                 subprocess.run(
-                    ["gcloud", "secrets", "delete", name, f"--project={project}", "--quiet"],
+                    [
+                        "gcloud",
+                        "secrets",
+                        "delete",
+                        name,
+                        f"--project={project}",
+                        "--quiet",
+                    ],
                     check=False,
                 )
             else:
@@ -144,7 +151,16 @@ def main():
             if confirm_delete("Cloud Run Service", name):
                 print(f"  Deleting Cloud Run service {name}...")
                 subprocess.run(
-                    ["gcloud", "run", "services", "delete", name, f"--project={project}", f"--region={region}", "--quiet"],
+                    [
+                        "gcloud",
+                        "run",
+                        "services",
+                        "delete",
+                        name,
+                        f"--project={project}",
+                        f"--region={region}",
+                        "--quiet",
+                    ],
                     check=False,
                 )
             else:
@@ -159,7 +175,16 @@ def main():
             if confirm_delete("Cloud Run Job", name):
                 print(f"  Deleting Cloud Run Job {name}...")
                 subprocess.run(
-                    ["gcloud", "run", "jobs", "delete", name, f"--project={project}", f"--region={region}", "--quiet"],
+                    [
+                        "gcloud",
+                        "run",
+                        "jobs",
+                        "delete",
+                        name,
+                        f"--project={project}",
+                        f"--region={region}",
+                        "--quiet",
+                    ],
                     check=False,
                 )
             else:
@@ -174,7 +199,15 @@ def main():
             if confirm_delete("Cloud Workflow", name):
                 print(f"  Deleting Cloud Workflow {name}...")
                 subprocess.run(
-                    ["gcloud", "workflows", "delete", name, f"--project={project}", f"--location={region}", "--quiet"],
+                    [
+                        "gcloud",
+                        "workflows",
+                        "delete",
+                        name,
+                        f"--project={project}",
+                        f"--location={region}",
+                        "--quiet",
+                    ],
                     check=False,
                 )
             else:
@@ -189,7 +222,15 @@ def main():
             if confirm_delete("Spanner Instance", name):
                 print(f"  Deleting Spanner Instance {name}...")
                 subprocess.run(
-                    ["gcloud", "spanner", "instances", "delete", name, f"--project={project}", "--quiet"],
+                    [
+                        "gcloud",
+                        "spanner",
+                        "instances",
+                        "delete",
+                        name,
+                        f"--project={project}",
+                        "--quiet",
+                    ],
                     check=False,
                 )
             else:
@@ -197,14 +238,25 @@ def main():
 
     # 7. Clean MemoryStore Redis Instances
     print("\n==> 7. Checking MemoryStore Redis Instances...")
-    redis_instances = run_gcloud(["redis", "instances", "list", f"--region={region}"], project)
+    redis_instances = run_gcloud(
+        ["redis", "instances", "list", f"--region={region}"], project
+    )
     for inst in redis_instances:
         name = inst.get("name", "").split("/")[-1]
         if is_ephemeral_prober_resource(name):
             if confirm_delete("Redis Instance", name):
                 print(f"  Deleting Redis Instance {name}...")
                 subprocess.run(
-                    ["gcloud", "redis", "instances", "delete", name, f"--region={region}", f"--project={project}", "--quiet"],
+                    [
+                        "gcloud",
+                        "redis",
+                        "instances",
+                        "delete",
+                        name,
+                        f"--region={region}",
+                        f"--project={project}",
+                        "--quiet",
+                    ],
                     check=False,
                 )
             else:
@@ -212,14 +264,26 @@ def main():
 
     # 8. Clean Serverless VPC Access Connectors
     print("\n==> 8. Checking Serverless VPC Access Connectors...")
-    connectors = run_gcloud(["compute", "vpc-access", "connectors", "list", f"--region={region}"], project)
+    connectors = run_gcloud(
+        ["compute", "vpc-access", "connectors", "list", f"--region={region}"], project
+    )
     for conn in connectors:
         name = conn.get("name", "").split("/")[-1]
         if is_ephemeral_prober_resource(name):
             if confirm_delete("VPC Connector", name):
                 print(f"  Deleting VPC Connector {name}...")
                 subprocess.run(
-                    ["gcloud", "compute", "vpc-access", "connectors", "delete", name, f"--region={region}", f"--project={project}", "--quiet"],
+                    [
+                        "gcloud",
+                        "compute",
+                        "vpc-access",
+                        "connectors",
+                        "delete",
+                        name,
+                        f"--region={region}",
+                        f"--project={project}",
+                        "--quiet",
+                    ],
                     check=False,
                 )
             else:
@@ -235,7 +299,15 @@ def main():
             if confirm_delete("Service Account", email):
                 print(f"  Deleting Service Account {email}...")
                 subprocess.run(
-                    ["gcloud", "iam", "service-accounts", "delete", email, f"--project={project}", "--quiet"],
+                    [
+                        "gcloud",
+                        "iam",
+                        "service-accounts",
+                        "delete",
+                        email,
+                        f"--project={project}",
+                        "--quiet",
+                    ],
                     check=False,
                 )
             else:
@@ -243,14 +315,25 @@ def main():
 
     # 10. Clean BigQuery Connections
     print("\n==> 10. Checking BigQuery Connections...")
-    bq_conns = run_gcloud(["bigquery", "connections", "list", f"--location={region}"], project)
+    bq_conns = run_gcloud(
+        ["bigquery", "connections", "list", f"--location={region}"], project
+    )
     for conn in bq_conns:
         name = conn.get("name", "").split("/")[-1]
         if is_ephemeral_prober_resource(name):
             if confirm_delete("BigQuery Connection", name):
                 print(f"  Deleting BigQuery connection {name}...")
                 subprocess.run(
-                    ["gcloud", "bigquery", "connections", "delete", name, f"--location={region}", f"--project={project}", "--quiet"],
+                    [
+                        "gcloud",
+                        "bigquery",
+                        "connections",
+                        "delete",
+                        name,
+                        f"--location={region}",
+                        f"--project={project}",
+                        "--quiet",
+                    ],
                     check=False,
                 )
             else:
@@ -266,7 +349,15 @@ def main():
             if confirm_delete("API Key", f"{display_name} ({key_id})"):
                 print(f"  Deleting API Key {display_name}...")
                 subprocess.run(
-                    ["gcloud", "services", "api-keys", "delete", key_id, f"--project={project}", "--quiet"],
+                    [
+                        "gcloud",
+                        "services",
+                        "api-keys",
+                        "delete",
+                        key_id,
+                        f"--project={project}",
+                        "--quiet",
+                    ],
                     check=False,
                 )
             else:
@@ -279,11 +370,22 @@ def main():
         job_id = dfj.get("id", "")
         job_name = dfj.get("name", "")
         state = dfj.get("state", "")
-        if is_ephemeral_prober_resource(job_name) and state in ("JOB_STATE_RUNNING", "JOB_STATE_PENDING"):
+        if is_ephemeral_prober_resource(job_name) and state in (
+            "JOB_STATE_RUNNING",
+            "JOB_STATE_PENDING",
+        ):
             if confirm_delete("Dataflow Job", f"{job_name} ({job_id})"):
                 print(f"  Cancelling Dataflow Job {job_name}...")
                 subprocess.run(
-                    ["gcloud", "dataflow", "jobs", "cancel", job_id, f"--region={region}", f"--project={project}"],
+                    [
+                        "gcloud",
+                        "dataflow",
+                        "jobs",
+                        "cancel",
+                        job_id,
+                        f"--region={region}",
+                        f"--project={project}",
+                    ],
                     check=False,
                 )
             else:
@@ -299,12 +401,24 @@ def main():
             members = b.get("members", [])
             for m in members:
                 # Matches deleted or active ephemeral service accounts
-                sa_name = m.replace("deleted:serviceAccount:", "").replace("serviceAccount:", "").split("@")[0]
+                sa_name = (
+                    m.replace("deleted:serviceAccount:", "")
+                    .replace("serviceAccount:", "")
+                    .split("@")[0]
+                )
                 if is_ephemeral_prober_resource(sa_name):
                     if confirm_delete("Orphaned IAM Member", f"{m} ({role})"):
                         print(f"  Removing IAM binding {m} from {role}...")
                         subprocess.run(
-                            ["gcloud", "projects", "remove-iam-policy-binding", project, f"--member={m}", f"--role={role}", "--quiet"],
+                            [
+                                "gcloud",
+                                "projects",
+                                "remove-iam-policy-binding",
+                                project,
+                                f"--member={m}",
+                                f"--role={role}",
+                                "--quiet",
+                            ],
                             check=False,
                         )
                     else:
