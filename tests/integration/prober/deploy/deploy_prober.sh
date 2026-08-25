@@ -160,7 +160,12 @@ export GOOGLE_CLOUD_PROJECT="${PROJECT}"
 export CLOUDSDK_CORE_PROJECT="${PROJECT}"
 export CLOUDSDK_BILLING_QUOTA_PROJECT="${PROJECT}"
 export TF_VAR_project_id="${PROJECT}"
-export TF_VAR_billing_project_id="${PROJECT}"
+export TF_VAR_region="${LOCATION}"
+export TF_VAR_prober_name="${PROBER_NAME}"
+export TF_VAR_schedule="${SCHEDULE}"
+export TF_VAR_test_config="${TEST_CONFIG}"
+export TF_VAR_alert_email="${ALERT_EMAIL:-}"
+export TF_VAR_dc_api_key="${DC_API_KEY:-}"
 
 REGISTRY_PROJECT="datcom-ci"
 REGISTRY_LOCATION="us"
@@ -171,6 +176,7 @@ IMAGE_NAME="datacommons-platform-prober"
 IMAGE_URI="${REGISTRY_BASE}/${IMAGE_NAME}:${IMAGE_TAG}"
 LATEST_IMAGE_URI="${REGISTRY_BASE}/${IMAGE_NAME}:latest"
 STATE_BUCKET="tf-state-${PROBER_NAME}-${PROJECT}"
+export TF_VAR_container_image="${IMAGE_URI}"
 
 # Check for existing Remote Terraform State
 STATE_STATUS="NEW (creating fresh state bucket)"
@@ -248,18 +254,10 @@ if ! gcloud storage buckets describe "gs://${STATE_BUCKET}" --project="${PROJECT
   gcloud storage buckets create "gs://${STATE_BUCKET}" --project="${PROJECT}" --location="${LOCATION}"
 fi
 
-cd "${PROBER_DIR}/terraform"
+cd "${DEPLOY_DIR}/terraform"
 
 terraform init -backend-config="bucket=${STATE_BUCKET}" -reconfigure
-terraform apply -auto-approve \
-  -var="project_id=${PROJECT}" \
-  -var="region=${LOCATION}" \
-  -var="prober_name=${PROBER_NAME}" \
-  -var="container_image=${IMAGE_URI}" \
-  -var="schedule=${SCHEDULE}" \
-  -var="test_config=${TEST_CONFIG}" \
-  -var="alert_email=${ALERT_EMAIL:-}" \
-  -var="dc_api_key=${DC_API_KEY:-}"
+terraform apply -auto-approve
 
 echo ""
 echo "================================================================================"

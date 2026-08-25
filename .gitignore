@@ -19,6 +19,7 @@ htmlcov/
 crash.log
 crash.log.*
 *.tfvars
+!tests/integration/prober/deploy/ephemeral_dcp_overrides.tfvars
 *.tfvars.json
 override.tf
 override.tf.json

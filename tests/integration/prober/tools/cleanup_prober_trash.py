@@ -13,24 +13,54 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Safe interactive script to clean up ALL 13 GCP resource types provisioned by DCP prober in datcom-dcp."""
+"""Operational Janitor for Orphaned Ephemeral Prober Resources.
 
+Role in Development Cycle:
+--------------------------
+This script is strictly a developer & operational cleanup utility. It is NOT
+part of the automated prober execution pipeline.
+
+Under standard automated execution:
+`prober_runner.py` wraps the entire test lifecycle in `try...finally` blocks
+and traps OS signals (SIGTERM/SIGINT) to automatically guarantee `terraform destroy`
+executes immediately after tests finish.
+
+When to use this janitor script:
+1. Post-Debugging Cleanup: After running `prober_runner.py --skip-destroy` to
+   inspect live Spanner databases, Cloud Workflows, or Cloud Run logs during a
+   failure investigation.
+2. Abrupt Crashes / Force Kills: When a local or manual run was abruptly
+   interrupted (e.g., SIGKILL, terminal closed, network failure) before Terraform
+   could execute its teardown step.
+
+Safety Guarantees:
+------------------
+- Scans 13 GCP resource types for temporary resources prefixed with 'prober-[a-f0-9]{8}'.
+- Explicitly excludes the permanent prober daemon infrastructure (e.g., 'dcp-prober-sa', 'dcp-prober-tfvars').
+- Interactively prompts for confirmation ([y/N], defaulting to No) before deleting every single resource.
+"""
+
+import argparse
 import json
+import os
+import re
 import subprocess
 
-PROJECT = "datcom-dcp"
-REGION = "us-central1"
+
+def is_ephemeral_prober_resource(name: str) -> bool:
+    """Matches only ephemeral prober instances (prober-<8-hex-chars>) to prevent accidental deletion of other resources."""
+    return bool(re.match(r"^prober-[a-f0-9]{8}", name))
 
 
-def run_gcloud(args):
+def run_gcloud(args: list[str], project: str) -> list[dict] | dict:
+    """Executes a gcloud CLI command and parses the JSON response."""
     res = subprocess.run(
-        ["gcloud"] + args + ["--project", PROJECT, "--format", "json"],
+        ["gcloud"] + args + ["--project", project, "--format", "json"],
         capture_output=True,
         text=True,
         check=False,
     )
     if res.returncode != 0:
-        print(f"Warning: gcloud {' '.join(args)} failed: {res.stderr}")
         return []
     try:
         return json.loads(res.stdout) if res.stdout.strip() else []
@@ -53,20 +83,34 @@ def confirm_delete(resource_type: str, resource_id: str) -> bool:
 
 
 def main():
-    print(
-        "================================================================================"
+    parser = argparse.ArgumentParser(
+        description="Safe interactive cleanup of orphaned ephemeral prober resources."
     )
-    print(f"SAFE INTERACTIVE EXHAUSTIVE PROBER RESOURCE CLEANUP FOR PROJECT: {PROJECT}")
-    print(
-        "================================================================================"
+    parser.add_argument(
+        "--project",
+        default=os.environ.get("GCP_PROJECT", "datcom-dcp"),
+        help="GCP Project ID to clean (default: datcom-dcp)",
     )
+    parser.add_argument(
+        "--region",
+        default=os.environ.get("GCP_REGION", "us-central1"),
+        help="GCP Region (default: us-central1)",
+    )
+    args = parser.parse_args()
+
+    project = args.project
+    region = args.region
+
+    print("=" * 80)
+    print(f"SAFE INTERACTIVE EPHEMERAL PROBER RESOURCE CLEANUP FOR PROJECT: {project}")
+    print("=" * 80)
 
     # 1. Clean GCS Buckets
     print("\n==> 1. Checking GCS Buckets...")
-    buckets = run_gcloud(["storage", "buckets", "list"])
+    buckets = run_gcloud(["storage", "buckets", "list"], project)
     for b in buckets:
         name = b.get("name", "")
-        if name.startswith("prober-") and "-dc-artifacts-" in name:
+        if is_ephemeral_prober_resource(name):
             if confirm_delete("GCS Bucket", f"gs://{name}"):
                 print(f"  Deleting bucket gs://{name}...")
                 subprocess.run(
@@ -78,21 +122,14 @@ def main():
 
     # 2. Clean Secret Manager Secrets
     print("\n==> 2. Checking Secret Manager Secrets...")
-    secrets = run_gcloud(["secrets", "list"])
+    secrets = run_gcloud(["secrets", "list"], project)
     for s in secrets:
         name = s.get("name", "").split("/")[-1]
-        if name.startswith("prober-") and name != "dcp-prober-tfvars":
+        if is_ephemeral_prober_resource(name):
             if confirm_delete("Secret", name):
                 print(f"  Deleting secret {name}...")
                 subprocess.run(
-                    [
-                        "gcloud",
-                        "secrets",
-                        "delete",
-                        name,
-                        f"--project={PROJECT}",
-                        "--quiet",
-                    ],
+                    ["gcloud", "secrets", "delete", name, f"--project={project}", "--quiet"],
                     check=False,
                 )
             else:
@@ -100,23 +137,14 @@ def main():
 
     # 3. Clean Cloud Run Services
     print("\n==> 3. Checking Cloud Run Services...")
-    services = run_gcloud(["run", "services", "list", f"--region={REGION}"])
+    services = run_gcloud(["run", "services", "list", f"--region={region}"], project)
     for svc in services:
         name = svc.get("metadata", {}).get("name", "")
-        if name.startswith("prober-") and name != "dcp-prober":
+        if is_ephemeral_prober_resource(name):
             if confirm_delete("Cloud Run Service", name):
                 print(f"  Deleting Cloud Run service {name}...")
                 subprocess.run(
-                    [
-                        "gcloud",
-                        "run",
-                        "services",
-                        "delete",
-                        name,
-                        f"--project={PROJECT}",
-                        f"--region={REGION}",
-                        "--quiet",
-                    ],
+                    ["gcloud", "run", "services", "delete", name, f"--project={project}", f"--region={region}", "--quiet"],
                     check=False,
                 )
             else:
@@ -124,23 +152,14 @@ def main():
 
     # 4. Clean Cloud Run Jobs
     print("\n==> 4. Checking Cloud Run Jobs...")
-    jobs = run_gcloud(["run", "jobs", "list", f"--region={REGION}"])
+    jobs = run_gcloud(["run", "jobs", "list", f"--region={region}"], project)
     for job in jobs:
         name = job.get("metadata", {}).get("name", "")
-        if name.startswith("prober-") and name != "dcp-prober":
+        if is_ephemeral_prober_resource(name):
             if confirm_delete("Cloud Run Job", name):
                 print(f"  Deleting Cloud Run Job {name}...")
                 subprocess.run(
-                    [
-                        "gcloud",
-                        "run",
-                        "jobs",
-                        "delete",
-                        name,
-                        f"--project={PROJECT}",
-                        f"--region={REGION}",
-                        "--quiet",
-                    ],
+                    ["gcloud", "run", "jobs", "delete", name, f"--project={project}", f"--region={region}", "--quiet"],
                     check=False,
                 )
             else:
@@ -148,22 +167,14 @@ def main():
 
     # 5. Clean Cloud Workflows
     print("\n==> 5. Checking Cloud Workflows...")
-    workflows = run_gcloud(["workflows", "list", f"--location={REGION}"])
+    workflows = run_gcloud(["workflows", "list", f"--location={region}"], project)
     for wf in workflows:
         name = wf.get("name", "").split("/")[-1]
-        if name.startswith("prober-"):
+        if is_ephemeral_prober_resource(name):
             if confirm_delete("Cloud Workflow", name):
                 print(f"  Deleting Cloud Workflow {name}...")
                 subprocess.run(
-                    [
-                        "gcloud",
-                        "workflows",
-                        "delete",
-                        name,
-                        f"--project={PROJECT}",
-                        f"--location={REGION}",
-                        "--quiet",
-                    ],
+                    ["gcloud", "workflows", "delete", name, f"--project={project}", f"--location={region}", "--quiet"],
                     check=False,
                 )
             else:
@@ -171,22 +182,14 @@ def main():
 
     # 6. Clean Cloud Spanner Instances
     print("\n==> 6. Checking Cloud Spanner Instances...")
-    spanner_instances = run_gcloud(["spanner", "instances", "list"])
+    spanner_instances = run_gcloud(["spanner", "instances", "list"], project)
     for inst in spanner_instances:
         name = inst.get("name", "").split("/")[-1]
-        if name.startswith("prober-"):
+        if is_ephemeral_prober_resource(name):
             if confirm_delete("Spanner Instance", name):
                 print(f"  Deleting Spanner Instance {name}...")
                 subprocess.run(
-                    [
-                        "gcloud",
-                        "spanner",
-                        "instances",
-                        "delete",
-                        name,
-                        f"--project={PROJECT}",
-                        "--quiet",
-                    ],
+                    ["gcloud", "spanner", "instances", "delete", name, f"--project={project}", "--quiet"],
                     check=False,
                 )
             else:
@@ -194,23 +197,14 @@ def main():
 
     # 7. Clean MemoryStore Redis Instances
     print("\n==> 7. Checking MemoryStore Redis Instances...")
-    redis_instances = run_gcloud(["redis", "instances", "list", f"--region={REGION}"])
+    redis_instances = run_gcloud(["redis", "instances", "list", f"--region={region}"], project)
     for inst in redis_instances:
         name = inst.get("name", "").split("/")[-1]
-        if name.startswith("prober-"):
+        if is_ephemeral_prober_resource(name):
             if confirm_delete("Redis Instance", name):
                 print(f"  Deleting Redis Instance {name}...")
                 subprocess.run(
-                    [
-                        "gcloud",
-                        "redis",
-                        "instances",
-                        "delete",
-                        name,
-                        f"--region={REGION}",
-                        f"--project={PROJECT}",
-                        "--quiet",
-                    ],
+                    ["gcloud", "redis", "instances", "delete", name, f"--region={region}", f"--project={project}", "--quiet"],
                     check=False,
                 )
             else:
@@ -218,26 +212,14 @@ def main():
 
     # 8. Clean Serverless VPC Access Connectors
     print("\n==> 8. Checking Serverless VPC Access Connectors...")
-    connectors = run_gcloud(
-        ["compute", "vpc-access", "connectors", "list", f"--region={REGION}"]
-    )
+    connectors = run_gcloud(["compute", "vpc-access", "connectors", "list", f"--region={region}"], project)
     for conn in connectors:
         name = conn.get("name", "").split("/")[-1]
-        if name.startswith("prober-") or "-dc-vpc-conn" in name:
+        if is_ephemeral_prober_resource(name):
             if confirm_delete("VPC Connector", name):
                 print(f"  Deleting VPC Connector {name}...")
                 subprocess.run(
-                    [
-                        "gcloud",
-                        "compute",
-                        "vpc-access",
-                        "connectors",
-                        "delete",
-                        name,
-                        f"--region={REGION}",
-                        f"--project={PROJECT}",
-                        "--quiet",
-                    ],
+                    ["gcloud", "compute", "vpc-access", "connectors", "delete", name, f"--region={region}", f"--project={project}", "--quiet"],
                     check=False,
                 )
             else:
@@ -245,25 +227,15 @@ def main():
 
     # 9. Clean Service Accounts
     print("\n==> 9. Checking Service Accounts...")
-    sas = run_gcloud(["iam", "service-accounts", "list"])
+    sas = run_gcloud(["iam", "service-accounts", "list"], project)
     for sa in sas:
         email = sa.get("email", "")
-        if (
-            email.startswith("prober-")
-            and email != "dcp-prober-sa@datcom-dcp.iam.gserviceaccount.com"
-        ):
+        name = email.split("@")[0]
+        if is_ephemeral_prober_resource(name):
             if confirm_delete("Service Account", email):
                 print(f"  Deleting Service Account {email}...")
                 subprocess.run(
-                    [
-                        "gcloud",
-                        "iam",
-                        "service-accounts",
-                        "delete",
-                        email,
-                        f"--project={PROJECT}",
-                        "--quiet",
-                    ],
+                    ["gcloud", "iam", "service-accounts", "delete", email, f"--project={project}", "--quiet"],
                     check=False,
                 )
             else:
@@ -271,23 +243,14 @@ def main():
 
     # 10. Clean BigQuery Connections
     print("\n==> 10. Checking BigQuery Connections...")
-    bq_conns = run_gcloud(["bigquery", "connections", "list", f"--location={REGION}"])
+    bq_conns = run_gcloud(["bigquery", "connections", "list", f"--location={region}"], project)
     for conn in bq_conns:
         name = conn.get("name", "").split("/")[-1]
-        if name.startswith(("prober_", "prober-")):
+        if is_ephemeral_prober_resource(name):
             if confirm_delete("BigQuery Connection", name):
                 print(f"  Deleting BigQuery connection {name}...")
                 subprocess.run(
-                    [
-                        "gcloud",
-                        "bigquery",
-                        "connections",
-                        "delete",
-                        name,
-                        f"--location={REGION}",
-                        f"--project={PROJECT}",
-                        "--quiet",
-                    ],
+                    ["gcloud", "bigquery", "connections", "delete", name, f"--location={region}", f"--project={project}", "--quiet"],
                     check=False,
                 )
             else:
@@ -295,23 +258,15 @@ def main():
 
     # 11. Clean API Keys
     print("\n==> 11. Checking API Keys...")
-    keys = run_gcloud(["services", "api-keys", "list"])
+    keys = run_gcloud(["services", "api-keys", "list"], project)
     for key in keys:
         display_name = key.get("displayName", "")
         key_id = key.get("name", "").split("/")[-1]
-        if display_name.startswith("prober-"):
+        if is_ephemeral_prober_resource(display_name):
             if confirm_delete("API Key", f"{display_name} ({key_id})"):
                 print(f"  Deleting API Key {display_name}...")
                 subprocess.run(
-                    [
-                        "gcloud",
-                        "services",
-                        "api-keys",
-                        "delete",
-                        key_id,
-                        f"--project={PROJECT}",
-                        "--quiet",
-                    ],
+                    ["gcloud", "services", "api-keys", "delete", key_id, f"--project={project}", "--quiet"],
                     check=False,
                 )
             else:
@@ -319,75 +274,45 @@ def main():
 
     # 12. Clean Dataflow Jobs
     print("\n==> 12. Checking Active Dataflow Jobs...")
-    df_jobs = run_gcloud(["dataflow", "jobs", "list", f"--region={REGION}"])
+    df_jobs = run_gcloud(["dataflow", "jobs", "list", f"--region={region}"], project)
     for dfj in df_jobs:
         job_id = dfj.get("id", "")
         job_name = dfj.get("name", "")
         state = dfj.get("state", "")
-        if job_name.startswith("prober-") and state in (
-            "JOB_STATE_RUNNING",
-            "JOB_STATE_PENDING",
-        ):
+        if is_ephemeral_prober_resource(job_name) and state in ("JOB_STATE_RUNNING", "JOB_STATE_PENDING"):
             if confirm_delete("Dataflow Job", f"{job_name} ({job_id})"):
                 print(f"  Cancelling Dataflow Job {job_name}...")
                 subprocess.run(
-                    [
-                        "gcloud",
-                        "dataflow",
-                        "jobs",
-                        "cancel",
-                        job_id,
-                        f"--region={REGION}",
-                        f"--project={PROJECT}",
-                    ],
+                    ["gcloud", "dataflow", "jobs", "cancel", job_id, f"--region={region}", f"--project={project}"],
                     check=False,
                 )
             else:
                 print(f"  Skipped {job_name}")
+
     # 13. Clean Orphaned Project IAM Bindings
     print("\n==> 13. Checking Orphaned Project IAM Bindings...")
-    policy_output = subprocess.run(
-        ["gcloud", "projects", "get-iam-policy", PROJECT, "--format=json"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if policy_output.returncode == 0:
-        policy = json.loads(policy_output.stdout)
+    policy = run_gcloud(["projects", "get-iam-policy", project], project)
+    if isinstance(policy, dict):
         bindings = policy.get("bindings", [])
         for b in bindings:
             role = b.get("role", "")
             members = b.get("members", [])
             for m in members:
-                if m.startswith("deleted:serviceAccount:prober-") or (
-                    m.startswith("serviceAccount:prober-")
-                    and m
-                    != "serviceAccount:dcp-prober-sa@datcom-dcp.iam.gserviceaccount.com"
-                ):
+                # Matches deleted or active ephemeral service accounts
+                sa_name = m.replace("deleted:serviceAccount:", "").replace("serviceAccount:", "").split("@")[0]
+                if is_ephemeral_prober_resource(sa_name):
                     if confirm_delete("Orphaned IAM Member", f"{m} ({role})"):
                         print(f"  Removing IAM binding {m} from {role}...")
                         subprocess.run(
-                            [
-                                "gcloud",
-                                "projects",
-                                "remove-iam-policy-binding",
-                                PROJECT,
-                                f"--member={m}",
-                                f"--role={role}",
-                                "--quiet",
-                            ],
+                            ["gcloud", "projects", "remove-iam-policy-binding", project, f"--member={m}", f"--role={role}", "--quiet"],
                             check=False,
                         )
                     else:
                         print(f"  Skipped IAM binding {m}")
 
-    print(
-        "\n================================================================================"
-    )
-    print(" ✔ SAFE INTERACTIVE EXHAUSTIVE CLEANUP COMPLETE!")
-    print(
-        "================================================================================"
-    )
+    print("\n" + "=" * 80)
+    print(" ✔ SAFE INTERACTIVE EPHEMERAL CLEANUP COMPLETE!")
+    print("=" * 80)
 
 
 if __name__ == "__main__":

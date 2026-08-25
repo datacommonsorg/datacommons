@@ -14,7 +14,8 @@
 
 terraform {
   backend "gcs" {
-    bucket = "tf-state-dcp-prober-datcom-dcp"
+    # Bucket is supplied dynamically at init time via:
+    # terraform init -backend-config="bucket=tf-state-${PROBER_NAME}-${PROJECT}"
     prefix = "prober/state"
   }
 }

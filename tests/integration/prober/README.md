@@ -33,33 +33,27 @@ flowchart LR
 - **Structured Cloud Logging & Instant Alerts**: Emits single-line structured JSON logs (`jsonPayload`) for Cloud Logging, triggering dual-condition Cloud Monitoring email alerts instantly (`0s` evaluation duration) on any test or job failure.
 - **Full Platform Lifecycle Coverage**: Tests the entire live stack in sequence — Terraform Provisioning $\to$ Ingestion Dataflows $\to$ SVG Hierarchy & Embeddings $\to$ REST & SDMX 3.0 APIs $\to$ MCP Agents $\to$ 100% Teardown.
 
+### ⚙️ How It Works (End-to-End Flow)
+1. **One-Time Prober Deployment & Scheduling**:
+   * The prober engine (Cloud Run Job + Cloud Scheduler cron + Cloud Monitoring alert policy) is provisioned once via [`tests/integration/prober/deploy/deploy_prober.sh`](deploy/deploy_prober.sh) and runs on a recurring schedule (default: every 3 hours).
+
+2. **At Each Scheduled Run**:
+   Cloud Scheduler triggers the Cloud Run Job, which executes [`tests/integration/prober/prober_runner.py`](prober_runner.py) to perform the full lifecycle:
+   * **Scaffold Ephemeral Workspace**: Scaffolds an isolated temporary workspace (`/tmp/prober-<uuid>`) via `dcp admin init --tf-git-ref main` with a dedicated remote state prefix (`ephemeral/prober-<uuid>`) and runtime variable overrides.
+   * **Provision Fresh Infrastructure**: Runs `terraform apply` (with automatic retry backoff for transient GCP rate limits) to spin up a completely isolated DCP stack on GCP (Spanner DB, Redis, Cloud Run services, Workflows).
+   * **Install CLI & Execute E2E Tests**: Fetches the latest `datacommons` monorepo packages (`client`, `admin`, `cli`) from GitHub `main` and runs the integration test suite ([`tests/integration/run_e2e_tests.py`](../run_e2e_tests.py) with `foobar_wages`) across Ingestion $\to$ Postprocessing (SVG/Embeddings) $\to$ Serving APIs $\to$ MCP Agent tools.
+   * **Guaranteed 100% Teardown**: Wraps execution in `try ... finally` and signal handlers (`SIGTERM`/`SIGINT`) to ensure `terraform destroy -auto-approve` runs immediately after testing, leaving zero orphaned GCP resources.
+   * **Report & Alert**: Publishes structured JSON reports to GCS and outputs single-line structured JSON logs (`PROBER_EXECUTION_SUMMARY`). Cloud Monitoring evaluates this instantly to fire an email notification on any failure.
+
+> ℹ️ **Note on [`cleanup_prober_trash.py`](tools/cleanup_prober_trash.py)**: This janitor tool is **not** part of the automated prober flow. It is strictly an operational/developer tool to inspect and clean up resources left behind during local debugging with `--skip-destroy` or after ungraceful manual cancellations.
+
 ---
 
-## 🚀 Quick Start & Deployment
+## ⚙️ Deployment & Updates
 
-### 1. Deploy Prober Infrastructure
-Run the main deployment script:
+The continuous prober is deployed to Google Cloud (`datcom-dcp`) and runs autonomously on a recurring Cloud Scheduler cron trigger.
 
-```bash
-./tests/integration/prober/deploy/deploy_prober.sh \
-  --project datcom-dcp \
-  --prober-name dcp-prober \
-  --test-config foobar_wages \
-  --schedule "0 */3 * * *" \
-  --alert-email datacommons-alerts+dcp-prober@google.com \
-  --location us-central1 \
-  --dc-api-key "YOUR_DATACOMMONS_API_KEY" \
-  --non-interactive
-```
-
-> **Note on Interactive Mode**: If you run `./tests/integration/prober/deploy/deploy_prober.sh` without flags, it automatically detects your active `gcloud` project (`datcom-dcp`) and interactively prompts for any optional configuration overrides.
-
-### 2. Fast Deploy (`--skip-build`)
-If you only modified Terraform files or environment settings and do not need to rebuild the Docker image:
-
-```bash
-./tests/integration/prober/deploy/deploy_prober.sh --skip-build
-```
+* **Deploying or Updating**: For instructions on deploying new probers or updating existing configurations (such as alert email recipients, cron schedules, or test dataset manifests), see the **[Prober Deployment Runbook](deploy/README.md)**.
 
 ---
 
@@ -73,12 +67,6 @@ Prober infrastructure and cron schedules are deployed via Terraform with **Remot
 * **Terraform Remote State Bucket**: [`gs://tf-state-dcp-prober-datcom-dcp`](https://console.cloud.google.com/storage/browser/tf-state-dcp-prober-datcom-dcp?project=datcom-dcp)
 * **Container Image in Artifact Registry**: [`us-docker.pkg.dev/datcom-ci/datcom-tools/datacommons-platform-prober:latest`](https://console.cloud.google.com/artifacts/docker/datcom-ci/us/datcom-tools/datacommons-platform-prober?project=datcom-ci)
 * **Prober Data Commons API Key**: [Secret Manager: `dcp-prober-api-key`](https://console.cloud.google.com/security/secret-manager/secret/dcp-prober-api-key/versions?project=datcom-dcp)
-
----
-
-## 🔐 Cross-Project Artifact Registry Permissions
-
-`deploy_prober.sh` automatically grants `roles/artifactregistry.reader` on the `datcom-ci` Artifact Registry to the target project's Cloud Run Service Agent. If deploying via custom CI/CD service accounts, ensure the target project robot account (`service-${PROJECT_NUMBER}@serverless-robot-prod.iam.gserviceaccount.com`) has reader access on the repository.
 
 ---
 

@@ -47,8 +47,7 @@ COPY packages/ ./packages/
 # 2. Pre-install dependencies (cached unless dependencies change)
 RUN uv sync --frozen || uv sync
 
-# 3. Copy Terraform modules and test harness
-COPY infra/ ./infra/
+# 3. Copy test harness and runner
 COPY tests/ ./tests/
 
 # Default entrypoint executes the ephemeral prober runner (Provision -> Test -> Destroy)

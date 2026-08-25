@@ -15,9 +15,10 @@
 # ==============================================================================
 # Data Commons Platform (DCP) — Ephemeral Integration Prober Variable Overrides
 # ==============================================================================
-# Static default overrides applied to every ephemeral DCP prober instance.
-# Dynamic values (instance_name, project_id, auth_google_datacommons_api_key)
-# are appended at runtime by prober_runner.py.
+# Overrides applied to the temporary DCP instance provisioned by prober_runner.py.
+# Copied to prober_overrides.auto.tfvars at runtime for automatic discovery.
+# Dynamic values (project_id, instance_name, auth_google_datacommons_api_key)
+# are configured automatically in terraform.tfvars via 'dcp admin init'.
 # ==============================================================================
 
 dcp_version                         = "latest"

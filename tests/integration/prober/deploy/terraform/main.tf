@@ -161,6 +161,7 @@ resource "google_cloud_run_v2_job" "prober_job" {
 
         args = [
           "--project", var.project_id,
+          "--prober-name", var.prober_name,
           "--test-config", var.test_config,
           "--report-output", "gs://${google_storage_bucket.prober_reports.name}/reports/"
         ]
@@ -223,21 +224,7 @@ resource "google_monitoring_notification_channel" "email" {
   }
 }
 
-# 6. Log-Based Metric for Structured Prober Execution Failures
-resource "google_logging_metric" "prober_failure_count" {
-  name        = "${var.prober_name}_failure_count"
-  project     = var.project_id
-  description = "Log-based counter metric incremented whenever a DCP prober execution fails"
-
-  filter = "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"${google_cloud_run_v2_job.prober_job.name}\" AND jsonPayload.event_type=\"PROBER_EXECUTION_SUMMARY\" AND jsonPayload.status=\"FAILED\""
-
-  metric_descriptor {
-    metric_kind = "DELTA"
-    value_type  = "INT64"
-  }
-}
-
-# 7. Cloud Monitoring Alert Policy for Prober Execution Failures
+# 6. Cloud Monitoring Alert Policy for Prober Execution Failures
 resource "google_monitoring_alert_policy" "prober_failure" {
   display_name = "🚨 DCP Prober Failure: ${google_cloud_run_v2_job.prober_job.name}"
   project      = var.project_id
