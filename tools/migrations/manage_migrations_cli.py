@@ -58,7 +58,6 @@ def create_command(
         target_file, iso_ts, desc = manage_migrations_utils.create_migration_file(
             name=name,
             description=description,
-            migrations_dir=manage_migrations_utils.DEFAULT_MIGRATIONS_DIR,
         )
     except (ValueError, FileExistsError) as e:
         raise click.ClickException(str(e)) from e

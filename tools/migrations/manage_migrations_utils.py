@@ -29,7 +29,7 @@ ISO_8601_UTC_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 NAME_PATTERN = re.compile(r"^[a-z0-9_]+$")
 
 
-def _resolve_default_migrations_dir() -> Path:
+def get_default_migrations_dir() -> Path:
     """Resolves the default migrations directory.
 
     Searches upward from the current file and working directory to locate the
@@ -62,9 +62,6 @@ def _resolve_default_migrations_dir() -> Path:
 
     # Default fallback path relative to repository layout
     return Path(__file__).resolve().parents[2] / rel_migration_path
-
-
-DEFAULT_MIGRATIONS_DIR = _resolve_default_migrations_dir()
 
 
 def sanitize_name(raw_name: str) -> str:
@@ -199,7 +196,7 @@ def create_migration_file(
         ValueError: If name is invalid.
         FileExistsError: If target migration file already exists.
     """
-    target_dir = migrations_dir or DEFAULT_MIGRATIONS_DIR
+    target_dir = migrations_dir or get_default_migrations_dir()
     target_dir.mkdir(parents=True, exist_ok=True)
 
     sanitized = sanitize_name(name)

@@ -24,11 +24,11 @@ import pytest
 from tools.migrations import manage_migrations_utils
 
 # ==============================================================================
-# 0. _resolve_default_migrations_dir Tests
+# 0. get_default_migrations_dir Tests
 # ==============================================================================
 
 
-def test_resolve_default_migrations_dir_finds_nested_file_parent(
+def test_get_default_migrations_dir_finds_nested_file_parent(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """Verifies that upward search finds migrations dir even if utils file is deeply nested."""
@@ -49,11 +49,11 @@ def test_resolve_default_migrations_dir_finds_nested_file_parent(
     deeply_nested_file.parent.mkdir(parents=True)
     monkeypatch.setattr(manage_migrations_utils, "__file__", str(deeply_nested_file))
 
-    resolved = manage_migrations_utils._resolve_default_migrations_dir()
+    resolved = manage_migrations_utils.get_default_migrations_dir()
     assert resolved == local_scripts
 
 
-def test_resolve_default_migrations_dir_finds_from_cwd(
+def test_get_default_migrations_dir_finds_from_cwd(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """Verifies that upward search finds migrations dir from current working directory if file is in site-packages."""
@@ -81,7 +81,7 @@ def test_resolve_default_migrations_dir_finds_from_cwd(
     monkeypatch.setattr(manage_migrations_utils, "__file__", str(site_packages_file))
     monkeypatch.setattr(Path, "cwd", lambda: fake_repo_root / "tools")
 
-    resolved = manage_migrations_utils._resolve_default_migrations_dir()
+    resolved = manage_migrations_utils.get_default_migrations_dir()
     assert resolved == local_scripts
 
 
