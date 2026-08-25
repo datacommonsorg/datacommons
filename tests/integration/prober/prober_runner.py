@@ -144,10 +144,14 @@ def provision_infra(
         / "integration"
         / "prober"
         / "deploy"
-        / "ephemeral_dcp_overrides.tfvars"
+        / "ephemeral_dcp_overrides.tfvars.template"
     )
     if overrides_src.exists():
         shutil.copy(overrides_src, instance_dir / "prober_overrides.auto.tfvars")
+    else:
+        raise FileNotFoundError(
+            f"Required prober overrides template not found at: {overrides_src}"
+        )
 
     # Step 3: Terraform Init & Apply
     print(

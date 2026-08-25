@@ -124,20 +124,22 @@ tests/integration/
 ├── run_e2e_tests.py               # Master CLI & programmatic runner
 ├── conftest.py                    # Pytest lifecycle hooks & dynamic parameterization
 │
-├── prober/                        # Automated GCP Prober deployment & container setup
-│   ├── prober_runner.py           # Ephemeral instance orchestrator (Retries & Teardown)
-│   ├── prober_overrides.tfvars.template # Baseline overrides for ephemeral instances
-│   ├── deploy/                    # Container build & deployment automation
+├── prober/                        # Automated 24/7 GCP Prober & Ephemeral runner
+│   ├── README.md                  # Prober architecture, flow & local debugging
+│   ├── prober_runner.py           # Ephemeral instance orchestrator (3-Phase lifecycle)
+│   ├── deploy/                    # Cloud deployment automation & Terraform blueprint
+│   │   ├── README.md              # Complete Prober deployment runbook
 │   │   ├── deploy_prober.sh       # Cloud Build & Terraform deployment script
 │   │   ├── Dockerfile             # Prober container image definition
-│   │   └── cloudbuild.yaml        # Cloud Build pipeline configuration
-│   ├── terraform/                 # Infrastructure-as-Code for Prober deployment
-│   │   ├── backend.tf             # Remote GCS state locking
-│   │   ├── main.tf                # Service Account, Secret Manager, Cloud Run Job & Scheduler
-│   │   ├── variables.tf           # Terraform variables
-│   │   └── outputs.tf             # Terraform outputs
-│   └── tools/                     # Prober janitor and operational utilities
-│       └── cleanup_prober_trash.py # Emergency cleanup tool for orphaned prober-* resources
+│   │   ├── cloudbuild.yaml        # Cloud Build pipeline configuration
+│   │   ├── ephemeral_dcp_overrides.tfvars.template # Static overrides for ephemeral target instances
+│   │   └── terraform/             # Infrastructure-as-Code for Prober daemon
+│   │       ├── backend.tf         # Remote GCS state locking
+│   │       ├── main.tf            # Service Account, Cloud Run Job, Scheduler & Alerts
+│   │       ├── variables.tf       # Prober Terraform variables
+│   │       └── outputs.tf         # Terraform outputs
+│   └── tools/                     # Prober operational utilities
+│       └── cleanup_prober_trash.py # Interactive janitor for orphaned ephemeral resources
 │
 ├── test_data/                     # Benchmark datasets & self-contained test specs
 │   ├── foobar_wages/              # FooBar Wages CSV, MCF, config.json, test_spec.yaml
