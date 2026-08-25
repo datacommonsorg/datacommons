@@ -61,7 +61,7 @@ When you run `./deploy_prober.sh`, the deployment executes two main phases:
 * Ensures the target project's Cloud Run Service Agent has `roles/artifactregistry.reader` on `datcom-ci`.
 
 ### Phase 2: Cloud Infrastructure Provisioning (Terraform)
-* Uses `../terraform/` as a reusable blueprint to deploy the prober engine.
+* Uses [`terraform/`](terraform/) as a reusable blueprint to deploy the prober engine.
 * Automatically creates the remote GCS state bucket (`gs://tf-state-<prober-name>-<project>`) if it does not exist.
 * Runs `terraform init -backend-config="bucket=..." -reconfigure` to dynamically bind to your project's state bucket without modifying code files on disk.
 * Runs `terraform apply`, injecting your CLI flags to provision:
