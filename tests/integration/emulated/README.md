@@ -10,13 +10,14 @@ It boots emulated service containers to verify compatibility across Spanner data
 
 The emulated stack runs the following containers in a shared bridge network (`itest-net`):
 
-| Container Service | Image / Port | Description |
+| Service | Image & Port | Description |
 | :--- | :--- | :--- |
-
-| **`spanner`** | `us-docker.pkg.dev/spanner-omni/images/spanner-omni:2026.r1-beta.2` (`9010` gRPC, `9020` REST) | In-memory Google Cloud Spanner emulator with Graph schema support. |
-| **`gcs`** | `fsouza/fake-gcs-server:1.47.8` (`9099` HTTP) | Local Google Cloud Storage mock emulator. |
-| **`ingestion-helper`** | `gcr.io/datcom-ci/datacommons-ingestion-helper:latest` (`8081` HTTP) | Database migrations (`/database/initialize`) & base ontology seeding (`/database/seed`). |
-| **`website` (Mixer)** | `gcr.io/datcom-ci/datacommons-services:latest` (`8082` HTTP) | Combined Data Commons Website frontend and Mixer serving backend. |
+| **`spanner`** | `us-docker.pkg.dev/spanner-omni/images/spanner-omni:2026.r1-beta.2`<br>`9010` (gRPC), `9020` (REST) | In-memory Google Cloud Spanner emulator with Graph schema support. |
+| **`gcs`** | `fsouza/fake-gcs-server:1.47.8`<br>`9099` (HTTP) | Local Google Cloud Storage mock emulator. |
+| **`ingestion-helper`** | `gcr.io/datcom-ci/datacommons-ingestion-helper:latest`<br>`8081` (HTTP) | Database migrations (`/database/initialize`) & base ontology seeding (`/database/seed`). |
+| **`datacommons-data-processor`** | `gcr.io/datcom-ci/datacommons-data:latest`<br>*(CLI task)* | Statistical MCF/CSV parser converting raw datasets into JSON-LD graph nodes. |
+| **`dataflow-ingestion`** | `us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion:latest`<br>*(CLI task)* | Java Apache Beam `GraphIngestionPipeline` loading JSON-LD graph mutations into Spanner. |
+| **`website` (Mixer)** | `gcr.io/datcom-ci/datacommons-services:latest`<br>`8082` (HTTP) | Combined Data Commons Website frontend and Mixer serving backend. |
 
 ---
 
@@ -52,9 +53,11 @@ When `--reuse-data` is specified:
 
 ## 🔧 Overriding Container Images
 
-To test against specific release candidate images or pinned version tags:
+To test against specific release candidate images, pinned version tags, or locally built images:
 
 ```bash
+DATAFLOW_IMAGE=us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion:v1.2.0 \
+PROCESSOR_IMAGE=gcr.io/datcom-ci/datacommons-data:v1.2.0 \
 HELPER_IMAGE=gcr.io/datcom-ci/datacommons-ingestion-helper:v1.2.0 \
 SERVICES_IMAGE=gcr.io/datcom-ci/datacommons-services:v1.2.0 \
 uv run pytest tests/integration/suites/ \
@@ -62,11 +65,7 @@ uv run pytest tests/integration/suites/ \
   --test-config=foobar_wages
 ```
 
----
-
-## 🚩 Feature Flags
-
-The container automatically uses the canonical DCP feature flag defaults defined directly in the `datacommons-services` image (`deploy/featureflags/dcp.yaml`), including `UseSpannerGraph: true`, `UseMultiEntitySchema: true`, and `EnableSDMXDataApi: true`.
+> **TODO (Follow-Up)**: Support direct live mounting and substitution of local source code directories (`website/`, `mixer/`, `import/`) without needing pre-built container images (see [Roadmap](#-roadmap--follow-ups-local-code-substitution) below).
 
 ---
 
@@ -83,3 +82,18 @@ To manually stop the emulated container stack:
 ```bash
 docker compose -f tests/integration/emulated/docker-compose.yml down -v
 ```
+
+---
+
+## 🔮 Roadmap & Follow-Ups: Local Code Substitution
+
+In an upcoming follow-up, the test runner will support substituting container images with **local repository source trees** for rapid cross-repository development:
+
+| Component | Target Repo | Planned Substitution Mechanism |
+| :--- | :--- | :--- |
+| **Website & Flask** | `../website` | Live source volume mount into `website` container (`/workspace/server`) |
+| **Mixer Serving Backend** | `../mixer` | Local Go binary mount into `website` container (`/workspace/mixer`) |
+| **Data Processor** | `../import/simple` | Live source volume mount into `datacommons-data-processor` |
+| **Beam Graph Pipeline** | `../import` | Local Java JAR DirectRunner mount into `dataflow-ingestion` |
+
+This will enable testing PR branches across sibling repositories against the end-to-end integration suite without waiting for remote CI container builds.

@@ -20,6 +20,7 @@ Website, and Mock NL), database schema initialization, and dataset loading.
 
 import contextlib
 import json
+import os
 import subprocess
 import time
 from pathlib import Path
@@ -247,7 +248,10 @@ class EmulatedEnvironment:
             "GOOGLE_CLOUD_SPANNER_MULTIPLEXED_SESSIONS_FOR_RW=TRUE",
             "-e",
             "NO_GCE_CHECK=true",
-            "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion:latest",
+            os.getenv(
+                "DATAFLOW_IMAGE",
+                "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion:latest",
+            ),
             "-cp",
             "/template/*",
             "org.datacommons.ingestion.pipeline.GraphIngestionPipeline",
