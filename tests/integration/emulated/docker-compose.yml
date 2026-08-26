@@ -23,7 +23,7 @@ services:
     platform: linux/amd64
     container_name: itest-datacommons-data-processor
     volumes:
-      - ./mock/sitecustomize.py:/app/patch/sitecustomize.py:ro
+      - ./patches:/app/patch:ro
     environment:
       - PYTHONPATH=/app/patch
       - SPANNER_EMULATOR_HOST=spanner:15000
@@ -51,7 +51,7 @@ services:
     ports:
       - "8081:8080"
     volumes:
-      - ./mock/sitecustomize.py:/app/patch/sitecustomize.py:ro
+      - ./patches:/app/patch:ro
     environment:
       - PYTHONPATH=/app/patch
       - PORT=8080
@@ -82,7 +82,7 @@ services:
     ports:
       - "8082:8080"
     volumes:
-      - ./mock/sitecustomize.py:/workspace/patch/sitecustomize.py:ro
+      - ./patches:/workspace/patch:ro
     environment:
       - PYTHONPATH=/workspace/patch
       - PORT=8080

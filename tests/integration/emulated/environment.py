@@ -130,7 +130,10 @@ class EmulatedEnvironment:
             if not db.exists():
                 db.create().result(timeout=30)
 
-        print(">>> Initializing database schema DDL via Ingestion Helper (streaming logs)...")
+        print(
+            ">>> Initializing database schema DDL via Ingestion Helper (streaming logs)..."
+        )
+
         def _do_initialize():
             resp = requests.post(
                 f"{self.helper_url}/database/initialize",
@@ -142,6 +145,7 @@ class EmulatedEnvironment:
         self._stream_container_logs_during("itest-ingestion-helper", _do_initialize)
 
         print(">>> Seeding database base ontology variables...")
+
         def _do_seed():
             resp = requests.post(
                 f"{self.helper_url}/database/seed",
