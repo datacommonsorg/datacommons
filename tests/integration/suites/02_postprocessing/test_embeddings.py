@@ -31,9 +31,7 @@ class TestEmbeddings:
             )
 
         if seeded_testbed.instance_name in ("local", "emulated"):
-            pytest.skip(
-                "Vector embeddings resolution disabled in local emulated mode."
-            )
+            pytest.skip("Vector embeddings resolution disabled in local emulated mode.")
 
         try:
             res = dc_client.resolve.fetch_indicators(queries=[indicator_spec.query])
