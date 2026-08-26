@@ -1042,7 +1042,7 @@ class TestTagReleaseArtifacts:
                 elif dst.startswith("gs://"):
                     uploaded_content["data"] = json.loads(Path(src).read_text())
                 return MagicMock(returncode=0)
-            elif cmd[0] == "gcloud" and cmd[1] == "artifacts":
+            if cmd[0] == "gcloud" and cmd[1] == "artifacts":
                 return MagicMock(returncode=0)
             return MagicMock(returncode=0)
 

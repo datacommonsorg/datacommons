@@ -242,6 +242,22 @@ def resolve_dcp_target(
     repo_root = _get_repo_root()
     artifacts = artifacts or ArtifactConfig()
 
+    # 1. Resolve Local Emulated vs Cloud Workspace Directory
+    if instance in ("local", "emulated"):
+        return DCPTarget(
+            project_id="default",
+            instance_name="local",
+            workspace_dir=str(repo_root / "tests" / "integration" / "emulated"),
+            serving_url="http://localhost:8082",
+            helper_url="http://localhost:8081",
+            spanner_instance="default",
+            spanner_database="test-db",
+            workflow_name="local-workflow",
+            workflow_sa_email="local-sa@default.iam.gserviceaccount.com",
+            gcs_bucket="test-bucket",
+            artifacts=artifacts,
+        )
+
     # 1. Resolve Workspace Directory
     if workspace:
         workspace_path = Path(workspace).resolve()
