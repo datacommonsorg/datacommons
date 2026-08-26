@@ -40,7 +40,6 @@ CREATE OR REPLACE PROPERTY GRAPH DCGraph
         bytes,
         last_update_timestamp,
         name,
-        name_tokenlist,
         subject_id,
         types,
         value)
