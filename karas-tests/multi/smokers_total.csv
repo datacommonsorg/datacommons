@@ -1,0 +1,3 @@
+variable,country,year,value
+dcs:who/Adult_curr_cig_smokers,dcid:country/AFG,2019,7.5
+dcs:who/Adult_curr_cig_smokers,dcid:country/ARE,2018,6.3

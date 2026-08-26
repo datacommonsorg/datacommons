@@ -1,0 +1,15 @@
+{
+  "inputFiles": [
+    {
+      "pattern": "*",
+      "provenance": "dcid:fake_oecd",
+      "columnMappings": {
+        "dcid:observationAbout": "observationAbout",
+        "dcid:variableMeasured": "variableMeasured",
+        "dcid:observationDate": "date",
+        "dcid:value": "value",
+        "dcid:unit": "unit"
+      }
+    }
+  ]
+}

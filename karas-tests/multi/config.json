@@ -1,0 +1,29 @@
+{
+  "inputFiles": [
+    {
+      "pattern": "schema.mcf",
+      "provenance": "dcid:UN_WHO"
+    },
+    {
+      "pattern": "smokers_total.csv",
+      "provenance": "dcid:UN_WHO",
+      "columnMappings": {
+        "dcid:variableMeasured": "variable",
+        "dcid:observationAbout": "country",
+        "dcid:observationDate": "year",
+        "dcid:value": "value"
+      }
+    },
+    {
+      "pattern": "smokers_by_sex.csv",
+      "provenance": "dcid:UN_WHO",
+      "columnMappings": {
+        "dcid:variableMeasured": "variable",
+        "dcid:country": "country",
+        "dcid:sex": "sex",
+        "dcid:observationDate": "year",
+        "dcid:value": "value"
+      }
+    }
+  ]
+}

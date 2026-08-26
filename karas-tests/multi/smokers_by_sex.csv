@@ -1,0 +1,9 @@
+variable,sex,country,year,value
+dcs:who/Adult_curr_cig_smokers_by_sex,dcid:Female,dcid:country/AFG,2019,1.2
+dcs:who/Adult_curr_cig_smokers_by_sex,dcid:Male,dcid:country/AFG,2019,13.4
+dcs:who/Adult_curr_cig_smokers_by_sex,dcid:Female,dcid:country/AGO,2016,1.8
+dcs:who/Adult_curr_cig_smokers_by_sex,dcid:Male,dcid:country/AGO,2016,14.3
+dcs:who/Adult_curr_cig_smokers_by_sex,dcid:Female,dcid:country/ALB,2018,4.5
+dcs:who/Adult_curr_cig_smokers_by_sex,dcid:Male,dcid:country/ALB,2018,35.7
+dcs:who/Adult_curr_cig_smokers_by_sex,dcid:Male,dcid:country/ARE,2018,11.1
+dcs:who/Adult_curr_cig_smokers_by_sex,dcid:Female,dcid:country/ARE,2018,1.6

@@ -1,0 +1,43 @@
+Node: dcid:AlaskaHospitals
+typeOf: dcid:StatVarGroup
+name: "Alaska Hospitals"
+specializationOf: dcid:dc/g/Root
+
+Node: dcid:CMS
+typeOf: dcid:Source
+name: "Center for Medicare and Medicaid Services"
+url: "https://data.cms.gov"
+
+Node: dcid:UnplannedHospitalVisits
+typeOf: dcid:Provenance
+source: dcid:CMS
+name: "Unplanned Alaska hospital visits"
+url: "https://data.cms.gov/provider-data/dataset/632h-zaca"
+
+Node: dcid:Patient
+typeOf: dcid:Class
+name: "Patient"
+subClassOf: dcid:Person
+
+Node: dcid:ReturnedPatient
+typeOf: dcid:Class
+name: "Unplanned return patient"
+subClassOf: dcid:Patient
+
+Node: dcid:Count_Patients
+typeOf: dcid:StatisticalVariable
+name: "Count of patients"
+description: "Total number of patients in 30-day period"
+populationType: dcid:Patient
+statType: dcid:count
+observationProperties: dcid:Hospital, dcid:medicalCondition
+memberOf: dcid:AlaskaHospitals
+
+Node: dcid:Count_ReturnedPatients
+typeOf: dcid:StatisticalVariable
+name: "Count of patients returned"
+description: "Number of patients returned unplanned in a 30-day period"
+populationType: dcid:ReturnedPatient
+statType: dcid:count
+observationProperties: dcid:Hospital, dcid:medicalCondition
+memberOf: dcid:AlaskaHospitals

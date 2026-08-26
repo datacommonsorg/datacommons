@@ -1,0 +1,127 @@
+entity,date,variable,medicalCondition,value,observationPeriod
+CCN20001,2023-06-30,Count_Patients,heart failure,432,P30D
+CCN20001,2023-06-30,Count_ReturnedPatients,heart failure,92,P30D
+CCN20001,2023-06-30,Count_Patients,heart failure,401,P30D
+CCN20001,2023-06-30,Count_ReturnedPatients,heart failure,124,P30D
+CCN20001,2023-06-30,Count_Patients,pneumonia,200,P30D
+CCN20001,2023-06-30,Count_ReturnedPatients,pneumonia,54,P30D
+CCN20006,2023-06-30,Count_Patients,heart attack,139,P30D
+CCN20006,2023-06-30,Count_ReturnedPatients,heart attack,42,P30D
+CCN20006,2023-06-30,Count_Patients,heart failure,198,P30D
+CCN20006,2023-06-30,Count_ReturnedPatients,heart failure,69,P30D
+CCN20006,2023-06-30,Count_Patients,pneumonia,242,P30D
+CCN20006,2023-06-30,Count_ReturnedPatients,pneumonia,69,P30D
+CCN20008,2023-06-30,Count_Patients,heart attack,,P30D
+CCN20008,2023-06-30,Count_ReturnedPatients,heart attack,,P30D
+CCN20008,2023-06-30,Count_Patients,heart failure,45,P30D
+CCN20008,2023-06-30,Count_ReturnedPatients,heart failure,20,P30D
+CCN20008,2023-06-30,Count_Patients,pneumonia,39,P30D
+CCN20008,2023-06-30,Count_ReturnedPatients,pneumonia,11,P30D
+CCN20012,2023-06-30,Count_Patients,heart attack,75,P30D
+CCN20012,2023-06-30,Count_ReturnedPatients,heart attack,17,P30D
+CCN20012,2023-06-30,Count_Patients,heart failure,103,P30D
+CCN20012,2023-06-30,Count_ReturnedPatients,heart failure,20,P30D
+CCN20012,2023-06-30,Count_Patients,pneumonia,107,P30D
+CCN20012,2023-06-30,Count_ReturnedPatients,pneumonia,26,P30D
+CCN20017,2023-06-30,Count_Patients,heart attack,140,P30D
+CCN20017,2023-06-30,Count_ReturnedPatients,heart attack,38,P30D
+CCN20017,2023-06-30,Count_Patients,heart failure,198,P30D
+CCN20017,2023-06-30,Count_ReturnedPatients,heart failure,71,P30D
+CCN20017,2023-06-30,Count_Patients,pneumonia,186,P30D
+CCN20017,2023-06-30,Count_ReturnedPatients,pneumonia,51,P30D
+CCN20018,2023-06-30,Count_Patients,heart attack,,P30D
+CCN20018,2023-06-30,Count_ReturnedPatients,heart attack,,P30D
+CCN20018,2023-06-30,Count_Patients,heart failure,30,P30D
+CCN20018,2023-06-30,Count_ReturnedPatients,heart failure,4,P30D
+CCN20018,2023-06-30,Count_Patients,pneumonia,61,P30D
+CCN20018,2023-06-30,Count_ReturnedPatients,pneumonia,4,P30D
+CCN20024,2023-06-30,Count_Patients,heart attack,,P30D
+CCN20024,2023-06-30,Count_ReturnedPatients,heart attack,,P30D
+CCN20024,2023-06-30,Count_Patients,heart failure,136,P30D
+CCN20024,2023-06-30,Count_ReturnedPatients,heart failure,60,P30D
+CCN20024,2023-06-30,Count_Patients,pneumonia,125,P30D
+CCN20024,2023-06-30,Count_ReturnedPatients,pneumonia,40,P30D
+CCN20026,2023-06-30,Count_Patients,heart attack,,P30D
+CCN20026,2023-06-30,Count_ReturnedPatients,heart attack,,P30D
+CCN20026,2023-06-30,Count_Patients,heart failure,125,P30D
+CCN20026,2023-06-30,Count_ReturnedPatients,heart failure,35,P30D
+CCN20026,2023-06-30,Count_Patients,pneumonia,145,P30D
+CCN20026,2023-06-30,Count_ReturnedPatients,pneumonia,21,P30D
+CCN21301,2023-06-30,Count_Patients,heart attack,,P30D
+CCN21301,2023-06-30,Count_ReturnedPatients,heart attack,,P30D
+CCN21301,2023-06-30,Count_Patients,heart failure,,P30D
+CCN21301,2023-06-30,Count_ReturnedPatients,heart failure,,P30D
+CCN21301,2023-06-30,Count_Patients,pneumonia,,P30D
+CCN21301,2023-06-30,Count_ReturnedPatients,pneumonia,,P30D
+CCN21302,2023-06-30,Count_Patients,heart attack,,P30D
+CCN21302,2023-06-30,Count_ReturnedPatients,heart attack,,P30D
+CCN21302,2023-06-30,Count_Patients,heart failure,,P30D
+CCN21302,2023-06-30,Count_ReturnedPatients,heart failure,,P30D
+CCN21302,2023-06-30,Count_Patients,pneumonia,,P30D
+CCN21302,2023-06-30,Count_ReturnedPatients,pneumonia,,P30D
+CCN21304,2023-06-30,Count_Patients,heart attack,,P30D
+CCN21304,2023-06-30,Count_ReturnedPatients,heart attack,,P30D
+CCN21304,2023-06-30,Count_Patients,heart failure,,P30D
+CCN21304,2023-06-30,Count_ReturnedPatients,heart failure,,P30D
+CCN21304,2023-06-30,Count_Patients,pneumonia,,P30D
+CCN21304,2023-06-30,Count_ReturnedPatients,pneumonia,,P30D
+CCN21305,2023-06-30,Count_Patients,heart attack,,P30D
+CCN21305,2023-06-30,Count_ReturnedPatients,heart attack,,P30D
+CCN21305,2023-06-30,Count_Patients,heart failure,,P30D
+CCN21305,2023-06-30,Count_ReturnedPatients,heart failure,,P30D
+CCN21305,2023-06-30,Count_Patients,pneumonia,,P30D
+CCN21305,2023-06-30,Count_ReturnedPatients,pneumonia,,P30D
+CCN21306,2023-06-30,Count_Patients,heart attack,,P30D
+CCN21306,2023-06-30,Count_ReturnedPatients,heart attack,,P30D
+CCN21306,2023-06-30,Count_Patients,heart failure,,P30D
+CCN21306,2023-06-30,Count_ReturnedPatients,heart failure,,P30D
+CCN21306,2023-06-30,Count_Patients,pneumonia,,P30D
+CCN21306,2023-06-30,Count_ReturnedPatients,pneumonia,,P30D
+CCN21307,2023-06-30,Count_Patients,heart attack,,P30D
+CCN21307,2023-06-30,Count_ReturnedPatients,heart attack,,P30D
+CCN21307,2023-06-30,Count_Patients,heart failure,,P30D
+CCN21307,2023-06-30,Count_ReturnedPatients,heart failure,,P30D
+CCN21307,2023-06-30,Count_Patients,pneumonia,,P30D
+CCN21307,2023-06-30,Count_ReturnedPatients,pneumonia,,P30D
+CCN21308,2023-06-30,Count_Patients,heart attack,,P30D
+CCN21308,2023-06-30,Count_ReturnedPatients,heart attack,,P30D
+CCN21308,2023-06-30,Count_Patients,heart failure,18,P30D
+CCN21308,2023-06-30,Count_ReturnedPatients,heart failure,10,P30D
+CCN21308,2023-06-30,Count_Patients,pneumonia,,P30D
+CCN21308,2023-06-30,Count_ReturnedPatients,pneumonia,,P30D
+CCN21311,2023-06-30,Count_Patients,heart attack,,P30D
+CCN21311,2023-06-30,Count_ReturnedPatients,heart attack,,P30D
+CCN21311,2023-06-30,Count_Patients,heart failure,28,P30D
+CCN21311,2023-06-30,Count_ReturnedPatients,heart failure,12,P30D
+CCN21311,2023-06-30,Count_Patients,pneumonia,54,P30D
+CCN21311,2023-06-30,Count_ReturnedPatients,pneumonia,15,P30D
+CCN21312,2023-06-30,Count_Patients,heart attack,,P30D
+CCN21312,2023-06-30,Count_ReturnedPatients,heart attack,,P30D
+CCN21312,2023-06-30,Count_Patients,heart failure,,P30D
+CCN21312,2023-06-30,Count_ReturnedPatients,heart failure,,P30D
+CCN21312,2023-06-30,Count_Patients,pneumonia,23,P30D
+CCN21312,2023-06-30,Count_ReturnedPatients,pneumonia,8,P30D
+CCN21313,2023-06-30,Count_Patients,heart attack,,P30D
+CCN21313,2023-06-30,Count_ReturnedPatients,heart attack,,P30D
+CCN21313,2023-06-30,Count_Patients,heart failure,,P30D
+CCN21313,2023-06-30,Count_ReturnedPatients,heart failure,,P30D
+CCN21313,2023-06-30,Count_Patients,pneumonia,50,P30D
+CCN21313,2023-06-30,Count_ReturnedPatients,pneumonia,10,P30D
+CCN21314,2023-06-30,Count_Patients,heart attack,,P30D
+CCN21314,2023-06-30,Count_ReturnedPatients,heart attack,,P30D
+CCN21314,2023-06-30,Count_Patients,heart failure,21,P30D
+CCN21314,2023-06-30,Count_ReturnedPatients,heart failure,5,P30D
+CCN21314,2023-06-30,Count_Patients,pneumonia,38,P30D
+CCN21314,2023-06-30,Count_ReturnedPatients,pneumonia,7,P30D
+CCN21309,2023-06-30,Count_Patients,heart attack,,P30D
+CCN21309,2023-06-30,Count_ReturnedPatients,heart attack,,P30D
+CCN21309,2023-06-30,Count_Patients,heart failure,,P30D
+CCN21309,2023-06-30,Count_ReturnedPatients,heart failure,,P30D
+CCN21309,2023-06-30,Count_Patients,pneumonia,,P30D
+CCN21309,2023-06-30,Count_ReturnedPatients,pneumonia,,P30D
+CCN21310,2023-06-30,Count_Patients,heart attack,,P30D
+CCN21310,2023-06-30,Count_ReturnedPatients,heart attack,,P30D
+CCN21310,2023-06-30,Count_Patients,heart failure,,P30D
+CCN21310,2023-06-30,Count_ReturnedPatients,heart failure,,P30D
+CCN21310,2023-06-30,Count_Patients,pneumonia,,P30D
+CCN21310,2023-06-30,Count_ReturnedPatients,pneumonia,,P30D

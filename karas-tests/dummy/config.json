@@ -1,0 +1,10 @@
+{
+  "includeInputSubdirs": true,
+  "inputFiles": [
+    {
+      "pattern": "*",
+      "provenance": "dcid:DummyProvenance",
+      "format": "variablePerRow"
+    }
+  ]
+}

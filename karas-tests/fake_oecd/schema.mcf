@@ -1,0 +1,21 @@
+
+Node: dcid:OECDSource
+typeOf: dcid:Source
+name: "OECD"
+source: dcid:OECDSource
+url: "https://www.oecd.org/"
+
+Node: dcid:fake_oecd
+typeOf: dcid:Provenance
+name: "OECD Average Annual Wages"
+source: dcid:OECDSource
+url: "https://www.oecd.org/en/data/indicators/average-annual-wages.html"
+
+Node: dcid:FakeOECDGroup
+typeOf: dcid:StatVarGroup
+Name: "Fake OECD Group"
+specializationOf: dcid:dc/g/Root
+
+Node: dcid:Median_Earnings_Person
+Name: "Average earnings"
+memberOf: dcid:FakeOECDGroup

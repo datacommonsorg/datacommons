@@ -1,0 +1,15 @@
+Node: dcid:DummyProvenance
+typeOf: dcid:Provenance
+name: "Dummy provenance"
+source: dcid:OECDSource
+url: "https://www.oecd.org/"
+
+Node: dcid:OECDGroup
+typeOf: dcid:StatVarGroup
+name: "OECD"
+specializationOf: dcid:dc/g/Root
+
+Node: dcid:OECDSource
+typeOf: dcid:Source
+name: "OECD"
+url: "https://www.oecd.org/"

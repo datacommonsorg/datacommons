@@ -60,7 +60,7 @@ The following section describes how the Platform differs from Custom Data Common
 
 * CSV and MCF input file formats are still supported.
 * Configuration is still provided in the `config.json` file.
-* The Docker services container runs all the same servers.
+
 
 ## Install Data Commons Platform
 
@@ -92,7 +92,7 @@ To install Data Commons, you must have the IAM Admin or (legacy) Owner role on y
 * [Secret Manager Admin](https://docs.cloud.google.com/iam/docs/roles-permissions/secretmanager) – to create and manage secrets
 * (Optional) [Memory Redis Admin](https://docs.cloud.google.com/iam/docs/roles-permissions/redis) – to create a Memorystore for Redis instance + [Serverless VPC Access Admin](https://docs.cloud.google.com/iam/docs/roles-permissions/vpcaccess) – to create a [virtual private connection](https://docs.cloud.google.com/vpc/docs/serverless-vpc-access) to send traffic between Cloud Run services and Memorystore
 
-### Step 1: Authenticate to Google Cloud Platform
+### Step 1: Authenticate to Google Cloud Platform {#step1}
 
 1. Authenticate yourself to GCP: From any directory, run `gcloud auth login` and follow the prompts to continue.
 1. Authenticate Terraform and the Data Commons CLI to GCP: From any directory run `gcloud auth application-default login` and follow the prompts to continue.
@@ -121,7 +121,7 @@ This step does the following:
 
         > **WARNING:** You _must_ provide a name that is different from any Terraform namespaces you have used previously, to avoid destroying or corrupting existing components.
 
-    * To reuse an existing bucket, or to create a new bucket with a specified name, provide a bucket name with `–-tf-state-bucket`. If you omit this flag, the tool creates a new bucket using the format `_INSTANCE_NAME_-datacommons-data-_PROJECT_ID`_.
+    * To reuse an existing bucket, or to create a new bucket with a specified name, provide a bucket name with `–-tf-state-bucket`. If you omit this flag, the tool creates a new bucket using the format <code><var>INSTANCE_NAME</var>-datacommons-data-<var>PROJECT_ID</var></code>.
     * If you are creating a new bucket, by default it is created in the `US` location, which is a [multi-region zone](https://docs.cloud.google.com/storage/docs/locations#location-dr). To specify an alternate location, use `--tf-state-bucket-location`. (See [Bucket locations | Cloud Storage](https://docs.cloud.google.com/storage/docs/locations) for supported locations.)
 
     A new subdirectory is created named according to your instance name, and a basic `terraform.tfvars` file is created with required variables set. 
@@ -151,12 +151,12 @@ Here are some variables you may wish to modify:
 | :----------|:------------|:----------------|
 | `region` | `us-central1`, close to the base Data Commons deployment | The data center locations where your Data Commons resources are provisioned. If you want to set this to a different value, for a list of supported regions, see [Geography and regions](https://docs.cloud.google.com/docs/geography-and-region). |
 | `storage_create_artifacts_bucket` | `true` | Create a new Cloud Storage bucket to store your CSV, MCF and `config.json` files.<br/>If you already have a bucket in the same project that you want to reuse, set this to `false` and provide the name of your bucket using `storage_artifacts_bucket_name`.<br/>**Note:** We do not recommend reusing a bucket in which you have previously stored Data Commons data.This risks unintended data corruption or deletion. | 
-| `ingestion_input_path` | `ingestion/input` | The Cloud Storage folder where you will store your input files (MCF, CSV, config.json). |
+| `ingestion_input_path` | `ingestion/input` | The Cloud Storage folder where you will store your input files (MCF, CSV, `config.json`). |
 | `spanner_create_instance` | `true` | Creates a new Cloud Spanner instance. If you want to reduce costs, and already have a Spanner instance that you want to reuse, set this to `false` and provide the name of the instance using `spanner_instance_id`.<br/>**Note:** If you are creating multiple deployments, e.g. dev and prod, we recommend that you reuse a single instance (but not a database): set this to `false` for all other deployments. |
 | `spanner_create_bigquery_reservation` | `true` | Data Commons uses [BigQuery federated queries](https://docs.cloud.google.com/bigquery/docs/federated-queries-intro) internally to write data to Spanner. The first time you create a deployment in a given region, set this to `true` to create a BigQuery capacity reservation.<br/>**Important!** The reservation must only be created *once*, for the first deployment instance.There can only be one reservation per project per region. If another is created in the same deployment or other deployments in the same project/region, the ingestion pipeline will fail. On the other hand, if you set the variable to `false` after creation, Terraform will destroy it and break other deployments. The solution is to remove the resource from Terraform tracking in the first deployment; please see [Handle resource creation special variables](#handle) for procedures. |
 | `enable_redis` | `false` | Google Cloud [Memorystore for Redis](https://docs.cloud.google.com/memorystore/docs/redis/memorystore-for-redis-overview) is a caching service that speeds up website and API performance. We recommend keeping it disabled during development. When you launch to production, depending on your traffic load, you may wish to enable it. | 
-| `stateful_deletion_protection`  | `false` | Determines whether you will be allowed to destroy your "stateful" resources which are Spanner, and the Artifacts GCS bucket. We recommend setting this to `true` for production. | 
-| `stateless_deletion_protection` |  `false` | Determines whether you will be allowed to `destroy` your "stateless" resources which are the resources that can be re-spun up with no data loss (Cloud Run Service/Jobs, Redis, Workflow etc…). We recommend setting this to true for production. | 
+| `stateful_deletion_protection`  | `false` | Determines whether you will be allowed to destroy your "stateful" resources which are Spanner, and the artifacts GCS bucket. We recommend setting this to `true` for production. | 
+| `stateless_deletion_protection` |  `false` | Determines whether you will be allowed to `destroy` your "stateless" resources which are the resources that can be re-spun up with no data loss (Cloud Run Services and Jobs, Redis, Workflows). We recommend setting this to true for production. | 
 | `spanner_version_retention_period` | `24h` | The Spanner database is configured to retain data for this period. Within this time frame, all mutations are kept and there is the ability to do point-in-time-restore.<br/>It also provides the ability to query Spanner at any timestamp within the time frame.This means that data can be queried even during ingestion of large imports, without the risk of serving from a corrupted database while data is being modified.<br/>In case of failures mid-ingestion, you have the time of this retention period to resolve it before your requests start to serve data on  a potentially corrupted database. (See [Restore database from backup](#restore) for details.)<br/>You can increase the value up to 7 days, but it does incur additional cost. To learn more, see [Point-in-time recovery (PITR) overview](https://docs.cloud.google.com/spanner/docs/pitr). |
 
 ### Step 4: Run the Terraform deployment
@@ -209,7 +209,7 @@ The service account name is <code><var>INSTANCE_NAME</var>-dc-ing-wf-sa@datcom-w
 
 To run the datacommons CLI commands that execute these processes, you need to impersonate the service account using your own credentials. To do so, you create a one-time IAM binding that gives your account permission to act as the service account.
 
-1. Ensure you have authenticated as in [step 1](#step-1-authenticate-to-google-cloud-platform).
+1. Ensure you have authenticated as in [step 1](#step1).
 1. Optionally, from your Terraform directory, run the following to get the name of the service account:
    ```shell
    terraform output ingestion_workflow_service_account_email
@@ -219,8 +219,7 @@ To run the datacommons CLI commands that execute these processes, you need to im
    gcloud iam service-accounts add-iam-policy-binding "<var>SERVICE_ACCOUNT</var>" \
     --member="user:<var>YOUR_USER_ACCOUNT</var>" \
     --role="roles/iam.serviceAccountTokenCreator" \
-    --project="<var>PROJECT_ID</var>"
-    </pre>
+    --project="<var>PROJECT_ID</var>"</pre>
     Your user account is whatever email address you are using as a member of your GCP project.
 
 To verify that your account has been added as a principal to the service account, you can look up the details as follows:
@@ -264,7 +263,7 @@ If you'd like to just start with some sample data, you can download the files fr
 
 Data Commons Platform requires the following input:
 
-* One or more MCF files that define your custom *[provenances, sources](https://docs.datacommons.org/data_model.html#sources)*, *entities*, and *statistical variables*
+* One or more MCF files that define your custom [provenances, sources](https://docs.datacommons.org/data_model.html#sources), entities, and statistical variables
 * One or more CSV files that provide the statistical observations
 * One or more config.json file(s) that define "imports"; that is, the subset of data you want to import when you run the ingestion workflow.
 
@@ -387,8 +386,7 @@ A provenance must be linked to a specific source. Your source may already exist 
 2. In your browser bar, enter the following API query:
 
     <pre>
-    https://api.datacommons.org/v2/node?key=<var>YOUR_DATA_COMMONS_API_KEY</var>&nodes=Source&property=%3C-typeOf
-    </pre>
+    https://api.datacommons.org/v2/node?key=<var>YOUR_DATA_COMMONS_API_KEY</var>&nodes=Source&property=%3C-typeOf</pre>
     If you don't find your source here, you will need to define one.
 
 You define your source(s) in MCF. For example, let's say you get data from the International Olympic Committee (which is not in base Data Commons). You could define the following source:
@@ -404,7 +402,7 @@ url: "https://olympics.com/ioc"
 The following fields are required:
 
 * `Node`: The DCID of the source you are defining. The node must have a namespace prefix.
-* `typeOf`: This must be `dcid:Source`
+* `typeOf`: This must be `dcs:Source`
 * `name`: A human-readable name.
 * `source`: The provider of the data, using its DCID. This may be a source that already exists in base Data Commons (as in the OECD example above). If there is no suitable existing source, you need to define one, as described below.
 * `url`: This is the URL of a downloadable file, or a web page providing a link to the data. Note that it must include the prefix, i.e. http(s).
@@ -431,7 +429,7 @@ url: "https://www.oecd.org/en/data/indicators/average-annual-wages.html"
 The following fields are required:
 
 * Node: The DCID of the provenance you are defining, prefixed by the custom namespace.
-* `typeOf`: This must be `dcid:Provenance`.
+* `typeOf`: This must be `dcs:Provenance`.
 * `name`: A human-readable name.
 * `source`: The provider of the data, using its ID. This may be a source that already exists in base Data Commons, like the OECD in this example. If there is no suitable existing source, you need to define one, as described above and then refer to it, using your custom namespace, here.
 * url or `sourceDataUrl`: This is the URL of a downloadable file, or a web page providing a link to the data. Note that it must include the prefix, i.e. http(s).
@@ -513,7 +511,7 @@ observationProperties: dcs:country, dcs:gender
 
 ### Step 5 (optional): Define statistical variable groups
 
-If you would like to view your variables in the Statistical Variable Explorer, you will want to create custom statvar groups. See [Define a statistical variable group](https://docs.datacommons.org/custom_dc/custom_data.html#statvar-group) for details.
+If you would your variables to be grouped together (for, say, UI purposes), you will want to create custom statvar groups. See [Define a statistical variable group](https://docs.datacommons.org/custom_dc/custom_data.html#statvar-group) for details.
 
 ### Step 6: Prepare the CSV observation files
 
@@ -547,7 +545,7 @@ who:Ratio_CigaretteSmoking_Adults_ByGender,dcid:Female,dcid:country/ARE,2018,1.6
 
 The heading columns can be whatever you want; the observation properties don't have to match the edges you defined in MCF.
 
-> **Note:** The observation properties are required to be present in all observations using this variable. If there are observations (rows) missing values for any observation property, those rows will be dropped. Do not include observations that don't provide values for all required properties in a given CSV file. Instead, create a separate variable with the columns that are present, and provide the observations in a separate CSV file.
+> **Note:** The observation properties are required to be present in all observations using this variable. If there are observations (rows) missing values for any observation property, your data may be corrupted. Do not include observations that don't provide values for all required properties in a given CSV file. Instead, create a separate variable with the columns that are present, and provide the observations in a separate CSV file.
 
 
 ### Step 7: Write your config.json file(s) {#config}
@@ -756,12 +754,12 @@ The `config.json `file would look like this:
 
 In this step, you upload your CSV, MCF and `config.json` files to a new or existing Google Cloud Storage bucket.
 
-**Note: **To perform this procedure, you must have a minimum of [Storage Object Admin](https://docs.cloud.google.com/iam/docs/roles-permissions/storage) or Storage Object User roles.
+> **Note:** To perform this procedure, you must have a minimum of [Storage Object Admin](https://docs.cloud.google.com/iam/docs/roles-permissions/storage) or Storage Object User roles.
 
 If you created a new bucket:
 
 * The name is set by the Terraform `storage_artifacts_bucket_name` variable. If you didn't set this explicitly, the default is <code><var>INSTANCE_NAME</var>-dc-artifacts-<var>PROJECT_ID. </var></code>
-* The <code><var>INGESTION_BASE</var></code> is set by the Terraform` ingestion_input_path` variable. If you didn't set this explicitly, the default is `ingestion/input`.
+* The <code><var>INGESTION_BASE</var></code> is set by the Terraform `ingestion_input_path` variable. If you didn't set this explicitly, the default is `ingestion/input`.
 
 To look up your bucket name and ingestion base folder name, from your Terraform directory, run:
 
@@ -774,9 +772,8 @@ Here we give gcloud commands for uploading files from a local directory or trans
 
 > **Note:** As part of the import process, you must add a subdirectory under the ingestion base path. You can create it in the same command as uploading your files below. Alternatively, you can create it as a first step by running the following command:
 
-    <pre>
-    gcloud storage folders create gs://<var>GCS_BUCKET</var>/<var>INGESTION_BASE</var>/<var>IMPORT_FOLDER</var>
-    </pre>
+  <pre>
+  gcloud storage folders create gs://<var>GCS_BUCKET</var>/<var>INGESTION_BASE</var>/<var>IMPORT_FOLDER</var></pre>
 
 To upload files from a local directory:
 
@@ -784,8 +781,7 @@ To upload files from a local directory:
 2. Run the following command:
 
     <pre>
-    gcloud storage cp -R * gs://<var>GCS_BUCKET</var>/<var>INGESTION_BASE</var>/<var>IMPORT_FOLDER</var>/
-    </pre>
+    gcloud storage cp -R * gs://<var>GCS_BUCKET</var>/<var>INGESTION_BASE</var>/<var>IMPORT_FOLDER</var>/</pre>
 
 To copy files from another Cloud Storage bucket and/or folder:
 
@@ -820,9 +816,9 @@ Depending on the amount of data being processed, it can take anywhere from 10 mi
 
 To verify that the workflow has completed, click the `Workflow Console Link` in the output and look for the **Executions** > **State** heading. When the workflow is complete, it shows **return result** - **succeeded**. 
 
-**Note:** If you need to restart the workflow for any reason, never try to execute it from the Cloud Console, but be sure to use the `datacommons-cli` command. The CLI passes in parameters that are needed for the workflow, so if you try to run the workflow without the CLI, the workflow will fail.
+> **Note:** If you need to restart the workflow for any reason, never try to execute it from the Cloud Console, but be sure to use the `datacommons-cli` command. The CLI passes in parameters that are needed for the workflow, so if you try to run the workflow without the CLI, the workflow will fail.
 
-**Important!:** Do not manually cancel a workflow anytime after the **run_preprocessing** stage, or your database will be corrupted. If you do need to cancel a workflow at this stage, you won't be able to restart it without clearing the database lock. See [Release database lock from ingestion workflow](#release) for the procedure.
+> **Important!:** Do not manually cancel a workflow anytime after the **run_preprocessing** stage, or your database will be corrupted. If you do need to cancel a workflow at this stage, you won't be able to restart it without clearing the database lock. See [Release database lock from ingestion workflow](#release) for the procedure.
 
 ### Step 3: Verify data
 
@@ -843,7 +839,7 @@ To issue SQL or GQL queries, go back to the table details page and click **Spann
 
 In addition to the [REST](https://docs.datacommons.org/api/rest/v2/) and [Python](https://docs.datacommons.org/api/python/v2/) APIs, Data Commons Platform supports a limited version of the [SDMX](https://sdmx.org/) (Statistical Data and Metadata eXchange) [version 3.0](https://sdmx.org/wp-content/uploads/SDMx_3-0-0_Major_Changes_FINAL-1_0.pdf) standard API GET requests. For Milestone 1, the equivalent of the REST Observation API is supported: you can query to discover what data is available for given entities, and to fetch time series data (observations), both single-entity and multi-entity. 
 
-**Note:** Currently, *only* the SDMX API can be used to query multi-entity observations. You can continue to use REST and Python for single-entity observations.
+> **Note:** Currently, *only* the SDMX API can be used to query multi-entity observations. You can continue to use REST and Python for single-entity observations.
 
 ### Endpoints 
 
@@ -1017,8 +1013,8 @@ The `config.json` would look like this:
     {
       "pattern": "schema.mcf",
       "provenance": "who:UN_WHO"
-     }
-      ]
+    }
+  ]
 } 
 ```
 

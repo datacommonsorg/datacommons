@@ -1,0 +1,36 @@
+Node: dcid:who/Adult_curr_cig_smokers
+typeOf: dcid:StatisticalVariable
+name: "Prevalence of current cigarette smoking among adults (%)"
+populationType: dcid:Person
+measuredProperty: dcid:percent
+observationProperties: dcid:observationAbout
+memberOf: dcid:UN_WHO_group
+
+Node: dcid:sex
+typeOf: schema:Property
+name: "Sex"
+domainIncludes: dcs:StatisticalVariable
+rangeIncludes: dcid:GenderType
+
+Node: dcid:who/Adult_curr_cig_smokers_by_sex
+typeOf: dcid:StatisticalVariable
+name: "Prevalence of current cigarette smoking among adults (%), broken down by sex"
+populationType: dcid:Person
+measuredProperty: dcid:percent
+observationProperties: dcid:country, dcid:sex
+memberOf: dcid:UN_WHO_group
+
+Node: dcid:WHO
+typeOf: dcid:Source
+name: "World Health Organization"
+url: "https://custom.who.int"
+
+Node: dcid:UN_WHO
+typeOf: dcid:Provenance
+source: dcid:WHO
+name: "UN WHO"
+url: "https://custom.who.int/data/gho/indicator-metadata-registry/imr-details/6128"
+
+Node: dcid:UN_WHO_group
+typeOf: dcid:StatVarGroup
+specializationOf: dcid:dc/g/Root
