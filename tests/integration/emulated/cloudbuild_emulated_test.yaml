@@ -52,6 +52,11 @@ steps:
           --instance=local \
           --test-config=foobar_wages
     env:
+      - 'PYTHONUNBUFFERED=1'
+      - 'DCP_SERVING_URL=http://website:8080'
+      - 'DCP_HELPER_URL=http://ingestion-helper:8080'
+      - 'SPANNER_EMULATOR_HOST=spanner:15000'
+      - 'STORAGE_EMULATOR_HOST=http://gcs:9099'
       - 'HELPER_IMAGE=$_HELPER_IMAGE'
       - 'SERVICES_IMAGE=$_SERVICES_IMAGE'
       - 'PROCESSOR_IMAGE=$_PROCESSOR_IMAGE'

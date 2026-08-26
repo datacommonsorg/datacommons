@@ -39,13 +39,20 @@ class EmulatedEnvironment:
 
     def __init__(
         self,
-        serving_url: str = "http://localhost:8082",
-        helper_url: str = "http://localhost:8081",
-        gcs_url: str = "http://localhost:9099",
+        serving_url: str | None = None,
+        helper_url: str | None = None,
+        gcs_url: str | None = None,
     ):
-        self.serving_url = serving_url
-        self.helper_url = helper_url
-        self.gcs_url = gcs_url
+        self.serving_url = serving_url or os.getenv(
+            "DCP_SERVING_URL", "http://localhost:8082"
+        )
+        self.helper_url = helper_url or os.getenv(
+            "DCP_HELPER_URL", "http://localhost:8081"
+        )
+        self.gcs_url = gcs_url or os.getenv(
+            "STORAGE_EMULATOR_HOST", "http://localhost:9099"
+        )
+        self.spanner_host = os.getenv("SPANNER_EMULATOR_HOST", "localhost:9010")
         self._is_running = False
 
     def is_healthy(self) -> bool:
@@ -68,16 +75,20 @@ class EmulatedEnvironment:
             print("=" * 80 + "\n")
             return
 
-        print("\n" + "=" * 80)
+        print("\n" + "=" * 80, flush=True)
         print(
-            "🚀 [Emulated Stack] Bootstrapping hermetic local Docker Compose environment..."
+            "🚀 [Emulated Stack] Bootstrapping hermetic local Docker Compose environment...",
+            flush=True,
         )
-        print("=" * 80)
+        print("=" * 80, flush=True)
+
+        os.environ["SPANNER_EMULATOR_HOST"] = self.spanner_host
+        os.environ["STORAGE_EMULATOR_HOST"] = self.gcs_url
 
         self._cleanup_stale()
 
         # 1. Start core storage and ingestion helper
-        print(">>> Starting Spanner emulator, Fake GCS, and Ingestion Helper...")
+        print(">>> Starting Spanner emulator, Fake GCS, and Ingestion Helper...", flush=True)
         self._compose_up("spanner", "gcs", "ingestion-helper")
         self._wait_for_spanner_ready(timeout_secs=30)
         self._wait_for_ready(
@@ -92,18 +103,24 @@ class EmulatedEnvironment:
             self._ingest_dataset(manifest)
 
         # 4. Start serving tier (Website & Mixer)
-        print(">>> Starting Website and Mixer services...")
+        print(">>> Starting Website and Mixer services (streaming logs)...", flush=True)
         self._compose_up("website")
-        self._wait_for_ready(f"{self.serving_url}/healthz", "Website", timeout_secs=60)
-        self._wait_for_mixer_ready(timeout_secs=60)
+
+        def _do_wait_website():
+            self._wait_for_ready(
+                f"{self.serving_url}/healthz", "Website", timeout_secs=90
+            )
+
+        self._stream_container_logs_during("itest-website", _do_wait_website)
+        self._wait_for_mixer_ready(timeout_secs=90)
         self._is_running = True
-        print("✔ [Emulated Stack] All local services are ready!\n")
+        print("✔ [Emulated Stack] All local services are ready!\n", flush=True)
 
     def stop(self) -> None:
         """Tears down all Docker Compose containers and volumes."""
         if not self._is_running and not self.is_healthy():
             return
-        print("\n>>> [Emulated Stack] Tearing down local containers...")
+        print("\n>>> [Emulated Stack] Tearing down local containers...", flush=True)
         subprocess.run(
             ["docker", "compose", "-f", str(COMPOSE_FILE), "down", "-v"],
             cwd=str(EMULATED_DIR),
@@ -111,29 +128,36 @@ class EmulatedEnvironment:
             check=False,
         )
         self._is_running = False
-        print("✔ [Emulated Stack] Teardown complete.\n")
+        print("✔ [Emulated Stack] Teardown complete.\n", flush=True)
 
     def _compose_up(self, *services: str) -> None:
         cmd = ["docker", "compose", "-f", str(COMPOSE_FILE), "up", "-d", *services]
         subprocess.run(cmd, cwd=str(EMULATED_DIR), check=True)
+        hostname = os.getenv("HOSTNAME", "")
+        if hostname:
+            subprocess.run(
+                ["docker", "network", "connect", "itest-net", hostname],
+                capture_output=True,
+                check=False,
+            )
 
     def _initialize_database(self) -> None:
         # Provisioned in fixture setup so downstream test suites can run in isolation.
-        print(">>> Ensuring test-db database exists in Spanner emulator...")
-        with contextlib.suppress(Exception):
-            from google.auth.credentials import AnonymousCredentials
-            from google.cloud import spanner
+        print(">>> Ensuring test-db database exists in Spanner emulator...", flush=True)
+        from google.auth.credentials import AnonymousCredentials
+        from google.cloud import spanner
 
-            client = spanner.Client(
-                project="default", credentials=AnonymousCredentials()
-            )
-            instance = client.instance("default")
-            db = instance.database("test-db")
-            if not db.exists():
-                db.create().result(timeout=30)
+        client = spanner.Client(
+            project="default", credentials=AnonymousCredentials()
+        )
+        instance = client.instance("default")
+        db = instance.database("test-db")
+        if not db.exists():
+            db.create().result(timeout=30)
 
         print(
-            ">>> Initializing database schema DDL via Ingestion Helper (streaming logs)..."
+            ">>> Initializing database schema DDL via Ingestion Helper (streaming logs)...",
+            flush=True,
         )
 
         def _do_initialize():
@@ -146,7 +170,7 @@ class EmulatedEnvironment:
 
         self._stream_container_logs_during("itest-ingestion-helper", _do_initialize)
 
-        print(">>> Seeding database base ontology variables...")
+        print(">>> Seeding database base ontology variables...", flush=True)
 
         def _do_seed():
             resp = requests.post(
@@ -159,7 +183,7 @@ class EmulatedEnvironment:
         self._stream_container_logs_during("itest-ingestion-helper", _do_seed)
 
     def _ingest_dataset(self, manifest: TestManifest) -> None:
-        print(">>> Seeding GCS emulator and running ingestion pipeline...")
+        print(">>> Seeding GCS emulator and running ingestion pipeline...", flush=True)
         # 1. Ensure test bucket exists in GCS emulator
         with contextlib.suppress(Exception):
             requests.post(
@@ -205,9 +229,11 @@ class EmulatedEnvironment:
         subprocess.run(proc_cmd, cwd=str(EMULATED_DIR), check=True)
 
         # 4. Run Java Spanner loader (GraphIngestionPipeline on DirectRunner)
-        gcs_resp = requests.get(
+        resp = requests.get(
             f"{self.gcs_url}/storage/v1/b/test-bucket/o", timeout=10
-        ).json()
+        )
+        resp.raise_for_status()
+        gcs_resp = resp.json()
         jsonld_blobs = [
             item["name"]
             for item in gcs_resp.get("items", [])
@@ -265,7 +291,7 @@ class EmulatedEnvironment:
         ]
         subprocess.run(loader_cmd, check=True)
 
-    def _wait_for_ready(self, url: str, name: str, timeout_secs: int = 60) -> None:
+    def _wait_for_ready(self, url: str, name: str, timeout_secs: int = 90) -> None:
         start = time.time()
         while time.time() - start < timeout_secs:
             try:
@@ -274,11 +300,23 @@ class EmulatedEnvironment:
             except requests.exceptions.RequestException:
                 pass
             time.sleep(0.5)
+        container_logs = ""
+        with contextlib.suppress(Exception):
+            c_name = f"itest-{name.lower()}"
+            proc = subprocess.run(
+                ["docker", "logs", "--tail", "100", c_name],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            logs = proc.stdout or proc.stderr or ""
+            if logs:
+                container_logs = f"\n--- Container {c_name} logs ---\n{logs}"
         raise RuntimeError(
-            f"❌ {name} failed to become ready at {url} within {timeout_secs}s."
+            f"❌ {name} failed to become ready at {url} within {timeout_secs}s.{container_logs}"
         )
 
-    def _wait_for_mixer_ready(self, timeout_secs: int = 60) -> None:
+    def _wait_for_mixer_ready(self, timeout_secs: int = 90) -> None:
         start = time.time()
         while time.time() - start < timeout_secs:
             try:
@@ -295,11 +333,27 @@ class EmulatedEnvironment:
             except Exception:
                 pass
             time.sleep(0.5)
+        container_logs = ""
+        with contextlib.suppress(Exception):
+            proc = subprocess.run(
+                ["docker", "logs", "--tail", "100", "itest-website"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            logs = proc.stdout or proc.stderr or ""
+            if logs:
+                container_logs = f"\n--- Container itest-website logs ---\n{logs}"
         raise RuntimeError(
-            f"❌ Mixer failed to populate Spanner graph cache within {timeout_secs}s."
+            f"❌ Mixer failed to populate Spanner graph cache within {timeout_secs}s.{container_logs}"
         )
 
     def _wait_for_spanner_ready(self, timeout_secs: int = 30) -> None:
+        print(
+            f">>> Waiting for Spanner emulator to accept connections at {self.spanner_host}...",
+            flush=True,
+        )
+        os.environ["SPANNER_EMULATOR_HOST"] = self.spanner_host
         start = time.time()
         while time.time() - start < timeout_secs:
             try:
@@ -310,32 +364,29 @@ class EmulatedEnvironment:
                     project="default", credentials=AnonymousCredentials()
                 )
                 list(client.list_instances())
+                print("✔ Spanner emulator is ready!", flush=True)
                 return
             except Exception:
                 time.sleep(1)
-        raise RuntimeError("❌ Spanner emulator failed to become ready in time.")
+        raise RuntimeError(
+            f"❌ Spanner emulator at {self.spanner_host} failed to become ready in time."
+        )
 
     def _stream_container_logs_during(self, container_name: str, target_fn):
         """Streams container logs to terminal in real time while target_fn executes."""
         import threading
 
-        stop_event = threading.Event()
+        proc = subprocess.Popen(
+            ["docker", "logs", "-f", "--tail", "0", container_name],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
 
         def _stream():
             try:
-                proc = subprocess.Popen(
-                    ["docker", "logs", "-f", "--tail", "0", container_name],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                )
-                while not stop_event.is_set():
-                    line = proc.stdout.readline() if proc.stdout else ""
-                    if line:
-                        print(f"[{container_name}] {line.rstrip()}", flush=True)
-                    elif proc.poll() is not None:
-                        break
-                proc.terminate()
+                for line in iter(proc.stdout.readline, ""):
+                    print(f"[{container_name}] {line.rstrip()}", flush=True)
             except Exception:
                 pass
 
@@ -344,8 +395,10 @@ class EmulatedEnvironment:
         try:
             return target_fn()
         finally:
-            stop_event.set()
-            time.sleep(0.3)
+            proc.terminate()
+            with contextlib.suppress(Exception):
+                proc.wait(timeout=2.0)
+            thread.join(timeout=1.0)
 
     def _cleanup_stale(self) -> None:
         subprocess.run(

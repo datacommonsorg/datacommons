@@ -458,8 +458,6 @@ def dcp_target(request, test_manifest) -> DCPTarget:
     if instance_opt in ("local", "emulated"):
         from tests.integration.emulated.environment import EmulatedEnvironment
 
-        os.environ["SPANNER_EMULATOR_HOST"] = "localhost:9010"
-        os.environ["STORAGE_EMULATOR_HOST"] = "http://localhost:9099"
         env = EmulatedEnvironment()
         reuse_data_opt = request.config.getoption("--reuse-data", default=False)
         env.start(manifest=test_manifest, reuse_data=reuse_data_opt)
@@ -596,9 +594,17 @@ def seeded_testbed(dcp_target, dcp_cli, spanner_client, test_manifest, request):
             f"❌ Error: Test manifest '{test_manifest.name}' has no ingestion.dataset_dirs defined."
         )
 
-    if bucket_clean:
         try:
-            storage_client = storage.Client(project=dcp_target.project_id)
+            from google.auth.credentials import AnonymousCredentials
+
+            creds = (
+                AnonymousCredentials()
+                if os.getenv("STORAGE_EMULATOR_HOST") or dcp_target.instance_name == "local"
+                else None
+            )
+            storage_client = storage.Client(
+                project=dcp_target.project_id, credentials=creds
+            )
             bucket = storage_client.bucket(bucket_clean)
 
             for d in dataset_dirs:
