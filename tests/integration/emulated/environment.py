@@ -115,6 +115,19 @@ class EmulatedEnvironment:
         subprocess.run(cmd, cwd=str(EMULATED_DIR), check=True)
 
     def _initialize_database(self) -> None:
+        print(">>> Ensuring test-db database exists in Spanner emulator...")
+        with contextlib.suppress(Exception):
+            from google.auth.credentials import AnonymousCredentials
+            from google.cloud import spanner
+
+            client = spanner.Client(
+                project="default", credentials=AnonymousCredentials()
+            )
+            instance = client.instance("default")
+            db = instance.database("test-db")
+            if not db.exists():
+                db.create().result(timeout=30)
+
         print(">>> Initializing database schema DDL via Ingestion Helper...")
         resp = requests.post(
             f"{self.helper_url}/database/initialize",
