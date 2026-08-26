@@ -78,7 +78,6 @@ services:
       - "8082:8080"
     volumes:
       - ./mock/sitecustomize.py:/workspace/patch/sitecustomize.py:ro
-      - ./config/feature_flags.yaml:/workspace/deploy/featureflags/dcp.yaml:ro
       - ./config/feature_flags.yaml:/workspace/deploy/featureflags/custom.yaml:ro
     environment:
       - PYTHONPATH=/workspace/patch
