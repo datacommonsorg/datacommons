@@ -316,34 +316,25 @@ class EmulatedEnvironment:
             f"❌ {name} failed to become ready at {url} within {timeout_secs}s.{container_logs}"
         )
 
-    def _wait_for_mixer_ready(
-        self, manifest: TestManifest | None = None, timeout_secs: int = 90
-    ) -> None:
-        probe_node = "dc/g/Root"
-        if manifest:
-            if manifest.serving.nodes:
-                probe_node = manifest.serving.nodes[0].node_dcid
-            elif (
-                manifest.serving.point_observations
-                and manifest.serving.point_observations[0].variables
-            ):
-                probe_node = manifest.serving.point_observations[0].variables[0]
-            elif manifest.ingestion.spanner_nodes:
-                probe_node = manifest.ingestion.spanner_nodes[0].node_dcid
+    def _wait_for_mixer_ready(self, timeout_secs: int = 90) -> None:
+        """Polls Mixer until Spanner graph cache is loaded and ready to serve.
 
+        NOTE (Temporary): Probing 'dc/g/Root' ensures the in-memory Spanner Property
+        Graph cache in Mixer has finished its asynchronous initial warmup cycle before
+        the test suites begin assertions. This will be superseded once Mixer exposes
+        a dedicated readiness endpoint.
+        """
         start = time.time()
         while time.time() - start < timeout_secs:
             try:
                 resp = requests.post(
                     f"{self.serving_url}/core/api/v2/node",
-                    json={"nodes": [probe_node], "property": "->name"},
+                    json={"nodes": ["dc/g/Root"], "property": "->name"},
                     headers={"X-Use-Multi-Entity-Schema": "true"},
                     timeout=2,
                 )
-                if resp.status_code == 200:
-                    data = resp.json().get("data", {})
-                    if probe_node in data and data[probe_node]:
-                        return
+                if resp.status_code == 200 and resp.json().get("data", {}).get("dc/g/Root"):
+                    return
             except Exception:
                 pass
             time.sleep(0.5)
@@ -359,7 +350,7 @@ class EmulatedEnvironment:
             if logs:
                 container_logs = f"\n--- Container itest-website logs ---\n{logs}"
         raise RuntimeError(
-            f"❌ Mixer failed to populate Spanner graph cache for '{probe_node}' within {timeout_secs}s.{container_logs}"
+            f"❌ Mixer failed to populate Spanner graph cache for 'dc/g/Root' within {timeout_secs}s.{container_logs}"
         )
 
     def _wait_for_spanner_ready(self, timeout_secs: int = 30) -> None:
