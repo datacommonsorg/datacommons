@@ -30,6 +30,11 @@ class TestEmbeddings:
                 "No indicator queries defined in manifest or postprocessing stage disabled."
             )
 
+        if seeded_testbed.instance_name in ("local", "emulated"):
+            pytest.skip(
+                "Vector embeddings resolution disabled in local emulated mode."
+            )
+
         try:
             res = dc_client.resolve.fetch_indicators(queries=[indicator_spec.query])
             assert res is not None
