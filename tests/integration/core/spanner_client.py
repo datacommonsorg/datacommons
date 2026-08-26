@@ -32,13 +32,9 @@ class SpannerClient:
     def _get_db(self):
         if self._database is None:
             creds = (
-                AnonymousCredentials()
-                if os.getenv("SPANNER_EMULATOR_HOST")
-                else None
+                AnonymousCredentials() if os.getenv("SPANNER_EMULATOR_HOST") else None
             )
-            self._client = spanner.Client(
-                project=self.project_id, credentials=creds
-            )
+            self._client = spanner.Client(project=self.project_id, credentials=creds)
             instance = self._client.instance(self.instance_id)
             self._database = instance.database(self.database_id)
         return self._database

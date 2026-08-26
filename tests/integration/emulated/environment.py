@@ -88,7 +88,10 @@ class EmulatedEnvironment:
         self._cleanup_stale()
 
         # 1. Start core storage and ingestion helper
-        print(">>> Starting Spanner emulator, Fake GCS, and Ingestion Helper...", flush=True)
+        print(
+            ">>> Starting Spanner emulator, Fake GCS, and Ingestion Helper...",
+            flush=True,
+        )
         self._compose_up("spanner", "gcs", "ingestion-helper")
         self._wait_for_spanner_ready(timeout_secs=30)
         self._wait_for_ready(
@@ -147,9 +150,7 @@ class EmulatedEnvironment:
         from google.auth.credentials import AnonymousCredentials
         from google.cloud import spanner
 
-        client = spanner.Client(
-            project="default", credentials=AnonymousCredentials()
-        )
+        client = spanner.Client(project="default", credentials=AnonymousCredentials())
         instance = client.instance("default")
         db = instance.database("test-db")
         if not db.exists():
@@ -229,9 +230,7 @@ class EmulatedEnvironment:
         subprocess.run(proc_cmd, cwd=str(EMULATED_DIR), check=True)
 
         # 4. Run Java Spanner loader (GraphIngestionPipeline on DirectRunner)
-        resp = requests.get(
-            f"{self.gcs_url}/storage/v1/b/test-bucket/o", timeout=10
-        )
+        resp = requests.get(f"{self.gcs_url}/storage/v1/b/test-bucket/o", timeout=10)
         resp.raise_for_status()
         gcs_resp = resp.json()
         jsonld_blobs = [
@@ -333,7 +332,9 @@ class EmulatedEnvironment:
                     headers={"X-Use-Multi-Entity-Schema": "true"},
                     timeout=2,
                 )
-                if resp.status_code == 200 and resp.json().get("data", {}).get("dc/g/Root"):
+                if resp.status_code == 200 and resp.json().get("data", {}).get(
+                    "dc/g/Root"
+                ):
                     return
             except Exception:
                 pass

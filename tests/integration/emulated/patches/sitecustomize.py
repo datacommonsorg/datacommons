@@ -27,7 +27,7 @@ def _patched_getaddrinfo(host, port, family=0, *args, **kwargs):
     if family in (socket.AF_UNSPEC, socket.AF_INET6) and host in (
         "localhost",
         "127.0.0.1",
-        "0.0.0.0",
+        "0.0.0.0",  # noqa: S104
     ):
         family = socket.AF_INET
     return _orig_getaddrinfo(host, port, family, *args, **kwargs)
@@ -40,4 +40,3 @@ import gcs_patch
 import spanner_patch
 
 __all__ = ["spanner_patch", "gcs_patch", "entity_resolution_patch"]
-

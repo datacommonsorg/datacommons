@@ -599,7 +599,8 @@ def seeded_testbed(dcp_target, dcp_cli, spanner_client, test_manifest, request):
 
             creds = (
                 AnonymousCredentials()
-                if os.getenv("STORAGE_EMULATOR_HOST") or dcp_target.instance_name == "local"
+                if os.getenv("STORAGE_EMULATOR_HOST")
+                or dcp_target.instance_name == "local"
                 else None
             )
             storage_client = storage.Client(
