@@ -79,6 +79,7 @@ services:
     volumes:
       - ./mock/sitecustomize.py:/workspace/patch/sitecustomize.py:ro
       - ./config/feature_flags.yaml:/workspace/deploy/featureflags/dcp.yaml
+      - ./mock/nl_server.py:/workspace/nl_app.py:ro
     environment:
       - PYTHONPATH=/workspace/patch
       - PORT=8080
@@ -94,22 +95,13 @@ services:
       - DC_API_KEY=dummy-key
       - MAPS_API_KEY=dummy-maps-key
       - DC_API_ROOT=
-      - ENABLE_MODEL=true 
-      - NL_SERVICE_ROOT_URL=http://mock-nl-server:6060
+      - ENABLE_MODEL=true
     depends_on:
       - spanner
     networks:
       - test-network
     extra_hosts:
       - "metadata.google.internal:127.0.0.1"
-
-  mock-nl-server:
-    image: python:3.11-slim
-    container_name: itest-mock-nl-server
-    volumes:
-      - ./mock/nl_server.py:/app/mock_nl_server.py
-    command: python /app/mock_nl_server.py
-    network_mode: "service:website"
 
 networks:
   test-network:

@@ -90,10 +90,11 @@ class EmulatedEnvironment:
         if manifest and manifest.stages.ingestion and manifest.ingestion.dataset_dirs:
             self._ingest_dataset(manifest)
 
-        # 4. Start serving tier (Website + Mock NL)
-        print(">>> Starting Website and Mock NL services...")
-        self._compose_up("website", "mock-nl-server")
+        # 4. Start serving tier (Website & Mixer)
+        print(">>> Starting Website and Mixer services...")
+        self._compose_up("website")
         self._wait_for_ready(f"{self.serving_url}/healthz", "Website", timeout_secs=60)
+        self._wait_for_mixer_ready(timeout_secs=60)
         self._is_running = True
         print("✔ [Emulated Stack] All local services are ready!\n")
 
@@ -268,6 +269,27 @@ class EmulatedEnvironment:
             f"❌ {name} failed to become ready at {url} within {timeout_secs}s."
         )
 
+    def _wait_for_mixer_ready(self, timeout_secs: int = 60) -> None:
+        start = time.time()
+        while time.time() - start < timeout_secs:
+            try:
+                resp = requests.post(
+                    f"{self.serving_url}/core/api/v2/node",
+                    json={"nodes": ["average_annual_wage"], "property": "->name"},
+                    headers={"X-Use-Multi-Entity-Schema": "true"},
+                    timeout=2,
+                )
+                if resp.status_code == 200:
+                    data = resp.json().get("data", {})
+                    if "average_annual_wage" in data and data["average_annual_wage"]:
+                        return
+            except Exception:
+                pass
+            time.sleep(0.5)
+        raise RuntimeError(
+            f"❌ Mixer failed to populate Spanner graph cache within {timeout_secs}s."
+        )
+
     def _wait_for_spanner_ready(self, timeout_secs: int = 30) -> None:
         start = time.time()
         while time.time() - start < timeout_secs:
@@ -332,7 +354,6 @@ class EmulatedEnvironment:
                 "itest-gcs",
                 "itest-ingestion-helper",
                 "itest-website",
-                "itest-mock-nl-server",
                 "itest-datacommons-data-processor",
             ],
             capture_output=True,

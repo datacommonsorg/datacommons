@@ -29,53 +29,81 @@ STATVAR_MAPPING = {
 }
 
 
+def _handle_request(path: str, req_data: dict) -> tuple[int, dict]:
+    if path in ("/healthz", "/", "/version"):
+        return 200, {"status": "ok"}
+
+    queries = req_data.get("queries", [])
+    if isinstance(queries, str):
+        queries = [queries]
+    if not queries and "nodes" in req_data:
+        queries = req_data["nodes"]
+
+    if "/api/embedding" in path or "/encode" in path:
+        return 200, {"embeddings": [DUMMY_VECTOR for _ in queries]}
+
+    matches = []
+    for q in queries:
+        q_lower = str(q).lower()
+        matched = False
+        for key, dcids in STATVAR_MAPPING.items():
+            if key in q_lower:
+                matches.extend(dcids)
+                matched = True
+        if not matched:
+            matches.append("average_annual_wage")
+
+    resp_data = {
+        "entities": [
+            {
+                "query": q,
+                "candidates": [{"dcid": m, "score": 0.99} for m in set(matches)],
+            }
+            for q in queries
+        ]
+    }
+    return 200, resp_data
+
+
+def app(environ, start_response):
+    """WSGI callable for Gunicorn running inside website container."""
+    path = environ.get("PATH_INFO", "/")
+    method = environ.get("REQUEST_METHOD", "GET")
+    req_data = {}
+    if method == "POST":
+        try:
+            length = int(environ.get("CONTENT_LENGTH", 0) or 0)
+            body = environ["wsgi.input"].read(length).decode("utf-8") if length > 0 else "{}"
+            req_data = json.loads(body)
+        except Exception:
+            req_data = {}
+
+    status_code, resp_obj = _handle_request(path, req_data)
+    status_str = f"{status_code} OK" if status_code == 200 else f"{status_code} Not Found"
+    resp_bytes = json.dumps(resp_obj).encode("utf-8")
+    start_response(status_str, [("Content-Type", "application/json"), ("Content-Length", str(len(resp_bytes)))])
+
 class MockNLHandler(BaseHTTPRequestHandler):
     def do_GET(self):
-        if self.path in ("/healthz", "/"):
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(b'{"status": "ok"}')
-        else:
-            self.send_response(404)
-            self.end_headers()
+        code, resp = _handle_request(self.path, {})
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps(resp).encode("utf-8"))
 
     def do_POST(self):
-        length = int(self.headers.get("Content-Length", 0))
+        length = int(self.headers.get("Content-Length", 0) or 0)
         body = self.rfile.read(length).decode("utf-8") if length > 0 else "{}"
         try:
             req_data = json.loads(body)
         except Exception:
             req_data = {}
 
-        queries = req_data.get("queries", [])
-        if isinstance(queries, str):
-            queries = [queries]
-
-        if "/api/embedding" in self.path or "/encode" in self.path:
-            response = {"embeddings": [DUMMY_VECTOR for _ in queries]}
-        else:
-            matches = []
-            for q in queries:
-                q_lower = q.lower()
-                matched_vars = []
-                for k, v in STATVAR_MAPPING.items():
-                    if k in q_lower:
-                        matched_vars.extend(v)
-                if not matched_vars:
-                    matched_vars = ["average_annual_wage"]
-                matches.append(list(dict.fromkeys(matched_vars)))
-
-            response = {
-                "candidates": matches[0] if matches else [],
-                "entities": [{"candidates": [{"dcid": v} for v in matches[0]]}] if matches else [],
-                "query": queries[0] if queries else "",
-            }
-
-        self.send_response(200)
+        code, resp = _handle_request(self.path, req_data)
+        self.send_response(code)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
-        self.wfile.write(json.dumps(response).encode("utf-8"))
+        self.wfile.write(json.dumps(resp).encode("utf-8"))
 
     def log_message(self, format_str, *args):
         pass
@@ -83,7 +111,6 @@ class MockNLHandler(BaseHTTPRequestHandler):
 
 def run(port: int = 6060):
     server = HTTPServer(("0.0.0.0", port), MockNLHandler)  # noqa: S104
-    print(f"Mock NL Server running on port {port}...", flush=True)
     server.serve_forever()
 
 
