@@ -73,6 +73,28 @@ uv run python tests/integration/run_e2e_tests.py \
 
 ---
 
+## 📡 Continuous Probers (24/7 Automated GCP Health Probing)
+
+DCP includes an automated **Serverless Ephemeral Prober** that runs continuously in Google Cloud to verify platform health across end-to-end releases.
+
+Every 3 hours, Cloud Scheduler triggers an isolated Cloud Run Job (`dcp-prober`) that:
+1. Provisions a fresh ephemeral DCP instance via Terraform.
+2. Runs the full end-to-end integration test suite against the live instance.
+3. Publishes structured execution reports to Google Cloud Storage.
+4. Triggers instant Cloud Monitoring alerts if any test fails.
+5. Guarantees 100% infrastructure teardown.
+
+### Monitoring Active Probers & Execution Status
+* **Cloud Run Job Executions**: [Console: `dcp-prober` Executions](https://console.cloud.google.com/run/jobs/details/us-central1/dcp-prober/executions?project=datcom-dcp)
+* **Cloud Scheduler Cron**: [Console: `dcp-prober-cron`](https://console.cloud.google.com/cloudscheduler/jobs/edit/us-central1/dcp-prober-cron?project=datcom-dcp)
+* **Historical Prober Reports**: [Console: `dcp-prober-reports-datcom-dcp/reports`](https://console.cloud.google.com/storage/browser/dcp-prober-reports-datcom-dcp/reports?project=datcom-dcp) (`gs://dcp-prober-reports-datcom-dcp/reports/`)
+
+> 📖 **Deploying or Updating Probers**:
+> * To update prober schedules, alert recipients, or test dataset manifests, see the [Prober Architecture Guide](prober/README.md).
+> * For the full deployment and update runbook using `deploy_prober.sh`, see the [Prober Deployment Runbook](prober/deploy/README.md).
+
+---
+
 ## 🎛️ CLI Package Testing (Local / TestPyPI / PyPI)
 
 ### Test Local CLI Development Source
@@ -101,6 +123,23 @@ tests/integration/
 ├── README.md                      # This documentation
 ├── run_e2e_tests.py               # Master CLI & programmatic runner
 ├── conftest.py                    # Pytest lifecycle hooks & dynamic parameterization
+│
+├── prober/                        # Automated 24/7 GCP Prober & Ephemeral runner
+│   ├── README.md                  # Prober architecture, flow & local debugging
+│   ├── prober_runner.py           # Ephemeral instance orchestrator (3-Phase lifecycle)
+│   ├── ephemeral_dcp_overrides.tfvars.template # Static overrides for ephemeral target instances
+│   ├── deploy/                    # Cloud deployment automation & Terraform blueprint
+│   │   ├── README.md              # Complete Prober deployment runbook
+│   │   ├── deploy_prober.sh       # Cloud Build & Terraform deployment script
+│   │   ├── Dockerfile             # Prober container image definition
+│   │   ├── cloudbuild.yaml        # Cloud Build pipeline configuration
+│   │   └── terraform/             # Infrastructure-as-Code for Prober daemon
+│   │       ├── backend.tf         # Remote GCS state locking
+│   │       ├── main.tf            # Service Account, Cloud Run Job, Scheduler & Alerts
+│   │       ├── variables.tf       # Prober Terraform variables
+│   │       └── outputs.tf         # Terraform outputs
+│   └── tools/                     # Prober operational utilities
+│       └── cleanup_prober_trash.py # Interactive janitor for orphaned ephemeral resources
 │
 ├── test_data/                     # Benchmark datasets & self-contained test specs
 │   ├── foobar_wages/              # FooBar Wages CSV, MCF, config.json, test_spec.yaml
