@@ -117,6 +117,7 @@ class EmulatedEnvironment:
         subprocess.run(cmd, cwd=str(EMULATED_DIR), check=True)
 
     def _initialize_database(self) -> None:
+        # Provisioned in fixture setup so downstream test suites can run in isolation.
         print(">>> Ensuring test-db database exists in Spanner emulator...")
         with contextlib.suppress(Exception):
             from google.auth.credentials import AnonymousCredentials
