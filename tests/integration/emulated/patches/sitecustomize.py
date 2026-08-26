@@ -17,8 +17,27 @@
 Automatically imported by Python at interpreter startup when PYTHONPATH points to this directory.
 """
 
+import socket
+
+# Force IPv4 resolution for localhost/loopback in containers without IPv6 support
+_orig_getaddrinfo = socket.getaddrinfo
+
+
+def _patched_getaddrinfo(host, port, family=0, *args, **kwargs):
+    if family in (socket.AF_UNSPEC, socket.AF_INET6) and host in (
+        "localhost",
+        "127.0.0.1",
+        "0.0.0.0",
+    ):
+        family = socket.AF_INET
+    return _orig_getaddrinfo(host, port, family, *args, **kwargs)
+
+
+socket.getaddrinfo = _patched_getaddrinfo
+
 import entity_resolution_patch
 import gcs_patch
 import spanner_patch
 
 __all__ = ["spanner_patch", "gcs_patch", "entity_resolution_patch"]
+
