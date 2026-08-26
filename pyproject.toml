@@ -54,12 +54,10 @@ datacommons-db = { workspace = true }
 datacommons-schema = { workspace = true }
 datacommons-cli = { workspace = true }
 datacommons-admin = { workspace = true }
-datacommons-integration-tests = { workspace = true }
 
 [tool.uv.workspace]
 members = [
     "packages/*",
-    "tests/datacommons-integration-tests",
 ]
 
 [tool.coverage.run]

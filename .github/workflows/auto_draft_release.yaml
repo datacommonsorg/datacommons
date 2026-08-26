@@ -66,10 +66,9 @@ jobs:
         run: |
           TAG="${{ needs.check-bump.outputs.version }}"
           
-          uv run python3 tests/datacommons-integration-tests/gcp_test_runner.py \
-            --project-id datcom-ci \
-            --dcp-version "$TAG" \
-            --dc-api-key "$DC_API_KEY"
+          uv run python tests/integration/prober/prober_runner.py \
+            --project datcom-ci \
+            --target-tag "$TAG"
 
   hermetic-integration-test:
     needs: check-bump
@@ -88,7 +87,7 @@ jobs:
         run: uv sync --locked
 
       - name: Run hermetic integration test
-        run: uv run pytest -s tests/datacommons-integration-tests/run_local_integration_test.py
+        run: uv run python tests/integration/run_e2e_tests.py --instance=local --test-config=foobar_wages
 
 
 
