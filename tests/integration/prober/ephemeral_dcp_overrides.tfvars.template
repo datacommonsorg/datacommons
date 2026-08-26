@@ -1,0 +1,31 @@
+# Copyright 2026 Google LLC.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# ==============================================================================
+# Data Commons Platform (DCP) — Ephemeral Integration Prober Variable Overrides
+# ==============================================================================
+# Overrides applied to the temporary DCP instance provisioned by prober_runner.py.
+# Copied to prober_overrides.auto.tfvars at runtime for automatic discovery.
+# Dynamic values (project_id, instance_name, auth_google_datacommons_api_key)
+# are configured automatically in terraform.tfvars via 'dcp admin init'.
+# ==============================================================================
+
+dcp_version                         = "latest"
+spanner_create_instance             = true
+spanner_create_database             = true
+spanner_create_bigquery_reservation = false
+stateless_deletion_protection       = false
+stateful_deletion_protection        = false
+ingestion_dataflow_ip_configuration = "WORKER_IP_PRIVATE"
+ingestion_dataflow_subnetwork       = "regions/us-central1/subnetworks/default"

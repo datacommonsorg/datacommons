@@ -15,34 +15,28 @@
 from datacommons_db.clients.spanner_client import ExecutionStatus, SpannerClient
 from datacommons_db.migrations.base import SchemaMigration
 
-_CREATE_SCHEMA_MIGRATIONS_TABLE_DDL = """
-CREATE TABLE SchemaMigrations (
-    SchemaMigrationId UUID NOT NULL DEFAULT (NEW_UUID()),
-    CreationTimestamp STRING(64) NOT NULL,
-    AppliedTimestamp TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
-    Description STRING(MAX) NOT NULL
-) PRIMARY KEY (SchemaMigrationId)
+_ADD_FK_EDGE_OBJECT_NODE_DDL = """
+ALTER TABLE Edge
+ADD CONSTRAINT FK_Edge_Object_Node
+FOREIGN KEY (object_id) REFERENCES Node (subject_id) NOT ENFORCED
 """.strip()
 
 
 class Migration(SchemaMigration):
-    description: str = "Add SchemaMigrations table to bootstrap schema migrations."
-    creation_timestamp: str = "2026-08-17T00:00:00Z"
+    description: str = "Add non-enforced foreign key FK_Edge_Object_Node on Edge.object_id referencing Node.subject_id"
+    creation_timestamp: str = "2026-08-25T21:22:44Z"
 
     def upgrade(self, spanner_client: SpannerClient) -> None:
-        """Executes forward schema changes to initialize SchemaMigrations table.
+        """Executes forward schema changes to add the non-enforced foreign key constraint.
 
         Args:
             spanner_client: SpannerClient instance to execute DDL / DML.
 
         Raises:
-            RuntimeError: If SchemaMigrations table already exists or DDL operation fails.
+            RuntimeError: If any DDL or DML operation fails.
         """
-        if spanner_client.table_exists("SchemaMigrations"):
-            raise RuntimeError("Table 'SchemaMigrations' already exists.")
-
-        result = spanner_client.execute_ddl([_CREATE_SCHEMA_MIGRATIONS_TABLE_DDL])
+        result = spanner_client.execute_ddl([_ADD_FK_EDGE_OBJECT_NODE_DDL])
         if result.status != ExecutionStatus.SUCCESS:
             raise RuntimeError(
-                f"Failed to create SchemaMigrations table: {result.error_message}"
+                f"Failed to add FK_Edge_Object_Node constraint to Edge table: {result.error_message}"
             )

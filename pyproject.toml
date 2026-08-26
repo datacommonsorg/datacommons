@@ -137,6 +137,13 @@ extend-ignore = [
 "packages/*/datacommons_*/migrations/migration_scripts/*.py" = [
     "N999",   # Allow timestamp prefixes (e.g. 20260817000000_*.py) for migration scripts
 ]
+"tools/migrations/templates/*.py" = [
+    "ERA001", # Allow example commented-out code in migration template
+    "F401",   # Allow pre-imported modules in migration template
+]
+"tools/**/tests/*.py" = [
+    "S101",   # Allow using `assert` in pytests
+]
 "tests/**/*.py" = [
     "S101",   # Allow using `assert` in pytests
     "S105",   # Allow hardcoded mock passwords/tokens in tests
@@ -175,12 +182,23 @@ url = "https://pypi.org/simple"
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
+[project.scripts]
+manage-migrations = "tools.migrations.manage_migrations_cli:cli"
+
 [tool.setuptools]
-# Tell setuptools this is a meta-package and to stop looking for code
-packages = []
+packages = [
+    "tools",
+    "tools.migrations",
+    "tools.migrations.templates",
+    "tools.migrations.tests",
+]
+
+[tool.setuptools.package-data]
+"tools.migrations" = ["templates/*"]
 
 [tool.setuptools.dynamic]
 version = {file = "VERSION"}
 
 [tool.pytest.ini_options]
-testpaths = ["packages", "tests/deploy_scripts"]
+pythonpath = [".", "deploy/scripts"]
+testpaths = ["packages", "tests/deploy_scripts", "tools/migrations/tests"]
