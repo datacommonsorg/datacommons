@@ -12,20 +12,20 @@ The emulated stack runs the following containers in a shared bridge network (`it
 
 | Container Service | Image / Port | Description |
 | :--- | :--- | :--- |
+
 | **`spanner`** | `us-docker.pkg.dev/spanner-omni/images/spanner-omni:2026.r1-beta.2` (`9010` gRPC, `9020` REST) | In-memory Google Cloud Spanner emulator with Graph schema support. |
 | **`gcs`** | `fsouza/fake-gcs-server:1.47.8` (`9099` HTTP) | Local Google Cloud Storage mock emulator. |
 | **`ingestion-helper`** | `gcr.io/datcom-ci/datacommons-ingestion-helper:latest` (`8081` HTTP) | Database migrations (`/database/initialize`) & base ontology seeding (`/database/seed`). |
-| **`website` (Mixer)** | `gcr.io/datcom-ci/datacommons-services:latest` (`8082` HTTP) | Combined Data Commons Website frontend and Mixer gRPC/REST serving backend. |
-| **`mock-nl-server`** | `python:3.11-slim` (`6060` HTTP) | Fast zero-dependency mock embeddings & NL search server. |
+| **`website` (Mixer)** | `gcr.io/datcom-ci/datacommons-services:latest` (`8082` HTTP) | Combined Data Commons Website frontend and Mixer serving backend. |
 
 ---
 
 ## 🚀 Running Integration Tests Locally
 
-To run the serving API integration tests against the local emulated stack:
+To run the complete integration test suite against the local emulated stack:
 
 ```bash
-uv run pytest tests/integration/suites/03_serving_api/ \
+uv run pytest tests/integration/suites/ \
   --instance=local \
   --test-config=foobar_wages
 ```
@@ -34,10 +34,10 @@ uv run pytest tests/integration/suites/03_serving_api/ \
 
 By default, the testing framework starts the container stack, initializes the schema, loads the dataset, and tears down the containers after the test run.
 
-To keep the containers alive and run tests in **~2 seconds**:
+To keep the containers alive and run tests in **~1 second**:
 
 ```bash
-uv run pytest tests/integration/suites/03_serving_api/ \
+uv run pytest tests/integration/suites/ \
   --instance=local \
   --test-config=foobar_wages \
   --reuse-data
@@ -57,18 +57,16 @@ To test against specific release candidate images or pinned version tags:
 ```bash
 HELPER_IMAGE=gcr.io/datcom-ci/datacommons-ingestion-helper:v1.2.0 \
 SERVICES_IMAGE=gcr.io/datcom-ci/datacommons-services:v1.2.0 \
-uv run pytest tests/integration/suites/03_serving_api/ \
+uv run pytest tests/integration/suites/ \
   --instance=local \
   --test-config=foobar_wages
 ```
 
 ---
 
-## 🚩 Feature Flags Configuration
+## 🚩 Feature Flags
 
-Mixer feature flags are configured declaratively in [`config/feature_flags.yaml`](./config/feature_flags.yaml) and mounted directly into the `website` container at `/workspace/deploy/featureflags/dcp.yaml:ro`.
-
-This ensures multi-entity schema support (`UseMultiEntitySchema: true`) and custom topic resolution are active by default during local test runs.
+The container automatically uses the canonical DCP feature flag defaults defined directly in the `datacommons-services` image (`deploy/featureflags/dcp.yaml`), including `UseSpannerGraph: true`, `UseMultiEntitySchema: true`, and `EnableSDMXDataApi: true`.
 
 ---
 
@@ -80,7 +78,6 @@ When running with warm containers (`--reuse-data`), you can inspect services dir
 * **Ingestion Helper**: `http://localhost:8081/docs`
 * **Spanner Emulator**: `localhost:9010` (gRPC) / `localhost:9020` (REST)
 * **GCS Emulator**: `http://localhost:9099/storage/v1/b`
-* **Mock NL Server**: `http://localhost:6060/healthz`
 
 To manually stop the emulated container stack:
 ```bash

@@ -1,8 +1,0 @@
-flags:
-  EnableEmbeddingsResolver: true
-  EnableSDMXDataApi: true
-  EnableSpannerSearchEmbeddings: false
-  UseMultiEntitySchema: true
-  UseNewIngestionHistorySchema: true
-  UseSpannerGraph: true
-  UseSpannerKeyValueStore: true

@@ -58,11 +58,16 @@ services:
       - SPANNER_EMULATOR_HOST=spanner:15000
       - STORAGE_EMULATOR_HOST=http://gcs:9099
       - OUTPUT_DIR=gs://test-bucket/output
+      - GCS_BUCKET_ID=test-bucket
+      - GCS_OUTPUT_PREFIX=output
       - PROJECT_ID=default
       - SPANNER_PROJECT_ID=default
       - SPANNER_INSTANCE_ID=default
       - SPANNER_DATABASE_ID=test-db
       - SPANNER_GRAPH_DATABASE_ID=test-db
+      - IS_BASE_DC=false
+      - ENABLE_EMBEDDINGS=false
+      - ENABLE_UNIQUE_INGESTION_RUNS=true
     depends_on:
       - spanner
     networks:
@@ -78,8 +83,6 @@ services:
       - "8082:8080"
     volumes:
       - ./mock/sitecustomize.py:/workspace/patch/sitecustomize.py:ro
-      - ./config/feature_flags.yaml:/workspace/deploy/featureflags/dcp.yaml
-      - ./mock/nl_server.py:/workspace/nl_app.py:ro
     environment:
       - PYTHONPATH=/workspace/patch
       - PORT=8080
@@ -91,11 +94,15 @@ services:
       - GCP_SPANNER_INSTANCE_ID=default
       - GCP_SPANNER_DATABASE_NAME=test-db
       - USE_SPANNER_GRAPH=true
+      - USE_SPANNER_KEY_VALUE_STORE=true
+      - USE_CLOUDSQL=false
+      - ENABLE_MCP=true
+      - ENABLE_UNIQUE_HISTORY_RECORDS=true
+      - RESOLVE_WITH_SPANNER_EMBEDDINGS=false
       - DC_SEARCH_SCOPE=custom_only
       - DC_API_KEY=dummy-key
       - MAPS_API_KEY=dummy-maps-key
       - DC_API_ROOT=
-      - ENABLE_MODEL=true
     depends_on:
       - spanner
     networks:

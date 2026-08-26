@@ -57,6 +57,6 @@ jobs:
           HELPER_IMAGE: gcr.io/datcom-ci/datacommons-ingestion-helper:${{ steps.image-tag.outputs.tag }}
           SERVICES_IMAGE: gcr.io/datcom-ci/datacommons-services:${{ steps.image-tag.outputs.tag }}
         run: |
-          uv run pytest tests/integration/suites/03_serving_api/ \
+          uv run pytest tests/integration/suites/ \
             --instance=local \
             --test-config=foobar_wages
