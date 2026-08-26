@@ -65,7 +65,7 @@ uv run pytest tests/integration/suites/ \
   --test-config=foobar_wages
 ```
 
-> **TODO (Follow-Up)**: Support direct live mounting and substitution of local source code directories (`website/`, `mixer/`, `import/`) without needing pre-built container images (see [Roadmap](#-roadmap--follow-ups-local-code-substitution) below).
+> **TODO (Follow-Up)**: Support direct live mounting and substitution of local source code directories (`website/`, `mixer/`, `import/`) without needing pre-built container images.
 
 ---
 
@@ -83,17 +83,3 @@ To manually stop the emulated container stack:
 docker compose -f tests/integration/emulated/docker-compose.yml down -v
 ```
 
----
-
-## 🔮 Roadmap & Follow-Ups: Local Code Substitution
-
-In an upcoming follow-up, the test runner will support substituting container images with **local repository source trees** for rapid cross-repository development:
-
-| Component | Target Repo | Planned Substitution Mechanism |
-| :--- | :--- | :--- |
-| **Website & Flask** | `../website` | Live source volume mount into `website` container (`/workspace/server`) |
-| **Mixer Serving Backend** | `../mixer` | Local Go binary mount into `website` container (`/workspace/mixer`) |
-| **Data Processor** | `../import/simple` | Live source volume mount into `datacommons-data-processor` |
-| **Beam Graph Pipeline** | `../import` | Local Java JAR DirectRunner mount into `dataflow-ingestion` |
-
-This will enable testing PR branches across sibling repositories against the end-to-end integration suite without waiting for remote CI container builds.
