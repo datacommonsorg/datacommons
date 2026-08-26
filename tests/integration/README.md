@@ -87,7 +87,7 @@ Every 3 hours, Cloud Scheduler triggers an isolated Cloud Run Job (`dcp-prober`)
 ### Monitoring Active Probers & Execution Status
 * **Cloud Run Job Executions**: [Console: `dcp-prober` Executions](https://console.cloud.google.com/run/jobs/details/us-central1/dcp-prober/executions?project=datcom-dcp)
 * **Cloud Scheduler Cron**: [Console: `dcp-prober-cron`](https://console.cloud.google.com/cloudscheduler/jobs/edit/us-central1/dcp-prober-cron?project=datcom-dcp)
-* **Historical Prober Reports**: `gs://dcp-prober-reports-datcom-dcp/reports/`
+* **Historical Prober Reports**: [Console: `dcp-prober-reports-datcom-dcp/reports`](https://console.cloud.google.com/storage/browser/dcp-prober-reports-datcom-dcp/reports?project=datcom-dcp) (`gs://dcp-prober-reports-datcom-dcp/reports/`)
 
 > 📖 **Deploying or Updating Probers**:
 > * To update prober schedules, alert recipients, or test dataset manifests, see the [Prober Architecture Guide](prober/README.md).
@@ -127,12 +127,12 @@ tests/integration/
 ├── prober/                        # Automated 24/7 GCP Prober & Ephemeral runner
 │   ├── README.md                  # Prober architecture, flow & local debugging
 │   ├── prober_runner.py           # Ephemeral instance orchestrator (3-Phase lifecycle)
+│   ├── ephemeral_dcp_overrides.tfvars.template # Static overrides for ephemeral target instances
 │   ├── deploy/                    # Cloud deployment automation & Terraform blueprint
 │   │   ├── README.md              # Complete Prober deployment runbook
 │   │   ├── deploy_prober.sh       # Cloud Build & Terraform deployment script
 │   │   ├── Dockerfile             # Prober container image definition
 │   │   ├── cloudbuild.yaml        # Cloud Build pipeline configuration
-│   │   ├── ephemeral_dcp_overrides.tfvars.template # Static overrides for ephemeral target instances
 │   │   └── terraform/             # Infrastructure-as-Code for Prober daemon
 │   │       ├── backend.tf         # Remote GCS state locking
 │   │       ├── main.tf            # Service Account, Cloud Run Job, Scheduler & Alerts

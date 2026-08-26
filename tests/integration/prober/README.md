@@ -39,7 +39,7 @@ flowchart LR
 
 2. **At Each Scheduled Run**:
    Cloud Scheduler triggers the Cloud Run Job, which executes [`tests/integration/prober/prober_runner.py`](prober_runner.py) to perform the full lifecycle:
-   * **Scaffold Ephemeral Workspace**: Scaffolds an isolated temporary workspace (`/tmp/prober-<uuid>`) via `dcp admin init --tf-git-ref main` with a dedicated remote state prefix (`ephemeral/prober-<uuid>`) and runtime variable overrides.
+   * **Scaffold Ephemeral Workspace**: Scaffolds an isolated temporary workspace (`/tmp/prober-<uuid>`) via `datacommons admin init --tf-git-ref main` with a dedicated remote state prefix (`ephemeral/prober-<uuid>`) and runtime variable overrides.
    * **Provision Fresh Infrastructure**: Runs `terraform apply` (with automatic retry backoff for transient GCP rate limits) to spin up a completely isolated DCP stack on GCP (Spanner DB, Redis, Cloud Run services, Workflows).
    * **Install CLI & Execute E2E Tests**: Fetches the latest `datacommons` monorepo packages (`client`, `admin`, `cli`) from GitHub `main` and runs the integration test suite ([`tests/integration/run_e2e_tests.py`](../run_e2e_tests.py) with `foobar_wages`) across Ingestion $\to$ Postprocessing (SVG/Embeddings) $\to$ Serving APIs $\to$ MCP Agent tools.
    * **Guaranteed 100% Teardown**: Wraps execution in `try ... finally` and signal handlers (`SIGTERM`/`SIGINT`) to ensure `terraform destroy -auto-approve` runs immediately after testing, leaving zero orphaned GCP resources.
@@ -96,7 +96,7 @@ uv run python tests/integration/prober/prober_runner.py \
 If a debugging session with `--skip-destroy` or an unexpected cancellation leaves temporary `prober-*` resources behind, run the interactive cleanup janitor:
 
 ```bash
-python3 tests/integration/prober/tools/cleanup_prober_trash.py
+uv run python tests/integration/prober/tools/cleanup_prober_trash.py
 ```
 
 This tool safely scans and prompts before removing any orphaned `prober-*` Spanner instances, Cloud Run services, buckets, IAM bindings, or API keys.

@@ -17,7 +17,7 @@
 Production-hardened, resilient orchestrator that executes in 3 distinct phases:
 - Phase 1 (Infrastructure Provisioning):
     1. Installs/syncs live datacommons-cli package.
-    2. Scaffolds ephemeral workspace via 'dcp admin init --tf-git-ref main'.
+    2. Scaffolds ephemeral workspace via 'datacommons admin init --tf-git-ref main'.
     3. Injects prober variable overrides and executes 'terraform init' & 'terraform apply'.
 - Phase 2 (Test Execution):
     1. Executes full end-to-end integration test suite ('run_e2e_tests.py').
@@ -81,7 +81,7 @@ def provision_infra(
     tf_git_ref: str,
     dc_api_key: str,
 ) -> Path:
-    """Phase 1: Provisions isolated DCP infrastructure via 'dcp admin init' and Terraform."""
+    """Phase 1: Provisions isolated DCP infrastructure via 'datacommons admin init' and Terraform."""
     print("\n" + "=" * 80)
     print("PHASE 1: PROVISIONING ISOLATED DCP INFRASTRUCTURE")
     print("=" * 80)
@@ -144,7 +144,6 @@ def provision_infra(
         / "tests"
         / "integration"
         / "prober"
-        / "deploy"
         / "ephemeral_dcp_overrides.tfvars.template"
     )
     if overrides_src.exists():
