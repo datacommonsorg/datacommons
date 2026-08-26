@@ -112,7 +112,7 @@ class EmulatedEnvironment:
             )
 
         self._stream_container_logs_during("itest-website", _do_wait_website)
-        self._wait_for_mixer_ready(timeout_secs=90)
+        self._wait_for_mixer_ready(manifest=manifest, timeout_secs=90)
         self._is_running = True
         print("✔ [Emulated Stack] All local services are ready!\n", flush=True)
 
@@ -316,19 +316,33 @@ class EmulatedEnvironment:
             f"❌ {name} failed to become ready at {url} within {timeout_secs}s.{container_logs}"
         )
 
-    def _wait_for_mixer_ready(self, timeout_secs: int = 90) -> None:
+    def _wait_for_mixer_ready(
+        self, manifest: TestManifest | None = None, timeout_secs: int = 90
+    ) -> None:
+        probe_node = "dc/g/Root"
+        if manifest:
+            if manifest.serving.nodes:
+                probe_node = manifest.serving.nodes[0].node_dcid
+            elif (
+                manifest.serving.point_observations
+                and manifest.serving.point_observations[0].variables
+            ):
+                probe_node = manifest.serving.point_observations[0].variables[0]
+            elif manifest.ingestion.spanner_nodes:
+                probe_node = manifest.ingestion.spanner_nodes[0].node_dcid
+
         start = time.time()
         while time.time() - start < timeout_secs:
             try:
                 resp = requests.post(
                     f"{self.serving_url}/core/api/v2/node",
-                    json={"nodes": ["average_annual_wage"], "property": "->name"},
+                    json={"nodes": [probe_node], "property": "->name"},
                     headers={"X-Use-Multi-Entity-Schema": "true"},
                     timeout=2,
                 )
                 if resp.status_code == 200:
                     data = resp.json().get("data", {})
-                    if "average_annual_wage" in data and data["average_annual_wage"]:
+                    if probe_node in data and data[probe_node]:
                         return
             except Exception:
                 pass
@@ -345,7 +359,7 @@ class EmulatedEnvironment:
             if logs:
                 container_logs = f"\n--- Container itest-website logs ---\n{logs}"
         raise RuntimeError(
-            f"❌ Mixer failed to populate Spanner graph cache within {timeout_secs}s.{container_logs}"
+            f"❌ Mixer failed to populate Spanner graph cache for '{probe_node}' within {timeout_secs}s.{container_logs}"
         )
 
     def _wait_for_spanner_ready(self, timeout_secs: int = 30) -> None:

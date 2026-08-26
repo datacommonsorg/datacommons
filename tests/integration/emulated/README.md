@@ -67,6 +67,27 @@ uv run pytest tests/integration/suites/ \
 
 > **TODO (Follow-Up)**: Support direct live mounting and substitution of local source code directories (`website/`, `mixer/`, `import/`) without needing pre-built container images.
 
+## ☁️ Running in Google Cloud Build
+
+You can run the entire hermetic emulated test suite directly on Cloud Build:
+
+```bash
+gcloud builds submit \
+  --project=datcom-ci \
+  --config=tests/integration/emulated/cloudbuild_emulated_test.yaml \
+  .
+```
+
+To test specific container image tags via Cloud Build substitutions:
+
+```bash
+gcloud builds submit \
+  --project=datcom-ci \
+  --config=tests/integration/emulated/cloudbuild_emulated_test.yaml \
+  --substitutions=_SERVICES_IMAGE="gcr.io/datcom-ci/datacommons-services:v1.2.0",_HELPER_IMAGE="gcr.io/datcom-ci/datacommons-ingestion-helper:v1.2.0" \
+  .
+```
+
 ---
 
 ## 🔍 Debugging & Inspecting Services
@@ -82,4 +103,5 @@ To manually stop the emulated container stack:
 ```bash
 docker compose -f tests/integration/emulated/docker-compose.yml down -v
 ```
+
 
