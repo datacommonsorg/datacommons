@@ -875,220 +875,29 @@ The key always uses the wildcard `*`.
 
 The Availability API allows you to find out what data and metadata is available for a given variable, without getting the observations. You can get a list of provenances, entities (places), and other metadata, if available.
 
+For details on request syntax, query parameters, response format, and single-entity variable query examples, please see <https://docs.datacommons.org/api/sdmx/availability.html>. Multi-entity variable queries are provided below.
 
-#### Request syntax
+#### Multi-entity variable examples
 
-The basic syntax for the Availability API is as follows:
+##### Example 1: Get all the entities that have data for a specific value of a custom property
 
-<pre>
-https://<var>YOUR_APPLICATION_URL</var>/core/api/sdmx/v3/availability/dataflow/DC/DF_OBS/1.0.0/*/<var>OBSERVATION_FIELD</var>?c[variableMeasured]=<var>VARIABLE_DCIDS</var>&c[<var>OBSERVATION_FIELD</var>]=<var>ENTITY_DCIDS</var>&...c[TIME_PERIOD]=<var>DATES</var>
-</pre>
-
-#### Query parameters
-
-| **Parameter** | **Description** | **Valid values** |
-|:--------------|:----------------|:-----------------|
-| _OBSERVATION_FIELD_ <br/> Required | The property for which available data should be returned. Supported properties are:<ul><li><code>observationAbout</code>: Return all entities/places that have data for this variable. Use this for single-entity statistical variables. </li><li>Custom <code>observationProperties</code> dimension: Return all entities that have data for this custom property. Use this for multi-entity statistical variables. </li><li><code>provenance</code>: Return all provenances associated with observations for this variable.</li><li><code>unit</code>: Return all units that are specified in observations associated with this variable</li><li><code>measurementMethod</code>: Return all measurement methods that are specified in observations associated with this variable.</li><li><code>observationPeriod</code>: Return all observation periods that are specified in observations associated with this variable.</li></ul> | n/a |
-| `variableMeasured`<br/>Required | The statistical variable(s) about which you are looking up data availability. | Comma-separated list of statistical variable DCIDs |
-| _OBSERVATION_FIELD_ <br/> Optional | Additional property or properties by which you would like to filter results. The _OBSERVATION_FIELD_ is any of the properties listed above.<br/>For custom observation properties, up to 3 are supported.<br/>In addition, for place-type entities, you can filter by place type and parent, using the qualifiers `containedInPlace+` and `typeOf`. If you use these, you must specify both parameters. See the examples below for the syntax.<br/>Multiple filter properties are ANDed together. | <ul><li>For `observationAbout`, custom observation properties, and `provenance`: comma-separated list of DCID values for the selected observation property.</li><li>For all others: see [Prepare and load your own data](https://docs.datacommons.org/custom_dc/custom_data.html#exp_csv).</li></ul>Each value applies to all variables specified in the `variableMeasured` parameter. |
-| `TIME_PERIOD` <br/> Optional | Filter results by a specific time period. If not specified, defaults to all results. | Comma-separated dates, in the format _YYYY_, _YYYY_-_MM_, or _YYYY_-_MM_-_DD_. |
-
-At this time, the following parameters are accepted but redundant:
-
-* `mode`: only the default `exact` is supported
-* `references`: only the default `none` is supported
-* `format`: only `sdmx-json` is supported
-
-The only supported operator is `eq` (which is the same as `=`).
-
-#### Response format
-
-The Availability API returns responses in SDMX-JSON format 2.0.0. It looks like this:
-
-```
-{
-  "$schema": "https://json.sdmx.org/2.0.0/sdmx-json-structure-schema.json",
-  "data": {
-    "dataConstraints": [
-      {
-        "id": "DF_OBS_AVAILABILITY",
-        "agencyID": "DC",
-        "version": "1.0.0",
-        "name": "Available DF_OBS data",
-        "role": "Actual",
-        "cubeRegions": [
-          {
-            "include": true,
-            "keyValues": [
-              {
-                "id": "OBSERVATION_PROPERTY",
-                "include": true,
-                "values": [
-                  "VALUE1",
-                  "VALUE2",
-                  ...
-                ]
-              }
-            ]
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-#### Examples
-
-
-##### Example 1: Get all the entities (places) that have data for a specific variable, filtered for a specific year
-
-This example gets all the entities (places) that have data for the year 2020 for the variable `average_annual_wage`.
+This example gets all the countries that have data about females for a multi-entity variable, `who:Ratio_CigaretteSmoking_Adults_ByGender`. This variable is defined with 2 custom properties:` country` and `sex`.
 
 ###### Request
 
 <pre>
-curl -g "https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/availability/dataflow/DC/DF_OBS/1.0.0/*/observationAbout?c[variableMeasured]=average_annual_wage&c[TIME_PERIOD]=2020"
-</pre>
-
-###### Response
-
-(truncated)
-
-```
-{
-  "$schema": "https://json.sdmx.org/2.0.0/sdmx-json-structure-schema.json",
-  "data": {
-    "dataConstraints": [
-      {
-        "id": "DF_OBS_AVAILABILITY",
-        "agencyID": "DC",
-        "version": "1.0.0",
-        "name": "Available DF_OBS data",
-        "role": "Actual",
-        "cubeRegions": [
-          {
-            "include": true,
-            "keyValues": [
-              {
-                "id": "observationAbout",
-                "include": true,
-                "values": [
-                  "country/AUS",
-                  "country/AUT",
-                  "country/BEL",
-                  "country/CAN",
-                  "country/CHE",
-                  "country/CZE",
-                  "country/DEU",
-                  "country/DNK",
-                  "country/ESP",
-                  ...
-                ]
-              }
-            ]
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-##### Example 2: Get places that have data for a specific variable, filtered by type and parent place
-
-This example gets all the countries in North America that have data for the variable `average_annual_wage`.
-
-###### Request
-
-```
-curl -g "https://APPLICATION_URL/core/api/sdmx/v3/availability/dataflow/DC/DF_OBS/1.0.0/*/observationAbout?c[variableMeasured]=average_annual_wage&c[observationAbout.containedInPlace+]=northamerica&c[observationAbout.typeOf]=Country"
-```
-
-###### Response
-
-```
-{
-  "$schema": "https://json.sdmx.org/2.0.0/sdmx-json-structure-schema.json",
-  "data": {
-    "dataConstraints": [
-      {
-        "id": "DF_OBS_AVAILABILITY",
-        "agencyID": "DC",
-        "version": "1.0.0",
-        "name": "Available DF_OBS data",
-        "role": "Actual",
-        "cubeRegions": [
-          {
-            "include": true,
-            "keyValues": [
-              {
-                "id": "observationAbout",
-                "include": true,
-                "values": [
-                  "country/CAN",
-                  "country/MEX",
-                  "country/USA"
-                ]
-              }
-            ]
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-##### Example 3: Get all the entities that have data for a specific value of a custom property, for a multi-entity variable
-
-This example gets all the countries that have data about females for a multi-entity variable, `Adult_curr_cig_smokers_by_sex`. This variable is defined with 2 custom properties:` country` and `sex`.
-
-###### Request
-
-<pre>
-curl -g "https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/availability/dataflow/DC/DF_OBS/1.0.0/*/country?c[variableMeasured]=Adult_curr_cig_smokers_by_sex&c[sex]=Female"
+curl -g "https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/availability/dataflow/DC/DF_OBS/1.0.0/*/country?c[variableMeasured]=who/Adult_curr_cig_smokers_by_sex&c[sex]=Female"
 </pre>
 
 ###### Response
 
 ```
-{
-  "$schema": "https://json.sdmx.org/2.0.0/sdmx-json-structure-schema.json",
-  "data": {
-    "dataConstraints": [
-      {
-        "id": "DF_OBS_AVAILABILITY",
-        "agencyID": "DC",
-        "version": "1.0.0",
-        "name": "Available DF_OBS data",
-        "role": "Actual",
-        "cubeRegions": [
-          {
-            "include": true,
-            "keyValues": [
-              {
-                "id": "country",
-                "include": true,
-                "values": [
-                  "country/AFG",
-                  "country/AGO",
-                  "country/ALB",
-                  "country/ARE"
-                ]
-              }
-            ]
-          }
-        ]
-      }
-    ]
-  }
-}
+
 ```
 
-##### Example 4: Get the entities that have data for a specific property of a multi-entity variable, filtered by entity (place) type and parent
+##### Example 2: Get the entities that have data for a specific property, filtered by entity (place) type and parent
 
-This example gets the countries in Europe that have data about females, for a multi-entity variable, `Adult_curr_cig_smokers_by_sex`.
+This example gets the countries in Europe that have data about females, for a multi-entity variable, `who:Ratio_CigaretteSmoking_Adults_ByGender`.
 
 ###### Request
 
@@ -1099,171 +908,20 @@ https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/availability/dataflow/DC/DF_
 ###### Response
 
 ```
-{
-  "$schema": "https://json.sdmx.org/2.0.0/sdmx-json-structure-schema.json",
-  "data": {
-    "dataConstraints": [
-      {
-        "id": "DF_OBS_AVAILABILITY",
-        "agencyID": "DC",
-        "version": "1.0.0",
-        "name": "Available DF_OBS data",
-        "role": "Actual",
-        "cubeRegions": [
-          {
-            "include": true,
-            "keyValues": [
-              {
-                "id": "country",
-                "include": true,
-                "values": [
-                  "country/ALB"
-                ]
-              }
-            ]
-          }
-        ]
-      }
-    ]
-  }
-}
+
 ```
 
 ### Data
 
 The Data API returns actual observations for specific variables, filtered by various criteria. 
 
+For details on request syntax, query parameters, response format, and single-entity variable query examples, please see <https://docs.datacommons.org/api/sdmx/data.html>. Multi-entity variable queries are provided below.
 
-#### Request syntax
+#### Multi-entity variable query examples
 
-The basic query syntax for the Data API is as follows:
+##### Example 1: Get all the observations for 1 variable for 1 entity (place) 
 
-
-<pre>
-https://<var>YOUR_APPLICATION_URL</var>/core/api/sdmx/v3/data/dataflow/DC/DF_OBS/1.0.0/*?c[variableMeasured]=<var>VARIABLE_DCIDS</var>&c[<var>OBSERVATION_FIELD</var>]=<var>ENTITY_DCIDS</var>&...c[TIME_PERIOD]=<var>DATES</var>|LATEST
-</pre>
-
-
-#### Query parameters
-
-
-| **Parameter** | **Description** | **Valid values** |
-|:--------------|:----------------|:-----------------|
-| `variableMeasured` <br/>Required  | The statistical variable(s) for which you are retrieving observations. |  Comma-separated list of statistical variable DCIDs. | 
-| _OBSERVATION_FIELD_ <br/>Required | One or more properties by which to filter observations for the selected variable(s). If you have specified multiple values for `variableMeasured`, you must specify the same observation property filters for all. <br/>Multiple filter properties are ANDed together.<br/>Supported properties are:<ul><li>`observationAbout`: Return observations for the selected entities/places. Use this for single-entity statistical variables.<br/>For place entities, you can further refine this with `containedInPlace+` and `typeOf`. See below for examples.</li><li>Custom `observationProperties` dimensions: Return observations for the selected custom properties. Use this for multi-entity variables. Up to 3 properties are supported.<br/>For properties representing place types, you can further refine this with `containedInPlace+` and `typeOf`. See below for examples.</li><li>`provenance`: Return observations for the selected provenance(s) only.</li><li>`unit`: Return observations for the specified unit(s) only.</li><li>`measurementMethod`: Return observations that use the specified measurement(s) only.</li><li>`observationPeriod`: Return observations that use the specified observation period(s) only.</li><li>`scalingFactor`: Return observations that use the specified scaling factor(s) only. </li></ul> | <ul><li>For `observationAbout`, custom observation properties, and `provenance`: comma-separated list of DCID values for the selected observation property. </li><li>For all others: see [Prepare and load your data](https://docs.datacommons.org/custom_dc/custom_data.html#exp_csv).</li></ul>Each value applies to all variables specified in the <code>variableMeasured</code> parameter. |
-| `TIME_PERIOD` <br>Optional | Filter observations by a specific time period. If not specified, all observations are returned. | Comma-separated dates, in the format _YYYY_, _YYYY_-_MM_, or _YYYY_-_MM_-_DD_, or the constant `LATEST`. |
-
-At this time, the following parameters are accepted but redundant:
-
-* `measures`: only the default `all` is supported
-* `dimensions`: only the default `dsd` is supported
-* `format`: only `csv` is supported
-
-The only supported operator is `eq` (which is the same as `=`).
-
-
-#### Response format
-
-The Data API returns responses in SDMX-CSV 2.0.0 format. It looks like this:
-
-<pre>
-STRUCTURE,STRUCTURE_ID,ACTION,variableMeasured,observationAbout,unit,measurementMethod,observationPeriod,provenance,TIME_PERIOD,OBS_VALUE,scalingFactor,facetId
-dataflow,DC:DF_OBS(1.0.0),I,<var>VARIABLE_NAME1</var>,<var>ENTITY_NAME1</var>,<var>UNIT</var>,<var>MEASUREMENT_METHOD</var>,<var>OBSERVATION_PERIOD</var>,<var>PROVENANCE</var>,<var>DATE</var>,<var>OBSERVATION_VALUE</var>,<var>SCALING_FACTOR</var>,<var>FACET_ID</var>
-...
-</pre>
-
-All matching facets are returned. For any of the optional observation properties, if they are empty in the result observations, `NotApplicable` is returned. For `scalingFactor` only, an empty value is left empty.
-
-If you run your query in a browser, the response will automatically be downloaded as a CSV file called `dc_data.csv`.
-
-
-#### Examples
-
-##### Example 1: Get all observations for one variable, for one entity (place) 
-
-This example gets all observations for the variable `average_annual_wage`, for the United States.
-
-###### Request
-
-
-```
-curl -g "https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/data/dataflow/DC/DF_OBS/1.0.0/*?c[variableMeasured]=average_annual_wage&c[observationAbout]=country/USA"
-```
-
-###### Response
-
-(truncated)
-
-
-```
-STRUCTURE,STRUCTURE_ID,ACTION,variableMeasured,observationAbout,unit,measurementMethod,observationPeriod,provenance,TIME_PERIOD,OBS_VALUE,scalingFactor,facetId
-dataflow,DC:DF_OBS(1.0.0),I,average_annual_wage,country/USA,USD,NotApplicable,NotApplicable,OECDWages,2021,74737.84535,,6776878780070711562
-dataflow,DC:DF_OBS(1.0.0),I,average_annual_wage,country/USA,USD,NotApplicable,NotApplicable,OECDWages,2020,72806.75401,,6776878780070711562
-dataflow,DC:DF_OBS(1.0.0),I,average_annual_wage,country/USA,USD,NotApplicable,NotApplicable,OECDWages,2019,68842.30662,,6776878780070711562
-dataflow,DC:DF_OBS(1.0.0),I,average_annual_wage,country/USA,USD,NotApplicable,NotApplicable,OECDWages,2018,67663.83608,,6776878780070711562
-...
-```
-
-##### Example 2: Get only the latest observations for one variable, for one entity (place)
-
-This example gets the latest observations for the variable `average_annual_wage`, for the United States.
-
-###### Request
-
-<pre>
-curl -g "https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/data/dataflow/DC/DF_OBS/1.0.0/*?c[variableMeasured]=average_annual_wage&c[observationAbout]=country/USA&c[TIME_PERIOD]=LATEST"
-</pre>
-
-###### Response
-
-(truncated)
-
-```
-STRUCTURE,STRUCTURE_ID,ACTION,variableMeasured,observationAbout,unit,measurementMethod,observationPeriod,provenance,TIME_PERIOD,OBS_VALUE,scalingFactor,facetId
-dataflow,DC:DF_OBS(1.0.0),I,average_annual_wage,country/USA,USD,NotApplicable,NotApplicable,OECDWages,2021,74737.84535,,6776878780070711562
-```
-
-##### Example 3: Get observations for one variable, for one entity (place) for specific dates
-
-This example gets the observations for the variable `average_annual_wage`, for the United States for 2020 and 2021.
-
-###### Request
-
-<pre>
-curl -g "https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/data/dataflow/DC/DF_OBS/1.0.0/*?c[variableMeasured]=average_annual_wage&c[observationAbout]=country/USA&c[TIME_PERIOD]=2020,2021"
-</var></pre>
-
-###### Response
-
-```
-STRUCTURE,STRUCTURE_ID,ACTION,variableMeasured,observationAbout,unit,measurementMethod,observationPeriod,provenance,TIME_PERIOD,OBS_VALUE,scalingFactor,facetId
-dataflow,DC:DF_OBS(1.0.0),I,average_annual_wage,country/USA,USD,NotApplicable,NotApplicable,OECDWages,2020,72806.75401,,6776878780070711562
-dataflow,DC:DF_OBS(1.0.0),I,average_annual_wage,country/USA,USD,NotApplicable,NotApplicable,OECDWages,2021,74737.84535,,6776878780070711562
-```
-
-##### Example 4: Get the latest observations for one variable, for all places of a specific type and parent
-
-This example gets the latest observations for the variable `average_annual_wage`, for all countries in North America.
-
-###### Request
-
-<pre>
-curl -g "https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/data/dataflow/DC/DF_OBS/1.0.0/*?c[variableMeasured]=average_annual_wage&c[observationAbout.containedInPlace+]=northamerica&c[observationAbout.typeOf]=Country&c[TIME_PERIOD]=LATEST"
-</pre>
-
-
-###### Response
-
-```
-STRUCTURE,STRUCTURE_ID,ACTION,variableMeasured,observationAbout,unit,measurementMethod,observationPeriod,provenance,TIME_PERIOD,OBS_VALUE,scalingFactor,facetId
-dataflow,DC:DF_OBS(1.0.0),I,average_annual_wage,country/CAN,USD,NotApplicable,NotApplicable,OECDWages,2021,56005.61714,,6776878780070711562
-dataflow,DC:DF_OBS(1.0.0),I,average_annual_wage,country/MEX,USD,NotApplicable,NotApplicable,OECDWages,2021,16429.26359,,6776878780070711562
-dataflow,DC:DF_OBS(1.0.0),I,average_annual_wage,country/USA,USD,NotApplicable,NotApplicable,OECDWages,2021,74737.84535,,6776878780070711562
-```
-
-##### Example 5: Get all the observations for a multi-entity variable for 1 entity (place) 
-
-This example gets all observations for Albania, for a multi-entity variable` Adult_curr_cig_smokers_by_sex`.
+This example gets all observations for Albania, for a multi-entity variable `who:Ratio_CigaretteSmoking_Adults_ByGender`.
 
 ###### Request
 
@@ -1279,9 +937,9 @@ dataflow,DC:DF_OBS(1.0.0),I,who/Adult_curr_cig_smokers_by_sex,country/ALB,Female
 dataflow,DC:DF_OBS(1.0.0),I,who/Adult_curr_cig_smokers_by_sex,country/ALB,Male,NotApplicable,NotApplicable,NotApplicable,UN_WHO,2018,35.7,,13905847005863890490
 ```
 
-###### Example 6: Get all the observations for a specific property for a multi-entity variable, for 2 entities (places)
+###### Example 2: Get all the observations for a specific property for 2 entities (places)
 
-This example gets all observations about females in Albania, for a multi-entity variable` Adult_curr_cig_smokers_by_sex`.
+This example gets all observations about females in Albania, for a multi-entity variable `who:Ratio_CigaretteSmoking_Adults_ByGender`.
 
 ###### Request
 
@@ -1296,7 +954,7 @@ STRUCTURE,STRUCTURE_ID,ACTION,variableMeasured,country,sex,unit,measurementMetho
 dataflow,DC:DF_OBS(1.0.0),I,who/Adult_curr_cig_smokers_by_sex,country/ALB,Female,NotApplicable,NotApplicable,NotApplicable,UN_WHO,2018,4.5,,13905847005863890490
 ```
 
-##### Example 6: Get all the observations for a multi-entity variable for females for places of a specific type and parent
+##### Example 3: Get all the observations for females for places of a specific type and parent
 
 This example gets all observations about women in European countries, for a multi-entity variable` Adult_curr_cig_smokers_by_sex`.
 
