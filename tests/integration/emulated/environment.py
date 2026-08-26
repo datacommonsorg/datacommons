@@ -78,6 +78,7 @@ class EmulatedEnvironment:
         # 1. Start core storage and ingestion helper
         print(">>> Starting Spanner emulator, Fake GCS, and Ingestion Helper...")
         self._compose_up("spanner", "gcs", "ingestion-helper")
+        self._wait_for_spanner_ready(timeout_secs=30)
         self._wait_for_ready(
             f"{self.helper_url}/docs", "Ingestion Helper", timeout_secs=60
         )
@@ -89,9 +90,9 @@ class EmulatedEnvironment:
         if manifest and manifest.stages.ingestion and manifest.ingestion.dataset_dirs:
             self._ingest_dataset(manifest)
 
-        # 4. Start serving tier (Mock NL + Website)
-        print(">>> Starting Mock NL and Website services...")
-        self._compose_up("mock-nl-server", "website")
+        # 4. Start serving tier (Website + Mock NL)
+        print(">>> Starting Website and Mock NL services...")
+        self._compose_up("website", "mock-nl-server")
         self._wait_for_ready(f"{self.serving_url}/healthz", "Website", timeout_secs=60)
         self._is_running = True
         print("✔ [Emulated Stack] All local services are ready!\n")
@@ -128,21 +129,27 @@ class EmulatedEnvironment:
             if not db.exists():
                 db.create().result(timeout=30)
 
-        print(">>> Initializing database schema DDL via Ingestion Helper...")
-        resp = requests.post(
-            f"{self.helper_url}/database/initialize",
-            json={"actionType": "initialize_database"},
-            timeout=60,
-        )
-        resp.raise_for_status()
+        print(">>> Initializing database schema DDL via Ingestion Helper (streaming logs)...")
+        def _do_initialize():
+            resp = requests.post(
+                f"{self.helper_url}/database/initialize",
+                json={"actionType": "initialize_database"},
+                timeout=120,
+            )
+            resp.raise_for_status()
+
+        self._stream_container_logs_during("itest-ingestion-helper", _do_initialize)
 
         print(">>> Seeding database base ontology variables...")
-        resp = requests.post(
-            f"{self.helper_url}/database/seed",
-            json={"actionType": "seed_database"},
-            timeout=60,
-        )
-        resp.raise_for_status()
+        def _do_seed():
+            resp = requests.post(
+                f"{self.helper_url}/database/seed",
+                json={"actionType": "seed_database"},
+                timeout=60,
+            )
+            resp.raise_for_status()
+
+        self._stream_container_logs_during("itest-ingestion-helper", _do_seed)
 
     def _ingest_dataset(self, manifest: TestManifest) -> None:
         print(">>> Seeding GCS emulator and running ingestion pipeline...")
@@ -260,6 +267,54 @@ class EmulatedEnvironment:
         raise RuntimeError(
             f"❌ {name} failed to become ready at {url} within {timeout_secs}s."
         )
+
+    def _wait_for_spanner_ready(self, timeout_secs: int = 30) -> None:
+        start = time.time()
+        while time.time() - start < timeout_secs:
+            try:
+                from google.auth.credentials import AnonymousCredentials
+                from google.cloud import spanner
+
+                client = spanner.Client(
+                    project="default", credentials=AnonymousCredentials()
+                )
+                list(client.list_instances())
+                return
+            except Exception:
+                time.sleep(1)
+        raise RuntimeError("❌ Spanner emulator failed to become ready in time.")
+
+    def _stream_container_logs_during(self, container_name: str, target_fn):
+        """Streams container logs to terminal in real time while target_fn executes."""
+        import threading
+
+        stop_event = threading.Event()
+
+        def _stream():
+            try:
+                proc = subprocess.Popen(
+                    ["docker", "logs", "-f", "--tail", "0", container_name],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                )
+                while not stop_event.is_set():
+                    line = proc.stdout.readline() if proc.stdout else ""
+                    if line:
+                        print(f"[{container_name}] {line.rstrip()}", flush=True)
+                    elif proc.poll() is not None:
+                        break
+                proc.terminate()
+            except Exception:
+                pass
+
+        thread = threading.Thread(target=_stream, daemon=True)
+        thread.start()
+        try:
+            return target_fn()
+        finally:
+            stop_event.set()
+            time.sleep(0.3)
 
     def _cleanup_stale(self) -> None:
         subprocess.run(
