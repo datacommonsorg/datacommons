@@ -18,6 +18,7 @@ import click
 import pytest
 from click.testing import CliRunner
 from datacommons_admin.admin_cli import admin
+from datacommons_admin.db.utils.migration_utils import is_database_initialized
 from datacommons_db.clients.spanner_client import ExecutionStatus
 from datacommons_db.migrations.migration_runner import MigrationResult
 
@@ -153,8 +154,6 @@ def test_migrate_db_lock_busy_error(
 
 
 def test_is_database_initialized_true() -> None:
-    from datacommons_admin.db.utils.migration_utils import _is_database_initialized
-
     with patch(
         "datacommons_admin.db.utils.migration_utils.SpannerClient"
     ) as mock_spanner_cls:
@@ -162,7 +161,7 @@ def test_is_database_initialized_true() -> None:
         mock_client.table_exists.return_value = True
         mock_spanner_cls.return_value = mock_client
 
-        assert _is_database_initialized("proj", "inst", "db") is True
+        assert is_database_initialized("proj", "inst", "db") is True
         mock_spanner_cls.assert_called_once_with(
             project_id="proj", instance_id="inst", database_id="db"
         )
@@ -170,8 +169,6 @@ def test_is_database_initialized_true() -> None:
 
 
 def test_is_database_initialized_false() -> None:
-    from datacommons_admin.db.utils.migration_utils import _is_database_initialized
-
     with patch(
         "datacommons_admin.db.utils.migration_utils.SpannerClient"
     ) as mock_spanner_cls:
@@ -179,15 +176,13 @@ def test_is_database_initialized_false() -> None:
         mock_client.table_exists.return_value = False
         mock_spanner_cls.return_value = mock_client
 
-        assert _is_database_initialized("proj", "inst", "db") is False
+        assert is_database_initialized("proj", "inst", "db") is False
         mock_client.table_exists.assert_called_once_with("Node")
 
 
 def test_is_database_initialized_exception_returns_false() -> None:
-    from datacommons_admin.db.utils.migration_utils import _is_database_initialized
-
     with patch(
         "datacommons_admin.db.utils.migration_utils.SpannerClient",
         side_effect=Exception("Connection error"),
     ):
-        assert _is_database_initialized("proj", "inst", "db") is False
+        assert is_database_initialized("proj", "inst", "db") is False

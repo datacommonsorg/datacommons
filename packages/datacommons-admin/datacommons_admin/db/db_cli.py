@@ -24,7 +24,10 @@ from datacommons_admin.core.utils.tf_utils import (
     get_spanner_database_id,
     get_spanner_instance_id,
 )
-from datacommons_admin.db.utils.migration_utils import _run_migrations
+from datacommons_admin.db.utils.migration_utils import (
+    _run_migrations,
+    is_database_initialized,
+)
 from datacommons_db.clients import SpannerClient
 
 
@@ -103,7 +106,7 @@ def init_db(init_only: bool) -> None:
     click.secho("Datacommons Admin Init-DB", fg="cyan", bold=True)
     client, project_id, instance_id, database_id = _setup_ingestion_client()
 
-    if _is_database_initialized(project_id, instance_id, database_id):
+    if is_database_initialized(project_id, instance_id, database_id):
         click.secho(
             f"Spanner database '{instance_id}/{database_id}' is already initialized. Skipping initialization and migrations.",
             fg="yellow",

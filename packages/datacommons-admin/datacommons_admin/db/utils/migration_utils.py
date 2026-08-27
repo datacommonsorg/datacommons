@@ -22,7 +22,7 @@ from datacommons_db.clients import SpannerClient
 from datacommons_db.migrations import MigrationRunner
 
 
-def _is_database_initialized(
+def is_database_initialized(
     project_id: str, instance_id: str, database_id: str
 ) -> bool:
     """Checks whether the Cloud Spanner database exists and has been initialized.

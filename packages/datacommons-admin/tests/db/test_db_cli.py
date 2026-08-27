@@ -48,9 +48,9 @@ def test_init_db_terraform_error(runner: CliRunner) -> None:
 
 @pytest.fixture(autouse=True)
 def mock_is_database_initialized():
-    """Mocks _is_database_initialized in db_cli to return False by default."""
+    """Mocks is_database_initialized in db_cli to return False by default."""
     with patch(
-        "datacommons_admin.db.db_cli._is_database_initialized",
+        "datacommons_admin.db.db_cli.is_database_initialized",
         return_value=False,
     ) as mock_fn:
         yield mock_fn
