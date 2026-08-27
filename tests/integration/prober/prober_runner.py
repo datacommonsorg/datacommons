@@ -73,6 +73,27 @@ def run_cmd_with_retry(
     return last_proc
 
 
+def build_git_cli_cmd(ref: str, args: list[str]) -> list[str]:
+    """Constructs a uv tool run command to dynamically execute the Data Commons CLI from GitHub."""
+    base_url = f"git+https://github.com/datacommonsorg/datacommons.git@{ref}#subdirectory=packages"
+    return [
+        "uv",
+        "tool",
+        "run",
+        "--refresh",
+        "--from",
+        f"{base_url}/datacommons-cli",
+        "--with",
+        f"{base_url}/datacommons-admin",
+        "--with",
+        f"{base_url}/datacommons-db",
+        "--with",
+        f"{base_url}/datacommons-schema",
+        "datacommons",
+        *args,
+    ]
+
+
 def provision_infra(
     workspace_dir: Path,
     instance_name: str,
@@ -86,39 +107,14 @@ def provision_infra(
     print("PHASE 1: PROVISIONING ISOLATED DCP INFRASTRUCTURE")
     print("=" * 80)
 
-    # Step 0: Ensure live datacommons packages (schema, db, admin, cli) are installed from GitHub ref
-    print(
-        f"\n==> [Phase 1.0] Ensuring datacommons packages are synced from GitHub @ {tf_git_ref}..."
-    )
-    try:
-        base_url = f"git+https://github.com/datacommonsorg/datacommons.git@{tf_git_ref}#subdirectory=packages"
-        packages_to_install = [
-            f"{base_url}/datacommons-schema",
-            f"{base_url}/datacommons-db",
-            f"{base_url}/datacommons-admin",
-            f"{base_url}/datacommons-cli",
-        ]
-        run_cmd_with_retry(
-            ["uv", "pip", "install", "--force-reinstall", *packages_to_install],
-            cwd=workspace_dir,
-            max_attempts=2,
-        )
-    except Exception as err:
-        print(
-            f"⚠️  Warning: Failed to fetch packages from GitHub ({err}). Reusing container workspace packages."
-        )
-
-    # Step 1: Scaffold workspace using official 'datacommons admin init' command
+    # Step 1: Scaffold workspace using official 'datacommons admin init' command via dynamic uvx
     print(
         f"\n==> [Phase 1.1] Scaffolding workspace via 'datacommons admin init' (ref: {tf_git_ref})..."
     )
     bucket_name = f"tf-state-{prober_name}-{project_id}"
-    run_cmd_with_retry(
+    init_cmd = build_git_cli_cmd(
+        tf_git_ref,
         [
-            "uv",
-            "run",
-            "--no-sync",
-            "datacommons",
             "admin",
             "init",
             f"--project-id={project_id}",
@@ -129,6 +125,9 @@ def provision_infra(
             f"--dc-api-key={dc_api_key}",
             "--force",
         ],
+    )
+    run_cmd_with_retry(
+        init_cmd,
         cwd=workspace_dir,
         max_attempts=2,
     )
@@ -181,6 +180,7 @@ def run_tests(
     instance_dir: Path,
     test_config: str,
     report_output: str,
+    tf_git_ref: str = "main",
 ) -> int:
     """Phase 2: Executes full integration test suite against the provisioned instance."""
     print("\n" + "=" * 80)
@@ -197,6 +197,8 @@ def run_tests(
             str(e2e_script),
             f"--workspace={instance_dir}",
             f"--test-config={test_config}",
+            "--cli-source=git",
+            f"--cli-version={tf_git_ref}",
             f"--report-output={report_output}",
         ],
         max_attempts=1,
@@ -274,11 +276,25 @@ def main():
         help="Destination for test results JSON",
     )
     parser.add_argument(
+        "--dc-api-key",
+        default=os.environ.get("DC_API_KEY", ""),
+        help="Data Commons API Key (or set via DC_API_KEY env var)",
+    )
+    parser.add_argument(
         "--skip-destroy",
         action="store_true",
         help="Skip terraform destroy (for debugging failed runs)",
     )
     args = parser.parse_args()
+
+    # Ensure SSL_CERT_FILE is populated on macOS to avoid urllib certificate verification errors
+    if "SSL_CERT_FILE" not in os.environ:
+        try:
+            import certifi
+
+            os.environ["SSL_CERT_FILE"] = certifi.where()
+        except Exception:
+            pass
 
     def handle_signal(signum, frame):
         print(f"\n⚠️ Received signal {signum}. Triggering emergency teardown...")
@@ -294,7 +310,7 @@ def main():
     workspace_dir = Path(tempfile.gettempdir()) / instance_name
     workspace_dir.mkdir(parents=True, exist_ok=True)
 
-    dc_api_key = os.environ.get("DC_API_KEY", "")
+    dc_api_key = args.dc_api_key or os.environ.get("DC_API_KEY", "")
 
     print("=" * 80)
     print("STARTING RESILIENT EPHEMERAL DCP PROBER")
@@ -327,6 +343,7 @@ def main():
             instance_dir=instance_dir,
             test_config=args.test_config,
             report_output=args.report_output,
+            tf_git_ref=args.tf_git_ref,
         )
 
     finally:
