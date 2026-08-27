@@ -140,15 +140,15 @@
     "value": "oecd:OECDGroup"
   },
   {
-+   "name": "",
-+   "subject_id": "st=difference,mp:4LLjD3Kvsh6KjXRvZwvepEATFZ8jp0dBEUwmgJh8XTc=",
-+   "types": [],
-+   "value": "st=difference,mp=wagesAnnual,pt=Person"
-+ },
-+ {
-+   "name": "",
-+   "subject_id": "st=meanValue,mp=:QD9FxhIjyuWlUXRdBYSoGU91ISqIFvP8ih2gE9QRUCI=",
-+   "types": [],
-+   "value": "st=meanValue,mp=wagesAnnual,pt=Person"
+    "name": "",
+    "subject_id": "st=difference,mp:4LLjD3Kvsh6KjXRvZwvepEATFZ8jp0dBEUwmgJh8XTc=",
+    "types": [],
+    "value": "st=difference,mp=wagesAnnual,pt=Person"
+  },
+  {
+    "name": "",
+    "subject_id": "st=meanValue,mp=:QD9FxhIjyuWlUXRdBYSoGU91ISqIFvP8ih2gE9QRUCI=",
+    "types": [],
+    "value": "st=meanValue,mp=wagesAnnual,pt=Person"
   }
 ]
