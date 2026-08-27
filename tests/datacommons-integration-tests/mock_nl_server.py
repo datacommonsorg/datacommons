@@ -55,7 +55,9 @@ DEFAULT_MAPPINGS = {
         "SV": ["Difference_Average_Wages_To_Male_Average_Wages"],
         "CosineScore": [0.9],
         "SV_to_Sentences": {
-            "Difference_Average_Wages_To_Male_Average_Wages": [{"sentence": "Gender wage gap", "score": 0.9}]
+            "Difference_Average_Wages_To_Male_Average_Wages": [
+                {"sentence": "Gender wage gap", "score": 0.9}
+            ]
         },
     },
 }

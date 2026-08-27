@@ -92,7 +92,9 @@ def test_v2_resolve_indicator_wages(target_url, api_client):
     assert candidates, f"Expected resolved candidates for 'wages', got: {node_res}"
 
     has_sv = any(
-        c.get("dcid") in ("Annual_Average_Wage", "Difference_Average_Wages_To_Male_Average_Wages") for c in candidates
+        c.get("dcid")
+        in ("Annual_Average_Wage", "Difference_Average_Wages_To_Male_Average_Wages")
+        for c in candidates
     )
     assert has_sv, (
         f"Expected resolved candidate to match 'Annual_Average_Wage' or 'Difference_Average_Wages_To_Male_Average_Wages', got: {candidates}"
