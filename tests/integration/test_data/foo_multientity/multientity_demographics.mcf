@@ -10,6 +10,11 @@ source: dcid:dc/s/FooOrganization
 url: "https://foo.example.org/demographics"
 
 # (a) Local Dimension Property & Local Enums ('foo:' namespace)
+Node: foo:SectorEnum
+typeOf: dcid:Class
+name: "SectorEnum"
+subClassOf: dcid:Enumeration
+
 Node: foo:sector
 typeOf: dcid:Property
 name: "sector"

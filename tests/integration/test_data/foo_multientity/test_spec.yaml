@@ -18,6 +18,8 @@ ingestion:
         expected_types: ["StatVarGroup"]
       - subject_id: "foo:EmployedAdultsBySexAndSector"
         expected_types: ["StatisticalVariable"]
+      - subject_id: "foo:SectorEnum"
+        expected_types: ["Class"]
       - subject_id: "foo:sector"
         expected_types: ["Property"]
       - subject_id: "foo:TechSector"
@@ -26,6 +28,9 @@ ingestion:
       - subject_id: "foo:EmployedAdultsBySexAndSector"
         predicate: "memberOf"
         object_id: "foo:FooGroup"
+      - subject_id: "foo:SectorEnum"
+        predicate: "subClassOf"
+        object_id: "Enumeration"
       - subject_id: "foo:TechSector"
         predicate: "typeOf"
         object_id: "foo:SectorEnum"

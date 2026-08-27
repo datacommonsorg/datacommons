@@ -242,6 +242,7 @@ def test_load_foo_multientity_manifest():
     }
     assert "foo:FooGroup" in node_ids
     assert "foo:EmployedAdultsBySexAndSector" in node_ids
+    assert "foo:SectorEnum" in node_ids
     assert "foo:sector" in node_ids
     assert "foo:TechSector" in node_ids
 
