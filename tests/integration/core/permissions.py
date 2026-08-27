@@ -183,9 +183,13 @@ class PreflightPermissionChecker:
                     print("  ⏳ Waiting for GCP IAM policy propagation...")
                     import time
 
-                    # Poll token creation with retry until IAM propagation completes
-                    for attempt in range(1, 11):
-                        time.sleep(2)
+                    # Poll token creation until IAM propagation completes.
+                    # Maximum bound: 120 seconds (10 attempts x (2s sleep + 10s timeout)).
+                    # In practice, IAM propagation usually succeeds within 4-6 seconds.
+                    max_attempts = 10
+                    poll_interval_sec = 2.0
+                    for attempt in range(1, max_attempts + 1):
+                        time.sleep(poll_interval_sec)
                         test_tok = subprocess.run(
                             [
                                 "gcloud",
