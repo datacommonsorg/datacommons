@@ -86,12 +86,14 @@ def provision_infra(
     print("PHASE 1: PROVISIONING ISOLATED DCP INFRASTRUCTURE")
     print("=" * 80)
 
-    # Step 0: Ensure live datacommons packages (admin, cli) are installed from GitHub main
+    # Step 0: Ensure live datacommons packages (schema, db, admin, cli) are installed from GitHub ref
     print(
         f"\n==> [Phase 1.0] Ensuring datacommons packages are synced from GitHub @ {tf_git_ref}..."
     )
     try:
         packages_to_install = [
+            f"git+https://github.com/datacommonsorg/datacommons.git@{tf_git_ref}#subdirectory=packages/datacommons-schema",
+            f"git+https://github.com/datacommonsorg/datacommons.git@{tf_git_ref}#subdirectory=packages/datacommons-db",
             f"git+https://github.com/datacommonsorg/datacommons.git@{tf_git_ref}#subdirectory=packages/datacommons-admin",
             f"git+https://github.com/datacommonsorg/datacommons.git@{tf_git_ref}#subdirectory=packages/datacommons-cli",
         ]
