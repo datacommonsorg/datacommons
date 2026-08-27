@@ -139,7 +139,7 @@ If you're happy with the settings as they are, you can skip ahead to step 4. Mor
 
 The `terraform.tfvars` file you generated in the previous step provides optional but frequently configured variables, with overrides of default values set in `variables.tf`. Commented-out variables are the same as the defaults; to change them, uncomment the line you want and set the variable accordingly.
 
-In addition, all of the deployment options you can configure are listed in `variables.tf`. To customize any of these options, **_do not **_edit in place in `variables.tf`. Instead, add the variable(s) you want to override to the `terraform.tfvars` file and set it to the desired value. For example, if you wanted to disable the MCP server from running as part of the web services, you would add this line to `terraform.tfvars`:
+In addition, all of the deployment options you can configure are listed in `variables.tf`. To customize any of these options, _do not_ edit in place in `variables.tf`. Instead, add the variable(s) you want to override to the `terraform.tfvars` file and set it to the desired value. For example, if you wanted to disable the MCP server from running as part of the web services, you would add this line to `terraform.tfvars`:
 
 ```
 datacommons_services_enable_mcp = false
@@ -239,19 +239,16 @@ When it completes, verify that the tables are created correctly:
 
 Go to <code>https://console.cloud.google.com/spanner/instances/<var>SPANNER</var>_<var>INSTANCE</var>/databases/<var>DATABASE</var>/details/tables?project=<var>PROJECT_ID</var></code>
 
-Your <code><var>SPANNER</var>_<var>INSTANCE</var></code> is set by the Terraform `spanner_instance_id` variable. If you didn't set this explicitly, the default is <code><var>INSTANCE_NAME</var>-dc-instance</code>. To look it up, from your Terraform directory, you can run:
+* Your <code><var>SPANNER</var>_<var>INSTANCE</var></code> is set by the Terraform `spanner_instance_id` variable. If you didn't set this explicitly, the default is <code><var>INSTANCE_NAME</var>-dc-instance</code>. To look it up, from your Terraform directory, you can run:
+  ```
+    terraform output spanner_instance_id
+  ```
+* The _`DATABASE`_ is set by the Terraform `spanner_database_id` variable. If you didn't set this explicitly, the default is <code><var>INSTANCE_NAME</var>-dc-db.</code> To look it up, from your Terraform directory, you can run:
 
-```
-terraform output spanner_instance_id
-```
-
-The _`DATABASE`_ is set by the Terraform `spanner_database_id` variable. If you didn't set this explicitly, the default is <code><var>INSTANCE_NAME</var>-dc-db.</code> To look it up, from your Terraform directory, you can run:
-
-```
-terraform output spanner_database_id
-```
-
-You should see a list of tables at the bottom of the page.
+  ```
+    terraform output spanner_database_id
+  ```
+  You should see a list of tables at the bottom of the page.
 
 ## Prepare your data {#prepare-your-data}
 
@@ -496,12 +493,12 @@ In the case of places, you don't need to define the actual places, such as count
 
 ##### Step 4b: Define the variable
 
-In this example, we're going to revisit the smoking variable. In this case, observations are broken down by country and sex. We can reuse existing properties in Data Commons, namely country and gender as observation properties.
+In this example, we're going to revisit the smoking variable. In this case, observations are broken down by country and gender. We can reuse existing properties in Data Commons, namely country and gender as observation properties.
 
 ```
 Node: who:Ratio_CigaretteSmoking_Adults_ByGender
 typeOf: dcs:StatisticalVariable
-name: "Prevalence of current cigarette smoking among adults, by sex"
+name: "Prevalence of current cigarette smoking among adults, by gender"
 description: "Percentage of smokers in the adult population, broken down into male and female"
 populationType: schema:Adult
 measuredProperty: dcid:cigaretteSmoking
@@ -529,10 +526,10 @@ who:Ratio_CigaretteSmoking_Adults,dcid:country/ARE,2018,6.3
 
 #### Prepare a multiple-entity observations file
 
-For multiple-entity observations, in addition to the [standard required and optional columns](https://docs.datacommons.org/custom_dc/custom_data.html#exp_csv), you add a column for each observation property you have defined. So, for the example variable above, there is an additional column for the "sex" observation property. The CSV file could look like this:
+For multiple-entity observations, in addition to the [standard required and optional columns](https://docs.datacommons.org/custom_dc/custom_data.html#exp_csv), you add a column for each observation property you have defined. So, for the example variable above, there is an additional column for the "gender" observation property. The CSV file could look like this:
 
 ```
-variable,sex,country,year,value
+variable,gender,country,year,value
 who:Ratio_CigaretteSmoking_Adults_ByGender,dcid:Female,dcid:country/AFG,2019,1.2
 who:Ratio_CigaretteSmoking_Adults_ByGender,dcid:Male,dcid:country/AFG,2019,13.4
 who:Ratio_CigaretteSmoking_Adults_ByGender,dcid:Female,dcid:country/AGO,2016,1.8
@@ -639,7 +636,7 @@ The config.json file would be as follows:
       "columnMappings": {
         "dcid:variableMeasured": "variable",
         "dcid:country": "country",
-        "dcid:gender": "sex",
+        "dcid:gender": "gender",
         "dcid:observationDate": "year",
         "dcid:value": "value"
       }
@@ -694,7 +691,7 @@ The config.json file could be as follows:
       "columnMappings": {
         "dcid:variableMeasured": "variable",
         "dcid:country": "country",
-        "dcid:gender": "sex",
+        "dcid:gender": "gender",
         "dcid:observationDate": "year",
         "dcid:value": "value"
       }
@@ -877,12 +874,12 @@ For details on request syntax, query parameters, response format, and single-ent
 
 ##### Example 1: Get all the entities that have data for a specific value of a custom property
 
-This example gets all the countries that have data about females for a multi-entity variable, `who:Ratio_CigaretteSmoking_Adults_ByGender`. This variable is defined with 2 custom properties:` country` and `sex`.
+This example gets all the countries that have data about females for a multi-entity variable, `who:Ratio_CigaretteSmoking_Adults_ByGender`. This variable is defined with 2 custom properties:` country` and `gender`.
 
 ###### Request
 
 <pre>
-curl -g "https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/availability/dataflow/DC/DF_OBS/1.0.0/*/country?c[variableMeasured]=who:Ratio_CigaretteSmoking_Adults_ByGender&c[sex]=Female"
+curl -g "https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/availability/dataflow/DC/DF_OBS/1.0.0/*/country?c[variableMeasured]=who:Ratio_CigaretteSmoking_Adults_ByGender&c[gender]=Female"
 </pre>
 
 ###### Response
@@ -943,7 +940,7 @@ This example gets the countries in Europe that have data about females, for a mu
 ###### Request
 
 <pre>
-https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/availability/dataflow/DC/DF_OBS/1.0.0/*/country?c[variableMeasured]=who:Ratio_CigaretteSmoking_Adults_ByGender&c[sex]=Female&c[country.containedInPlace+]=europe&c[country.typeOf]=Country
+https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/availability/dataflow/DC/DF_OBS/1.0.0/*/country?c[variableMeasured]=who:Ratio_CigaretteSmoking_Adults_ByGender&c[gender]=Female&c[country.containedInPlace+]=europe&c[country.typeOf]=Country
 </pre>
 
 ###### Response
@@ -1009,7 +1006,7 @@ curl -g "https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/data/dataflow/DC/DF
 ###### Response
 
 ```
-STRUCTURE,STRUCTURE_ID,ACTION,variableMeasured,country,sex,unit,measurementMethod,observationPeriod,provenance,TIME_PERIOD,OBS_VALUE,scalingFactor,facetId
+STRUCTURE,STRUCTURE_ID,ACTION,variableMeasured,country,gender,unit,measurementMethod,observationPeriod,provenance,TIME_PERIOD,OBS_VALUE,scalingFactor,facetId
 dataflow,DC:DF_OBS(1.0.0),I,who:Ratio_CigaretteSmoking_Adults_ByGender,country/ALB,Female,NotApplicable,NotApplicable,NotApplicable,UN_WHO,2018,4.5,,13905847005863890490
 dataflow,DC:DF_OBS(1.0.0),I,who:Ratio_CigaretteSmoking_Adults_ByGender,country/ALB,Male,NotApplicable,NotApplicable,NotApplicable,UN_WHO,2018,35.7,,13905847005863890490
 ```
@@ -1021,13 +1018,13 @@ This example gets all observations about females in Albania, for a multi-entity 
 ###### Request
 
 <pre>
-curl -g "https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/data/dataflow/DC/DF_OBS/1.0.0/*?c[variableMeasured]=who:Ratio_CigaretteSmoking_Adults_ByGender&c[country]=country/ALB&c[sex]=Female"
+curl -g "https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/data/dataflow/DC/DF_OBS/1.0.0/*?c[variableMeasured]=who:Ratio_CigaretteSmoking_Adults_ByGender&c[country]=country/ALB&c[gender]=Female"
 </pre>
 
 ###### Response
 
 ```
-STRUCTURE,STRUCTURE_ID,ACTION,variableMeasured,country,sex,unit,measurementMethod,observationPeriod,provenance,TIME_PERIOD,OBS_VALUE,scalingFactor,facetId
+STRUCTURE,STRUCTURE_ID,ACTION,variableMeasured,country,gender,unit,measurementMethod,observationPeriod,provenance,TIME_PERIOD,OBS_VALUE,scalingFactor,facetId
 dataflow,DC:DF_OBS(1.0.0),I,who:Ratio_CigaretteSmoking_Adults_ByGender,country/ALB,Female,NotApplicable,NotApplicable,NotApplicable,UN_WHO,2018,4.5,,13905847005863890490
 ```
 
@@ -1038,13 +1035,13 @@ This example gets all observations about women in European countries, for a mult
 ###### Request
 
 <pre>
-curl -g "https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/data/dataflow/DC/DF_OBS/1.0.0/*?c[variableMeasured]=who:Ratio_CigaretteSmoking_Adults_ByGender&c[country.containedInPlace+]=europe&c[country.typeOf]=Country&c[sex]=Female"
+curl -g "https://<var>APPLICATION_URL</var>/core/api/sdmx/v3/data/dataflow/DC/DF_OBS/1.0.0/*?c[variableMeasured]=who:Ratio_CigaretteSmoking_Adults_ByGender&c[country.containedInPlace+]=europe&c[country.typeOf]=Country&c[gender]=Female"
 </pre>
 
 ###### Response
 
 ```
-STRUCTURE,STRUCTURE_ID,ACTION,variableMeasured,country,sex,unit,measurementMethod,observationPeriod,provenance,TIME_PERIOD,OBS_VALUE,scalingFactor,facetId
+STRUCTURE,STRUCTURE_ID,ACTION,variableMeasured,country,gender,unit,measurementMethod,observationPeriod,provenance,TIME_PERIOD,OBS_VALUE,scalingFactor,facetId
 dataflow,DC:DF_OBS(1.0.0),I,who:Ratio_CigaretteSmoking_Adults_ByGender,country/ALB,Female,NotApplicable,NotApplicable,NotApplicable,UN_WHO,2018,4.5,,13905847005863890490
 ```
 
@@ -1071,7 +1068,7 @@ For removing a subset of file data or all data from an import, you also need to 
 
 The general procedure for deleting data at the file level is as follows:
 
-1. For the relevant import, delete all nodes (statistical variables, entities, properties, statistical variable groups) from the schema MCF file(s) that pertain to the CSV observation file(s) you want to remove — *except *the provenance definition. See below for examples.
+1. For the relevant import, delete all nodes (statistical variables, entities, properties, statistical variable groups) from the schema MCF file(s) that pertain to the CSV observation file(s) you want to remove — _except_ the provenance definition. See below for examples.
 2. In the `config.json `file, remove the entries for the CSV files to remove. You may need to revise patterns to no longer match those files. See below for examples. 
 3. [Upload the new/updated files to Cloud Storage](#upload).
 4. [Run the ingestion workflow](#workflow) as usual.
@@ -1148,7 +1145,7 @@ The `config.json` file would look like this:
       "columnMappings": {
         "dcid:variableMeasured": "variable",
         "dcid:country": "country",
-        "dcid:gender": "sex",
+        "dcid:gender": "gender",
         "dcid:observationDate": "year",
         "dcid:value": "value"
       }
@@ -1180,7 +1177,7 @@ The config.json would look like this:
       "columnMappings": {
         "dcid:variableMeasured": "variable",
         "dcid:country": "country",
-        "dcid:gender": "sex",
+        "dcid:gender": "gender",
         "dcid:observationDate": "year",
         "dcid:value": "value"
       }
@@ -1251,11 +1248,11 @@ Many conditions can cause your database to get into a corrupted state. These inc
     * The Dataflow component of the ingestion workflow has started deletion stages but did not complete write stages. To check for this condition:
         1. Go to [https://console.cloud.google.com/workflows/workflow/](https://console.cloud.google.com/workflows/workflow/) for your project and select your workflow from the list. It is named <code><var>INSTANCE_NAME</var>-dc-ingestion-workflow</code>. 
         2. If a recent workflow execution is listed as **failed**, click on the link to view details.
-        3. In the **Visualization** panel, check the status of the Run Postprocessings stage.
-    * The Run Postprocessing stage of the workflow did not complete. To check for this condition:
+        3. In the **Visualization** panel, check the status of the `Run Postprocessing` stage.
+    * The `Run Postprocessing` stage of the workflow did not complete. To check for this condition:
         4. Go to [https://console.cloud.google.com/dataflow/jobs/](https://console.cloud.google.com/dataflow/jobs/) for your project and select your job from the list. It is named <code><var>INSTANCE_NAME</var>-<var>IMPORT_NAME</var>-<var>NNNNNNNNNN</var></code>. 
-        5. Click the **Job Graph** link to view the status of the job stages. Look for the Delete Edges and Delete Observations stages.
-        6. If either started, check the status of the Write Edges and Write Observations stages.
+        5. Click the **Job Graph** link to view the status of the job stages. Look for the `Delete Edges` and `Delete Observations` stages.
+        6. If either started, check the status of the `Write Edges` and `Write Observations` stages.
 
 However, Data Commons will not start serving such corrupted data for the duration of the Spanner retention period since the last import. By default, this is set to 6 hours. (You can adjust it with the Terraform `spanner_version_retention_period variable`.) If you are able to rerun the data ingestion workflow within that period, there will not be any issue: Data Commons will pick up the new data as soon as it's imported.
 
@@ -1275,9 +1272,9 @@ If you cancel the ingestion workflow (accidentally or otherwise) after it has go
 1. Go to the Cloud Console Run service page for the ingestion helper service. It is called <code><var>INSTANCE_NAME</var>-dc-ingestion-helper</code>.
 2. Click on **Observability** > **Logs**.
 3. Look for a log entry that looks like the following (you can search for the text "Lock is currently held by" or look for a yellow warning icon):
-
-    **2026-07-23T00:39:09.717946Z INFO:root:Lock is currently held by 7e3f4639-6ad1-434a-9f00-72abbd0f8fd1**
-
+   ```
+  2026-07-23T00:39:09.717946Z INFO:root:Lock is currently held by 7e3f4639-6ad1-434a-9f00-72abbd0f8fd1 
+   ```
 4. Note the ID.
 5. From a command line, run the following:
 
@@ -1290,15 +1287,13 @@ If you cancel the ingestion workflow (accidentally or otherwise) after it has go
 
 You should see a confirmation message. 
 
-Restart the workflow by re-running `datacommons ingest start`.
+Restart the workflow as usual.
 
 ## Troubleshoot problems {#troubleshoot-problems}
 
-In general, to troubleshoot any GCP problems, you should go to the Cloud Console for the component causing issues, and find the `Observability > Logs` page to look for service errors.
-
+In general, to troubleshoot any GCP problems, you should go to the Cloud Console for the component causing issues, and find the **Observability** > **Logs** page to look for service errors.
 
 ### Ingestion workflow fails
-
 
 1. Go to the link for the workflow output by the  `datacommons ingest start` command.
 2. Under **State**, find the stage that has failed. If it fails on **run_preprocessing**, go to the Cloud Console Cloud Run job page for your preprocessing job. The job is called <code><var>INSTANCE_NAME</var>-dc-ingestion-preprocessing-job</code>.
