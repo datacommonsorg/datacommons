@@ -147,8 +147,7 @@ def main():
         "--cli-source",
         type=str,
         default="local",
-        choices=["local", "testpypi", "pypi"],
-        help="CLI package source",
+        help="CLI package source ('local', 'git', 'testpypi', 'pypi', or git+ URL)",
     )
     parser.add_argument(
         "--cli-version",
