@@ -91,11 +91,12 @@ def provision_infra(
         f"\n==> [Phase 1.0] Ensuring datacommons packages are synced from GitHub @ {tf_git_ref}..."
     )
     try:
+        base_url = f"git+https://github.com/datacommonsorg/datacommons.git@{tf_git_ref}#subdirectory=packages"
         packages_to_install = [
-            f"git+https://github.com/datacommonsorg/datacommons.git@{tf_git_ref}#subdirectory=packages/datacommons-schema",
-            f"git+https://github.com/datacommonsorg/datacommons.git@{tf_git_ref}#subdirectory=packages/datacommons-db",
-            f"git+https://github.com/datacommonsorg/datacommons.git@{tf_git_ref}#subdirectory=packages/datacommons-admin",
-            f"git+https://github.com/datacommonsorg/datacommons.git@{tf_git_ref}#subdirectory=packages/datacommons-cli",
+            f"{base_url}/datacommons-schema",
+            f"{base_url}/datacommons-db",
+            f"{base_url}/datacommons-admin",
+            f"{base_url}/datacommons-cli",
         ]
         run_cmd_with_retry(
             ["uv", "pip", "install", "--force-reinstall", *packages_to_install],
