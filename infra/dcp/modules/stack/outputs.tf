@@ -41,9 +41,9 @@ output "ingestion_service_url" {
   value       = module.ingestion_helper_service.ingestion_helper_url
 }
 
-output "ingestion_prep_job_name" {
-  description = "Name of the data ingestion pre-processing job"
-  value       = length(module.ingestion_preprocessing_job) > 0 ? module.ingestion_preprocessing_job[0].job_name : null
+output "ingestion_prep_job_service_account_email" {
+  description = "Email of the service account used by the ingestion pre-processing job"
+  value       = length(module.ingestion_preprocessing_job) > 0 ? module.ingestion_preprocessing_job[0].service_account_email : null
 }
 
 output "ingestion_workflow_service_account_email" {

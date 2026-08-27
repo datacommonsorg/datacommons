@@ -114,22 +114,8 @@ module "ingestion_preprocessing_job" {
   source = "../ingestion/preprocessing_job"
   count  = var.ingestion_config.enable_ingestion ? 1 : 0
 
-  project_id                    = var.global.project_id
-  instance_name                 = var.global.instance_name
-  region                        = var.global.region
-  stateless_deletion_protection = var.global.stateless_deletion_protection
-  image                         = var.ingestion_config.preprocessing_job_image
-  cpu                           = var.ingestion_config.preprocessing_job_cpu
-  memory                        = var.ingestion_config.preprocessing_job_memory
-  timeout                       = var.ingestion_config.preprocessing_job_timeout
-  vpc_connector_id              = var.redis_config.enable ? module.redis[0].connector_id : null
-  bucket_name                   = module.storage.artifacts_bucket_name
-  input_path                    = var.ingestion_config.input_path
-  ingestion_artifacts_path      = var.ingestion_config.ingestion_artifacts_path
-  run_database_init             = false
-  use_spanner                   = true
-  enable_spanner_embeddings     = var.datacommons_services_config.resolve_with_spanner_embeddings
-  env_vars                      = local.cloud_run_shared_env_variables
+  project_id    = var.global.project_id
+  instance_name = var.global.instance_name
   env_secrets = {
     DC_API_KEY = {
       secret_id = module.auth.dc_api_key_secret_id
@@ -333,35 +319,11 @@ resource "google_storage_bucket_iam_member" "preprocessing_bucket_access" {
   member = "serviceAccount:${module.ingestion_preprocessing_job[0].service_account_email}"
 }
 
-resource "google_project_iam_member" "workflow_invoker" {
+resource "google_project_iam_member" "workflow_batch_editor" {
   count   = var.ingestion_config.enable_ingestion ? 1 : 0
   project = var.global.project_id
-  role    = "roles/workflows.invoker"
+  role    = "roles/batch.jobsEditor"
   member  = "serviceAccount:${module.ingestion_workflow.service_account_email}"
-}
-
-resource "google_cloud_run_v2_job_iam_member" "workflow_pre_viewer" {
-  count    = var.ingestion_config.enable_ingestion ? 1 : 0
-  location = var.global.region
-  name     = module.ingestion_preprocessing_job[0].job_name
-  role     = "roles/run.viewer"
-  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
-}
-
-resource "google_cloud_run_v2_job_iam_member" "workflow_pre_invoker" {
-  count    = var.ingestion_config.enable_ingestion ? 1 : 0
-  location = var.global.region
-  name     = module.ingestion_preprocessing_job[0].job_name
-  role     = "roles/run.invoker"
-  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
-}
-
-resource "google_cloud_run_v2_job_iam_member" "workflow_pre_developer" {
-  count    = var.ingestion_config.enable_ingestion ? 1 : 0
-  location = var.global.region
-  name     = module.ingestion_preprocessing_job[0].job_name
-  role     = "roles/run.developer"
-  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
 
 resource "google_service_account_iam_member" "workflow_pre_sa_user" {
