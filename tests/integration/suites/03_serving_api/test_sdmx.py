@@ -103,4 +103,3 @@ class TestSDMXAPI:
             assert expected in res.text, (
                 f"Expected dimension value '{expected}' in availability response: {res.text[:300]}"
             )
-

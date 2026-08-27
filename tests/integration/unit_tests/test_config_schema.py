@@ -237,7 +237,9 @@ def test_load_foo_multientity_manifest():
     assert manifest.ingestion.spanner_expectations.exact_observation_count == 8
 
     # Verify multi-entity nodes and edges in schema
-    node_ids = {n.subject_id for n in manifest.ingestion.spanner_expectations.expected_nodes}
+    node_ids = {
+        n.subject_id for n in manifest.ingestion.spanner_expectations.expected_nodes
+    }
     assert "foo:FooGroup" in node_ids
     assert "foo:EmployedAdultsBySexAndSector" in node_ids
     assert "foo:sector" in node_ids
@@ -256,7 +258,9 @@ def test_load_foo_multientity_manifest():
 
     # Query 4: Negative test (expected 400 Bad Request)
     assert data_queries[3].expected_status == 400
-    assert data_queries[3].expected_error_contains == "unsupported SDMX component filter"
+    assert (
+        data_queries[3].expected_error_contains == "unsupported SDMX component filter"
+    )
 
     # Verify SDMX availability query specs
     avail_queries = manifest.serving_api.sdmx_3_0.availability_queries
@@ -265,4 +269,3 @@ def test_load_foo_multientity_manifest():
     assert "Female" in avail_queries[0].expected_values_contain
     assert avail_queries[1].dataflow == "DC/DF_OBS/1.0.0/*/foo/sector"
     assert "foo/TechSector" in avail_queries[1].expected_values_contain
-
