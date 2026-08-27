@@ -225,3 +225,44 @@ def test_load_test_manifest_multi_sources():
     merged_str = load_test_manifest("foobar_wages,foobar_education")
     assert merged_str.name == "foobar_wages+foobar_education"
     assert merged_str.ingestion.spanner_expectations.exact_observation_count == 1248
+
+
+def test_load_foo_multientity_manifest():
+    """Verifies loading the new foo_multientity dataset manifest with local and baseDC dimensions."""
+    manifest = load_test_manifest("foo_multientity")
+    assert manifest.name == "foo_multientity"
+    assert manifest.stages.ingestion is True
+    assert manifest.stages.serving_api is True
+    assert manifest.stages.sdmx is True
+    assert manifest.ingestion.spanner_expectations.exact_observation_count == 8
+
+    # Verify multi-entity nodes and edges in schema
+    node_ids = {n.subject_id for n in manifest.ingestion.spanner_expectations.expected_nodes}
+    assert "foo:FooGroup" in node_ids
+    assert "foo:EmployedAdultsBySexAndSector" in node_ids
+    assert "foo:sector" in node_ids
+    assert "foo:TechSector" in node_ids
+
+    # Verify SDMX data query specs
+    data_queries = manifest.serving_api.sdmx_3_0.data_queries
+    assert len(data_queries) == 4
+    # Query 1: BaseDC dimension (sex=Female)
+    assert data_queries[0].constraints.get("sex") == "Female"
+    assert data_queries[0].expected_status == 200
+
+    # Query 2: Local dimension (foo/sector=foo/TechSector)
+    assert data_queries[1].constraints.get("foo/sector") == "foo/TechSector"
+    assert data_queries[1].expected_status == 200
+
+    # Query 4: Negative test (expected 400 Bad Request)
+    assert data_queries[3].expected_status == 400
+    assert data_queries[3].expected_error_contains == "unsupported SDMX component filter"
+
+    # Verify SDMX availability query specs
+    avail_queries = manifest.serving_api.sdmx_3_0.availability_queries
+    assert len(avail_queries) == 2
+    assert avail_queries[0].dataflow == "DC/DF_OBS/1.0.0/*/sex"
+    assert "Female" in avail_queries[0].expected_values_contain
+    assert avail_queries[1].dataflow == "DC/DF_OBS/1.0.0/*/foo/sector"
+    assert "foo/TechSector" in avail_queries[1].expected_values_contain
+

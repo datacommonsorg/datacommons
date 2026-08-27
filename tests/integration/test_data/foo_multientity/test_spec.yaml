@@ -1,0 +1,102 @@
+name: "foo_multientity"
+description: "Multi-entity dataset with local foo: and remote dcid: dimension properties"
+
+stages:
+  ingestion: true
+  postprocessing: false
+  serving_api: true
+  mcp_agent: true
+  sdmx: true
+
+ingestion:
+  dataset_dirs:
+    - "tests/integration/test_data/foo_multientity"
+  spanner_expectations:
+    exact_observation_count: 8
+    expected_nodes:
+      - subject_id: "foo:FooGroup"
+        expected_types: ["StatVarGroup"]
+      - subject_id: "foo:EmployedAdultsBySexAndSector"
+        expected_types: ["StatisticalVariable"]
+      - subject_id: "foo:sector"
+        expected_types: ["Property"]
+      - subject_id: "foo:TechSector"
+        expected_types: ["foo:SectorEnum"]
+    expected_edges:
+      - subject_id: "foo:EmployedAdultsBySexAndSector"
+        predicate: "memberOf"
+        object_id: "foo:FooGroup"
+      - subject_id: "foo:TechSector"
+        predicate: "typeOf"
+        object_id: "foo:SectorEnum"
+
+serving_api:
+  nodes:
+    - node_dcid: "foo/EmployedAdultsBySexAndSector"
+      expression: "->name"
+      expected_values: ["Employed adults by sex and sector"]
+
+  sdmx_3_0:
+    data_queries:
+      # 1. BaseDC dimension (sex=Female):
+      - dataflow: "DC/DF_OBS/1.0.0/*"
+        constraints:
+          variableMeasured: "foo/EmployedAdultsBySexAndSector"
+          observationAbout: "country/USA"
+          sex: "Female"
+        format: "csv"
+        expected_status: 200
+        expected_csv_contains: ["Female", "country/USA", "4500000"]
+
+      # 2. Local custom dimension (foo/sector=foo/TechSector):
+      - dataflow: "DC/DF_OBS/1.0.0/*"
+        constraints:
+          variableMeasured: "foo/EmployedAdultsBySexAndSector"
+          observationAbout: "country/USA"
+          "foo/sector": "foo/TechSector"
+        format: "csv"
+        expected_status: 200
+        expected_csv_contains: ["foo/TechSector", "country/USA"]
+
+      # 3. Both local and BaseDC dimensions:
+      - dataflow: "DC/DF_OBS/1.0.0/*"
+        constraints:
+          variableMeasured: "foo/EmployedAdultsBySexAndSector"
+          observationAbout: "country/ALB"
+          sex: "Male"
+          "foo/sector": "foo/HealthcareSector"
+        format: "csv"
+        expected_status: 200
+        expected_csv_contains: ["country/ALB", "Male", "foo/HealthcareSector", "31000"]
+
+      # 4. Negative Test: Mismatched dimension returns HTTP 400:
+      - dataflow: "DC/DF_OBS/1.0.0/*"
+        constraints:
+          variableMeasured: "foo/EmployedAdultsBySexAndSector"
+          "foo/invalidDimension": "foo/Invalid"
+        expected_status: 400
+        expected_error_contains: "unsupported SDMX component filter"
+
+    availability_queries:
+      # 5. Availability on BaseDC dimension component (/*/sex):
+      - dataflow: "DC/DF_OBS/1.0.0/*/sex"
+        constraints:
+          variableMeasured: "foo/EmployedAdultsBySexAndSector"
+          observationAbout: "country/USA"
+        expected_status: 200
+        expected_values_contain: ["Female", "Male"]
+
+      # 6. Availability on local dimension component (/*/foo/sector):
+      - dataflow: "DC/DF_OBS/1.0.0/*/foo/sector"
+        constraints:
+          variableMeasured: "foo/EmployedAdultsBySexAndSector"
+        expected_status: 200
+        expected_values_contain: ["foo/TechSector", "foo/HealthcareSector"]
+
+  mcp_agent:
+    tool_calls:
+      - tool_name: "get_multi_entity_observations"
+        arguments:
+          variable_dcid: "foo/EmployedAdultsBySexAndSector"
+          entity_dcids: ["country/USA"]
+        expected_match_dcids: ["country/USA"]

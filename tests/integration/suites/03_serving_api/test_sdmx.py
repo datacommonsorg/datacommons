@@ -48,9 +48,14 @@ class TestSDMXAPI:
             params[f"c[{k}]"] = v
 
         res = requests.get(url, params=params, headers=headers, timeout=30)
-        assert res.status_code == 200, (
-            f"SDMX 3.0 Data API returned {res.status_code}: {res.text}"
+        assert res.status_code == sdmx_data_spec.expected_status, (
+            f"SDMX 3.0 Data API returned {res.status_code} (expected {sdmx_data_spec.expected_status}): {res.text}"
         )
+
+        if sdmx_data_spec.expected_error_contains:
+            assert sdmx_data_spec.expected_error_contains in res.text, (
+                f"Expected error '{sdmx_data_spec.expected_error_contains}' in response: {res.text}"
+            )
 
         for expected in sdmx_data_spec.expected_csv_contains:
             assert expected in res.text, (
@@ -80,11 +85,22 @@ class TestSDMXAPI:
             params[f"c[{k}]"] = v
 
         res = requests.get(url, params=params, headers=headers, timeout=30)
-        assert res.status_code == 200, (
-            f"SDMX 3.0 Availability API returned {res.status_code}: {res.text}"
+        assert res.status_code == sdmx_avail_spec.expected_status, (
+            f"SDMX 3.0 Availability API returned {res.status_code} (expected {sdmx_avail_spec.expected_status}): {res.text}"
         )
+
+        if sdmx_avail_spec.expected_error_contains:
+            assert sdmx_avail_spec.expected_error_contains in res.text, (
+                f"Expected error '{sdmx_avail_spec.expected_error_contains}' in response: {res.text}"
+            )
 
         if sdmx_avail_spec.expected_provenance:
             assert sdmx_avail_spec.expected_provenance in res.text, (
                 f"Expected provenance '{sdmx_avail_spec.expected_provenance}' in response: {res.text[:300]}"
             )
+
+        for expected in sdmx_avail_spec.expected_values_contain:
+            assert expected in res.text, (
+                f"Expected dimension value '{expected}' in availability response: {res.text[:300]}"
+            )
+

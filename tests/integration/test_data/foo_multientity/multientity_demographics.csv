@@ -1,0 +1,9 @@
+entity,variable,sex,foo/sector,date,value,unit
+country/USA,foo/EmployedAdultsBySexAndSector,Female,foo/TechSector,2022,4500000,Count
+country/USA,foo/EmployedAdultsBySexAndSector,Male,foo/TechSector,2022,6200000,Count
+country/USA,foo/EmployedAdultsBySexAndSector,Female,foo/HealthcareSector,2022,8100000,Count
+country/USA,foo/EmployedAdultsBySexAndSector,Male,foo/HealthcareSector,2022,2300000,Count
+country/ALB,foo/EmployedAdultsBySexAndSector,Female,foo/TechSector,2022,45000,Count
+country/ALB,foo/EmployedAdultsBySexAndSector,Male,foo/TechSector,2022,78000,Count
+country/ALB,foo/EmployedAdultsBySexAndSector,Female,foo/HealthcareSector,2022,95000,Count
+country/ALB,foo/EmployedAdultsBySexAndSector,Male,foo/HealthcareSector,2022,31000,Count

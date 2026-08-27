@@ -1,0 +1,17 @@
+{
+  "inputFiles": [
+    {
+      "pattern": "multientity_demographics.*",
+      "provenance": "foo:FooMultiEntityProvenance",
+      "columnMappings": {
+        "dcid:observationAbout": "entity",
+        "dcid:variableMeasured": "variable",
+        "dcid:sex": "sex",
+        "foo:sector": "foo/sector",
+        "dcid:observationDate": "date",
+        "dcid:value": "value",
+        "dcid:unit": "unit"
+      }
+    }
+  ]
+}

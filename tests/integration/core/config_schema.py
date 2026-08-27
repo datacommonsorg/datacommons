@@ -113,14 +113,19 @@ class SDMXDataQuerySpec:
     dataflow: str = "DC/DF_OBS/1.0.0/*"
     constraints: dict[str, str] = field(default_factory=dict)
     format: str = "csv"
+    expected_status: int = 200
     expected_csv_contains: list[str] = field(default_factory=list)
+    expected_error_contains: str | None = None
 
 
 @dataclass
 class SDMXAvailabilityQuerySpec:
     dataflow: str = "DC/DF_OBS/1.0.0/*/provenance"
     constraints: dict[str, str] = field(default_factory=dict)
+    expected_status: int = 200
     expected_provenance: str | None = None
+    expected_values_contain: list[str] = field(default_factory=list)
+    expected_error_contains: str | None = None
 
 
 @dataclass
