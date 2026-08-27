@@ -25,7 +25,7 @@ from datacommons_admin.core.utils.tf_utils import (
     get_spanner_instance_id,
 )
 from datacommons_admin.db.utils.migration_utils import _run_migrations
-from datacommons_admin.db.utils.spanner_utils import check_database_exists
+from datacommons_admin.db.utils.spanner_utils import check_database_initialized
 
 
 def _setup_ingestion_client() -> Tuple[IngestionHelperClient, str, str, str]:
@@ -103,9 +103,9 @@ def init_db(init_only: bool) -> None:
     click.secho("Datacommons Admin Init-DB", fg="cyan", bold=True)
     client, project_id, instance_id, database_id = _setup_ingestion_client()
 
-    if check_database_exists(project_id, instance_id, database_id):
+    if check_database_initialized(project_id, instance_id, database_id):
         click.secho(
-            f"Spanner database '{instance_id}/{database_id}' already exists. Skipping initialization and migrations.",
+            f"Spanner database '{instance_id}/{database_id}' is already initialized. Skipping initialization and migrations.",
             fg="yellow",
         )
         click.secho(

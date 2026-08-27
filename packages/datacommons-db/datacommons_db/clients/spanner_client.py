@@ -114,17 +114,6 @@ class SpannerClient:
         self.instance = self.client.instance(self.instance_id)
         self.database = self.instance.database(self.database_id)
 
-    def database_exists(self) -> bool:
-        """Check if the Cloud Spanner database exists.
-
-        Returns:
-            True if the database exists, False otherwise.
-        """
-        try:
-            return bool(self.database.exists())
-        except Exception:  # noqa: BLE001 - must catch all exceptions to ensure a bool is always returned
-            return False
-
     def table_exists(self, table_name: str) -> bool:
         """Check if a table exists in the Cloud Spanner database.
 

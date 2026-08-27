@@ -18,7 +18,7 @@ import click
 import pytest
 from datacommons_admin.db.utils.spanner_utils import (
     _create_spanner_client,
-    check_database_exists,
+    check_database_initialized,
 )
 
 
@@ -49,34 +49,39 @@ def test_create_spanner_client_failure_raises_click_exception() -> None:
         _create_spanner_client("proj", "inst", "db")
 
 
-def test_check_database_exists_true() -> None:
+def test_check_database_initialized_true() -> None:
     with patch(
         "datacommons_admin.db.utils.spanner_utils._create_spanner_client"
     ) as mock_factory:
         mock_client = MagicMock()
-        mock_client.database_exists.return_value = True
+        mock_client.table_exists.return_value = True
         mock_factory.return_value = mock_client
 
-        assert check_database_exists("proj", "inst", "db") is True
+        assert check_database_initialized("proj", "inst", "db") is True
         mock_factory.assert_called_once_with(
             project_id="proj", instance_id="inst", database_id="db"
         )
+        mock_client.table_exists.assert_called_once_with("Node")
 
 
-def test_check_database_exists_false() -> None:
+def test_check_database_initialized_false() -> None:
     with patch(
         "datacommons_admin.db.utils.spanner_utils._create_spanner_client"
     ) as mock_factory:
         mock_client = MagicMock()
-        mock_client.database_exists.return_value = False
+        mock_client.table_exists.return_value = False
         mock_factory.return_value = mock_client
 
-        assert check_database_exists("proj", "inst", "db") is False
+        assert check_database_initialized("proj", "inst", "db") is False
+        mock_factory.assert_called_once_with(
+            project_id="proj", instance_id="inst", database_id="db"
+        )
+        mock_client.table_exists.assert_called_once_with("Node")
 
 
-def test_check_database_exists_exception_returns_false() -> None:
+def test_check_database_initialized_exception_returns_false() -> None:
     with patch(
         "datacommons_admin.db.utils.spanner_utils._create_spanner_client",
         side_effect=Exception("Connection error"),
     ):
-        assert check_database_exists("proj", "inst", "db") is False
+        assert check_database_initialized("proj", "inst", "db") is False

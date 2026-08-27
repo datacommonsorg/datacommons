@@ -42,10 +42,10 @@ def _create_spanner_client(
         raise click.ClickException(f"Failed to initialize Spanner client: {e}") from e
 
 
-def check_database_exists(
+def check_database_initialized(
     project_id: str, instance_id: str, database_id: str
 ) -> bool:
-    """Checks whether the Cloud Spanner database exists.
+    """Checks whether the Cloud Spanner database exists and has been initialized.
 
     Args:
         project_id: GCP project ID hosting the Spanner database.
@@ -53,7 +53,7 @@ def check_database_exists(
         database_id: Cloud Spanner database ID.
 
     Returns:
-        True if the database exists, False otherwise.
+        True if the database exists and contains the Node table, False otherwise.
     """
     try:
         spanner_client = _create_spanner_client(
@@ -61,6 +61,6 @@ def check_database_exists(
             instance_id=instance_id,
             database_id=database_id,
         )
-        return spanner_client.database_exists()
-    except Exception:  # noqa: BLE001 - must catch all exceptions to safely detect existence
+        return spanner_client.table_exists("Node")
+    except Exception:  # noqa: BLE001 - must catch all exceptions to safely detect initialization status
         return False

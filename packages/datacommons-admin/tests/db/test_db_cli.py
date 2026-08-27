@@ -47,19 +47,19 @@ def test_init_db_terraform_error(runner: CliRunner) -> None:
 
 
 @pytest.mark.usefixtures("mock_terraform_spanner")
-def test_init_db_database_already_exists(
+def test_init_db_database_already_initialized(
     mock_helper_session,
     mock_run_migrations,
     runner: CliRunner,
 ) -> None:
     with patch(
-        "datacommons_admin.db.db_cli.check_database_exists",
+        "datacommons_admin.db.db_cli.check_database_initialized",
         return_value=True,
     ):
         result = runner.invoke(admin, ["init-db"])
         assert result.exit_code == 0
         assert (
-            "Spanner database 'mock-instance/mock-db' already exists. Skipping initialization and migrations."
+            "Spanner database 'mock-instance/mock-db' is already initialized. Skipping initialization and migrations."
             in result.output
         )
         assert "datacommons admin migrate-db" in result.output
@@ -74,7 +74,7 @@ def test_init_db_success(
     runner: CliRunner,
 ) -> None:
     with patch(
-        "datacommons_admin.db.db_cli.check_database_exists",
+        "datacommons_admin.db.db_cli.check_database_initialized",
         return_value=False,
     ):
         result = runner.invoke(admin, ["init-db"])
