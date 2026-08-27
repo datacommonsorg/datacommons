@@ -47,7 +47,8 @@ resource "google_project_service" "apis" {
     var.enable_ingestion ? [
       "workflows.googleapis.com",
       "workflowexecutions.googleapis.com",
-      "dataflow.googleapis.com"
+      "dataflow.googleapis.com",
+      "batch.googleapis.com"
     ] : [],
     var.spanner_enable_bigquery_connection ? [
       "bigqueryconnection.googleapis.com",
