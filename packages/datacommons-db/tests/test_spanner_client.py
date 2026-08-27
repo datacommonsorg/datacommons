@@ -141,6 +141,11 @@ class FakeSpannerDatabase:
     ) -> None:
         self.tables: dict[str, list[dict[str, object]]] = initial_tables or {}
         self.last_transaction: FakeTransaction | None = None
+        self._exists: bool = True
+
+    def exists(self) -> bool:
+        """Simulate database.exists() for FakeSpannerDatabase."""
+        return self._exists
 
     def update_ddl(self, ddl_statements: list[str]) -> MagicMock:
         """Apply DDL statements to mutate in-memory schema table definitions."""
@@ -254,8 +259,20 @@ def test_init_validation_errors(proj: str | None, inst: str, db: str):
 
 
 # ==============================================================================
-# Table Existence & DDL Tests
+# Database & Table Existence & DDL Tests
 # ==============================================================================
+
+
+def test_database_exists_true(fake_spanner_db: FakeSpannerDatabase):
+    fake_spanner_db._exists = True
+    client = SpannerClient("proj", "inst", "db")
+    assert client.database_exists() is True
+
+
+def test_database_exists_false(fake_spanner_db: FakeSpannerDatabase):
+    fake_spanner_db._exists = False
+    client = SpannerClient("proj", "inst", "db")
+    assert client.database_exists() is False
 
 
 def test_table_exists_false():

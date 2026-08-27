@@ -46,17 +46,43 @@ def test_init_db_terraform_error(runner: CliRunner) -> None:
         assert "Failed to run 'terraform output'" in result.output
 
 
+@pytest.mark.usefixtures("mock_terraform_spanner")
+def test_init_db_database_already_exists(
+    mock_helper_session,
+    mock_run_migrations,
+    runner: CliRunner,
+) -> None:
+    with patch(
+        "datacommons_admin.db.db_cli.check_database_exists",
+        return_value=True,
+    ):
+        result = runner.invoke(admin, ["init-db"])
+        assert result.exit_code == 0
+        assert (
+            "Spanner database 'mock-instance/mock-db' already exists. Skipping initialization and migrations."
+            in result.output
+        )
+        assert "datacommons admin migrate-db" in result.output
+        assert "datacommons admin seed-db" in result.output
+        mock_helper_session.post.assert_not_called()
+        mock_run_migrations.assert_not_called()
+
+
 @pytest.mark.usefixtures("mock_terraform_spanner", "mock_helper_session")
 def test_init_db_success(
     mock_run_migrations,
     runner: CliRunner,
 ) -> None:
-    result = runner.invoke(admin, ["init-db"])
-    assert result.exit_code == 0
-    assert "Successfully initialized Spanner database" in result.output
-    assert "Details: DB Initialized" in result.output
-    assert "Successfully seeded Spanner database" in result.output
-    mock_run_migrations.assert_called_once()
+    with patch(
+        "datacommons_admin.db.db_cli.check_database_exists",
+        return_value=False,
+    ):
+        result = runner.invoke(admin, ["init-db"])
+        assert result.exit_code == 0
+        assert "Successfully initialized Spanner database" in result.output
+        assert "Details: DB Initialized" in result.output
+        assert "Successfully seeded Spanner database" in result.output
+        mock_run_migrations.assert_called_once()
 
 
 @pytest.mark.usefixtures("mock_terraform_spanner")
