@@ -173,10 +173,10 @@ def test_merge_manifests_accumulates_specs():
             indicator_resolutions=[IndicatorResolutionSpec(query="wages")],
         ),
         serving_api=ServingAPIManifestConfig(
-            nodes=[NodeQuerySpec(node_dcid="average_annual_wage")],
+            nodes=[NodeQuerySpec(node_dcid="Annual_Average_Wage")],
             point_observations=[
                 PointObservationSpec(
-                    observation_about=["country/USA"], variables=["average_annual_wage"]
+                    observation_about=["country/USA"], variables=["Annual_Average_Wage"]
                 )
             ],
             sdmx_3_0=SDMXManifestConfig(

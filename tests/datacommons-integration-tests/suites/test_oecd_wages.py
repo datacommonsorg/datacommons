@@ -22,15 +22,15 @@ def test_v2_multi_entity_observation_sdg(target_url, api_client):
 
 def test_verify_wages_data(target_url, api_client):
     """Test 2: Verify Wages Data (Custom Data)"""
-    path = "/core/api/v2/observation?select=variable&select=entity&select=date&select=value&variable.dcids=average_annual_wage&entity.dcids=country/USA&entity.dcids=country/CAN"
+    path = "/core/api/v2/observation?select=variable&select=entity&select=date&select=value&variable.dcids=Annual_Average_Wage&entity.dcids=country/USA&entity.dcids=country/CAN"
     resp = api_client(target_url, path, headers={"X-Use-Multi-Entity-Schema": "true"})
 
     by_var = resp.get("byVariable", {})
-    assert "average_annual_wage" in by_var, (
-        f"Expected variable 'average_annual_wage' in response, got: {resp}"
+    assert "Annual_Average_Wage" in by_var, (
+        f"Expected variable 'Annual_Average_Wage' in response, got: {resp}"
     )
 
-    by_entity = by_var["average_annual_wage"].get("byEntity", {})
+    by_entity = by_var["Annual_Average_Wage"].get("byEntity", {})
     assert "country/USA" in by_entity, (
         f"Expected entity 'country/USA' in response, got: {by_entity.keys()}"
     )
@@ -92,8 +92,8 @@ def test_v2_resolve_indicator_wages(target_url, api_client):
     assert candidates, f"Expected resolved candidates for 'wages', got: {node_res}"
 
     has_sv = any(
-        c.get("dcid") in ("average_annual_wage", "gender_wage_gap") for c in candidates
+        c.get("dcid") in ("Annual_Average_Wage", "Difference_Average_Wages_To_Male_Average_Wages") for c in candidates
     )
     assert has_sv, (
-        f"Expected resolved candidate to match 'average_annual_wage' or 'gender_wage_gap', got: {candidates}"
+        f"Expected resolved candidate to match 'Annual_Average_Wage' or 'Difference_Average_Wages_To_Male_Average_Wages', got: {candidates}"
     )

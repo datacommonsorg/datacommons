@@ -547,7 +547,7 @@ def run_serving_proxy_tests(service_name: str, region: str, project_id: str) -> 
 
     try:
         # Fetch direct V2 Node endpoint with retry loop to allow cold-start, warmup, and container rollover
-        api_url = f"http://127.0.0.1:{test_port}/core/api/v2/node?nodes=average_annual_wage&property=-%3E*"
+        api_url = f"http://127.0.0.1:{test_port}/core/api/v2/node?nodes=Annual_Average_Wage&property=-%3E*"
         max_retries = 18  # Allow up to 3 minutes for rolling update replication
         retry_interval = 10
         connected = False
@@ -561,7 +561,7 @@ def run_serving_proxy_tests(service_name: str, region: str, project_id: str) -> 
                     status_code = response.getcode()
                     if status_code == 200:
                         resp_data = json.loads(response.read().decode("utf-8"))
-                        data = resp_data.get("data", {}).get("average_annual_wage", {})
+                        data = resp_data.get("data", {}).get("Annual_Average_Wage", {})
                         arcs = data.get("arcs", {})
                         types = arcs.get("typeOf", {}).get("nodes", [])
                         has_sv = any(

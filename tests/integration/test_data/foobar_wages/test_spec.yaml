@@ -16,9 +16,9 @@ ingestion:
     expected_nodes:
       - subject_id: "FooBarWages"
         expected_types: ["Provenance"]
-      - subject_id: "average_annual_wage"
+      - subject_id: "Annual_Average_Wage"
         expected_types: ["StatisticalVariable"]
-      - subject_id: "gender_wage_gap"
+      - subject_id: "Difference_Average_Wages_To_Male_Average_Wages"
         expected_types: ["StatisticalVariable"]
       - subject_id: "FooBarGroup"
         expected_types: ["StatVarGroup"]
@@ -26,10 +26,10 @@ ingestion:
       - subject_id: "FooBarGroup"
         predicate: "specializationOf"
         object_id: "dc/g/Root"
-      - subject_id: "average_annual_wage"
+      - subject_id: "Annual_Average_Wage"
         predicate: "memberOf"
         object_id: "FooBarGroup"
-      - subject_id: "gender_wage_gap"
+      - subject_id: "Difference_Average_Wages_To_Male_Average_Wages"
         predicate: "memberOf"
         object_id: "FooBarGroup"
 
@@ -41,38 +41,38 @@ postprocessing:
   indicator_resolutions:
     - query: "wages"
       target: "custom_only"
-      expected_candidate_dcids: ["average_annual_wage", "gender_wage_gap"]
+      expected_candidate_dcids: ["Annual_Average_Wage", "Difference_Average_Wages_To_Male_Average_Wages"]
 
 serving_api:
   nodes:
-    - node_dcid: "average_annual_wage"
+    - node_dcid: "Annual_Average_Wage"
       expression: "->name"
       expected_values: ["Average annual wage"]
 
   point_observations:
     - observation_about: ["country/USA", "country/CAN"]
-      variables: ["average_annual_wage"]
+      variables: ["Annual_Average_Wage"]
       date: "LATEST"
       expected_places_with_data: ["country/USA", "country/CAN"]
 
   series_observations:
     - observation_about: ["country/USA", "country/CAN", "country/FRA"]
-      variables: ["gender_wage_gap"]
+      variables: ["Difference_Average_Wages_To_Male_Average_Wages"]
       min_series_length: 5
 
   sdmx_3_0:
     data_queries:
       - dataflow: "DC/DF_OBS/1.0.0/*"
         constraints:
-          variableMeasured: "average_annual_wage"
+          variableMeasured: "Annual_Average_Wage"
           observationAbout: "country/USA"
           TIME_PERIOD: "LATEST"
         format: "csv"
-        expected_csv_contains: ["variableMeasured", "average_annual_wage", "country/USA"]
+        expected_csv_contains: ["variableMeasured", "Annual_Average_Wage", "country/USA"]
     availability_queries:
       - dataflow: "DC/DF_OBS/1.0.0/*/provenance"
         constraints:
-          variableMeasured: "average_annual_wage"
+          variableMeasured: "Annual_Average_Wage"
         expected_provenance: "FooBarWages"
 
 mcp_agent:
@@ -80,4 +80,4 @@ mcp_agent:
     - tool_name: "search_indicators"
       arguments:
         query: "wages"
-      expected_match_dcids: ["average_annual_wage"]
+      expected_match_dcids: ["Annual_Average_Wage"]

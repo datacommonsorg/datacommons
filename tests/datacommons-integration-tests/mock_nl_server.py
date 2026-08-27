@@ -25,7 +25,7 @@ prediction APIs inside the hermetic/credentials-free docker integration test sta
 
 Thus, we spin up this lightweight 0-dependency mock server in python to intercept
 NL search requests (like "Average annual wage") and map them to seeded Spanner variables
-(like "average_annual_wage"). This allows us to test the happy path end-to-end (querying
+(like "Annual_Average_Wage"). This allows us to test the happy path end-to-end (querying
 spanner and asserting observation charts) without real model serving infrastructure.
 
 TODO: Remove this mock server and use a proper local SentenceTransformers
@@ -45,17 +45,17 @@ logger = logging.getLogger("mock_nl_server")
 # Default query mappings
 DEFAULT_MAPPINGS = {
     "average annual wage in united states of america": {
-        "SV": ["average_annual_wage"],
+        "SV": ["Annual_Average_Wage"],
         "CosineScore": [0.9],
         "SV_to_Sentences": {
-            "average_annual_wage": [{"sentence": "Average annual wage", "score": 0.9}]
+            "Annual_Average_Wage": [{"sentence": "Average annual wage", "score": 0.9}]
         },
     },
     "gender wage gap in united states of america": {
-        "SV": ["gender_wage_gap"],
+        "SV": ["Difference_Average_Wages_To_Male_Average_Wages"],
         "CosineScore": [0.9],
         "SV_to_Sentences": {
-            "gender_wage_gap": [{"sentence": "Gender wage gap", "score": 0.9}]
+            "Difference_Average_Wages_To_Male_Average_Wages": [{"sentence": "Gender wage gap", "score": 0.9}]
         },
     },
 }

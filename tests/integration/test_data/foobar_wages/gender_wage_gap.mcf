@@ -9,7 +9,7 @@ name: "FooBar Gender Wage Gap"
 source: dcid:dc/s/FooBarOrganization
 url: "https://foobar.example.org/gender-wage-gap"
 
-Node: dcid:gender_wage_gap
+Node: dcid:Difference_Average_Wages_To_Male_Average_Wages
 typeOf: dcid:StatisticalVariable
 name: "Gender wage gap"
 description: "Percentage difference between median earnings of men and women relative to median earnings of men"

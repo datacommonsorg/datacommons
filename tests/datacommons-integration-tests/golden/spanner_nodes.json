@@ -99,11 +99,11 @@
   },
   {
     "name": "Average annual wage",
-    "subject_id": "average_annual_wage",
+    "subject_id": "Annual_Average_Wage",
     "types": [
       "StatisticalVariable"
     ],
-    "value": "average_annual_wage"
+    "value": "Annual_Average_Wage"
   },
   {
     "name": "Data Commons Variables",
@@ -115,11 +115,11 @@
   },
   {
     "name": "Gender wage gap",
-    "subject_id": "gender_wage_gap",
+    "subject_id": "Difference_Average_Wages_To_Male_Average_Wages",
     "types": [
       "StatisticalVariable"
     ],
-    "value": "gender_wage_gap"
+    "value": "Difference_Average_Wages_To_Male_Average_Wages"
   },
   {
     "name": "",
