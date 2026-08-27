@@ -47,23 +47,23 @@ def test_init_db_terraform_error(runner: CliRunner) -> None:
 
 
 @pytest.fixture(autouse=True)
-def mock_spanner_client():
-    """Mocks SpannerClient in db_cli so table_exists returns False by default."""
-    with patch("datacommons_admin.db.db_cli.SpannerClient") as mock_cls:
-        mock_inst = MagicMock()
-        mock_inst.table_exists.return_value = False
-        mock_cls.return_value = mock_inst
-        yield mock_inst
+def mock_is_database_initialized():
+    """Mocks _is_database_initialized in db_cli to return False by default."""
+    with patch(
+        "datacommons_admin.db.db_cli._is_database_initialized",
+        return_value=False,
+    ) as mock_fn:
+        yield mock_fn
 
 
 @pytest.mark.usefixtures("mock_terraform_spanner")
 def test_init_db_database_already_initialized(
     mock_helper_session,
     mock_run_migrations,
-    mock_spanner_client,
+    mock_is_database_initialized,
     runner: CliRunner,
 ) -> None:
-    mock_spanner_client.table_exists.return_value = True
+    mock_is_database_initialized.return_value = True
     result = runner.invoke(admin, ["init-db"])
     assert result.exit_code == 0
     assert (
@@ -72,7 +72,9 @@ def test_init_db_database_already_initialized(
     )
     assert "datacommons admin migrate-db" in result.output
     assert "datacommons admin seed-db" in result.output
-    mock_spanner_client.table_exists.assert_called_once_with("Node")
+    mock_is_database_initialized.assert_called_once_with(
+        "mock-proj", "mock-instance", "mock-db"
+    )
     mock_helper_session.post.assert_not_called()
     mock_run_migrations.assert_not_called()
 
@@ -80,7 +82,7 @@ def test_init_db_database_already_initialized(
 @pytest.mark.usefixtures("mock_terraform_spanner", "mock_helper_session")
 def test_init_db_success(
     mock_run_migrations,
-    mock_spanner_client,
+    mock_is_database_initialized,
     runner: CliRunner,
 ) -> None:
     result = runner.invoke(admin, ["init-db"])
@@ -88,7 +90,9 @@ def test_init_db_success(
     assert "Successfully initialized Spanner database" in result.output
     assert "Details: DB Initialized" in result.output
     assert "Successfully seeded Spanner database" in result.output
-    mock_spanner_client.table_exists.assert_called_once_with("Node")
+    mock_is_database_initialized.assert_called_once_with(
+        "mock-proj", "mock-instance", "mock-db"
+    )
     mock_run_migrations.assert_called_once()
 
 

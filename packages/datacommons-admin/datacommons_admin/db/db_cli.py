@@ -103,12 +103,7 @@ def init_db(init_only: bool) -> None:
     click.secho("Datacommons Admin Init-DB", fg="cyan", bold=True)
     client, project_id, instance_id, database_id = _setup_ingestion_client()
 
-    spanner_client = SpannerClient(
-        project_id=project_id,
-        instance_id=instance_id,
-        database_id=database_id,
-    )
-    if spanner_client.table_exists("Node"):
+    if _is_database_initialized(project_id, instance_id, database_id):
         click.secho(
             f"Spanner database '{instance_id}/{database_id}' is already initialized. Skipping initialization and migrations.",
             fg="yellow",

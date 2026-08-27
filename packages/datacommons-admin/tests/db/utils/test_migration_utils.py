@@ -150,3 +150,44 @@ def test_migrate_db_lock_busy_error(
         in result.output
     )
     mock_client.release_lock.assert_not_called()
+
+
+def test_is_database_initialized_true() -> None:
+    from datacommons_admin.db.utils.migration_utils import _is_database_initialized
+
+    with patch(
+        "datacommons_admin.db.utils.migration_utils.SpannerClient"
+    ) as mock_spanner_cls:
+        mock_client = MagicMock()
+        mock_client.table_exists.return_value = True
+        mock_spanner_cls.return_value = mock_client
+
+        assert _is_database_initialized("proj", "inst", "db") is True
+        mock_spanner_cls.assert_called_once_with(
+            project_id="proj", instance_id="inst", database_id="db"
+        )
+        mock_client.table_exists.assert_called_once_with("Node")
+
+
+def test_is_database_initialized_false() -> None:
+    from datacommons_admin.db.utils.migration_utils import _is_database_initialized
+
+    with patch(
+        "datacommons_admin.db.utils.migration_utils.SpannerClient"
+    ) as mock_spanner_cls:
+        mock_client = MagicMock()
+        mock_client.table_exists.return_value = False
+        mock_spanner_cls.return_value = mock_client
+
+        assert _is_database_initialized("proj", "inst", "db") is False
+        mock_client.table_exists.assert_called_once_with("Node")
+
+
+def test_is_database_initialized_exception_returns_false() -> None:
+    from datacommons_admin.db.utils.migration_utils import _is_database_initialized
+
+    with patch(
+        "datacommons_admin.db.utils.migration_utils.SpannerClient",
+        side_effect=Exception("Connection error"),
+    ):
+        assert _is_database_initialized("proj", "inst", "db") is False
