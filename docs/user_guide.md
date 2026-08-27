@@ -1313,7 +1313,7 @@ This normally indicates a missing, invalid, or expired API key. To check if the 
     If you see the following error, then your API key is invalid:
 
     ```
-    {{"message": "UNAUTHENTICATED: Method doesn't allow unregistered callers (callers without established identity). Please use API Key or other form of API consumer identity to call this API. Visit apikeys.datacommons.org to create or manage API keys.", "code": 401}
+    {"message": "UNAUTHENTICATED: Method doesn't allow unregistered callers (callers without established identity). Please use API Key or other form of API consumer identity to call this API. Visit apikeys.datacommons.org to create or manage API keys.", "code": 401}
     ```
 2. To look up your key, go to [apikeys.datacommons.org](http://apikeys.datacommons.org), sign in, select your app, and check the status of the key. If it has expired, refresh it. 
 3. Copy the key to the `auth-dc-api-key` variable in your `terraform.tfvars` file and rerun `terraform apply`.
