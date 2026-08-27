@@ -17,7 +17,7 @@ url: "https://foobar.example.org/average-annual-wages"
 Node: dcid:Annual_Average_Wage
 typeOf: dcid:StatisticalVariable
 name: "Average annual wage"
-description: "Annual rates paid per employee in full-time equivalent unit in the total economy."
+description: "Annual rates paid per employee in full-time equivalent unit in the total economy"
 populationType: dcid:Person
 measuredProperty: dcid:wagesAnnual
 statType: dcid:medianValue
