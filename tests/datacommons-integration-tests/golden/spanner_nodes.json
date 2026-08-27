@@ -1,7 +1,7 @@
 [
   {
     "name": "",
-    "subject_id": "Annual rates pai:B6bETuBs05/fIp/9iZA4visxwBM7FD+/5SfBW9dhMY8=",
+    "subject_id": "Annual rates pai:QcxCPxjZLzhnx8nxh4X/zaFLgx5n5sARyMQTUU7O6xM=",
     "types": [],
     "value": "Annual rates paid per employee in full-time equivalent unit in the total economy"
   },
@@ -135,8 +135,20 @@
   },
   {
     "name": "",
-    "subject_id": "st=medianValue,m:pXrHQIX3jL01Pk9TWioc82tK+BrWAmJ2gpmuytqaEtA=",
+    "subject_id": "oecd:OECDGroup:pXQi7Tp584N59Y2h8F6+fozATroxgvd8oB3M4K0iksM=",
     "types": [],
-    "value": "st=medianValue,mp=wagesAnnual,pt=Person"
+    "value": "oecd:OECDGroup"
+  },
+  {
++   "name": "",
++   "subject_id": "st=difference,mp:4LLjD3Kvsh6KjXRvZwvepEATFZ8jp0dBEUwmgJh8XTc=",
++   "types": [],
++   "value": "st=difference,mp=wagesAnnual,pt=Person"
++ },
++ {
++   "name": "",
++   "subject_id": "st=meanValue,mp=:QD9FxhIjyuWlUXRdBYSoGU91ISqIFvP8ih2gE9QRUCI=",
++   "types": [],
++   "value": "st=meanValue,mp=wagesAnnual,pt=Person"
   }
 ]
