@@ -12,7 +12,7 @@
                     "statVarKey": [
                       "Annual_Average_Wage"
                     ],
-                    "title": "Average Annual Wage in United States of America",
+                    "title": "Average annual wage in United States of America",
                     "type": "LINE"
                   }
                 ]
@@ -20,18 +20,18 @@
               {
                 "tiles": [
                   {
-                    "description": "Average Annual Wage in United States of America",
+                    "description": "Average annual wage in United States of America",
                     "statVarKey": [
                       "Annual_Average_Wage"
                     ],
-                    "title": "Average Annual Wage in United States of America",
+                    "title": "Average annual wage in United States of America",
                     "type": "HIGHLIGHT"
                   }
                 ]
               }
             ],
             "description": "Annual rates paid per employee in full-time equivalent unit in the total economy",
-            "title": "Average Annual Wage"
+            "title": "Average annual wage"
           }
         ],
         "statVarSpec": {
