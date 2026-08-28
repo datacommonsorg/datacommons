@@ -6,10 +6,26 @@
     "value": "Annual rates paid per employee in full-time equivalent unit in the total economy"
   },
   {
+    "name": "Average annual wage",
+    "subject_id": "Annual_Average_Wage",
+    "types": [
+      "StatisticalVariable"
+    ],
+    "value": "Annual_Average_Wage"
+  },
+  {
     "name": "",
     "subject_id": "Average annual w:y/F3wzEuFCMKpWrxvhYrNcRG/7YuaDq6iGNGCOaJAqE=",
     "types": [],
     "value": "Average annual wage"
+  },
+  {
+    "name": "Gender wage gap",
+    "subject_id": "Difference_Average_Wages_To_Male_Average_Wages",
+    "types": [
+      "StatisticalVariable"
+    ],
+    "value": "Difference_Average_Wages_To_Male_Average_Wages"
   },
   {
     "name": "",
@@ -98,28 +114,12 @@
     "value": "Topic"
   },
   {
-    "name": "Average annual wage",
-    "subject_id": "Annual_Average_Wage",
-    "types": [
-      "StatisticalVariable"
-    ],
-    "value": "Annual_Average_Wage"
-  },
-  {
     "name": "Data Commons Variables",
     "subject_id": "dc/g/Root",
     "types": [
       "StatVarGroup"
     ],
     "value": "dc/g/Root"
-  },
-  {
-    "name": "Gender wage gap",
-    "subject_id": "Difference_Average_Wages_To_Male_Average_Wages",
-    "types": [
-      "StatisticalVariable"
-    ],
-    "value": "Difference_Average_Wages_To_Male_Average_Wages"
   },
   {
     "name": "",
