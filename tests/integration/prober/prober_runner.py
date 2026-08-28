@@ -311,6 +311,8 @@ def main():
     workspace_dir.mkdir(parents=True, exist_ok=True)
 
     dc_api_key = args.dc_api_key or os.environ.get("DC_API_KEY", "")
+    if dc_api_key == "none":
+        dc_api_key = ""
 
     print("=" * 80)
     print("STARTING RESILIENT EPHEMERAL DCP PROBER")
