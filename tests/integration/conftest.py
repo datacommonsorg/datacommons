@@ -67,7 +67,7 @@ def pytest_addoption(parser):
         "--cli-source",
         action="store",
         default="local",
-        help="Source of datacommons CLI: 'local', 'testpypi', 'pypi'",
+        help="Source of datacommons CLI: 'local', 'git', 'testpypi', 'pypi'",
     )
     parser.addoption(
         "--cli-version",
