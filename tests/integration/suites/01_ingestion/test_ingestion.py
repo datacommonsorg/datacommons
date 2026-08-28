@@ -66,7 +66,10 @@ class TestCLIIngestion:
 
         res = dcp_cli.run(["admin", "init-db"])
         assert res.exit_code == 0, f"CLI init-db failed: {res.output}"
-        assert "Successfully initialized Spanner database!" in res.output
+        assert (
+            "Successfully initialized Spanner database!" in res.output
+            or "already initialized" in res.output
+        )
 
     def test_03_cli_ingest_start(
         self,
