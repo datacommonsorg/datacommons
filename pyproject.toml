@@ -201,4 +201,5 @@ version = {file = "VERSION"}
 
 [tool.pytest.ini_options]
 pythonpath = [".", "deploy/scripts"]
-testpaths = ["packages", "tests/deploy_scripts", "tools/migrations/tests"]
+testpaths = ["packages", "deploy/scripts/tests", "tools/migrations/tests"]
+
