@@ -1,14 +1,14 @@
-Node: dcid:OECDWages
+Node: oecd:OECDWages
 typeOf: dcid:Provenance
 name: "OECD Average Annual Wages"
 source: dcid:dc/s/OrganisationForEconomicCo-operationAndDevelopmentOecd
 url: "https://www.oecd.org/en/data/indicators/average-annual-wages.html"
 
-Node: dcid:Annual_Average_Wage
+Node: oecd:Annual_Average_Wage
 typeOf: dcid:StatisticalVariable
 name: "Average annual wage"
 description: "Annual rates paid per employee in full-time equivalent unit in the total economy"
 populationType: dcid:Person
 measuredProperty: dcid:wagesAnnual
 statType: dcid:meanValue
-memberOf: dcid:OECDGroup
+memberOf: oecd:OECDGroup
