@@ -315,12 +315,6 @@ variable "datacommons_services_mcp_instructions_path" {
   default     = null
 }
 
-# TODO(shixiao): Remove this variable to only resolve on spanner embeddings
-variable "datacommons_services_resolve_with_spanner_embeddings" {
-  description = "Enable resolving search queries with Spanner embeddings. Requires Spanner to be enabled (enable_spanner = true)."
-  type        = bool
-  default     = true
-}
 
 variable "datacommons_services_website_search_scope" {
   description = "Controls the scope for indicator resolution on the website Explore page (e.g., restricting queries to custom variables). Valid values are 'base_only', 'custom_only', 'base_and_custom'."
