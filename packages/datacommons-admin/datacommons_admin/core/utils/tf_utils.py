@@ -20,6 +20,10 @@ from pathlib import Path
 from typing import Any
 
 import click
+from google.cloud import storage
+from google.cloud.exceptions import Forbidden, GoogleCloudError, NotFound
+
+from datacommons_admin.init.utils.gcs_utils import get_default_state_uri
 
 TF_OUTPUT_INGESTION_SERVICE_URL = "ingestion_service_url"
 TF_OUTPUT_INGESTION_WORKFLOW_SERVICE_ACCOUNT_EMAIL = (
@@ -32,8 +36,7 @@ TF_OUTPUT_PROJECT_ID = "project_id"
 TF_OUTPUT_REGION = "region"
 TF_OUTPUT_INGESTION_WORKFLOW_NAME = "ingestion_workflow_name"
 
-DEFAULT_STATE_FILE_NAME = "default.tfstate"
-_SUBPROCESS_TIMEOUT_SECONDS = 20
+_OUTPUTS_CACHE_KEY = "terraform_outputs"
 
 
 def _clean_str(value: object | None) -> str | None:
@@ -76,16 +79,10 @@ class TerraformStateConfig:
     def gcs_uri(self) -> str:
         """Computes the fully qualified GCS URI for remote state."""
         if self.tf_state_location:
-            uri = self.tf_state_location
-            if not uri.endswith(".tfstate"):
-                uri = f"{uri.rstrip('/')}/{DEFAULT_STATE_FILE_NAME}"
-            return uri
+            return self.tf_state_location
 
         if self.project_id and self.instance_name:
-            return (
-                f"gs://tf-state-{self.instance_name}-{self.project_id}"
-                f"/terraform/state/{self.instance_name}/{DEFAULT_STATE_FILE_NAME}"
-            )
+            return get_default_state_uri(self.project_id, self.instance_name)
 
         raise click.ClickException(
             "Cannot compute GCS URI for local Terraform state configuration."
@@ -104,27 +101,15 @@ class TerraformStateConfig:
 
 
 def _resolve_remote_state_params() -> TerraformStateConfig:
-    """Extracts and validates remote state parameters from the Click context hierarchy."""
+    """Extracts and validates remote-state parameters from the Click context."""
     ctx = click.get_current_context(silent=True)
-    project_id: str | None = None
-    instance_name: str | None = None
-    tf_state_location: str | None = None
-
-    if ctx and ctx.obj:
-        cur_ctx: click.Context | None = ctx
-        while cur_ctx:
-            if cur_ctx.obj and isinstance(cur_ctx.obj, dict):
-                project_id = project_id or cur_ctx.obj.get("project_id")
-                instance_name = instance_name or cur_ctx.obj.get("instance_name")
-                tf_state_location = tf_state_location or cur_ctx.obj.get(
-                    "tf_state_location"
-                )
-            cur_ctx = cur_ctx.parent
+    params = ctx.find_object(dict) if ctx else None
+    params = params or {}
 
     return TerraformStateConfig(
-        project_id=_clean_str(project_id),
-        instance_name=_clean_str(instance_name),
-        tf_state_location=_clean_str(tf_state_location),
+        project_id=_clean_str(params.get("project_id")),
+        instance_name=_clean_str(params.get("instance_name")),
+        tf_state_location=_clean_str(params.get("tf_state_location")),
     )
 
 
@@ -149,9 +134,6 @@ def download_gcs_blob_text(
     bucket_name: str, blob_name: str, project_id: str | None = None
 ) -> str:
     """Downloads the text content of a GCS blob with structured error handling."""
-    from google.cloud import storage
-    from google.cloud.exceptions import Forbidden, GoogleCloudError, NotFound
-
     gcs_uri = f"gs://{bucket_name}/{blob_name}"
 
     try:
@@ -210,22 +192,12 @@ def parse_terraform_state_outputs(
 
 
 def _get_outputs_from_gcs(
-    tf_state_location: str | None = None,
-    project_id: str | None = None,
-    instance_name: str | None = None,
-    config: TerraformStateConfig | None = None,
+    config: TerraformStateConfig,
 ) -> dict[str, Any]:
     """Downloads and parses Terraform outputs directly from GCS remote state."""
-    state_config = config or TerraformStateConfig(
-        project_id=_clean_str(project_id),
-        instance_name=_clean_str(instance_name),
-        tf_state_location=_clean_str(tf_state_location),
-    )
-    gcs_uri = state_config.gcs_uri
+    gcs_uri = config.gcs_uri
     bucket_name, blob_name = parse_gcs_uri(gcs_uri)
-    content = download_gcs_blob_text(
-        bucket_name, blob_name, project_id=state_config.project_id
-    )
+    content = download_gcs_blob_text(bucket_name, blob_name, config.project_id)
     return parse_terraform_state_outputs(content, gcs_uri)
 
 
@@ -243,13 +215,7 @@ def _get_outputs_from_local() -> dict[str, Any]:
             capture_output=True,
             text=True,
             check=True,
-            timeout=_SUBPROCESS_TIMEOUT_SECONDS,
         )
-    except subprocess.TimeoutExpired as e:
-        raise click.ClickException(
-            f"'terraform output -json' timed out after {_SUBPROCESS_TIMEOUT_SECONDS}s.\n"
-            "This can happen if remote state locking or network connection is stalled."
-        ) from e
     except subprocess.CalledProcessError as e:
         error_msg = e.stderr.strip() or e.stdout.strip() or "Unknown error"
         raise click.ClickException(
@@ -298,11 +264,17 @@ def get_terraform_output(
 ) -> str:
     """Fetches a specific key from Terraform output (local or remote GCS state)."""
     resolved_config = config or _resolve_remote_state_params()
+    ctx = click.get_current_context(silent=True) if config is None else None
+    params = ctx.find_object(dict) if ctx else None
+    outputs = params.get(_OUTPUTS_CACHE_KEY) if params else None
 
-    if resolved_config.is_remote:
-        outputs = _get_outputs_from_gcs(config=resolved_config)
-    else:
-        outputs = _get_outputs_from_local()
+    if outputs is None:
+        if resolved_config.is_remote:
+            outputs = _get_outputs_from_gcs(resolved_config)
+        else:
+            outputs = _get_outputs_from_local()
+        if params is not None:
+            params[_OUTPUTS_CACHE_KEY] = outputs
 
     if key not in outputs:
         raise click.ClickException(

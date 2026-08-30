@@ -33,7 +33,7 @@ from datacommons_admin.init.init_cli import init
 @click.option(
     "--tf-state-location",
     default=None,
-    help="Direct GCS URI pointing to the Terraform state file (gs://bucket/prefix/default.tfstate).",
+    help="Exact GCS URI of the Terraform state file (gs://bucket/prefix/default.tfstate).",
 )
 @click.pass_context
 def admin(
@@ -42,7 +42,12 @@ def admin(
     instance_name: str | None,
     tf_state_location: str | None,
 ) -> None:
-    """Manage a Data Commons Platform instance in Google Cloud"""
+    """Manage a Data Commons Platform instance in Google Cloud.
+
+    Remote-state options select the deployed instance used by the requested
+    admin command. They read state directly from GCS and do not create or
+    update local Terraform files.
+    """
     ctx.ensure_object(dict)
     ctx.obj["project_id"] = project_id
     ctx.obj["instance_name"] = instance_name

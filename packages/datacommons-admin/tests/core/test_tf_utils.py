@@ -46,7 +46,8 @@ def test_get_terraform_output_from_gcs_success(
     @admin.command(name="test-get-output-success")
     def test_cmd() -> None:
         val = get_terraform_output("test_key")
-        click.echo(f"VAL={val}")
+        cached_val = get_terraform_output("test_key")
+        click.echo(f"VAL={val} CACHED_VAL={cached_val}")
 
     # Test with project-id and instance-name
     result = runner.invoke(
@@ -305,9 +306,9 @@ def test_terraform_state_config() -> None:
     assert uri_cfg.is_remote
     assert uri_cfg.gcs_uri == "gs://custom-b/custom-p/custom.tfstate"
 
-    # Auto-appends default.tfstate
-    dir_cfg = TerraformStateConfig(tf_state_location="gs://custom-b/custom-p")
-    assert dir_cfg.gcs_uri == "gs://custom-b/custom-p/default.tfstate"
+    # Explicit locations are exact object URIs, regardless of file extension.
+    exact_cfg = TerraformStateConfig(tf_state_location="gs://custom-b/custom-state")
+    assert exact_cfg.gcs_uri == "gs://custom-b/custom-state"
 
     # Canonical project-id + instance-name mode
     canonical_cfg = TerraformStateConfig(project_id="my-proj", instance_name="my-inst")
