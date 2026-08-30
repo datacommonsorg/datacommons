@@ -84,6 +84,7 @@ def test_get_terraform_output_from_gcs_success(
     )
     assert result.exit_code == 0
     assert "VAL=gcs-resolved-val" in result.output
+    mock_storage_client.assert_called_once_with()
     mock_client_inst.bucket.assert_called_once_with("custom-bucket")
     mock_bucket.blob.assert_called_once_with("custom-prefix/state.tfstate")
 
