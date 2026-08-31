@@ -44,14 +44,6 @@ _GLOBAL_REPORTER: TestReporter | None = None
 _SESSION_START_TIME: float = 0.0
 
 
-def pytest_configure(config):
-    """Registers custom pytest markers."""
-    config.addinivalue_line(
-        "markers",
-        "cloud_only: mark test or class to run only against live GCP cloud targets.",
-    )
-
-
 def pytest_runtest_setup(item):
     """Skips tests marked with @pytest.mark.cloud_only when running in emulated mode."""
     if "cloud_only" in item.keywords:
@@ -157,8 +149,13 @@ def _format_config_display(config_paths: Any) -> str:
 
 
 def pytest_configure(config):
-    """Initialize structured reporter at the start of the pytest session."""
+    """Initialize structured reporter at the start of the pytest session and register markers."""
     global _GLOBAL_REPORTER, _SESSION_START_TIME
+
+    config.addinivalue_line(
+        "markers",
+        "cloud_only: mark test or class to run only against live GCP cloud targets.",
+    )
 
     _SESSION_START_TIME = time.time()
 
@@ -612,9 +609,18 @@ def seeded_testbed(dcp_target, dcp_cli, spanner_client, test_manifest, request):
             f"❌ Error: Test manifest '{test_manifest.name}' has no ingestion.dataset_dirs defined."
         )
 
-    if bucket_clean:
         try:
-            storage_client = storage.Client(project=dcp_target.project_id)
+            from google.auth.credentials import AnonymousCredentials
+
+            creds = (
+                AnonymousCredentials()
+                if os.getenv("STORAGE_EMULATOR_HOST")
+                or dcp_target.instance_name == "emulated"
+                else None
+            )
+            storage_client = storage.Client(
+                project=dcp_target.project_id, credentials=creds
+            )
             bucket = storage_client.bucket(bucket_clean)
 
             for d in dataset_dirs:

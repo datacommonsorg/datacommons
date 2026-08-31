@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -248,8 +249,8 @@ def resolve_dcp_target(
             project_id="default",
             instance_name="emulated",
             workspace_dir=str(repo_root / "tests" / "integration" / "emulated"),
-            serving_url="http://localhost:8082",
-            helper_url="http://localhost:8081",
+            serving_url=os.getenv("DCP_SERVING_URL", "http://localhost:8082"),
+            helper_url=os.getenv("DCP_HELPER_URL", "http://localhost:8081"),
             spanner_instance="default",
             spanner_database="test-db",
             workflow_name="local-workflow",
