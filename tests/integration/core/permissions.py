@@ -190,15 +190,37 @@ class PreflightPermissionChecker:
                     print(
                         f"  ✔ Automatically granted TokenCreator IAM role on {sa_email}"
                     )
-                    print("  ⏳ Waiting 10 seconds for GCP IAM policy propagation...")
+                    print("  ⏳ Waiting for GCP IAM policy propagation...")
                     import time
 
-                    time.sleep(10)
-                    return PermissionCheckResult(
-                        passed=True,
-                        name="Service Account Impersonation",
-                        details="Automatically granted TokenCreator role",
-                    )
+                    # Poll token creation until IAM propagation completes.
+                    # Maximum bound: 120 seconds (10 attempts x (2s sleep + 10s timeout)).
+                    # In practice, IAM propagation usually succeeds within 4-6 seconds.
+                    max_attempts = 10
+                    poll_interval_sec = 2.0
+                    for attempt in range(1, max_attempts + 1):
+                        time.sleep(poll_interval_sec)
+                        test_tok = subprocess.run(
+                            [
+                                "gcloud",
+                                "auth",
+                                "print-access-token",
+                                f"--impersonate-service-account={sa_email}",
+                            ],
+                            capture_output=True,
+                            text=True,
+                            timeout=10,
+                            check=False,
+                        )
+                        if test_tok.returncode == 0 and test_tok.stdout.strip():
+                            print(
+                                f"  ✔ IAM propagation confirmed on attempt {attempt}."
+                            )
+                            return PermissionCheckResult(
+                                passed=True,
+                                name="Service Account Impersonation",
+                                details=f"Automatically granted TokenCreator role to {member_spec}",
+                            )
             except Exception:
                 pass
 

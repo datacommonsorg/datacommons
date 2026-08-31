@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import subprocess
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import click
 import pytest
@@ -46,9 +46,43 @@ def test_init_db_terraform_error(runner: CliRunner) -> None:
         assert "Failed to run 'terraform output'" in result.output
 
 
+@pytest.fixture(autouse=True)
+def mock_is_database_initialized():
+    """Mocks is_database_initialized in db_cli to return False by default."""
+    with patch(
+        "datacommons_admin.db.db_cli.is_database_initialized",
+        return_value=False,
+    ) as mock_fn:
+        yield mock_fn
+
+
+@pytest.mark.usefixtures("mock_terraform_spanner")
+def test_init_db_database_already_initialized(
+    mock_helper_session,
+    mock_run_migrations,
+    mock_is_database_initialized,
+    runner: CliRunner,
+) -> None:
+    mock_is_database_initialized.return_value = True
+    result = runner.invoke(admin, ["init-db"])
+    assert result.exit_code == 0
+    assert (
+        "Spanner database 'mock-instance/mock-db' is already initialized. Skipping initialization and migrations."
+        in result.output
+    )
+    assert "datacommons admin migrate-db" in result.output
+    assert "datacommons admin seed-db" in result.output
+    mock_is_database_initialized.assert_called_once_with(
+        "mock-proj", "mock-instance", "mock-db"
+    )
+    mock_helper_session.post.assert_not_called()
+    mock_run_migrations.assert_not_called()
+
+
 @pytest.mark.usefixtures("mock_terraform_spanner", "mock_helper_session")
 def test_init_db_success(
     mock_run_migrations,
+    mock_is_database_initialized,
     runner: CliRunner,
 ) -> None:
     result = runner.invoke(admin, ["init-db"])
@@ -56,6 +90,9 @@ def test_init_db_success(
     assert "Successfully initialized Spanner database" in result.output
     assert "Details: DB Initialized" in result.output
     assert "Successfully seeded Spanner database" in result.output
+    mock_is_database_initialized.assert_called_once_with(
+        "mock-proj", "mock-instance", "mock-db"
+    )
     mock_run_migrations.assert_called_once()
 
 
