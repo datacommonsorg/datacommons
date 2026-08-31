@@ -101,7 +101,6 @@ EOF
 
 # Secret Manager Secret for Data Commons API Key
 resource "google_secret_manager_secret" "prober_api_key" {
-  count     = var.dc_api_key != "" ? 1 : 0
   secret_id = "${var.prober_name}-api-key"
   project   = var.project_id
 
@@ -112,13 +111,12 @@ resource "google_secret_manager_secret" "prober_api_key" {
 
 resource "google_secret_manager_secret_version" "prober_api_key_version" {
   count       = var.dc_api_key != "" ? 1 : 0
-  secret      = google_secret_manager_secret.prober_api_key[0].id
+  secret      = google_secret_manager_secret.prober_api_key.id
   secret_data = var.dc_api_key
 }
 
 resource "google_secret_manager_secret_iam_member" "prober_sa_api_key_accessor" {
-  count     = var.dc_api_key != "" ? 1 : 0
-  secret_id = google_secret_manager_secret.prober_api_key[0].id
+  secret_id = google_secret_manager_secret.prober_api_key.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.prober_sa.email}"
 }
@@ -147,6 +145,12 @@ resource "google_cloud_run_v2_job" "prober_job" {
   location = var.region
   project  = var.project_id
 
+  depends_on = [
+    google_secret_manager_secret.prober_api_key,
+    google_secret_manager_secret_iam_member.prober_sa_api_key_accessor,
+    google_project_service.prober_apis
+  ]
+
   template {
     labels = {
       "deploy-timestamp" = lower(replace(timestamp(), "/[^a-z0-9_-]/", "-"))
@@ -166,15 +170,12 @@ resource "google_cloud_run_v2_job" "prober_job" {
           "--report-output", "gs://${google_storage_bucket.prober_reports.name}/reports/"
         ]
 
-        dynamic "env" {
-          for_each = var.dc_api_key != "" ? [1] : []
-          content {
-            name = "DC_API_KEY"
-            value_source {
-              secret_key_ref {
-                secret  = google_secret_manager_secret.prober_api_key[0].secret_id
-                version = "latest"
-              }
+        env {
+          name = "DC_API_KEY"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.prober_api_key.secret_id
+              version = "latest"
             }
           }
         }

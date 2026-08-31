@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -43,6 +44,14 @@ _GLOBAL_REPORTER: TestReporter | None = None
 _SESSION_START_TIME: float = 0.0
 
 
+def pytest_runtest_setup(item):
+    """Skips tests marked with @pytest.mark.cloud_only when running in emulated mode."""
+    if "cloud_only" in item.keywords:
+        instance_opt = item.config.getoption("--instance")
+        if instance_opt == "emulated":
+            pytest.skip("Test requires live GCP cloud target.")
+
+
 def pytest_addoption(parser):
     """Register custom CLI options for integration tests."""
     parser.addoption(
@@ -67,7 +76,7 @@ def pytest_addoption(parser):
         "--cli-source",
         action="store",
         default="local",
-        help="Source of datacommons CLI: 'local', 'testpypi', 'pypi'",
+        help="Source of datacommons CLI: 'local', 'git', 'testpypi', 'pypi'",
     )
     parser.addoption(
         "--cli-version",
@@ -140,8 +149,13 @@ def _format_config_display(config_paths: Any) -> str:
 
 
 def pytest_configure(config):
-    """Initialize structured reporter at the start of the pytest session."""
+    """Initialize structured reporter at the start of the pytest session and register markers."""
     global _GLOBAL_REPORTER, _SESSION_START_TIME
+
+    config.addinivalue_line(
+        "markers",
+        "cloud_only: mark test or class to run only against live GCP cloud targets.",
+    )
 
     _SESSION_START_TIME = time.time()
 
@@ -422,7 +436,7 @@ def test_manifest(request) -> TestManifest:
 
 
 @pytest.fixture(scope="session")
-def dcp_target(request) -> DCPTarget:
+def dcp_target(request, test_manifest) -> DCPTarget:
     """Provides resolved DCP target environment context to all tests."""
     artifacts = ArtifactConfig(
         cli_source=request.config.getoption("--cli-source"),
@@ -430,17 +444,13 @@ def dcp_target(request) -> DCPTarget:
         target_tag=request.config.getoption("--target-tag"),
     )
 
+    instance_opt = request.config.getoption("--instance")
     target = resolve_dcp_target(
-        instance=request.config.getoption("--instance"),
+        instance=instance_opt,
         project=request.config.getoption("--project"),
         workspace=request.config.getoption("--workspace"),
         artifacts=artifacts,
     )
-
-    if _GLOBAL_REPORTER is not None:
-        _GLOBAL_REPORTER.set_artifacts(asdict(target.artifacts))
-        if target.artifacts.target_tag:
-            _GLOBAL_REPORTER.report.target_tag = target.artifacts.target_tag
 
     # Preflight Permission Checks
     checker = PreflightPermissionChecker(target)
@@ -457,7 +467,25 @@ def dcp_target(request) -> DCPTarget:
             returncode=1,
         )
 
-    return target
+    env = None
+    if instance_opt == "emulated":
+        from tests.integration.emulated.environment import EmulatedEnvironment
+
+        os.environ["SPANNER_EMULATOR_HOST"] = "localhost:9010"
+        os.environ["STORAGE_EMULATOR_HOST"] = "http://localhost:9099"
+        env = EmulatedEnvironment()
+        reuse_data_opt = request.config.getoption("--reuse-data", default=False)
+        env.start(manifest=test_manifest, reuse_data=reuse_data_opt)
+
+    if _GLOBAL_REPORTER is not None:
+        _GLOBAL_REPORTER.set_artifacts(asdict(target.artifacts))
+        if target.artifacts.target_tag:
+            _GLOBAL_REPORTER.report.target_tag = target.artifacts.target_tag
+
+    yield target
+
+    if env is not None and not request.config.getoption("--reuse-data"):
+        env.stop()
 
 
 @pytest.fixture(scope="session")
@@ -581,9 +609,18 @@ def seeded_testbed(dcp_target, dcp_cli, spanner_client, test_manifest, request):
             f"❌ Error: Test manifest '{test_manifest.name}' has no ingestion.dataset_dirs defined."
         )
 
-    if bucket_clean:
         try:
-            storage_client = storage.Client(project=dcp_target.project_id)
+            from google.auth.credentials import AnonymousCredentials
+
+            creds = (
+                AnonymousCredentials()
+                if os.getenv("STORAGE_EMULATOR_HOST")
+                or dcp_target.instance_name == "emulated"
+                else None
+            )
+            storage_client = storage.Client(
+                project=dcp_target.project_id, credentials=creds
+            )
             bucket = storage_client.bucket(bucket_clean)
 
             for d in dataset_dirs:

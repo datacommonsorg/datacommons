@@ -22,6 +22,30 @@ from datacommons_db.clients import SpannerClient
 from datacommons_db.migrations import MigrationRunner
 
 
+def is_database_initialized(
+    project_id: str, instance_id: str, database_id: str
+) -> bool:
+    """Checks whether the Cloud Spanner database exists and has been initialized.
+
+    Args:
+        project_id: GCP project ID hosting the Spanner database.
+        instance_id: Cloud Spanner instance ID.
+        database_id: Cloud Spanner database ID.
+
+    Returns:
+        True if the database exists and contains the Node table, False otherwise.
+    """
+    try:
+        spanner_client = SpannerClient(
+            project_id=project_id,
+            instance_id=instance_id,
+            database_id=database_id,
+        )
+        return spanner_client.table_exists("Node")
+    except Exception:  # noqa: BLE001 - must catch all exceptions to safely detect initialization status
+        return False
+
+
 def _create_migration_runner(
     project_id: str, instance_id: str, database_id: str
 ) -> MigrationRunner:

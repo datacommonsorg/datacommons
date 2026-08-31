@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -241,6 +242,22 @@ def resolve_dcp_target(
     """Resolves the active DCP target environment and endpoints."""
     repo_root = _get_repo_root()
     artifacts = artifacts or ArtifactConfig()
+
+    # 1. Resolve Emulated vs Cloud Workspace Directory
+    if instance == "emulated":
+        return DCPTarget(
+            project_id="default",
+            instance_name="emulated",
+            workspace_dir=str(repo_root / "tests" / "integration" / "emulated"),
+            serving_url=os.getenv("DCP_SERVING_URL", "http://localhost:8082"),
+            helper_url=os.getenv("DCP_HELPER_URL", "http://localhost:8081"),
+            spanner_instance="default",
+            spanner_database="test-db",
+            workflow_name="local-workflow",
+            workflow_sa_email="local-sa@default.iam.gserviceaccount.com",
+            gcs_bucket="test-bucket",
+            artifacts=artifacts,
+        )
 
     # 1. Resolve Workspace Directory
     if workspace:
