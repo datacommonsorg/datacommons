@@ -22,7 +22,6 @@ main:
           - decoded_imports: []
           - num_imports: 0
           - combined_import_name: ""
-          - prep_job_name: '${preprocessing_job_name}'
           - postproc_job_name: '${postprocessing_job_name}'
           - comma_separated_imports: ""
           - provenances_list: []
@@ -102,7 +101,7 @@ main:
     - run_preprocessing:
         call: launch_and_poll_preprocessing_job
         args:
-          job_name: '$${prep_job_name}'
+          job_name: '$${pre_job_name}'
           workflow_id: '$${workflow_id}'
           temp_location: '$${input.tempLocation}'
           imports_arg: '$${comma_separated_imports}'
@@ -541,7 +540,7 @@ launch_and_poll_preprocessing_job:
           - execution_name: '$${run_res.metadata.name}'
           
     - call_poll_preprocessing:
-        call: poll_cloud_run_job_execution
+        call: poll_cloud_batch_job_execution
         args:
           execution_name: '$${execution_name}'
           error_prefix: "Preprocessing Cloud Run job failed or was cancelled"

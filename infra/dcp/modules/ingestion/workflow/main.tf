@@ -2,6 +2,14 @@ locals {
   name_prefix                = var.instance_name != "" ? "${var.instance_name}-" : ""
   should_run_postprocessing  = var.enable_bigquery_postprocessing || var.enable_embeddings_generation
   clean_instance_name_prefix = var.instance_name != "" ? "${replace(lower(var.instance_name), "_", "-")}-" : ""
+  preprocessing_cpu_milli = can(regex("m$", var.preprocessing_job_cpu)) ? tonumber(trimsuffix(var.preprocessing_job_cpu, "m")) : tonumber(var.preprocessing_job_cpu) * 1000
+
+  preprocessing_memory_mib = (
+    can(regex("Gi$", var.preprocessing_job_memory)) ? tonumber(trimsuffix(var.preprocessing_job_memory, "Gi")) * 1024 :
+    can(regex("G$", var.preprocessing_job_memory)) ? tonumber(trimsuffix(var.preprocessing_job_memory, "G")) * 1024 :
+    can(regex("Mi$", var.preprocessing_job_memory)) ? tonumber(trimsuffix(var.preprocessing_job_memory, "Mi")) :
+    tonumber(var.preprocessing_job_memory)
+  )
 }
 
 resource "google_service_account" "workflow_sa" {
@@ -33,7 +41,17 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
     embeddings_timeout                  = var.embeddings_timeout
     clean_instance_name_prefix          = local.clean_instance_name_prefix
     enable_redis_cache_clearing         = var.enable_redis_cache_clearing
-    preprocessing_job_name              = var.preprocessing_job_name
+    preprocessing_job_image             = var.preprocessing_job_image
+    preprocessing_cpu_milli             = local.preprocessing_cpu_milli
+    preprocessing_memory_mib            = local.preprocessing_memory_mib
+    preprocessing_timeout               = var.preprocessing_job_timeout
+    preprocessing_service_account_email = var.preprocessing_service_account_email
+    bucket_name                         = var.bucket_name
+    ingestion_input_path                = var.ingestion_input_path
+    spanner_instance_id                 = var.spanner_instance_id
+    spanner_database_id                 = var.spanner_database_id
+    enable_spanner_embeddings           = var.enable_spanner_embeddings
+    dc_api_key_secret_version           = var.dc_api_key_secret_version
     postprocessing_job_name             = var.postprocessing_job_name
     dataflow_max_workers                = var.dataflow_max_workers
     dataflow_num_workers                = var.dataflow_num_workers

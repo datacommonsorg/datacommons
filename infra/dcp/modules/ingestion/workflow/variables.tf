@@ -71,10 +71,66 @@ variable "datacommons_services_name" {
   default     = ""
 }
 
-
-variable "preprocessing_job_name" {
+variable "preprocessing_job_image" {
   type        = string
-  description = "Name of the ingestion preprocessing Cloud Run job"
+  description = "Docker image URL for the data ingestion preprocessing batch job"
+  default     = "gcr.io/datcom-ci/datacommons-data:latest"
+}
+
+variable "preprocessing_job_cpu" {
+  type        = string
+  description = "CPU allocated for preprocessing batch job"
+  default     = "4"
+}
+
+variable "preprocessing_job_memory" {
+  type        = string
+  description = "Memory allocated for preprocessing batch job"
+  default     = "16Gi"
+}
+
+variable "preprocessing_job_timeout" {
+  type        = string
+  description = "Timeout for preprocessing batch job"
+  default     = "3600s"
+}
+
+variable "preprocessing_service_account_email" {
+  type        = string
+  description = "Service account email to run the preprocessing batch job"
+}
+
+variable "bucket_name" {
+  type        = string
+  description = "GCS bucket name for ingestion artifacts"
+}
+
+variable "ingestion_input_path" {
+  type        = string
+  description = "Input path in GCS bucket"
+}
+
+variable "spanner_instance_id" {
+  type        = string
+  description = "Spanner instance ID"
+  default     = ""
+}
+
+variable "spanner_database_id" {
+  type        = string
+  description = "Spanner database ID"
+  default     = ""
+}
+
+variable "enable_spanner_embeddings" {
+  type        = bool
+  description = "Whether Spanner embeddings generation is enabled"
+  default     = true
+}
+
+variable "dc_api_key_secret_version" {
+  type        = string
+  description = "Secret Manager version path for DC_API_KEY"
   default     = ""
 }
 

@@ -210,7 +210,18 @@ module "ingestion_workflow" {
   dataflow_max_workers                = var.ingestion_config.dataflow_max_workers
   dataflow_num_workers                = var.ingestion_config.dataflow_num_workers
   dataflow_worker_machine_type        = var.ingestion_config.dataflow_worker_machine_type
-  preprocessing_job_name              = var.ingestion_config.enable_ingestion ? module.ingestion_preprocessing_job[0].job_name : ""
+  bucket_name                         = module.storage.artifacts_bucket_name
+  ingestion_input_path                = var.ingestion_config.input_path
+  preprocessing_job_image             = var.ingestion_config.preprocessing_job_image
+  preprocessing_job_cpu               = var.ingestion_config.preprocessing_job_cpu
+  preprocessing_job_memory            = var.ingestion_config.preprocessing_job_memory
+  preprocessing_job_timeout           = var.ingestion_config.preprocessing_job_timeout
+  preprocessing_service_account_email = length(module.ingestion_preprocessing_job) > 0 ? module.ingestion_preprocessing_job[0].service_account_email : ""
+  spanner_instance_id                 = var.spanner_config.enable && length(module.spanner) > 0 ? module.spanner[0].spanner_instance_id : ""
+  spanner_database_id                 = var.spanner_config.enable && length(module.spanner) > 0 ? module.spanner[0].spanner_database_id : ""
+  enable_spanner_embeddings           = var.datacommons_services_config.resolve_with_spanner_embeddings
+  dc_api_key_secret_version           = module.auth.dc_api_key_secret_id != "" ? "${module.auth.dc_api_key_secret_id}/versions/latest" : ""
+
   postprocessing_job_name             = var.ingestion_config.enable_ingestion ? module.ingestion_postprocessing_job[0].job_name : ""
   enable_datacommons_services_restart = var.datacommons_services_config.enable
   datacommons_services_name           = "${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-datacommons-service"
