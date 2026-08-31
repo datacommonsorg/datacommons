@@ -21,13 +21,23 @@ The emulated stack runs the following containers in a shared bridge network (`it
 
 ---
 
+## ⚠️ Features Not Supported in Hermetic Emulated Mode
+
+The emulated stack validates core database schemas, DirectRunner graph ingestion, and serving APIs offline. Certain cloud-managed features require live GCP services and are marked with `@pytest.mark.cloud_only` (skipped automatically when running with `--instance=emulated`):
+
+* **Cloud CLI Ingestion (`TestCLIIngestion`)**: The `datacommons admin ingest start` command invokes GCP Cloud Workflows and monitors Dataflow jobs via Cloud APIs. In emulated mode, data is ingested directly into the Spanner emulator via Beam DirectRunner.
+* **SVG Hierarchy Aggregations (`TestSVGHierarchy`)**: Statistical Variable Group (SVG) parent-child specialization generation relies on BigQuery postprocessing aggregations.
+* **Vector Embeddings & Semantic Search (`TestEmbeddings`, `TestMCPTools::search_indicators`)**: Generating embeddings and resolving natural language indicator queries requires Vertex AI Vector Search.
+
+---
+
 ## 🚀 Running Integration Tests Locally
 
 To run the complete integration test suite against the local emulated stack:
 
 ```bash
 uv run pytest tests/integration/suites/ \
-  --instance=local \
+  --instance=emulated \
   --test-config=foobar_wages
 ```
 
@@ -39,7 +49,7 @@ To keep the containers alive and run tests in **~1 second**:
 
 ```bash
 uv run pytest tests/integration/suites/ \
-  --instance=local \
+  --instance=emulated \
   --test-config=foobar_wages \
   --reuse-data
 ```
@@ -61,7 +71,7 @@ PROCESSOR_IMAGE=gcr.io/datcom-ci/datacommons-data:v1.2.0 \
 HELPER_IMAGE=gcr.io/datcom-ci/datacommons-ingestion-helper:v1.2.0 \
 SERVICES_IMAGE=gcr.io/datcom-ci/datacommons-services:v1.2.0 \
 uv run pytest tests/integration/suites/ \
-  --instance=local \
+  --instance=emulated \
   --test-config=foobar_wages
 ```
 

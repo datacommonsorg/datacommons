@@ -315,26 +315,35 @@ class EmulatedEnvironment:
             f"❌ {name} failed to become ready at {url} within {timeout_secs}s.{container_logs}"
         )
 
-    def _wait_for_mixer_ready(self, timeout_secs: int = 90) -> None:
+    def _wait_for_mixer_ready(
+        self, manifest: TestManifest | None = None, timeout_secs: int = 90
+    ) -> None:
         """Polls Mixer until Spanner graph cache is loaded and ready to serve.
 
-        NOTE (Temporary): Probing 'dc/g/Root' ensures the in-memory Spanner Property
+        NOTE (Temporary): Probing node ensures the in-memory Spanner Property
         Graph cache in Mixer has finished its asynchronous initial warmup cycle before
         the test suites begin assertions. This will be superseded once Mixer exposes
         a dedicated readiness endpoint.
         """
+        probe_node = "dc/g/Root"
+        if (
+            manifest
+            and manifest.ingestion
+            and manifest.ingestion.spanner_expectations
+            and manifest.ingestion.spanner_expectations.expected_nodes
+        ):
+            probe_node = manifest.ingestion.spanner_expectations.expected_nodes[0].subject_id
+
         start = time.time()
         while time.time() - start < timeout_secs:
             try:
                 resp = requests.post(
                     f"{self.serving_url}/core/api/v2/node",
-                    json={"nodes": ["dc/g/Root"], "property": "->name"},
+                    json={"nodes": [probe_node], "property": "->name"},
                     headers={"X-Use-Multi-Entity-Schema": "true"},
                     timeout=2,
                 )
-                if resp.status_code == 200 and resp.json().get("data", {}).get(
-                    "dc/g/Root"
-                ):
+                if resp.status_code == 200 and probe_node in resp.json().get("data", {}):
                     return
             except Exception:
                 pass
