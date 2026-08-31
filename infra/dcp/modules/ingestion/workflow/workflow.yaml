@@ -132,7 +132,7 @@ main:
           steps:
             - append_provenance:
                 assign:
-                  - provenances_list: '$${list.concat(provenances_list, item.importName)}'
+                  - provenances_list: '$${list.concat(provenances_list, [item.importName])}'
 
 
     - try_acquire_lock:
