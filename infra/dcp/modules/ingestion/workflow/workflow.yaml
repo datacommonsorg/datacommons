@@ -97,7 +97,7 @@ main:
           - substring_end: '$${if(import_name_len < 35, import_name_len, 35)}'
           - sanitized_short_import: '$${text.substring(combined_import_name, 0, substring_end)}'
           - dataflow_job_name: '$${"${clean_instance_name_prefix}" + sanitized_short_import + "-" + string(int(sys.now()))}'
-    
+
     - run_preprocessing:
         call: launch_and_poll_preprocessing_job
         args:
@@ -195,7 +195,7 @@ main:
                   region: '$${input.region}'
                   workflow_id: '$${workflow_id}'
                 result: dataflow_res
-            
+
             - assign_job_id:
                 assign:
                   - job_id: '$${dataflow_res.job_id}'
@@ -250,7 +250,7 @@ main:
                     imports: '$${imports_version_list}'
                     version: '$${version}'
                     comment: '$${"Auto-promoted by workflow " + workflow_id}'
-            
+
             - update_ingestion_status_success:
                 call: update_ingestion_status
                 args:
@@ -289,7 +289,7 @@ main:
             - capture_error:
                 assign:
                   - execution_error: '$${e}'
-    
+
     - release_lock_step:
         call: http.post
         args:
@@ -445,7 +445,7 @@ launch_and_poll_dataflow:
         assign:
           - env_map.subnetwork: '${dataflow_subnetwork}'
 %{ endif }
-    
+
     - run_flex_template:
         call: googleapis.dataflow.v1b3.projects.locations.flexTemplates.launch
         args:
@@ -458,11 +458,11 @@ launch_and_poll_dataflow:
               parameters: $${launch_params}
               environment: $${env_map}
         result: launch_result
-    
+
     - get_job_id:
         assign:
           - job_id: $${launch_result.job.id}
-    
+
     - update_history_running:
         call: update_history
         args:
@@ -471,7 +471,7 @@ launch_and_poll_dataflow:
           stage: 'dataflow'
           job_id: $${job_id}
           import_list: null
-          
+
     - poll_job:
         steps:
           - get_status:
@@ -490,15 +490,15 @@ launch_and_poll_dataflow:
               args:
                 seconds: 60
               next: poll_job
-    
+
     - check_success:
         switch:
           - condition: '$${job_status.currentState == "JOB_STATE_DONE"}'
             next: return_success
-    
+
     - fail_on_job_status:
         raise: '$${ "Dataflow job failed with state: " + job_status.currentState }'
-        
+
     - return_success:
         return:
           job_id: $${job_id}
@@ -555,7 +555,7 @@ launch_and_poll_preprocessing_job:
             logsPolicy:
               destination: CLOUD_LOGGING
         result: batch_res
-          
+
     - call_poll_preprocessing:
         call: poll_cloud_batch_job_execution
         args:
@@ -585,15 +585,15 @@ poll_cloud_batch_job_execution:
               args:
                 seconds: 15
               next: poll_execution
-              
+
     - check_success:
         switch:
           - condition: '$${job_status.status.state == "SUCCEEDED"}'
             next: return_success
-            
+
     - fail_on_batch_status:
         raise: '$${error_prefix + ": " + job_status.name + " (" + job_status.status.state + ")"}'
-        
+
     - return_success:
         return: '$${job_status}'
 
@@ -616,14 +616,14 @@ poll_cloud_run_job_execution:
               args:
                 seconds: 30
               next: poll_execution
-              
+
     - check_exec_success:
         switch:
           - condition: '$${default(map.get(exec_status, "succeededCount"), 0) > 0}'
             next: return_success
-            
+
     - fail_on_exec_status:
         raise: '$${error_prefix + ": " + exec_status.name}'
-        
+
     - return_success:
         return: '$${exec_status}'
