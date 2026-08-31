@@ -101,7 +101,6 @@ main:
     - run_preprocessing:
         call: launch_and_poll_preprocessing_job
         args:
-          job_name: '$${pre_job_name}'
           workflow_id: '$${workflow_id}'
           temp_location: '$${input.tempLocation}'
           imports_arg: '$${comma_separated_imports}'
@@ -506,48 +505,97 @@ launch_and_poll_dataflow:
           launch_result: $${launch_result}
 
 launch_and_poll_preprocessing_job:
-  params: [job_name, workflow_id, temp_location, imports_arg, region, project_id]
+  params: [workflow_id, temp_location, imports_arg, region, project_id]
   steps:
     - init_args:
         assign:
-          - container_args: []
+          - container_commands: ["bash", "./run.sh", "--mode=dcpbridge"]
+          - batch_job_id: '$${"${clean_instance_name_prefix}prep-" + string(int(sys.now()))}'
     - set_args:
         switch:
           - condition: '$${imports_arg != ""}'
             assign:
-              - container_args: ['$${"--imports=" + imports_arg}']
-    - run_cloud_run_job:
-        call: googleapis.run.v2.projects.locations.jobs.run
+              - container_commands: '$${list.concat(container_commands, ["--imports=" + imports_arg])}'
+    - create_batch_job:
+        call: googleapis.batch.v1.projects.locations.jobs.create
         args:
-          name: '$${"projects/" + project_id + "/locations/" + region + "/jobs/" + job_name}'
+          parent: '$${"projects/" + project_id + "/locations/" + region}'
+          jobId: '$${batch_job_id}'
           body:
-            overrides:
-              containerOverrides:
-                - env:
-                    - name: 'WORKFLOW_EXECUTION_ID'
-                      value: '$${workflow_id}'
-                    - name: 'TEMP_LOCATION'
-                      value: '$${temp_location}'
-                    - name: 'DATA_RUN_MODE'
-                      value: 'dcpbridge'
-                  args: '$${container_args}'
-          connector_params:
-            timeout: 7200
-        result: run_res
-
-    - assign_execution_name:
-        assign:
-          - execution_name: '$${run_res.metadata.name}'
+            taskGroups:
+              - taskSpec:
+                  computeResource:
+                    cpuMilli: ${preprocessing_cpu_milli}
+                    memoryMib: ${preprocessing_memory_mib}
+                  maxRunDuration: '${preprocessing_timeout}'
+                  runnables:
+                    - container:
+                        imageUri: '${preprocessing_job_image}'
+                        commands: '$${container_commands}'
+                      environment:
+                        variables:
+                          WORKFLOW_EXECUTION_ID: '$${workflow_id}'
+                          TEMP_LOCATION: '$${temp_location}'
+                          INPUT_DIR: 'gs://${bucket_name}/${ingestion_input_path}'
+                          OUTPUT_DIR: 'gs://${bucket_name}/${ingestion_artifacts_path}'
+                          GCS_BUCKET: '${bucket_name}'
+                          ENABLE_SPANNER_EMBEDDINGS: '${enable_spanner_embeddings}'
+                          USE_SPANNER_GRAPH: 'true'
+                          GCP_SPANNER_INSTANCE_ID: '${spanner_instance_id}'
+                          GCP_SPANNER_DATABASE_NAME: '${spanner_database_id}'
+                          PYTHONUNBUFFERED: '1'
+                          PROJECT_ID: '${project_id}'
+                          REGION: '$${region}'
+                        secretVariables:
+                          DC_API_KEY: '${dc_api_key_secret_version}'
+                  taskCount: 1
+            allocationPolicy:
+              serviceAccount:
+                email: '${preprocessing_service_account_email}'
+            logsPolicy:
+              destination: CLOUD_LOGGING
+        result: batch_res
           
     - call_poll_preprocessing:
         call: poll_cloud_batch_job_execution
         args:
-          execution_name: '$${execution_name}'
-          error_prefix: "Preprocessing Cloud Run job failed or was cancelled"
+          job_name: '$${batch_res.name}'
+          error_prefix: "Preprocessing Cloud Batch job failed or was cancelled"
         result: exec_status
 
     - return_preprocessing_result:
         return: '$${exec_status}'
+
+poll_cloud_batch_job_execution:
+  params: [job_name, error_prefix]
+  steps:
+    - poll_execution:
+        steps:
+          - get_job:
+              call: googleapis.batch.v1.projects.locations.jobs.get
+              args:
+                name: '$${job_name}'
+              result: job_status
+          - check_terminal:
+              switch:
+                - condition: '$${job_status.status.state in ["SUCCEEDED", "FAILED", "DELETION_IN_PROGRESS"]}'
+                  next: check_success
+          - wait_for_batch:
+              call: sys.sleep
+              args:
+                seconds: 15
+              next: poll_execution
+              
+    - check_success:
+        switch:
+          - condition: '$${job_status.status.state == "SUCCEEDED"}'
+            next: return_success
+            
+    - fail_on_batch_status:
+        raise: '$${error_prefix + ": " + job_status.name + " (" + job_status.status.state + ")"}'
+        
+    - return_success:
+        return: '$${job_status}'
 
 poll_cloud_run_job_execution:
   params: [execution_name, error_prefix]
