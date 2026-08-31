@@ -243,11 +243,11 @@ def resolve_dcp_target(
     repo_root = _get_repo_root()
     artifacts = artifacts or ArtifactConfig()
 
-    # 1. Resolve Local Emulated vs Cloud Workspace Directory
-    if instance in ("local", "emulated"):
+    # 1. Resolve Emulated vs Cloud Workspace Directory
+    if instance == "emulated":
         return DCPTarget(
             project_id="default",
-            instance_name="local",
+            instance_name="emulated",
             workspace_dir=str(repo_root / "tests" / "integration" / "emulated"),
             serving_url=os.getenv("DCP_SERVING_URL", "http://localhost:8082"),
             helper_url=os.getenv("DCP_HELPER_URL", "http://localhost:8081"),

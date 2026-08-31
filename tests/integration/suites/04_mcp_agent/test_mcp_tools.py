@@ -49,7 +49,7 @@ class TestMCPTools:
             )
 
         if (
-            seeded_testbed.instance_name in ("local", "emulated")
+            seeded_testbed.instance_name == "emulated"
             and mcp_tool_spec.tool_name == "search_indicators"
         ):
             pytest.skip(

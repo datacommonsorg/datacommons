@@ -16,7 +16,7 @@ FROM python:3.13-slim
 
 # Copy standalone static binaries for terraform and uv
 COPY --from=hashicorp/terraform:1.10 /bin/terraform /bin/terraform
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # Install system dependencies (ca-certificates, git, google-cloud-cli) and clean up in a single layer
 RUN apt-get update && apt-get install -y --no-install-recommends \

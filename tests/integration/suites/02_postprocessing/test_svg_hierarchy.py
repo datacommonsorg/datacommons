@@ -20,6 +20,7 @@ from tests.integration.core.spanner_client import SpannerClient
 from tests.integration.core.target import DCPTarget
 
 
+@pytest.mark.cloud_only
 class TestSVGHierarchy:
     """Validates Statistical Variable Group (SVG) parent-child hierarchy generation."""
 
@@ -31,11 +32,6 @@ class TestSVGHierarchy:
         specialization_edge_spec: SpecializationEdgeSpec | None,
     ):
         """Verifies that SVG specialization edge exists in Spanner Edge table."""
-        if dcp_target.instance_name in ("local", "emulated"):
-            pytest.skip(
-                "Postprocessing BigQuery aggregation is skipped in local emulated mode."
-            )
-
         if not specialization_edge_spec:
             pytest.skip(
                 "No SVG specialization edges defined in manifest or postprocessing stage disabled."
