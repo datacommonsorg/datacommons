@@ -109,6 +109,11 @@ resource "google_secret_manager_secret" "prober_api_key" {
   }
 }
 
+resource "google_secret_manager_secret_version" "prober_api_key_version" {
+  secret      = google_secret_manager_secret.prober_api_key.id
+  secret_data = var.dc_api_key
+}
+
 resource "google_secret_manager_secret_iam_member" "prober_sa_api_key_accessor" {
   secret_id = google_secret_manager_secret.prober_api_key.id
   role      = "roles/secretmanager.secretAccessor"
@@ -138,6 +143,12 @@ resource "google_cloud_run_v2_job" "prober_job" {
   name     = var.prober_name
   location = var.region
   project  = var.project_id
+
+  depends_on = [
+    google_secret_manager_secret_version.prober_api_key_version,
+    google_secret_manager_secret_iam_member.prober_sa_api_key_accessor,
+    google_project_service.prober_apis
+  ]
 
   template {
     labels = {

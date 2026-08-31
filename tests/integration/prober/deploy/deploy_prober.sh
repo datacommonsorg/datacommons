@@ -258,7 +258,7 @@ if [[ "$SKIP_BUILD" == "false" ]]; then
   echo "    Prober Commit SHA: ${PROBER_COMMIT:0:8}"
   gcloud builds submit \
     --config="${DEPLOY_DIR}/cloudbuild.yaml" \
-    --substitutions="_REGISTRY_BASE=${REGISTRY_BASE},_IMAGE_NAME=${IMAGE_NAME},_PROJECT_ID=${PROJECT},_PROBER_NAME=${PROBER_NAME},_REGION=${LOCATION}" \
+    --substitutions="_REGISTRY_BASE=${REGISTRY_BASE},_IMAGE_NAME=${IMAGE_NAME},_PROJECT_ID=${PROJECT},_PROBER_NAME=${PROBER_NAME},_REGION=${LOCATION},_COMMIT_SHA=${PROBER_COMMIT},_UPDATE_JOB=false" \
     --project="${REGISTRY_PROJECT}" \
     "${REPO_ROOT}"
 else
@@ -283,20 +283,6 @@ fi
 # 2. Deploy Prober GCP Infrastructure via Terraform
 echo ""
 echo "==> Step 2: Provisioning Prober GCP infrastructure via Terraform..."
-
-# Ensure API Key secret and at least one version exists in Secret Manager
-if ! gcloud secrets describe "${PROBER_NAME}-api-key" --project="${PROJECT}" &>/dev/null; then
-  gcloud secrets create "${PROBER_NAME}-api-key" --project="${PROJECT}" --replication-policy="automatic" &>/dev/null || true
-fi
-
-if [[ -n "$DC_API_KEY" ]]; then
-  echo -n "$DC_API_KEY" | gcloud secrets versions add "${PROBER_NAME}-api-key" --data-file=- --project="${PROJECT}" &>/dev/null
-  echo "✔ Updated Data Commons API Key in Secret Manager (${PROBER_NAME}-api-key)."
-else
-  if [[ $(gcloud secrets versions list "${PROBER_NAME}-api-key" --project="${PROJECT}" --format="value(name)" 2>/dev/null | wc -l) -eq 0 ]]; then
-    echo -n "none" | gcloud secrets versions add "${PROBER_NAME}-api-key" --data-file=- --project="${PROJECT}" &>/dev/null
-  fi
-fi
 
 # Ensure GCS remote state bucket exists
 if ! gcloud storage buckets describe "gs://${STATE_BUCKET}" --project="${PROJECT}" &>/dev/null; then

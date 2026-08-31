@@ -22,7 +22,7 @@ steps:
       - |
         docker pull ${_REGISTRY_BASE}/${_IMAGE_NAME}:latest || true
         docker build \
-          --build-arg COMMIT_SHA=$COMMIT_SHA \
+          --build-arg COMMIT_SHA=${_COMMIT_SHA} \
           --cache-from ${_REGISTRY_BASE}/${_IMAGE_NAME}:latest \
           -t ${_REGISTRY_BASE}/${_IMAGE_NAME}:${_TAG} \
           -t ${_REGISTRY_BASE}/${_IMAGE_NAME}:latest \
@@ -31,19 +31,26 @@ steps:
         docker push ${_REGISTRY_BASE}/${_IMAGE_NAME}:${_TAG}
         docker push ${_REGISTRY_BASE}/${_IMAGE_NAME}:latest
 
-  # 2. Update the Cloud Run Job to use the new image
+  # 2. Update the Cloud Run Job to use the new image (for automated branch push CI/CD)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     id: 'update-prober-job-image'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
-        gcloud run jobs update ${_PROBER_NAME} \
-          --image="${_REGISTRY_BASE}/${_IMAGE_NAME}:${_TAG}" \
-          --region="${_REGION}" \
-          --project="${_PROJECT_ID}"
+        if [ "${_UPDATE_JOB}" = "true" ]; then
+          echo "Updating Cloud Run Job '${_PROBER_NAME}' with new image..."
+          gcloud run jobs update ${_PROBER_NAME} \
+            --image="${_REGISTRY_BASE}/${_IMAGE_NAME}:${_TAG}" \
+            --region="${_REGION}" \
+            --project="${_PROJECT_ID}"
+        else
+          echo "Skipping Cloud Run job update (_UPDATE_JOB is false; managed via Terraform)."
+        fi
 
 substitutions:
+  _UPDATE_JOB: 'true'
+  _COMMIT_SHA: 'unknown'
   _TAG: 'latest'
   _PROJECT_ID: 'datcom-dcp'
   _PROBER_NAME: 'dcp-prober'
