@@ -244,6 +244,10 @@ main:
                                 run_flag: '$${run_embeddings}'
                               result: embedding_result
 
+            # Intentionally inject failure to test automated PITR rollback flow
+            - test_intentional_failure_after_postprocessing:
+                raise: "Intentional failure after postprocessing to verify automated PITR rollback"
+
             - promote_version_step:
                 call: http.post
                 args:
