@@ -50,7 +50,7 @@ steps:
 
 substitutions:
   _UPDATE_JOB: 'true'
-  _COMMIT_SHA: 'unknown'
+  _COMMIT_SHA: 'latest'
   _TAG: 'latest'
   _PROJECT_ID: 'datcom-dcp'
   _PROBER_NAME: 'dcp-prober'

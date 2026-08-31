@@ -151,7 +151,7 @@ def provision_infra(
     )
     if overrides_src.exists():
         overrides_content = overrides_src.read_text()
-        if target_tag and target_tag not in ("latest", "unknown"):
+        if target_tag and target_tag != "latest":
             overrides_content += f'\ndcp_version = "{target_tag}"\n'
         (instance_dir / "prober_overrides.auto.tfvars").write_text(overrides_content)
     else:
@@ -193,10 +193,11 @@ def run_tests(
     print("=" * 80)
 
     e2e_script = REPO_ROOT / "tests" / "integration" / "run_e2e_tests.py"
-    if not target_tag or target_tag == "unknown":
-        resolved_tag = "latest"
-    else:
-        resolved_tag = target_tag[:8] if len(target_tag) >= 8 else target_tag
+    resolved_tag = (
+        target_tag[:8]
+        if target_tag and len(target_tag) >= 8
+        else (target_tag or "latest")
+    )
     test_res = run_cmd_with_retry(
         [
             "uv",
