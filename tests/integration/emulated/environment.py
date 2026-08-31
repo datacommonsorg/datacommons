@@ -26,7 +26,13 @@ import time
 from pathlib import Path
 
 import requests
+from google.auth.credentials import AnonymousCredentials
+from google.cloud import spanner
 
+from datacommons_db.clients.spanner_client import (
+    SpannerClient as DCPSpannerClient,
+)
+from datacommons_db.migrations import MigrationRunner
 from tests.integration.core.config_schema import TestManifest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -93,7 +99,7 @@ class EmulatedEnvironment:
             flush=True,
         )
         self._compose_up("spanner", "gcs", "ingestion-helper")
-        self._wait_for_spanner_ready(timeout_secs=30)
+        self._wait_for_spanner_ready(timeout_secs=60)
         self._wait_for_ready(
             f"{self.helper_url}/docs", "Ingestion Helper", timeout_secs=60
         )
@@ -147,9 +153,6 @@ class EmulatedEnvironment:
     def _initialize_database(self) -> None:
         # Provisioned in fixture setup so downstream test suites can run in isolation.
         print(">>> Ensuring test-db database exists in Spanner emulator...", flush=True)
-        from google.auth.credentials import AnonymousCredentials
-        from google.cloud import spanner
-
         client = spanner.Client(project="default", credentials=AnonymousCredentials())
         instance = client.instance("default")
         db = instance.database("test-db")
@@ -170,6 +173,16 @@ class EmulatedEnvironment:
             resp.raise_for_status()
 
         self._stream_container_logs_during("itest-ingestion-helper", _do_initialize)
+
+        print(">>> Applying schema migrations via MigrationRunner...", flush=True)
+        dcp_spanner = DCPSpannerClient(
+            project_id="default",
+            instance_id="default",
+            database_id="test-db",
+            credentials=AnonymousCredentials(),
+        )
+        runner = MigrationRunner(dcp_spanner)
+        runner.run_migrations()
 
         print(">>> Seeding database base ontology variables...", flush=True)
 
@@ -273,6 +286,8 @@ class EmulatedEnvironment:
             "GOOGLE_CLOUD_SPANNER_MULTIPLEXED_SESSIONS_FOR_RW=TRUE",
             "-e",
             "NO_GCE_CHECK=true",
+            "-e",
+            "IS_BASE_DC=false",
             os.getenv(
                 "DATAFLOW_IMAGE",
                 "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion:latest",
@@ -286,6 +301,7 @@ class EmulatedEnvironment:
             "--spannerDatabaseId=test-db",
             "--emulatorHost=spanner:15000",
             "--gcsEndpoint=http://gcs:9099/storage/v1",
+            "--isBaseDc=false",
             f"--importList={json.dumps(import_list)}",
         ]
         subprocess.run(loader_cmd, check=True)
@@ -363,7 +379,7 @@ class EmulatedEnvironment:
             f"❌ Mixer failed to populate Spanner graph cache for 'dc/g/Root' within {timeout_secs}s.{container_logs}"
         )
 
-    def _wait_for_spanner_ready(self, timeout_secs: int = 30) -> None:
+    def _wait_for_spanner_ready(self, timeout_secs: int = 60) -> None:
         print(
             f">>> Waiting for Spanner emulator to accept connections at {self.spanner_host}...",
             flush=True,
@@ -372,9 +388,6 @@ class EmulatedEnvironment:
         start = time.time()
         while time.time() - start < timeout_secs:
             try:
-                from google.auth.credentials import AnonymousCredentials
-                from google.cloud import spanner
-
                 client = spanner.Client(
                     project="default", credentials=AnonymousCredentials()
                 )
@@ -383,8 +396,19 @@ class EmulatedEnvironment:
                 return
             except Exception:
                 time.sleep(1)
+        container_logs = ""
+        with contextlib.suppress(Exception):
+            proc = subprocess.run(
+                ["docker", "logs", "--tail", "100", "itest-spanner"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            logs = proc.stdout or proc.stderr or ""
+            if logs:
+                container_logs = f"\n--- Container itest-spanner logs ---\n{logs}"
         raise RuntimeError(
-            f"❌ Spanner emulator at {self.spanner_host} failed to become ready in time."
+            f"❌ Spanner emulator at {self.spanner_host} failed to become ready in time.{container_logs}"
         )
 
     def _stream_container_logs_during(self, container_name: str, target_fn):
