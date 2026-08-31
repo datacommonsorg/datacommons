@@ -26,6 +26,7 @@ from tests.integration.core.spanner_client import SpannerClient
 from tests.integration.core.target import DCPTarget
 
 
+@pytest.mark.cloud_only
 class TestCLIIngestion:
     """Validates Data Commons CLI ingestion commands against target workspace."""
 
@@ -33,11 +34,6 @@ class TestCLIIngestion:
         self, dcp_cli: DatacommonsCLI, dcp_target: DCPTarget
     ):
         """Validates that 'datacommons admin ingest show-config' outputs matching live workspace configuration."""
-        if dcp_target.instance_name in ("local", "emulated"):
-            pytest.skip(
-                "CLI workspace config test only runs against GCP cloud workspaces."
-            )
-
         res = dcp_cli.run(["admin", "ingest", "show-config"])
         assert res.exit_code == 0, f"CLI ingest show-config failed: {res.output}"
         assert "Current ingestion job configuration:" in res.output
@@ -58,15 +54,9 @@ class TestCLIIngestion:
         self,
         request,
         dcp_cli: DatacommonsCLI,
-        dcp_target: DCPTarget,
         test_manifest: TestManifest,
     ):
         """Validates that 'datacommons admin init-db' initializes and seeds the Spanner database."""
-        if dcp_target.instance_name in ("local", "emulated"):
-            pytest.skip(
-                "Local emulator initializes database automatically in environment setup."
-            )
-
         if request.config.getoption("--reuse-data"):
             pytest.skip(
                 "Skipped Spanner database initialization because --reuse-data was specified."
@@ -89,10 +79,6 @@ class TestCLIIngestion:
         test_manifest: TestManifest,
     ):
         """Validates that 'datacommons admin ingest start' triggers and completes Cloud Workflows."""
-        if dcp_target.instance_name in ("local", "emulated"):
-            pytest.skip(
-                "Local emulator runs ingestion pipeline automatically in environment setup."
-            )
         if request.config.getoption("--reuse-data"):
             pytest.skip("Skipped full workflow run because --reuse-data was specified.")
 

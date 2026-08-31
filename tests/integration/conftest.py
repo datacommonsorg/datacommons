@@ -44,6 +44,22 @@ _GLOBAL_REPORTER: TestReporter | None = None
 _SESSION_START_TIME: float = 0.0
 
 
+def pytest_configure(config):
+    """Registers custom pytest markers."""
+    config.addinivalue_line(
+        "markers",
+        "cloud_only: mark test or class to run only against live GCP cloud targets.",
+    )
+
+
+def pytest_runtest_setup(item):
+    """Skips tests marked with @pytest.mark.cloud_only when running in emulated mode."""
+    if "cloud_only" in item.keywords:
+        instance_opt = item.config.getoption("--instance")
+        if instance_opt == "emulated":
+            pytest.skip("Test requires live GCP cloud target.")
+
+
 def pytest_addoption(parser):
     """Register custom CLI options for integration tests."""
     parser.addoption(
@@ -455,7 +471,7 @@ def dcp_target(request, test_manifest) -> DCPTarget:
         )
 
     env = None
-    if instance_opt in ("local", "emulated"):
+    if instance_opt == "emulated":
         from tests.integration.emulated.environment import EmulatedEnvironment
 
         os.environ["SPANNER_EMULATOR_HOST"] = "localhost:9010"
