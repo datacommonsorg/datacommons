@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -41,6 +42,22 @@ from tests.integration.core.target import ArtifactConfig, DCPTarget
 
 _GLOBAL_REPORTER: TestReporter | None = None
 _SESSION_START_TIME: float = 0.0
+
+
+def pytest_configure(config):
+    """Registers custom pytest markers."""
+    config.addinivalue_line(
+        "markers",
+        "cloud_only: mark test or class to run only against live GCP cloud targets.",
+    )
+
+
+def pytest_runtest_setup(item):
+    """Skips tests marked with @pytest.mark.cloud_only when running in emulated mode."""
+    if "cloud_only" in item.keywords:
+        instance_opt = item.config.getoption("--instance")
+        if instance_opt == "emulated":
+            pytest.skip("Test requires live GCP cloud target.")
 
 
 def pytest_addoption(parser):
@@ -422,7 +439,7 @@ def test_manifest(request) -> TestManifest:
 
 
 @pytest.fixture(scope="session")
-def dcp_target(request) -> DCPTarget:
+def dcp_target(request, test_manifest) -> DCPTarget:
     """Provides resolved DCP target environment context to all tests."""
     artifacts = ArtifactConfig(
         cli_source=request.config.getoption("--cli-source"),
@@ -430,17 +447,13 @@ def dcp_target(request) -> DCPTarget:
         target_tag=request.config.getoption("--target-tag"),
     )
 
+    instance_opt = request.config.getoption("--instance")
     target = resolve_dcp_target(
-        instance=request.config.getoption("--instance"),
+        instance=instance_opt,
         project=request.config.getoption("--project"),
         workspace=request.config.getoption("--workspace"),
         artifacts=artifacts,
     )
-
-    if _GLOBAL_REPORTER is not None:
-        _GLOBAL_REPORTER.set_artifacts(asdict(target.artifacts))
-        if target.artifacts.target_tag:
-            _GLOBAL_REPORTER.report.target_tag = target.artifacts.target_tag
 
     # Preflight Permission Checks
     checker = PreflightPermissionChecker(target)
@@ -457,7 +470,25 @@ def dcp_target(request) -> DCPTarget:
             returncode=1,
         )
 
-    return target
+    env = None
+    if instance_opt == "emulated":
+        from tests.integration.emulated.environment import EmulatedEnvironment
+
+        os.environ["SPANNER_EMULATOR_HOST"] = "localhost:9010"
+        os.environ["STORAGE_EMULATOR_HOST"] = "http://localhost:9099"
+        env = EmulatedEnvironment()
+        reuse_data_opt = request.config.getoption("--reuse-data", default=False)
+        env.start(manifest=test_manifest, reuse_data=reuse_data_opt)
+
+    if _GLOBAL_REPORTER is not None:
+        _GLOBAL_REPORTER.set_artifacts(asdict(target.artifacts))
+        if target.artifacts.target_tag:
+            _GLOBAL_REPORTER.report.target_tag = target.artifacts.target_tag
+
+    yield target
+
+    if env is not None and not request.config.getoption("--reuse-data"):
+        env.stop()
 
 
 @pytest.fixture(scope="session")
