@@ -26,13 +26,7 @@ import time
 from pathlib import Path
 
 import requests
-from google.auth.credentials import AnonymousCredentials
-from google.cloud import spanner
 
-from datacommons_db.clients.spanner_client import (
-    SpannerClient as DCPSpannerClient,
-)
-from datacommons_db.migrations import MigrationRunner
 from tests.integration.core.config_schema import TestManifest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -99,7 +93,7 @@ class EmulatedEnvironment:
             flush=True,
         )
         self._compose_up("spanner", "gcs", "ingestion-helper")
-        self._wait_for_spanner_ready(timeout_secs=60)
+        self._wait_for_spanner_ready(timeout_secs=30)
         self._wait_for_ready(
             f"{self.helper_url}/docs", "Ingestion Helper", timeout_secs=60
         )
@@ -153,6 +147,9 @@ class EmulatedEnvironment:
     def _initialize_database(self) -> None:
         # Provisioned in fixture setup so downstream test suites can run in isolation.
         print(">>> Ensuring test-db database exists in Spanner emulator...", flush=True)
+        from google.auth.credentials import AnonymousCredentials
+        from google.cloud import spanner
+
         client = spanner.Client(project="default", credentials=AnonymousCredentials())
         instance = client.instance("default")
         db = instance.database("test-db")
@@ -173,16 +170,6 @@ class EmulatedEnvironment:
             resp.raise_for_status()
 
         self._stream_container_logs_during("itest-ingestion-helper", _do_initialize)
-
-        print(">>> Applying schema migrations via MigrationRunner...", flush=True)
-        dcp_spanner = DCPSpannerClient(
-            project_id="default",
-            instance_id="default",
-            database_id="test-db",
-            credentials=AnonymousCredentials(),
-        )
-        runner = MigrationRunner(dcp_spanner)
-        runner.run_migrations()
 
         print(">>> Seeding database base ontology variables...", flush=True)
 
@@ -245,27 +232,22 @@ class EmulatedEnvironment:
         # 4. Run Java Spanner loader (GraphIngestionPipeline on DirectRunner)
         resp = requests.get(f"{self.gcs_url}/storage/v1/b/test-bucket/o", timeout=10)
         resp.raise_for_status()
-        gcs_resp = resp.json()
-        jsonld_blobs = [
+        blobs = [
             item["name"]
-            for item in gcs_resp.get("items", [])
+            for item in resp.json().get("items", [])
             if item["name"].endswith(".jsonld")
         ]
-        top_dirs = {
-            "/".join(name.split("/")[:3])
-            if len(name.split("/")) >= 3
-            else "/".join(name.split("/")[:-1])
-            for name in jsonld_blobs
-        }
+        top_dirs = {"/".join(b.split("/")[:-1]) for b in blobs}
         if not top_dirs:
             return
 
+        import_name = (
+            manifest.ingestion.import_name
+            or Path(manifest.ingestion.dataset_dirs[0]).name
+        )
         import_list = [
-            {
-                "importName": d.split("/")[-1].split("_")[0],
-                "graphPath": f"gs://test-bucket/{d}/*/*.jsonld",
-            }
-            for d in top_dirs
+            {"importName": import_name, "graphPath": f"gs://test-bucket/{d}/*.jsonld"}
+            for d in sorted(top_dirs)
         ]
 
         loader_cmd = [
@@ -288,6 +270,8 @@ class EmulatedEnvironment:
             "NO_GCE_CHECK=true",
             "-e",
             "IS_BASE_DC=false",
+            "-e",
+            "JAVA_TOOL_OPTIONS=-XX:+TieredCompilation -XX:TieredStopAtLevel=1 -Xmx1024m",
             os.getenv(
                 "DATAFLOW_IMAGE",
                 "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion:latest",
@@ -302,6 +286,8 @@ class EmulatedEnvironment:
             "--emulatorHost=spanner:15000",
             "--gcsEndpoint=http://gcs:9099/storage/v1",
             "--isBaseDc=false",
+            "--skipDelete=true",
+            "--skipWait=true",
             f"--importList={json.dumps(import_list)}",
         ]
         subprocess.run(loader_cmd, check=True)
@@ -334,21 +320,12 @@ class EmulatedEnvironment:
     def _wait_for_mixer_ready(
         self, manifest: TestManifest | None = None, timeout_secs: int = 90
     ) -> None:
-        """Polls Mixer until Spanner graph cache is loaded and ready to serve.
-
-        NOTE (Temporary): Probing node ensures the in-memory Spanner Property
-        Graph cache in Mixer has finished its asynchronous initial warmup cycle before
-        the test suites begin assertions. This will be superseded once Mixer exposes
-        a dedicated readiness endpoint.
-        """
+        """Polls Mixer until Spanner graph cache is loaded and ready to serve."""
         probe_node = "dc/g/Root"
-        if (
-            manifest
-            and manifest.ingestion
-            and manifest.ingestion.spanner_expectations
-            and manifest.ingestion.spanner_expectations.expected_nodes
-        ):
-            probe_node = manifest.ingestion.spanner_expectations.expected_nodes[0].subject_id
+        if manifest and manifest.ingestion.spanner_expectations.expected_nodes:
+            probe_node = manifest.ingestion.spanner_expectations.expected_nodes[
+                0
+            ].subject_id
 
         start = time.time()
         while time.time() - start < timeout_secs:
@@ -359,7 +336,9 @@ class EmulatedEnvironment:
                     headers={"X-Use-Multi-Entity-Schema": "true"},
                     timeout=2,
                 )
-                if resp.status_code == 200 and probe_node in resp.json().get("data", {}):
+                if resp.status_code == 200 and probe_node in resp.json().get(
+                    "data", {}
+                ):
                     return
             except Exception:
                 pass
@@ -376,10 +355,10 @@ class EmulatedEnvironment:
             if logs:
                 container_logs = f"\n--- Container itest-website logs ---\n{logs}"
         raise RuntimeError(
-            f"❌ Mixer failed to populate Spanner graph cache for 'dc/g/Root' within {timeout_secs}s.{container_logs}"
+            f"❌ Mixer failed to populate Spanner graph cache for '{probe_node}' within {timeout_secs}s.{container_logs}"
         )
 
-    def _wait_for_spanner_ready(self, timeout_secs: int = 60) -> None:
+    def _wait_for_spanner_ready(self, timeout_secs: int = 30) -> None:
         print(
             f">>> Waiting for Spanner emulator to accept connections at {self.spanner_host}...",
             flush=True,
@@ -388,6 +367,9 @@ class EmulatedEnvironment:
         start = time.time()
         while time.time() - start < timeout_secs:
             try:
+                from google.auth.credentials import AnonymousCredentials
+                from google.cloud import spanner
+
                 client = spanner.Client(
                     project="default", credentials=AnonymousCredentials()
                 )
@@ -396,19 +378,8 @@ class EmulatedEnvironment:
                 return
             except Exception:
                 time.sleep(1)
-        container_logs = ""
-        with contextlib.suppress(Exception):
-            proc = subprocess.run(
-                ["docker", "logs", "--tail", "100", "itest-spanner"],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            logs = proc.stdout or proc.stderr or ""
-            if logs:
-                container_logs = f"\n--- Container itest-spanner logs ---\n{logs}"
         raise RuntimeError(
-            f"❌ Spanner emulator at {self.spanner_host} failed to become ready in time.{container_logs}"
+            f"❌ Spanner emulator at {self.spanner_host} failed to become ready in time."
         )
 
     def _stream_container_logs_during(self, container_name: str, target_fn):
