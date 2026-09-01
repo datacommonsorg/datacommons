@@ -9,11 +9,14 @@ stages:
   sdmx: true
 
 ingestion:
+  import_name: "FooBarWages"
   dataset_dirs:
     - "tests/integration/test_data/foobar_wages"
   spanner_expectations:
     exact_observation_count: 1242
     expected_nodes:
+      - subject_id: "dc/s/FooBarOrganization"
+        expected_types: ["Source"]
       - subject_id: "FooBarWages"
         expected_types: ["Provenance"]
       - subject_id: "average_annual_wage"
@@ -23,6 +26,10 @@ ingestion:
       - subject_id: "FooBarGroup"
         expected_types: ["StatVarGroup"]
     expected_edges:
+      # Testing that we return edges tied to provenance source.
+      - subject_id: "FooBarWages"
+        predicate: "source"
+        object_id: "dc/s/FooBarOrganization"
       - subject_id: "FooBarGroup"
         predicate: "specializationOf"
         object_id: "dc/g/Root"
@@ -32,6 +39,10 @@ ingestion:
       - subject_id: "gender_wage_gap"
         predicate: "memberOf"
         object_id: "FooBarGroup"
+      # Testing that we return edges tied to properties in Base DC. measuredProperty is not in the custom graph.
+      - subject_id: "average_annual_wage"
+        predicate: "measuredProperty"
+        object_id: "wagesAnnual"
 
 postprocessing:
   svg_hierarchy:
@@ -48,6 +59,15 @@ serving_api:
     - node_dcid: "average_annual_wage"
       expression: "->name"
       expected_values: ["Average annual wage"]
+    - node_dcid: "average_annual_wage"
+      expression: "->measuredProperty"
+      expected_values: ["wagesAnnual"]
+    - node_dcid: "gender_wage_gap"
+      expression: "->name"
+      expected_values: ["Gender wage gap"]
+    - node_dcid: "FooBarWages"
+      expression: "->source"
+      expected_values: ["dc/s/FooBarOrganization", "FooBar Statistics Organization"]
 
   point_observations:
     - observation_about: ["country/USA", "country/CAN"]

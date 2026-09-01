@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from typing import Any
 
+from google.auth.credentials import AnonymousCredentials
 from google.cloud import spanner
 
 
@@ -29,7 +31,10 @@ class SpannerClient:
 
     def _get_db(self):
         if self._database is None:
-            self._client = spanner.Client(project=self.project_id)
+            creds = (
+                AnonymousCredentials() if os.getenv("SPANNER_EMULATOR_HOST") else None
+            )
+            self._client = spanner.Client(project=self.project_id, credentials=creds)
             instance = self._client.instance(self.instance_id)
             self._database = instance.database(self.database_id)
         return self._database
