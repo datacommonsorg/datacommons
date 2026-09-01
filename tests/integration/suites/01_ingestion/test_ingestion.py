@@ -26,6 +26,7 @@ from tests.integration.core.spanner_client import SpannerClient
 from tests.integration.core.target import DCPTarget
 
 
+@pytest.mark.cloud_only
 class TestCLIIngestion:
     """Validates Data Commons CLI ingestion commands against target workspace."""
 

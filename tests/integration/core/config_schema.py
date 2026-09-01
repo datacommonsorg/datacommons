@@ -55,6 +55,7 @@ class SpannerExpectations:
 @dataclass
 class IngestionManifestConfig:
     dataset_dirs: list[str] = field(default_factory=list)
+    import_name: str | None = None
     spanner_expectations: SpannerExpectations = field(
         default_factory=SpannerExpectations
     )
