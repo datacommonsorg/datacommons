@@ -1237,6 +1237,34 @@ Terraform maintains state across the lifecycle of a deployment. For stateful and
 3. Set `spanner_create_bigquery_reservation = false` before running `terraform apply` again.
 4. In any new deployments in the same project and region, set the variable to `false` from the very start.
 
+## Upgrade your instance to a new version
+
+Data Commons Platform is under ongoing development, with new versions being released frequently, as well as database schema changes that require migration. All container images and the Dataflow template are versioned with the same numbering system, represented as a tag at the end of the image name; for example, <code><var>IMAGE_NAME</var>:1.1.4</code>.
+
+To migrate your system to the latest version of the platform, follow this procedure:
+
+1. Go to your project's root directory:
+   <pre>cd <var>INSTANCE_NAME</var>
+   </pre>
+1. Re-generate the Terraform files for the target version:
+    <pre>
+    uvx datacommons-cli@<var>VERSION_NUMBER</var>admin init \
+    --project-id "<var>PROJECT_ID</var>" \
+    --instance-name "<var>INSTANCE_NAME></var>" \
+    --force </pre>
+1. Optionally, verify that all version tags are updated to the correct number:
+    <pre>
+    cat terraform.tfvars
+    cat variables.tf</pre>
+1. Migrate the database by running:
+   <pre>
+   uvx datacommons-cli@<var>VERSION_NUMBER</var> admin migrate-db</pre>
+1. Redeploy all infrastructure by running:
+   <pre>
+   terraform init -upgrade
+   terraform apply
+   </pre>
+
 ## Emergency procedures {#emergency-procedures}
 
 ### Restore database from backup {#restore}
@@ -1272,9 +1300,9 @@ If you cancel the ingestion workflow (accidentally or otherwise) after it has go
 1. Go to the Cloud Console Run service page for the ingestion helper service. It is called <code><var>INSTANCE_NAME</var>-dc-ingestion-helper</code>.
 2. Click on **Observability** > **Logs**.
 3. Look for a log entry that looks like the following (you can search for the text "Lock is currently held by" or look for a yellow warning icon):
-   ```
-  2026-07-23T00:39:09.717946Z INFO:root:Lock is currently held by 7e3f4639-6ad1-434a-9f00-72abbd0f8fd1 
-   ```
+    ```
+    2026-07-23T00:39:09.717946Z INFO:root:Lock is currently held by 7e3f4639-6ad1-434a-9f00-72abbd0f8fd1
+    ```
 4. Note the ID.
 5. From a command line, run the following:
 
