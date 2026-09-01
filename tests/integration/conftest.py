@@ -625,20 +625,23 @@ def seeded_testbed(dcp_target, dcp_cli, spanner_client, test_manifest, request):
 
         for d in dataset_dirs:
             import_dir = repo_root / d if not Path(d).is_absolute() else Path(d)
-            if import_dir.exists() and import_dir.is_dir():
-                import_name = import_dir.name
-                import_names.append(import_name)
-                print(
-                    f"\n[Data Setup] Uploading import '{import_name}' to gs://{bucket_clean}/ingestion/input/{import_name}/..."
+            if not (import_dir.exists() and import_dir.is_dir()):
+                raise FileNotFoundError(
+                    f"Dataset directory '{import_dir}' does not exist or is not a directory."
                 )
-                for file_path in import_dir.glob("*"):
-                    if file_path.is_file() and not file_path.name.startswith("."):
-                        blob = bucket.blob(
-                            f"ingestion/input/{import_name}/{file_path.name}"
-                        )
-                        blob.upload_from_filename(str(file_path))
-                        print(f"    ✔ Uploaded {file_path.name}")
+            import_name = import_dir.name
+            import_names.append(import_name)
+            print(
+                f"\n[Data Setup] Uploading import '{import_name}' to gs://{bucket_clean}/ingestion/input/{import_name}/..."
+            )
+            for file_path in import_dir.glob("*"):
+                if file_path.is_file() and not file_path.name.startswith("."):
+                    blob = bucket.blob(
+                        f"ingestion/input/{import_name}/{file_path.name}"
+                    )
+                    blob.upload_from_filename(str(file_path))
+                    print(f"    ✔ Uploaded {file_path.name}")
     except Exception as e:
-        print(f"    [Warning] Could not upload datasets to GCS: {e}")
+        raise RuntimeError(f"Failed to upload datasets to GCS: {e}") from e
 
     return dcp_target
