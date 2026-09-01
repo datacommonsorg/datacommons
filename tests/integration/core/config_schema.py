@@ -187,6 +187,9 @@ def _parse_dataclass(cls, data: Any) -> Any:
 
         field_type = field_def.type
         if hasattr(field_type, "__origin__") and field_type.__origin__ is list:
+            if val is None:
+                kwargs[field_name] = []
+                continue
             elem_type = field_type.__args__[0]
             if hasattr(elem_type, "__dataclass_fields__"):
                 kwargs[field_name] = [_parse_dataclass(elem_type, item) for item in val]
