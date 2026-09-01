@@ -1,3 +1,23 @@
+# ==============================================================================
+# Multi-Entity SDMX & Hybrid Dimension Test Specification
+# ==============================================================================
+# Scenario:
+#   Validates multi-entity statistical variables (variables with multiple custom
+#   observationProperties) across federated Data Commons Platform (DCP) instances.
+#
+# Key Regressions Tested:
+#   1. Remote Mixer Error Suppression: In federated mode, Remote Mixer returns an
+#      error when querying custom local properties (e.g. 'foo/sector'). Tests verify
+#      Mixer suppresses the remote error and returns local Spanner data (HTTP 200)
+#      instead of cascading into an HTTP 500 Internal Server Error.
+#   2. Hybrid Namespace Resolution: Variables combining BaseDC standard properties
+#      ('dcid:sex') and custom local schema properties ('foo:sector').
+#   3. Negative Constraint Validation: Verifies that invalid or mismatched dimension
+#      filters cleanly return HTTP 400 Bad Request rather than HTTP 500.
+#   4. Dimension Component Availability: Verifies facet value discovery on '/*/sex'
+#      and '/*/foo/sector'.
+# ==============================================================================
+
 name: "foo_multientity"
 description: "Multi-entity dataset with local foo: and remote dcid: dimension properties"
 
@@ -43,7 +63,11 @@ serving_api:
 
   sdmx_3_0:
     data_queries:
-      # 1. BaseDC dimension (sex=Female):
+      # ------------------------------------------------------------------------
+      # Scenario 1: BaseDC External Dimension Resolution
+      # Verifies querying a local multi-entity variable filtered by a standard
+      # BaseDC dimension property (dcid:sex) and enum value (Female).
+      # ------------------------------------------------------------------------
       - dataflow: "DC/DF_OBS/1.0.0/*"
         constraints:
           variableMeasured: "foo/EmployedAdultsBySexAndSector"
@@ -53,7 +77,13 @@ serving_api:
         expected_status: 200
         expected_csv_contains: ["Female", "country/USA", "4500000"]
 
-      # 2. Local custom dimension (foo/sector=foo/TechSector):
+      # ------------------------------------------------------------------------
+      # Scenario 2: Custom Local Dimension Resolution (Anti-500 Regression Test)
+      # In federated mode, the Remote BaseDC Mixer does not recognize 'foo/sector'
+      # and returns an error. This test proves that the local Mixer suppresses the
+      # remote error and returns local Spanner data (HTTP 200) rather than
+      # bubbling an HTTP 500 to the client.
+      # ------------------------------------------------------------------------
       - dataflow: "DC/DF_OBS/1.0.0/*"
         constraints:
           variableMeasured: "foo/EmployedAdultsBySexAndSector"
@@ -63,7 +93,11 @@ serving_api:
         expected_status: 200
         expected_csv_contains: ["foo/TechSector", "country/USA"]
 
-      # 3. Both local and BaseDC dimensions:
+      # ------------------------------------------------------------------------
+      # Scenario 3: Hybrid Combined Dimension Resolution
+      # Simultaneously filters across both local ('foo:sector') and remote
+      # ('dcid:sex') properties. Tests multi-predicate Spanner SQL generation.
+      # ------------------------------------------------------------------------
       - dataflow: "DC/DF_OBS/1.0.0/*"
         constraints:
           variableMeasured: "foo/EmployedAdultsBySexAndSector"
@@ -74,7 +108,12 @@ serving_api:
         expected_status: 200
         expected_csv_contains: ["country/ALB", "Male", "foo/HealthcareSector", "31000"]
 
-      # 4. Negative Test: Mismatched dimension returns HTTP 400:
+      # ------------------------------------------------------------------------
+      # Scenario 4: Negative Test — Constraint Mismatch Validation
+      # Verifies that passing an invalid/unsupported dimension filter cleanly
+      # returns HTTP 400 Bad Request with a descriptive error message rather
+      # than crashing with an unhandled HTTP 500 error.
+      # ------------------------------------------------------------------------
       - dataflow: "DC/DF_OBS/1.0.0/*"
         constraints:
           variableMeasured: "foo/EmployedAdultsBySexAndSector"
@@ -83,7 +122,11 @@ serving_api:
         expected_error_contains: "unsupported SDMX component filter"
 
     availability_queries:
-      # 5. Availability on BaseDC dimension component (/*/sex):
+      # ------------------------------------------------------------------------
+      # Scenario 5: Availability Discovery on BaseDC Dimension Component
+      # Calls '/*/sex' to verify that available facet values (Female, Male) are
+      # discoverable for local observations.
+      # ------------------------------------------------------------------------
       - dataflow: "DC/DF_OBS/1.0.0/*/sex"
         constraints:
           variableMeasured: "foo/EmployedAdultsBySexAndSector"
@@ -91,7 +134,11 @@ serving_api:
         expected_status: 200
         expected_values_contain: ["Female", "Male"]
 
-      # 6. Availability on local dimension component (/*/foo/sector):
+      # ------------------------------------------------------------------------
+      # Scenario 6: Availability Discovery on Custom Local Dimension Component
+      # Calls '/*/foo/sector' to verify that local enum values (TechSector,
+      # HealthcareSector) are discoverable via the SDMX Availability API.
+      # ------------------------------------------------------------------------
       - dataflow: "DC/DF_OBS/1.0.0/*/foo/sector"
         constraints:
           variableMeasured: "foo/EmployedAdultsBySexAndSector"
@@ -100,6 +147,11 @@ serving_api:
 
   mcp_agent:
     tool_calls:
+      # ------------------------------------------------------------------------
+      # Scenario 7: Model Context Protocol (MCP) Multi-Entity Observation Tool
+      # Verifies that AI agents querying multi-entity variables receive properly
+      # formatted observation records via JSON-RPC 2.0.
+      # ------------------------------------------------------------------------
       - tool_name: "get_multi_entity_observations"
         arguments:
           variable_dcid: "foo/EmployedAdultsBySexAndSector"

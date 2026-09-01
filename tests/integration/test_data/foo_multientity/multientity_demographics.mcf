@@ -1,3 +1,12 @@
+# ==============================================================================
+# Multi-Entity Demographic Schema (Foo Demographics)
+# ==============================================================================
+# Demonstrates multi-entity statistical variable modeling in Data Commons:
+#   - Local Property & Enums: 'foo:sector', 'foo:TechSector', 'foo:HealthcareSector'
+#   - Remote BaseDC Dimensions: 'dcid:sex' (references standard BaseDC ontology)
+#   - Hybrid StatVar: 'foo:EmployedAdultsBySexAndSector' measures [dcid:sex, foo:sector]
+# ==============================================================================
+
 Node: foo:FooGroup
 typeOf: dcid:StatVarGroup
 name: "Foo Demographics"
