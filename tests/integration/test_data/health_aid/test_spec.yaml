@@ -123,15 +123,14 @@ serving_api:
       #   expected_status: 200
       #   expected_values_contain: ["country/USA", "country/FRA"]
 
-  mcp_agent:
-    tool_calls:
-      # ------------------------------------------------------------------------
-      # Scenario 9: MCP Multi-Entity Observation Tool Execution
-      # ------------------------------------------------------------------------
-      - tool_name: "get_multi_entity_observations"
-        arguments:
-          variable_dcid: "HealthAidFunding"
-          entities:
-            donorPlace: ["country/USA"]
-            recipientPlace: ["country/KEN"]
-        expected_match_dcids: ["country/USA"]
+mcp_agent:
+  tool_calls: []
+    # TODO: Re-enable Scenario 9 once Mixer GQL external schema fix lands
+    # (see mixer_external_schema_edge_resolution_issue.md).
+    # - tool_name: "get_multi_entity_observations"
+    #   arguments:
+    #     variable_dcid: "HealthAidFunding"
+    #     entities:
+    #       donorPlace: ["country/USA"]
+    #       recipientPlace: ["country/KEN"]
+    #   expected_match_dcids: ["country/USA"]

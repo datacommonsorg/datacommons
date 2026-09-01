@@ -247,32 +247,19 @@ def test_load_health_aid_manifest():
     assert "recipientPlace" in node_ids
     assert "HealthAidFunding" in node_ids
 
-    # Verify SDMX data query specs
+    # Verify SDMX data query specs (positive queries commented out pending Mixer GQL fix)
     data_queries = manifest.serving_api.sdmx_3_0.data_queries
-    assert len(data_queries) == 4
-    # Query 1: Primary dimension (donorPlace=country/USA)
-    assert data_queries[0].constraints.get("donorPlace") == "country/USA"
-    assert data_queries[0].expected_status == 200
-
-    # Query 2: Secondary dimension (recipientPlace=country/KEN, medicalCondition=Malaria)
-    assert data_queries[1].constraints.get("recipientPlace") == "country/KEN"
-    assert data_queries[1].constraints.get("medicalCondition") == "Malaria"
-    assert data_queries[1].expected_status == 200
-
-    # Query 4: Negative test (expected 400 Bad Request)
-    assert data_queries[3].expected_status == 400
+    assert len(data_queries) == 1
+    # Negative test (expected 400 Bad Request)
+    assert data_queries[0].expected_status == 400
     assert (
-        data_queries[3].expected_error_contains == "unsupported SDMX component filter"
+        data_queries[0].expected_error_contains == "unsupported SDMX component filter"
     )
 
-    # Verify SDMX availability query specs
+    # Verify SDMX availability query specs (commented out pending Mixer GQL fix)
     avail_queries = manifest.serving_api.sdmx_3_0.availability_queries
-    assert len(avail_queries) == 4
-    assert avail_queries[0].dataflow == "DC/DF_OBS/1.0.0/*/medicalCondition"
-    assert "Malaria" in avail_queries[0].expected_values_contain
-    assert avail_queries[1].dataflow == "DC/DF_OBS/1.0.0/*/medicalCondition"
-    assert "Malaria" in avail_queries[1].expected_values_contain
-    assert avail_queries[2].dataflow == "DC/DF_OBS/1.0.0/*/recipientPlace"
-    assert "country/KEN" in avail_queries[2].expected_values_contain
-    assert avail_queries[3].dataflow == "DC/DF_OBS/1.0.0/*/donorPlace"
-    assert "country/USA" in avail_queries[3].expected_values_contain
+    assert len(avail_queries) == 0
+
+    # Verify MCP tool call spec (commented out pending Mixer GQL fix)
+    tool_calls = manifest.mcp_agent.tool_calls
+    assert len(tool_calls) == 0
