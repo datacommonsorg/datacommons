@@ -7,19 +7,19 @@
 #
 # Key Regressions Tested:
 #   1. Remote Mixer Error Suppression: In federated mode, Remote Mixer returns an
-#      error when querying custom local properties (e.g. 'foo/sector'). Tests verify
+#      error when querying custom local properties (e.g. 'sector'). Tests verify
 #      Mixer suppresses the remote error and returns local Spanner data (HTTP 200)
 #      instead of cascading into an HTTP 500 Internal Server Error.
-#   2. Hybrid Namespace Resolution: Variables combining BaseDC standard properties
-#      ('dcid:sex') and custom local schema properties ('foo:sector').
+#   2. Multi-Dimension Resolution: Variables combining BaseDC standard properties
+#      ('sex') and custom local schema properties ('sector').
 #   3. Negative Constraint Validation: Verifies that invalid or mismatched dimension
 #      filters cleanly return HTTP 400 Bad Request rather than HTTP 500.
 #   4. Dimension Component Availability: Verifies facet value discovery on '/*/sex'
-#      and '/*/foo/sector'.
+#      and '/*/sector'.
 # ==============================================================================
 
 name: "foo_multientity"
-description: "Multi-entity dataset with local foo: and remote dcid: dimension properties"
+description: "Multi-entity dataset with sex and sector dimension properties"
 
 stages:
   ingestion: true
@@ -34,43 +34,41 @@ ingestion:
   spanner_expectations:
     exact_observation_count: 8
     expected_nodes:
-      - subject_id: "foo:FooGroup"
+      - subject_id: "FooGroup"
         expected_types: ["StatVarGroup"]
-      - subject_id: "foo:EmployedAdultsBySexAndSector"
+      - subject_id: "EmployedAdultsBySexAndSector"
         expected_types: ["StatisticalVariable"]
-      - subject_id: "foo:SectorEnum"
+      - subject_id: "SectorEnum"
         expected_types: ["Class"]
-      - subject_id: "foo:sector"
+      - subject_id: "sector"
         expected_types: ["Property"]
-      - subject_id: "foo:TechSector"
-        expected_types: ["foo:SectorEnum"]
+      - subject_id: "TechSector"
+        expected_types: ["SectorEnum"]
     expected_edges:
-      - subject_id: "foo:EmployedAdultsBySexAndSector"
+      - subject_id: "EmployedAdultsBySexAndSector"
         predicate: "memberOf"
-        object_id: "foo:FooGroup"
-      - subject_id: "foo:SectorEnum"
+        object_id: "FooGroup"
+      - subject_id: "SectorEnum"
         predicate: "subClassOf"
         object_id: "Enumeration"
-      - subject_id: "foo:TechSector"
+      - subject_id: "TechSector"
         predicate: "typeOf"
-        object_id: "foo:SectorEnum"
+        object_id: "SectorEnum"
 
 serving_api:
   nodes:
-    - node_dcid: "foo/EmployedAdultsBySexAndSector"
+    - node_dcid: "EmployedAdultsBySexAndSector"
       expression: "->name"
       expected_values: ["Employed adults by sex and sector"]
 
   sdmx_3_0:
     data_queries:
       # ------------------------------------------------------------------------
-      # Scenario 1: BaseDC External Dimension Resolution
-      # Verifies querying a local multi-entity variable filtered by a standard
-      # BaseDC dimension property (dcid:sex) and enum value (Female).
+      # Scenario 1: BaseDC Dimension Resolution (sex=Female)
       # ------------------------------------------------------------------------
       - dataflow: "DC/DF_OBS/1.0.0/*"
         constraints:
-          variableMeasured: "foo/EmployedAdultsBySexAndSector"
+          variableMeasured: "EmployedAdultsBySexAndSector"
           observationAbout: "country/USA"
           sex: "Female"
         format: "csv"
@@ -78,82 +76,67 @@ serving_api:
         expected_csv_contains: ["Female", "country/USA", "4500000"]
 
       # ------------------------------------------------------------------------
-      # Scenario 2: Custom Local Dimension Resolution (Anti-500 Regression Test)
-      # In federated mode, the Remote BaseDC Mixer does not recognize 'foo/sector'
-      # and returns an error. This test proves that the local Mixer suppresses the
-      # remote error and returns local Spanner data (HTTP 200) rather than
-      # bubbling an HTTP 500 to the client.
+      # Scenario 2: Local Custom Dimension Resolution (sector=TechSector)
       # ------------------------------------------------------------------------
       - dataflow: "DC/DF_OBS/1.0.0/*"
         constraints:
-          variableMeasured: "foo/EmployedAdultsBySexAndSector"
+          variableMeasured: "EmployedAdultsBySexAndSector"
           observationAbout: "country/USA"
-          "foo/sector": "foo/TechSector"
+          sector: "TechSector"
         format: "csv"
         expected_status: 200
-        expected_csv_contains: ["foo/TechSector", "country/USA"]
+        expected_csv_contains: ["TechSector", "country/USA"]
 
       # ------------------------------------------------------------------------
       # Scenario 3: Hybrid Combined Dimension Resolution
-      # Simultaneously filters across both local ('foo:sector') and remote
-      # ('dcid:sex') properties. Tests multi-predicate Spanner SQL generation.
       # ------------------------------------------------------------------------
       - dataflow: "DC/DF_OBS/1.0.0/*"
         constraints:
-          variableMeasured: "foo/EmployedAdultsBySexAndSector"
+          variableMeasured: "EmployedAdultsBySexAndSector"
           observationAbout: "country/ALB"
           sex: "Male"
-          "foo/sector": "foo/HealthcareSector"
+          sector: "HealthcareSector"
         format: "csv"
         expected_status: 200
-        expected_csv_contains: ["country/ALB", "Male", "foo/HealthcareSector", "31000"]
+        expected_csv_contains: ["country/ALB", "Male", "HealthcareSector", "31000"]
 
       # ------------------------------------------------------------------------
       # Scenario 4: Negative Test — Constraint Mismatch Validation
-      # Verifies that passing an invalid/unsupported dimension filter cleanly
-      # returns HTTP 400 Bad Request with a descriptive error message rather
-      # than crashing with an unhandled HTTP 500 error.
       # ------------------------------------------------------------------------
       - dataflow: "DC/DF_OBS/1.0.0/*"
         constraints:
-          variableMeasured: "foo/EmployedAdultsBySexAndSector"
-          "foo/invalidDimension": "foo/Invalid"
+          variableMeasured: "EmployedAdultsBySexAndSector"
+          invalidDimension: "Invalid"
         expected_status: 400
         expected_error_contains: "unsupported SDMX component filter"
 
     availability_queries:
       # ------------------------------------------------------------------------
       # Scenario 5: Availability Discovery on BaseDC Dimension Component
-      # Calls '/*/sex' to verify that available facet values (Female, Male) are
-      # discoverable for local observations.
       # ------------------------------------------------------------------------
       - dataflow: "DC/DF_OBS/1.0.0/*/sex"
         constraints:
-          variableMeasured: "foo/EmployedAdultsBySexAndSector"
+          variableMeasured: "EmployedAdultsBySexAndSector"
           observationAbout: "country/USA"
         expected_status: 200
         expected_values_contain: ["Female", "Male"]
 
       # ------------------------------------------------------------------------
-      # Scenario 6: Availability Discovery on Custom Local Dimension Component
-      # Calls '/*/foo/sector' to verify that local enum values (TechSector,
-      # HealthcareSector) are discoverable via the SDMX Availability API.
+      # Scenario 6: Availability Discovery on Local Dimension Component
       # ------------------------------------------------------------------------
-      - dataflow: "DC/DF_OBS/1.0.0/*/foo/sector"
+      - dataflow: "DC/DF_OBS/1.0.0/*/sector"
         constraints:
-          variableMeasured: "foo/EmployedAdultsBySexAndSector"
+          variableMeasured: "EmployedAdultsBySexAndSector"
         expected_status: 200
-        expected_values_contain: ["foo/TechSector", "foo/HealthcareSector"]
+        expected_values_contain: ["TechSector", "HealthcareSector"]
 
   mcp_agent:
     tool_calls:
       # ------------------------------------------------------------------------
       # Scenario 7: Model Context Protocol (MCP) Multi-Entity Observation Tool
-      # Verifies that AI agents querying multi-entity variables receive properly
-      # formatted observation records via JSON-RPC 2.0.
       # ------------------------------------------------------------------------
       - tool_name: "get_multi_entity_observations"
         arguments:
-          variable_dcid: "foo/EmployedAdultsBySexAndSector"
+          variable_dcid: "EmployedAdultsBySexAndSector"
           entity_dcids: ["country/USA"]
         expected_match_dcids: ["country/USA"]

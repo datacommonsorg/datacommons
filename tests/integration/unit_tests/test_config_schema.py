@@ -240,11 +240,11 @@ def test_load_foo_multientity_manifest():
     node_ids = {
         n.subject_id for n in manifest.ingestion.spanner_expectations.expected_nodes
     }
-    assert "foo:FooGroup" in node_ids
-    assert "foo:EmployedAdultsBySexAndSector" in node_ids
-    assert "foo:SectorEnum" in node_ids
-    assert "foo:sector" in node_ids
-    assert "foo:TechSector" in node_ids
+    assert "FooGroup" in node_ids
+    assert "EmployedAdultsBySexAndSector" in node_ids
+    assert "SectorEnum" in node_ids
+    assert "sector" in node_ids
+    assert "TechSector" in node_ids
 
     # Verify SDMX data query specs
     data_queries = manifest.serving_api.sdmx_3_0.data_queries
@@ -253,8 +253,8 @@ def test_load_foo_multientity_manifest():
     assert data_queries[0].constraints.get("sex") == "Female"
     assert data_queries[0].expected_status == 200
 
-    # Query 2: Local dimension (foo/sector=foo/TechSector)
-    assert data_queries[1].constraints.get("foo/sector") == "foo/TechSector"
+    # Query 2: Local dimension (sector=TechSector)
+    assert data_queries[1].constraints.get("sector") == "TechSector"
     assert data_queries[1].expected_status == 200
 
     # Query 4: Negative test (expected 400 Bad Request)
@@ -268,5 +268,5 @@ def test_load_foo_multientity_manifest():
     assert len(avail_queries) == 2
     assert avail_queries[0].dataflow == "DC/DF_OBS/1.0.0/*/sex"
     assert "Female" in avail_queries[0].expected_values_contain
-    assert avail_queries[1].dataflow == "DC/DF_OBS/1.0.0/*/foo/sector"
-    assert "foo/TechSector" in avail_queries[1].expected_values_contain
+    assert avail_queries[1].dataflow == "DC/DF_OBS/1.0.0/*/sector"
+    assert "TechSector" in avail_queries[1].expected_values_contain

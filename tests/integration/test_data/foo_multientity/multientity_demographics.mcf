@@ -1,49 +1,44 @@
 # ==============================================================================
-# Multi-Entity Demographic Schema (Foo Demographics)
-# ==============================================================================
-# Demonstrates multi-entity statistical variable modeling in Data Commons:
-#   - Local Property & Enums: 'foo:sector', 'foo:TechSector', 'foo:HealthcareSector'
-#   - Remote BaseDC Dimensions: 'dcid:sex' (references standard BaseDC ontology)
-#   - Hybrid StatVar: 'foo:EmployedAdultsBySexAndSector' measures [dcid:sex, foo:sector]
+# Multi-Entity Demographic Schema
 # ==============================================================================
 
-Node: foo:FooGroup
+Node: dcid:FooGroup
 typeOf: dcid:StatVarGroup
 name: "Foo Demographics"
 specializationOf: dcid:dc/g/Root
 
-Node: foo:FooMultiEntityProvenance
+Node: dcid:FooMultiEntityProvenance
 typeOf: dcid:Provenance
 name: "Foo Multi-Entity Dataset"
 source: dcid:dc/s/FooOrganization
 url: "https://foo.example.org/demographics"
 
-# (a) Local Dimension Property & Local Enums ('foo:' namespace)
-Node: foo:SectorEnum
+# (a) Local Dimension Property & Enums
+Node: dcid:SectorEnum
 typeOf: dcid:Class
 name: "SectorEnum"
 subClassOf: dcid:Enumeration
 
-Node: foo:sector
+Node: dcid:sector
 typeOf: dcid:Property
 name: "sector"
 domainIncludes: dcid:Observation
-rangeIncludes: foo:SectorEnum
+rangeIncludes: dcid:SectorEnum
 
-Node: foo:TechSector
-typeOf: foo:SectorEnum
+Node: dcid:TechSector
+typeOf: dcid:SectorEnum
 name: "Technology Sector"
 
-Node: foo:HealthcareSector
-typeOf: foo:SectorEnum
+Node: dcid:HealthcareSector
+typeOf: dcid:SectorEnum
 name: "Healthcare Sector"
 
-# (b) Multi-Entity Statistical Variable combining 'foo:' and 'dcid:' dimensions
-Node: foo:EmployedAdultsBySexAndSector
+# (b) Multi-Entity Statistical Variable combining 'sex' and 'sector'
+Node: dcid:EmployedAdultsBySexAndSector
 typeOf: dcid:StatisticalVariable
 name: "Employed adults by sex and sector"
 populationType: dcid:Person
 measuredProperty: dcid:count
 statType: dcid:measuredValue
-observationProperties: dcid:sex, foo:sector
-memberOf: foo:FooGroup
+observationProperties: dcid:sex, dcid:sector
+memberOf: dcid:FooGroup
