@@ -132,7 +132,7 @@ main:
           steps:
             - append_provenance:
                 assign:
-                  - provenances_list: '$${list.concat(provenances_list, [item.importName])}'
+                  - provenances_list: '$${list.concat(provenances_list, item.importName)}'
 
 
     - try_acquire_lock:
@@ -284,8 +284,8 @@ main:
                 call: update_history
                 args:
                   workflow_id: '$${workflow_id}'
-                  status: 'ROLLBACK_IN_PROGRESS'
-                  stage: '$${current_stage}'
+                  status: 'RUNNING'
+                  stage: 'rollback'
                   job_id: '$${job_id}'
                   import_list: '$${imports_history_list}'
             - execute_pitr_rollback:
