@@ -227,34 +227,36 @@ def test_load_test_manifest_multi_sources():
     assert merged_str.ingestion.spanner_expectations.exact_observation_count == 1248
 
 
-def test_load_foo_multientity_manifest():
-    """Verifies loading the new foo_multientity dataset manifest with local and baseDC dimensions."""
-    manifest = load_test_manifest("foo_multientity")
-    assert manifest.name == "foo_multientity"
+def test_load_health_aid_manifest():
+    """Verifies loading the health_aid multi-entity dataset manifest."""
+    manifest = load_test_manifest("health_aid")
+    assert manifest.name == "health_aid"
     assert manifest.stages.ingestion is True
     assert manifest.stages.serving_api is True
     assert manifest.stages.sdmx is True
-    assert manifest.ingestion.spanner_expectations.exact_observation_count == 8
+    assert manifest.ingestion.spanner_expectations.exact_observation_count == 16
 
     # Verify multi-entity nodes and edges in schema
     node_ids = {
         n.subject_id for n in manifest.ingestion.spanner_expectations.expected_nodes
     }
-    assert "FooGroup" in node_ids
-    assert "EmployedAdultsBySexAndSector" in node_ids
-    assert "SectorEnum" in node_ids
-    assert "sector" in node_ids
-    assert "TechSector" in node_ids
+    assert "GlobalHealthAidGroup" in node_ids
+    assert "GlobalHealthAidSource" in node_ids
+    assert "GlobalHealthAidProvenance" in node_ids
+    assert "donorPlace" in node_ids
+    assert "recipientPlace" in node_ids
+    assert "HealthAidFunding" in node_ids
 
     # Verify SDMX data query specs
     data_queries = manifest.serving_api.sdmx_3_0.data_queries
     assert len(data_queries) == 4
-    # Query 1: BaseDC dimension (sex=Female)
-    assert data_queries[0].constraints.get("sex") == "Female"
+    # Query 1: Primary dimension (donorPlace=country/USA)
+    assert data_queries[0].constraints.get("donorPlace") == "country/USA"
     assert data_queries[0].expected_status == 200
 
-    # Query 2: Local dimension (sector=TechSector)
-    assert data_queries[1].constraints.get("sector") == "TechSector"
+    # Query 2: Secondary dimension (recipientPlace=country/KEN, medicalCondition=Malaria)
+    assert data_queries[1].constraints.get("recipientPlace") == "country/KEN"
+    assert data_queries[1].constraints.get("medicalCondition") == "Malaria"
     assert data_queries[1].expected_status == 200
 
     # Query 4: Negative test (expected 400 Bad Request)
@@ -265,8 +267,12 @@ def test_load_foo_multientity_manifest():
 
     # Verify SDMX availability query specs
     avail_queries = manifest.serving_api.sdmx_3_0.availability_queries
-    assert len(avail_queries) == 2
-    assert avail_queries[0].dataflow == "DC/DF_OBS/1.0.0/*/sex"
-    assert "Female" in avail_queries[0].expected_values_contain
-    assert avail_queries[1].dataflow == "DC/DF_OBS/1.0.0/*/sector"
-    assert "TechSector" in avail_queries[1].expected_values_contain
+    assert len(avail_queries) == 4
+    assert avail_queries[0].dataflow == "DC/DF_OBS/1.0.0/*/medicalCondition"
+    assert "Malaria" in avail_queries[0].expected_values_contain
+    assert avail_queries[1].dataflow == "DC/DF_OBS/1.0.0/*/medicalCondition"
+    assert "Malaria" in avail_queries[1].expected_values_contain
+    assert avail_queries[2].dataflow == "DC/DF_OBS/1.0.0/*/recipientPlace"
+    assert "country/KEN" in avail_queries[2].expected_values_contain
+    assert avail_queries[3].dataflow == "DC/DF_OBS/1.0.0/*/donorPlace"
+    assert "country/USA" in avail_queries[3].expected_values_contain

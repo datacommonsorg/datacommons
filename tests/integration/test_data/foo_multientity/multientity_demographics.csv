@@ -1,9 +1,0 @@
-entity,variable,sex,sector,date,value,unit
-country/USA,EmployedAdultsBySexAndSector,Female,TechSector,2022,4500000,Person
-country/USA,EmployedAdultsBySexAndSector,Male,TechSector,2022,6200000,Person
-country/USA,EmployedAdultsBySexAndSector,Female,HealthcareSector,2022,8100000,Person
-country/USA,EmployedAdultsBySexAndSector,Male,HealthcareSector,2022,2300000,Person
-country/ALB,EmployedAdultsBySexAndSector,Female,TechSector,2022,45000,Person
-country/ALB,EmployedAdultsBySexAndSector,Male,TechSector,2022,78000,Person
-country/ALB,EmployedAdultsBySexAndSector,Female,HealthcareSector,2022,95000,Person
-country/ALB,EmployedAdultsBySexAndSector,Male,HealthcareSector,2022,31000,Person
