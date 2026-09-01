@@ -4,26 +4,62 @@ A modular, data-driven end-to-end integration test harness for the Data Commons 
 
 ---
 
-## 🧭 Core Testing Principles
+## 🧭 Core Testing Principles & Platform Contract
 
 The DCP integration test harness is governed by three foundational principles:
 
 ### 1. Targeted, Contract-Driven Assertions (No Arbitrary Goldens)
 Tests are strictly focused on asserting specific features, behaviors, and contract boundaries rather than diffing against monolithic golden files. 
 * Each test isolates and verifies deterministic pieces of the response (e.g., HTTP status codes, specific dimension values, existence of graph edges, precise error diagnostic strings).
-* Avoids brittle full-payload snapshots that break on unrelated timestamp or metadata additions, ensuring failures pinpoint exact functional regressions.
+* Brittle full-payload snapshots that break on unrelated timestamp or metadata additions are strictly prohibited; assertions must pinpoint exact functional regressions.
 
 ### 2. Living Contract of Supported Platform Capabilities
 The integration test suite serves as the **executable specification and single source of truth** for everything DCP supports across all tiers.
 * If a capability is supported by the platform (every ingestion format, database mapping, API request mode, SDMX filter syntax, or MCP tool capability), it must be explicitly represented in the test suite.
 * Inspecting the integration test suites provides an unambiguous, comprehensive map of all supported platform features and operational guarantees.
 
-### 3. Modular, Non-Redundant Organization by Functional Suite
-Tests and datasets are organized into clear, non-overlapping domains to maximize coverage without duplicate overhead:
-* **Single-Entity Ingestion & Querying (`suites/01_ingestion`, `suites/03_serving_api`):** Standard data-in to data-out flows, Spanner table populations, point lookups, and time-series history.
-* **User-Defined Hierarchies & Metadata (`suites/02_postprocessing`):** Custom `StatVarGroup` hierarchies, `Topic` trees, and transitive parent-child graph structures.
-* **Multi-Entity Statistical Variables (`suites/03_serving_api`, `suites/04_mcp_agent`):** Multi-dimensional flow observations (3+ entity intersections), extra entity indexing, SDMX dimension availability, and MCP tool execution.
-* **Comprehensive API Request Modes:** Systematic verification of all supported parameters (point, series, latest, date ranges, and negative client error handling).
+### 3. Modular, Non-Redundant Organization (The 4-Tier Dataset Model)
+Tests and datasets are organized into clear, non-overlapping domains to maximize coverage without duplicate overhead. Every capability belongs to a specific tier:
+
+```
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│  Tier 1: Core Single-Entity Suite (foobar_wages)                                │
+│  ⭐ The "Default" Benchmark: Exercises 80%+ of DCP platform capabilities        │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│  Tier 2: Multi-Entity Dimension Suite (health_aid)                               │
+│  Strictly reserved for multi-dimensional flow indexing, slices & availability   │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│  Tier 3: Hierarchy & Topic DAG Suite (topics_demo)                               │
+│  Custom Topic DAGs, BigQuery transitive closures & recursive expansion           │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│  Tier 4: Entities & Events Suite (disaster_events)                               │
+│  Non-statistical geographic polygons, facility landmarks, event collections     │
+└──────────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### The Delineation Rule: Single-Entity vs. Multi-Entity
+> **If a platform capability can be tested with a single entity dimension, it MUST be tested in `foobar_wages`.**  
+> `health_aid` is strictly reserved for capabilities that are mathematically or architecturally impossible in single-entity data.
+
+* **What `foobar_wages` (Single-Entity) Owns**:
+  1. Generic Ingestion & Spanner Dataflow table population.
+  2. Temporal Query Modes: Point (`LATEST`), Explicit Date (`2021`), Series (`all`).
+  3. Existence Checks: Variable-Entity (`CheckVariableExistence`) & Variable-Source (`CheckVariableSourceExistence`).
+  4. Node Expressions: Direct, Bracketed, Wildcards (`->*`), and Empty-arc predicate introspection (`->`).
+  5. SVG Hierarchy & Vector Embeddings Semantic Search.
+  6. **Single-Entity Property Variants**:
+     * *Implicit default*: `observationAbout` mapped to `entity1`.
+     * *Explicit standard*: `observationProperties: [observationAbout]`.
+     * *Custom local property*: `observationProperties: [facility]`.
+     * *Remote BaseDC property*: `observationProperties: [medicalCondition]`.
+  7. Standard MCP single-entity tools: `search_indicators`, `get_observations`, `get_variable_metadata`.
+
+* **What `health_aid` (Multi-Entity) Owns**:
+  1. **Multi-Slot Dimension Sharding**: Mapping $N \ge 2$ entity dimensions into Spanner's `entity1`, `entity2`, `entity3` direct columns and `extra_entities_id` composite key (`val2^val3`).
+  2. **Cross-Entity Secondary Slicing**: Slicing observations where the primary entity (`donorPlace`) is unconstrained, but a secondary entity (`recipientPlace` or `medicalCondition`) is filtered.
+  3. **Cascading / Constrained Multi-Entity Availability**: Finding available values of Dimension B strictly when Dimension A is held constant.
+  4. **Cross-Variable Compatibility Enforcement**: Rejecting batch requests that query variables with incompatible observation property shapes.
+  5. **MCP Multi-Entity Dictionary Tool**: `get_multi_entity_observations`.
 
 ---
 
