@@ -28,8 +28,6 @@ steps:
           -t ${_REGISTRY_BASE}/${_IMAGE_NAME}:latest \
           -f tests/integration/prober/deploy/Dockerfile \
           .
-        docker push ${_REGISTRY_BASE}/${_IMAGE_NAME}:${_TAG}
-        docker push ${_REGISTRY_BASE}/${_IMAGE_NAME}:latest
 
   # 2. Update Cloud Run Job (only on automated CI/CD trigger; skipped during Terraform local deploy)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'

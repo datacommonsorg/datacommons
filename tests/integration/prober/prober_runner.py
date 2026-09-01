@@ -101,7 +101,7 @@ def provision_infra(
     prober_name: str,
     tf_git_ref: str,
     dc_api_key: str,
-    target_tag: str = "latest",
+    dcp_version: str = "latest",
 ) -> Path:
     """Phase 1: Provisions isolated DCP infrastructure via 'datacommons admin init' and Terraform."""
     print("\n" + "=" * 80)
@@ -151,8 +151,8 @@ def provision_infra(
     )
     if overrides_src.exists():
         overrides_content = overrides_src.read_text()
-        if target_tag and target_tag != "latest":
-            overrides_content += f'\ndcp_version = "{target_tag}"\n'
+        if dcp_version != "latest":
+            overrides_content += f'\ndcp_version = "{dcp_version}"\n'
         (instance_dir / "prober_overrides.auto.tfvars").write_text(overrides_content)
     else:
         raise FileNotFoundError(
@@ -185,7 +185,7 @@ def run_tests(
     test_config: str,
     report_output: str,
     tf_git_ref: str = "main",
-    target_tag: str = "latest",
+    dcp_version: str = "latest",
 ) -> int:
     """Phase 2: Executes full integration test suite against the provisioned instance."""
     print("\n" + "=" * 80)
@@ -193,11 +193,6 @@ def run_tests(
     print("=" * 80)
 
     e2e_script = REPO_ROOT / "tests" / "integration" / "run_e2e_tests.py"
-    resolved_tag = (
-        target_tag[:8]
-        if target_tag and len(target_tag) >= 8
-        else (target_tag or "latest")
-    )
     test_res = run_cmd_with_retry(
         [
             "uv",
@@ -209,7 +204,7 @@ def run_tests(
             f"--test-config={test_config}",
             "--cli-source=git",
             f"--cli-version={tf_git_ref}",
-            f"--target-tag={resolved_tag}",
+            f"--dcp-version={dcp_version}",
             f"--report-output={report_output}",
         ],
         max_attempts=1,
@@ -292,9 +287,9 @@ def main():
         help="Data Commons API Key (or set via DC_API_KEY env var)",
     )
     parser.add_argument(
-        "--target-tag",
-        default=os.environ.get("COMMIT_SHA") or "latest",
-        help="Platform version tag or container image tag to test (default: latest)",
+        "--dcp-version",
+        default="latest",
+        help="DCP platform release version to deploy and test (default: latest)",
     )
     parser.add_argument(
         "--skip-destroy",
@@ -334,7 +329,7 @@ def main():
     print(f"  Project ID:    {args.project}")
     print(f"  Prober Name:   {args.prober_name}")
     print(f"  Git Ref:       {args.tf_git_ref}")
-    print(f"  Target Tag:    {args.target_tag}")
+    print(f"  DCP Version:   {args.dcp_version}")
     print(f"  Workspace:     {workspace_dir}")
     print("=" * 80)
 
@@ -352,7 +347,7 @@ def main():
             prober_name=args.prober_name,
             tf_git_ref=args.tf_git_ref,
             dc_api_key=dc_api_key,
-            target_tag=args.target_tag,
+            dcp_version=args.dcp_version,
         )
         deploy_success = True
 
@@ -362,7 +357,7 @@ def main():
             test_config=args.test_config,
             report_output=args.report_output,
             tf_git_ref=args.tf_git_ref,
-            target_tag=args.target_tag,
+            dcp_version=args.dcp_version,
         )
 
     finally:
