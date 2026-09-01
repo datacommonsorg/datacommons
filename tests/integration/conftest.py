@@ -86,7 +86,6 @@ def pytest_addoption(parser):
     )
     parser.addoption(
         "--dcp-version",
-        dest="target_tag",
         action="store",
         default=None,
         help="DCP platform release version (e.g. latest, dcp-stable, v1.1.2)",
@@ -169,7 +168,7 @@ def pytest_configure(config):
         test_config=config_display,
         cli_source=config.getoption("--cli-source") or "local",
         cli_version=config.getoption("--cli-version"),
-        target_tag=config.getoption("target_tag"),
+        target_tag=config.getoption("--dcp-version"),
     )
 
 
@@ -442,7 +441,7 @@ def dcp_target(request, test_manifest) -> DCPTarget:
     artifacts = ArtifactConfig(
         cli_source=request.config.getoption("--cli-source"),
         cli_version=request.config.getoption("--cli-version"),
-        target_tag=request.config.getoption("target_tag"),
+        target_tag=request.config.getoption("--dcp-version"),
     )
 
     instance_opt = request.config.getoption("--instance")
