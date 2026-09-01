@@ -40,7 +40,7 @@ SCHEDULE="0 */3 * * *"
 LOCATION="us-central1"
 ALERT_EMAIL=""
 DC_API_KEY="${DC_API_KEY:-}"
-IMAGE_TAG="latest"
+IMAGE_TAG="$(git rev-parse --short HEAD 2>/dev/null || echo "latest")"
 NON_INTERACTIVE=false
 
 SKIP_BUILD=false
@@ -258,7 +258,7 @@ if [[ "$SKIP_BUILD" == "false" ]]; then
   echo "    Prober Commit SHA: ${PROBER_COMMIT:0:8}"
   gcloud builds submit \
     --config="${DEPLOY_DIR}/cloudbuild.yaml" \
-    --substitutions="_REGISTRY_BASE=${REGISTRY_BASE},_IMAGE_NAME=${IMAGE_NAME},_PROJECT_ID=${PROJECT},_PROBER_NAME=${PROBER_NAME},_REGION=${LOCATION},_COMMIT_SHA=${PROBER_COMMIT},_UPDATE_JOB=false" \
+    --substitutions="_REGISTRY_BASE=${REGISTRY_BASE},_IMAGE_NAME=${IMAGE_NAME},_PROJECT_ID=${PROJECT},_PROBER_NAME=${PROBER_NAME},_REGION=${LOCATION},_COMMIT_SHA=${PROBER_COMMIT},_TAG=${IMAGE_TAG},_UPDATE_JOB=false" \
     --project="${REGISTRY_PROJECT}" \
     "${REPO_ROOT}"
 else

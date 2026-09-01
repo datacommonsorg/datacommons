@@ -85,10 +85,10 @@ def pytest_addoption(parser):
         help="Specific version tag when testing testpypi or pypi CLI",
     )
     parser.addoption(
-        "--target-tag",
+        "--dcp-version",
         action="store",
         default=None,
-        help="Target release or image tag (e.g. latest, dcp-stable, v1.1.1RC3)",
+        help="DCP platform release version (e.g. latest, dcp-stable, v1.1.2)",
     )
     parser.addoption(
         "--reuse-data",
@@ -168,7 +168,7 @@ def pytest_configure(config):
         test_config=config_display,
         cli_source=config.getoption("--cli-source") or "local",
         cli_version=config.getoption("--cli-version"),
-        target_tag=config.getoption("--target-tag"),
+        target_tag=config.getoption("--dcp-version"),
     )
 
 
@@ -441,7 +441,7 @@ def dcp_target(request, test_manifest) -> DCPTarget:
     artifacts = ArtifactConfig(
         cli_source=request.config.getoption("--cli-source"),
         cli_version=request.config.getoption("--cli-version"),
-        target_tag=request.config.getoption("--target-tag"),
+        target_tag=request.config.getoption("--dcp-version"),
     )
 
     instance_opt = request.config.getoption("--instance")
@@ -609,36 +609,39 @@ def seeded_testbed(dcp_target, dcp_cli, spanner_client, test_manifest, request):
             f"❌ Error: Test manifest '{test_manifest.name}' has no ingestion.dataset_dirs defined."
         )
 
-        try:
-            from google.auth.credentials import AnonymousCredentials
+    try:
+        from google.auth.credentials import AnonymousCredentials
 
-            creds = (
-                AnonymousCredentials()
-                if os.getenv("STORAGE_EMULATOR_HOST")
-                or dcp_target.instance_name == "emulated"
-                else None
-            )
-            storage_client = storage.Client(
-                project=dcp_target.project_id, credentials=creds
-            )
-            bucket = storage_client.bucket(bucket_clean)
+        creds = (
+            AnonymousCredentials()
+            if os.getenv("STORAGE_EMULATOR_HOST")
+            or dcp_target.instance_name == "emulated"
+            else None
+        )
+        storage_client = storage.Client(
+            project=dcp_target.project_id, credentials=creds
+        )
+        bucket = storage_client.bucket(bucket_clean)
 
-            for d in dataset_dirs:
-                import_dir = repo_root / d if not Path(d).is_absolute() else Path(d)
-                if import_dir.exists() and import_dir.is_dir():
-                    import_name = import_dir.name
-                    import_names.append(import_name)
-                    print(
-                        f"\n[Data Setup] Uploading import '{import_name}' to gs://{bucket_clean}/ingestion/input/{import_name}/..."
+        for d in dataset_dirs:
+            import_dir = repo_root / d if not Path(d).is_absolute() else Path(d)
+            if not (import_dir.exists() and import_dir.is_dir()):
+                raise FileNotFoundError(
+                    f"Dataset directory '{import_dir}' does not exist or is not a directory."
+                )
+            import_name = import_dir.name
+            import_names.append(import_name)
+            print(
+                f"\n[Data Setup] Uploading import '{import_name}' to gs://{bucket_clean}/ingestion/input/{import_name}/..."
+            )
+            for file_path in import_dir.glob("*"):
+                if file_path.is_file() and not file_path.name.startswith("."):
+                    blob = bucket.blob(
+                        f"ingestion/input/{import_name}/{file_path.name}"
                     )
-                    for file_path in import_dir.glob("*"):
-                        if file_path.is_file() and not file_path.name.startswith("."):
-                            blob = bucket.blob(
-                                f"ingestion/input/{import_name}/{file_path.name}"
-                            )
-                            blob.upload_from_filename(str(file_path))
-                            print(f"    ✔ Uploaded {file_path.name}")
-        except Exception as e:
-            print(f"    [Warning] Could not upload datasets to GCS: {e}")
+                    blob.upload_from_filename(str(file_path))
+                    print(f"    ✔ Uploaded {file_path.name}")
+    except Exception as e:
+        raise RuntimeError(f"Failed to upload datasets to GCS: {e}") from e
 
     return dcp_target
