@@ -97,14 +97,6 @@ To install Data Commons, you must have the IAM Admin or (legacy) Owner role on y
 1. Authenticate yourself to GCP: From any directory, run `gcloud auth login` and follow the prompts to continue.
 1. Authenticate Terraform and the Data Commons CLI to GCP: From any directory run `gcloud auth application-default login` and follow the prompts to continue.
 
-## (Optional) Set variable values for this page
-
-<label for="projectId">GCP project ID:</label>
-<input type="text" id="projectId" class="dyn-input" data-var="project_id" placeholder="Your GCP project ID" />
-<br/>
-<label for="instance">Data Commons instance name:</label>
-<input type="text" id="instance" class="dyn-input" data-var="instance" placeholder="Your Data Commons instance name" />
-
 ### Step 2: Create your Terraform environment
 
 You use the `datacommons` CLI to download Terraform scripts and provide required settings. 
@@ -119,7 +111,7 @@ This step does the following:
 
     <pre>
     uvx datacommons-cli admin init \ 
-    --project-id "<span class="dyn-var" data-var="project_id">Your GCP project ID</span>" \
+    --project-id "<var>YOUR_GOOGLE_CLOUD_PROJECT_ID</var>" \
     --instance-name "<var>INSTANCE_NAME</var>" \
     --dc-api-key "<var>YOUR_DATA_COMMONS_API_KEY</var>" \
     [--no-tf-remote-state] | [--tf-state-bucket "<var>BUCKET_NAME</var>"] \
@@ -129,7 +121,7 @@ This step does the following:
 
         > **WARNING:** You _must_ provide a name that is different from any Terraform namespaces you have used previously, to avoid destroying or corrupting existing components.
 
-    * To reuse an existing bucket, or to create a new bucket with a specified name, provide a bucket name with `–-tf-state-bucket`. If you omit this flag, the tool creates a new bucket using the format <code><span class="dyn-var" data-var="instance">Your Data Commons instance name</span>-datacommons-data-<span class="dyn-var" data-var="project_id">Your GCP project ID</span>.
+    * To reuse an existing bucket, or to create a new bucket with a specified name, provide a bucket name with `–-tf-state-bucket`. If you omit this flag, the tool creates a new bucket using the format <code><var>INSTANCE_NAME</var>-datacommons-data-<var>PROJECT_ID</var></code>.
     * If you are creating a new bucket, by default it is created in the `US` location, which is a [multi-region zone](https://docs.cloud.google.com/storage/docs/locations#location-dr). To specify an alternate location, use `--tf-state-bucket-location`. (See [Bucket locations | Cloud Storage](https://docs.cloud.google.com/storage/docs/locations) for supported locations.)
 
     A new subdirectory is created named according to your instance name, and a basic `terraform.tfvars` file is created with required variables set. 
@@ -137,7 +129,7 @@ This step does the following:
 2. Check the defaults set in the following files:
 
     <pre>
-    cd <span class="dyn-var" data-var="instance">Your Data Commons instance name</span>
+    cd <var>INSTANCE_NAME</var>
     cat terraform.tfvars
     cat variables.tf</pre>
 
@@ -1357,45 +1349,3 @@ This likely indicates that the BigQuery reservation for your project was deleted
 2. From the left panel, select **Workload management**.
 3. From the **Capacity Management** tab, from the **Location** menu, select a location.
 4. Under **Slot Reservations**, you should see a default entry. If you don't, check all the other locations. If there is no reservation, you need to create one: In your Terraform configuration, set `spanner_create_bigquery_reservation = true` and rerun `terraform apply`. Also see [Handle resource creation variables](#handle) for further details.
-
-
-<script>
-// Function to update all placeholders for a specific variable
-function updateDynamicVar(varName, value) {
-  // Update all text placeholders
-  document.querySelectorAll(`.dyn-var[data-var="${varName}"]`).forEach(el => {
-    el.textContent = value;
-  });
-
-  // Update input fields to match (if they aren't the one being typed in)
-  document.querySelectorAll(`.dyn-input[data-var="${varName}"]`).forEach(el => {
-    if (el.value !== value) {
-      el.value = value;
-    }
-  });
-
-  // Update URL parameters to allow sharing
-  const url = new URL(window.location);
-  url.searchParams.set(`var.${varName}`, value);
-  window.history.replaceState({}, '', url);
-}
-
-// On page load, scan for URL parameters and apply them
-window.addEventListener('DOMContentLoaded', () => {
-  const urlParams = new URLSearchParams(window.location.search);
-  urlParams.forEach((value, key) => {
-    if (key.startsWith('var.')) {
-      const varName = key.substring(4);
-      updateDynamicVar(varName, value);
-    }
-  });
-
-  // Attach event listeners to input fields
-  document.querySelectorAll('.dyn-input').forEach(input => {
-    const varName = input.getAttribute('data-var');
-    input.addEventListener('input', (e) => {
-      updateDynamicVar(varName, e.target.value);
-    });
-  });
-});
-</script>
