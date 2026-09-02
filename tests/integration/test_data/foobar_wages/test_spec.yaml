@@ -40,7 +40,7 @@ ingestion:
         predicate: "memberOf"
         object_id: "FooBarGroup"
       # Testing that we return edges tied to properties in Base DC. measuredProperty is not in the custom graph.
-      - subject_id: "average_annual_wage"
+      - subject_id: "Annual_Average_Wage"
         predicate: "measuredProperty"
         object_id: "wagesAnnual"
 
