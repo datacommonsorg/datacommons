@@ -18,7 +18,7 @@ The integration test suite serves as the **executable specification and single s
 * If a capability is supported by the platform (every ingestion format, database mapping, API request mode, SDMX filter syntax, or MCP tool capability), it must be explicitly represented in the test suite.
 * Inspecting the integration test suites provides an unambiguous, comprehensive map of all supported platform features and operational guarantees.
 
-### 3. Modular, Non-Redundant Organization (The 4-Tier Dataset Model)
+### 3. Modular, Non-Redundant Organization (The 3-Tier Dataset Model)
 Tests and datasets are organized into clear, non-overlapping domains to maximize coverage without duplicate overhead. Every capability belongs to a specific tier:
 
 ```
@@ -29,11 +29,8 @@ Tests and datasets are organized into clear, non-overlapping domains to maximize
 │  Tier 2: Multi-Entity Dimension Suite (health_aid)                               │
 │  Strictly reserved for multi-dimensional flow indexing, slices & availability   │
 ├──────────────────────────────────────────────────────────────────────────────────┤
-│  Tier 3: Hierarchy & Topic DAG Suite (topics_demo)                               │
+│  Tier 3: Hierarchies Suite (topics_demo)                                         │
 │  Custom Topic DAGs, BigQuery transitive closures & recursive expansion           │
-├──────────────────────────────────────────────────────────────────────────────────┤
-│  Tier 4: Entities & Events Suite (disaster_events)                               │
-│  Non-statistical geographic polygons, facility landmarks, event collections     │
 └──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -46,7 +43,7 @@ Tests and datasets are organized into clear, non-overlapping domains to maximize
   2. Temporal Query Modes: Point (`LATEST`), Explicit Date (`2021`), Series (`all`).
   3. Existence Checks: Variable-Entity (`CheckVariableExistence`) & Variable-Source (`CheckVariableSourceExistence`).
   4. Node Expressions: Direct, Bracketed, Wildcards (`->*`), and Empty-arc predicate introspection (`->`).
-  5. SVG Hierarchy & Vector Embeddings Semantic Search.
+  5. Vector Embeddings Semantic Search.
   6. **Single-Entity Property Variants**:
      * *Implicit default*: `observationAbout` mapped to `entity1`.
      * *Explicit standard*: `observationProperties: [observationAbout]`.
@@ -60,6 +57,9 @@ Tests and datasets are organized into clear, non-overlapping domains to maximize
   3. **Cascading / Constrained Multi-Entity Availability**: Finding available values of Dimension B strictly when Dimension A is held constant.
   4. **Cross-Variable Compatibility Enforcement**: Rejecting batch requests that query variables with incompatible observation property shapes.
   5. **MCP Multi-Entity Dictionary Tool**: `get_multi_entity_observations`.
+
+* **What `topics_demo` (Hierarchies) Owns**:
+  1. **SVG Hierarchy & Custom Topic DAGs**: BigQuery transitive closure tables, recursive StatVarGroup/Topic tree expansion (`expand_topics=true`), and multi-hop parent/child indicator navigation.
 
 ---
 

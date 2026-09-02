@@ -54,72 +54,66 @@ serving_api:
       expected_values: ["donorPlace", "recipientPlace", "medicalCondition"]
 
   sdmx_3_0:
-    data_queries: []
-      # TODO: Re-enable Scenarios 1-3 once Mixer GQL external schema fix lands
-      # (see mixer_external_schema_edge_resolution_issue.md).
-      # - dataflow: "DC/DF_OBS/1.0.0/*"
-      #   constraints:
-      #     variableMeasured: "HealthAidFunding"
-      #     donorPlace: "country/USA"
-      #   format: "csv"
-      #   expected_status: 200
-      #   expected_csv_contains: ["country/USA", "country/KEN", "50000000"]
-      #
-      # - dataflow: "DC/DF_OBS/1.0.0/*"
-      #   constraints:
-      #     variableMeasured: "HealthAidFunding"
-      #     recipientPlace: "country/KEN"
-      #     medicalCondition: "Malaria"
-      #   format: "csv"
-      #   expected_status: 200
-      #   expected_csv_contains: ["country/KEN", "Malaria", "50000000", "15000000"]
-      #
-      # - dataflow: "DC/DF_OBS/1.0.0/*"
-      #   constraints:
-      #     variableMeasured: "HealthAidFunding"
-      #     donorPlace: "country/FRA"
-      #     recipientPlace: "country/NGA"
-      #     medicalCondition: "HIV"
-      #   format: "csv"
-      #   expected_status: 200
-      #   expected_csv_contains: ["country/FRA", "country/NGA", "HIV", "18000000"]
+    data_queries:
+      - dataflow: "DC/DF_OBS/1.0.0/*"
+        constraints:
+          variableMeasured: "HealthAidFunding"
+          donorPlace: "country/USA"
+        format: "csv"
+        expected_status: 200
+        expected_csv_contains: ["country/USA", "country/KEN", "50000000"]
 
-    availability_queries: []
-      # TODO: Re-enable Scenarios 5-8 once Mixer GQL external schema fix lands
-      # (see mixer_external_schema_edge_resolution_issue.md).
-      # - dataflow: "DC/DF_OBS/1.0.0/*/medicalCondition"
-      #   constraints:
-      #     variableMeasured: "HealthAidFunding"
-      #   expected_status: 200
-      #   expected_values_contain: ["Malaria", "Tuberculosis", "HIV"]
-      #
-      # - dataflow: "DC/DF_OBS/1.0.0/*/medicalCondition"
-      #   constraints:
-      #     variableMeasured: "HealthAidFunding"
-      #     recipientPlace: "country/KEN"
-      #   expected_status: 200
-      #   expected_values_contain: ["Malaria", "Tuberculosis"]
-      #
-      # - dataflow: "DC/DF_OBS/1.0.0/*/recipientPlace"
-      #   constraints:
-      #     variableMeasured: "HealthAidFunding"
-      #   expected_status: 200
-      #   expected_values_contain: ["country/KEN", "country/NGA"]
-      #
-      # - dataflow: "DC/DF_OBS/1.0.0/*/donorPlace"
-      #   constraints:
-      #     variableMeasured: "HealthAidFunding"
-      #   expected_status: 200
-      #   expected_values_contain: ["country/USA", "country/FRA"]
+      - dataflow: "DC/DF_OBS/1.0.0/*"
+        constraints:
+          variableMeasured: "HealthAidFunding"
+          recipientPlace: "country/KEN"
+          medicalCondition: "Malaria"
+        format: "csv"
+        expected_status: 200
+        expected_csv_contains: ["country/KEN", "Malaria", "50000000", "15000000"]
+
+      - dataflow: "DC/DF_OBS/1.0.0/*"
+        constraints:
+          variableMeasured: "HealthAidFunding"
+          donorPlace: "country/FRA"
+          recipientPlace: "country/NGA"
+          medicalCondition: "HIV"
+        format: "csv"
+        expected_status: 200
+        expected_csv_contains: ["country/FRA", "country/NGA", "HIV", "18000000"]
+
+    availability_queries:
+      - dataflow: "DC/DF_OBS/1.0.0/*/medicalCondition"
+        constraints:
+          variableMeasured: "HealthAidFunding"
+        expected_status: 200
+        expected_values_contain: ["Malaria", "Tuberculosis", "HIV"]
+
+      - dataflow: "DC/DF_OBS/1.0.0/*/medicalCondition"
+        constraints:
+          variableMeasured: "HealthAidFunding"
+          recipientPlace: "country/KEN"
+        expected_status: 200
+        expected_values_contain: ["Malaria", "Tuberculosis"]
+
+      - dataflow: "DC/DF_OBS/1.0.0/*/recipientPlace"
+        constraints:
+          variableMeasured: "HealthAidFunding"
+        expected_status: 200
+        expected_values_contain: ["country/KEN", "country/NGA"]
+
+      - dataflow: "DC/DF_OBS/1.0.0/*/donorPlace"
+        constraints:
+          variableMeasured: "HealthAidFunding"
+        expected_status: 200
+        expected_values_contain: ["country/USA", "country/FRA"]
 
 mcp_agent:
-  tool_calls: []
-    # TODO: Re-enable Scenario 9 once Mixer GQL external schema fix lands
-    # (see mixer_external_schema_edge_resolution_issue.md).
-    # - tool_name: "get_multi_entity_observations"
-    #   arguments:
-    #     variable_dcid: "HealthAidFunding"
-    #     entities:
-    #       donorPlace: ["country/USA"]
-    #       recipientPlace: ["country/KEN"]
-    #   expected_match_dcids: ["country/USA"]
+  tool_calls:
+    - tool_name: "get_multi_entity_observations"
+      arguments:
+        variable_dcid: "HealthAidFunding"
+        entities:
+          donorPlace: ["country/USA"]
+          recipientPlace: ["country/KEN"]
+      expected_match_dcids: ["country/USA"]

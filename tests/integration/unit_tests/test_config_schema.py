@@ -257,14 +257,14 @@ def test_load_health_aid_manifest():
         "medicalCondition",
     ]
 
-    # Verify SDMX data query specs (commented out pending Mixer GQL fix)
+    # Verify SDMX data query specs
     data_queries = manifest.serving_api.sdmx_3_0.data_queries
-    assert len(data_queries) == 0
+    assert len(data_queries) == 3
 
-    # Verify SDMX availability query specs (commented out pending Mixer GQL fix)
+    # Verify SDMX availability query specs
     avail_queries = manifest.serving_api.sdmx_3_0.availability_queries
-    assert len(avail_queries) == 0
+    assert len(avail_queries) == 4
 
-    # Verify MCP tool call spec (commented out pending Mixer GQL fix)
-    tool_calls = manifest.mcp_agent.tool_calls
-    assert len(tool_calls) == 0
+    # Verify MCP tool call specs
+    assert len(manifest.mcp_agent.tool_calls) == 1
+    assert manifest.mcp_agent.tool_calls[0].tool_name == "get_multi_entity_observations"

@@ -36,9 +36,14 @@ name: "recipientPlace"
 domainIncludes: dcid:Observation
 rangeIncludes: dcid:Place
 
+Node: dcid:medicalCondition
+typeOf: dcid:Property
+name: "medicalCondition"
+domainIncludes: dcid:Observation
+rangeIncludes: dcid:MedicalCondition
+
 # Multi-Entity Statistical Variable (3 Dimensions: donorPlace, recipientPlace, medicalCondition)
-# Note: 'medicalCondition' is a standard BaseDC property and 'Malaria', 'Tuberculosis', 'HIV'
-# are standard BaseDC MedicalCondition entity nodes.
+# Note: All 3 properties are defined locally to isolate multi-entity testing from 1-entity remote property resolution.
 Node: dcid:HealthAidFunding
 typeOf: dcid:StatisticalVariable
 name: "Global health aid funding by donor, recipient, and medical condition"
