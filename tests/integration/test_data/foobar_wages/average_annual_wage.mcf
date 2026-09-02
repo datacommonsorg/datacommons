@@ -14,7 +14,11 @@ name: "FooBar Average Annual Wages"
 source: dcid:dc/s/FooBarOrganization
 url: "https://foobar.example.org/average-annual-wages"
 
-Node: dcid:Annual_Average_Wage
+Node: dcid:wagesAnnual
+typeOf: dcid:Property
+name: "wagesAnnual"
+
+Node: dcid:average_annual_wage
 typeOf: dcid:StatisticalVariable
 name: "Average annual wage"
 description: "Annual rates paid per employee in full-time equivalent unit in the total economy"

@@ -101,6 +101,7 @@ def provision_infra(
     prober_name: str,
     tf_git_ref: str,
     dc_api_key: str,
+    dcp_version: str = "latest",
 ) -> Path:
     """Phase 1: Provisions isolated DCP infrastructure via 'datacommons admin init' and Terraform."""
     print("\n" + "=" * 80)
@@ -149,7 +150,10 @@ def provision_infra(
         / "ephemeral_dcp_overrides.tfvars.template"
     )
     if overrides_src.exists():
-        shutil.copy(overrides_src, instance_dir / "prober_overrides.auto.tfvars")
+        overrides_content = overrides_src.read_text()
+        if dcp_version != "latest":
+            overrides_content += f'\ndcp_version = "{dcp_version}"\n'
+        (instance_dir / "prober_overrides.auto.tfvars").write_text(overrides_content)
     else:
         raise FileNotFoundError(
             f"Required prober overrides template not found at: {overrides_src}"
@@ -181,6 +185,7 @@ def run_tests(
     test_config: str,
     report_output: str,
     tf_git_ref: str = "main",
+    dcp_version: str = "latest",
 ) -> int:
     """Phase 2: Executes full integration test suite against the provisioned instance."""
     print("\n" + "=" * 80)
@@ -199,6 +204,7 @@ def run_tests(
             f"--test-config={test_config}",
             "--cli-source=git",
             f"--cli-version={tf_git_ref}",
+            f"--dcp-version={dcp_version}",
             f"--report-output={report_output}",
         ],
         max_attempts=1,
@@ -281,6 +287,11 @@ def main():
         help="Data Commons API Key (or set via DC_API_KEY env var)",
     )
     parser.add_argument(
+        "--dcp-version",
+        default="latest",
+        help="DCP platform release version to deploy and test (default: latest)",
+    )
+    parser.add_argument(
         "--skip-destroy",
         action="store_true",
         help="Skip terraform destroy (for debugging failed runs)",
@@ -318,6 +329,7 @@ def main():
     print(f"  Project ID:    {args.project}")
     print(f"  Prober Name:   {args.prober_name}")
     print(f"  Git Ref:       {args.tf_git_ref}")
+    print(f"  DCP Version:   {args.dcp_version}")
     print(f"  Workspace:     {workspace_dir}")
     print("=" * 80)
 
@@ -335,6 +347,7 @@ def main():
             prober_name=args.prober_name,
             tf_git_ref=args.tf_git_ref,
             dc_api_key=dc_api_key,
+            dcp_version=args.dcp_version,
         )
         deploy_success = True
 
@@ -344,6 +357,7 @@ def main():
             test_config=args.test_config,
             report_output=args.report_output,
             tf_git_ref=args.tf_git_ref,
+            dcp_version=args.dcp_version,
         )
 
     finally:
