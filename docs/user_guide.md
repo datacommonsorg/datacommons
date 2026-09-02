@@ -1246,16 +1246,25 @@ To migrate your system to the latest version of the platform, follow this proced
 1. Go to your project's root directory:
    <pre>cd <var>INSTANCE_NAME</var>
    </pre>
+1. Back up your Terraform variables file:
+   ```
+   cp terraform.tfvars terraform.tfvars.backup
+   ```
 1. Re-generate the Terraform files for the target version:
     <pre>
     uvx datacommons-cli@<var>VERSION_NUMBER</var>admin init \
     --project-id "<var>PROJECT_ID</var>" \
     --instance-name "<var>INSTANCE_NAME></var>" \
     --force </pre>
+1. Restore your variables file from backup:
+   ```
+   cp terraform.tfvars.backup terraform.tfvars
+   ```
 1. Optionally, verify that all version tags are updated to the correct number:
-    <pre>
-    cat terraform.tfvars
-    cat variables.tf</pre>
+    ```
+    cat variables.tf
+    cat terraform.tfvars 
+    ```
 1. Migrate the database by running:
    <pre>
    uvx datacommons-cli@<var>VERSION_NUMBER</var> admin migrate-db</pre>
