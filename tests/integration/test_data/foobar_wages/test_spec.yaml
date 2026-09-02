@@ -59,10 +59,10 @@ serving_api:
     - node_dcid: "Annual_Average_Wage"
       expression: "->name"
       expected_values: ["Average annual wage"]
-    - node_dcid: "average_annual_wage"
+    - node_dcid: "Annual_Average_Wage"
       expression: "->measuredProperty"
       expected_values: ["wagesAnnual"]
-    - node_dcid: "gender_wage_gap"
+    - node_dcid: "Difference_Average_Wages_To_Male_Average_Wages"
       expression: "->name"
       expected_values: ["Gender wage gap"]
     - node_dcid: "FooBarWages"
