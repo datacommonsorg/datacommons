@@ -287,7 +287,7 @@ class EmulatedEnvironment:
             "--gcsEndpoint=http://gcs:9099/storage/v1",
             "--isBaseDc=false",
             "--skipDelete=true",
-            "--skipWait=true",
+            "--skipWait=false",
             f"--importList={json.dumps(import_list)}",
         ]
         subprocess.run(loader_cmd, check=True)
