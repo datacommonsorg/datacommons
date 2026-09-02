@@ -57,11 +57,6 @@ uvx datacommons-cli --help
 For full documentation, tutorials, and deployment guides, visit:
 👉 **[docs.datacommons.org](https://docs.datacommons.org)**
 
-Additional documentation in this repository:
-- **[Data Commons Platform User Guide](../../docs/user_guide.md)**: Comprehensive guide on platform architecture, setup, data modeling, ingestion workflows, and maintenance.
-- **[GCP Infrastructure Guide](../../infra/dcp/README.md)**: Terraform module configuration, variable references, and cloud topology.
-- **[Repository Root README](../../README.md)**: Workspace overview and getting started instructions.
-
 ---
 
 ## Usage
