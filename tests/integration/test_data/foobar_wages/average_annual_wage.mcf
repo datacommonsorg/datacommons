@@ -18,7 +18,7 @@ Node: dcid:wagesAnnual
 typeOf: dcid:Property
 name: "wagesAnnual"
 
-Node: dcid:Annual_Average_wage
+Node: dcid:Annual_Average_Wage
 typeOf: dcid:StatisticalVariable
 name: "Average annual wage"
 description: "Annual rates paid per employee in full-time equivalent unit in the total economy"
