@@ -1,0 +1,74 @@
+# Copyright 2026 Google LLC.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+steps:
+  # Step 1: Pre-pull all container images in parallel
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo ">>> Pre-pulling all container images in parallel..."
+        docker pull "$_DATAFLOW_IMAGE" &
+        docker pull "us-docker.pkg.dev/spanner-omni/images/spanner-omni:2026.r1-beta.2" &
+        docker pull "fsouza/fake-gcs-server:1.47.8" &
+        docker pull "$_HELPER_IMAGE" &
+        docker pull "$_SERVICES_IMAGE" &
+        docker pull "$_PROCESSOR_IMAGE" &
+        wait
+        echo "✔ All container images pre-cached!"
+    env:
+      - 'HELPER_IMAGE=$_HELPER_IMAGE'
+      - 'SERVICES_IMAGE=$_SERVICES_IMAGE'
+      - 'PROCESSOR_IMAGE=$_PROCESSOR_IMAGE'
+      - 'DATAFLOW_IMAGE=$_DATAFLOW_IMAGE'
+
+  # Step 2: Run hermetic integration test suite against local emulated Docker Compose stack
+  - name: 'python:3.12-bookworm'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        set -ex
+        apt-get update && apt-get install -y docker.io curl
+        mkdir -p /usr/local/lib/docker/cli-plugins
+        curl -SL https://github.com/docker/compose/releases/download/v2.29.1/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
+        chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        export PATH="$$HOME/.local/bin:/builder/home/.local/bin:/root/.local/bin:$$PATH"
+        uv sync --locked
+        uv run pytest -s tests/integration/suites/ \
+          --instance=local \
+          --test-config=foobar_wages
+    env:
+      - 'PYTHONUNBUFFERED=1'
+      - 'DCP_SERVING_URL=http://website:8080'
+      - 'DCP_HELPER_URL=http://ingestion-helper:8080'
+      - 'SPANNER_EMULATOR_HOST=spanner:15000'
+      - 'STORAGE_EMULATOR_HOST=http://gcs:9099'
+      - 'HELPER_IMAGE=$_HELPER_IMAGE'
+      - 'SERVICES_IMAGE=$_SERVICES_IMAGE'
+      - 'PROCESSOR_IMAGE=$_PROCESSOR_IMAGE'
+      - 'DATAFLOW_IMAGE=$_DATAFLOW_IMAGE'
+
+substitutions:
+  _HELPER_IMAGE: 'gcr.io/datcom-ci/datacommons-ingestion-helper:latest'
+  _SERVICES_IMAGE: 'gcr.io/datcom-ci/datacommons-services:latest'
+  _PROCESSOR_IMAGE: 'gcr.io/datcom-ci/datacommons-data:latest'
+  _DATAFLOW_IMAGE: 'us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion:latest'
+
+options:
+  machineType: 'E2_HIGHCPU_8'
+
+timeout: '1800s'
