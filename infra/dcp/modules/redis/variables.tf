@@ -44,3 +44,15 @@ variable "enable_connector" {
   type    = bool
   default = true
 }
+
+variable "vpc_connector_min_instances" {
+  type        = number
+  description = "Minimum number of VPC Access Connector instances."
+  default     = 2
+}
+
+variable "vpc_connector_max_instances" {
+  type        = number
+  description = "Maximum number of VPC Access Connector instances."
+  default     = 10
+}

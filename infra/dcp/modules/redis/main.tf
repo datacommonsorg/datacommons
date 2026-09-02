@@ -27,6 +27,6 @@ resource "google_vpc_access_connector" "connector" {
   region        = var.region
   network       = var.vpc_network_id
   ip_cidr_range = var.vpc_connector_cidr
-  min_instances = 2
-  max_instances = 10
+  min_instances = var.vpc_connector_min_instances
+  max_instances = var.vpc_connector_max_instances
 }
