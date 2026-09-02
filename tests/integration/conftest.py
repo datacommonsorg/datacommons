@@ -377,6 +377,13 @@ def pytest_runtest_logreport(report):
             duration=report.duration,
             error_message=error_msg,
         )
+    elif report.when == "setup" and report.failed:
+        _GLOBAL_REPORTER.add_result(
+            nodeid=report.nodeid,
+            outcome="failed",
+            duration=report.duration,
+            error_message=str(report.longrepr) if hasattr(report, "longrepr") else None,
+        )
     elif report.when == "setup" and report.skipped:
         _GLOBAL_REPORTER.add_result(
             nodeid=report.nodeid,
