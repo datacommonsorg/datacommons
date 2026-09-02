@@ -523,7 +523,8 @@ launch_and_poll_preprocessing_job:
           jobId: '$${batch_job_id}'
           body:
             taskGroups:
-              - taskSpec:
+              - taskCount: 1
+                taskSpec:
                   computeResource:
                     cpuMilli: ${preprocessing_cpu_milli}
                     memoryMib: ${preprocessing_memory_mib}
@@ -548,7 +549,6 @@ launch_and_poll_preprocessing_job:
                           REGION: '$${region}'
                         secretVariables:
                           DC_API_KEY: '${dc_api_key_secret_version}'
-                  taskCount: 1
             allocationPolicy:
               serviceAccount:
                 email: '${preprocessing_service_account_email}'
