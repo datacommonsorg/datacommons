@@ -22,7 +22,7 @@ from google.cloud.exceptions import NotFound
 
 
 @patch("google.cloud.storage.Client")
-def test_get_terraform_output_from_gcs_success(
+def test_get_terraform_output_from_gcs_canonical_success(
     mock_storage_client: MagicMock, runner: CliRunner
 ) -> None:
     mock_client_inst = MagicMock()
@@ -43,13 +43,12 @@ def test_get_terraform_output_from_gcs_success(
     }"""
     mock_blob.download_as_text.return_value = state_content
 
-    @admin.command(name="test-get-output-success")
+    @admin.command(name="test-get-output-canonical-success")
     def test_cmd() -> None:
         val = get_terraform_output("test_key")
         cached_val = get_terraform_output("test_key")
         click.echo(f"VAL={val} CACHED_VAL={cached_val}")
 
-    # Test with project-id and instance-name
     result = runner.invoke(
         admin,
         [
@@ -57,7 +56,7 @@ def test_get_terraform_output_from_gcs_success(
             "mock-project",
             "--instance-name",
             "mock-instance",
-            "test-get-output-success",
+            "test-get-output-canonical-success",
         ],
     )
     assert result.exit_code == 0
@@ -70,16 +69,41 @@ def test_get_terraform_output_from_gcs_success(
         "terraform/state/mock-instance/default.tfstate"
     )
 
-    # Test with tf-state-location
-    mock_storage_client.reset_mock()
-    mock_client_inst.reset_mock()
-    mock_bucket.reset_mock()
+
+@patch("google.cloud.storage.Client")
+def test_get_terraform_output_from_gcs_location_success(
+    mock_storage_client: MagicMock, runner: CliRunner
+) -> None:
+    mock_client_inst = MagicMock()
+    mock_storage_client.return_value = mock_client_inst
+    mock_bucket = MagicMock()
+    mock_client_inst.bucket.return_value = mock_bucket
+    mock_blob = MagicMock()
+    mock_bucket.blob.return_value = mock_blob
+
+    state_content = """{
+      "version": 4,
+      "outputs": {
+        "test_key": {
+          "value": "gcs-resolved-val",
+          "type": "string"
+        }
+      }
+    }"""
+    mock_blob.download_as_text.return_value = state_content
+
+    @admin.command(name="test-get-output-location-success")
+    def test_cmd() -> None:
+        val = get_terraform_output("test_key")
+        cached_val = get_terraform_output("test_key")
+        click.echo(f"VAL={val} CACHED_VAL={cached_val}")
+
     result = runner.invoke(
         admin,
         [
             "--tf-state-location",
             "gs://custom-bucket/custom-prefix/state.tfstate",
-            "test-get-output-success",
+            "test-get-output-location-success",
         ],
     )
     assert result.exit_code == 0
@@ -294,7 +318,7 @@ def test_parse_terraform_state_outputs_errors() -> None:
 
 
 def test_terraform_state_config() -> None:
-    from datacommons_admin.core.utils.tf_utils import TerraformStateConfig
+    from datacommons_admin.core.utils.models import TerraformStateConfig
 
     # Local mode
     local_cfg = TerraformStateConfig()
