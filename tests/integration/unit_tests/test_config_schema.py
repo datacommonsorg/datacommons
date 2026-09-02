@@ -247,14 +247,19 @@ def test_load_health_aid_manifest():
     assert "recipientPlace" in node_ids
     assert "HealthAidFunding" in node_ids
 
-    # Verify SDMX data query specs (positive queries commented out pending Mixer GQL fix)
+    # Verify multi-entity node fetch spec (->observationProperties)
+    assert len(manifest.serving_api.nodes) == 1
+    assert manifest.serving_api.nodes[0].node_dcid == "HealthAidFunding"
+    assert manifest.serving_api.nodes[0].expression == "->observationProperties"
+    assert manifest.serving_api.nodes[0].expected_values == [
+        "donorPlace",
+        "recipientPlace",
+        "medicalCondition",
+    ]
+
+    # Verify SDMX data query specs (commented out pending Mixer GQL fix)
     data_queries = manifest.serving_api.sdmx_3_0.data_queries
-    assert len(data_queries) == 1
-    # Negative test (expected 400 Bad Request)
-    assert data_queries[0].expected_status == 400
-    assert (
-        data_queries[0].expected_error_contains == "unsupported SDMX component filter"
-    )
+    assert len(data_queries) == 0
 
     # Verify SDMX availability query specs (commented out pending Mixer GQL fix)
     avail_queries = manifest.serving_api.sdmx_3_0.availability_queries

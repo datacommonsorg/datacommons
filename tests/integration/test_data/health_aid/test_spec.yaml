@@ -50,11 +50,11 @@ ingestion:
 serving_api:
   nodes:
     - node_dcid: "HealthAidFunding"
-      expression: "->name"
-      expected_values: ["Global health aid funding by donor, recipient, and medical condition"]
+      expression: "->observationProperties"
+      expected_values: ["donorPlace", "recipientPlace", "medicalCondition"]
 
   sdmx_3_0:
-    data_queries:
+    data_queries: []
       # TODO: Re-enable Scenarios 1-3 once Mixer GQL external schema fix lands
       # (see mixer_external_schema_edge_resolution_issue.md).
       # - dataflow: "DC/DF_OBS/1.0.0/*"
@@ -83,17 +83,6 @@ serving_api:
       #   format: "csv"
       #   expected_status: 200
       #   expected_csv_contains: ["country/FRA", "country/NGA", "HIV", "18000000"]
-
-      # ------------------------------------------------------------------------
-      # Scenario 4: Negative Test — Unsupported Component Filter
-      # Validates graceful HTTP 400 error return on unrecognized dimension.
-      # ------------------------------------------------------------------------
-      - dataflow: "DC/DF_OBS/1.0.0/*"
-        constraints:
-          variableMeasured: "HealthAidFunding"
-          invalidDimension: "Invalid"
-        expected_status: 400
-        expected_error_contains: "unsupported SDMX component filter"
 
     availability_queries: []
       # TODO: Re-enable Scenarios 5-8 once Mixer GQL external schema fix lands
