@@ -293,7 +293,6 @@ main:
                 args:
                   workflow_id: '$${workflow_id}'
                   rollback_timestamp: '$${t_pre_timestamp}'
-                  provenances_list: '$${provenances_list}'
                   temp_location: '$${input.tempLocation}'
                   region: '$${input.region}'
                   launch_params: '$${launch_params}'
@@ -607,7 +606,7 @@ poll_cloud_run_job_execution:
         return: '$${exec_status}'
 
 rollback_subworkflow:
-  params: [workflow_id, rollback_timestamp, provenances_list, temp_location, region, launch_params]
+  params: [workflow_id, rollback_timestamp, temp_location, region, launch_params]
   steps:
     - init_rollback_params:
         assign:
@@ -621,7 +620,6 @@ rollback_subworkflow:
               stagingLocation: '$${temp_location}'
               isRollback: 'true'
               rollbackTimestamp: '$${rollback_timestamp}'
-              targetProvenances: '$${json.encode_to_string(provenances_list)}'
               forceCombineNodes: 'false'
               isBaseDc: '$${launch_params.isBaseDc}'
               skipDelete: 'false'
