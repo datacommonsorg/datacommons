@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Unit tests for pure Python migration utilities (tools/migrations/manage_migrations_utils.py)."""
 """Unit tests for pure Python migration utilities (tools/migrations/utils.py)."""
 
 import ast
@@ -22,7 +21,6 @@ from pathlib import Path
 
 import pytest
 
-from tools.migrations import manage_migrations_utils
 from tools.migrations import utils
 
 # ==============================================================================
@@ -45,15 +43,10 @@ def test_get_default_migrations_dir_finds_nested_file_parent(
     )
     local_scripts.mkdir(parents=True)
 
-    deeply_nested_file = (
-        fake_repo_root / "tools" / "deep" / "sub" / "pkg" / "manage_migrations_utils.py"
-        fake_repo_root / "tools" / "deep" / "sub" / "pkg" / "utils.py"
-    )
+    deeply_nested_file = fake_repo_root / "tools" / "deep" / "sub" / "pkg" / "utils.py"
     deeply_nested_file.parent.mkdir(parents=True)
-    monkeypatch.setattr(manage_migrations_utils, "__file__", str(deeply_nested_file))
     monkeypatch.setattr(utils, "__file__", str(deeply_nested_file))
 
-    resolved = manage_migrations_utils.get_default_migrations_dir()
     resolved = utils.get_default_migrations_dir()
     assert resolved == local_scripts
 
@@ -80,15 +73,12 @@ def test_get_default_migrations_dir_finds_from_cwd(
         / "python3.11"
         / "site-packages"
         / "tools"
-        / "manage_migrations_utils.py"
         / "utils.py"
     )
     site_packages_file.parent.mkdir(parents=True)
-    monkeypatch.setattr(manage_migrations_utils, "__file__", str(site_packages_file))
     monkeypatch.setattr(utils, "__file__", str(site_packages_file))
     monkeypatch.setattr(Path, "cwd", lambda: fake_repo_root / "tools")
 
-    resolved = manage_migrations_utils.get_default_migrations_dir()
     resolved = utils.get_default_migrations_dir()
     assert resolved == local_scripts
 
@@ -100,40 +90,26 @@ def test_get_default_migrations_dir_finds_from_cwd(
 
 def test_sanitize_name_valid() -> None:
     """Verifies valid snake_case names pass through unchanged."""
-    assert manage_migrations_utils.sanitize_name("add_node_tables") == "add_node_tables"
-    assert manage_migrations_utils.sanitize_name("add_table_1") == "add_table_1"
     assert utils.sanitize_name("add_node_tables") == "add_node_tables"
     assert utils.sanitize_name("add_table_1") == "add_table_1"
 
 
 def test_sanitize_name_cleans_hyphens_spaces_and_casing() -> None:
     """Verifies spaces, hyphens, uppercase letters, and duplicate underscores are cleaned."""
-    assert manage_migrations_utils.sanitize_name("Add Node-Tables") == "add_node_tables"
     assert utils.sanitize_name("Add Node-Tables") == "add_node_tables"
-    assert (
-        manage_migrations_utils.sanitize_name("  create  user_profile  ")
-        utils.sanitize_name("  create  user_profile  ")
-        == "create_user_profile"
-    )
-    assert (
-        manage_migrations_utils.sanitize_name("--add___custom__index--")
-        utils.sanitize_name("--add___custom__index--")
-        == "add_custom_index"
-    )
+    assert utils.sanitize_name("  create  user_profile  ") == "create_user_profile"
+    assert utils.sanitize_name("--add___custom__index--") == "add_custom_index"
 
 
 def test_sanitize_name_invalid_raises() -> None:
     """Verifies empty strings or strings with invalid characters raise ValueError."""
     with pytest.raises(ValueError, match="Migration name cannot be empty"):
-        manage_migrations_utils.sanitize_name("")
         utils.sanitize_name("")
 
     with pytest.raises(ValueError, match="Migration name cannot be empty"):
-        manage_migrations_utils.sanitize_name("   ---   ")
         utils.sanitize_name("   ---   ")
 
     with pytest.raises(ValueError, match="Invalid migration name"):
-        manage_migrations_utils.sanitize_name("add_node@table!")
         utils.sanitize_name("add_node@table!")
 
 
@@ -145,7 +121,6 @@ def test_sanitize_name_invalid_raises() -> None:
 def test_generate_utc_timestamps_explicit_datetime() -> None:
     """Verifies prefix and ISO timestamp generation with explicit UTC datetime."""
     dt = datetime.datetime(2026, 8, 19, 13, 54, 12, tzinfo=datetime.UTC)
-    prefix, iso = manage_migrations_utils.generate_utc_timestamps(dt)
     prefix, iso = utils.generate_utc_timestamps(dt)
     assert prefix == "20260819135412"
     assert iso == "2026-08-19T13:54:12Z"
@@ -153,11 +128,9 @@ def test_generate_utc_timestamps_explicit_datetime() -> None:
 
 def test_generate_utc_timestamps_default_now() -> None:
     """Verifies default datetime generation produces 14-digit prefix and valid ISO timestamp."""
-    prefix, iso = manage_migrations_utils.generate_utc_timestamps()
     prefix, iso = utils.generate_utc_timestamps()
     assert len(prefix) == 14
     assert prefix.isdigit()
-    assert manage_migrations_utils.ISO_8601_UTC_PATTERN.match(iso)
     assert utils.ISO_8601_UTC_PATTERN.match(iso)
 
 
@@ -168,7 +141,6 @@ def test_generate_utc_timestamps_default_now() -> None:
 
 def test_generate_migration_content_valid_ast() -> None:
     """Verifies generated boilerplate content parses as valid Python AST."""
-    content = manage_migrations_utils.generate_migration_content(
     content = utils.generate_migration_content(
         description="Add User table",
         creation_timestamp="2026-08-19T13:54:12Z",
@@ -185,7 +157,6 @@ def test_generate_migration_content_valid_ast() -> None:
 def test_generate_migration_content_escaping() -> None:
     """Verifies special characters and quotes in descriptions are safely escaped."""
     desc = 'Add "Special" Table with \'Quotes\' & \n Newlines and triple """ quotes'
-    content = manage_migrations_utils.generate_migration_content(
     content = utils.generate_migration_content(
         description=desc,
         creation_timestamp="2026-08-19T13:54:12Z",
@@ -202,7 +173,6 @@ def test_generate_migration_content_escaping() -> None:
 
 def test_create_migration_file_success(tmp_path: Path) -> None:
     """Verifies creating a new migration file generates expected file on disk."""
-    target_file, iso_ts, desc = manage_migrations_utils.create_migration_file(
     target_file, iso_ts, desc = utils.create_migration_file(
         name="create_entities_table",
         description="Create entities table with indexes",
@@ -212,10 +182,8 @@ def test_create_migration_file_success(tmp_path: Path) -> None:
     assert target_file.exists()
     assert target_file.is_file()
     assert desc == "Create entities table with indexes"
-    assert manage_migrations_utils.ISO_8601_UTC_PATTERN.match(iso_ts)
     assert utils.ISO_8601_UTC_PATTERN.match(iso_ts)
 
-    match = manage_migrations_utils.FILENAME_PATTERN.match(target_file.name)
     match = utils.FILENAME_PATTERN.match(target_file.name)
     assert match is not None
     assert match.group(2) == "create_entities_table"
@@ -228,7 +196,6 @@ def test_create_migration_file_success(tmp_path: Path) -> None:
 def test_create_migration_file_explicit_timestamp(tmp_path: Path) -> None:
     """Verifies creating a file with explicit datetime."""
     dt = datetime.datetime(2026, 8, 19, 10, 0, 0, tzinfo=datetime.UTC)
-    target_file, iso_ts, desc = manage_migrations_utils.create_migration_file(
     target_file, iso_ts, desc = utils.create_migration_file(
         name="explicit_ts_migration",
         migrations_dir=tmp_path,
@@ -243,7 +210,6 @@ def test_create_migration_file_explicit_timestamp(tmp_path: Path) -> None:
 def test_create_migration_file_existing_raises(tmp_path: Path) -> None:
     """Verifies attempting to create a duplicate migration with identical timestamp raises FileExistsError."""
     dt = datetime.datetime(2026, 8, 19, 10, 0, 0, tzinfo=datetime.UTC)
-    manage_migrations_utils.create_migration_file(
     utils.create_migration_file(
         name="duplicate_table",
         migrations_dir=tmp_path,
@@ -251,7 +217,6 @@ def test_create_migration_file_existing_raises(tmp_path: Path) -> None:
     )
 
     with pytest.raises(FileExistsError, match="already exists"):
-        manage_migrations_utils.create_migration_file(
         utils.create_migration_file(
             name="duplicate_table",
             migrations_dir=tmp_path,
@@ -262,7 +227,6 @@ def test_create_migration_file_existing_raises(tmp_path: Path) -> None:
 def test_create_migration_file_invalid_name_raises(tmp_path: Path) -> None:
     """Verifies invalid name raises ValueError and does not create file on disk."""
     with pytest.raises(ValueError, match="Invalid migration name"):
-        manage_migrations_utils.create_migration_file(
         utils.create_migration_file(
             name="invalid$name",
             migrations_dir=tmp_path,
@@ -282,11 +246,9 @@ def test_find_migration_file_by_change_name(tmp_path: Path) -> None:
     mig2 = tmp_path / "20260818120000_add_node.py"
     mig2.write_text("class Migration: pass")
 
-    found = manage_migrations_utils.find_migration_file("bootstrap", tmp_path)
     found = utils.find_migration_file("bootstrap", tmp_path)
     assert found == mig1
 
-    found2 = manage_migrations_utils.find_migration_file("add_node", tmp_path)
     found2 = utils.find_migration_file("add_node", tmp_path)
     assert found2 == mig2
 
@@ -297,36 +259,16 @@ def test_find_migration_file_by_prefix_or_filename(tmp_path: Path) -> None:
     mig1.write_text("class Migration: pass")
 
     # By 14-digit prefix
-    assert (
-        manage_migrations_utils.find_migration_file("20260817000000", tmp_path) == mig1
-        utils.find_migration_file("20260817000000", tmp_path) == mig1
-    )
+    assert utils.find_migration_file("20260817000000", tmp_path) == mig1
     # By filename
-    assert (
-        manage_migrations_utils.find_migration_file(
-        utils.find_migration_file(
-            "20260817000000_bootstrap.py", tmp_path
-        )
-        == mig1
-    )
+    assert utils.find_migration_file("20260817000000_bootstrap.py", tmp_path) == mig1
     # By stem
-    assert (
-        manage_migrations_utils.find_migration_file(
-        utils.find_migration_file(
-            "20260817000000_bootstrap", tmp_path
-        )
-        == mig1
-    )
+    assert utils.find_migration_file("20260817000000_bootstrap", tmp_path) == mig1
     # By Path object directly
-    assert manage_migrations_utils.find_migration_file(mig1, tmp_path) == mig1
     assert utils.find_migration_file(mig1, tmp_path) == mig1
     # By relative Path within directory
     assert (
-        manage_migrations_utils.find_migration_file(
-        utils.find_migration_file(
-            Path("20260817000000_bootstrap.py"), tmp_path
-        )
-        == mig1
+        utils.find_migration_file(Path("20260817000000_bootstrap.py"), tmp_path) == mig1
     )
 
 
@@ -336,20 +278,11 @@ def test_find_migration_file_lenient_matching(tmp_path: Path) -> None:
     mig.write_text("class Migration: pass")
 
     # Match with spaces
-    assert (
-        manage_migrations_utils.find_migration_file("test migration", tmp_path) == mig
-        utils.find_migration_file("test migration", tmp_path) == mig
-    )
+    assert utils.find_migration_file("test migration", tmp_path) == mig
     # Match with hyphens
-    assert (
-        manage_migrations_utils.find_migration_file("test-migration", tmp_path) == mig
-        utils.find_migration_file("test-migration", tmp_path) == mig
-    )
+    assert utils.find_migration_file("test-migration", tmp_path) == mig
     # Match with mixed casing
-    assert (
-        manage_migrations_utils.find_migration_file("Test Migration", tmp_path) == mig
-        utils.find_migration_file("Test Migration", tmp_path) == mig
-    )
+    assert utils.find_migration_file("Test Migration", tmp_path) == mig
 
 
 def test_find_migration_file_not_found(tmp_path: Path) -> None:
@@ -357,7 +290,6 @@ def test_find_migration_file_not_found(tmp_path: Path) -> None:
     with pytest.raises(
         FileNotFoundError, match="No migration script found matching 'missing'"
     ):
-        manage_migrations_utils.find_migration_file("missing", tmp_path)
         utils.find_migration_file("missing", tmp_path)
 
 
@@ -367,7 +299,6 @@ def test_find_migration_file_ambiguous_raises(tmp_path: Path) -> None:
     (tmp_path / "20260818000000_add_node.py").write_text("class Migration: pass")
 
     with pytest.raises(ValueError, match="Ambiguous target 'add_node'"):
-        manage_migrations_utils.find_migration_file("add_node", tmp_path)
         utils.find_migration_file("add_node", tmp_path)
 
 
@@ -380,14 +311,10 @@ def test_update_migration_file_success(tmp_path: Path) -> None:
     """Verifies re-timestamping and renaming of an existing migration file."""
     file_path = tmp_path / "20260817000000_my_change.py"
     file_path.write_text(
-        manage_migrations_utils.generate_migration_content(
-        utils.generate_migration_content(
-            "My Change", "2026-08-17T00:00:00Z"
-        )
+        utils.generate_migration_content("My Change", "2026-08-17T00:00:00Z")
     )
 
     dt = datetime.datetime(2026, 8, 19, 16, 30, 0, tzinfo=datetime.UTC)
-    old_path, new_path, new_iso = manage_migrations_utils.update_migration_file(
     old_path, new_path, new_iso = utils.update_migration_file(
         target=file_path,
         migrations_dir=tmp_path,
@@ -422,7 +349,6 @@ class Migration(SchemaMigration):
     file_path.write_text(initial_content)
 
     dt = datetime.datetime(2026, 8, 20, 10, 0, 0, tzinfo=datetime.UTC)
-    _, new_path, new_iso = manage_migrations_utils.update_migration_file(
     _, new_path, new_iso = utils.update_migration_file(
         target=file_path,
         migrations_dir=tmp_path,
@@ -447,7 +373,6 @@ def test_update_migration_file_invalid_filename_raises(tmp_path: Path) -> None:
     bad_file.write_text("class Migration: pass\n")
 
     with pytest.raises(ValueError, match="does not match expected convention"):
-        manage_migrations_utils.update_migration_file(
         utils.update_migration_file(
             target=bad_file,
             migrations_dir=tmp_path,
@@ -459,10 +384,7 @@ def test_update_migration_file_target_exists_raises(tmp_path: Path) -> None:
     dt = datetime.datetime(2026, 8, 19, 12, 0, 0, tzinfo=datetime.UTC)
     source_file = tmp_path / "20260817000000_my_change.py"
     source_file.write_text(
-        manage_migrations_utils.generate_migration_content(
-        utils.generate_migration_content(
-            "My Change", "2026-08-17T00:00:00Z"
-        )
+        utils.generate_migration_content("My Change", "2026-08-17T00:00:00Z")
     )
 
     # Pre-create the target file that would collide
@@ -470,7 +392,6 @@ def test_update_migration_file_target_exists_raises(tmp_path: Path) -> None:
     collision_file.write_text("class Existing: pass\n")
 
     with pytest.raises(FileExistsError, match="Target migration file already exists"):
-        manage_migrations_utils.update_migration_file(
         utils.update_migration_file(
             target=source_file,
             migrations_dir=tmp_path,
@@ -486,7 +407,6 @@ def test_update_migration_file_missing_attribute_raises(tmp_path: Path) -> None:
     with pytest.raises(
         ValueError, match="Could not find 'creation_timestamp' attribute"
     ):
-        manage_migrations_utils.update_migration_file(
         utils.update_migration_file(
             target=file_path,
             migrations_dir=tmp_path,
@@ -501,7 +421,6 @@ def test_update_migration_file_syntax_error_preflight_raises(tmp_path: Path) -> 
     )
 
     with pytest.raises(ValueError, match="has syntax errors"):
-        manage_migrations_utils.update_migration_file(
         utils.update_migration_file(
             target=file_path,
             migrations_dir=tmp_path,
@@ -531,7 +450,6 @@ class Migration(SchemaMigration):
     file_path.write_text(initial_content)
 
     dt = datetime.datetime(2026, 8, 20, 10, 0, 0, tzinfo=datetime.UTC)
-    _, new_path, new_iso = manage_migrations_utils.update_migration_file(
     _, new_path, new_iso = utils.update_migration_file(
         target=file_path,
         migrations_dir=tmp_path,

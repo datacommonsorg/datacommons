@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""CLI command tests for developer migration DevOps tooling (tools/migrations/manage_migrations_cli.py)."""
 """CLI command tests for developer migration DevOps tooling (tools/migrations/cli.py)."""
 
 import json
@@ -22,8 +21,6 @@ import pytest
 from click.testing import CliRunner
 
 from tools.cli import cli as dcp_cli
-from tools.migrations import manage_migrations_utils
-from tools.migrations.manage_migrations_cli import cli
 from tools.migrations import utils
 from tools.migrations.cli import cli
 
@@ -37,7 +34,6 @@ def runner() -> CliRunner:
 def mock_migrations_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Isolates CLI tests to a temporary directory."""
     monkeypatch.setattr(
-        "tools.migrations.manage_migrations_utils.get_default_migrations_dir",
         "tools.migrations.utils.get_default_migrations_dir",
         lambda: tmp_path,
     )
@@ -69,7 +65,6 @@ def test_cli_create_command(runner: CliRunner, tmp_path: Path) -> None:
     created_file = created_files[0]
 
     assert created_file.name.endswith("_add_observations.py")
-    match = manage_migrations_utils.FILENAME_PATTERN.match(created_file.name)
     match = utils.FILENAME_PATTERN.match(created_file.name)
     assert match is not None
 
@@ -107,7 +102,6 @@ def test_cli_create_command_duplicate_raises(
     """Verifies attempting to create a duplicate migration file with the same timestamp errors out."""
     fixed_now = "20260819120000", "2026-08-19T12:00:00Z"
     monkeypatch.setattr(
-        "tools.migrations.manage_migrations_utils.generate_utc_timestamps",
         "tools.migrations.utils.generate_utc_timestamps",
         lambda *_, **__: fixed_now,
     )
@@ -129,7 +123,6 @@ def test_cli_create_command_os_error_raises(
         raise PermissionError("Permission denied: cannot write to migrations dir")
 
     monkeypatch.setattr(
-        "tools.migrations.manage_migrations_utils.create_migration_file",
         "tools.migrations.utils.create_migration_file",
         mock_create_error,
     )
@@ -148,10 +141,7 @@ def test_cli_bump_command_confirmed(runner: CliRunner, tmp_path: Path) -> None:
     """Verifies bumping a migration script when user confirms interactive prompt."""
     file_path = tmp_path / "20260817000000_add_user.py"
     file_path.write_text(
-        manage_migrations_utils.generate_migration_content(
-        utils.generate_migration_content(
-            "Add User", "2026-08-17T00:00:00Z"
-        )
+        utils.generate_migration_content("Add User", "2026-08-17T00:00:00Z")
     )
 
     result = runner.invoke(
@@ -176,10 +166,7 @@ def test_cli_bump_command_lenient_matching(runner: CliRunner, tmp_path: Path) ->
     """Verifies bumping a migration script using lenient name matching with spaces."""
     file_path = tmp_path / "20260817000000_add_user.py"
     file_path.write_text(
-        manage_migrations_utils.generate_migration_content(
-        utils.generate_migration_content(
-            "Add User", "2026-08-17T00:00:00Z"
-        )
+        utils.generate_migration_content("Add User", "2026-08-17T00:00:00Z")
     )
 
     result = runner.invoke(
@@ -199,10 +186,7 @@ def test_cli_bump_command_aborted(runner: CliRunner, tmp_path: Path) -> None:
     """Verifies aborting a bump when user responds 'n' to confirmation prompt."""
     file_path = tmp_path / "20260817000000_add_user.py"
     file_path.write_text(
-        manage_migrations_utils.generate_migration_content(
-        utils.generate_migration_content(
-            "Add User", "2026-08-17T00:00:00Z"
-        )
+        utils.generate_migration_content("Add User", "2026-08-17T00:00:00Z")
     )
 
     result = runner.invoke(
@@ -222,10 +206,7 @@ def test_cli_bump_command_with_yes_flag(runner: CliRunner, tmp_path: Path) -> No
     """Verifies bumping a migration script with -y flag bypasses confirmation prompt."""
     file_path = tmp_path / "20260817000000_add_user.py"
     file_path.write_text(
-        manage_migrations_utils.generate_migration_content(
-        utils.generate_migration_content(
-            "Add User", "2026-08-17T00:00:00Z"
-        )
+        utils.generate_migration_content("Add User", "2026-08-17T00:00:00Z")
     )
 
     result = runner.invoke(
@@ -314,10 +295,7 @@ def test_dcp_tools_migrations_bump_invocation(
     """Verifies invoking bump via dcp-tools migrations bump."""
     file_path = tmp_path / "20260817000000_new_dataset.py"
     file_path.write_text(
-        manage_migrations_utils.generate_migration_content(
-        utils.generate_migration_content(
-            "Add Dataset", "2026-08-17T00:00:00Z"
-        )
+        utils.generate_migration_content("Add Dataset", "2026-08-17T00:00:00Z")
     )
     result = runner.invoke(
         dcp_cli,

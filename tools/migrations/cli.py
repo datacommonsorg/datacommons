@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""tools.migrations.manage_migrations_cli - Developer DevOps CLI for Schema Migrations.
 """tools.migrations.cli - Developer DevOps CLI for Schema Migrations.
 
 PURPOSE:
@@ -43,7 +42,6 @@ import datetime
 
 import click
 
-from tools.migrations import manage_migrations_utils
 from tools.migrations import utils
 
 
@@ -69,7 +67,6 @@ def create_command(
     """Create a new timestamped schema migration script."""
     try:
         # Generate new migration script boilerplate on disk
-        target_file, iso_ts, desc = manage_migrations_utils.create_migration_file(
         target_file, iso_ts, desc = utils.create_migration_file(
             name=name,
             description=description,
@@ -115,8 +112,6 @@ def bump_command(target: str | None = None, *, yes: bool = False) -> None:
 
     try:
         # Locate target migration file and validate filename format
-        file_path = manage_migrations_utils.find_migration_file(target)
-        match = manage_migrations_utils.FILENAME_PATTERN.match(file_path.name)
         file_path = utils.find_migration_file(target)
         match = utils.FILENAME_PATTERN.match(file_path.name)
         if not match:
@@ -126,7 +121,6 @@ def bump_command(target: str | None = None, *, yes: bool = False) -> None:
 
         # Generate new timestamp and projected filename
         now = datetime.datetime.now(datetime.UTC)
-        new_prefix, new_iso = manage_migrations_utils.generate_utc_timestamps(now)
         new_prefix, new_iso = utils.generate_utc_timestamps(now)
         new_filename = f"{new_prefix}_{match.group(2)}.py"
 
@@ -140,7 +134,6 @@ def bump_command(target: str | None = None, *, yes: bool = False) -> None:
             return
 
         # Apply timestamp update and rename file
-        old_file, new_file, new_iso = manage_migrations_utils.update_migration_file(
         old_file, new_file, new_iso = utils.update_migration_file(
             target=file_path,
             target_dt=now,
