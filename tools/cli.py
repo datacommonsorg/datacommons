@@ -43,4 +43,3 @@ cli.add_command(migrations_cli, name="migrations")
 
 if __name__ == "__main__":
     cli()
-

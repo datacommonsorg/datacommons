@@ -315,5 +315,3 @@ def test_dcp_tools_migrations_bump_invocation(
     assert "Successfully bumped migration script" in result.output
     assert not file_path.exists()
     assert len(list(tmp_path.glob("*_new_dataset.py"))) == 1
-
-
