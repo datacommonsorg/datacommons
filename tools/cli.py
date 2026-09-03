@@ -27,6 +27,7 @@ USAGE EXAMPLES:
 import click
 
 from tools.migrations.manage_migrations_cli import cli as migrations_cli
+from tools.migrations.cli import cli as migrations_cli
 
 
 @click.group(

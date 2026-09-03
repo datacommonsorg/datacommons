@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """CLI command tests for developer migration DevOps tooling (tools/migrations/manage_migrations_cli.py)."""
+"""CLI command tests for developer migration DevOps tooling (tools/migrations/cli.py)."""
 
 import json
 from pathlib import Path
@@ -23,6 +24,8 @@ from click.testing import CliRunner
 from tools.cli import cli as dcp_cli
 from tools.migrations import manage_migrations_utils
 from tools.migrations.manage_migrations_cli import cli
+from tools.migrations import utils
+from tools.migrations.cli import cli
 
 
 @pytest.fixture
@@ -35,6 +38,7 @@ def mock_migrations_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path
     """Isolates CLI tests to a temporary directory."""
     monkeypatch.setattr(
         "tools.migrations.manage_migrations_utils.get_default_migrations_dir",
+        "tools.migrations.utils.get_default_migrations_dir",
         lambda: tmp_path,
     )
     return tmp_path
@@ -66,6 +70,7 @@ def test_cli_create_command(runner: CliRunner, tmp_path: Path) -> None:
 
     assert created_file.name.endswith("_add_observations.py")
     match = manage_migrations_utils.FILENAME_PATTERN.match(created_file.name)
+    match = utils.FILENAME_PATTERN.match(created_file.name)
     assert match is not None
 
     content = created_file.read_text()
@@ -103,6 +108,7 @@ def test_cli_create_command_duplicate_raises(
     fixed_now = "20260819120000", "2026-08-19T12:00:00Z"
     monkeypatch.setattr(
         "tools.migrations.manage_migrations_utils.generate_utc_timestamps",
+        "tools.migrations.utils.generate_utc_timestamps",
         lambda *_, **__: fixed_now,
     )
 
@@ -124,6 +130,7 @@ def test_cli_create_command_os_error_raises(
 
     monkeypatch.setattr(
         "tools.migrations.manage_migrations_utils.create_migration_file",
+        "tools.migrations.utils.create_migration_file",
         mock_create_error,
     )
 
@@ -142,6 +149,7 @@ def test_cli_bump_command_confirmed(runner: CliRunner, tmp_path: Path) -> None:
     file_path = tmp_path / "20260817000000_add_user.py"
     file_path.write_text(
         manage_migrations_utils.generate_migration_content(
+        utils.generate_migration_content(
             "Add User", "2026-08-17T00:00:00Z"
         )
     )
@@ -169,6 +177,7 @@ def test_cli_bump_command_lenient_matching(runner: CliRunner, tmp_path: Path) ->
     file_path = tmp_path / "20260817000000_add_user.py"
     file_path.write_text(
         manage_migrations_utils.generate_migration_content(
+        utils.generate_migration_content(
             "Add User", "2026-08-17T00:00:00Z"
         )
     )
@@ -191,6 +200,7 @@ def test_cli_bump_command_aborted(runner: CliRunner, tmp_path: Path) -> None:
     file_path = tmp_path / "20260817000000_add_user.py"
     file_path.write_text(
         manage_migrations_utils.generate_migration_content(
+        utils.generate_migration_content(
             "Add User", "2026-08-17T00:00:00Z"
         )
     )
@@ -213,6 +223,7 @@ def test_cli_bump_command_with_yes_flag(runner: CliRunner, tmp_path: Path) -> No
     file_path = tmp_path / "20260817000000_add_user.py"
     file_path.write_text(
         manage_migrations_utils.generate_migration_content(
+        utils.generate_migration_content(
             "Add User", "2026-08-17T00:00:00Z"
         )
     )
@@ -304,6 +315,7 @@ def test_dcp_tools_migrations_bump_invocation(
     file_path = tmp_path / "20260817000000_new_dataset.py"
     file_path.write_text(
         manage_migrations_utils.generate_migration_content(
+        utils.generate_migration_content(
             "Add Dataset", "2026-08-17T00:00:00Z"
         )
     )
