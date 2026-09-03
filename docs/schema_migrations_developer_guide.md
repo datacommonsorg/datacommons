@@ -1,6 +1,6 @@
 # Data Commons Schema Migrations Developer Guide
 
-This guide details how developers create, update, and manage Cloud Spanner database schema migrations for the Data Commons Platform using the `manage-migrations` devOps CLI tool.
+This guide details how developers create, update, and manage Cloud Spanner database schema migrations for the Data Commons Platform using the `dcp-tools migrations` devOps CLI tool.
 
 ---
 
@@ -12,7 +12,7 @@ Data Commons uses Google Cloud Spanner as its relational graph store. Schema mig
 
 | Tool | Purpose | Target |
 | :--- | :--- | :--- |
-| **`manage-migrations`** | **Developer Authoring Tool**: Scaffolds boilerplate, updates timestamps, and resolves merge conflicts. | Local migration files on disk |
+| **`dcp-tools migrations`** | **Developer Authoring Tool**: Scaffolds boilerplate, updates timestamps, and resolves merge conflicts. | Local migration files on disk |
 | **`datacommons admin migrate-db`** | **Database Execution Engine**: Connects to Cloud Spanner, queries applied migrations, and executes unapplied `upgrade()` methods. | Live Cloud Spanner instance / emulator |
 
 ---
@@ -32,26 +32,26 @@ Every migration script follows standard repository conventions:
 
 ---
 
-## 3. Using `manage-migrations`
+## 3. Using `dcp-tools migrations`
 
-The `manage-migrations` CLI is registered as a workspace command in [`pyproject.toml`](../pyproject.toml). You can run it with `uv run manage-migrations <command>` or directly as `manage-migrations <command>` if your virtual environment is active.
+The `dcp-tools` CLI is registered as a workspace command in [`pyproject.toml`](../pyproject.toml). You can run it with `uv run dcp-tools migrations <command>` or directly as `dcp-tools migrations <command>` if your virtual environment is active.
 
 ### A. Creating a New Migration (`create`)
 
 To generate a new timestamped migration script with boilerplate pre-filled:
 
 ```bash
-uv run manage-migrations create <change_name> [-d/--description "<description>"]
+uv run dcp-tools migrations create <change_name> [-d/--description "<description>"]
 ```
 
 #### Examples:
 
 ```bash
 # Basic creation (description is derived from change name)
-uv run manage-migrations create add_node_tables
+uv run dcp-tools migrations create add_node_tables
 
 # Creation with explicit description
-uv run manage-migrations create add_edge_indexes -d "Add composite index on Edge object_value and predicate"
+uv run dcp-tools migrations create add_edge_indexes -d "Add composite index on Edge object_value and predicate"
 ```
 
 #### What this does:
@@ -69,7 +69,7 @@ When multiple developers add migration scripts concurrently, timestamp collision
 Use `bump` to refresh an existing migration script with the current UTC timestamp:
 
 ```bash
-uv run manage-migrations bump <target>
+uv run dcp-tools migrations bump <target>
 ```
 
 The `<target>` argument can be:
@@ -86,7 +86,7 @@ Migrations will always be run chronologically in timestamp order, so make sure t
 #### Example Interaction:
 
 ```text
-$ uv run manage-migrations bump add_edge_indexes
+$ uv run dcp-tools migrations bump add_edge_indexes
 
 Found migration script: 20260817000000_add_edge_indexes.py
 Planned changes:

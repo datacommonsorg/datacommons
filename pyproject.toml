@@ -183,7 +183,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project.scripts]
-manage-migrations = "tools.migrations.manage_migrations_cli:cli"
+dcp-tools = "tools.cli:cli"
 
 [tool.setuptools]
 packages = [

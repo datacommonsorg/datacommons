@@ -19,23 +19,23 @@ PURPOSE:
   Spanner schema migrations in packages/datacommons-db.
 
 COMMANDS:
-  1. create <name> [-d/--description <desc>]
+  1. create <NAME> [-d/--description <desc>]
      Auto-generates a timestamped migration script (e.g. 20260819135412_my_change.py)
      pre-populated with license header, SchemaMigration subclass, and UTC ISO-8601 creation_timestamp.
 
-  2. bump <target> [-y/--yes]
+  2. bump <NAME|FILE|PREFIX> [-y/--yes]
      Re-timestamps an existing migration script with the current UTC time (both in filename
      and creation_timestamp attribute). Used when resolving merge conflicts as multiple developers
      add migrations concurrently.
 
 USAGE EXAMPLES:
   # Create a new migration script
-  uv run manage-migrations create add_node_tables -d "Add Node and Edge tables"
+  uv run dcp-tools migrations create add_node_tables -d "Add Node and Edge tables"
 
   # Bump an existing migration script during merge conflict / rebase
-  uv run manage-migrations bump add_node_tables
+  uv run dcp-tools migrations bump add_node_tables
   # or by filename
-  uv run manage-migrations bump 20260819135412_add_node_tables.py
+  uv run dcp-tools migrations bump 20260819135412_add_node_tables.py
 """
 
 import datetime
@@ -53,7 +53,7 @@ def cli() -> None:
 
 
 @cli.command(name="create")
-@click.argument("name")
+@click.argument("name", metavar="<NAME>")
 @click.option(
     "-d",
     "--description",

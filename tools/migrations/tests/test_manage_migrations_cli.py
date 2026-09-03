@@ -20,6 +20,7 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
+from tools.cli import cli as dcp_cli
 from tools.migrations import manage_migrations_utils
 from tools.migrations.manage_migrations_cli import cli
 
@@ -268,4 +269,51 @@ def test_cli_bump_command_help_shows_metavar(runner: CliRunner) -> None:
     assert result.exit_code == 0
     assert "<NAME|FILE|PREFIX>" in result.output
     assert "TARGET (<NAME|FILE|PREFIX>) can be:" in result.output
+
+
+# ==============================================================================
+# 3. 'dcp-tools' Unified CLI Integration Tests
+# ==============================================================================
+
+
+def test_dcp_tools_cli_help(runner: CliRunner) -> None:
+    """Verifies top-level dcp-tools CLI help lists migrations command."""
+    result = runner.invoke(dcp_cli, ["--help"])
+    assert result.exit_code == 0
+    assert "migrations" in result.output
+    assert "Unified DevOps CLI suite for Data Commons Platform" in result.output
+
+
+def test_dcp_tools_migrations_create_invocation(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    """Verifies invoking create via dcp-tools migrations create."""
+    result = runner.invoke(
+        dcp_cli,
+        ["migrations", "create", "new_dataset", "-d", "Add dataset table"],
+    )
+    assert result.exit_code == 0
+    assert "Successfully created migration script" in result.output
+    assert len(list(tmp_path.glob("*_new_dataset.py"))) == 1
+
+
+def test_dcp_tools_migrations_bump_invocation(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    """Verifies invoking bump via dcp-tools migrations bump."""
+    file_path = tmp_path / "20260817000000_new_dataset.py"
+    file_path.write_text(
+        manage_migrations_utils.generate_migration_content(
+            "Add Dataset", "2026-08-17T00:00:00Z"
+        )
+    )
+    result = runner.invoke(
+        dcp_cli,
+        ["migrations", "bump", "new_dataset", "-y"],
+    )
+    assert result.exit_code == 0
+    assert "Successfully bumped migration script" in result.output
+    assert not file_path.exists()
+    assert len(list(tmp_path.glob("*_new_dataset.py"))) == 1
+
 
