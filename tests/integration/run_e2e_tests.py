@@ -31,7 +31,7 @@ def run_e2e_tests(
     suite: str | None = None,
     cli_source: str = "local",
     cli_version: str | None = None,
-    target_tag: str | None = None,
+    dcp_version: str | None = None,
     reuse_data: bool = False,
     workflow_timeout: int = 2400,
     test_config: str | None = None,
@@ -79,8 +79,8 @@ def run_e2e_tests(
         pytest_cmd.append(f"--workspace={workspace}")
     if cli_version:
         pytest_cmd.append(f"--cli-version={cli_version}")
-    if target_tag:
-        pytest_cmd.append(f"--target-tag={target_tag}")
+    if dcp_version:
+        pytest_cmd.append(f"--dcp-version={dcp_version}")
     if reuse_data:
         pytest_cmd.append("--reuse-data")
     if test_config:
@@ -147,8 +147,7 @@ def main():
         "--cli-source",
         type=str,
         default="local",
-        choices=["local", "testpypi", "pypi"],
-        help="CLI package source",
+        help="CLI package source ('local', 'git', 'testpypi', 'pypi', or git+ URL)",
     )
     parser.add_argument(
         "--cli-version",
@@ -157,10 +156,10 @@ def main():
         help="CLI package version tag (for testpypi/pypi)",
     )
     parser.add_argument(
-        "--target-tag",
+        "--dcp-version",
         type=str,
         default=None,
-        help="Platform version or container tag (e.g. latest, dcp-stable)",
+        help="DCP platform release version (e.g. latest, v1.1.2, dcp-stable)",
     )
     parser.add_argument(
         "--mode",
@@ -214,7 +213,7 @@ def main():
         suite=args.suite,
         cli_source=args.cli_source,
         cli_version=args.cli_version,
-        target_tag=args.target_tag,
+        dcp_version=args.dcp_version,
         reuse_data=args.reuse_data,
         workflow_timeout=args.workflow_timeout,
         test_config=args.test_config,

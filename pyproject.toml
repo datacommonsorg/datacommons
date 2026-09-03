@@ -130,13 +130,6 @@ extend-ignore = [
     "S603",   # Subprocess call check in automation scripts
     "S607",   # Partial executable path in automation scripts
 ]
-"packages/*/tests/**/*.py" = [
-    "S101",   # Allow using `assert` in pytests
-    "ANN001", # Ignore missing type annotations in test files
-    "ANN201", # Ignore missing return types in public test functions
-    "ANN202", # Ignore missing return types in private test functions
-    "PLR2004"
-]
 "packages/*/datacommons_*/migrations/migration_scripts/*.py" = [
     "N999",   # Allow timestamp prefixes (e.g. 20260817000000_*.py) for migration scripts
 ]
@@ -144,10 +137,7 @@ extend-ignore = [
     "ERA001", # Allow example commented-out code in migration template
     "F401",   # Allow pre-imported modules in migration template
 ]
-"tools/**/tests/*.py" = [
-    "S101",   # Allow using `assert` in pytests
-]
-"tests/**/*.py" = [
+"**/tests/**/*.py" = [
     "S101",   # Allow using `assert` in pytests
     "S105",   # Allow hardcoded mock passwords/tokens in tests
     "S106",   # Allow hardcoded mock token arguments in tests
@@ -194,4 +184,8 @@ version = {file = "VERSION"}
 
 [tool.pytest.ini_options]
 pythonpath = [".", "deploy/scripts"]
-testpaths = ["packages", "tests/deploy_scripts", "tools/migrations/tests"]
+testpaths = ["packages", "deploy/scripts/tests", "tools/migrations/tests"]
+markers = [
+    "cloud_only: mark test or class to run only against live GCP cloud targets.",
+]
+

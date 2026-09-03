@@ -79,7 +79,7 @@ class DatacommonsCLI:
         self,
         args: list[str],
         env: dict | None = None,
-        timeout: int = 120,
+        timeout: int = 300,
         echo: bool = True,
     ) -> CLIResult:
         """Executes a datacommons CLI command within the workspace context."""
@@ -118,6 +118,35 @@ class DatacommonsCLI:
         if cli_source == "local":
             # Execute repository CLI package via uv
             return ["uv", "run", "datacommons"] + args
+
+        if cli_source == "git" or cli_source.startswith("git+"):
+            # Dynamically execute latest package tree from Git repository via uvx
+            ref = cli_version or "main"
+            git_url = (
+                cli_source
+                if cli_source.startswith("git+")
+                else f"git+https://github.com/datacommonsorg/datacommons.git@{ref}"
+            )
+            base_url = (
+                git_url
+                if "#subdirectory=" in git_url
+                else f"{git_url}#subdirectory=packages"
+            )
+            return [
+                "uv",
+                "tool",
+                "run",
+                "--refresh",
+                "--from",
+                f"{base_url}/datacommons-cli",
+                "--with",
+                f"{base_url}/datacommons-admin",
+                "--with",
+                f"{base_url}/datacommons-db",
+                "--with",
+                f"{base_url}/datacommons-schema",
+                "datacommons",
+            ] + args
 
         if cli_source == "testpypi":
             # Execute specific candidate version from TestPyPI
