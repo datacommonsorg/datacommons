@@ -80,8 +80,11 @@ def create_command(
     click.echo(f"  - Description: {desc}")
 
 
-@cli.command(name="bump")
-@click.argument("target")
+@cli.command(
+    name="bump",
+    short_help="Re-timestamp an existing migration script with the current UTC time.",
+)
+@click.argument("target", metavar="<NAME|FILE|PREFIX>", required=False)
 @click.option(
     "-y",
     "--yes",
@@ -89,8 +92,24 @@ def create_command(
     default=False,
     help="Automatically confirm bump without interactive prompt.",
 )
-def bump_command(target: str, *, yes: bool = False) -> None:
-    """Re-timestamp an existing migration script with the current UTC time."""
+def bump_command(target: str | None = None, *, yes: bool = False) -> None:
+    """Re-timestamp an existing migration script with the current UTC time.
+
+    TARGET (<NAME|FILE|PREFIX>) can be:
+      - A migration change name (e.g. 'add_edge_indexes')
+      - A 14-digit timestamp prefix (e.g. '20260819135412')
+      - A migration filename (e.g. '20260819135412_add_edge_indexes.py')
+      - A relative or absolute file path to the migration script
+    """
+    if not target:
+        raise click.UsageError(
+            "Missing argument '<NAME|FILE|PREFIX>'.\n\n"
+            "Please specify which migration script to bump. Examples:\n"
+            "  - By name:     uv run dcp-tools migrations bump add_edge_indexes\n"
+            "  - By prefix:   uv run dcp-tools migrations bump 20260819135412\n"
+            "  - By filename: uv run dcp-tools migrations bump 20260819135412_add_edge_indexes.py"
+        )
+
     try:
         # Locate target migration file and validate filename format
         file_path = manage_migrations_utils.find_migration_file(target)

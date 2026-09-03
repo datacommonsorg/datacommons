@@ -249,3 +249,23 @@ def test_cli_bump_command_invalid_filename_format_raises(
     result = runner.invoke(cli, ["bump", str(bad_file), "-y"])
     assert result.exit_code != 0
     assert "Invalid migration filename format" in result.output
+
+
+def test_cli_bump_command_missing_target_guidance(runner: CliRunner) -> None:
+    """Verifies bump command without arguments shows helpful guidance on accepted formats."""
+    result = runner.invoke(cli, ["bump"])
+    assert result.exit_code != 0
+    assert "Missing argument '<NAME|FILE|PREFIX>'" in result.output
+    assert "Please specify which migration script to bump" in result.output
+    assert "By name:" in result.output
+    assert "By prefix:" in result.output
+    assert "By filename:" in result.output
+
+
+def test_cli_bump_command_help_shows_metavar(runner: CliRunner) -> None:
+    """Verifies bump --help displays the metavar and accepted target descriptions."""
+    result = runner.invoke(cli, ["bump", "--help"])
+    assert result.exit_code == 0
+    assert "<NAME|FILE|PREFIX>" in result.output
+    assert "TARGET (<NAME|FILE|PREFIX>) can be:" in result.output
+
