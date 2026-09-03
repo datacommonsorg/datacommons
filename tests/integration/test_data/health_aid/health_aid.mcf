@@ -1,0 +1,54 @@
+# ==============================================================================
+# Global Health Aid Flow Schema (Multi-Entity Benchmark)
+# ==============================================================================
+# Models a 3-dimensional multi-entity observation:
+#   1. Donor Place (donorPlace -> entity1)
+#   2. Recipient Place (recipientPlace -> entity2 / extra_entities_id)
+#   3. Medical Condition (medicalCondition -> entity3 / extra_entities_id)
+# ==============================================================================
+
+Node: dcid:GlobalHealthAidSource
+typeOf: dcid:Source
+name: "Global Health Aid Organization"
+url: "https://healthaid.example.org"
+
+Node: dcid:GlobalHealthAidProvenance
+typeOf: dcid:Provenance
+name: "Global Health Aid Flow Dataset"
+source: dcid:GlobalHealthAidSource
+url: "https://healthaid.example.org/data"
+
+Node: dcid:GlobalHealthAidGroup
+typeOf: dcid:StatVarGroup
+name: "Global Health Aid & Development"
+specializationOf: dcid:dc/g/Root
+
+# Flow Properties (Donor and Recipient Places)
+Node: dcid:donorPlace
+typeOf: dcid:Property
+name: "donorPlace"
+domainIncludes: dcid:Observation
+rangeIncludes: dcid:Place
+
+Node: dcid:recipientPlace
+typeOf: dcid:Property
+name: "recipientPlace"
+domainIncludes: dcid:Observation
+rangeIncludes: dcid:Place
+
+Node: dcid:medicalCondition
+typeOf: dcid:Property
+name: "medicalCondition"
+domainIncludes: dcid:Observation
+rangeIncludes: dcid:MedicalCondition
+
+# Multi-Entity Statistical Variable (3 Dimensions: donorPlace, recipientPlace, medicalCondition)
+# Note: All 3 properties are defined locally to isolate multi-entity testing from 1-entity remote property resolution.
+Node: dcid:HealthAidFunding
+typeOf: dcid:StatisticalVariable
+name: "Global health aid funding by donor, recipient, and medical condition"
+populationType: dcid:FinancialAssistance
+measuredProperty: dcid:amount
+statType: dcid:measuredValue
+observationProperties: dcid:donorPlace, dcid:recipientPlace, dcid:medicalCondition
+memberOf: dcid:GlobalHealthAidGroup

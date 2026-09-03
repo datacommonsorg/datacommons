@@ -225,3 +225,46 @@ def test_load_test_manifest_multi_sources():
     merged_str = load_test_manifest("foobar_wages,foobar_education")
     assert merged_str.name == "foobar_wages+foobar_education"
     assert merged_str.ingestion.spanner_expectations.exact_observation_count == 1248
+
+
+def test_load_health_aid_manifest():
+    """Verifies loading the health_aid multi-entity dataset manifest."""
+    manifest = load_test_manifest("health_aid")
+    assert manifest.name == "health_aid"
+    assert manifest.stages.ingestion is True
+    assert manifest.stages.serving_api is True
+    assert manifest.stages.sdmx is True
+    assert manifest.ingestion.spanner_expectations.exact_observation_count == 16
+
+    # Verify multi-entity nodes and edges in schema
+    node_ids = {
+        n.subject_id for n in manifest.ingestion.spanner_expectations.expected_nodes
+    }
+    assert "GlobalHealthAidGroup" in node_ids
+    assert "GlobalHealthAidSource" in node_ids
+    assert "GlobalHealthAidProvenance" in node_ids
+    assert "donorPlace" in node_ids
+    assert "recipientPlace" in node_ids
+    assert "HealthAidFunding" in node_ids
+
+    # Verify multi-entity node fetch spec (->observationProperties)
+    assert len(manifest.serving_api.nodes) == 1
+    assert manifest.serving_api.nodes[0].node_dcid == "HealthAidFunding"
+    assert manifest.serving_api.nodes[0].expression == "->observationProperties"
+    assert manifest.serving_api.nodes[0].expected_values == [
+        "donorPlace",
+        "recipientPlace",
+        "medicalCondition",
+    ]
+
+    # Verify SDMX data query specs
+    data_queries = manifest.serving_api.sdmx_3_0.data_queries
+    assert len(data_queries) == 3
+
+    # Verify SDMX availability query specs
+    avail_queries = manifest.serving_api.sdmx_3_0.availability_queries
+    assert len(avail_queries) == 4
+
+    # Verify MCP tool call specs
+    assert len(manifest.mcp_agent.tool_calls) == 1
+    assert manifest.mcp_agent.tool_calls[0].tool_name == "get_multi_entity_observations"

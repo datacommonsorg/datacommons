@@ -1,0 +1,119 @@
+# ==============================================================================
+# Global Health Aid Flow Test Specification (Multi-Entity Benchmark)
+# ==============================================================================
+# Principles Enforced:
+#   1. Targeted Contract Assertions: Specific HTTP codes, headers, and facet values.
+#   2. Living Contract of DCP Multi-Entity Features:
+#      - Remote Mixer error suppression (BaseDC 400 rejected, local 200 served).
+#      - 3-way entity sharding (donorPlace, recipientPlace, medicalCondition).
+#      - Cascading/constrained SDMX availability discovery.
+#      - Model Context Protocol (MCP) multi-entity observation retrieval.
+#   3. Zero Redundancy: 100% focused on multi-entity dimension capabilities.
+# ==============================================================================
+
+name: "health_aid"
+description: "Multi-entity health aid dataset with donor, recipient, and disease dimensions"
+
+stages:
+  ingestion: true
+  postprocessing: false
+  serving_api: true
+  mcp_agent: true
+  sdmx: true
+
+ingestion:
+  dataset_dirs:
+    - "tests/integration/test_data/health_aid"
+  spanner_expectations:
+    exact_observation_count: 16
+    expected_nodes:
+      - subject_id: "GlobalHealthAidGroup"
+        expected_types: ["StatVarGroup"]
+      - subject_id: "GlobalHealthAidSource"
+        expected_types: ["Source"]
+      - subject_id: "GlobalHealthAidProvenance"
+        expected_types: ["Provenance"]
+      - subject_id: "donorPlace"
+        expected_types: ["Property"]
+      - subject_id: "recipientPlace"
+        expected_types: ["Property"]
+      - subject_id: "HealthAidFunding"
+        expected_types: ["StatisticalVariable"]
+    expected_edges:
+      - subject_id: "HealthAidFunding"
+        predicate: "memberOf"
+        object_id: "GlobalHealthAidGroup"
+      - subject_id: "GlobalHealthAidProvenance"
+        predicate: "source"
+        object_id: "GlobalHealthAidSource"
+
+serving_api:
+  nodes:
+    - node_dcid: "HealthAidFunding"
+      expression: "->observationProperties"
+      expected_values: ["donorPlace", "recipientPlace", "medicalCondition"]
+
+  sdmx_3_0:
+    data_queries:
+      - dataflow: "DC/DF_OBS/1.0.0/*"
+        constraints:
+          variableMeasured: "HealthAidFunding"
+          donorPlace: "country/USA"
+        format: "csv"
+        expected_status: 200
+        expected_csv_contains: ["country/USA", "country/KEN", "50000000"]
+
+      - dataflow: "DC/DF_OBS/1.0.0/*"
+        constraints:
+          variableMeasured: "HealthAidFunding"
+          recipientPlace: "country/KEN"
+          medicalCondition: "Malaria"
+        format: "csv"
+        expected_status: 200
+        expected_csv_contains: ["country/KEN", "Malaria", "50000000", "15000000"]
+
+      - dataflow: "DC/DF_OBS/1.0.0/*"
+        constraints:
+          variableMeasured: "HealthAidFunding"
+          donorPlace: "country/FRA"
+          recipientPlace: "country/NGA"
+          medicalCondition: "HIV"
+        format: "csv"
+        expected_status: 200
+        expected_csv_contains: ["country/FRA", "country/NGA", "HIV", "18000000"]
+
+    availability_queries:
+      - dataflow: "DC/DF_OBS/1.0.0/*/medicalCondition"
+        constraints:
+          variableMeasured: "HealthAidFunding"
+        expected_status: 200
+        expected_values_contain: ["Malaria", "Tuberculosis", "HIV"]
+
+      - dataflow: "DC/DF_OBS/1.0.0/*/medicalCondition"
+        constraints:
+          variableMeasured: "HealthAidFunding"
+          recipientPlace: "country/KEN"
+        expected_status: 200
+        expected_values_contain: ["Malaria", "Tuberculosis"]
+
+      - dataflow: "DC/DF_OBS/1.0.0/*/recipientPlace"
+        constraints:
+          variableMeasured: "HealthAidFunding"
+        expected_status: 200
+        expected_values_contain: ["country/KEN", "country/NGA"]
+
+      - dataflow: "DC/DF_OBS/1.0.0/*/donorPlace"
+        constraints:
+          variableMeasured: "HealthAidFunding"
+        expected_status: 200
+        expected_values_contain: ["country/USA", "country/FRA"]
+
+mcp_agent:
+  tool_calls:
+    - tool_name: "get_multi_entity_observations"
+      arguments:
+        variable_dcid: "HealthAidFunding"
+        entities:
+          donorPlace: ["country/USA"]
+          recipientPlace: ["country/KEN"]
+      expected_match_dcids: ["country/USA"]

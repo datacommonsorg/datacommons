@@ -1,0 +1,17 @@
+donor_place,recipient_place,condition,variable,date,value,unit
+country/USA,country/KEN,Malaria,HealthAidFunding,2021,45000000,USD
+country/USA,country/KEN,Malaria,HealthAidFunding,2022,50000000,USD
+country/USA,country/KEN,Tuberculosis,HealthAidFunding,2021,22000000,USD
+country/USA,country/KEN,Tuberculosis,HealthAidFunding,2022,25000000,USD
+country/USA,country/NGA,Malaria,HealthAidFunding,2021,75000000,USD
+country/USA,country/NGA,Malaria,HealthAidFunding,2022,80000000,USD
+country/USA,country/NGA,HIV,HealthAidFunding,2021,55000000,USD
+country/USA,country/NGA,HIV,HealthAidFunding,2022,60000000,USD
+country/FRA,country/KEN,Malaria,HealthAidFunding,2021,14000000,USD
+country/FRA,country/KEN,Malaria,HealthAidFunding,2022,15000000,USD
+country/FRA,country/KEN,Tuberculosis,HealthAidFunding,2021,11000000,USD
+country/FRA,country/KEN,Tuberculosis,HealthAidFunding,2022,12000000,USD
+country/FRA,country/NGA,Malaria,HealthAidFunding,2021,19000000,USD
+country/FRA,country/NGA,Malaria,HealthAidFunding,2022,20000000,USD
+country/FRA,country/NGA,HIV,HealthAidFunding,2021,17000000,USD
+country/FRA,country/NGA,HIV,HealthAidFunding,2022,18000000,USD

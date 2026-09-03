@@ -105,7 +105,10 @@ def run_e2e_tests(
         if local_path.exists():
             try:
                 with open(local_path, encoding="utf-8") as f:
-                    return json.load(f)
+                    report_data = json.load(f)
+                if res.returncode != 0:
+                    report_data["status"] = "FAILED"
+                return report_data
             except Exception:
                 pass
 

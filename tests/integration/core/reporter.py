@@ -151,7 +151,7 @@ class TestReporter:
         commit = self.report.git_commit[:8] if self.report.git_commit else "latest"
         status = (
             "PASSED"
-            if (self.report.failed_tests == 0 and self.report.total_tests > 0)
+            if (self.report.failed_tests == 0 and self.report.passed_tests > 0)
             else "FAILED"
         )
         clean_datasets = re.sub(r"[^a-zA-Z0-9_\-+]", "_", datasets)
@@ -192,7 +192,7 @@ class TestReporter:
     def to_dict(self) -> dict[str, Any]:
         status = (
             "PASSED"
-            if (self.report.failed_tests == 0 and self.report.total_tests > 0)
+            if (self.report.failed_tests == 0 and self.report.passed_tests > 0)
             else "FAILED"
         )
         return {
