@@ -62,12 +62,6 @@ jobs:
       #   HELPER_IMAGE: gcr.io/datcom-ci/datacommons-ingestion-helper:v1.2.3rc1
       #   SERVICES_IMAGE: gcr.io/datcom-ci/datacommons-services:v1.2.3rc1
       - name: Run hermetic integration test
-        env:
-          # =========================================================================
-          # DO NOT SUBMIT: Temporary image override for PR #751 fail-fast validation.
-          # Revert to default (:latest) before merging this PR.
-          # =========================================================================
-          DATAFLOW_IMAGE: us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion:calinc-dev-fastfail
         run: uv run python tests/integration/run_e2e_tests.py --instance=emulated --test-config=foobar_wages,health_aid
 
 
