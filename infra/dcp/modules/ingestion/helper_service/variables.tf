@@ -48,22 +48,14 @@ variable "enable_embeddings_generation" {
   description = "Flag to enable embedding generation"
 }
 
-variable "network_id" {
-  type        = string
-  description = "VPC network ID or self_link for Direct VPC Egress"
+variable "vpc_access" {
+  type = object({
+    network_id      = string
+    subnet_id       = string
+    vpc_egress_mode = optional(string, "PRIVATE_RANGES_ONLY")
+  })
+  description = "Direct VPC Egress configuration. If null, service runs without VPC egress."
   default     = null
-}
-
-variable "subnet_id" {
-  type        = string
-  description = "Subnet ID or self_link for Direct VPC Egress"
-  default     = null
-}
-
-variable "vpc_egress_mode" {
-  type        = string
-  description = "VPC egress mode (PRIVATE_RANGES_ONLY or ALL_TRAFFIC)"
-  default     = "PRIVATE_RANGES_ONLY"
 }
 
 variable "redis_host" {

@@ -98,7 +98,13 @@ variable "storage_artifacts_bucket_name" {
 # =============================================================================
 
 variable "enable_network" {
-  description = "Enable VPC networking for DCP services and ingestion jobs"
+  description = "Enable VPC networking infrastructure for DCP services and ingestion jobs"
+  type        = bool
+  default     = true
+}
+
+variable "enable_workload_vpc" {
+  description = "Whether compute workloads (Cloud Run services, jobs, Dataflow) attach to the VPC. Set to false to cleanly detach workloads before destroying network infrastructure."
   type        = bool
   default     = true
 }

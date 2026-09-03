@@ -108,6 +108,7 @@ locals {
 
   network_config = {
     enable              = var.enable_network
+    enable_workload_vpc = var.enable_workload_vpc
     create_vpc          = var.network_create_vpc
     network_name        = var.network_name != "" ? var.network_name : "dc-vpc"
     subnet_cidr         = var.network_subnet_cidr

@@ -22,8 +22,20 @@ variable "instance_name" {
 # =============================================================================
 variable "enable" {
   type        = bool
-  description = "Whether VPC networking is enabled for DCP compute workloads"
+  description = "Whether VPC networking infrastructure is enabled for DCP"
   default     = true
+}
+
+variable "enable_workload_vpc" {
+  type        = bool
+  description = "Whether compute workloads (Cloud Run, Dataflow) attach to the VPC. Set to false to cleanly detach workloads before destroying the network."
+  default     = true
+}
+
+variable "vpc_egress_mode" {
+  type        = string
+  description = "VPC egress mode for Cloud Run services and jobs (PRIVATE_RANGES_ONLY or ALL_TRAFFIC)"
+  default     = "PRIVATE_RANGES_ONLY"
 }
 
 variable "create_vpc" {

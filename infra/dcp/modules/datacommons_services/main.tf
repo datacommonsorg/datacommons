@@ -121,14 +121,14 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
 
     # Direct VPC Egress
     dynamic "vpc_access" {
-      for_each = var.subnet_id != null && var.subnet_id != "" ? [1] : []
+      for_each = var.vpc_access != null ? [var.vpc_access] : []
       content {
         network_interfaces {
-          network    = var.network_id
-          subnetwork = var.subnet_id
+          network    = vpc_access.value.network_id
+          subnetwork = vpc_access.value.subnet_id
           tags       = ["dcp-service"]
         }
-        egress = var.vpc_egress_mode
+        egress = vpc_access.value.vpc_egress_mode
       }
     }
 
