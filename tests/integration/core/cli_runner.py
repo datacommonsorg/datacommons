@@ -79,7 +79,7 @@ class DatacommonsCLI:
         self,
         args: list[str],
         env: dict | None = None,
-        timeout: int = 120,
+        timeout: int = 300,
         echo: bool = True,
     ) -> CLIResult:
         """Executes a datacommons CLI command within the workspace context."""
