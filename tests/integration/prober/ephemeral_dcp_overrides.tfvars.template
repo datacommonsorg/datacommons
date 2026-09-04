@@ -21,14 +21,15 @@
 # are configured automatically in terraform.tfvars via 'dcp admin init'.
 # ==============================================================================
 
-dcp_version                         = "latest"
-spanner_create_instance             = true
-spanner_create_database             = true
-spanner_create_bigquery_reservation = false
-stateless_deletion_protection       = false
-stateful_deletion_protection        = false
-ingestion_dataflow_ip_configuration   = "WORKER_IP_PRIVATE"
-ingestion_dataflow_subnetwork         = "regions/us-central1/subnetworks/default"
-ingestion_dataflow_num_workers        = 1
-ingestion_dataflow_max_workers        = 1
+dcp_version                            = "latest"
+spanner_create_instance                = true
+spanner_create_database                = true
+spanner_create_bigquery_reservation    = false
+stateless_deletion_protection          = false
+stateful_deletion_protection           = false
+ingestion_dataflow_ip_configuration    = "WORKER_IP_PRIVATE"
+ingestion_dataflow_subnetwork          = "regions/us-central1/subnetworks/default"
+ingestion_dataflow_num_workers         = 1
+ingestion_dataflow_max_workers         = 1
 ingestion_dataflow_worker_machine_type = "e2-standard-4"
+
