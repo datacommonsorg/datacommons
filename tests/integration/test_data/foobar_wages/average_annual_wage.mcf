@@ -1,0 +1,28 @@
+Node: dcid:dc/s/FooBarOrganization
+typeOf: dcid:Source
+name: "FooBar Statistics Organization"
+url: "https://foobar.example.org"
+
+Node: dcid:FooBarGroup
+typeOf: dcid:StatVarGroup
+name: "FooBar"
+specializationOf: dcid:dc/g/Root
+
+Node: dcid:FooBarWages
+typeOf: dcid:Provenance
+name: "FooBar Average Annual Wages"
+source: dcid:dc/s/FooBarOrganization
+url: "https://foobar.example.org/average-annual-wages"
+
+Node: dcid:wagesAnnual
+typeOf: dcid:Property
+name: "wagesAnnual"
+
+Node: dcid:average_annual_wage
+typeOf: dcid:StatisticalVariable
+name: "Average annual wage"
+description: "Annual rates paid per employee in full-time equivalent unit in the total economy."
+populationType: dcid:Person
+measuredProperty: dcid:wagesAnnual
+statType: dcid:medianValue
+memberOf: dcid:FooBarGroup

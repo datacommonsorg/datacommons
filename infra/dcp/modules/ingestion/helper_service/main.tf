@@ -25,7 +25,7 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
       }
       env {
         name  = "FORCE_RESTART"
-        value = timestamp()
+        value = var.skip_container_restarts ? "" : timestamp()
       }
       env {
         name  = "SPANNER_PROJECT_ID"

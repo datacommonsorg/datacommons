@@ -1,0 +1,19 @@
+Node: dcid:FooBarGroup
+typeOf: dcid:StatVarGroup
+name: "FooBar"
+specializationOf: dcid:dc/g/Root
+
+Node: dcid:FooBarGenderWageGap
+typeOf: dcid:Provenance
+name: "FooBar Gender Wage Gap"
+source: dcid:dc/s/FooBarOrganization
+url: "https://foobar.example.org/gender-wage-gap"
+
+Node: dcid:gender_wage_gap
+typeOf: dcid:StatisticalVariable
+name: "Gender wage gap"
+description: "Percentage difference between median earnings of men and women relative to median earnings of men"
+populationType: dcid:Person
+measuredProperty: dcid:wagesAnnual
+statType: dcid:medianValue
+memberOf: dcid:FooBarGroup

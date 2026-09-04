@@ -13,46 +13,27 @@
 # limitations under the License.
 
 steps:
-  # 1. Set lockstep version across __init__.py files and root pyproject.toml using inline python
-  - name: 'python:3.12-slim'
-    entrypoint: 'bash'
-    env:
-      - 'TAG_NAME=$TAG_NAME'
+  # 1. Validate version consistency across local manifests and remote release artifacts
+  - name: 'google/cloud-sdk:slim'
+    id: 'validate-release-version'
+    entrypoint: 'python3'
     args:
-      - '-c'
-      - |
-        tag_version=$${TAG_NAME#v}
-        version_in_file=$(tr -d '[:space:]' < VERSION)
-        echo "Validating release tag '$tag_version' against VERSION file '$version_in_file'..."
-        if [ "$tag_version" != "$version_in_file" ]; then
-          echo "ERROR: Release tag ($tag_version) does not match VERSION file ($version_in_file)."
-          exit 1
-        fi
-        python3 -c "import glob, re; [open(f, 'w').write(re.sub(r'^__version__ = [\"\'].*[\"\']', '__version__ = \"'\"$tag_version\"'\"', content, flags=re.MULTILINE)) for f in glob.glob('packages/*/datacommons_*/__init__.py') for content in [open(f, 'r').read()]]"
+      - 'deploy/scripts/validate_release_version.py'
+      - '$TAG_NAME'
+      - '--check-remote-artifacts'
 
   # 2. Build and publish all Python packages to PyPI
   - name: 'ghcr.io/astral-sh/uv:python3.12-trixie-slim'
-    entrypoint: 'bash'
+    id: 'publish-pypi-packages'
+    entrypoint: 'python3'
     secretEnv:
       - 'PYPI_TOKEN'
     args:
-      - '-c'
-      - |
-        for pkg in packages/*; do
-          pkg_name=$(basename "$pkg")
-          if [ "$pkg_name" = "datacommons-db" ] || [ "$pkg_name" = "datacommons-api" ] || [ "$pkg_name" = "datacommons-schema" ]; then
-            echo "Skipping experimental package $pkg_name..."
-            continue
-          fi
-          if [ -d "$pkg" ] && [ -f "$pkg/pyproject.toml" ]; then
-            echo "Building and publishing $pkg..."
-            cd "$pkg"
-            rm -rf dist/ build/ *.egg-info
-            uv build --out-dir dist
-            uv publish --token $$PYPI_TOKEN
-            cd -
-          fi
-        done
+      - 'deploy/scripts/publish_packages.py'
+      - '--target'
+      - 'pypi'
+      - '--token-env'
+      - 'PYPI_TOKEN'
 
 availableSecrets:
   secretManager:
