@@ -115,13 +115,13 @@ variable "storage_artifacts_bucket_name" {
 variable "enable_network" {
   description = "Enable VPC networking infrastructure for DCP services and ingestion jobs. NOTE: To decommission, follow the two-stage process: set enable_workload_vpc = false first, apply, then set enable_network = false."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "enable_workload_vpc" {
   description = "Whether compute workloads (Cloud Run services, jobs, Dataflow) attach to the VPC. Set to false in Stage 1 of VPC decommissioning to cleanly detach workloads before destroying network infrastructure in Stage 2."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "network_prune_cloud_run_revisions" {

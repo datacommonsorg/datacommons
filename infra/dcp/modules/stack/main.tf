@@ -573,7 +573,7 @@ resource "terraform_data" "prune_cloud_run_revisions" {
       done
       echo "[VPC Cleanup] Finished pruning inactive revisions."
 
-      # Step 2: Delete lingering Serverless IP reservations bound to our subnet
+      # Step 2: Check for lingering Serverless IP reservations bound to our subnet
       SUBNET_NAME="${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-subnet"
       echo "[VPC Cleanup] Checking for lingering Serverless IP reservations on $SUBNET_NAME..."
       ORPHANED_ADDRS=$(gcloud compute addresses list \
@@ -585,14 +585,13 @@ resource "terraform_data" "prune_cloud_run_revisions" {
         echo "[VPC Cleanup] No serverless IP reservations found on $SUBNET_NAME."
       else
         for addr in $ORPHANED_ADDRS; do
-          echo "[VPC Cleanup] Deleting lingering serverless address: $addr..."
-          gcloud compute addresses delete "$addr" \
-            --region="$REGION" \
-            --project="$PROJECT_ID" \
-            --quiet 2>/dev/null || true
+          echo "[VPC Cleanup] Found serverless IP reservation: $addr"
+          echo "[VPC Cleanup] Note: Per Google Cloud documentation, serverless IP reservations are managed by serverless.googleapis.com."
+          echo "[VPC Cleanup] Google Cloud automatically releases and cleans up this reservation within 1-2 hours after workloads are detached."
+          echo "[VPC Cleanup] Once released, setting enable_network = false in Stage 2 will cleanly destroy the subnet and VPC."
         done
       fi
-      echo "[VPC Cleanup] Completed all revision and address reservation cleanups."
+      echo "[VPC Cleanup] Completed revision pruning. Ready for Stage 2 once Google releases IP reservations."
     EOT
   }
 
