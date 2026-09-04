@@ -4,12 +4,22 @@ An agentic, skill-driven tool suite for generating publication-ready, partner-fa
 
 ---
 
-## Quick Start (How to Use)
+## Quick Start & Developer Workflow
 
-Simply point your LLM coding assistant (e.g. Antigravity / Gemini) at [`SKILL.md`](SKILL.md):
+### 1. Prompt Your LLM Coding Assistant
+Point your LLM coding assistant to [`SKILL.md`](SKILL.md) and specify the target release boundary:
 
 > **Prompt Example**:
-> *"Please read `deploy/generate_release_notes/SKILL.md` and generate release notes for version v1.1.0 to v1.1.1."*
+> *"Please read `deploy/generate_release_notes/SKILL.md` and generate release notes for version `v1.1.0` to `v1.1.1`."*
+
+### 2. Review & Refine Your Starting Draft (`output/RELEASE_NOTES_<version>.md`)
+* Open **`output/RELEASE_NOTES_<version>.md`**.
+* This file serves as your **initial draft**. While it automatically enforces a partner-facing voice, eliminates internal database table names, and groups bug fixes, you will likely need to **edit and trim** it to align with specific release themes, partner announcements, or executive priorities.
+
+### 3. Inspect the Decision Trail & Audit Logs (Why These Notes Were Chosen)
+To understand *how* and *why* specific notes were selected or omitted:
+* **`output/IMAGE_DELTAS_<version>.txt`**: A detailed walkthrough of the synthesized deltas per container image, explaining how intra-release regression fixes were separated from true platform bug fixes.
+* **`output/prs_<component>.txt`**: The component-level extraction logs featuring **Change Summary**, **DCP Impact**, and the **Excluded PRs Audit Log** (listing every excluded PR along with an explicit reason for omission).
 
 ---
 
@@ -26,9 +36,9 @@ Simply point your LLM coding assistant (e.g. Antigravity / Gemini) at [`SKILL.md
 
 All output artifacts are generated into `deploy/generate_release_notes/output/`:
 
+- `output/RELEASE_NOTES_<version>.md`: Final release notes formatted for external developers and instance operators (initial starting draft).
+- `output/IMAGE_DELTAS_<version>.txt`: Intermediate summary of salient features, configuration updates, and true platform bug fixes per container image (decision walkthrough).
 - `output/prs_<component>.txt`: Extracted PRs per component with **Change Summary**, **DCP Impact**, and an **Excluded PRs Audit Log** (with explicit reasons for every ignored PR).
-- `output/IMAGE_DELTAS_<version>.txt`: Intermediate summary of salient features, configuration updates, and true platform bug fixes per container image.
-- `output/RELEASE_NOTES_<version>.md`: Final release notes formatted for external developers and instance operators.
 
 ---
 
