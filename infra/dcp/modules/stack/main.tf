@@ -475,15 +475,36 @@ resource "terraform_data" "dataflow_subnet_validation" {
 check "warn_cloud_run_vpc_pruning_needed" {
   assert {
     condition = (
-      (var.network_config.enable_workload_vpc && var.network_config.enable) ||
+      var.network_config.enable_workload_vpc ||
+      !var.network_config.enable ||
       var.network_config.prune_cloud_run_revisions
     )
-    error_message = "WARNING: You are disabling workload VPC access or the VPC network itself without setting network_prune_cloud_run_revisions = true. Cloud Run retains inactive past revisions (0% traffic) that lock subnet IP reservations, which causes \"Subnetwork is in use\" (Error 400) during subnet teardown. Set network_prune_cloud_run_revisions = true to automatically prune inactive revisions."
+    error_message = "WARNING: You have set enable_workload_vpc = false without network_prune_cloud_run_revisions = true. Cloud Run retains inactive past revisions (0% traffic) that lock subnet IP reservations, which causes \"Subnetwork is in use\" (Error 400) when you set enable_network = false in Stage 2. Please set network_prune_cloud_run_revisions = true during Stage 1."
+  }
+}
+
+check "warn_pruning_accidentally_left_on" {
+  assert {
+    condition = !(
+      var.network_config.prune_cloud_run_revisions &&
+      var.network_config.enable_workload_vpc
+    )
+    error_message = "WARNING: network_prune_cloud_run_revisions is set to true while enable_workload_vpc is true. Pruning has been disabled to protect your Cloud Run rollback history. Please set network_prune_cloud_run_revisions = false during normal operation."
+  }
+}
+
+check "warn_pruning_revisions_confirmation" {
+  assert {
+    condition = !(
+      var.network_config.prune_cloud_run_revisions &&
+      !var.network_config.enable_workload_vpc
+    )
+    error_message = "CAUTION: network_prune_cloud_run_revisions is enabled. Proceeding with this apply will PERMANENTLY DELETE all inactive (0-traffic) Cloud Run revisions for dc-datacommons-service and dc-ingestion-helper. This is required when decommissioning the VPC network to allow Google Cloud to release lingering subnet IP reservations. You will not be able to roll back to older revisions after this operation completes."
   }
 }
 
 resource "terraform_data" "prune_cloud_run_revisions" {
-  count = var.network_config.prune_cloud_run_revisions ? 1 : 0
+  count = var.network_config.prune_cloud_run_revisions && !var.network_config.enable_workload_vpc ? 1 : 0
 
   triggers_replace = [
     var.network_config.prune_cloud_run_revisions,
@@ -513,26 +534,65 @@ resource "terraform_data" "prune_cloud_run_revisions" {
         fi
 
         echo "[VPC Cleanup] Inspecting service: $svc..."
-        INACTIVE_REVS=$(gcloud run revisions list \
+        ACTIVE_REVS=$(gcloud run services describe "$svc" \
+          --project="$PROJECT_ID" \
+          --region="$REGION" \
+          --format="value(status.traffic.revisionName)" 2>/dev/null || true)
+
+        ALL_REVS=$(gcloud run revisions list \
           --service="$svc" \
           --project="$PROJECT_ID" \
           --region="$REGION" \
-          --filter="status.trafficWeight=0" \
           --format="value(metadata.name)" 2>/dev/null || true)
 
-        if [ -z "$INACTIVE_REVS" ]; then
-          echo "[VPC Cleanup] No 0-traffic inactive revisions found for $svc."
-        else
-          for rev in $INACTIVE_REVS; do
-            echo "[VPC Cleanup] Deleting inactive revision: $rev (trafficWeight=0)..."
+        PRUNED_COUNT=0
+        for rev in $ALL_REVS; do
+          IS_ACTIVE=false
+          for active in $ACTIVE_REVS; do
+            if [ "$rev" = "$active" ]; then
+              IS_ACTIVE=true
+              break
+            fi
+          done
+
+          if [ "$IS_ACTIVE" = "false" ]; then
+            echo "[VPC Cleanup] Deleting inactive revision: $rev..."
             gcloud run revisions delete "$rev" \
               --project="$PROJECT_ID" \
               --region="$REGION" \
               --quiet 2>/dev/null || true
-          done
+            PRUNED_COUNT=$((PRUNED_COUNT + 1))
+          fi
+        done
+
+        if [ "$PRUNED_COUNT" -eq 0 ]; then
+          echo "[VPC Cleanup] No inactive revisions found for $svc."
+        else
+          echo "[VPC Cleanup] Pruned $PRUNED_COUNT inactive revisions for $svc."
         fi
       done
       echo "[VPC Cleanup] Finished pruning inactive revisions."
+
+      # Step 2: Delete lingering Serverless IP reservations bound to our subnet
+      SUBNET_NAME="${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-subnet"
+      echo "[VPC Cleanup] Checking for lingering Serverless IP reservations on $SUBNET_NAME..."
+      ORPHANED_ADDRS=$(gcloud compute addresses list \
+        --project="$PROJECT_ID" \
+        --filter="subnetwork:$SUBNET_NAME AND purpose=SERVERLESS" \
+        --format="value(name)" 2>/dev/null || true)
+
+      if [ -z "$ORPHANED_ADDRS" ]; then
+        echo "[VPC Cleanup] No serverless IP reservations found on $SUBNET_NAME."
+      else
+        for addr in $ORPHANED_ADDRS; do
+          echo "[VPC Cleanup] Deleting lingering serverless address: $addr..."
+          gcloud compute addresses delete "$addr" \
+            --region="$REGION" \
+            --project="$PROJECT_ID" \
+            --quiet 2>/dev/null || true
+        done
+      fi
+      echo "[VPC Cleanup] Completed all revision and address reservation cleanups."
     EOT
   }
 
