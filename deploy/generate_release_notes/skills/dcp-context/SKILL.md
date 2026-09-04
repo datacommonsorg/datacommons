@@ -54,9 +54,9 @@ When evaluating any PR against domain context, follow this exact step-by-step se
 
 1. **Step 1: Identify Target Component Layer**: Match modified paths against the Component Registry table (Section 3).
 2. **Step 2: Evaluate Touchpoint Category**:
-   - Check if the PR alters Data Input / Ingestion (Section 2.A) $\rightarrow$ Classify as **`RELEVANT_DATA_INPUT_OR_INGESTION`**.
-   - Check if the PR alters Serving APIs, MCP tools, or UI (Section 2.B) $\rightarrow$ Classify as **`RELEVANT_SERVING_OR_UI`**.
-   - Check if the PR is an internal DB/engine refactor (Section 2.C) $\rightarrow$ Classify as **`INTERNAL_MECHANIC`** (Reframe to high-level impact or exclude).
+   - Check if the PR alters Data Input / Ingestion (Section 2.A) → Classify as **`RELEVANT_DATA_INPUT_OR_INGESTION`**.
+   - Check if the PR alters Serving APIs, MCP tools, or UI (Section 2.B) → Classify as **`RELEVANT_SERVING_OR_UI`**.
+   - Check if the PR is an internal DB/engine refactor (Section 2.C) → Classify as **`INTERNAL_MECHANIC`** (Reframe to high-level impact or exclude).
 3. **Step 3: Mandated Evaluation Thinking Phase**:
    Open a `<thinking>` block to record:
    - What changed in the code.

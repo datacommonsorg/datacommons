@@ -34,13 +34,13 @@ The orchestrator MUST read `skills/dcp-context/SKILL.md` dynamically to inspect 
 
 ### Step 0: Mandated Orchestrator Thinking Phase
 Before executing steps, open a `<thinking>` block to record:
-1. Format validation for `<prev_version>` and `<new_version>` (verify both follow semver `vX.Y.Z` format).
+1. Format validation for `<prev_version>` and `<new_version>` (verify both follow semver or release candidate format, e.g. `vX.Y.Z` or `vX.Y.ZrcN` / `vX.Y.Z-rcN`).
 2. Verification of `deploy/generate_release_notes/output/` directory creation.
 3. Verification of `skills/dcp-context/SKILL.md` accessibility.
 4. Orchestration plan to spawn extraction subagents concurrently across all registry rows.
 
 ### Step 1: Version Resolution & Output Directory Setup
-1. Validate the previous release tag (`<prev_version>`, e.g., `v1.1.0`) and target release tag (`<new_version>`, e.g., `v1.1.1`).
+1. Validate the previous release tag (`<prev_version>`, e.g., `v1.1.0`) and target release tag (`<new_version>`, e.g., `v1.1.1` or `v1.1.3rc2`).
 2. Create the `deploy/generate_release_notes/output/` directory if it does not already exist.
 
 > [!IMPORTANT]

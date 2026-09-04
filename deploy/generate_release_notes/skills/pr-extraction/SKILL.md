@@ -28,13 +28,24 @@ description: Subagent instruction skill for extracting, filtering, and verifying
 ## Execution SOP Sequence
 
 ### Step 1: Container Image Tag & Timestamp Resolution (NO AUTOMATIC FALLBACK)
-1. **Artifact Registry Tag Resolution**:
-   Resolve the creation timestamp for `<prev_version>` and `<new_version>` for your assigned `image_uri`:
+1. **Artifact Registry Tag Resolution (For Container Components)**:
+   For components with a container image URI (`services`, `preprocessing`, `dataflow_worker`, `ingestion_helper`, `postprocessing`), resolve creation timestamps from Artifact Registry:
+   - **Strip Leading `v`**: Artifact Registry container images are tagged without the leading `v` (e.g. `1.1.1` instead of `v1.1.1`). Always strip `v` when querying image tags (`clean_version="${version#v}"`).
+   - **Exact Tag Match & UTC Format**: Use exact equality (`tags=<clean_version>`) to prevent partial matches against release candidates (e.g. `1.1.1rc1`), and format output in UTC:
+     ```bash
+     gcloud container images list-tags <image_uri> --filter="tags=<clean_version>" --format="value(timestamp.date(format='%Y-%m-%dT%H:%M:%SZ', tz=UTC))"
+     ```
+2. **Repository / Non-Container Component Resolution (`dcp_monorepo`)**:
+   For components that are repository or Terraform artifacts without a container image URI (such as `dcp_monorepo`), resolve the release boundaries using git tags or the GitHub release API:
    ```bash
-   gcloud container images list-tags <image_uri> --filter="tags:<version>" --format="value(timestamp.datetime)"
+   git log -1 --format="%cI" "<version>"
    ```
-2. **STRICT MANDATE — ASK USER ON MISSING TAGS**:
-   If an image tag does NOT exist in Artifact Registry for `<prev_version>` or `<new_version>`, **DO NOT automatically guess, synthesize, or fall back to git tags**. 
+   Or via GitHub CLI:
+   ```bash
+   gh release view "<version>" --repo datacommonsorg/datacommons --json publishedAt --jq .publishedAt
+   ```
+3. **STRICT MANDATE — ASK USER ON MISSING TAGS**:
+   If a container image tag does NOT exist in Artifact Registry for `<prev_version>` or `<new_version>`, **DO NOT automatically guess, synthesize, or fall back to git tags**. 
    Stop immediately and ask the user how to proceed (e.g., provide an alternative tag, specify custom date boundaries, or pass `--allow-missing-images` to use `NOW()`).
 
 ### Step 2: Single Date-Range PR Search per Repository
@@ -47,9 +58,14 @@ description: Subagent instruction skill for extracting, filtering, and verifying
 > [!NOTE]
 > **Zero PR Range Guardrail**: If `gh pr list` returns 0 PRs within the date range, verify image tag timestamps. If verified, write the `prs_<component>.txt` file with `Total Relevant PRs: 0` and explicitly state: *"No merged PRs found in release window."*
 
-### Step 3: DCP Context & Semantic Content Analysis
-1. Read [`skills/dcp-context/SKILL.md`](../dcp-context/SKILL.md) to understand how your assigned component fits into platform architecture and user touchpoints (Section 2).
-2. Analyze the actual content of each PR (title, description body, labels, and changed code context) against the DCP context touchpoints to evaluate relevance:
+### Step 3: Subdirectory Path Filtering & Semantic Content Analysis
+1. Read [`skills/dcp-context/SKILL.md`](../dcp-context/SKILL.md) to understand how your assigned component fits into platform architecture, user touchpoints (Section 2), and assigned subdirectory filters (Section 3).
+2. **Subdirectory Path Filtering (MANDATORY)**:
+   For repositories shared across multiple components (especially `datacommonsorg/import` and `datacommonsorg/datacommons`), inspect the `files[].path` list of each PR retrieved from `gh pr list`.
+   - Retain ONLY PRs where at least one modified file begins with your assigned subdirectory filter from Section 3 of `dcp-context/SKILL.md` (e.g., `simple/` for `preprocessing`, `pipeline/ingestion/` for `dataflow_worker`, `pipeline/workflow/ingestion-helper/` for `ingestion_helper`, `pipeline/workflow/aggregation-helper/` for `postprocessing`, or `infra/dcp/` and `packages/` for `dcp_monorepo`).
+   - If a PR from the same repository modifies files entirely outside your assigned component subdirectory filter, immediately exclude it under IRRELEVANT / EXCLUDED PRS with:
+     `Reason: Excluded - Modified files outside assigned component subdirectory filter (<filter>)`
+3. Analyze the actual content of each retained PR (title, description body, labels, and changed code context) against the DCP context touchpoints to evaluate relevance:
    - **Data Preprocessor (`preprocessing` / `datacommons-data`)**: Include PRs affecting CSV/MCF parsing, streaming JSON-LD batching, schema validation, column mapping, or preprocessor execution.
    - **Dataflow Ingestion Worker (`dataflow_worker`)**: Include PRs affecting Dataflow pipelines, TFRecord loading, BigQuery/Spanner graph transformations, or batch import scaling (`max_workers`).
    - **Ingestion Helper Service (`ingestion_helper`)**: Include PRs affecting Cloud Workflows orchestration, ingestion status tracking, execution IDs, status polling, or run history tables.
