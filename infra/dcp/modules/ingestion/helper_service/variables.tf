@@ -48,10 +48,14 @@ variable "enable_embeddings_generation" {
   description = "Flag to enable embedding generation"
 }
 
-variable "vpc_connector_id" {
-  type        = string
-  description = "VPC access connector ID for Cloud Run"
-  default     = ""
+variable "vpc_access" {
+  type = object({
+    network_id      = string
+    subnet_id       = string
+    vpc_egress_mode = optional(string, "PRIVATE_RANGES_ONLY")
+  })
+  description = "Direct VPC Egress configuration. If null, service runs without VPC egress."
+  default     = null
 }
 
 variable "redis_host" {

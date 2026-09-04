@@ -1,5 +1,18 @@
-data "google_compute_network" "default" {
-  name = var.redis_config.vpc_network_name
+module "network" {
+  source = "../network"
+
+  enable              = var.network_config.enable
+  enable_workload_vpc = var.network_config.enable_workload_vpc
+  create_vpc          = var.network_config.create_vpc
+  project_id          = var.global.project_id
+  region              = var.global.region
+  instance_name       = var.global.instance_name
+  network_name        = var.network_config.network_name
+  subnet_cidr         = var.network_config.subnet_cidr
+  enable_cloud_nat    = var.network_config.enable_cloud_nat
+  existing_network_id = var.network_config.existing_network_id
+  existing_subnet_id  = var.network_config.existing_subnet_id
+  vpc_egress_mode     = var.network_config.vpc_egress_mode != null ? var.network_config.vpc_egress_mode : "PRIVATE_RANGES_ONLY"
 }
 
 locals {
@@ -122,7 +135,7 @@ module "ingestion_preprocessing_job" {
   cpu                           = var.ingestion_config.preprocessing_job_cpu
   memory                        = var.ingestion_config.preprocessing_job_memory
   timeout                       = var.ingestion_config.preprocessing_job_timeout
-  vpc_connector_id              = var.redis_config.enable ? module.redis[0].connector_id : null
+  vpc_access                    = module.network.vpc_access
   bucket_name                   = module.storage.artifacts_bucket_name
   input_path                    = var.ingestion_config.input_path
   ingestion_artifacts_path      = var.ingestion_config.ingestion_artifacts_path
@@ -156,7 +169,7 @@ module "ingestion_postprocessing_job" {
   cpu                            = var.ingestion_config.postprocessing_job_cpu
   memory                         = var.ingestion_config.postprocessing_job_memory
   timeout                        = var.ingestion_config.postprocessing_job_timeout
-  vpc_connector_id               = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].connector_id : null
+  vpc_access                     = module.network.vpc_access
   spanner_instance_id            = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
   spanner_database_id            = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
   bigquery_connection_id         = var.spanner_config.enable ? module.spanner[0].bigquery_connection_id : ""
@@ -193,8 +206,8 @@ module "ingestion_helper_service" {
   use_spanner                  = var.spanner_config.enable
   enable_embeddings_generation = var.spanner_config.enable_embeddings_generation
 
-  # Redis configuration for cache clearing
-  vpc_connector_id         = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].connector_id : null
+  # Direct VPC Egress from network module
+  vpc_access               = module.network.vpc_access
   redis_host               = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
   redis_port               = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
   ingestion_artifacts_path = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
@@ -218,8 +231,8 @@ module "ingestion_workflow" {
   ingestion_helper_service_name       = "${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-ingestion-helper"
   enable_redis_cache_clearing         = var.redis_config.enable
   ingestion_artifacts_path            = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
-  dataflow_ip_configuration           = var.ingestion_config.dataflow_ip_configuration
-  dataflow_subnetwork                 = var.ingestion_config.dataflow_subnetwork
+  dataflow_ip_configuration           = var.network_config.enable && var.network_config.enable_workload_vpc ? var.ingestion_config.dataflow_ip_configuration : "WORKER_IP_UNSPECIFIED"
+  dataflow_subnetwork                 = var.network_config.enable && var.network_config.enable_workload_vpc ? (var.ingestion_config.dataflow_subnetwork != "" ? var.ingestion_config.dataflow_subnetwork : (module.network.subnet_url != null ? module.network.subnet_url : "")) : ""
   dataflow_template_gcs_path          = var.ingestion_config.dataflow_template_gcs_path
   dataflow_max_workers                = var.ingestion_config.dataflow_max_workers
   dataflow_num_workers                = var.ingestion_config.dataflow_num_workers
@@ -244,9 +257,9 @@ module "redis" {
   location_id             = var.redis_config.location_id
   alternative_location_id = var.redis_config.alternative_location_id
   replica_count           = var.redis_config.replica_count
-  vpc_network_id          = data.google_compute_network.default.id
-  vpc_connector_cidr      = var.redis_config.vpc_connector_cidr
-  enable_connector        = true
+  vpc_network_id          = module.network.network_id != null && module.network.network_id != "" ? module.network.network_id : "projects/${var.global.project_id}/global/networks/default"
+
+  depends_on = [module.network]
 }
 
 module "auth" {
@@ -278,7 +291,7 @@ module "datacommons_services" {
   enable_mcp                    = var.datacommons_services_config.enable_mcp
   mcp_instructions_path         = var.datacommons_services_config.instructions_path
   artifacts_bucket_name         = module.storage.artifacts_bucket_name
-  vpc_connector_id              = var.redis_config.enable ? module.redis[0].connector_id : null
+  vpc_access                    = module.network.vpc_access
   use_spanner                   = var.spanner_config.enable
   env_vars = concat(local.cloud_run_shared_env_variables, [
     {
@@ -429,4 +442,161 @@ resource "google_service_account_iam_member" "ingestion_workflow_act_as_serving_
   service_account_id = "projects/${var.global.project_id}/serviceAccounts/${module.datacommons_services[0].service_account_email}"
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
+# =============================================================================
+# Architecture & Dependency Validations
+# =============================================================================
+resource "terraform_data" "redis_network_validation" {
+  lifecycle {
+    precondition {
+      condition     = !var.redis_config.enable || (var.network_config.enable && var.network_config.enable_workload_vpc)
+      error_message = "enable_redis is set to true, but enable_network or enable_workload_vpc is false. Cloud Memorystore for Redis instances only have private IP addresses and require VPC networking to be accessible from Cloud Run services."
+    }
+  }
+}
+
+resource "terraform_data" "dataflow_subnet_validation" {
+  lifecycle {
+    precondition {
+      condition = (
+        var.ingestion_config.dataflow_ip_configuration != "WORKER_IP_PRIVATE" ||
+        (var.ingestion_config.dataflow_subnetwork != null && var.ingestion_config.dataflow_subnetwork != "") ||
+        (var.network_config.enable && var.network_config.enable_workload_vpc && module.network.subnet_url != null && module.network.subnet_url != "")
+      )
+      error_message = "dataflow_ip_configuration is set to 'WORKER_IP_PRIVATE', which requires a valid subnetwork. Ensure enable_network and enable_workload_vpc are true and a subnet is available, or provide dataflow_subnetwork."
+    }
+  }
+}
+
+# =============================================================================
+# Cloud Run Serverless VPC Cleanup Hook & Validation
+# =============================================================================
+check "warn_cloud_run_vpc_pruning_needed" {
+  assert {
+    condition = (
+      var.network_config.enable_workload_vpc ||
+      !var.network_config.enable ||
+      var.network_config.prune_cloud_run_revisions
+    )
+    error_message = "WARNING: You have set enable_workload_vpc = false without network_prune_cloud_run_revisions = true. Cloud Run retains inactive past revisions (0% traffic) that lock subnet IP reservations, which causes \"Subnetwork is in use\" (Error 400) when you set enable_network = false in Stage 2. Please set network_prune_cloud_run_revisions = true during Stage 1."
+  }
+}
+
+check "warn_pruning_accidentally_left_on" {
+  assert {
+    condition = !(
+      var.network_config.prune_cloud_run_revisions &&
+      var.network_config.enable_workload_vpc
+    )
+    error_message = "WARNING: network_prune_cloud_run_revisions is set to true while enable_workload_vpc is true. Pruning has been disabled to protect your Cloud Run rollback history. Please set network_prune_cloud_run_revisions = false during normal operation."
+  }
+}
+
+check "warn_pruning_revisions_confirmation" {
+  assert {
+    condition = !(
+      var.network_config.prune_cloud_run_revisions &&
+      !var.network_config.enable_workload_vpc
+    )
+    error_message = "CAUTION: network_prune_cloud_run_revisions is enabled. Proceeding with this apply will PERMANENTLY DELETE all inactive (0-traffic) Cloud Run revisions for dc-datacommons-service and dc-ingestion-helper. This is required when decommissioning the VPC network to allow Google Cloud to release lingering subnet IP reservations. You will not be able to roll back to older revisions after this operation completes."
+  }
+}
+
+resource "terraform_data" "prune_cloud_run_revisions" {
+  count = var.network_config.prune_cloud_run_revisions && !var.network_config.enable_workload_vpc ? 1 : 0
+
+  triggers_replace = [
+    var.network_config.prune_cloud_run_revisions,
+    var.network_config.enable_workload_vpc,
+    var.network_config.enable
+  ]
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      if ! command -v gcloud >/dev/null 2>&1; then
+        echo "[VPC Cleanup WARNING] 'gcloud' CLI was not found in PATH. Skipping Cloud Run revision pruning."
+        exit 0
+      fi
+
+      PROJECT_ID="${var.global.project_id}"
+      REGION="${var.global.region}"
+      SERVICES=(
+        "${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-datacommons-service"
+        "${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-ingestion-helper"
+      )
+
+      echo "[VPC Cleanup] Checking for inactive Cloud Run revisions holding VPC IP reservations..."
+      for svc in "$${SERVICES[@]}"; do
+        if ! gcloud run services describe "$svc" --project="$PROJECT_ID" --region="$REGION" >/dev/null 2>&1; then
+          echo "[VPC Cleanup] Service '$svc' does not exist in $REGION. Skipping."
+          continue
+        fi
+
+        echo "[VPC Cleanup] Inspecting service: $svc..."
+        ACTIVE_REVS=$(gcloud run services describe "$svc" \
+          --project="$PROJECT_ID" \
+          --region="$REGION" \
+          --format="value(status.traffic.revisionName)" 2>/dev/null || true)
+
+        ALL_REVS=$(gcloud run revisions list \
+          --service="$svc" \
+          --project="$PROJECT_ID" \
+          --region="$REGION" \
+          --format="value(metadata.name)" 2>/dev/null || true)
+
+        PRUNED_COUNT=0
+        for rev in $ALL_REVS; do
+          IS_ACTIVE=false
+          for active in $ACTIVE_REVS; do
+            if [ "$rev" = "$active" ]; then
+              IS_ACTIVE=true
+              break
+            fi
+          done
+
+          if [ "$IS_ACTIVE" = "false" ]; then
+            echo "[VPC Cleanup] Deleting inactive revision: $rev..."
+            gcloud run revisions delete "$rev" \
+              --project="$PROJECT_ID" \
+              --region="$REGION" \
+              --quiet 2>/dev/null || true
+            PRUNED_COUNT=$((PRUNED_COUNT + 1))
+          fi
+        done
+
+        if [ "$PRUNED_COUNT" -eq 0 ]; then
+          echo "[VPC Cleanup] No inactive revisions found for $svc."
+        else
+          echo "[VPC Cleanup] Pruned $PRUNED_COUNT inactive revisions for $svc."
+        fi
+      done
+      echo "[VPC Cleanup] Finished pruning inactive revisions."
+
+      # Step 2: Check for lingering Serverless IP reservations bound to our subnet
+      SUBNET_NAME="${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-subnet"
+      echo "[VPC Cleanup] Checking for lingering Serverless IP reservations on $SUBNET_NAME..."
+      ORPHANED_ADDRS=$(gcloud compute addresses list \
+        --project="$PROJECT_ID" \
+        --filter="subnetwork:$SUBNET_NAME AND purpose=SERVERLESS" \
+        --format="value(name)" 2>/dev/null || true)
+
+      if [ -z "$ORPHANED_ADDRS" ]; then
+        echo "[VPC Cleanup] No serverless IP reservations found on $SUBNET_NAME."
+      else
+        for addr in $ORPHANED_ADDRS; do
+          echo "[VPC Cleanup] Found serverless IP reservation: $addr"
+          echo "[VPC Cleanup] Note: Per Google Cloud documentation, serverless IP reservations are managed by serverless.googleapis.com."
+          echo "[VPC Cleanup] Google Cloud automatically releases and cleans up this reservation within 1-2 hours after workloads are detached."
+          echo "[VPC Cleanup] Once released, setting enable_network = false in Stage 2 will cleanly destroy the subnet and VPC."
+        done
+      fi
+      echo "[VPC Cleanup] Completed revision pruning. Ready for Stage 2 once Google releases IP reservations."
+    EOT
+  }
+
+  depends_on = [
+    module.datacommons_services,
+    module.ingestion_helper_service
+  ]
 }

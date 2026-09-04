@@ -32,15 +32,6 @@ variable "replica_count" {
 }
 
 variable "vpc_network_id" {
-  type = string
-}
-
-variable "vpc_connector_cidr" {
-  type    = string
-  default = ""
-}
-
-variable "enable_connector" {
-  type    = bool
-  default = true
+  type        = string
+  description = "The VPC network ID or self_link to peer the Redis instance to"
 }
