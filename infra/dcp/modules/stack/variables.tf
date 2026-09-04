@@ -71,7 +71,7 @@ variable "network_config" {
   description = "Network configuration for DCP compute workloads"
   type = object({
     enable                    = optional(bool, false)
-    enable_workload_vpc       = optional(bool, false)
+    enable_workload_vpc       = optional(bool, true)
     prune_cloud_run_revisions = optional(bool, false)
     create_vpc                = optional(bool, true)
     network_name              = optional(string, "dc-vpc")

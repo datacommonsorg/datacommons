@@ -119,9 +119,9 @@ variable "enable_network" {
 }
 
 variable "enable_workload_vpc" {
-  description = "Whether compute workloads (Cloud Run services, jobs, Dataflow) attach to the VPC. Set to false in Stage 1 of VPC decommissioning to cleanly detach workloads before destroying network infrastructure in Stage 2."
+  description = "Whether compute workloads (Cloud Run services, jobs, Dataflow) attach to the VPC. Defaults to true so workloads automatically use the VPC when enable_network = true. Set to false in Stage 1 of VPC decommissioning to cleanly detach workloads before destroying network infrastructure in Stage 2."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "network_prune_cloud_run_revisions" {
