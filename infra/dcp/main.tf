@@ -107,15 +107,16 @@ locals {
   }
 
   network_config = {
-    enable              = var.enable_network
-    enable_workload_vpc = var.enable_workload_vpc
-    create_vpc          = var.network_create_vpc
-    network_name        = var.network_name != "" ? var.network_name : "dc-vpc"
-    subnet_cidr         = var.network_subnet_cidr
-    enable_cloud_nat    = var.network_enable_cloud_nat
-    existing_network_id = var.network_existing_network_id
-    existing_subnet_id  = var.network_existing_subnet_id
-    vpc_egress_mode     = var.network_vpc_egress_mode
+    enable                    = var.enable_network
+    enable_workload_vpc       = var.enable_workload_vpc
+    prune_cloud_run_revisions = var.network_prune_cloud_run_revisions
+    create_vpc                = var.network_create_vpc
+    network_name              = var.network_name != "" ? var.network_name : "dc-vpc"
+    subnet_cidr               = var.network_subnet_cidr
+    enable_cloud_nat          = var.network_enable_cloud_nat
+    existing_network_id       = var.network_existing_network_id
+    existing_subnet_id        = var.network_existing_subnet_id
+    vpc_egress_mode           = var.network_vpc_egress_mode
   }
 
   auth_config = {

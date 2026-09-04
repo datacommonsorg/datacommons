@@ -20,15 +20,19 @@ variable "instance_name" {
 # =============================================================================
 # Network Toggles & Configuration
 # =============================================================================
+# NOTE: Decommissioning requires a two-stage apply:
+#   Stage 1: enable_workload_vpc = false and network_prune_cloud_run_revisions = true (detaches workloads & releases IP reservations)
+#   Stage 2: enable = false (destroys VPC and subnetwork cleanly)
+# =============================================================================
 variable "enable" {
   type        = bool
-  description = "Whether VPC networking infrastructure is enabled for DCP"
+  description = "Whether VPC networking infrastructure is enabled for DCP. When decommissioning, set enable_workload_vpc = false first before setting enable = false."
   default     = true
 }
 
 variable "enable_workload_vpc" {
   type        = bool
-  description = "Whether compute workloads (Cloud Run, Dataflow) attach to the VPC. Set to false to cleanly detach workloads before destroying the network."
+  description = "Whether compute workloads (Cloud Run, Dataflow) attach to the VPC. Set to false in Stage 1 to cleanly detach workloads before destroying the network."
   default     = true
 }
 

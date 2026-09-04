@@ -96,17 +96,38 @@ variable "storage_artifacts_bucket_name" {
 # =============================================================================
 # Network Module
 # =============================================================================
+# NOTE ON DISABLING / DECOMMISSIONING VPC:
+# If you wish to disable or destroy an existing VPC network (enable_network = false),
+# Google Cloud requires a two-stage apply to prevent "Subnetwork is in use" errors:
+#
+#   Stage 1: Detach workloads and prune inactive Cloud Run revisions
+#     Set enable_workload_vpc = false (and enable_redis = false if enabled),
+#     and set network_prune_cloud_run_revisions = true, keeping enable_network = true.
+#     Run `terraform apply`.
+#     This detaches Cloud Run and Dataflow, and prunes older 0-traffic revisions
+#     that hold Direct VPC Egress (/28) IP reservations.
+#
+#   Stage 2: Tear down the network infrastructure
+#     Set enable_network = false. Run `terraform apply`.
+#     The VPC, subnet, router, and NAT will now delete smoothly with no errors.
+# =============================================================================
 
 variable "enable_network" {
-  description = "Enable VPC networking infrastructure for DCP services and ingestion jobs"
+  description = "Enable VPC networking infrastructure for DCP services and ingestion jobs. NOTE: To decommission, follow the two-stage process: set enable_workload_vpc = false first, apply, then set enable_network = false."
   type        = bool
   default     = true
 }
 
 variable "enable_workload_vpc" {
-  description = "Whether compute workloads (Cloud Run services, jobs, Dataflow) attach to the VPC. Set to false to cleanly detach workloads before destroying network infrastructure."
+  description = "Whether compute workloads (Cloud Run services, jobs, Dataflow) attach to the VPC. Set to false in Stage 1 of VPC decommissioning to cleanly detach workloads before destroying network infrastructure in Stage 2."
   type        = bool
   default     = true
+}
+
+variable "network_prune_cloud_run_revisions" {
+  description = "Prune inactive (0-traffic) Cloud Run revisions for DCP services (dc-datacommons-service and dc-ingestion-helper). Required when detaching workloads or destroying VPC to release Direct VPC Egress subnet IP reservations."
+  type        = bool
+  default     = false
 }
 
 variable "network_create_vpc" {

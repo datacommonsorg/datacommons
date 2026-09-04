@@ -70,15 +70,16 @@ variable "auth_config" {
 variable "network_config" {
   description = "Network configuration for DCP compute workloads"
   type = object({
-    enable              = optional(bool, true)
-    enable_workload_vpc = optional(bool, true)
-    create_vpc          = optional(bool, true)
-    network_name        = optional(string, "dc-vpc")
-    subnet_cidr         = optional(string, "10.0.0.0/24")
-    enable_cloud_nat    = optional(bool, false)
-    existing_network_id = optional(string, null)
-    existing_subnet_id  = optional(string, null)
-    vpc_egress_mode     = optional(string, null)
+    enable                    = optional(bool, true)
+    enable_workload_vpc       = optional(bool, true)
+    prune_cloud_run_revisions = optional(bool, false)
+    create_vpc                = optional(bool, true)
+    network_name              = optional(string, "dc-vpc")
+    subnet_cidr               = optional(string, "10.0.0.0/24")
+    enable_cloud_nat          = optional(bool, false)
+    existing_network_id       = optional(string, null)
+    existing_subnet_id        = optional(string, null)
+    vpc_egress_mode           = optional(string, null)
   })
   default = {}
 }

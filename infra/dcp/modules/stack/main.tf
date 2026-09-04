@@ -468,3 +468,76 @@ resource "terraform_data" "dataflow_subnet_validation" {
     }
   }
 }
+
+# =============================================================================
+# Cloud Run Serverless VPC Cleanup Hook & Validation
+# =============================================================================
+check "warn_cloud_run_vpc_pruning_needed" {
+  assert {
+    condition = (
+      (var.network_config.enable_workload_vpc && var.network_config.enable) ||
+      var.network_config.prune_cloud_run_revisions
+    )
+    error_message = "WARNING: You are disabling workload VPC access or the VPC network itself without setting network_prune_cloud_run_revisions = true. Cloud Run retains inactive past revisions (0% traffic) that lock subnet IP reservations, which causes \"Subnetwork is in use\" (Error 400) during subnet teardown. Set network_prune_cloud_run_revisions = true to automatically prune inactive revisions."
+  }
+}
+
+resource "terraform_data" "prune_cloud_run_revisions" {
+  count = var.network_config.prune_cloud_run_revisions ? 1 : 0
+
+  triggers_replace = [
+    var.network_config.prune_cloud_run_revisions,
+    var.network_config.enable_workload_vpc,
+    var.network_config.enable
+  ]
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      if ! command -v gcloud >/dev/null 2>&1; then
+        echo "[VPC Cleanup WARNING] 'gcloud' CLI was not found in PATH. Skipping Cloud Run revision pruning."
+        exit 0
+      fi
+
+      PROJECT_ID="${var.global.project_id}"
+      REGION="${var.global.region}"
+      SERVICES=(
+        "${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-datacommons-service"
+        "${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-ingestion-helper"
+      )
+
+      echo "[VPC Cleanup] Checking for inactive Cloud Run revisions holding VPC IP reservations..."
+      for svc in "$${SERVICES[@]}"; do
+        if ! gcloud run services describe "$svc" --project="$PROJECT_ID" --region="$REGION" >/dev/null 2>&1; then
+          echo "[VPC Cleanup] Service '$svc' does not exist in $REGION. Skipping."
+          continue
+        fi
+
+        echo "[VPC Cleanup] Inspecting service: $svc..."
+        INACTIVE_REVS=$(gcloud run revisions list \
+          --service="$svc" \
+          --project="$PROJECT_ID" \
+          --region="$REGION" \
+          --filter="status.trafficWeight=0" \
+          --format="value(metadata.name)" 2>/dev/null || true)
+
+        if [ -z "$INACTIVE_REVS" ]; then
+          echo "[VPC Cleanup] No 0-traffic inactive revisions found for $svc."
+        else
+          for rev in $INACTIVE_REVS; do
+            echo "[VPC Cleanup] Deleting inactive revision: $rev (trafficWeight=0)..."
+            gcloud run revisions delete "$rev" \
+              --project="$PROJECT_ID" \
+              --region="$REGION" \
+              --quiet 2>/dev/null || true
+          done
+        fi
+      done
+      echo "[VPC Cleanup] Finished pruning inactive revisions."
+    EOT
+  }
+
+  depends_on = [
+    module.datacommons_services,
+    module.ingestion_helper_service
+  ]
+}
