@@ -68,6 +68,10 @@ resource "google_cloud_run_v2_job" "dc_data_job" {
           name  = "ENABLE_SPANNER_EMBEDDINGS"
           value = var.enable_spanner_embeddings ? "true" : "false"
         }
+        env {
+          name  = "IMPORT_PROXY_ENTITIES"
+          value = "false"
+        }
 
       }
       # Direct VPC Egress

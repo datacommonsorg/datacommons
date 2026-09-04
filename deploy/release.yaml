@@ -13,13 +13,18 @@
 # limitations under the License.
 
 steps:
-  # 1. Validate version consistency across VERSION files, pyproject.toml, and variables.tf
-  - name: 'ghcr.io/astral-sh/uv:python3.12-trixie-slim'
+  # 1. Validate version consistency across local manifests and remote release artifacts
+  - name: 'google/cloud-sdk:slim'
+    id: 'validate-release-version'
     entrypoint: 'python3'
-    args: ['deploy/scripts/validate_release_version.py', '$TAG_NAME']
+    args:
+      - 'deploy/scripts/validate_release_version.py'
+      - '$TAG_NAME'
+      - '--check-remote-artifacts'
 
   # 2. Build and publish all Python packages to PyPI
   - name: 'ghcr.io/astral-sh/uv:python3.12-trixie-slim'
+    id: 'publish-pypi-packages'
     entrypoint: 'python3'
     secretEnv:
       - 'PYPI_TOKEN'

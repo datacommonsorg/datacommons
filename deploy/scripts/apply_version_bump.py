@@ -58,6 +58,12 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+(?:(?:a|b|rc)\d+)?(?:\.dev\d+)?$")
 
 
+LOCKSTEP_DEPENDENCIES = [
+    ("packages/datacommons-admin/pyproject.toml", "datacommons-db"),
+    ("packages/datacommons-cli/pyproject.toml", "datacommons-admin"),
+]
+
+
 def apply_version_bump(new_version: str) -> None:
     """Updates version manifests and dependency pins across the monorepo."""
     new_version = new_version.strip().lstrip("v").strip()
@@ -104,21 +110,23 @@ def apply_version_bump(new_version: str) -> None:
             )
         tf_file.write_text(updated_tf)
 
-    # 4. Lock datacommons-admin dependency requirement in datacommons-cli/pyproject.toml
-    cli_toml = REPO_ROOT / "packages/datacommons-cli/pyproject.toml"
-    if cli_toml.exists():
-        toml_content = cli_toml.read_text()
-        updated_toml, count = re.subn(
-            r'"datacommons-admin(?:\s*[=><~][^"]*)?"',
-            f'"datacommons-admin=={new_version}"',
-            toml_content,
+    # 4. Lock internal subpackage dependencies
+    for manifest_rel_path, dep_pkg in LOCKSTEP_DEPENDENCIES:
+        manifest_file = REPO_ROOT / manifest_rel_path
+        if not manifest_file.exists():
+            sys.exit(f"Error: {manifest_rel_path} does not exist.")
+        content = manifest_file.read_text()
+        updated_content, count = re.subn(
+            rf'["\']{re.escape(dep_pkg)}(?:\s*[=><~][^"\']*)?["\']',
+            f'"{dep_pkg}=={new_version}"',
+            content,
         )
         if not count:
             sys.exit(
-                "Error: datacommons-admin dependency not found or updated in"
-                " packages/datacommons-cli/pyproject.toml"
+                f"Error: {dep_pkg} dependency not found or updated in {manifest_rel_path}"
             )
-        cli_toml.write_text(updated_toml)
+        manifest_file.write_text(updated_content)
+        print(f"Locked {dep_pkg}=={new_version} in {manifest_rel_path}")
 
     print(f"Successfully applied version bump to '{new_version}'.")
 
