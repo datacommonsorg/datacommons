@@ -24,12 +24,12 @@ description: Instructions for authoring publication-ready, partner-facing Data C
 
 - **Partner & Operator Persona**: Write specifically for external developers, data engineers, and instance operators building ON TOP OF DCP. Frame features around user capabilities and touchpoints defined in `skills/dcp-context/SKILL.md`.
 - **Zero Internal Database Terms (STRICT)**: NEVER output feature titles or section names containing internal database table names, schema DDLs, or storage migration mechanics (e.g. no "KeyValueStore", "Spanner Graph DDL", "Bigtable Cutover"). Frame latency improvements around user impact (e.g. *"API Serving Latency & Query Throughput"*).
-- **Tone**: Direct, factual, punchy, senior-engineer technical changelog. Active voice for features ("You can now..."), past tense for bugs ("Resolved...").
+- **Tone**: Direct, factual, punchy, objective, senior-engineer technical changelog. Active voice for features ("You can now..."), past tense for bugs ("Resolved...").
 - **BANNED AI FLUFF WORDS (STRICT)**: DO NOT use AI cliché words: `seamlessly`, `empower`, `leveraging`, `robust`, `overhaul`, `delivers a major`, `comprehensive`, `fosters`, `game-changing`, `cutting-edge`, `paradigm`.
 - **DYNAMIC EXECUTIVE SUMMARY**:
   - The summary length and detail level MUST scale dynamically with the scope of the release.
-  - **Large / Feature-Rich Releases**: Provide a comprehensive 2–3 sentence overview highlighting all major capabilities, API protocols, preprocessor boosts, and critical fixes without an artificial word count cap.
-  - **Small / Patch Releases**: Provide a short, single-sentence summary (15–25 words) without unnecessary verbosity or fluff.
+  - **Large / Feature-Rich Releases** (e.g., releases introducing new protocols like SDMX 3.0 / MCP, major architectural capabilities, or breaking changes such as `v1.1.0`): Provide a 2–3 sentence overview highlighting all major capabilities, API protocols, preprocessor boosts, and critical fixes without an artificial word count cap.
+  - **Small / Patch Releases** (e.g., maintenance updates, localized bug fixes, dependency bumps, or minor CLI flags such as `v1.1.1`): Provide a short, single-sentence summary (15–25 words) without unnecessary verbosity or fluff (e.g., *"Data Commons Platform v1.1.1 resolves critical Dataflow worker scaling issues and improves SDMX 3.0 query latency."*).
 - **What's New Paragraphs**: Combine technical change and user benefit into 1 concise, punchy paragraph (25–45 words).
 - **Specific Capabilities Bullets**: 12–20 words max per bullet point.
 - **GFM Link Rules**: Every PR reference MUST be a clean, clickable link: `[repo_short#PR](URL)`. NEVER wrap backticks around or inside link text (`[`repo#123`](URL)` is forbidden!).
@@ -45,7 +45,7 @@ description: Instructions for authoring publication-ready, partner-facing Data C
 
 ### Step 2: Mandated Scale Analysis & Banned-Word Audit (Thinking Phase)
 Open a `<thinking>` block to record your pre-writing analysis:
-1. **Scope Evaluation**: Assess whether this is a Major/Feature-Rich release or a Small/Patch release.
+1. **Scope Evaluation**: Assess whether this is a Major/Feature-Rich release (e.g., major features spanning multiple services) or a Small/Patch release (e.g., targeted bug fixes, minor flag updates).
 2. **Draft Executive Summary**: Write the draft Executive Summary adhering to the scale length rules (2-3 sentences for major, 1 sentence for patch).
 3. **Banned Fluff Word Check**: Audit your draft summary against the banned list (`seamlessly`, `empower`, `leveraging`, `robust`, `overhaul`, `game-changing`, `cutting-edge`, `paradigm`). Confirm zero occurrences.
 4. **Link Audit**: Verify all PR link strings match `[repo#PR](https://github.com/...)` without backticks.
