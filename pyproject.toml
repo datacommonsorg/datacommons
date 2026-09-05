@@ -22,7 +22,8 @@ dependencies = [
 [dependency-groups]
 dev = [
   {include-group = "lint"},
-  {include-group = "test"}
+  {include-group = "test"},
+  "dcp-tools",
 ]
 lint = [
   "pre-commit>=4.5.1",
@@ -54,10 +55,12 @@ datacommons-db = { workspace = true }
 datacommons-schema = { workspace = true }
 datacommons-cli = { workspace = true }
 datacommons-admin = { workspace = true }
+dcp-tools = { workspace = true }
 
 [tool.uv.workspace]
 members = [
     "packages/*",
+    "tools",
 ]
 
 [tool.coverage.run]
@@ -170,19 +173,9 @@ url = "https://pypi.org/simple"
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
-[project.scripts]
-manage-migrations = "tools.migrations.manage_migrations_cli:cli"
-
 [tool.setuptools]
-packages = [
-    "tools",
-    "tools.migrations",
-    "tools.migrations.templates",
-    "tools.migrations.tests",
-]
-
-[tool.setuptools.package-data]
-"tools.migrations" = ["templates/*"]
+# Tell setuptools this is a meta-package and to stop looking for code
+packages = []
 
 [tool.setuptools.dynamic]
 version = {file = "VERSION"}

@@ -16,6 +16,7 @@ members = [
     "datacommons-db",
     "datacommons-platform",
     "datacommons-schema",
+    "dcp-tools",
 ]
 
 [[package]]
@@ -426,6 +427,7 @@ dev = [
     { name = "datacommons-client" },
     { name = "datacommons-db" },
     { name = "datacommons-schema" },
+    { name = "dcp-tools" },
     { name = "google-cloud-spanner" },
     { name = "google-cloud-storage" },
     { name = "pre-commit" },
@@ -461,6 +463,7 @@ dev = [
     { name = "datacommons-client", specifier = ">=2.1.6" },
     { name = "datacommons-db", editable = "packages/datacommons-db" },
     { name = "datacommons-schema", editable = "packages/datacommons-schema" },
+    { name = "dcp-tools", editable = "tools" },
     { name = "google-cloud-spanner", specifier = ">=3.40.0" },
     { name = "google-cloud-storage", specifier = ">=2.14.0" },
     { name = "pre-commit", specifier = ">=4.5.1" },
@@ -511,6 +514,17 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [{ name = "pytest", specifier = ">=9.0.2" }]
+
+[[package]]
+name = "dcp-tools"
+version = "0.1.0"
+source = { editable = "tools" }
+dependencies = [
+    { name = "click" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "click", specifier = ">=8.1.7" }]
 
 [[package]]
 name = "distlib"
