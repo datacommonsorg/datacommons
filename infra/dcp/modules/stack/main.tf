@@ -330,6 +330,13 @@ resource "google_storage_bucket_iam_member" "preprocessing_bucket_access" {
   member = "serviceAccount:${module.ingestion_preprocessing_job[0].service_account_email}"
 }
 
+resource "google_project_iam_member" "workflow_invoker" {
+  count   = var.ingestion_config.enable_ingestion ? 1 : 0
+  project = var.global.project_id
+  role    = "roles/workflows.invoker"
+  member  = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
 resource "google_project_iam_member" "workflow_batch_editor" {
   count   = var.ingestion_config.enable_ingestion ? 1 : 0
   project = var.global.project_id
