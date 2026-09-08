@@ -63,13 +63,13 @@ def run_cmd_with_retry(
             return proc
 
         if attempt < max_attempts:
+            if max_delay is not None:
+                delay = min(delay, max_delay)
             print(
                 f"  ⚠️ Command failed with exit code {proc.returncode}. Retrying in {delay:.1f}s..."
             )
             time.sleep(delay)
             delay *= backoff_factor
-            if max_delay is not None:
-                delay = min(delay, max_delay)
 
     if check and last_proc and last_proc.returncode != 0:
         raise subprocess.CalledProcessError(last_proc.returncode, cmd)
