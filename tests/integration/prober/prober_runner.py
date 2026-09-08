@@ -47,6 +47,7 @@ def run_cmd_with_retry(
     max_attempts: int = 3,
     initial_delay: float = 10.0,
     backoff_factor: float = 2.0,
+    max_delay: float | None = None,
     check: bool = True,
 ) -> subprocess.CompletedProcess:
     """Executes a subprocess command with retries and exponential backoff for resilience."""
@@ -67,6 +68,8 @@ def run_cmd_with_retry(
             )
             time.sleep(delay)
             delay *= backoff_factor
+            if max_delay is not None:
+                delay = min(delay, max_delay)
 
     if check and last_proc and last_proc.returncode != 0:
         raise subprocess.CalledProcessError(last_proc.returncode, cmd)
@@ -164,7 +167,10 @@ def provision_infra(
     run_cmd_with_retry(
         ["terraform", "init", "-reconfigure"],
         cwd=instance_dir,
-        max_attempts=3,
+        max_attempts=5,
+        initial_delay=30.0,
+        backoff_factor=2.0,
+        max_delay=180.0,
     )
     run_cmd_with_retry(
         [
