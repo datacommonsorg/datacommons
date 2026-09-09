@@ -93,7 +93,7 @@ serving_api:
       - dataflow: "DC/DF_OBS/1.0.0/*/provenance"
         constraints:
           variableMeasured: "average_annual_wage"
-        expected_provenance: "FooBarWages"
+        expected_provenance: "foobar_wages"
 
 mcp_agent:
   tool_calls:

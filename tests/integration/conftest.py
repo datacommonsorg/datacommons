@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import contextlib
 import json
 import os
 import subprocess
@@ -377,6 +378,13 @@ def pytest_runtest_logreport(report):
             duration=report.duration,
             error_message=error_msg,
         )
+    elif report.when == "setup" and report.failed:
+        _GLOBAL_REPORTER.add_result(
+            nodeid=report.nodeid,
+            outcome="failed",
+            duration=report.duration,
+            error_message=str(report.longrepr) if hasattr(report, "longrepr") else None,
+        )
     elif report.when == "setup" and report.skipped:
         _GLOBAL_REPORTER.add_result(
             nodeid=report.nodeid,
@@ -409,6 +417,8 @@ def pytest_sessionfinish(session, exitstatus):
 
     # Print clean machine-readable summary block
     summary = _GLOBAL_REPORTER.to_dict()
+    if exitstatus != 0:
+        summary["status"] = "FAILED"
     print("\n" + "=" * 80)
     print("DCP TEST EXECUTION SUMMARY")
     print("=" * 80)
@@ -475,7 +485,16 @@ def dcp_target(request, test_manifest) -> DCPTarget:
         os.environ["STORAGE_EMULATOR_HOST"] = "http://localhost:9099"
         env = EmulatedEnvironment()
         reuse_data_opt = request.config.getoption("--reuse-data", default=False)
-        env.start(manifest=test_manifest, reuse_data=reuse_data_opt)
+        try:
+            env.start(manifest=test_manifest, reuse_data=reuse_data_opt)
+        except Exception as e:
+            if env is not None and not reuse_data_opt:
+                with contextlib.suppress(Exception):
+                    env.stop()
+            pytest.exit(
+                f"\n❌ CRITICAL: Emulated environment / ingestion setup failed:\n{e}",
+                returncode=1,
+            )
 
     if _GLOBAL_REPORTER is not None:
         _GLOBAL_REPORTER.set_artifacts(asdict(target.artifacts))

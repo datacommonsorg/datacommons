@@ -50,7 +50,7 @@ steps:
         uv sync --locked
         uv run pytest -s tests/integration/suites/ \
           --instance=local \
-          --test-config=foobar_wages
+          --test-config=foobar_wages,health_aid
     env:
       - 'PYTHONUNBUFFERED=1'
       - 'DCP_SERVING_URL=http://website:8080'

@@ -114,14 +114,19 @@ class SDMXDataQuerySpec:
     dataflow: str = "DC/DF_OBS/1.0.0/*"
     constraints: dict[str, str] = field(default_factory=dict)
     format: str = "csv"
+    expected_status: int = 200
     expected_csv_contains: list[str] = field(default_factory=list)
+    expected_error_contains: str | None = None
 
 
 @dataclass
 class SDMXAvailabilityQuerySpec:
     dataflow: str = "DC/DF_OBS/1.0.0/*/provenance"
     constraints: dict[str, str] = field(default_factory=dict)
+    expected_status: int = 200
     expected_provenance: str | None = None
+    expected_values_contain: list[str] = field(default_factory=list)
+    expected_error_contains: str | None = None
 
 
 @dataclass
@@ -182,6 +187,9 @@ def _parse_dataclass(cls, data: Any) -> Any:
 
         field_type = field_def.type
         if hasattr(field_type, "__origin__") and field_type.__origin__ is list:
+            if val is None:
+                kwargs[field_name] = []
+                continue
             elem_type = field_type.__args__[0]
             if hasattr(elem_type, "__dataclass_fields__"):
                 kwargs[field_name] = [_parse_dataclass(elem_type, item) for item in val]

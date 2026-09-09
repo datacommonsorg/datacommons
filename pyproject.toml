@@ -189,6 +189,7 @@ version = {file = "VERSION"}
 
 [tool.pytest.ini_options]
 pythonpath = [".", "deploy/scripts"]
+addopts = ["--import-mode=importlib"]
 testpaths = ["packages", "deploy/scripts/tests", "tools/migrations/tests"]
 markers = [
     "cloud_only: mark test or class to run only against live GCP cloud targets.",

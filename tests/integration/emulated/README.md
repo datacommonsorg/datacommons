@@ -33,12 +33,20 @@ The emulated stack validates core database schemas, DirectRunner graph ingestion
 
 ## 🚀 Running Integration Tests Locally
 
-To run the complete integration test suite against the local emulated stack:
+To run the integration test suite against the local emulated stack for a single dataset (`foobar_wages`):
 
 ```bash
 uv run pytest tests/integration/suites/ \
   --instance=emulated \
   --test-config=foobar_wages
+```
+
+To run **multiple datasets** (e.g., both single-entity `foobar_wages` and multi-entity `health_aid`):
+
+```bash
+uv run pytest tests/integration/suites/ \
+  --instance=emulated \
+  --test-config=foobar_wages,health_aid
 ```
 
 ### ⚡ Fast Developer Loop (`--reuse-data`)
@@ -77,9 +85,23 @@ uv run pytest tests/integration/suites/ \
 
 > **TODO (Follow-Up)**: Support direct live mounting and substitution of local source code directories (`website/`, `mixer/`, `import/`) without needing pre-built container images.
 
-## ☁️ Running in Google Cloud Build
+## ☁️ CI Automation: GitHub Actions vs. Google Cloud Build
 
-You can run the entire hermetic emulated test suite directly on Cloud Build:
+The hermetic emulated stack can be executed in CI via two complementary mechanisms:
+
+### 1. GitHub Actions Workflow (`.github/workflows/ci.yaml`)
+* **Trigger**: Runs automatically on every Pull Request (`hermetic-integration-test` job).
+* **Execution**: Spins up the Docker Compose stack directly on the GitHub-hosted Ubuntu runner (`ubuntu-latest`) and executes `run_e2e_tests.py --instance=emulated --test-config=foobar_wages`.
+* **Note on Permissions**: GitHub security policy restricts OAuth applications (including automated bots/agents) from modifying `.github/workflows/*.yaml` unless granted explicit `workflow` token permissions. Updating the dataset list in `.github/workflows/ci.yaml` must be pushed by a human maintainer or via the GitHub UI.
+
+### 2. Google Cloud Build (`cloudbuild_emulated_test.yaml`)
+* **Trigger**: On-demand CLI submission or automated release pipelines in GCP.
+* **Execution**: Runs on high-CPU GCP Cloud Build workers (`E2_HIGHCPU_8`), pre-pulls all container images in parallel, and executes:
+  ```bash
+  uv run pytest -s tests/integration/suites/ --instance=local --test-config=foobar_wages,health_aid
+  ```
+
+To submit a hermetic run to Cloud Build manually:
 
 ```bash
 gcloud builds submit \

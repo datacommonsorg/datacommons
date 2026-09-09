@@ -1,0 +1,25 @@
+{
+  "includeInputSubdirs": true,
+  "groupStatVarsByProperty": false,
+  "inputFiles": [
+    {
+      "pattern": "health_aid.mcf",
+      "provenance": "dcid:GlobalHealthAidProvenance"
+    },
+    {
+      "pattern": "health_aid.csv",
+      "importType": "observations",
+      "format": "variablePerRow",
+      "provenance": "dcid:GlobalHealthAidProvenance",
+      "columnMappings": {
+        "dcid:donorPlace": "donor_place",
+        "dcid:recipientPlace": "recipient_place",
+        "dcid:medicalCondition": "condition",
+        "dcid:variableMeasured": "variable",
+        "dcid:observationDate": "date",
+        "dcid:value": "value",
+        "dcid:unit": "unit"
+      }
+    }
+  ]
+}
