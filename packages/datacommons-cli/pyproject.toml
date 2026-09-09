@@ -10,7 +10,7 @@ keywords = []
 authors = []
 dependencies = [
   "click>=8.1.7",
-  "datacommons-admin==1.1.5rc1",
+  "datacommons-admin==1.1.5rc3",
 ]
 urls = {Homepage = "https://github.com/datacommonsorg/datacommons"}
 
