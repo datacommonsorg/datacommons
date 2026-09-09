@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""tools.migrations.utils - Core Utilities for Migration Management.
+"""datacommons_devtools.migrations.utils - Core Utilities for Migration Management.
 
 Provides pure Python helper functions for creating and validating
 Spanner schema migration scripts in packages/datacommons-db.
@@ -63,7 +63,10 @@ def get_default_migrations_dir() -> Path:
         pass
 
     # Default fallback path relative to repository layout
-    return Path(__file__).resolve().parents[2] / rel_migration_path
+    resolved_file = Path(__file__).resolve()
+    if len(resolved_file.parents) > 4:
+        return resolved_file.parents[4] / rel_migration_path
+    return resolved_file.parent / rel_migration_path
 
 
 def sanitize_name(raw_name: str) -> str:
@@ -135,7 +138,7 @@ def generate_migration_content(description: str, creation_timestamp: str) -> str
     desc_literal = json.dumps(description)
 
     template_text = (
-        resources.files("tools.migrations.templates")
+        resources.files("datacommons_devtools.migrations.templates")
         .joinpath("migration_template.py")
         .read_text(encoding="utf-8")
     )
@@ -384,3 +387,4 @@ def update_migration_file(
         file_path.unlink()
 
     return file_path, new_path, new_iso
+

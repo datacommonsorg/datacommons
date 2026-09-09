@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Unit tests for pure Python migration utilities (tools/migrations/utils.py)."""
+"""Unit tests for pure Python migration utilities (datacommons_devtools/migrations/utils.py)."""
 
 import ast
 import datetime
@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from tools.migrations import utils
+from datacommons_devtools.migrations import utils
 
 # ==============================================================================
 # 0. get_default_migrations_dir Tests
@@ -43,7 +43,14 @@ def test_get_default_migrations_dir_finds_nested_file_parent(
     )
     local_scripts.mkdir(parents=True)
 
-    deeply_nested_file = fake_repo_root / "tools" / "deep" / "sub" / "pkg" / "utils.py"
+    deeply_nested_file = (
+        fake_repo_root
+        / "packages"
+        / "datacommons-devtools"
+        / "datacommons_devtools"
+        / "migrations"
+        / "utils.py"
+    )
     deeply_nested_file.parent.mkdir(parents=True)
     monkeypatch.setattr(utils, "__file__", str(deeply_nested_file))
 
@@ -72,12 +79,15 @@ def test_get_default_migrations_dir_finds_from_cwd(
         / "lib"
         / "python3.11"
         / "site-packages"
-        / "tools"
+        / "datacommons_devtools"
+        / "migrations"
         / "utils.py"
     )
     site_packages_file.parent.mkdir(parents=True)
     monkeypatch.setattr(utils, "__file__", str(site_packages_file))
-    monkeypatch.setattr(Path, "cwd", lambda: fake_repo_root / "tools")
+    monkeypatch.setattr(
+        Path, "cwd", lambda: fake_repo_root / "packages" / "datacommons-devtools"
+    )
 
     resolved = utils.get_default_migrations_dir()
     assert resolved == local_scripts
@@ -460,3 +470,4 @@ class Migration(SchemaMigration):
     assert 'creation_timestamp = "1999-01-01T00:00:00Z"' in updated
     assert 'creation_timestamp = "2000-01-01T00:00:00Z"' in updated
     assert 'creation_timestamp: str = "2026-08-20T10:00:00Z"' in updated
+

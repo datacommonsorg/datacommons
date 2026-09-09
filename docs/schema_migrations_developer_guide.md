@@ -1,6 +1,7 @@
 # Data Commons Schema Migrations Developer Guide
 
 This guide details how developers create, update, and manage Cloud Spanner database schema migrations for the Data Commons Platform using the `dcp-tools migrations` devOps CLI tool.
+This guide details how developers create, update, and manage Cloud Spanner database schema migrations for the Data Commons Platform using the `datacommons-devtools migrations` devOps CLI tool (short alias: `dc-devtools migrations`).
 
 ---
 
@@ -13,6 +14,7 @@ Data Commons uses Google Cloud Spanner as its relational graph store. Schema mig
 | Tool | Purpose | Target |
 | :--- | :--- | :--- |
 | **`dcp-tools migrations`** | **Developer Authoring Tool**: Scaffolds boilerplate, updates timestamps, and resolves merge conflicts. | Local migration files on disk |
+| **`datacommons-devtools migrations`** | **Developer Authoring Tool**: Scaffolds boilerplate, updates timestamps, and resolves merge conflicts. | Local migration files on disk |
 | **`datacommons admin migrate-db`** | **Database Execution Engine**: Connects to Cloud Spanner, queries applied migrations, and executes unapplied `upgrade()` methods. | Live Cloud Spanner instance / emulator |
 
 ---
@@ -33,8 +35,10 @@ Every migration script follows standard repository conventions:
 ---
 
 ## 3. Using `dcp-tools migrations`
+## 3. Using `datacommons-devtools migrations`
 
 The `dcp-tools` CLI is registered as a workspace command in [`pyproject.toml`](../pyproject.toml). You can run it with `uv run dcp-tools migrations <command>` or directly as `dcp-tools migrations <command>` if your virtual environment is active.
+The `datacommons-devtools` CLI (short alias: `dc-devtools`) is registered as a workspace command in [`pyproject.toml`](../pyproject.toml). You can run it with `uv run datacommons-devtools migrations <command>` (or `uv run dc-devtools migrations <command>`).
 
 ### A. Creating a New Migration (`create`)
 
@@ -42,6 +46,7 @@ To generate a new timestamped migration script with boilerplate pre-filled:
 
 ```bash
 uv run dcp-tools migrations create <change_name> [-d/--description "<description>"]
+uv run datacommons-devtools migrations create <change_name> [-d/--description "<description>"]
 ```
 
 #### Examples:
@@ -49,9 +54,11 @@ uv run dcp-tools migrations create <change_name> [-d/--description "<description
 ```bash
 # Basic creation (description is derived from change name)
 uv run dcp-tools migrations create add_node_tables
+uv run datacommons-devtools migrations create add_node_tables
 
 # Creation with explicit description
 uv run dcp-tools migrations create add_edge_indexes -d "Add composite index on Edge object_value and predicate"
+uv run datacommons-devtools migrations create add_edge_indexes -d "Add composite index on Edge object_value and predicate"
 ```
 
 #### What this does:
@@ -70,6 +77,7 @@ Use `bump` to refresh an existing migration script with the current UTC timestam
 
 ```bash
 uv run dcp-tools migrations bump <target>
+uv run datacommons-devtools migrations bump <target>
 ```
 
 The `<target>` argument can be:
@@ -87,6 +95,7 @@ Migrations will always be run chronologically in timestamp order, so make sure t
 
 ```text
 $ uv run dcp-tools migrations bump add_edge_indexes
+$ uv run datacommons-devtools migrations bump add_edge_indexes
 
 Found migration script: 20260817000000_add_edge_indexes.py
 Planned changes:

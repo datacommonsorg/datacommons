@@ -11,3 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+"""Entrypoint for python -m datacommons_devtools.migrations invocation."""
+
+from datacommons_devtools.migrations.cli import cli
+
+if __name__ == "__main__":
+    cli()
+

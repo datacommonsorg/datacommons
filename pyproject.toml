@@ -24,6 +24,7 @@ dev = [
   {include-group = "lint"},
   {include-group = "test"},
   "dcp-tools",
+  "datacommons-devtools",
 ]
 lint = [
   "pre-commit>=4.5.1",
@@ -56,6 +57,7 @@ datacommons-schema = { workspace = true }
 datacommons-cli = { workspace = true }
 datacommons-admin = { workspace = true }
 dcp-tools = { workspace = true }
+datacommons-devtools = { workspace = true }
 
 [tool.uv.workspace]
 members = [
@@ -132,6 +134,7 @@ extend-ignore = [
     "N999",   # Allow timestamp prefixes (e.g. 20260817000000_*.py) for migration scripts
 ]
 "tools/migrations/templates/*.py" = [
+"packages/datacommons-devtools/datacommons_devtools/migrations/templates/*.py" = [
     "ERA001", # Allow example commented-out code in migration template
     "F401",   # Allow pre-imported modules in migration template
 ]
@@ -183,6 +186,7 @@ version = {file = "VERSION"}
 [tool.pytest.ini_options]
 pythonpath = [".", "deploy/scripts"]
 testpaths = ["packages", "deploy/scripts/tests", "tools/migrations/tests"]
+testpaths = ["packages", "deploy/scripts/tests"]
 markers = [
     "cloud_only: mark test or class to run only against live GCP cloud targets.",
 ]
