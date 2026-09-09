@@ -45,6 +45,9 @@ serving_api:
     - node_dcid: "destinationCountry"
       expression: "->name"
       expected_values: ["Destination country"]
+    - node_dcid: "FinancialTrade"
+      expression: "->observationProperties"
+      expected_values: ["sourceCountry", "destinationCountry"]
 
   sdmx_3_0:
     data_queries:
