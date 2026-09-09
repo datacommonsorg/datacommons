@@ -12,46 +12,47 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Tuple
+from typing import Any
 
 import click
 
 from datacommons_admin.core.clients import IngestionHelperClient
-from datacommons_admin.core.utils.tf_utils import (
-    get_ingestion_service_url,
-    get_ingestion_workflow_service_account_email,
-    get_project_id,
-    get_spanner_database_id,
-    get_spanner_instance_id,
-)
+from datacommons_admin.core.utils.tf_utils import get_terraform_outputs
 from datacommons_admin.db.utils.migration_utils import (
     _run_migrations,
     is_database_initialized,
 )
-from datacommons_db.clients import SpannerClient
 
 
-def _setup_ingestion_client() -> Tuple[IngestionHelperClient, str, str, str]:
+def _setup_ingestion_client() -> tuple[IngestionHelperClient, str, str, str]:
     click.secho(
         "Fetching ingestion service URL, workflow service account, and Spanner details from Terraform outputs...",
         fg="bright_black",
     )
 
-    url = get_ingestion_service_url()
-    sa_email = get_ingestion_workflow_service_account_email()
-    project_id = get_project_id()
-    instance_id = get_spanner_instance_id()
-    database_id = get_spanner_database_id()
+    tf = get_terraform_outputs()
 
-    click.secho(f"Found ingestion service URL: {url}", fg="green")
-    click.secho(f"Found ingestion workflow service account: {sa_email}", fg="green")
+    if not tf.spanner_instance_id or not tf.spanner_database_id:
+        raise click.ClickException(
+            "Cloud Spanner is not enabled or configured in this deployment state. "
+            "Ensure 'spanner_config.enable = true' in your deployment configuration."
+        )
+
+    click.secho(f"Found ingestion service URL: {tf.ingestion_service_url}", fg="green")
     click.secho(
-        f"Found Spanner details: project={project_id}, instance={instance_id}, database={database_id}",
+        f"Found ingestion workflow service account: {tf.ingestion_workflow_service_account_email}",
+        fg="green",
+    )
+    click.secho(
+        f"Found Spanner details: project={tf.project_id}, instance={tf.spanner_instance_id}, database={tf.spanner_database_id}",
         fg="green",
     )
 
-    client = IngestionHelperClient(url, service_account_email=sa_email)
-    return client, project_id, instance_id, database_id
+    client = IngestionHelperClient(
+        tf.ingestion_service_url,
+        service_account_email=tf.ingestion_workflow_service_account_email,
+    )
+    return client, tf.project_id, tf.spanner_instance_id, tf.spanner_database_id
 
 
 def _run_seed_db(client: Any, instance_id: str, database_id: str) -> None:
