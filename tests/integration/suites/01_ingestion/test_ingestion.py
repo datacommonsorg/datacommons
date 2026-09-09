@@ -74,7 +74,6 @@ class TestCLIIngestion:
             or "is already initialized" in res.output
         )
 
-
     def test_03_cli_ingest_start(
         self,
         request,
