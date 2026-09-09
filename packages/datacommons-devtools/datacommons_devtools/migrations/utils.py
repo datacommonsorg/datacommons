@@ -387,4 +387,3 @@ def update_migration_file(
         file_path.unlink()
 
     return file_path, new_path, new_iso
-

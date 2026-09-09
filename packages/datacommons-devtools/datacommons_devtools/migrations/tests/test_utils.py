@@ -470,4 +470,3 @@ class Migration(SchemaMigration):
     assert 'creation_timestamp = "1999-01-01T00:00:00Z"' in updated
     assert 'creation_timestamp = "2000-01-01T00:00:00Z"' in updated
     assert 'creation_timestamp: str = "2026-08-20T10:00:00Z"' in updated
-

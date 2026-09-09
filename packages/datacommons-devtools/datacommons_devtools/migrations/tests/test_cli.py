@@ -289,9 +289,7 @@ def test_devtools_migrations_create_invocation(
     assert len(list(tmp_path.glob("*_new_dataset.py"))) == 1
 
 
-def test_devtools_migrations_bump_invocation(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_devtools_migrations_bump_invocation(runner: CliRunner, tmp_path: Path) -> None:
     """Verifies invoking bump via datacommons-devtools migrations bump."""
     file_path = tmp_path / "20260817000000_new_dataset.py"
     file_path.write_text(
@@ -305,4 +303,3 @@ def test_devtools_migrations_bump_invocation(
     assert "Successfully bumped migration script" in result.output
     assert not file_path.exists()
     assert len(list(tmp_path.glob("*_new_dataset.py"))) == 1
-

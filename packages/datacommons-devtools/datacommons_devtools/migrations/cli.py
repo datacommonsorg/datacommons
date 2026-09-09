@@ -149,4 +149,3 @@ def bump_command(target: str | None = None, *, yes: bool = False) -> None:
 
 if __name__ == "__main__":
     cli()
-

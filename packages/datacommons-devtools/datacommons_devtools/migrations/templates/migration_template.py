@@ -38,4 +38,3 @@ class Migration(SchemaMigration):
         raise NotImplementedError(
             "Migration upgrade logic has not been implemented yet."
         )
-
