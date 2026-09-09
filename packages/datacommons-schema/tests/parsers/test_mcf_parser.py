@@ -218,3 +218,15 @@ class TestMCF(unittest.TestCase):
         assert len(obs_props) == 2
         assert obs_props[0].get_value() == "custom:sourceCountry"
         assert obs_props[1].get_value() == "custom:destinationCountry"
+
+        # Also test dcid: prefix on observationProperties
+        mcf_dcid = """
+    Node: dcid:FinancialTrade
+    typeOf: dcid:StatisticalVariable
+    observationProperties: dcid:sourceCountry, dcid:destinationCountry
+    """
+        dcid_node = list(parse_mcf_string(mcf_dcid))[0]
+        dcid_obs_props = dcid_node.properties["observationProperties"]
+        assert len(dcid_obs_props) == 2
+        assert dcid_obs_props[0].get_value() == "dcid:sourceCountry"
+        assert dcid_obs_props[1].get_value() == "dcid:destinationCountry"

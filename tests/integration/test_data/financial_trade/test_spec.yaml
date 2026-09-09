@@ -27,6 +27,12 @@ ingestion:
       - subject_id: "FinancialTrade"
         predicate: "measuredProperty"
         object_id: "value"
+      - subject_id: "FinancialTrade"
+        predicate: "observationProperties"
+        object_id: "sourceCountry"
+      - subject_id: "FinancialTrade"
+        predicate: "observationProperties"
+        object_id: "destinationCountry"
 
 serving_api:
   nodes:

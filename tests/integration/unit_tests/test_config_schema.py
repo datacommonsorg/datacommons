@@ -234,6 +234,7 @@ def test_load_multi_entity_manifest():
     assert manifest.stages.sdmx is True
     assert manifest.ingestion.spanner_expectations.exact_observation_count == 3
     assert len(manifest.ingestion.spanner_expectations.expected_nodes) == 4
+    assert len(manifest.ingestion.spanner_expectations.expected_edges) == 3
     assert len(manifest.serving_api.sdmx_3_0.data_queries) == 1
     query = manifest.serving_api.sdmx_3_0.data_queries[0]
     assert query.constraints.get("variableMeasured") == "FinancialTrade"
