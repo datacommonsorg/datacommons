@@ -1,9 +1,7 @@
 {
   "namespaces": {
     "dcid": "https://datacommons.org/browser/",
-    "custom": "https://datacommons.custom.org/",
-    "ilo": "https://datacommons.custom.org/",
-    "undata": "https://datacommons.custom.org/"
+    "custom": "https://datacommons.custom.org/"
   },
   "observationNamespace": "custom",
   "inputFiles": [
