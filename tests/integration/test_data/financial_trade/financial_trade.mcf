@@ -18,7 +18,7 @@ rangeIncludes: dcid:Place
 Node: dcid:destinationCountry
 typeOf: dcid:Property
 name: "Destination country"
-domainIncludes: dcid:StatisticalVariable
+domainIncludes: dcid:StatVarObservation
 rangeIncludes: dcid:Place
 
 Node: dcid:FinancialTrade
