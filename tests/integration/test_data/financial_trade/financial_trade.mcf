@@ -12,7 +12,7 @@ url: "https://foobar-trade.example.org"
 Node: dcid:sourceCountry
 typeOf: dcid:Property
 name: "Source country"
-domainIncludes: dcid:StatisticalVariable
+domainIncludes: dcid:StatVarObservation
 rangeIncludes: dcid:Place
 
 Node: dcid:destinationCountry
