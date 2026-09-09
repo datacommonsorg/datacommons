@@ -30,7 +30,10 @@ TF_OUTPUT_INGESTION_WORKFLOW_SERVICE_ACCOUNT_EMAIL = (
 )
 TF_OUTPUT_SPANNER_INSTANCE_ID = "spanner_instance_id"
 TF_OUTPUT_SPANNER_DATABASE_ID = "spanner_database_id"
-TF_OUTPUT_INGESTION_PREP_JOB_NAME = "ingestion_prep_job_name"
+TF_OUTPUT_STORAGE_ARTIFACTS_BUCKET_NAME = "storage_artifacts_bucket_name"
+TF_OUTPUT_INGESTION_PREP_JOB_SERVICE_ACCOUNT_EMAIL = (
+    "ingestion_prep_job_service_account_email"
+)
 TF_OUTPUT_PROJECT_ID = "project_id"
 TF_OUTPUT_REGION = "region"
 TF_OUTPUT_INGESTION_WORKFLOW_NAME = "ingestion_workflow_name"
@@ -262,9 +265,14 @@ def get_spanner_database_id() -> str:
     return get_terraform_output(TF_OUTPUT_SPANNER_DATABASE_ID)
 
 
-def get_ingestion_prep_job_name() -> str:
-    """Convenience wrapper to fetch the ingestion_prep_job_name Terraform output."""
-    return get_terraform_output(TF_OUTPUT_INGESTION_PREP_JOB_NAME)
+def get_storage_artifacts_bucket_name() -> str:
+    """Convenience wrapper to fetch the storage_artifacts_bucket_name Terraform output."""
+    return get_terraform_output(TF_OUTPUT_STORAGE_ARTIFACTS_BUCKET_NAME)
+
+
+def get_ingestion_prep_job_service_account_email() -> str:
+    """Convenience wrapper to fetch the ingestion_prep_job_service_account_email Terraform output."""
+    return get_terraform_output(TF_OUTPUT_INGESTION_PREP_JOB_SERVICE_ACCOUNT_EMAIL)
 
 
 def get_project_id() -> str:
