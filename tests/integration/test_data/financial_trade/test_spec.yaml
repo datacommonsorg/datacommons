@@ -1,0 +1,58 @@
+name: "financial_trade"
+description: "Multi-entity statistical variable import test dataset for financial trade between countries"
+
+stages:
+  ingestion: true
+  postprocessing: false
+  serving_api: true
+  mcp_agent: false
+  sdmx: true
+
+ingestion:
+  import_name: "FinancialTrade"
+  dataset_dirs:
+    - "tests/integration/test_data/financial_trade"
+  spanner_expectations:
+    exact_observation_count: 3
+    expected_nodes:
+      - subject_id: "FooBarTrade"
+        expected_types: ["Provenance"]
+      - subject_id: "sourceCountry"
+        expected_types: ["Property"]
+      - subject_id: "destinationCountry"
+        expected_types: ["Property"]
+      - subject_id: "FinancialTrade"
+        expected_types: ["StatisticalVariable"]
+    expected_edges:
+      - subject_id: "FinancialTrade"
+        predicate: "measuredProperty"
+        object_id: "value"
+
+serving_api:
+  nodes:
+    - node_dcid: "FinancialTrade"
+      expression: "->name"
+      expected_values: ["Financial Trade"]
+    - node_dcid: "sourceCountry"
+      expression: "->name"
+      expected_values: ["Source country"]
+    - node_dcid: "destinationCountry"
+      expression: "->name"
+      expected_values: ["Destination country"]
+
+  sdmx_3_0:
+    data_queries:
+      - dataflow: "DC/DF_OBS/1.0.0/*"
+        constraints:
+          variableMeasured: "FinancialTrade"
+          sourceCountry: "country/FRA"
+          destinationCountry: "country/USA"
+        format: "csv"
+        expected_csv_contains: ["FinancialTrade", "country/FRA", "country/USA"]
+    availability_queries:
+      - dataflow: "DC/DF_OBS/1.0.0/*/provenance"
+        constraints:
+          variableMeasured: "FinancialTrade"
+          sourceCountry: "country/FRA"
+          destinationCountry: "country/USA"
+        expected_provenance: "FooBarTrade"
