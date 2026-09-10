@@ -14,6 +14,11 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
   location            = var.region
   deletion_protection = var.stateless_deletion_protection
 
+  # TODO: Restrict ingress to INGRESS_TRAFFIC_INTERNAL_ONLY once datacommons-admin CLI
+  # supports triggering seed-db and init-db via Cloud Workflows/Jobs or VPC bastion proxies.
+  # Note: IAM authentication (roles/run.invoker) is still strictly enforced by Cloud Run.
+  ingress = "INGRESS_TRAFFIC_ALL"
+
   template {
     timeout = "1800s"
     containers {
@@ -79,11 +84,16 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
       }
     }
 
+    # Direct VPC Egress
     dynamic "vpc_access" {
-      for_each = var.vpc_connector_id != null && var.vpc_connector_id != "" ? [1] : []
+      for_each = var.vpc_access != null ? [var.vpc_access] : []
       content {
-        connector = var.vpc_connector_id
-        egress    = "PRIVATE_RANGES_ONLY"
+        network_interfaces {
+          network    = vpc_access.value.network_id
+          subnetwork = vpc_access.value.subnet_id
+          tags       = ["dcp-service"]
+        }
+        egress = vpc_access.value.vpc_egress_mode
       }
     }
 

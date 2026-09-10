@@ -55,3 +55,18 @@ output "storage_artifacts_bucket_name" {
   description = "Name of the unified GCS bucket for artifacts"
   value       = module.storage.artifacts_bucket_name
 }
+
+output "network_id" {
+  description = "ID of the VPC network"
+  value       = module.network.network_id
+}
+
+output "subnet_id" {
+  description = "ID of the private subnetwork"
+  value       = module.network.subnet_id
+}
+
+output "subnet_url" {
+  description = "URL / self_link of the private subnetwork"
+  value       = module.network.subnet_url
+}

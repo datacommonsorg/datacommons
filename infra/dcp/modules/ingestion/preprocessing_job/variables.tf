@@ -13,7 +13,15 @@ variable "image" {
 variable "cpu" { type = string }
 variable "memory" { type = string }
 variable "timeout" { type = string }
-variable "vpc_connector_id" { type = string }
+variable "vpc_access" {
+  type = object({
+    network_id      = string
+    subnet_id       = string
+    vpc_egress_mode = optional(string, "PRIVATE_RANGES_ONLY")
+  })
+  description = "Direct VPC Egress configuration. If null, job runs without VPC egress."
+  default     = null
+}
 variable "bucket_name" { type = string }
 variable "input_path" { type = string }
 variable "ingestion_artifacts_path" { type = string }
