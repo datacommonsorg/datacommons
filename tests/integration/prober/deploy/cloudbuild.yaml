@@ -13,7 +13,7 @@
 # limitations under the License.
 
 steps:
-  # 1. Build and push container image with caching
+  # 1. Build and push container image (tagged with both :${_TAG} and :latest)
   - name: 'gcr.io/cloud-builders/docker'
     id: 'build-prober-image'
     entrypoint: 'bash'
@@ -28,10 +28,8 @@ steps:
           -t ${_REGISTRY_BASE}/${_IMAGE_NAME}:latest \
           -f tests/integration/prober/deploy/Dockerfile \
           .
-        docker push ${_REGISTRY_BASE}/${_IMAGE_NAME}:${_TAG}
-        docker push ${_REGISTRY_BASE}/${_IMAGE_NAME}:latest
 
-  # 2. Update the Cloud Run Job to use the new image (for automated branch push CI/CD)
+  # 2. Update Cloud Run Job (only on automated CI/CD trigger; skipped during Terraform local deploy)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     id: 'update-prober-job-image'
     entrypoint: 'bash'
@@ -39,7 +37,7 @@ steps:
       - '-c'
       - |
         if [ "${_UPDATE_JOB}" = "true" ]; then
-          echo "Updating Cloud Run Job '${_PROBER_NAME}' with new image..."
+          echo "Updating Cloud Run Job '${_PROBER_NAME}' with new image ${_REGISTRY_BASE}/${_IMAGE_NAME}:${_TAG}..."
           gcloud run jobs update ${_PROBER_NAME} \
             --image="${_REGISTRY_BASE}/${_IMAGE_NAME}:${_TAG}" \
             --region="${_REGION}" \
@@ -50,7 +48,7 @@ steps:
 
 substitutions:
   _UPDATE_JOB: 'true'
-  _COMMIT_SHA: 'unknown'
+  _COMMIT_SHA: 'latest'
   _TAG: 'latest'
   _PROJECT_ID: 'datcom-dcp'
   _PROBER_NAME: 'dcp-prober'

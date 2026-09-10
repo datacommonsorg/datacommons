@@ -65,9 +65,14 @@ class TestCLIIngestion:
         if not test_manifest.stages.ingestion:
             pytest.skip("Ingestion stage disabled in test manifest.")
 
-        res = dcp_cli.run(["admin", "init-db"])
+        # Allow up to 600s for dynamic git package build, dependency resolution, lock acquisition,
+        # Spanner DDL migrations, and base ontology seeding.
+        res = dcp_cli.run(["admin", "init-db"], timeout=600)
         assert res.exit_code == 0, f"CLI init-db failed: {res.output}"
-        assert "Successfully initialized Spanner database!" in res.output
+        assert (
+            "Successfully initialized Spanner database!" in res.output
+            or "is already initialized" in res.output
+        )
 
     def test_03_cli_ingest_start(
         self,

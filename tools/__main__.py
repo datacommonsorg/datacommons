@@ -12,10 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datacommons_admin.core.utils import models, tf_utils, ui_utils
+"""Entrypoint for python -m tools invocation."""
 
-__all__ = [
-    "models",
-    "tf_utils",
-    "ui_utils",
-]
+from tools.cli import cli
+
+if __name__ == "__main__":
+    cli()
