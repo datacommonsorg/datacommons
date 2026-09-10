@@ -448,7 +448,8 @@ launch_and_poll_dataflow:
                 projectId: '${project_id}'
                 location: $${region}
                 jobId: $${job_id}
-                view: "JOB_VIEW_SUMMARY"
+                query:
+                  fields: "id,currentState"
               result: job_status
           - check_terminal:
               switch:
