@@ -18,6 +18,7 @@ import pytest
 from tests.integration.core.config_schema import IndicatorResolutionSpec
 
 
+@pytest.mark.cloud_only
 class TestEmbeddings:
     """Validates vector embeddings & semantic search resolution via official datacommons-client."""
 

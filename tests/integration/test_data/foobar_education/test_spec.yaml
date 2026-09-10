@@ -9,6 +9,7 @@ stages:
   sdmx: false
 
 ingestion:
+  import_name: "FooBarCustomEducation"
   dataset_dirs:
     - "tests/integration/test_data/foobar_education"
   spanner_expectations:

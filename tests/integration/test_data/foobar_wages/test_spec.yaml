@@ -9,6 +9,7 @@ stages:
   sdmx: true
 
 ingestion:
+  import_name: "FooBarWages"
   dataset_dirs:
     - "tests/integration/test_data/foobar_wages"
   spanner_expectations:

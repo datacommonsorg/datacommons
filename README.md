@@ -44,4 +44,30 @@ terraform plan
 terraform apply
 ```
 
-For the full infrastructure module and complete variable reference, see the detailed [GCP Infrastructure Guide](infra/dcp/README.md).
+Once infrastructure is deployed, initialize the database and trigger data ingestion using the CLI.
+
+You can run these commands directly from your Terraform deployment directory (where state outputs are detected automatically), or from anywhere by passing the `--project-id` and `--instance-name` flags:
+
+#### Option A: Run from your Terraform directory
+```bash
+# Run from inside your deployment folder (e.g. cd prod/)
+uv run datacommons admin init-db
+
+# Trigger data ingestion
+uv run datacommons admin ingest start --imports <import_name>
+```
+
+#### Option B: Run from anywhere (Remote GCS State)
+```bash
+# Run from any directory or CI/CD runner without local Terraform files
+uv run datacommons admin --project-id my-gcp-project --instance-name prod init-db
+
+# Trigger data ingestion
+uv run datacommons admin --project-id my-gcp-project --instance-name prod ingest start --imports <import_name>
+```
+
+## Documentation & Guides
+
+- **[Data Commons Platform User Guide](docs/user_guide.md)**: End-to-end guide covering architecture, platform deployment, schema modeling, data ingestion, and platform operations.
+- **[Data Commons CLI Reference](packages/datacommons-cli/README.md)**: Installation, command reference (`init`, `init-db`, `migrate-db`, `seed-db`, `ingest`), local vs. remote state execution modes, and CLI cheatsheet.
+- **[GCP Infrastructure Guide](infra/dcp/README.md)**: Terraform module configuration, variable references, and GCP architecture details.

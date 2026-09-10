@@ -17,14 +17,17 @@ import pytest
 
 from tests.integration.core.config_schema import SpecializationEdgeSpec
 from tests.integration.core.spanner_client import SpannerClient
+from tests.integration.core.target import DCPTarget
 
 
+@pytest.mark.cloud_only
 class TestSVGHierarchy:
     """Validates Statistical Variable Group (SVG) parent-child hierarchy generation."""
 
     def test_svg_hierarchy_specialization(
         self,
         seeded_testbed,
+        dcp_target: DCPTarget,
         spanner_client: SpannerClient,
         specialization_edge_spec: SpecializationEdgeSpec | None,
     ):
