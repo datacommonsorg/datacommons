@@ -36,6 +36,12 @@ def get_default_migrations_dir() -> Path:
 
     Searches upward from the current file and working directory to locate the
     local source tree migration scripts before falling back to package discovery.
+
+    Returns:
+        Path to the migration scripts directory.
+
+    Raises:
+        FileNotFoundError: If the migrations directory cannot be located.
     """
     rel_migration_path = (
         Path("packages")
@@ -62,11 +68,12 @@ def get_default_migrations_dir() -> Path:
     except (ImportError, AttributeError):
         pass
 
-    # Default fallback path relative to repository layout
-    resolved_file = Path(__file__).resolve()
-    if len(resolved_file.parents) > 4:
-        return resolved_file.parents[4] / rel_migration_path
-    return resolved_file.parent / rel_migration_path
+    # Every ancestor of this file and cwd was already checked above, so at
+    # this point there is no valid migrations directory to return.
+    raise FileNotFoundError(
+        "Could not locate packages/datacommons-db/datacommons_db/migrations/"
+        "migration_scripts. Run from within the repository."
+    )
 
 
 def sanitize_name(raw_name: str) -> str:

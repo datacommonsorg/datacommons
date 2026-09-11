@@ -19,7 +19,6 @@ from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
-
 from datacommons_devtools.cli import cli as devtools_cli
 from datacommons_devtools.migrations import utils
 from datacommons_devtools.migrations.cli import cli
