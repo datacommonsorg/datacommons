@@ -1,6 +1,6 @@
 # Data Commons Platform Documentation
 
-Welcome to the Data Commons Platform (DCP) documentation directory. This directory is the central home for platform architecture, conceptual guides, developer tutorials, and operational manuals.
+The Data Commons Platform (DCP) documentation directory is the central home for platform architecture, conceptual guides, developer tutorials, and operational manuals.
 
 ---
 
@@ -20,7 +20,7 @@ Subsystem and module directories (such as [infra/dcp/README.md](../infra/dcp/REA
 Documentation in this repository serves two distinct audiences:
 * **DCP Admins (Platform Operators)**: External data stewards, DevOps teams, and organization administrators deploying and operating a Data Commons instance to serve custom datasets.
   * *Primary Document*: [user_guide.md](user_guide.md).
-  * *Boundary*: The Admin User Guide focuses purely on instance configuration, dataset preparation, and ingestion operations. It must not be cluttered with internal developer onboarding or local development recipes.
+  * *Boundary*: The Admin User Guide focuses purely on instance configuration, dataset preparation, and ingestion operations. Do not include internal developer onboarding or local development recipes in the Admin User Guide.
 * **DCP Developers (Platform Contributors)**: Engineers contributing to the codebase, creating new Cloud Run services or jobs, debugging Spanner queries, or tuning CLI logic.
   * *Primary Documents*: [docs/codelabs/](codelabs/), [docs/architecture/](architecture/), and [../CONTRIBUTING.md](../CONTRIBUTING.md).
 
@@ -31,9 +31,10 @@ Documentation in this repository serves two distinct audiences:
 | Category | File | Target Audience | What It Covers |
 | :--- | :--- | :--- | :--- |
 | **Admin Operations** | [user_guide.md](user_guide.md) | DCP Admins | Comprehensive operational manual for deploying instances, preparing CSV/MCF datasets, configuring `config.json`, and triggering ingestion workflows. |
-| **Developer Onboarding** | [codelabs/dcp_developer_onboarding.md](codelabs/dcp_developer_onboarding.md) | New Developers | Zero-to-hero hands-on tutorial. Covers Terraform and GCP basics, CLI scaffolding, deploying an instance, touring every provisioned GCP resource in the console, seeding tables, running ingestion, and clean teardown. |
-| **Architecture** | [architecture/terraform_stack.md](architecture/terraform_stack.md) | Infrastructure Contributors | Deep dive into the Terraform module hierarchy (Root to Stack to Submodules), variable propagation pipelines, resource naming standards, and cross-module IAM wiring. |
-| **Architecture** | [architecture/admin_cli.md](architecture/admin_cli.md) | CLI & Tooling Contributors | Deep dive into the `datacommons admin` CLI architecture, local state vs remote GCS state modes, the CLI source regex contract, and state-driven operation choreography. |
+| **Developer Onboarding** | [codelabs/dcp_developer_onboarding.md](codelabs/dcp_developer_onboarding.md) *(in progress)* | New Developers | Zero-to-hero hands-on tutorial. Covers Terraform and GCP basics, CLI scaffolding, deploying an instance, touring every provisioned GCP resource in the console, seeding tables, running ingestion, and clean teardown. |
+| **Architecture** | [architecture/platform_architecture.md](architecture/platform_architecture.md) *(in progress)* | All Contributors | Deep dive into the 4-repository topology, container image roles, and the complete end-to-end ingestion and serving data flows. |
+| **Architecture** | [architecture/terraform_stack.md](architecture/terraform_stack.md) *(in progress)* | Infrastructure Contributors | Deep dive into the Terraform module hierarchy (Root to Stack to Submodules), variable propagation pipelines, resource naming standards, and cross-module IAM wiring. |
+| **Architecture** | [architecture/admin_cli.md](architecture/admin_cli.md) *(in progress)* | CLI & Tooling Contributors | Deep dive into the `datacommons admin` CLI architecture, local state vs remote GCS state modes, the CLI source regex contract, and state-driven operation choreography. |
 | **Database Schemas** | [schema_migrations_developer_guide.md](schema_migrations_developer_guide.md) | Database Contributors | Guide for writing, testing, and applying Cloud Spanner schema migrations and DDL scripts. |
 | **Release Management** | [release.md](release.md) | Release Managers | Official 3-stage release candidate workflow (TestPyPI staging, GitHub main bump PR, lockstep PyPI publishing). |
 | **Infrastructure Reference** | [../infra/dcp/README.md](../infra/dcp/README.md) | Operators & Contributors | Operational cheatsheet for `infra/dcp/`: execution commands, active variable references matching `terraform.tfvars.template`, and outputs. |
@@ -50,16 +51,18 @@ docs/
 ├── README.md                            # This file (documentation standards and index)
 │
 ├── codelabs/                            # Interactive, step-by-step tutorials
-│   └── dcp_developer_onboarding.md      # Hands-on developer onboarding codelab
+│   └── dcp_developer_onboarding.md      # Hands-on developer onboarding codelab (in progress)
 │
 ├── architecture/                        # Deep-dive system specifications
-│   ├── terraform_stack.md               # Terraform stack architecture and IAM
-│   └── admin_cli.md                     # Admin CLI architecture and Terraform integration
+│   ├── platform_architecture.md         # Big-picture platform and data flows (in progress)
+│   ├── terraform_stack.md               # Terraform stack architecture and IAM (in progress)
+│   └── admin_cli.md                     # Admin CLI architecture and Terraform integration (in progress)
 │
 ├── user_guide.md                        # Master manual for DCP Admins
 ├── schema_migrations_developer_guide.md # Spanner database migration guide
 └── release.md                           # Platform release engineering guide
 ```
+
 
 ---
 

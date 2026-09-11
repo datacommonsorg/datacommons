@@ -1,6 +1,6 @@
 # Contributing to the Data Commons Platform
 
-Thank you for your interest in contributing to the Data Commons Platform (DCP). We welcome contributions from developers, researchers, and data practitioners.
+The Data Commons Platform (DCP) welcomes contributions from developers, researchers, and data practitioners.
 
 This document outlines how to get started as a developer, how our codebase and documentation are structured, and our guidelines for submitting pull requests.
 
@@ -9,7 +9,8 @@ This document outlines how to get started as a developer, how our codebase and d
 ## 1. Getting Started for Developers
 
 If you are new to the Data Commons Platform, start with our hands-on developer onboarding codelab:
-* **[Developer Onboarding Codelab](docs/codelabs/dcp_developer_onboarding.md)**: A step-by-step tutorial that walks you through cloud prerequisites, scaffolding an instance with the CLI, deploying test infrastructure with Terraform, inspecting resources in the Google Cloud Console, seeding the database, running data ingestion, and testing live API queries.
+* **[Developer Onboarding Codelab](docs/codelabs/dcp_developer_onboarding.md)** *(in progress)*: A step-by-step tutorial that walks you through cloud prerequisites, scaffolding an instance with the CLI, deploying test infrastructure with Terraform, inspecting resources in the Google Cloud Console, seeding the database, running data ingestion, and testing live API queries.
+
 
 ### Developer Tooling Prerequisites
 
@@ -65,7 +66,7 @@ To keep documentation clean, discoverable, and accessible to newcomers, all cont
    * Local module READMEs (such as [infra/dcp/README.md](infra/dcp/README.md) and [packages/datacommons-cli/README.md](packages/datacommons-cli/README.md)) must focus on operational commands, inputs, outputs, and variable references.
    * Do not add lengthy architectural essays to localized READMEs. Link to the corresponding document in `docs/architecture/` instead.
 3. **Maintain Strict Persona Separation**:
-   * [docs/user_guide.md](docs/user_guide.md) is written exclusively for **DCP Admins** (operators deploying and managing Data Commons instances for organizations).
+   * [docs/user_guide.md](docs/user_guide.md) serves **DCP Admins** (operators deploying and managing Data Commons instances for organizations).
    * Developer workflows, codelabs, and contributor guidelines belong in `docs/codelabs/`, `docs/architecture/`, or this file.
 4. **Plain Engineering Writing**:
    * Write in direct, active developer language. Explain standard technical metrics in plain English before presenting data.
@@ -111,9 +112,12 @@ uv run pytest
 The repository includes a local hermetic test suite using Docker Compose to emulate Spanner, Cloud Storage, Ingestion Helper, and serving containers:
 
 ```bash
-uv run pytest -s tests/datacommons-integration-tests/run_local_integration_test.py
+uv run pytest tests/integration/suites/ \
+    --instance local \
+    --test-config foobar_wages
 ```
-*Note*: The data preprocessor resolves entities against base Data Commons. Ensure `DC_API_KEY` is exported in your terminal environment before running integration tests.
+For details on emulated test options, fast re-runs (`--reuse-data`), and cloud testbed execution, refer to [tests/integration/README.md](tests/integration/README.md).
+
 
 ---
 
