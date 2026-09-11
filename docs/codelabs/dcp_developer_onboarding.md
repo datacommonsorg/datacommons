@@ -19,7 +19,7 @@ By the end of this codelab, you will understand:
 
 ## Prerequisites and Tooling Setup
 
-Before beginning, install and configure the necessary command-line tools on your local machine.
+Before beginning, install and configure the necessary command-line tools on your local machine. For comprehensive workstation setup, virtual environment configuration, and monorepo workflows, refer to the [Developer Guide](../developer_guide.md).
 
 ### 1. Install `uv`
 `uv` is an extremely fast Python package and tool runner written in Rust. We use it to run the Data Commons CLI without manual virtual environment management.
@@ -75,14 +75,21 @@ DCP federates queries to base Google Data Commons. You must supply a valid API k
 3. Save this key locally; you will provide it in Step 2.
 
 ### 5. Install the Data Commons CLI (`datacommons`)
-Install the CLI as a standalone global tool via `uv tool install`:
+Install the latest published CLI package from PyPI as a standalone global tool via `uv tool install`:
 ```bash
-uv tool install --force "git+https://github.com/datacommonsorg/datacommons.git#subdirectory=packages/datacommons-cli"
+# Install the latest published release:
+uv tool install datacommons-cli
+
+# Or pin to an exact published release (e.g. 1.1.5):
+uv tool install "datacommons-cli==1.1.5"
 ```
-Alternatively, define a shell alias if you prefer running via `uvx`:
+Alternatively, define a shell alias to execute on-the-fly without global installation:
 ```bash
-alias datacommons='uvx --no-cache --from "git+https://github.com/datacommonsorg/datacommons.git@main#subdirectory=packages/datacommons-cli" datacommons'
+alias datacommons='uvx --from "datacommons-cli==1.1.5" datacommons'
 ```
+
+*(If you are developing features inside `packages/datacommons-cli` or `packages/datacommons-admin`, you can execute unreleased code directly from your local monorepo checkout using `uv run --package datacommons-cli datacommons`. See the [Developer Guide](../developer_guide.md#working-on-the-cli-datacommons-cli--datacommons-admin) for details).*
+
 Verify the installation:
 ```bash
 datacommons --version
@@ -96,8 +103,15 @@ datacommons --version
 Traditional infrastructure operations are **imperative**: you write bash scripts with explicit sequential steps (`create bucket`, `launch instance`, `install package`). If a step fails halfway through, the environment enters an inconsistent state, and re-running the script often causes collision errors.
 
 Terraform is **declarative**: you write configuration files describing the desired end state of your infrastructure (for example, "I want a Spanner database named `dc-db` and a Cloud Storage bucket named `my-artifacts`").
-* When you run `terraform plan`, Terraform compares your declared files against the live state in Google Cloud and computes a execution graph of additions, modifications, and deletions.
+* When you run `terraform plan`, Terraform compares your declared files against the live state in Google Cloud and computes an execution graph of additions, modifications, and deletions.
 * When you run `terraform apply`, Terraform executes only the operations required to make reality match your declaration.
+
+### Persistent vs. Ephemeral GCP Resources
+It is critical to distinguish between **persistent foundation infrastructure** and **ephemeral execution workloads**:
+* **Persistent Resources (Managed by Terraform)**: Terraform deploys and manages the long-lived, permanent cloud resources that comprise your DCP instance. This includes the Cloud Spanner database, Cloud Storage artifact buckets, Cloud Run serving services and coordination helpers, Secret Manager secrets, and the Cloud Workflows orchestrator. These resources stay alive continuously across ingestions and serve API traffic.
+* **Ephemeral Resources (Managed at Runtime by Ingestion)**: In contrast, on-demand compute jobs spawned during data ingestion (such as Dataflow Apache Beam worker clusters and Cloud Run batch worker tasks) are transient. They are dynamically spun up by Cloud Workflows during an ingestion run to execute data processing, stream mutations into Spanner, and shut down upon completion.
+
+Terraform establishes the permanent Google Cloud backbone so that those runtime pipelines and serving microservices have an operational environment to connect to.
 
 ### The Resources We Will Provision
 When deploying a personal DCP instance, Terraform provisions:
@@ -135,9 +149,10 @@ cd ~/dcp-deployments
 datacommons admin init \
     --project-id "$PROJECT_ID" \
     --instance-name "$NAMESPACE" \
-    --dc-api-key "$DC_API_KEY" \
-    --tf-git-ref main
+    --dc-api-key "$DC_API_KEY"
 ```
+
+> **Note**: `datacommons admin init` automatically defaults `--tf-git-ref` to the release tag matching your installed CLI package (for example, `v1.1.5`). You do not need to pass `--tf-git-ref` unless you specifically want to target an older release or release candidate.
 
 ### 3. Tour the Scaffolded Files
 Navigate into your newly generated namespace directory:
@@ -145,28 +160,33 @@ Navigate into your newly generated namespace directory:
 cd ~/dcp-deployments/$NAMESPACE
 ls -la
 ```
-You will see four generated files:
+You will see five generated files (or four if remote state management was disabled via `--no-tf-remote-state`):
 * **`main.tf`**: The root configuration that calls the remote DCP stack module:
-  `source = "git::https://github.com/datacommonsorg/datacommons.git//infra/dcp/modules/stack?ref=main"`
+  `source = "git::https://github.com/datacommonsorg/datacommons.git//infra/dcp/modules/stack?ref=v1.1.5"`
 * **`variables.tf`**: Variable definitions declaring all configuration options and default values.
 * **`outputs.tf`**: Output values that export vital attributes (such as bucket names and service URLs) after deployment.
 * **`terraform.tfvars`**: Your instance configuration values.
+* **`backend.tf`**: Remote state configuration storing your Terraform state file in a dedicated Cloud Storage bucket (`<project_id>-<instance_name>-tfstate`), ensuring your deployment state is backed up securely in GCP rather than stored only on your local disk.
 
 ### 4. Configure `terraform.tfvars` for Shared Development
-Open `terraform.tfvars` in your editor. When developing in a shared GCP project (such as `datcom-website-dev`), apply the following cost-saving, quota-safe, and accelerated testing overrides:
+Open `terraform.tfvars` in your editor. When developing in a shared GCP project (such as `datcom-website-dev`), replace the required placeholders at the top and apply the following cost-saving, quota-safe, and accelerated testing overrides:
 
 ```hcl
-# GCP Project and Identity
-project_id                                         = "datcom-website-dev"
-instance_name                                      = "dev-yourldap"
+# ==============================================================================
+# REQUIRED USER PLACEHOLDERS (Replace these values first!)
+# ==============================================================================
+instance_name                                      = "dev-yourldap"       # Replace with your unique namespace (e.g. dev-<ldap>)
+auth_google_datacommons_api_key                    = "your-api-key-here"  # Replace with your key from apikeys.datacommons.org
+project_id                                         = "datcom-website-dev" # Target Google Cloud project
+
+# ==============================================================================
+# Development & Testing Overrides (Pre-configured for shared development)
+# ==============================================================================
 region                                             = "us-central1"
 
 # Deletion Protection: Keep false for temporary development instances
 stateful_deletion_protection                       = false
 stateless_deletion_protection                      = false
-
-# Authentication
-auth_google_datacommons_api_key                    = "your-api-key-here"
 
 # Spanner: Reuse shared dev instance to save cost and quota
 spanner_create_instance                            = false
@@ -198,30 +218,37 @@ datacommons_services_mcp_search_scope              = "base_and_custom"
 With your configuration in place, deploy the infrastructure.
 
 ### 1. Initialize Terraform
-`terraform init` downloads the Google Cloud provider plugins and clones the remote DCP module specified in `main.tf`:
+Run `terraform init`. This is a **one-time initialization step per deployment workspace** (you only rerun it if you add new provider plugins, reconfigure backend storage, or change module source references).
+
+`terraform init` downloads the Google Cloud provider plugins and clones the remote DCP module specified in `main.tf` into a local `.terraform/` cache:
 ```bash
 terraform init
 ```
 You should see: `Terraform has been successfully initialized!`
 
-### 2. Preview and Save Execution Plan
-Generate and inspect the execution plan before applying:
+> **Architecture Pointer**: During scaffolding, `datacommons admin init` rewrote `source = "./modules/stack"` to point to the remote Git release repository. For details on this regex substitution contract and how the root module orchestrates child modules (`modules/datacommons_services`, `modules/ingestion`, etc.), refer to [Admin CLI Architecture](../architecture/admin_cli.md#the-source-regex-substitution-contract) and [Terraform Stack Architecture](../architecture/terraform_stack.md#orchestration-topology-modulesstack).
+
+### 2. Inspect Execution Plan and Apply
+Generate and inspect the execution plan, then apply it to provision your infrastructure.
+
+> **Workflow Note**: Previewing and applying the execution plan (`terraform plan` and `terraform apply`) is the standard workflow you execute **any time you want to modify your GCP resources or configuration** (such as adjusting worker counts, updating image versions, or toggling deletion protection).
+
+Generate and inspect the execution plan:
 ```bash
 terraform plan -out=tfplan
 terraform show -no-color tfplan > tfplan.txt
 ```
-Inspect `tfplan.txt` to review the resource additions. Terraform prints a summary at the bottom:
-`Plan: ~25 to add, 0 to change, 0 to destroy.`
+Inspect `tfplan.txt` to review the resources being created. Terraform prints a summary at the bottom:
+`Plan: ~80 to add, 0 to change, 0 to destroy.`
 
-### 3. Apply the Configuration
-Execute the deployment using the saved plan:
+Now apply the saved execution plan:
 ```bash
 terraform apply tfplan
 ```
 
-Deployment typically takes 3 to 5 minutes as Google Cloud provisions storage buckets, creates the Spanner database, and registers Cloud Run containers.
+Deployment typically takes 3 to 5 minutes as Google Cloud provisions storage buckets, creates the Spanner database, registers Secret Manager secrets, and deploys Cloud Run services and jobs.
 
-### 4. Capture Outputs
+### 3. Capture Outputs
 When deployment completes, Terraform displays exported outputs. Export them into your terminal environment for subsequent steps:
 ```bash
 export DATA_BUCKET=$(terraform output -raw storage_artifacts_bucket_name)
@@ -234,7 +261,7 @@ echo "Data Bucket: gs://$DATA_BUCKET"
 echo "Serving URL: $SERVICE_URL"
 ```
 
-### 5. Grant Service Account Token Impersonation
+### 4. Grant Service Account Token Impersonation
 Grant your user identity permission to impersonate the Cloud Workflows orchestrator service account. This allows you to trigger database seeding and ingestion workflows via the CLI:
 
 ```bash
@@ -248,18 +275,22 @@ gcloud iam service-accounts add-iam-policy-binding "$ORCHESTRATOR_SA" \
 
 ## Module 4: The Google Cloud Console Guided Tour
 
-Now open the [Google Cloud Console](https://console.cloud.google.com/?project=datcom-website-dev) in your browser and tour the resources Terraform created.
+Now open the Google Cloud Console in your browser:
+```
+https://console.cloud.google.com/?project=<PROJECT_ID>
+```
+*(If you are deploying to the shared development project, this is `https://console.cloud.google.com/?project=datcom-website-dev`). Verify that the project dropdown in the top console navigation bar matches your `$PROJECT_ID`.*
 
 ### 1. Cloud Storage
 * In the search bar at the top, type `Cloud Storage` and select **Buckets**.
-* Locate your bucket: `<namespace>-dc-artifacts-datcom-website-dev`.
+* Locate your bucket: `<namespace>-dc-artifacts-<project_id>`.
 * Click into the bucket. Notice that Terraform created the folder structure:
   * `ingestion/input/`: Where raw data files will be uploaded.
   * `ingestion/metadata/`: Where pipeline execution logs, import versions, and handshakes are tracked.
 
 ### 2. Cloud Spanner
 * In the search bar, type `Spanner` and select **Instances**.
-* Click into the `dcp-testing` instance.
+* Click into your Spanner instance (if using the shared dev overrides from Module 2, this is `dcp-testing`, or your custom instance name if you configured a dedicated instance).
 * Under the **Databases** tab, locate your database: `<namespace>-dc-db`.
 * Click into your database and select **Spanner Studio** on the left menu.
 * Notice that the database currently has zero tables. The database exists, but schemas have not yet been applied. We will apply them in Module 5.
@@ -295,7 +326,7 @@ The CLI executes the following sequence:
 5. Seeds base metadata nodes (statistical variables, units, and sources).
 
 ### 2. Verify Tables in Spanner Studio
-Return to the Google Cloud Console, navigate to **Spanner > dcp-testing > `<namespace>-dc-db` > Spanner Studio**, and run the following queries:
+Return to the Google Cloud Console, navigate to **Spanner > `<spanner_instance_id>` (e.g. `dcp-testing`) > `<namespace>-dc-db` > Spanner Studio**, and run the following queries:
 
 ```sql
 -- Check that schema tables exist
@@ -314,29 +345,30 @@ SELECT subject_id, predicate, object_value FROM Node LIMIT 10;
 
 Next, stage a sample dataset in Cloud Storage and execute the ingestion workflow.
 
-### 1. Stage Test Datasets in Cloud Storage
-Copy the pre-configured test datasets (including frogs, OECD wages, and bilateral trade) into your deployment's input bucket:
+### 1. Stage Committed Test Datasets in Cloud Storage
+Copy the committed integration test datasets from your local repository clone into your deployment's input bucket:
 
 ```bash
-gcloud storage cp -r gs://datcom-website-dev-calinc/dcp-test-data/* "gs://$DATA_BUCKET/$INPUT_PATH/"
+# Run from the root of your datcom-datacommons clone:
+gcloud storage cp -r tests/integration/test_data/* "gs://$DATA_BUCKET/$INPUT_PATH/"
 ```
 
 Verify that the files exist in GCS:
 ```bash
 gcloud storage ls "gs://$DATA_BUCKET/$INPUT_PATH/"
 ```
-The bucket contains dataset folders (`frog_data`, `frog_topics`, `OECD_wage_data`, `bilateral_trade`), each containing CSV observations, schema MCFs, and `config.json` mappings.
+The bucket contains committed test dataset folders (`foobar_wages`, `foobar_education`, `financial_trade`). Each dataset contains CSV observations, schema MCFs, and `config.json` mappings.
 
 ### 2. Start Ingestion via the CLI
-Trigger the ingestion workflow. You can ingest a single dataset (`frog_data`) or multiple datasets concurrently:
+Trigger the ingestion workflow. You can ingest a single dataset (`foobar_wages`) or multiple datasets concurrently:
 
 ```bash
 # Ingest single dataset:
-datacommons admin ingest start --imports frog_data
+datacommons admin ingest start --imports foobar_wages
 
 # Or ingest multiple datasets concurrently:
 datacommons admin ingest start \
-    --imports="frog_data,frog_topics,OECD_wage_data,bilateral_trade"
+    --imports="foobar_wages,foobar_education,financial_trade"
 ```
 
 The CLI prints the execution ID and a direct URL to Google Cloud Console:
@@ -345,22 +377,26 @@ Execution ID: <execution-id>
 Execution console link: https://console.cloud.google.com/workflows/workflow/us-central1/...
 ```
 
-### 3. Monitor Execution in the Cloud Console
+### 3. Monitor Execution and View Logs in the Cloud Console
 Click the console link printed in your terminal or open **Workflows > `<namespace>-dc-ingestion-workflow` > Executions**.
-Watch the workflow progress through its stages:
-1. **`run_preprocessing`**: Launches the `datacommons-data` Cloud Run job to validate `config.json` and generate JSON-LD chunks.
-2. **`try_acquire_lock`**: Contacts `datacommons-ingestion-helper` to lock the Spanner database.
+Watch the workflow progress through its stages, and inspect the underlying compute jobs and logs in real time:
+
+1. **`run_preprocessing`**: Launches Cloud Run job `datacommons-data` to validate `config.json` and generate JSON-LD chunks.
+   * *Viewing Job Logs*: Open **Cloud Run > Jobs** in the console, click into `<namespace>-dc-prep-job`, click the active execution, and select the **Logs** tab to view schema validation and record sharding output.
+2. **`try_acquire_lock`**: Contacts `datacommons-ingestion-helper` to acquire the database lock in Spanner.
 3. **`launch_dataflow`**: Launches the Apache Beam Dataflow job (`GraphIngestionPipeline`) to load nodes, edges, and observations into Spanner.
+   * *Viewing Dataflow Graph and Logs*: Open **Dataflow > Jobs** in the console and click into the running job (named `graph-ingestion-pipeline-...`). You can view the live execution DAG (stages such as `ReadJSONLD`, `ExtractFacets`, and `WriteToSpanner`). Click the **Job Logs** tab for pipeline lifecycle events and the **Worker Logs** tab to stream real-time worker output.
 4. **`run_postprocessing_parallel`**: Runs BigQuery federated queries to materialize statistical variable groups and invokes Vertex AI text embeddings.
-5. **`release_lock_step` & `restart_service`**: Unlocks Spanner and triggers a rolling container restart of `datacommons-services` so the new data is served immediately.
+   * *Viewing Postprocessing Logs*: Open **Cloud Run > Jobs**, click into `<namespace>-dc-post-job`, click the active execution, and select the **Logs** tab to observe BigQuery aggregation and vector embedding generation.
+5. **`release_lock_step` & `restart_service`**: Releases the Spanner lock and triggers a rolling container restart of `datacommons-services` so the new data is served immediately.
 
 Ingestion typically takes 4 to 6 minutes. Wait until the execution status displays a green checkmark (`Succeeded`).
 
 ---
 
-## Module 7: Verifying the Serving Stack
+## Module 7: Verifying the Serving Stack and Running Integration Tests
 
-Now verify that your instance serves the newly ingested frog observations.
+Now verify that your instance serves the newly ingested statistical observations and practice running automated integration tests.
 
 ### 1. Establish a Local Proxy Tunnel
 By default, Cloud Run services in development environments require authenticated IAM tokens. Establish a local proxy tunnel to forward authenticated requests:
@@ -375,38 +411,67 @@ gcloud run services proxy "$SERVICE_NAME" \
 Keep this terminal running. The proxy listens on `http://localhost:8080` and automatically injects authentication headers.
 
 ### 2. Test Observation API Queries
-In your original terminal, submit a curl request to query observations for frog population:
+In your original terminal, submit a curl request to query observations for average annual wage:
 
 ```bash
 curl -s -g -H "X-Use-Multi-Entity-Schema: true" \
-  "http://localhost:8080/core/api/v2/observation?select=variable&select=entity&select=date&select=value&variable.dcids=Count_Frog&entity.dcids=country/USA" | jq .
+  "http://localhost:8080/core/api/v2/observation?select=variable&select=entity&select=date&select=value&variable.dcids=average_annual_wage&entity.dcids=country/USA" | jq .
 ```
-You will see JSON observations containing dates, values, and provenance metadata returned from your private Spanner database.
+You will see JSON observations containing dates, wage values, and provenance metadata returned from your private Spanner database.
 
 ### 3. Test Natural Language Entity and Indicator Resolution
 Test the entity resolution endpoint to verify that Vertex AI text embeddings are functioning for custom indicators:
 
 ```bash
-# Query custom frog population variable:
-curl -s -g "http://localhost:8080/core/api/v2/resolve?nodes=frog%20population&resolver=indicator&target=custom_only" | jq .
+# Query custom wages indicator:
+curl -s -g "http://localhost:8080/core/api/v2/resolve?nodes=wages&resolver=indicator&target=custom_only" | jq .
 
-# Query custom economic indicators:
-curl -s -g "http://localhost:8080/core/api/v2/resolve?nodes=financial%20aid&resolver=indicator&target=custom_only" | jq .
+# Query gender wage gap indicator:
+curl -s -g "http://localhost:8080/core/api/v2/resolve?nodes=gender%20wage%20gap&resolver=indicator&target=custom_only" | jq .
 ```
-The response resolves natural language queries to custom statistical variables and topics (for example, `Count_Frog`).
+The response resolves natural language queries to custom statistical variables and topics (such as `average_annual_wage` and `gender_wage_gap`).
 
 ### 4. Inspect the Web Interface
 Open your web browser and navigate to:
 ```
 http://localhost:8080
 ```
-Browse the homepage, use the search bar to look for "frog", and view the generated charts.
+Browse the homepage, use the search bar to look for "wages", and view the generated charts.
+
+### 5. Run the Automated Integration Test Suite
+Now that your instance is live and populated with `foobar_wages`, practice executing the repository's automated integration test suite against your personal deployment.
+
+From the root of your `datcom-datacommons` repository clone, execute:
+```bash
+uv run python tests/integration/run_e2e_tests.py \
+    --project "$PROJECT_ID" \
+    --instance "$NAMESPACE" \
+    --test-config foobar_wages \
+    --reuse-data
+```
+
+Because you already ingested `foobar_wages` in Module 6, passing `--reuse-data` skips repeating the 5-minute ingestion pipeline and immediately runs the validation suites (`02_postprocessing`, `03_serving_api`, and `04_mcp_agent`) against your live deployment.
+
+To test a specific stage (for example, only the serving API tests):
+```bash
+uv run python tests/integration/run_e2e_tests.py \
+    --project "$PROJECT_ID" \
+    --instance "$NAMESPACE" \
+    --test-config foobar_wages \
+    --suite 03_serving_api \
+    --reuse-data
+```
+
+For advanced testing options, including running the entire stack hermetically in local Docker emulators without GCP infrastructure, refer to the [Integration Test Suite Guide](../../tests/integration/README.md).
 
 ---
 
 ## Module 8: Safe Teardown and Resource Cleanup
 
-When you complete your testing, clean up your resources to avoid unnecessary cloud costs.
+When you complete your testing, clean up your resources to avoid unnecessary cloud costs and release quotas.
+
+> [!WARNING]
+> **Data Loss Warning**: This procedure permanently destroys all cloud resources created for your DCP instance, including your Cloud Spanner database, Cloud Run services, Secret Manager secrets, and Cloud Storage buckets. If there is any data in your provisioned GCS buckets that you wish to keep, copy it to an external location before proceeding.
 
 ### 1. Understanding Deletion Protection
 DCP incorporates deletion protection to guard against accidental data loss. In `terraform.tfvars`, two variables govern protection:
@@ -427,20 +492,45 @@ Apply the updated protection settings:
 terraform apply -auto-approve
 ```
 
-### 3. Destroy Provisioned Resources
-Execute `terraform destroy` to delete all provisioned resources:
+### 3. Destroy Provisioned GCP Resources
+Navigate to your deployment folder and execute `terraform destroy`:
 
 ```bash
+cd ~/dcp-deployments/$NAMESPACE
 terraform destroy
 ```
 
 Terraform presents the deletion plan:
-`Plan: 0 to add, 0 to change, ~25 to destroy.`
+`Plan: 0 to add, 0 to change, ~80 to destroy.`
 
 Type `yes` and press Enter. Once complete, Terraform confirms:
-`Destroy complete! Resources: 25 destroyed.`
+`Destroy complete! Resources: ~80 destroyed.`
 
 Because you configured `spanner_create_instance = false`, Terraform deletes your private database (`<namespace>-dc-db`) while preserving the shared `dcp-testing` Spanner instance for teammates.
+
+### 4. Clean Up Remote State Bucket and Local Files
+Because `backend.tf` stores Terraform state in a dedicated Cloud Storage bucket, `terraform destroy` deletes the resources declared within your stack but intentionally leaves the remote state bucket and your local configuration folder intact.
+
+To complete a full wipe:
+1. Inspect `backend.tf` to identify your remote state bucket name:
+   ```bash
+   cat backend.tf
+   ```
+2. Delete the remote state bucket and all stored state files:
+   ```bash
+   STATE_BUCKET=$(grep -o 'bucket = "[^"]*"' backend.tf | cut -d'"' -f2)
+   gcloud storage rm --recursive "gs://$STATE_BUCKET"
+   ```
+3. Remove your local deployment folder:
+   ```bash
+   cd ..
+   rm -rf "$NAMESPACE"
+   ```
+
+### 5. Troubleshooting: Lost Your Local Terraform State Folder?
+If you accidentally deleted your local workspace folder, or ran inside an ephemeral Docker container:
+1. Re-run `datacommons admin init` with the **same** `--project-id` and `--instance-name` to re-scaffold the directory and reconnect to your remote state bucket.
+2. Inside the recreated folder, run `terraform init -reconfigure` to reconnect to the state bucket, then execute `terraform destroy`.
 
 ---
 
