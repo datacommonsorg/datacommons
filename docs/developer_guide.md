@@ -193,7 +193,7 @@ DCP microservices and batch pipelines run in serverless Google Cloud Run contain
 
 | Component Name | Role | Source Repo & Dockerfile | Destination Registry (Dev) | `terraform.tfvars` Override |
 | :--- | :--- | :--- | :--- | :--- |
-| **`datacommons-services`** | Envoy, Mixer API, Website serving | `datcom-website`<br>`scripts/push_cdc_services_image.sh` | `gcr.io/datcom-ci/datacommons-services:<tag>` | `datacommons_services_image` |
+| **`datacommons-services`** | Envoy, Mixer API, Website serving | `datcom-website`<br>`scripts/push_cdc_services_image.sh` | `gcr.io/datcom-website-dev/datacommons-services:<tag>` | `datacommons_services_image` |
 | **`datacommons-data`** | Preprocessor batch job | `datcom-website`<br>`build/cdc_data/Dockerfile` | `us-docker.pkg.dev/datcom-website-dev/datacommons-artifacts/datacommons-data:<tag>` | `ingestion_preprocessing_job_image` |
 | **`datacommons-aggregation-helper`** | Postprocessor aggregation job | `datcom-import`<br>`pipeline/workflow/aggregation-helper/Dockerfile` | `gcr.io/datcom-website-dev/datacommons-aggregation-helper:<tag>` | `ingestion_postprocessing_job_image` |
 | **`datacommons-ingestion-helper`** | Lock coordination & migrations | `datcom-import`<br>`pipeline/workflow/ingestion-helper/Dockerfile` | `us-docker.pkg.dev/datcom-website-dev/datacommons-artifacts/ingestion-helper:<tag>` | `ingestion_helper_service_image` |
@@ -213,20 +213,16 @@ cd /path/fork/of/datacommonsorg/website
 cd mixer && git checkout <mixer_feature_branch> && cd ..
 cd import && git checkout <import_feature_branch> && cd ..
 
-# Build and push custom datacommons-services image using the checked-in script:
+# Build and push custom datacommons-services image to development project:
 export SERVICES_TAG="<username>-<feature>-$(date +%s)"
-
-# Option A: Push to shared datcom-ci registry (default):
-./scripts/push_cdc_services_image.sh "$SERVICES_TAG"
-# Resulting Image URI: gcr.io/datcom-ci/datacommons-services:<SERVICES_TAG>
-
-# Option B: Push directly to personal/dev project registry (e.g. datcom-website-dev):
 ./scripts/push_cdc_services_image.sh "$SERVICES_TAG" datcom-website-dev
-# Resulting Image URI: gcr.io/datcom-website-dev/datacommons-services:<SERVICES_TAG>
+
+# Resulting Image URI:
+# gcr.io/datcom-website-dev/datacommons-services:<SERVICES_TAG>
 ```
 
 > [!NOTE]
-> `scripts/push_cdc_services_image.sh` invokes `build/ci/cloudbuild.push_cdc_services_image.yaml`, which resolves Git commit hashes for submodules and tags the container image. The optional second argument specifies the destination GCP project (defaulting to `datcom-ci`). Images in both `datcom-ci` and `datcom-website-dev` can be deployed to Cloud Run via `datacommons_services_image` in `terraform.tfvars`.
+> `scripts/push_cdc_services_image.sh` invokes `build/ci/cloudbuild.push_cdc_services_image.yaml`, which resolves Git commit hashes for submodules and tags the container image. The second argument specifies the destination GCP project (`datcom-website-dev`). If omitted, it defaults to the shared `datcom-ci` project (`gcr.io/datcom-ci/datacommons-services:<SERVICES_TAG>`). Images in both registries can be deployed to Cloud Run via `datacommons_services_image` in `terraform.tfvars`.
 
 ##### Preprocessor (`datacommons-data`)
 ```bash
@@ -284,7 +280,7 @@ To test custom container images or Dataflow templates on your deployed DCP insta
 
 ```hcl
 # Custom container image and Dataflow template overrides
-datacommons_services_image           = "gcr.io/datcom-ci/datacommons-services:<custom_tag>"
+datacommons_services_image           = "gcr.io/datcom-website-dev/datacommons-services:<custom_tag>"
 ingestion_preprocessing_job_image    = "us-docker.pkg.dev/datcom-website-dev/datacommons-artifacts/datacommons-data:<custom_tag>"
 ingestion_postprocessing_job_image   = "gcr.io/datcom-website-dev/datacommons-aggregation-helper:<custom_tag>"
 ingestion_helper_service_image       = "us-docker.pkg.dev/datcom-website-dev/datacommons-artifacts/ingestion-helper:<custom_tag>"
