@@ -180,64 +180,111 @@ When modifying Terraform configurations in `infra/dcp/`:
 
 ### Working with Container Images (Building & Overriding)
 
-DCP microservices execute in serverless Google Cloud Run containers. The images originate from multiple repositories across the Data Commons ecosystem:
+DCP microservices and batch pipelines run in serverless Google Cloud Run containers and Cloud Dataflow Apache Beam workers. The images originate from multiple repositories across the Data Commons ecosystem:
 
-| Container Image | Component Role | Source Repository & Dockerfile | Destination Registry (Dev) | `terraform.tfvars` Override |
+* For high-level container topology, container roles, and end-to-end data flows, refer to [Platform Architecture](architecture/platform_architecture.md#2-container-images-and-gcp-compute-topology).
+* For the automated release candidate tagging, promotion, and publishing pipelines, refer to the [Release Guide](release.md).
+* This section serves as the developer workbench guide for building custom development containers from source and overriding them in your deployment workspace.
+
+> [!CAUTION]
+> **Protected CI/CD Tags Rule**: Never build, push, or overwrite tags that are reserved for CI/CD or platform automation, such as `:latest`, `:stable`, or version release tags (such as `v1.1.2` or `1.1.3rc1`). Overwriting these tags corrupts automated integration tests, release candidate staging, and production deployments. Always use a descriptive, user-scoped tag for development builds (for example, `<username>-<feature>` or `<username>-test-$(date +%s)`).
+
+#### Platform Container and Template Inventory
+
+| Component Name | Role | Source Repo & Dockerfile | Destination Registry (Dev) | `terraform.tfvars` Override |
 | :--- | :--- | :--- | :--- | :--- |
 | **`datacommons-services`** | Envoy, Mixer API, Website serving | `datcom-website`<br>`cloudbuild-services-dev.yaml` | `gcr.io/datcom-website-dev/datacommons-services:<tag>` | `datacommons_services_image` |
 | **`datacommons-data`** | Preprocessor batch job | `datcom-website`<br>`build/cdc_data/Dockerfile` | `us-docker.pkg.dev/datcom-website-dev/datacommons-artifacts/datacommons-data:<tag>` | `ingestion_preprocessing_job_image` |
 | **`datacommons-aggregation-helper`** | Postprocessor aggregation job | `datcom-import`<br>`pipeline/workflow/aggregation-helper/Dockerfile` | `gcr.io/datcom-website-dev/datacommons-aggregation-helper:<tag>` | `ingestion_postprocessing_job_image` |
 | **`datacommons-ingestion-helper`** | Lock coordination & migrations | `datcom-import`<br>`pipeline/workflow/ingestion-helper/Dockerfile` | `us-docker.pkg.dev/datcom-website-dev/datacommons-artifacts/ingestion-helper:<tag>` | `ingestion_helper_service_image` |
+| **`ingestion-flex`** | Apache Beam Dataflow pipeline | `datcom-import`<br>`pipeline/ingestion/Dockerfile` | `us-docker.pkg.dev/datcom-website-dev/datacommons-artifacts/dataflow-templates/ingestion:<tag>`<br>`gs://<bucket>/templates/flex/ingestion-<tag>.json` | `ingestion_dataflow_template_gcs_path` |
 
-#### 1. Submodule Alignment (Before Building `services` or `data` Images)
-The `datcom-website` repository incorporates `mixer` and `import` as Git submodules. If your changes involve code inside Mixer or Import:
-1. Navigate into the submodule directory inside `datcom-website`:
-   ```bash
-   cd /path/to/datcom-website/mixer
-   git checkout <target_branch_or_commit>
-   ```
-2. Return to the root of `datcom-website` and confirm that `git status` displays the updated submodule commit pointer before submitting the build.
+#### Building Images via Google Cloud Build
 
-#### 2. Building Images via Google Cloud Build
 Build custom container images and push them to Google Container Registry (GCR) or Artifact Registry in the development project (`datcom-website-dev`):
 
-* **Serving Services (`datacommons-services`)**:
-  ```bash
-  cd /path/to/datcom-website
-  gcloud builds submit . \
-      --project=datcom-website-dev \
-      --config=cloudbuild-services-dev.yaml \
-      --substitutions=_TAG=<custom_tag>
-  ```
-* **Preprocessor (`datacommons-data`)**:
-  ```bash
-  cd /path/to/datcom-website
-  export PREPROCESSOR_IMAGE="us-docker.pkg.dev/datcom-website-dev/datacommons-artifacts/datacommons-data:<custom_tag>"
-  gcloud builds submit --project=datcom-website-dev --tag "$PREPROCESSOR_IMAGE" -f build/cdc_data/Dockerfile .
-  ```
-* **Postprocessor (`datacommons-aggregation-helper`)**:
-  ```bash
-  cd /path/to/datcom-import/pipeline/workflow/aggregation-helper
-  gcloud builds submit . \
-      --project=datcom-website-dev \
-      --tag="gcr.io/datcom-website-dev/datacommons-aggregation-helper:<custom_tag>"
-  ```
-* **Ingestion Helper Service (`ingestion-helper`)**:
-  ```bash
-  cd /path/to/datcom-import
-  export INGESTION_HELPER_IMAGE="us-docker.pkg.dev/datcom-website-dev/datacommons-artifacts/ingestion-helper:<custom_tag>"
-  gcloud builds submit --project=datcom-website-dev --tag "$INGESTION_HELPER_IMAGE" -f pipeline/workflow/ingestion-helper/Dockerfile .
-  ```
+##### 1. Serving Services (`datacommons-services`)
+The `datcom-website` repository incorporates `mixer` and `import` as Git submodules. If your changes involve code inside Mixer or Import, checkout the target submodule branches before triggering the build:
 
-#### 3. Overriding Images in `terraform.tfvars`
-To test your custom container image on your deployed DCP instance, override the respective image variable in `~/dcp-deployments/<namespace>/terraform.tfvars`:
+```bash
+cd /path/to/datcom-website
+
+# (Optional) If testing changes in submodules, checkout target branches:
+cd mixer && git checkout <mixer_feature_branch> && cd ..
+cd import && git checkout <import_feature_branch> && cd ..
+
+# Submit build for datacommons-services using cloudbuild-services-dev.yaml:
+export SERVICES_TAG="<username>-<feature>-$(date +%s)"
+gcloud builds submit . \
+    --project=datcom-website-dev \
+    --config=cloudbuild-services-dev.yaml \
+    --substitutions=_TAG="$SERVICES_TAG"
+
+# Resulting Image URI:
+# gcr.io/datcom-website-dev/datacommons-services:<SERVICES_TAG>
+```
+
+##### 2. Preprocessor (`datacommons-data`)
+```bash
+cd /path/to/datcom-website
+
+# (Optional) If testing changes in the import submodule:
+cd import && git checkout <import_feature_branch> && cd ..
+
+# Build and push custom preprocessor image to Artifact Registry:
+export PREPROCESSOR_TAG="<username>-<feature>-$(date +%s)"
+export PREPROCESSOR_IMAGE="us-docker.pkg.dev/datcom-website-dev/datacommons-artifacts/datacommons-data:$PREPROCESSOR_TAG"
+gcloud builds submit --project=datcom-website-dev --tag "$PREPROCESSOR_IMAGE" -f build/cdc_data/Dockerfile .
+```
+
+##### 3. Postprocessor (`datacommons-aggregation-helper`)
+```bash
+cd /path/to/datcom-import/pipeline/workflow/aggregation-helper
+
+export POSTPROCESSOR_TAG="<username>-<feature>-$(date +%s)"
+gcloud builds submit . \
+    --project=datcom-website-dev \
+    --tag="gcr.io/datcom-website-dev/datacommons-aggregation-helper:$POSTPROCESSOR_TAG"
+```
+
+##### 4. Ingestion Helper Service (`ingestion-helper`)
+```bash
+cd /path/to/datcom-import
+
+export INGESTION_HELPER_TAG="<username>-<feature>-$(date +%s)"
+export INGESTION_HELPER_IMAGE="us-docker.pkg.dev/datcom-website-dev/datacommons-artifacts/ingestion-helper:$INGESTION_HELPER_TAG"
+gcloud builds submit --project=datcom-website-dev --tag "$INGESTION_HELPER_IMAGE" -f pipeline/workflow/ingestion-helper/Dockerfile .
+```
+
+##### 5. Dataflow Flex Template & Ingestion Pipeline (`ingestion-flex`)
+Dataflow executes as an Apache Beam Java Flex Template. Building it requires packaging the worker container image and staging the template JSON specification in Cloud Storage:
+
+```bash
+cd /path/to/datcom-import
+
+# 1. Build and push custom Dataflow worker image to Artifact Registry:
+export DATAFLOW_TAG="<username>-<feature>-$(date +%s)"
+export DATAFLOW_WORKER_IMAGE="us-docker.pkg.dev/datcom-website-dev/datacommons-artifacts/dataflow-templates/ingestion:$DATAFLOW_TAG"
+gcloud builds submit --project=datcom-website-dev --tag "$DATAFLOW_WORKER_IMAGE" -f pipeline/ingestion/Dockerfile .
+
+# 2. Build and stage Dataflow Flex Template JSON specification in Cloud Storage:
+export TEMPLATE_GCS_PATH="gs://<storage_artifacts_bucket_name>/templates/flex/ingestion-$DATAFLOW_TAG.json"
+gcloud dataflow flex-template build "$TEMPLATE_GCS_PATH" \
+    --image "$DATAFLOW_WORKER_IMAGE" \
+    --sdk-language "JAVA" \
+    --metadata-file "pipeline/ingestion/metadata.json"
+```
+
+#### Overriding Images and Templates in `terraform.tfvars`
+To test custom container images or Dataflow templates on your deployed DCP instance, override the respective variables in `~/dcp-deployments/<namespace>/terraform.tfvars`:
 
 ```hcl
-# Custom container image overrides
-datacommons_services_image         = "gcr.io/datcom-website-dev/datacommons-services:<custom_tag>"
-ingestion_preprocessing_job_image  = "us-docker.pkg.dev/datcom-website-dev/datacommons-artifacts/datacommons-data:<custom_tag>"
-ingestion_postprocessing_job_image = "gcr.io/datcom-website-dev/datacommons-aggregation-helper:<custom_tag>"
-ingestion_helper_service_image      = "us-docker.pkg.dev/datcom-website-dev/datacommons-artifacts/ingestion-helper:<custom_tag>"
+# Custom container image and Dataflow template overrides
+datacommons_services_image           = "gcr.io/datcom-website-dev/datacommons-services:<custom_tag>"
+ingestion_preprocessing_job_image    = "us-docker.pkg.dev/datcom-website-dev/datacommons-artifacts/datacommons-data:<custom_tag>"
+ingestion_postprocessing_job_image   = "gcr.io/datcom-website-dev/datacommons-aggregation-helper:<custom_tag>"
+ingestion_helper_service_image       = "us-docker.pkg.dev/datcom-website-dev/datacommons-artifacts/ingestion-helper:<custom_tag>"
+ingestion_dataflow_template_gcs_path = "gs://<bucket>/templates/flex/ingestion-<custom_tag>.json"
 ```
 
 Apply the updated configuration:
@@ -247,7 +294,7 @@ terraform plan -out=tfplan
 terraform apply tfplan
 ```
 
-Terraform updates the Cloud Run service or job definition to reference your custom image URI and deploys a new revision without modifying persistent storage layers or Spanner databases.
+Terraform updates the Cloud Run service, job, or Cloud Workflows definition to reference your custom image URI or template path and deploys a new revision without modifying persistent storage layers or Spanner databases.
 
 ---
 
