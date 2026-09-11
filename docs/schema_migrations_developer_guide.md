@@ -73,7 +73,6 @@ When multiple developers add migration scripts concurrently, timestamp collision
 Use `bump` to refresh an existing migration script with the current UTC timestamp:
 
 ```bash
-uv run dcp-tools migrations bump <target>
 uv run datacommons-devtools migrations bump <target>
 ```
 
