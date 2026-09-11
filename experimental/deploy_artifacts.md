@@ -14,7 +14,7 @@
 To build the Docker image locally, you **must run the command from the repository root**, pointing to the Dockerfile in `build/`.
 
 ```bash
-docker build -f build/Dockerfile -t datacommons-platform:local .
+docker build -f experimental/build/Dockerfile -t datacommons-platform:local .
 ```
 
 To run the container locally:
@@ -34,7 +34,7 @@ We use Google Cloud Build to build and push images to Google Container Registry 
 You can manually trigger a build from your local machine using the `gcloud` CLI. You must provide the `COMMIT_SHA` substitution manually.
 
 ```bash
-gcloud builds submit --config build/cloudbuild.yaml \
+gcloud builds submit --config experimental/build/cloudbuild.yaml \
   --substitutions=COMMIT_SHA=$(git rev-parse HEAD) \
   --project=datcom-ci \
   .
@@ -42,5 +42,5 @@ gcloud builds submit --config build/cloudbuild.yaml \
 
 This will:
 1.  Upload your current workspace (files in `.`) to Cloud Build.
-2.  Execute steps in `build/cloudbuild.yaml`.
+2.  Execute steps in `experimental/build/cloudbuild.yaml`.
 3.  Push images to `gcr.io/datcom-ci/datacommons-platform:latest` and `:CommitSHA`.
