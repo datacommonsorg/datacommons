@@ -51,7 +51,6 @@ uv run datacommons-devtools migrations create <change_name> [-d/--description "<
 uv run datacommons-devtools migrations create add_node_tables
 
 # Creation with explicit description
-uv run dcp-tools migrations create add_edge_indexes -d "Add composite index on Edge object_value and predicate"
 uv run datacommons-devtools migrations create add_edge_indexes -d "Add composite index on Edge object_value and predicate"
 ```
 
