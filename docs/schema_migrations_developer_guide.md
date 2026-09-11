@@ -91,7 +91,6 @@ Migrations will always be run chronologically in timestamp order, so make sure t
 #### Example Interaction:
 
 ```text
-$ uv run dcp-tools migrations bump add_edge_indexes
 $ uv run datacommons-devtools migrations bump add_edge_indexes
 
 Found migration script: 20260817000000_add_edge_indexes.py
