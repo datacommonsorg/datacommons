@@ -24,7 +24,7 @@ To build, test, and contribute, install the following tools:
 
 ## 3. Code Quality and Testing
 
-Before submitting a pull request, format your code, verify linting, and run the test suite:
+All code contributions (features, fixes, and CLI subcommands) are expected to include unit tests. Before submitting a pull request, format your code, verify linting, and run the test suite:
 
 ### Formatting and Linting
 Format and lint all Python packages using `ruff` via `uv`:

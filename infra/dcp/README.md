@@ -1,166 +1,118 @@
-# Data Commons Platform (DCP) Infrastructure Guide
+# Data Commons Platform Infrastructure Guide (`infra/dcp`)
 
-This directory contains the Terraform configuration to deploy the Data Commons Platform on Google Cloud Platform (GCP). This guide will walk you through setting up the infrastructure and running your first data ingestion workflow.
+This directory contains the root Terraform configurations for deploying the Data Commons Platform (DCP) on Google Cloud Platform (GCP).
 
-## Prerequisites
+* **New to DCP?** Walk through the hands-on [Developer Onboarding Codelab](../../docs/codelabs/dcp_developer_onboarding.md) to set up and deploy a test instance step by step.
+* **Architecture Deep Dive**: Consult [Terraform Stack Architecture](../../docs/architecture/terraform_stack.md) for module hierarchy, cross-module IAM wiring, and variable propagation pipelines.
 
-Before you begin, ensure you have the following:
+---
 
-*   **GCP Project**: A Google Cloud project with billing enabled.
-*   **Terraform**: Installed locally (version >= 1.0.0).
-*   **gcloud CLI**: Installed and authenticated to your GCP project.
-    ```bash
-    gcloud auth login
-    gcloud config set project <your-project-id>
-    ```
-*   **Permissions**: Ensure your user or service account has sufficient permissions to create Spanner databases, Cloud Run services, IAM bindings, and GCS buckets.
+## Quickstart Commands
 
-## Initial Setup
+Run standard Terraform operations directly within this directory when testing or contributing to infrastructure modules.
 
-### Remote Module Quick Start (Minimal Consumer Config)
-
-If you want users to deploy from this module remotely (without cloning this repo), start from:
-
-*   [examples/remote-module/main.tf](examples/remote-module/main.tf)
-*   [examples/remote-module/terraform.tfvars.template](examples/remote-module/terraform.tfvars.template)
-
-This uses a Git module source in the form:
-
-```hcl
-source = "git::https://github.com/<org>/<repo>.git//infra/dcp?ref=<tag-or-commit>"
-```
-
-Use a release tag or commit SHA (instead of `main`) for reproducible environments.
-
-### 1. Configure Local Variables
-
-Copy the example variables file to create your local configuration:
 ```bash
+# 1. Prepare local configuration
 cp terraform.tfvars.template terraform.tfvars
+
+# 2. Authenticate to Google Cloud
+gcloud auth login
+gcloud auth application-default login
+gcloud config set project <your-project-id>
+
+# 3. Initialize provider plugins and modules
+terraform init
+
+# 4. Review proposed changes
+terraform plan
+
+# 5. Apply infrastructure mutations
+terraform apply
+
+# 6. View exported deployment outputs
+terraform output
 ```
 
-Edit `terraform.tfvars` and fill in at least the following required variables:
-*   `project_id`: Your GCP Project ID.
-*   `instance_name`: A unique identifier for resource naming (e.g., your name or team name).
+---
 
-### 2. Run the Setup Script
+## Configuration Reference (`terraform.tfvars`)
 
-The `setup.sh` script automates the creation of a GCS bucket for storing Terraform state and initializes the backend configuration.
-```bash
-./setup.sh
+The table below documents variables configured in `terraform.tfvars.template`.
+
+| Variable | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `project_id` | `string` | *(required)* | Target Google Cloud Project ID. |
+| `instance_name` | `string` | *(required)* | Unique namespace prefix for provisioned GCP resources (such as `dev-alice`). Maximum 16 lowercase alphanumeric characters and hyphens. |
+| `region` | `string` | `"us-central1"` | Primary GCP compute and storage region. |
+| `stateful_deletion_protection` | `bool` | `false` in template (`true` in schema) | Prevents accidental deletion of persistent storage layers (Cloud Spanner databases and GCS storage buckets). Set to `true` in production. |
+| `stateless_deletion_protection` | `bool` | `false` | Controls deletion protection on Cloud Run services, Cloud Run jobs, and Cloud Workflows. Keep `false` for rapid development updates. |
+| `auth_google_datacommons_api_key` | `string` | *(required)* | Data Commons API Key from [apikeys.datacommons.org](https://apikeys.datacommons.org). Required for base knowledge graph federation. |
+| `storage_create_artifacts_bucket` | `bool` | `true` | When `true`, provisions a dedicated GCS bucket: `<instance_name>-dc-artifacts-<project_id>`. Set to `false` when reusing an existing bucket. |
+| `storage_artifacts_bucket_name` | `string` | `null` | Name of existing GCS bucket if `storage_create_artifacts_bucket = false`. |
+| `enable_redis` | `bool` | `false` | When `true`, provisions a Google Cloud MemoryStore Redis instance and Serverless VPC Access connector for low-latency query caching. |
+| `spanner_create_instance` | `bool` | `true` | When `true`, provisions a dedicated Spanner instance. Set to `false` to reuse an existing instance (such as shared `dcp-testing`). |
+| `spanner_instance_id` | `string` | `""` | Target Spanner instance ID when `spanner_create_instance = false`. |
+| `spanner_create_database` | `bool` | `true` | Provisions `<instance_name>-dc-db` inside the Spanner instance. |
+| `spanner_create_bigquery_reservation` | `bool` | `true` | Provisions a dedicated BigQuery slot commitment for Spanner federated queries. **Constraint**: GCP limits projects to one reservation per region. Set to `false` in shared development projects. |
+| `datacommons_services_allow_unauthenticated_access` | `bool` | `false` | When `false`, Cloud Run requires IAM credentials. When `true`, exposes public HTTPS traffic. |
+| `ingestion_input_path` | `string` | `"ingestion/input"` | Root directory inside the artifacts bucket where raw dataset folders are staged. |
+
+---
+
+## Deployment Outputs
+
+Run `terraform output` to retrieve provisioned infrastructure attributes.
+
+| Output Name | Description |
+| :--- | :--- |
+| `project_id` | The GCP project ID hosting the deployment. |
+| `region` | The GCP region where resources are deployed. |
+| `spanner_instance_id` | Active Cloud Spanner instance ID. |
+| `spanner_database_id` | Provisioned Cloud Spanner database ID (`<instance_name>-dc-db`). |
+| `storage_artifacts_bucket_name` | Name of the provisioned or referenced GCS artifacts bucket. |
+| `ingestion_input_path` | GCS prefix where dataset input folders are uploaded. |
+| `datacommons_service_name` | Name of the `datacommons-services` Cloud Run service. |
+| `datacommons_service_url` | HTTPS endpoint of the serving service. |
+| `datacommons_service_service_account_email` | Service account identity used by the serving container. |
+| `ingestion_workflow_name` | Name of the Google Cloud Workflows orchestrator. |
+| `ingestion_workflow_id` | Resource ID of the Cloud Workflows orchestrator. |
+| `ingestion_workflow_service_account_email` | Service account identity used by the ingestion workflow. |
+| `ingestion_service_url` | HTTPS endpoint of the `datacommons-ingestion-helper` Cloud Run service. |
+| `ingestion_prep_job_name` | Name of the `datacommons-data` preprocessing Cloud Run job. |
+
+---
+
+## Module Hierarchy
+
+Infrastructure composition is orchestrated by `modules/stack/main.tf`, which connects the following modular components:
+
 ```
-This script will also enable necessary Google Cloud APIs for your project.
-
-## Configuration Guide (`terraform.tfvars`)
-
-You can control the deployment by setting values in `terraform.tfvars`. Here are the key configurations:
-
-### Stack Toggles
-*   `enable_datacommons_service` (bool): Set to `true` to deploy the main Data Commons service. Defaults to `true`.
-*   `enable_platform_service` (bool): Set to `true` to deploy the platform service. Defaults to `true`.
-
-### Data Ingestion Config
-*   `deploy_ingestion_workflow` (bool): Set to `true` to deploy the Cloud Workflows orchestrator and ingestion runner service account.
-*   `ingestion_service_image` (string): Docker image URL for the ingestion support service.
-*   `ingestion_prep_job_image` (string): Docker image URL for the data ingestion pre-processing job.
-*   `ingestion_prep_bucket_input_folder` (string): GCS data bucket input folder for pre-processing. Defaults to `input`.
-*   `create_ingestion_bucket` (bool): Controls whether Terraform automatically provisions a dedicated staging GCS bucket for uploading graph dataset (.mcf) files. Defaults to `true`.
-*   `ingestion_bucket_name` (string): The name of the ingestion bucket (used for creation if `create_ingestion_bucket` is true, or as the existing bucket name if false).
-
-### Access Control
-*   `allow_unauthenticated_access` (bool): Controls whether Cloud Run services are publicly accessible (unauthenticated). Defaults to `false` for security.
-
-## Deployment
-
-Once configured, execute standard Terraform commands to provision resources:
-
-1.  **Initialize**:
-    ```bash
-    terraform init
-    ```
-2.  **Plan**:
-    ```bash
-    terraform plan
-    ```
-3.  **Apply**:
-    ```bash
-    terraform apply
-    ```
-
-## Outputs
-
-Upon successful apply, Terraform displays key endpoints and resource names:
-*   `platform_service_url`: Cloud Run service URL for the platform service.
-*   `datacommons_service_url`: Cloud Run service URL for the Data Commons service.
-*   `datacommons_service_service_account_email`: Email of the service account used by the Data Commons serving service.
-*   `ingestion_workflow_name`: Name of the Cloud Workflows ingestion orchestrator.
-*   `ingestion_service_uri`: URI of the ingestion support Cloud Run service.
-*   `ingestion_prep_job_name`: Name of the data ingestion pre-processing job.
-*   `spanner_instance_id`: ID of the provisioned or referenced Cloud Spanner instance.
-*   `spanner_database_id`: ID of the provisioned Cloud Spanner database.
-
-## Running Data Ingestion Workflow
-
-After successful deployment with `deploy_ingestion_workflow = true`, you can run the automated ingestion pipeline.
-
-### Step 1: Upload your Schema file
-Upload your custom graph nodes file (`.mcf`) to the provisioned ingestion bucket. By default, the bucket name format is: `<instance_name>-ingestion-bucket-<project_id>`.
-
-```bash
-gcloud storage cp path/to/your/sample.mcf gs://<instance_name>-ingestion-bucket-<project_id>/imports/sample.mcf
-```
-
-### Step 2: Trigger the Workflow Orchestrator
-Trigger the Cloud Workflow to start the Dataflow job that will read the file and insert it into Spanner.
-
-```bash
-gcloud workflows run <instance_name>-ingestion-orchestrator \
-  --project=<project_id> \
-  --location=<region> \
-  --data='{
-    "templateLocation": "gs://datcom-templates/templates/flex/ingestion.json",
-    "region": "<region>",
-    "spannerInstanceId": "<spanner-instance-id>",
-    "spannerDatabaseId": "<spanner-database-id>",
-    "importList": "[{\"importName\": \"SampleTestCase\", \"graphPath\": \"gs://<instance_name>-ingestion-bucket-<project_id>/imports/sample.mcf\"}]",
-    "tempLocation": "gs://<instance_name>-ingestion-bucket-<project_id>/temp"
-  }'
+infra/dcp/
+├── main.tf                  # Root entrypoint aggregating variables into typed config objects
+├── variables.tf             # Schema declarations for all root inputs
+├── outputs.tf               # Exported deployment attributes
+├── terraform.tfvars.template# Template populated by the CLI or local operator
+│
+└── modules/
+    ├── stack/               # Central wiring hub (IAM, shared env vars, cross-module links)
+    ├── auth/                # Secret Manager keys for Data Commons and Maps APIs
+    ├── spanner/             # Cloud Spanner instance, databases, and BigQuery connections
+    ├── storage/             # GCS artifacts bucket
+    ├── redis/               # MemoryStore Redis and VPC Access connector
+    ├── datacommons_services/# Cloud Run serving container (Envoy + Mixer + Website)
+    │
+    └── ingestion/           # Ingestion pipeline submodules
+        ├── preprocessing_job# Cloud Run job executing datacommons-data (dcpbridge mode)
+        ├── dataflow/        # Service accounts and IAM for Apache Beam Java Dataflow
+        ├── postprocessing_job # Cloud Run job executing aggregation queries
+        ├── helper_service/  # FastAPI Cloud Run service managing locks and embeddings
+        └── workflow/        # Google Cloud Workflows orchestration definition
 ```
 
-**Key Data Parameters:**
-*   `spannerInstanceId`: The ID of your Spanner instance.
-*   `spannerDatabaseId`: The ID of your Spanner database.
-*   `importList`: A JSON string mapping the import logical name to the GCS path of the MCF file.
+---
 
-### Step 3: (Alternative) Trigger via CLI
+## Next Steps
 
-If you are using the `datacommons` CLI, you can trigger the ingestion job more easily without constructing the JSON payload:
-
-```bash
-uv run datacommons admin ingest start --imports <import1>[,<import2>]
-```
-
-This will use the `import_name` to find the corresponding configuration in your bucket and trigger the workflow.
-
-### Modular Structure
-Stack composition is delegated to `modules/stack`, which manages smaller, dedicated sub-modules for various components of the Data Commons Platform.
-
-### Module Overview
-*   **`stack`**: Orchestrates sub-modules ([modules/stack](modules/stack/main.tf)).
-*   **`ingestion_prep_job`**: Ingestion Cloud Run v2 Job for pre-processing.
-*   **`iam`**: IAM and Secret Manager config.
-*   **`networking`**: VPC and serverless access connectors.
-*   **`redis`**: Memorystore Redis instance.
-*   **`datacommons_service`**: Main Data Commons Cloud Run v2 web service.
-*   **`ingestion_dataflow`**: Dataflow runner service account and IAM ([modules/ingestion_dataflow](modules/ingestion_dataflow/main.tf)).
-*   **`ingestion_service`**: Helper Cloud Run service for ingestion ([modules/ingestion_service](modules/ingestion_service/main.tf)).
-*   **`ingestion_workflow`**: Cloud Workflows for orchestration.
-*   **`platform_service`**: Platform service Cloud Run service.
-*   **`storage`**: GCS buckets ([modules/storage](modules/storage/main.tf)).
-*   **`spanner`**: Shared Cloud Spanner instance and databases.
-
-### Orchestrator Pattern
-The ingestion pipeline uses Google Cloud Workflows as an orchestrator. It receives the ingestion parameters, names the Dataflow job with a timestamp, launches the Dataflow Flex Template, and returns the job status. This prevents direct interaction with complex Dataflow APIs for standard ingestion tasks.
-
-### Troubleshooting: Deletion Protection
-If you encounter errors destroying resources (like Spanner databases or GCS buckets), ensure you have set `deletion_protection = false` in your variables if you intended to destroy them. By default, deletion protection is enabled to prevent accidental data loss.
+* **Interactive Onboarding**: Follow [Developer Onboarding Codelab](../../docs/codelabs/dcp_developer_onboarding.md) to deploy, seed, ingest, and tear down an instance.
+* **CLI Tooling**: Review [Admin CLI Architecture](../../docs/architecture/admin_cli.md) to understand how the CLI reads Terraform outputs and orchestrates jobs.
+* **Database Migrations**: Refer to [Schema Migrations Developer Guide](../../docs/schema_migrations_developer_guide.md) for Spanner schema versioning procedures.

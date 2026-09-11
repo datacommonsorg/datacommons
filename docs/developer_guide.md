@@ -47,11 +47,14 @@ datcom-datacommons/
 
 | Package Path | Package Name | Responsibility |
 | :--- | :--- | :--- |
-| `packages/datacommons-cli` | `datacommons-cli` | Thin distribution wrapper that exposes the `datacommons` console script and routes subcommands. |
-| `packages/datacommons-admin` | `datacommons-admin` | Core administrative logic: template downloading for `admin init`, Spanner migration triggers for `admin init-db`, and Cloud Workflows API integration for `admin ingest start`. |
-| `packages/datacommons-db` | `datacommons-db` | Database layer containing SQLAlchemy models, the `DCGraph` Spanner client, and versioned migration DDL scripts in `migration_scripts/`. |
-| `packages/datacommons-schema` | `datacommons-schema` | Graph schema data models and format converters between MCF and compact JSON-LD. |
-| `packages/datacommons-api` | `datacommons-api` | Internal API endpoints and service interfaces. |
+| `packages/datacommons-cli` | `datacommons-cli` | Thin distribution wrapper that exposes the `datacommons` console script and routes subcommands. Published to PyPI. |
+| `packages/datacommons-admin` | `datacommons-admin` | Core administrative logic: template downloading for `admin init`, Spanner migration triggers for `admin init-db`, and Cloud Workflows API integration for `admin ingest start`. Published to PyPI. |
+| `packages/datacommons-db` | `datacommons-db` | Database layer containing SQLAlchemy models, the `DCGraph` Spanner client, and versioned migration DDL scripts in `migration_scripts/`. Published to PyPI. |
+| `packages/datacommons-schema` | `datacommons-schema` | Graph schema data models and format converters between MCF and compact JSON-LD *(unpublished prototype)*. |
+| `packages/datacommons-api` | `datacommons-api` | Internal API endpoints and service interfaces *(unpublished prototype)*. |
+
+> [!NOTE]
+> **Unpublished Prototype Packages**: `packages/datacommons-schema` and `packages/datacommons-api` are not published to PyPI. They represent initial architecture explorations that the team pivoted away from, preserved in the workspace for potential future reuse. Only `datacommons-cli`, `datacommons-admin`, and `datacommons-db` are actively built, versioned, and published.
 
 ### How `uv Workspace` Works
 The repository root defines a unified workspace in `pyproject.toml`:
@@ -119,10 +122,20 @@ When modifying Terraform configurations in `infra/dcp/`:
      source = "./modules/stack"
    ```
    The `datacommons admin init` CLI command uses regular expression matching on `source = "./modules/stack"` to rewrite the module source to the remote GitHub release URL for downstream users. Modifying this line breaks CLI scaffolding.
-3. **Local Testing**: Test Terraform changes by copying `infra/dcp/terraform.tfvars.template` to `infra/dcp/terraform.tfvars` and running:
+3. **Local Validation and Testing**: Validate and test Terraform changes by copying `infra/dcp/terraform.tfvars.template` to `infra/dcp/terraform.tfvars` and running:
    ```bash
    cd infra/dcp
+
+   # Check file formatting
+   terraform fmt -check
+
+   # Initialize providers and modules
    terraform init
+
+   # Validate configuration syntax and internal consistency
+   terraform validate
+
+   # Generate execution plan against your project
    terraform plan
    ```
 
@@ -130,7 +143,10 @@ When modifying Terraform configurations in `infra/dcp/`:
 
 ## 3. Testing Strategy and Execution
 
-DCP utilizes a two-tier testing strategy: fast in-memory unit tests and hermetic integration tests.
+DCP enforces a two-tier testing hierarchy with clear division of responsibilities:
+
+* **Unit Tests (Mandatory for all contributions)**: Fast, lightweight, in-memory tests running via `pytest`. All external network services, cloud APIs (Cloud Spanner, Cloud Workflows, Cloud Storage), and shell calls are mocked. Unit tests execute in seconds, run automatically in pre-submit CI, and are required for every bug fix, feature, and CLI subcommand.
+* **Hermetic Integration Tests (End-to-End Validation)**: Local multi-service testing using Docker Compose to emulate Cloud Spanner, Cloud Storage, and serving containers. Integration tests validate end-to-end data ingestion, schema migrations, and live query resolution without incurring GCP cloud costs. They are heavier and slower than unit tests, primarily run before cutting releases or verifying cross-cutting data pipelines.
 
 ### 1. Unit Tests
 Run unit tests across all monorepo packages using `pytest`:

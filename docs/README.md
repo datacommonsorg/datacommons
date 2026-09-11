@@ -12,9 +12,9 @@ To keep technical knowledge clear, maintainable, and discoverable, documentation
 All conceptual systems design, data flow diagrams, architectural invariants, and hands-on tutorials live under `docs/`. This keeps the repository root clean and ensures that anyone looking to understand *how the platform works* knows exactly where to look.
 
 ### B. Actionable, Command-Focused Local `README.md` Files
-Subsystem and module directories (such as [infra/dcp/README.md](../infra/dcp/README.md) and [packages/datacommons-cli/README.md](../packages/datacommons-cli/README.md)) contain localized, operational READMEs. 
+Subsystem and module directories (such as [infra/dcp/README.md](../infra/dcp/README.md), [deploy/README.md](../deploy/README.md), and [packages/datacommons-cli/README.md](../packages/datacommons-cli/README.md)) contain localized, operational READMEs. 
 * Local READMEs must focus on practical execution: quickstart commands, active configuration variables, input and output references, and local testing instructions.
-* Local READMEs should avoid multi-page theoretical essays. Instead, they should link directly to the corresponding technical specifications in `docs/architecture/`.
+* Local READMEs should avoid multi-page theoretical essays. Instead, they should link directly to the corresponding technical specifications in `docs/architecture/` or `docs/`.
 
 ### C. Strict Persona Separation
 Documentation in this repository serves two distinct audiences:
@@ -38,6 +38,7 @@ Documentation in this repository serves two distinct audiences:
 | **Architecture** | [architecture/admin_cli.md](architecture/admin_cli.md) | CLI & Tooling Contributors | Deep dive into the `datacommons admin` CLI architecture, local state vs remote GCS state modes, the CLI source regex contract, and state-driven operation choreography. |
 | **Database Schemas** | [schema_migrations_developer_guide.md](schema_migrations_developer_guide.md) | Database Contributors | Guide for writing, testing, and applying Cloud Spanner schema migrations and DDL scripts. |
 | **Release Management** | [release.md](release.md) | Release Managers | Official 3-stage release candidate workflow (TestPyPI staging, GitHub main bump PR, lockstep PyPI publishing). |
+| **Release Cheatsheet** | [../deploy/README.md](../deploy/README.md) | Release Managers & CI/CD | Operational cheatsheet for Cloud Build pipelines (`staging.yaml`, `bump_version.yaml`, `release.yaml`) and release scripts. |
 | **Infrastructure Reference** | [../infra/dcp/README.md](../infra/dcp/README.md) | Operators & Contributors | Operational cheatsheet for `infra/dcp/`: execution commands, active variable references matching `terraform.tfvars.template`, and outputs. |
 | **CLI Reference** | [../packages/datacommons-cli/README.md](../packages/datacommons-cli/README.md) | CLI Users & CI/CD | Full command reference (`init`, `init-db`, `migrate-db`, `seed-db`, `ingest start`), flag definitions, and execution cheatsheets. |
 
