@@ -67,11 +67,20 @@ uv run datacommons admin --project-id my-gcp-project --instance-name prod init-d
 uv run datacommons admin --project-id my-gcp-project --instance-name prod ingest start --imports <import_name>
 ```
 
-## Documentation & Guides
+## User Documentation (DCP Admins and Operators)
+
+If you are an administrator, data steward, or operator looking to install, configure, and manage a Data Commons instance:
+
+* **[Data Commons Platform User Guide](docs/user_guide.md)**: Master operational manual covering platform deployment, schema modeling, data ingestion, and instance administration.
+
+---
+
+## Developer Documentation (Platform Contributors)
+
+If you are an engineer contributing to the codebase, creating new services, or tuning platform internals:
 
 | Guide | Target Audience | Purpose |
 | :--- | :--- | :--- |
-| **[Data Commons Platform User Guide](docs/user_guide.md)** | DCP Admins & Operators | Comprehensive operational manual for deploying instances, preparing datasets, and managing platform operations. |
 | **[Developer Onboarding Codelab](docs/codelabs/dcp_developer_onboarding.md)** | New Developers | Hands-on zero-to-hero onboarding tutorial deploying and testing an instance on GCP. |
 | **[Developer Guide](docs/developer_guide.md)** | Monorepo Developers | Monorepo package layout, `uv workspace` linking, local development recipes, and testing strategy. |
 | **[Platform Architecture](docs/architecture/platform_architecture.md)** | All Contributors | 4-repository architecture, container roles, and complete serving and ingestion data flows. |
