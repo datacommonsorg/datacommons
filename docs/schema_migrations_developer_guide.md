@@ -1,6 +1,5 @@
 # Data Commons Schema Migrations Developer Guide
 
-This guide details how developers create, update, and manage Cloud Spanner database schema migrations for the Data Commons Platform using the `dcp-tools migrations` devOps CLI tool.
 This guide details how developers create, update, and manage Cloud Spanner database schema migrations for the Data Commons Platform using the `datacommons-devtools migrations` devOps CLI tool (short alias: `dc-devtools migrations`).
 
 ---
