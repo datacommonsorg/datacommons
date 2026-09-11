@@ -74,6 +74,7 @@ uv run datacommons admin --project-id my-gcp-project --instance-name prod ingest
 If you are an instance owner, data steward, or administrator looking to install, configure, and manage a Data Commons instance:
 
 * **[Data Commons Platform User Guide](docs/user_guide.md)**: Master operational manual covering platform deployment, schema modeling, data ingestion, and instance administration.
+* **[CLI Reference & Cheatsheet](packages/datacommons-cli/README.md)**: Full command reference and operational CLI cheatsheet for instance management, database migrations, and data ingestions.
 
 ### Developer Documentation (Platform Contributors)
 
@@ -89,5 +90,4 @@ If you are an engineer contributing to the codebase, creating new services, or t
 | **[Contributing Guide](CONTRIBUTING.md)** | Pull Request Authors | Code quality standards, formatting, linting, and unit test requirements. |
 | **[Platform Release Guide](docs/release.md)** | Release Managers | Official 3-stage release candidate workflow and PyPI lockstep publishing procedures. |
 | **[Documentation Standards](docs/README.md)** | All Readers | Platform documentation architecture and writing standards. |
-| **[CLI Reference & Cheatsheet](packages/datacommons-cli/README.md)** | CLI Users & CI/CD | Full command reference and operational CLI cheatsheet. |
 | **[Infrastructure Cheatsheet](infra/dcp/README.md)** | Operators & Contributors | Operational cheatsheet for `infra/dcp/`: commands, inputs, and outputs. |
