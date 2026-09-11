@@ -4,7 +4,7 @@
 
 The Data Commons Platform (DCP) enables organizations to deploy, manage, and serve private statistical knowledge graphs alongside the public Google Data Commons graph. DCP pairs a scalable batch ingestion pipeline with a low-latency serving layer deployed on Google Cloud Platform (GCP).
 
-This document outlines the system topology across the four core repositories, maps container artifacts to GCP compute targets, and traces the complete end-to-end data flows for ingestion and serving.
+This document outlines the system topology across the four core repositories, maps container artifacts to GCP compute targets, and traces end-to-end data flows for ingestion and serving.
 
 ---
 
@@ -33,29 +33,29 @@ The Data Commons codebase spans four core GitHub repositories under the `datacom
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 1. `datacommons` (`datacommonsorg/datacommons`)
+### 1. [datacommonsorg/datacommons](../../)
 The platform hub and orchestration repository.
-* **`infra/dcp/`**: Declarative Terraform configurations and reusable modules for Cloud Spanner, Cloud Run, Google Cloud Storage (GCS), Cloud Workflows, Secret Manager, and VPC networking.
-* **`packages/datacommons-cli/`**: Lightweight entrypoint wrapper for the `datacommons` CLI distribution.
-* **`packages/datacommons-admin/`**: Python administration package implementing deployment scaffolding, Spanner database schema migrations, and ingestion trigger commands.
-* **`packages/datacommons-db/`**: Database access layer containing SQLAlchemy models, Cloud Spanner clients, and versioned schema migration DDL scripts.
-* **`tests/integration/`**: Hermetic integration test suite utilizing Docker Compose to emulate Spanner, Cloud Storage, and serving containers.
+* **[infra/dcp/](../../infra/dcp)**: Declarative Terraform configurations and reusable modules for Cloud Spanner, Cloud Run, Google Cloud Storage (GCS), Cloud Workflows, Secret Manager, and VPC networking.
+* **[packages/datacommons-cli/](../../packages/datacommons-cli)**: Lightweight entrypoint wrapper for the `datacommons` CLI distribution.
+* **[packages/datacommons-admin/](../../packages/datacommons-admin)**: Python administration package implementing deployment scaffolding, Spanner database schema migrations, and ingestion trigger commands.
+* **[packages/datacommons-db/](../../packages/datacommons-db)**: Database access layer containing SQLAlchemy models, Cloud Spanner clients, and versioned schema migration DDL scripts.
+* **[tests/integration/](../../tests/integration)**: Hermetic integration test suite using Docker Compose to emulate Spanner, Cloud Storage, and serving containers.
 
-### 2. `mixer` (`datacommonsorg/mixer`)
+### 2. [datacommonsorg/mixer](https://github.com/datacommonsorg/mixer)
 The high-performance data serving backend written in Go.
 * **`proto/`**: Protocol Buffer definitions (`v1/`, `v2/`, `v3/`) specifying gRPC and REST APIs for observation queries, entity resolution, and node navigation.
 * **`internal/server/dispatcher/`**: Middleware layer managing request routing, caching, entity expansion, and formula evaluation.
 * **`internal/server/datasources/`**: Query facade executing concurrent scatter-gather queries across local Cloud Spanner databases, Redis caches, and remote base Data Commons endpoints.
 * **`internal/server/spanner/`**: Spanner SQL and Graph Query Language (GQL) generators implementing read staleness guarantees tied to ingestion timestamps.
 
-### 3. `website` (`datacommonsorg/website`)
+### 3. [datacommonsorg/website](https://github.com/datacommonsorg/website)
 The web application and serving entrypoint.
 * **`server/`**: Python Flask controllers routing web requests, managing natural language explore endpoints (`/api/explore/detect-and-fulfill`), and proxying API traffic.
 * **`static/`**: React and TypeScript browser interface containing data visualizers, map renderers, and statistical charting components.
 * **`build/cdc_services/`**: Container packaging files (`Dockerfile`, `run.sh`, `nginx.conf`) combining Envoy, Mixer, and Website into a unified serving artifact (`datacommons-services`).
 * **`build/cdc_data/`**: Container build files packaging the data preprocessor into `datacommons-data`.
 
-### 4. `import` (`datacommonsorg/import`)
+### 4. [datacommonsorg/import](https://github.com/datacommonsorg/import)
 The data transformation and batch ingestion engine.
 * **`simple/`**: Python data preprocessor (`import/simple`), packaged into `datacommons-data` and executed with `--mode=dcpbridge`.
 * **`pipeline/ingestion/`**: Apache Beam Java Dataflow pipeline (`GraphIngestionPipeline`) that validates graph entities, computes FarmHash facet IDs, and commits mutations to Cloud Spanner.
@@ -98,7 +98,7 @@ Batch ingestion loads raw data from GCS into Cloud Spanner. Google Cloud Workflo
                                     ▼
 ┌───────────────────────────────────────────────────────────────────────┐
 │ Stage 2: Ingestion Lock (Cloud Run Service: ingestion-helper)        │
-│ - Acquires exclusive Spanner ingestion lock (POST /database/lock)     │
+│ - Acquires exclusive Spanner ingestion lock (POST /database/lock/acquire)│
 │ - Sets IngestionHistory status to PENDING                             │
 └───────────────────────────────────┬───────────────────────────────────┘
                                     │
@@ -131,44 +131,23 @@ Batch ingestion loads raw data from GCS into Cloud Spanner. Google Cloud Workflo
 └───────────────────────────────────────────────────────────────────────┘
 ```
 
-### Stage 1: Preprocessing
-* Cloud Workflows launches the `datacommons-data` Cloud Run job.
-* The preprocessor executes `stats.main --mode=dcpbridge` against raw input files in `gs://<storage_bucket>/<ingestion_input_path>/<dataset>/`.
-* The preprocessor validates column headers against `config.json` mappings and provenance MCF declarations.
-* The job outputs partitioned JSON-LD shards to a temporary staging bucket and writes a handshake file (`tempLocation/datacommons/ingestion_records/<workflow_id>.json`).
-* The handshake file identifies generated import names, provenance IDs, and flags whether stat var groups require regeneration.
+### Ingestion Stage Details and Failure Handling
 
-### Stage 2: Ingestion Locking
-* Cloud Workflows reads the handshake JSON file from GCS.
-* The workflow calls `POST /database/lock/acquire` on `datacommons-ingestion-helper`.
-* If another ingestion holds the lock, the workflow backs off and polls for up to the configured lock acquisition timeout.
-* Once the lock is acquired, the helper creates an entry in the `IngestionHistory` table with status `PENDING`.
+The pipeline execution sequence is declared in [workflow.yaml](../../infra/dcp/modules/ingestion/workflow/workflow.yaml):
 
-### Stage 3: Dataflow Graph Ingestion
-* Cloud Workflows launches the Apache Beam Flex Template on Cloud Dataflow (`GraphIngestionPipeline`).
-* Dataflow executes partitioned DML deletes to remove outdated graph records for the specific import names being replaced.
-* Dataflow reads the staged JSON-LD shards, collapses duplicate schema nodes, computes 64-bit FarmHash facet identifiers, and generates `entity1` search columns.
-* Dataflow streams batched mutations into Cloud Spanner tables: `Node`, `Edge`, `Observation`, and `TimeSeries`.
-* Cloud Workflows polls Dataflow until the job transitions to `JOB_STATE_DONE`.
+1. **Preprocessing** ([workflow.yaml](../../infra/dcp/modules/ingestion/workflow/workflow.yaml)): Cloud Workflows launches Cloud Run job `datacommons-data`, executing `stats.main --mode=dcpbridge` against `gs://<storage_bucket>/<ingestion_input_path>/<dataset>/`. The job validates CSV headers against `config.json`, outputs partitioned JSON-LD shards, and writes a handshake file (`tempLocation/datacommons/ingestion_records/<workflow_id>.json`).
+2. **Locking** ([workflow.yaml](../../infra/dcp/modules/ingestion/workflow/workflow.yaml)): The workflow calls `POST /database/lock/acquire` on `datacommons-ingestion-helper` (retrying on HTTP 503 up to a configurable timeout) and records an `IngestionHistory` entry with status `PENDING`.
+3. **Dataflow Ingestion** ([workflow.yaml](../../infra/dcp/modules/ingestion/workflow/workflow.yaml)): Launches the Apache Beam Java pipeline (`GraphIngestionPipeline`) on Dataflow. Dataflow deletes outdated records for replaced imports, computes 64-bit FarmHash facet identifiers, generates search columns, and streams batched mutations into Spanner tables (`Node`, `Edge`, `Observation`, `TimeSeries`).
+4. **Parallel Postprocessing & Embeddings** ([workflow.yaml](../../infra/dcp/modules/ingestion/workflow/workflow.yaml)): Executes concurrently:
+   * **Aggregation Helper**: Cloud Run job querying Spanner via BigQuery external connections to materialize `STAT_VAR_GROUPS`, `LINKED_EDGES`, and `ProvenanceSummary`.
+   * **Vertex AI Embeddings**: `POST /embeddings/ingest` on `ingestion-helper` computes vector representations for new statistical variables and entities, writing them to Spanner for natural language search.
+5. **Finalization and Cache Busting** ([workflow.yaml](../../infra/dcp/modules/ingestion/workflow/workflow.yaml)): Updates `IngestionHistory` to `SUCCESS`, releases the Spanner lock (`POST /database/lock/release`), flushes Redis (`POST /cache/clear`), and (if `skip_container_restarts = false`) patches `datacommons-services` with an updated timestamp label to trigger rolling container updates.
 
-### Stage 4: Parallel Postprocessing and Embeddings
-Once Dataflow completes, Cloud Workflows executes two operations in parallel:
-1. **Aggregation Helper (`datacommons-aggregation-helper`)**:
-   * Launches a Cloud Run job that queries Spanner data via BigQuery external data connections.
-   * Materializes statistical variable hierarchies into `STAT_VAR_GROUPS`.
-   * Maps graph connections into `LINKED_EDGES`.
-   * Builds dataset provenance records into `ProvenanceSummary`.
-2. **Text Embeddings Generation (`datacommons-ingestion-helper`)**:
-   * Calls `POST /embeddings/ingest`.
-   * Identifies newly added statistical variables and entities.
-   * Calls Google Cloud Vertex AI text embedding models to generate vector representations.
-   * Writes the resulting embeddings into Spanner to enable natural language entity resolution.
-
-### Stage 5: Finalization and Cache Busting
-* Cloud Workflows updates `IngestionHistory` to `SUCCESS` and records the completion timestamp.
-* The workflow calls `POST /database/lock/release` on the ingestion helper.
-* If Redis is enabled, the workflow calls `POST /cache/clear` to flush stale cached queries.
-* If automatic service restarts are enabled, the workflow patches the `datacommons-services` Cloud Run service with a new label (`restarted-at: <timestamp>`). This forces a rolling container deployment, ensuring newly launched serving containers mount the fresh graph metadata immediately.
+#### Failure Handling and Lock Release Guarantee
+If Dataflow or postprocessing throws an unhandled exception:
+* Cloud Workflows intercepts the error in its global `try/retry/except` block ([workflow.yaml](../../infra/dcp/modules/ingestion/workflow/workflow.yaml)).
+* It logs the failure status (`FAILURE` or `RETRY`) into `IngestionHistory`.
+* The workflow **always executes `release_lock_step`** (`POST /database/lock/release`) before exiting, ensuring the Spanner lock is never orphaned and subsequent ingestion runs are not blocked.
 
 ---
 
@@ -229,6 +208,7 @@ The serving stack handles incoming data queries from web browsers, REST API clie
 * Instead, Mixer queries `IngestionHistory` to retrieve the completion timestamp of the latest successful ingestion run.
 * Mixer executes all Spanner queries using exact timestamp-bound reads pinned to that completion timestamp.
 * This read-staleness model guarantees that active user queries never observe partial, uncommitted, or corrupt data while an ingestion pipeline is mutating tables.
+* **Fresh Deployment Fallback**: On newly provisioned instances with an empty `IngestionHistory` table, Mixer defaults to bounded staleness (15 seconds) against head until the first ingestion successfully commits.
 
 ### 4. Response Composition
 * Mixer merges data points from the private Spanner graph with responses from base Data Commons.

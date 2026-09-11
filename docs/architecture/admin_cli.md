@@ -6,39 +6,20 @@ The Data Commons Platform (DCP) provides the `datacommons admin` CLI tool to aut
 
 The CLI acts as an operational bridge between human operators, declarative Terraform state, and Google Cloud APIs.
 
-This document details the CLI packaging architecture, the Terraform scaffolding pipeline, state inspection modes (local state vs remote Cloud Storage state), and the choreography of administrative operations.
+This document details the CLI packaging architecture, the Terraform scaffolding pipeline, state inspection modes (local state vs remote Cloud Storage state), and administrative operational execution flows.
 
 ---
 
 ## 1. Package Structure and Command Taxonomy
 
-The CLI tooling is organized into two Python packages under `packages/` in the `datacommonsorg/datacommons` repository:
-
-```
-packages/
-├── datacommons-cli/                  # Distribution package
-│   ├── pyproject.toml                # Declares console script: datacommons
-│   └── datacommons_cli/
-│       └── cli.py                    # Entrypoint router delegating to admin
-│
-└── datacommons-admin/                # Core business logic package
-    ├── pyproject.toml                # Dependencies: google-cloud-storage, click, etc.
-    ├── datacommons_admin/
-    │   ├── admin_cli.py              # Root click group: datacommons admin
-    │   ├── init/                     # Scaffolding logic (admin init)
-    │   │   ├── init_cli.py
-    │   │   └── utils/scaffold_utils.py
-    │   ├── db/                       # Database lifecycle (init-db, migrate-db, seed-db)
-    │   │   ├── db_cli.py
-    │   │   └── utils/migration_utils.py
-    │   ├── ingest/                   # Ingestion operations (ingest start, show-config)
-    │   │   └── ingest_cli.py
-    │   └── core/                     # Shared utilities and API clients
-    │       ├── clients/              # IngestionHelperClient, IngestionJobClient
-    │       └── utils/tf_utils.py     # Terraform state parser and output extractor
-    └── tests/
-        └── core/test_tf_contract.py  # Strict contract tests between CLI and Terraform
-```
+The CLI tooling is structured across two packages in the repository:
+* **[packages/datacommons-cli/](../../packages/datacommons-cli)**: Thin distribution package exposing the `datacommons` console script entrypoint.
+* **[packages/datacommons-admin/](../../packages/datacommons-admin)**: Core administration package containing Click command groups and cloud integrations:
+  * `init/`: Deployment scaffolding and template rewrite logic ([init_cli.py](../../packages/datacommons-admin/datacommons_admin/init/init_cli.py), [scaffold_utils.py](../../packages/datacommons-admin/datacommons_admin/init/utils/scaffold_utils.py)).
+  * `db/`: Database initialization and schema migration runner ([db_cli.py](../../packages/datacommons-admin/datacommons_admin/db/db_cli.py)).
+  * `ingest/`: Workflows launch client and runtime configuration inspector ([ingest_cli.py](../../packages/datacommons-admin/datacommons_admin/ingest/ingest_cli.py)).
+  * `core/utils/tf_utils.py`: Local and remote GCS Terraform state parser ([tf_utils.py](../../packages/datacommons-admin/datacommons_admin/core/utils/tf_utils.py)).
+  * `tests/core/test_tf_contract.py`: Automated contract parity tests ([test_tf_contract.py](../../packages/datacommons-admin/tests/core/test_tf_contract.py)).
 
 ### CLI Command Taxonomy
 * **`datacommons admin init`**: Scaffolds a new deployment directory by fetching Terraform templates, modifying module sources, and configuring instance variables.
@@ -88,23 +69,12 @@ When an operator runs `datacommons admin init`, the CLI generates a ready-to-dep
 ```
 
 ### The Source Regex Substitution Contract
-The file `packages/datacommons-admin/datacommons_admin/init/utils/scaffold_utils.py` uses regular expression matching to convert local module paths into remote Git references:
-
-```python
-resolved_source = f"git::{GITHUB_REPO_URL}//infra/dcp/modules/stack?ref={ref}"
-main_content = re.sub(
-    r'source\s*=\s*["\']\./modules/stack["\']',
-    f'source = "{resolved_source}"',
-    main_content,
-)
+During scaffolding, `_setup_dcp_config_dir()` in [scaffold_utils.py](../../packages/datacommons-admin/datacommons_admin/init/utils/scaffold_utils.py#L176-L182) rewrites the stack module source from a local relative path into a remote Git release URL:
+```
+source = "./modules/stack"  ==>  source = "git::https://github.com/datacommonsorg/datacommons.git//infra/dcp/modules/stack?ref=<tag>"
 ```
 
-**Critical Contract Rule**: Line 166 in `infra/dcp/main.tf` must maintain the exact formatting:
-```hcl
-module "stack" {
-  source = "./modules/stack"
-```
-If this line is modified (such as changing whitespace, breaking lines, or referencing a different relative directory), the regex fails to match. The resulting `main.tf` written to the user's workspace will retain the local relative path `./modules/stack`, causing subsequent `terraform init` commands to fail because the `./modules` directory does not exist in the scaffolded folder.
+**Critical Contract Rule**: The `module "stack"` block in [infra/dcp/main.tf](../../infra/dcp/main.tf) must maintain `source = "./modules/stack"` on a single line. Modifying line breaks or whitespace within this string breaks the regular expression match, causing scaffolded user workspaces to retain the local relative path and fail during subsequent `terraform init` execution.
 
 ---
 
@@ -160,21 +130,24 @@ In automated environments (such as GitHub Actions, Cloud Build, or remote operat
 * The CLI extracts the `outputs` JSON block directly from the remote state document.
 
 ### Contract Enforcement (`test_tf_contract.py`)
-To prevent drift between Terraform exports and CLI expectations, the test suite in `packages/datacommons-admin/tests/core/test_tf_contract.py` enforces three automated checks during CI:
-1. Every field in the `TerraformOutputs` Python dataclass must exist in `infra/dcp/outputs.tf`.
-2. Every `TF_OUTPUT_*` string constant in `tf_utils.py` must match a declared output in `infra/dcp/outputs.tf`.
-3. Every output delegated by `infra/dcp/outputs.tf` to `module.stack` must be declared in `infra/dcp/modules/stack/outputs.tf`.
+To prevent drift between Terraform exports and CLI expectations, the test suite in [test_tf_contract.py](../../packages/datacommons-admin/tests/core/test_tf_contract.py) enforces four automated contract checks during CI:
+1. Every field in the `TerraformOutputs` Python dataclass must exist in [infra/dcp/outputs.tf](../../infra/dcp/outputs.tf).
+2. Every `TF_OUTPUT_*` string constant in `tf_utils.py` must match a declared output in [infra/dcp/outputs.tf](../../infra/dcp/outputs.tf).
+3. Every output delegated by `infra/dcp/outputs.tf` to `module.stack` must be declared in [infra/dcp/modules/stack/outputs.tf](../../infra/dcp/modules/stack/outputs.tf).
+4. Unit test mock fixtures in `conftest.py` must maintain field parity with `TerraformOutputs` (`test_conftest_fixtures_in_sync_with_contract`).
+
+Passing explicit remote flags (`--project-id`, `--instance-name`, `--tf-state-location`) strictly overrides local state detection, ensuring deterministic execution on CI/CD runners regardless of working directory.
 
 ---
 
-## 4. Administrative Operation Choreography
+## 4. Operational Execution Flows
 
 ### 1. Database Initialization Flow (`datacommons admin init-db`)
 1. **Output Discovery**: Reads `ingestion_service_url`, `ingestion_workflow_service_account_email`, `spanner_instance_id`, `spanner_database_id`, and `project_id` from Terraform state.
-2. **Client Authentication**: Instantiates `IngestionHelperClient` configured with OpenID Connect (OIDC) impersonation tokens for the workflow service account.
+2. **Client Authentication**: Instantiates `IngestionHelperClient` configured with OpenID Connect (OIDC) impersonation tokens for the workflow service account. (*Prerequisite: the executing user account must hold `roles/iam.serviceAccountTokenCreator` on the workflow service account.*)
 3. **Database Check**: Calls `is_database_initialized(project_id, instance_id, database_id)`. If tables exist, skips DDL execution.
 4. **Schema Creation**: Sends an authenticated HTTP request to `${ingestion_helper_url}/database/init` to apply base DDL scripts.
-5. **Schema Migrations**: Runs `_run_migrations()`, executing pending SQL scripts in `packages/datacommons-db/migration_scripts/`.
+5. **Schema Migrations**: Runs `_run_migrations()`, executing pending Python migration scripts subclassing `SchemaMigration` from [packages/datacommons-db/datacommons_db/migrations/migration_scripts/](../../packages/datacommons-db/datacommons_db/migrations/migration_scripts).
 6. **Metadata Seeding**: Calls `${ingestion_helper_url}/database/seed` to populate fundamental statistical entities and units.
 
 ### 2. Ingestion Trigger Flow (`datacommons admin ingest start`)

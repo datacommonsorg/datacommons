@@ -39,8 +39,8 @@ DCP supports two distinct deployment workflows: one for external consumers runni
 ### The Consumer Entrypoint (`datacommons admin init`)
 External administrators and deployment operators use the `datacommons admin init` command. The CLI scaffolds a standalone deployment workspace without requiring a full clone of the monorepo:
 1. The CLI fetches `main.tf`, `variables.tf`, `outputs.tf`, and `terraform.tfvars.template` from GitHub for the specified release tag.
-2. The CLI executes a regex substitution on line 166 of `main.tf`, converting the local relative path (`source = "./modules/stack"`) into a remote Git reference (`source = "git::https://github.com/datacommonsorg/datacommons.git//infra/dcp/modules/stack?ref=<tag>"`).
-3. The CLI populates user-selected variables (project ID, namespace, API key) into `terraform.tfvars`.
+2. The CLI executes regex substitution on the `module "stack"` declaration in `main.tf`, converting the local relative path (`source = "./modules/stack"`) into a remote Git reference (`source = "git::https://github.com/datacommonsorg/datacommons.git//infra/dcp/modules/stack?ref=<tag>"`).
+3. The CLI populates user-selected variables (project ID, instance name, API key) into `terraform.tfvars`.
 4. The administrator executes `terraform init` and `terraform apply` within their dedicated workspace folder.
 
 ### The Contributor Entrypoint (`infra/dcp/`)
@@ -56,20 +56,20 @@ Platform contributors modifying Terraform definitions or testing changes work di
 DCP uses a hierarchical module architecture. Submodules never reference or depend on each other directly. Instead, `infra/dcp/modules/stack/main.tf` serves as the single orchestration hub that passes outputs between submodules and binds cross-module Identity and Access Management (IAM) policies.
 
 ```
-                            infra/dcp/main.tf
-                                    │
-                                    ▼
-                         modules/stack/main.tf
-                       (Central Orchestrator Hub)
-      ┌──────────────┬──────────────┼──────────────┬──────────────┐
-      │              │              │              │              │
-      ▼              ▼              ▼              ▼              ▼
-modules/auth   modules/spanner modules/storage modules/redis modules/ingestion/
-(Secret Mgr)   (Instance & DB) (GCS Buckets)   (VPC & Cache) ├── preprocessing_job
-                                                             ├── dataflow
-                                                             ├── postprocessing_job
-                                                             ├── helper_service
-                                                             └── workflow
+                             infra/dcp/main.tf
+                                     │
+                                     ▼
+                          modules/stack/main.tf
+                        (Central Orchestrator Hub)
+       ┌──────────────┬──────────────┼──────────────┬──────────────┬──────────────┐
+       │              │              │              │              │              │
+       ▼              ▼              ▼              ▼              ▼              ▼
+ modules/auth   modules/spanner modules/storage modules/redis modules/ingestion/ modules/
+ (Secret Mgr)   (Instance & DB) (GCS Buckets)   (VPC & Cache) ├── preprocessing  datacommons_services
+                                                              ├── dataflow       (Envoy + Mixer + Web)
+                                                              ├── postprocessing
+                                                              ├── helper_service
+                                                              └── workflow
 ```
 
 ### Module Responsibilities
@@ -95,16 +95,11 @@ To keep environment variables uniform across Cloud Run services and jobs, `modul
 * `USE_SPANNER_GRAPH = "true"`
 
 ### Cross-Module IAM Wiring
-Decoupling submodules requires that all cross-service permissions reside in `modules/stack/main.tf`:
-1. **GCS Storage Access**:
-   * Grants `roles/storage.objectAdmin` on the artifacts bucket to the Dataflow service account, the Workflow service account, and the Preprocessing Job service account.
-2. **Workflow Job Invocation**:
-   * Grants the Cloud Workflows service account `roles/run.invoker`, `roles/run.viewer`, and `roles/run.developer` on both the Preprocessing and Postprocessing Cloud Run jobs.
-   * Grants the Cloud Workflows service account `roles/iam.serviceAccountUser` on the Preprocessing and Postprocessing service accounts so Workflows can execute jobs as those identities.
-3. **Workflow Dataflow Control**:
-   * Grants `roles/dataflow.developer` to the Cloud Workflows service account.
-4. **Service Rolling Restarts**:
-   * Grants `roles/run.developer` and `roles/iam.serviceAccountUser` over `datacommons-services` to the Cloud Workflows service account, allowing the workflow to patch serving labels and trigger rolling container restarts upon successful ingestion.
+Decoupling submodules requires that all cross-service permissions reside centrally in [infra/dcp/modules/stack/main.tf](../../infra/dcp/modules/stack/main.tf):
+1. **GCS Storage Access**: Grants `roles/storage.objectAdmin` on the artifacts bucket to the Dataflow, Workflow, and Preprocessing service accounts.
+2. **Workflow Job Invocation**: Grants the Cloud Workflows service account `roles/run.invoker`, `roles/run.viewer`, and `roles/run.developer` on both Preprocessing and Postprocessing Cloud Run jobs, and `roles/iam.serviceAccountUser` over their runtime service accounts.
+3. **Workflow Dataflow Control**: Grants `roles/dataflow.developer` to the Cloud Workflows service account.
+4. **Service Rolling Restarts**: Grants `roles/run.developer` and `roles/iam.serviceAccountUser` over `datacommons-services` to the Cloud Workflows service account, allowing the workflow to patch serving labels and trigger rolling container restarts upon successful ingestion.
 
 ---
 
@@ -115,40 +110,10 @@ To keep configurations clean and predictable across dozens of resources, DCP enf
 ### The Propagation Pipeline
 Variables flow downward through four stages:
 
-```
-Stage 1: User Configuration
-User sets prefixed root variable in terraform.tfvars
-e.g. spanner_create_instance = false, spanner_instance_id = "dcp-testing"
-                       │
-                       ▼
-Stage 2: Root Aggregation (infra/dcp/main.tf)
-Root aggregates individual variables into typed local configuration objects:
-local.spanner_config = {
-  create_instance = var.spanner_create_instance
-  instance_id     = var.spanner_instance_id
-  ...
-}
-                       │
-                       ▼
-Stage 3: Stack Interface (infra/dcp/modules/stack/variables.tf)
-The stack orchestrator accepts the structured object:
-variable "spanner_config" {
-  type = object({
-    create_instance = bool
-    instance_id     = string
-    ...
-  })
-}
-                       │
-                       ▼
-Stage 4: Submodule Invocation (modules/stack/main.tf -> modules/spanner/)
-The stack module unpacks the object into short, module-scoped variable names:
-module "spanner" {
-  source          = "../spanner"
-  create_instance = var.spanner_config.create_instance
-  instance_id     = var.spanner_config.instance_id
-}
-```
+1. **User Input (`terraform.tfvars`)**: The operator sets prefixed variables (such as `spanner_create_instance`, `ingestion_dataflow_max_workers`).
+2. **Root Aggregation ([infra/dcp/main.tf](../../infra/dcp/main.tf))**: Aggregates individual variables into typed local configuration maps (`global_config`, `spanner_config`, `ingestion_config`, `datacommons_services_config`, `auth_config`, `redis_config`).
+3. **Stack Interface ([infra/dcp/modules/stack/variables.tf](../../infra/dcp/modules/stack/variables.tf))**: The stack orchestrator defines strongly typed `object({...})` schema declarations for each configuration block.
+4. **Submodule Invocation ([infra/dcp/modules/stack/main.tf](../../infra/dcp/modules/stack/main.tf))**: The stack module unpacks configuration objects into short, module-scoped variables (`create_instance`, `instance_id`).
 
 ### Naming Conventions
 1. **Root Variables (`infra/dcp/variables.tf`)**:
@@ -169,15 +134,15 @@ module "spanner" {
 
 ---
 
-## 4. Infrastructure Guardrails and Operational Gotchas
+## 4. Operational Constraints and Guardrails
 
-Deploying DCP on Google Cloud involves specific account and service constraints. Understanding these rules prevents deployment failures and data loss.
+Deploying DCP on Google Cloud involves specific account and service constraints. Understanding these rules prevents deployment failures and data loss:
 
 ### 1. BigQuery Reservation Quota Limits
 * Google Cloud enforces a strict quota of **one BigQuery slot reservation per project per region**.
 * If multiple engineers deploy private development instances into the same GCP project (for example, `datcom-website-dev` in `us-central1`), only the first instance can create a reservation.
 * Secondary deployments attempting to create a reservation fail with a resource collision error.
-* **Resolution**: When sharing a GCP project, set `spanner_create_bigquery_reservation = false` in `terraform.tfvars`. BigQuery postprocessing queries will execute using standard on-demand compute slots.
+* **Resolution**: When sharing a GCP project, set `spanner_create_bigquery_reservation = false` in `terraform.tfvars`. Ensure `spanner_enable_bigquery_connection = true` remains enabled so BigQuery can still query Spanner on-demand for postprocessing.
 
 ### 2. Stateful vs Stateless Deletion Protection
 DCP separates deletion protection into two independent variables in `infra/dcp/variables.tf`:

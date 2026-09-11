@@ -74,6 +74,20 @@ DCP federates queries to base Google Data Commons. You must supply a valid API k
 2. Sign in with your Google account and generate a free API key.
 3. Save this key locally; you will provide it in Step 2.
 
+### 5. Install the Data Commons CLI (`datacommons`)
+Install the CLI as a standalone global tool via `uv tool install`:
+```bash
+uv tool install --force "git+https://github.com/datacommonsorg/datacommons.git#subdirectory=packages/datacommons-cli"
+```
+Alternatively, define a shell alias if you prefer running via `uvx`:
+```bash
+alias datacommons='uvx --no-cache --from "git+https://github.com/datacommonsorg/datacommons.git@main#subdirectory=packages/datacommons-cli" datacommons'
+```
+Verify the installation:
+```bash
+datacommons --version
+```
+
 ---
 
 ## Module 1: The Mental Model (Terraform and GCP 101)
@@ -118,10 +132,9 @@ Create a directory to hold your local deployment configurations and run `datacom
 mkdir -p ~/dcp-deployments
 cd ~/dcp-deployments
 
-uvx --no-cache --from "git+https://github.com/datacommonsorg/datacommons.git@main#subdirectory=packages/datacommons-cli" \
-    datacommons admin init \
+datacommons admin init \
     --project-id "$PROJECT_ID" \
-    --namespace "$NAMESPACE" \
+    --instance-name "$NAMESPACE" \
     --dc-api-key "$DC_API_KEY" \
     --tf-git-ref main
 ```
@@ -140,33 +153,42 @@ You will see four generated files:
 * **`terraform.tfvars`**: Your instance configuration values.
 
 ### 4. Configure `terraform.tfvars` for Shared Development
-Open `terraform.tfvars` in your editor. When developing in a shared GCP project (such as `datcom-website-dev`), apply the following cost-saving and quota-safe overrides:
+Open `terraform.tfvars` in your editor. When developing in a shared GCP project (such as `datcom-website-dev`), apply the following cost-saving, quota-safe, and accelerated testing overrides:
 
 ```hcl
 # GCP Project and Identity
-project_id = "datcom-website-dev"
-namespace  = "dev-yourldap"
-region     = "us-central1"
-
-# DCP Stack Authentication
-auth_google_datacommons_api_key = "your-api-key-here"
-dcp_version                     = "latest"
-enable_redis                    = false
-
-# Ingestion Paths
-ingestion_input_path = "ingestion/input"
-
-# Cloud Spanner: Reuse shared dev instance to save cost and quota
-spanner_create_instance = false
-spanner_instance_id     = "dcp-testing"
-spanner_create_database = true
-
-# BigQuery Reservation: Set to false to avoid quota collisions in shared projects
-spanner_create_bigquery_reservation = false
+project_id                                         = "datcom-website-dev"
+instance_name                                      = "dev-yourldap"
+region                                             = "us-central1"
 
 # Deletion Protection: Keep false for temporary development instances
-stateful_deletion_protection  = false
-stateless_deletion_protection = false
+stateful_deletion_protection                       = false
+stateless_deletion_protection                      = false
+
+# Authentication
+auth_google_datacommons_api_key                    = "your-api-key-here"
+
+# Spanner: Reuse shared dev instance to save cost and quota
+spanner_create_instance                            = false
+spanner_instance_id                                = "dcp-testing"
+spanner_create_database                            = true
+spanner_create_bigquery_reservation                = false
+
+# Networking & Access
+datacommons_services_allow_unauthenticated_access = false
+skip_container_restarts                            = true
+enable_redis                                       = false
+
+# Ingestion Paths & Dataflow Worker Sizing
+ingestion_input_path                               = "ingestion/input"
+ingestion_artifacts_path                           = "ingestion/internal"
+ingestion_dataflow_num_workers                     = 10
+ingestion_dataflow_max_workers                     = 50
+ingestion_dataflow_worker_machine_type             = "n2-standard-4"
+
+# Model Context Protocol (MCP) Serving Integration
+datacommons_services_enable_mcp                    = true
+datacommons_services_mcp_search_scope              = "base_and_custom"
 ```
 
 ---
@@ -182,20 +204,20 @@ terraform init
 ```
 You should see: `Terraform has been successfully initialized!`
 
-### 2. Preview the Execution Plan
-Run `terraform plan` to view the exact changes Terraform intends to perform without applying them:
+### 2. Preview and Save Execution Plan
+Generate and inspect the execution plan before applying:
 ```bash
-terraform plan
+terraform plan -out=tfplan
+terraform show -no-color tfplan > tfplan.txt
 ```
-Terraform prints a summary at the bottom:
+Inspect `tfplan.txt` to review the resource additions. Terraform prints a summary at the bottom:
 `Plan: ~25 to add, 0 to change, 0 to destroy.`
 
 ### 3. Apply the Configuration
-Execute the deployment:
+Execute the deployment using the saved plan:
 ```bash
-terraform apply
+terraform apply tfplan
 ```
-Terraform displays the proposed plan again and prompts for confirmation. Type `yes` and press Enter.
 
 Deployment typically takes 3 to 5 minutes as Google Cloud provisions storage buckets, creates the Spanner database, and registers Cloud Run containers.
 
@@ -262,15 +284,14 @@ Now initialize the Spanner schema and seed base statistical metadata using the C
 Make sure you are in your deployment directory (`~/dcp-deployments/$NAMESPACE`) and run:
 
 ```bash
-uvx --no-cache --from "git+https://github.com/datacommonsorg/datacommons.git@main#subdirectory=packages/datacommons-cli" \
-    datacommons admin init-db
+datacommons admin init-db
 ```
 
 The CLI executes the following sequence:
 1. Reads Spanner outputs and the ingestion helper URL from your local Terraform state.
 2. Authenticates against the ingestion helper service using OIDC token impersonation.
 3. Applies base DDL scripts to create Spanner tables (`Node`, `Edge`, `Observation`, `TimeSeries`, `ImportStatus`, `IngestionHistory`).
-4. Runs pending schema migration scripts from `packages/datacommons-db/migration_scripts/`.
+4. Runs pending schema migration scripts from [packages/datacommons-db/datacommons_db/migrations/migration_scripts/](../schema_migrations_developer_guide.md).
 5. Seeds base metadata nodes (statistical variables, units, and sources).
 
 ### 2. Verify Tables in Spanner Studio
@@ -293,28 +314,29 @@ SELECT subject_id, predicate, object_value FROM Node LIMIT 10;
 
 Next, stage a sample dataset in Cloud Storage and execute the ingestion workflow.
 
-### 1. Stage Sample Test Data in Cloud Storage
-Copy the pre-configured sample frog dataset into your deployment's input bucket:
+### 1. Stage Test Datasets in Cloud Storage
+Copy the pre-configured test datasets (including frogs, OECD wages, and bilateral trade) into your deployment's input bucket:
 
 ```bash
-gcloud storage cp -R gs://datcom-website-dev-calinc/dcp-test-data/frog_data/* "gs://$DATA_BUCKET/$INPUT_PATH/frog_data/"
+gcloud storage cp -r gs://datcom-website-dev-calinc/dcp-test-data/* "gs://$DATA_BUCKET/$INPUT_PATH/"
 ```
 
 Verify that the files exist in GCS:
 ```bash
-gcloud storage ls "gs://$DATA_BUCKET/$INPUT_PATH/frog_data/"
+gcloud storage ls "gs://$DATA_BUCKET/$INPUT_PATH/"
 ```
-The folder contains three files:
-* `frog_observations.csv`: Statistical observations of frog populations.
-* `frog_schema.mcf`: Graph schema defining the frog species entities and statistical variables.
-* `config.json`: Column mapping instructions telling the preprocessor how to parse the CSV columns into Data Commons identifiers.
+The bucket contains dataset folders (`frog_data`, `frog_topics`, `OECD_wage_data`, `bilateral_trade`), each containing CSV observations, schema MCFs, and `config.json` mappings.
 
 ### 2. Start Ingestion via the CLI
-Trigger the ingestion workflow for the `frog_data` dataset:
+Trigger the ingestion workflow. You can ingest a single dataset (`frog_data`) or multiple datasets concurrently:
 
 ```bash
-uvx --no-cache --from "git+https://github.com/datacommonsorg/datacommons.git@main#subdirectory=packages/datacommons-cli" \
-    datacommons admin ingest start --imports frog_data
+# Ingest single dataset:
+datacommons admin ingest start --imports frog_data
+
+# Or ingest multiple datasets concurrently:
+datacommons admin ingest start \
+    --imports="frog_data,frog_topics,OECD_wage_data,bilateral_trade"
 ```
 
 The CLI prints the execution ID and a direct URL to Google Cloud Console:
@@ -361,13 +383,17 @@ curl -s -g -H "X-Use-Multi-Entity-Schema: true" \
 ```
 You will see JSON observations containing dates, values, and provenance metadata returned from your private Spanner database.
 
-### 3. Test Natural Language Entity Resolution
-Test the entity resolution endpoint to verify that Vertex AI text embeddings are functioning:
+### 3. Test Natural Language Entity and Indicator Resolution
+Test the entity resolution endpoint to verify that Vertex AI text embeddings are functioning for custom indicators:
 
 ```bash
+# Query custom frog population variable:
 curl -s -g "http://localhost:8080/core/api/v2/resolve?nodes=frog%20population&resolver=indicator&target=custom_only" | jq .
+
+# Query custom economic indicators:
+curl -s -g "http://localhost:8080/core/api/v2/resolve?nodes=financial%20aid&resolver=indicator&target=custom_only" | jq .
 ```
-The response resolves the query `frog population` to the custom statistical variable `Count_Frog`.
+The response resolves natural language queries to custom statistical variables and topics (for example, `Count_Frog`).
 
 ### 4. Inspect the Web Interface
 Open your web browser and navigate to:
