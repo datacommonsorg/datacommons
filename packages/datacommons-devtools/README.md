@@ -60,5 +60,5 @@ To add a new tool or subcommand suite to `datacommons-devtools`:
 4. **Declare Dependencies:**
    Add any new runtime dependencies required by your tool to `packages/datacommons-devtools/pyproject.toml`.
 5. **Add Tests:**
-   Add unit tests under `datacommons_devtools/my_tool/tests/` using `pytest`.
+   Add unit tests under `datacommons_devtools/tests/<my_tool>` using `pytest`.
 
