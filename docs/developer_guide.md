@@ -203,11 +203,11 @@ DCP microservices and batch pipelines run in serverless Google Cloud Run contain
 
 Build custom container images and push them to Google Container Registry (GCR) or Artifact Registry:
 
-##### 1. Serving Services (`datacommons-services`)
-The `datcom-website` repository incorporates `mixer` and `import` as Git submodules. If your changes involve code inside Mixer or Import, checkout the target submodule branches before triggering the build:
+##### Serving Services (`datacommons-services`)
+The `website` repository incorporates `mixer` and `import` as Git submodules. If your changes involve code inside Mixer or Import, checkout the target submodule branches before triggering the build:
 
 ```bash
-cd /path/to/datcom-website
+cd /path/fork/of/datacommonsorg/website
 
 # (Optional) If testing changes in submodules, checkout target branches:
 cd mixer && git checkout <mixer_feature_branch> && cd ..
@@ -215,20 +215,22 @@ cd import && git checkout <import_feature_branch> && cd ..
 
 # Build and push custom datacommons-services image using the checked-in script:
 export SERVICES_TAG="<username>-<feature>-$(date +%s)"
-./scripts/push_cdc_services_image.sh "$SERVICES_TAG"
 
-# Resulting Image URI:
-# gcr.io/datcom-ci/datacommons-services:<SERVICES_TAG>
+# Option A: Push to shared datcom-ci registry (default):
+./scripts/push_cdc_services_image.sh "$SERVICES_TAG"
+# Resulting Image URI: gcr.io/datcom-ci/datacommons-services:<SERVICES_TAG>
+
+# Option B: Push directly to personal/dev project registry (e.g. datcom-website-dev):
+./scripts/push_cdc_services_image.sh "$SERVICES_TAG" datcom-website-dev
+# Resulting Image URI: gcr.io/datcom-website-dev/datacommons-services:<SERVICES_TAG>
 ```
 
 > [!NOTE]
-> `scripts/push_cdc_services_image.sh` invokes `build/ci/cloudbuild.push_cdc_services_image.yaml`, which resolves Git commit hashes for submodules and pushes the artifact to `gcr.io/datcom-ci/datacommons-services:<SERVICES_TAG>`. Because Container Registry images in `datcom-ci` are readable across Data Commons projects, Cloud Run instances in `datcom-website-dev` (and private GCP projects) can pull them directly.
->
-> **Upcoming Enhancement**: A pending PR in `datcom-website` parameterizes `build/ci/cloudbuild.push_cdc_services_image.yaml` with `_PROJECT_ID` (defaulting to `datcom-ci`), which will enable passing `--project=<custom-project>` to push builds directly to project-local registries when needed.
+> `scripts/push_cdc_services_image.sh` invokes `build/ci/cloudbuild.push_cdc_services_image.yaml`, which resolves Git commit hashes for submodules and tags the container image. The optional second argument specifies the destination GCP project (defaulting to `datcom-ci`). Images in both `datcom-ci` and `datcom-website-dev` can be deployed to Cloud Run via `datacommons_services_image` in `terraform.tfvars`.
 
-##### 2. Preprocessor (`datacommons-data`)
+##### Preprocessor (`datacommons-data`)
 ```bash
-cd /path/to/datcom-website
+cd /path/fork/of/datacommonsorg/website
 
 # (Optional) If testing changes in the import submodule:
 cd import && git checkout <import_feature_branch> && cd ..
@@ -239,9 +241,9 @@ export PREPROCESSOR_IMAGE="us-docker.pkg.dev/datcom-website-dev/datacommons-arti
 gcloud builds submit --project=datcom-website-dev --tag "$PREPROCESSOR_IMAGE" -f build/cdc_data/Dockerfile .
 ```
 
-##### 3. Postprocessor (`datacommons-aggregation-helper`)
+##### Postprocessor (`datacommons-aggregation-helper`)
 ```bash
-cd /path/to/datcom-import/pipeline/workflow/aggregation-helper
+cd /path/fork/of/datacommonsorg/import/pipeline/workflow/aggregation-helper
 
 export POSTPROCESSOR_TAG="<username>-<feature>-$(date +%s)"
 gcloud builds submit . \
@@ -249,20 +251,20 @@ gcloud builds submit . \
     --tag="gcr.io/datcom-website-dev/datacommons-aggregation-helper:$POSTPROCESSOR_TAG"
 ```
 
-##### 4. Ingestion Helper Service (`ingestion-helper`)
+##### Ingestion Helper Service (`ingestion-helper`)
 ```bash
-cd /path/to/datcom-import
+cd /path/fork/of/datacommonsorg/import
 
 export INGESTION_HELPER_TAG="<username>-<feature>-$(date +%s)"
 export INGESTION_HELPER_IMAGE="us-docker.pkg.dev/datcom-website-dev/datacommons-artifacts/ingestion-helper:$INGESTION_HELPER_TAG"
 gcloud builds submit --project=datcom-website-dev --tag "$INGESTION_HELPER_IMAGE" -f pipeline/workflow/ingestion-helper/Dockerfile .
 ```
 
-##### 5. Dataflow Flex Template & Ingestion Pipeline (`ingestion-flex`)
+##### Dataflow Flex Template & Ingestion Pipeline (`ingestion-flex`)
 Dataflow executes as an Apache Beam Java Flex Template. Building it requires packaging the worker container image and staging the template JSON specification in Cloud Storage:
 
 ```bash
-cd /path/to/datcom-import
+cd /path/fork/of/datacommonsorg/import
 
 # 1. Build and push custom Dataflow worker image to Artifact Registry:
 export DATAFLOW_TAG="<username>-<feature>-$(date +%s)"
