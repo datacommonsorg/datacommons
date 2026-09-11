@@ -98,7 +98,7 @@ uv run --package datacommons-cli datacommons admin ingest start --imports <datas
 1. Define the Click command in `packages/datacommons-admin/datacommons_admin/<group>/<group>_cli.py`.
 2. Register the command on the group in `packages/datacommons-admin/datacommons_admin/admin_cli.py`.
 3. If the command reads Terraform attributes, fetch them via `tf_utils.get_terraform_outputs()`.
-4. Ensure any new output keys added to `infra/dcp/outputs.tf` match fields in the `TerraformOutputs` dataclass (`datacommons_admin/core/utils/models.py`). Run the contract test to verify parity:
+4. Ensure any new output keys added to `infra/dcp/outputs.tf` match fields in the `TerraformOutputs` dataclass (`packages/datacommons-admin/datacommons_admin/core/utils/models.py`). Run the contract test to verify parity:
    ```bash
    uv run pytest packages/datacommons-admin/tests/core/test_tf_contract.py
    ```
@@ -174,7 +174,7 @@ uv run pytest tests/integration/suites/ \
 * **Symptom**: Hermetic integration tests report `Address already in use` on port 9010 or 9020.
 * **Resolution**: Ensure no previous Docker Compose test containers are running:
   ```bash
-  docker compose -f tests/integration/docker-compose.yaml down -v
+  docker compose -f tests/integration/emulated/docker-compose.yml down -v
   ```
 
 ### 4. Service Account Token Creator Missing
