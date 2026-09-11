@@ -43,3 +43,22 @@ This will:
 1.  Upload your current workspace (files in `.`) to Cloud Build.
 2.  Execute steps in `experimental/build/cloudbuild.yaml`.
 3.  Push images to `us-docker.pkg.dev/datcom-ci/gcr.io/datacommons-platform:latest` and `:$SHORT_SHA`.
+
+---
+
+## Automated Cloud Build Trigger (Historical Context)
+
+We previously maintained an automated Cloud Build trigger (`dcp-push-image-on-pr-merge`) in `datcom-ci` that built and published `datacommons-platform:latest` to Artifact Registry whenever code merged into `main`. Because active DCP deployments migrated to `datacommons-services` (built from `datcom-website`), this trigger was deleted to avoid unused builds.
+
+If the team ever resumes automated publishing of the `datacommons-platform` container image, recreate the trigger in `datcom-ci`:
+
+```bash
+gcloud builds triggers create github \
+  --project=datcom-ci \
+  --name=dcp-push-image-on-pr-merge \
+  --repo-owner=datacommonsorg \
+  --repo-name=datacommons \
+  --branch-pattern='^main$' \
+  --build-config=experimental/build/cloudbuild.yaml \
+  --description="Push latest Docker image on PR merge"
+```
