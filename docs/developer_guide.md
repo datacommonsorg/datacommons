@@ -178,6 +178,77 @@ When modifying Terraform configurations in `infra/dcp/`:
      datacommons_services_image = "gcr.io/datcom-ci/datacommons-services:dev-username"
      ```
 
+### Working with Container Images (Building & Overriding)
+
+DCP microservices execute in serverless Google Cloud Run containers. The images originate from multiple repositories across the Data Commons ecosystem:
+
+| Container Image | Component Role | Source Repository & Dockerfile | Destination Registry (Dev) | `terraform.tfvars` Override |
+| :--- | :--- | :--- | :--- | :--- |
+| **`datacommons-services`** | Envoy, Mixer API, Website serving | `datcom-website`<br>`cloudbuild-services-dev.yaml` | `gcr.io/datcom-website-dev/datacommons-services:<tag>` | `datacommons_services_image` |
+| **`datacommons-data`** | Preprocessor batch job | `datcom-website`<br>`build/cdc_data/Dockerfile` | `us-docker.pkg.dev/datcom-website-dev/datacommons-artifacts/datacommons-data:<tag>` | `ingestion_preprocessing_job_image` |
+| **`datacommons-aggregation-helper`** | Postprocessor aggregation job | `datcom-import`<br>`pipeline/workflow/aggregation-helper/Dockerfile` | `gcr.io/datcom-website-dev/datacommons-aggregation-helper:<tag>` | `ingestion_postprocessing_job_image` |
+| **`datacommons-ingestion-helper`** | Lock coordination & migrations | `datcom-import`<br>`pipeline/workflow/ingestion-helper/Dockerfile` | `us-docker.pkg.dev/datcom-website-dev/datacommons-artifacts/ingestion-helper:<tag>` | `ingestion_helper_service_image` |
+
+#### 1. Submodule Alignment (Before Building `services` or `data` Images)
+The `datcom-website` repository incorporates `mixer` and `import` as Git submodules. If your changes involve code inside Mixer or Import:
+1. Navigate into the submodule directory inside `datcom-website`:
+   ```bash
+   cd /path/to/datcom-website/mixer
+   git checkout <target_branch_or_commit>
+   ```
+2. Return to the root of `datcom-website` and confirm that `git status` displays the updated submodule commit pointer before submitting the build.
+
+#### 2. Building Images via Google Cloud Build
+Build custom container images and push them to Google Container Registry (GCR) or Artifact Registry in the development project (`datcom-website-dev`):
+
+* **Serving Services (`datacommons-services`)**:
+  ```bash
+  cd /path/to/datcom-website
+  gcloud builds submit . \
+      --project=datcom-website-dev \
+      --config=cloudbuild-services-dev.yaml \
+      --substitutions=_TAG=<custom_tag>
+  ```
+* **Preprocessor (`datacommons-data`)**:
+  ```bash
+  cd /path/to/datcom-website
+  export PREPROCESSOR_IMAGE="us-docker.pkg.dev/datcom-website-dev/datacommons-artifacts/datacommons-data:<custom_tag>"
+  gcloud builds submit --project=datcom-website-dev --tag "$PREPROCESSOR_IMAGE" -f build/cdc_data/Dockerfile .
+  ```
+* **Postprocessor (`datacommons-aggregation-helper`)**:
+  ```bash
+  cd /path/to/datcom-import/pipeline/workflow/aggregation-helper
+  gcloud builds submit . \
+      --project=datcom-website-dev \
+      --tag="gcr.io/datcom-website-dev/datacommons-aggregation-helper:<custom_tag>"
+  ```
+* **Ingestion Helper Service (`ingestion-helper`)**:
+  ```bash
+  cd /path/to/datcom-import
+  export INGESTION_HELPER_IMAGE="us-docker.pkg.dev/datcom-website-dev/datacommons-artifacts/ingestion-helper:<custom_tag>"
+  gcloud builds submit --project=datcom-website-dev --tag "$INGESTION_HELPER_IMAGE" -f pipeline/workflow/ingestion-helper/Dockerfile .
+  ```
+
+#### 3. Overriding Images in `terraform.tfvars`
+To test your custom container image on your deployed DCP instance, override the respective image variable in `~/dcp-deployments/<namespace>/terraform.tfvars`:
+
+```hcl
+# Custom container image overrides
+datacommons_services_image         = "gcr.io/datcom-website-dev/datacommons-services:<custom_tag>"
+ingestion_preprocessing_job_image  = "us-docker.pkg.dev/datcom-website-dev/datacommons-artifacts/datacommons-data:<custom_tag>"
+ingestion_postprocessing_job_image = "gcr.io/datcom-website-dev/datacommons-aggregation-helper:<custom_tag>"
+ingestion_helper_service_image      = "us-docker.pkg.dev/datcom-website-dev/datacommons-artifacts/ingestion-helper:<custom_tag>"
+```
+
+Apply the updated configuration:
+```bash
+cd ~/dcp-deployments/<namespace>
+terraform plan -out=tfplan
+terraform apply tfplan
+```
+
+Terraform updates the Cloud Run service or job definition to reference your custom image URI and deploys a new revision without modifying persistent storage layers or Spanner databases.
+
 ---
 
 ## 3. Testing Strategy and Execution

@@ -9,7 +9,8 @@ By the end of this codelab, you will understand:
 2. How to scaffold and configure a personal DCP deployment using the `datacommons` CLI.
 3. How to inspect provisioned resources in the Google Cloud Console.
 4. How to seed Cloud Spanner tables, execute a live data ingestion pipeline, and test API endpoints.
-5. How to safely clean up and tear down cloud resources.
+5. How to override container images in `terraform.tfvars`, apply updates, and observe rolling Cloud Run revisions.
+6. How to safely clean up and tear down cloud resources.
 
 **Target Audience**: Software engineers joining the Data Commons team who have little or no prior experience with Terraform, Cloud Spanner, or GCP.
 
@@ -305,6 +306,12 @@ https://console.cloud.google.com/?project=<PROJECT_ID>
 * Locate `<namespace>-dc-ingestion-workflow`.
 * Click into the workflow and view the **Source** tab. Notice how the workflow definition matches `infra/dcp/modules/ingestion/workflow/workflow.yaml`.
 
+### 5. Artifact Registry and Container Registry
+* In the search bar, type `Artifact Registry` and select **Repositories**.
+* Locate `datacommons-artifacts` in `us-central1`. This repository stores custom container images for ingestion (`datacommons-data` and `ingestion-helper`).
+* Also search for `Container Registry` to view `gcr.io/datcom-website-dev/datacommons-services` (the serving container) and `datacommons-aggregation-helper`.
+* Notice the image tags published here (such as `latest`, `v1.1.2`, `v1.1.3`, and developer test tags). This is the registry where Cloud Run and Cloud Workflows fetch container images during deployment and workflow execution.
+
 ---
 
 ## Module 5: Database Seeding and Schema Initialization
@@ -466,7 +473,64 @@ For advanced testing options, including running the entire stack hermetically in
 
 ---
 
-## Module 8: Safe Teardown and Resource Cleanup
+## Module 8: Overriding Container Images and Applying Configuration Changes
+
+A common task during DCP development is modifying instance settings or pointing your instance to a custom-built container image (for example, testing a new feature in Website or Mixer).
+
+In this module, you will practice the day-to-day workflow of modifying `terraform.tfvars`, generating an execution plan, applying the change, and observing the rolling update in the Google Cloud Console.
+
+### 1. Inspect the Active Revision in Cloud Run
+Return to the Google Cloud Console and navigate to **Cloud Run > Services > `<namespace>-dc-datacommons-service`**.
+* Click the **Revisions** tab.
+* Note the container image URL currently serving 100% of traffic (for example, `gcr.io/datcom-website-dev/datacommons-services:latest` or `v1.1.5`).
+
+### 2. Override the Container Image in `terraform.tfvars`
+Open `~/dcp-deployments/$NAMESPACE/terraform.tfvars` in your editor.
+At the bottom of the file, add an override for the serving container pointing to a specific prior release tag (such as `v1.1.3`):
+
+```hcl
+# Override serving container image to a specific release tag:
+datacommons_services_image = "gcr.io/datcom-website-dev/datacommons-services:v1.1.3"
+```
+
+Save the file.
+
+### 3. Generate and Inspect the Execution Plan
+Generate an updated execution plan:
+
+```bash
+terraform plan -out=tfplan
+terraform show -no-color tfplan > tfplan.txt
+```
+
+Open `tfplan.txt` and review the output.
+Notice the summary at the bottom:
+```
+Plan: 0 to add, 1 to change, 0 to destroy.
+```
+
+Observe how declarative infrastructure operates: Terraform compares your modified configuration against the live GCP environment, recognizes that only the Cloud Run container image has changed, and prepares an in-place update without touching or recreating your Spanner database, storage buckets, or IAM bindings.
+
+### 4. Apply the Update
+Apply the saved plan:
+
+```bash
+terraform apply tfplan
+```
+
+Deployment takes roughly 30 to 45 seconds. Terraform updates the Cloud Run service definition, and Cloud Run provisions a new container revision with zero downtime.
+
+### 5. Verify the New Revision in Google Cloud Console
+Return to **Cloud Run > Services > `<namespace>-dc-datacommons-service`** in the Google Cloud Console and refresh the **Revisions** tab:
+1. You will see a new revision listed at the top (for example, `<namespace>-dc-datacommons-service-00002-...`).
+2. Verify that the **Container image URL** displays `gcr.io/datcom-website-dev/datacommons-services:v1.1.3`.
+3. Notice that Cloud Run automatically routed 100% of traffic to this new revision.
+
+> **Building Your Own Custom Images**: To learn how to build your own custom container images from `datcom-website` or `datcom-import` and push them to Artifact Registry using `gcloud builds submit`, refer to [Building and Overriding Container Images in the Developer Guide](../developer_guide.md#working-with-container-images-building--overriding).
+
+---
+
+## Module 9: Safe Teardown and Resource Cleanup
 
 When you complete your testing, clean up your resources to avoid unnecessary cloud costs and release quotas.
 
