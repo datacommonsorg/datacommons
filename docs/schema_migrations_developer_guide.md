@@ -13,7 +13,6 @@ Data Commons uses Google Cloud Spanner as its relational graph store. Schema mig
 
 | Tool | Purpose | Target |
 | :--- | :--- | :--- |
-| **`dcp-tools migrations`** | **Developer Authoring Tool**: Scaffolds boilerplate, updates timestamps, and resolves merge conflicts. | Local migration files on disk |
 | **`datacommons-devtools migrations`** | **Developer Authoring Tool**: Scaffolds boilerplate, updates timestamps, and resolves merge conflicts. | Local migration files on disk |
 | **`datacommons admin migrate-db`** | **Database Execution Engine**: Connects to Cloud Spanner, queries applied migrations, and executes unapplied `upgrade()` methods. | Live Cloud Spanner instance / emulator |
 
