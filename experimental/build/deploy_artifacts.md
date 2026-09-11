@@ -11,7 +11,7 @@
 
 ## Building Locally
 
-To build the Docker image locally, you **must run the command from the repository root**, pointing to the Dockerfile in `build/`.
+To build the Docker image locally, you **must run the command from the repository root**, pointing to the Dockerfile in `experimental/build/`.
 
 ```bash
 docker build -f experimental/build/Dockerfile -t datacommons-platform:local .

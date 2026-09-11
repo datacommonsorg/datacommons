@@ -78,8 +78,8 @@ DCP federates queries to base Google Data Commons. You must supply a valid API k
 ### 5. Install the Admin CLI (`datacommons`)
 To contribute to the codebase, run integration test scripts, or work with local submodules, clone the repository:
 ```bash
-git clone https://github.com/datacommonsorg/datcom-datacommons.git
-cd datcom-datacommons
+git clone https://github.com/datacommonsorg/datacommons.git
+cd datacommons
 ```
 
 Install the Admin CLI tool using `uv`:
@@ -163,12 +163,13 @@ Navigate into your newly generated namespace directory:
 cd ~/dcp-deployments/$NAMESPACE
 ls -la
 ```
-You will see five generated files (or four if remote state management was disabled via `--no-tf-remote-state`):
+You will see six generated files (or five if remote state management was disabled via `--no-tf-remote-state`):
 * **`main.tf`**: The root configuration that calls the remote DCP stack module:
   `source = "git::https://github.com/datacommonsorg/datacommons.git//infra/dcp/modules/stack?ref=v1.1.5"`
 * **`variables.tf`**: Variable definitions declaring all configuration options and default values.
 * **`outputs.tf`**: Output values that export deployment attributes (such as bucket names and service URLs) after deployment.
 * **`terraform.tfvars`**: Your instance configuration values.
+* **`README.md`**: Workspace documentation containing quickstart instructions and instance details.
 * **`backend.tf`**: Remote state configuration storing your Terraform state file in a dedicated Cloud Storage bucket (`<project_id>-<instance_name>-tfstate`), ensuring your deployment state is backed up securely in GCP rather than stored only on your local disk.
 
 ### 4. Configure `terraform.tfvars` for Shared Development
@@ -213,6 +214,9 @@ ingestion_dataflow_worker_machine_type             = "n2-standard-4"
 datacommons_services_enable_mcp                    = true
 datacommons_services_mcp_search_scope              = "base_and_custom"
 ```
+
+> [!NOTE]
+> **Why `skip_container_restarts = true`?**: By default, Terraform injects a dynamic timestamp into the `FORCE_RESTART` environment variable of the Cloud Run services, forcing a new container revision and image pull on every `terraform apply`. Setting `skip_container_restarts = true` leaves `FORCE_RESTART` empty, avoiding redundant container restarts and significantly speeding up `terraform apply` during iterative development when container images have not changed. When testing unreleased container images, set `skip_container_restarts = false`.
 
 ---
 
@@ -289,7 +293,7 @@ https://console.cloud.google.com/?project=<PROJECT_ID>
 * Locate your bucket: `<namespace>-dc-artifacts-<project_id>`.
 * Click into the bucket. Notice that Terraform created the folder structure:
   * `ingestion/input/`: Where raw data files will be uploaded.
-  * `ingestion/metadata/`: Where pipeline execution logs, import versions, and handshakes are tracked.
+  * `ingestion/internal/`: Where pipeline execution artifacts, intermediate files, and metadata are tracked (configured via `ingestion_artifacts_path = "ingestion/internal"` in `terraform.tfvars`).
 
 ### 2. Cloud Spanner
 * In the search bar, type `Spanner` and select **Instances**.
@@ -344,8 +348,11 @@ SELECT table_name FROM information_schema.tables WHERE table_schema = '';
 You will see tables including `Node`, `Edge`, `Observation`, `TimeSeries`, and `IngestionHistory`.
 
 ```sql
--- Inspect initial seeded metadata nodes
-SELECT subject_id, predicate, object_value FROM Node LIMIT 10;
+-- Inspect initial seeded metadata nodes (Node stores subject_id, name, types)
+SELECT subject_id, name, types FROM Node LIMIT 10;
+
+-- Inspect initial graph edges (Edge stores subject_id, predicate, object_id)
+SELECT subject_id, predicate, object_id FROM Edge LIMIT 10;
 ```
 
 ---
@@ -358,7 +365,7 @@ Next, stage a sample dataset in Cloud Storage and execute the ingestion workflow
 Copy the committed integration test datasets from your local repository clone into your deployment's input bucket:
 
 ```bash
-# Run from the root of your datcom-datacommons clone:
+# Run from the root of your datacommons clone:
 gcloud storage cp -r tests/integration/test_data/* "gs://$DATA_BUCKET/$INPUT_PATH/"
 ```
 
@@ -452,7 +459,7 @@ Browse the homepage, use the search bar to look for "wages", and view the genera
 ### 5. Run the Automated Integration Test Suite
 Now that your instance is live and populated with `foobar_wages`, practice executing the repository's automated integration test suite against your personal deployment.
 
-From the root of your `datcom-datacommons` repository clone, execute:
+From the root of your `datacommons` repository clone, execute:
 ```bash
 uv run python tests/integration/run_e2e_tests.py \
     --project "$PROJECT_ID" \

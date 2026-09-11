@@ -2,7 +2,7 @@
 
 ## Overview
 
-Welcome to the Data Commons Platform (DCP) developer guide. This document serves as the day-to-day workbench manual for engineers developing, testing, and debugging code within the `datcom-datacommons` monorepo.
+Welcome to the Data Commons Platform (DCP) developer guide. This document serves as the day-to-day workbench manual for engineers developing, testing, and debugging code within the `datacommons` monorepo.
 
 * **Looking for the PR process and contribution checklist?** Refer to [CONTRIBUTING.md](../CONTRIBUTING.md).
 * **New to DCP and want to deploy a test instance on GCP?** Follow the [Developer Onboarding Codelab](codelabs/dcp_developer_onboarding.md).
@@ -15,7 +15,7 @@ Welcome to the Data Commons Platform (DCP) developer guide. This document serves
 This repository is structured as a Python monorepo managed by [uv](https://docs.astral.sh/uv/), alongside Terraform infrastructure configurations and integration test suites.
 
 ```
-datcom-datacommons/
+datacommons/
 ├── packages/                            # Python monorepo packages managed via uv
 │   ├── datacommons-cli/                 # User-facing CLI entrypoint (datacommons)
 │   ├── datacommons-admin/               # Administrative logic, scaffolding, and cloud clients
@@ -100,15 +100,15 @@ uv run --package datacommons-cli datacommons admin ingest start --imports <datas
 #### Adding a New CLI Command
 * Define the Click command in `packages/datacommons-admin/datacommons_admin/<group>/<group>_cli.py`.
 * Register the command on the group in `packages/datacommons-admin/datacommons_admin/admin_cli.py`.
-* If the command reads Terraform attributes, fetch them via `tf_utils.get_terraform_outputs()`.
-* Ensure any new output keys added to `infra/dcp/outputs.tf` match fields in the `TerraformOutputs` dataclass (`packages/datacommons-admin/datacommons_admin/core/utils/models.py`). Run the contract test to verify parity:
+* If the command reads Terraform attributes, fetch them using `get_terraform_output(key)` or the dedicated helper functions in `packages/datacommons-admin/datacommons_admin/core/utils/tf_utils.py` (for example, `get_project_id()`, `get_spanner_instance_id()`, `get_spanner_database_id()`, or `get_ingestion_service_url()`). These helpers resolve outputs either from local state (`terraform.tfstate` or `terraform output -json`) or from remote GCS backend state using the canonical bucket name or the `--tf-state-location` flag.
+* If adding new output keys, define them in `infra/dcp/outputs.tf` and add corresponding helper accessors in `tf_utils.py`. Run the admin unit tests to verify behavior:
   ```bash
-  uv run pytest packages/datacommons-admin/tests/
+  uv run pytest packages/datacommons-admin/tests/core/test_tf_utils.py
   ```
 
 ### Working on the Database Layer (`datacommons-db`)
 
-* **Entity Models**: Graph models (`NodeRecord`, `EdgeRecord`, `ObservationRecord`, `TimeSeriesRecord`) reside in `packages/datacommons-db/datacommons_db/models/`.
+* **Entity Models**: Graph models (`NodeRecord`, `EdgeRecord`, `ObservationRecord`) reside in `packages/datacommons-db/datacommons_db/models/`.
 * **Schema Migrations**: Schema alterations are managed as versioned Python migration scripts in `packages/datacommons-db/datacommons_db/migrations/migration_scripts/`.
   * For instructions on authoring, naming, and testing migrations, consult the [Schema Migrations Developer Guide](schema_migrations_developer_guide.md).
 
@@ -143,11 +143,11 @@ When modifying Terraform configurations in `infra/dcp/`:
   * **Option A (Direct Local Path)**: In your deployment's `main.tf`, replace the remote Git reference with your local monorepo path:
     ```hcl
     module "stack" {
-      source = "/absolute/path/to/datcom-datacommons/infra/dcp/modules/stack"
+      source = "/absolute/path/to/datacommons/infra/dcp/modules/stack"
     ```
   * **Option B (Local Symlink)**: Create a symlink inside your deployment folder pointing to the local `modules` directory:
     ```bash
-    ln -s /absolute/path/to/datcom-datacommons/infra/dcp/modules ./modules
+    ln -s /absolute/path/to/datacommons/infra/dcp/modules ./modules
     ```
     Then point `main.tf` to the local symlink:
     ```hcl
@@ -168,10 +168,10 @@ When testing cross-repository features or validating unreleased changes against 
 Running on latest involves four platform layers:
 
 * **Terraform Infrastructure Modules (`main` branch)**:
-  In `~/dcp-deployments/<namespace>/main.tf`, point the root stack module to the `main` branch of `datcom-datacommons` (or use a local symlink to `infra/dcp/modules/stack`):
+  In `~/dcp-deployments/<namespace>/main.tf`, point the root stack module to the `main` branch of `datacommons` (or use a local symlink to `infra/dcp/modules/stack`):
   ```hcl
   module "stack" {
-    source = "git::https://github.com/datacommonsorg/datcom-datacommons.git//infra/dcp/modules/stack?ref=main"
+    source = "git::https://github.com/datacommonsorg/datacommons.git//infra/dcp/modules/stack?ref=main"
   }
   ```
 
@@ -180,24 +180,29 @@ Running on latest involves four platform layers:
   ```hcl
   dcp_version = "latest"
   ```
-  Setting `dcp_version = "latest"` activates two runtime behaviors:
-  * **Container Image Resolution**: Pins all four Cloud Run services and jobs (`datacommons-services`, `datacommons-data`, `datacommons-aggregation-helper`, `datacommons-ingestion-helper`) to the `:latest` tag in Container Registry (`gcr.io/datcom-ci/...:latest`).
-  * **Cache-Busting Image Pulls (`FORCE_RESTART`)**: Google Cloud Run resolves image tags to SHA-256 digests at deployment definition update time, not at request time. In `infra/dcp/modules/stack/main.tf`, setting `FORCE_RESTART = timestamp()` ensures that each `terraform apply` forces Cloud Run to pull the newest `:latest` image digest.
+  Setting `dcp_version = "latest"` activates runtime behaviors across container images:
+  * **Container Image Resolution**: Pins all four Cloud Run services and jobs (`datacommons-services`, `datacommons-data`, `datacommons-aggregation-helper`, `datacommons-ingestion-helper`) to the `:latest` tag in Container Registry (`gcr.io/datcom-ci/...:latest`) or Artifact Registry.
+  * **Cache-Busting Image Pulls (`FORCE_RESTART` and `skip_container_restarts`)**: Google Cloud Run resolves image tags to SHA-256 digests at deployment definition update time, not at request time. In `infra/dcp/modules/stack/main.tf`, Cloud Run services and jobs include an environment variable `FORCE_RESTART = var.global.skip_container_restarts ? "" : timestamp()`. When `skip_container_restarts = false` (the default), `FORCE_RESTART` evaluates to the current timestamp on every run, forcing Cloud Run to create a new revision and pull the newest `:latest` image digest. If your `terraform.tfvars` sets `skip_container_restarts = true` (as configured in [dcp_developer_onboarding.md](codelabs/dcp_developer_onboarding.md) to prevent revision churn during shared development), `FORCE_RESTART` remains empty across applies. When testing against `:latest`, set `skip_container_restarts = false` so that `terraform apply` pulls fresh images.
   * **Dataflow Flex Template**: Directs the ingestion pipeline to the unpinned stable Beam template (`gs://datcom-templates/templates/flex/ingestion-stable.json`).
 
 * **Admin CLI on Latest**:
   Run the CLI against the latest `main` branch either on-the-fly via `uvx` or through a local repository clone:
   * **Option A (`uvx` pointing to `main`)**:
-    Execute the latest CLI directly from GitHub without installing packages globally:
+    Execute the latest CLI directly from GitHub without installing packages globally. Because `datacommons-cli` pins `datacommons-admin` to a released version, supply `--with` for the sibling packages to ensure `uvx` runs all packages from the target Git ref instead of pulling released versions from PyPI:
     ```bash
-    uvx --no-cache --from "git+https://github.com/datacommonsorg/datcom-datacommons.git@main#subdirectory=packages/datacommons-cli" datacommons admin <command>
+    uvx --refresh \
+      --from "git+https://github.com/datacommonsorg/datacommons.git@main#subdirectory=packages/datacommons-cli" \
+      --with "git+https://github.com/datacommonsorg/datacommons.git@main#subdirectory=packages/datacommons-admin" \
+      --with "git+https://github.com/datacommonsorg/datacommons.git@main#subdirectory=packages/datacommons-db" \
+      --with "git+https://github.com/datacommonsorg/datacommons.git@main#subdirectory=packages/datacommons-schema" \
+      datacommons admin <command>
     ```
     > [!NOTE]
     > If scaffolding a new deployment workspace with `admin init` while running against `main`, pass `--tf-git-ref main` (or manually set `?ref=main` in `main.tf`). By default, `admin init` pins the Terraform module source in `main.tf` to the released version tag (such as `v1.1.2`).
   * **Option B (Local monorepo checkout)**:
-    Since the `uv` workspace already links all member packages in editable mode by default, run the CLI directly using `uv`:
+    Because the `uv` workspace links all member packages in editable mode by default, run the CLI directly using `uv`:
     ```bash
-    cd /path/fork/of/datacommonsorg/datcom-datacommons
+    cd /path/fork/of/datacommonsorg/datacommons
     uv run --package datacommons-cli datacommons admin <command>
     ```
     Any local edits made in `packages/datacommons-cli` or `packages/datacommons-admin` take effect immediately without manual reinstallation.
@@ -450,7 +455,7 @@ The repository includes a hermetic testbed that uses Docker Compose to emulate C
 
 ```bash
 uv run pytest tests/integration/suites/ \
-    --instance local \
+    --instance emulated \
     --test-config foobar_wages
 ```
 

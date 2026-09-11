@@ -43,7 +43,7 @@ DCP uses a hierarchical module architecture. Submodules never reference or depen
 ### Module Responsibilities
 * **`modules/auth`**: Provisions Secret Manager secrets for Data Commons and Google Maps API keys.
 * **`modules/spanner`**: Manages the Cloud Spanner instance, databases, processing units, retention policies, and BigQuery federated connections.
-* **`modules/storage`**: Creates the central artifacts GCS bucket (`gs://<namespace>-dc-artifacts-<project_id>`) for raw input data, intermediate shards, and pipeline handshakes.
+* **`modules/storage`**: Creates the central artifacts GCS bucket (`gs://<instance_name>-dc-artifacts-<project_id>`) for raw input data, intermediate shards, and pipeline handshakes.
 * **`modules/redis`**: Provisions a Google Cloud MemoryStore Redis instance and Serverless VPC Access connector for low-latency query caching.
 * **`modules/ingestion/`**: Contains submodules for each ingestion stage:
   * `preprocessing_job`: Cloud Run job executing `datacommons-data` in `dcpbridge` mode.
@@ -57,6 +57,8 @@ DCP uses a hierarchical module architecture. Submodules never reference or depen
 To keep environment variables uniform across Cloud Run services and jobs, `modules/stack/main.tf` constructs a shared local object: `cloud_run_shared_env_variables`. This block injects:
 * `USE_CLOUDSQL = "false"`
 * `OUTPUT_DIR = gs://<artifacts_bucket>/<artifacts_path>`
+* `TEMP_LOCATION = gs://<artifacts_bucket>/<artifacts_path>/temp`
+* `FORCE_RESTART`: Injects `timestamp()` when `skip_container_restarts = false` to force revision creation and image pulls on apply.
 * `REDIS_HOST` and `REDIS_PORT` (populated conditionally if Redis is enabled)
 * `GCP_SPANNER_INSTANCE_ID` and `GCP_SPANNER_DATABASE_NAME`
 * `PROJECT_ID`, `REGION`, and `WORKFLOW_LOCATION`
@@ -66,7 +68,7 @@ To keep environment variables uniform across Cloud Run services and jobs, `modul
 Decoupling submodules requires that all cross-service permissions reside centrally in [infra/dcp/modules/stack/main.tf](../../infra/dcp/modules/stack/main.tf):
 1. **GCS Storage Access**: Grants `roles/storage.objectAdmin` on the artifacts bucket to the Dataflow, Workflow, and Preprocessing service accounts.
 2. **Workflow Job Invocation**: Grants the Cloud Workflows service account `roles/run.invoker`, `roles/run.viewer`, and `roles/run.developer` on both Preprocessing and Postprocessing Cloud Run jobs, and `roles/iam.serviceAccountUser` over their runtime service accounts.
-3. **Workflow Dataflow Control**: Grants `roles/dataflow.developer` to the Cloud Workflows service account.
+3. **Workflow Execution & Dataflow Control**: Grants `roles/workflows.invoker`, `roles/dataflow.developer`, and `roles/run.viewer` to the Cloud Workflows service account.
 4. **Service Rolling Restarts**: Grants `roles/run.developer` and `roles/iam.serviceAccountUser` over `datacommons-services` to the Cloud Workflows service account, allowing the workflow to patch serving labels and trigger rolling container restarts upon successful ingestion.
 
 ---
@@ -79,7 +81,7 @@ To keep configurations clean and predictable across dozens of resources, DCP enf
 Variables flow downward through four stages:
 
 1. **User Input (`terraform.tfvars`)**: The operator sets prefixed variables (such as `spanner_create_instance`, `ingestion_dataflow_max_workers`).
-2. **Root Aggregation ([infra/dcp/main.tf](../../infra/dcp/main.tf))**: Aggregates individual variables into typed local configuration maps (`global_config`, `spanner_config`, `ingestion_config`, `datacommons_services_config`, `auth_config`, `redis_config`).
+2. **Root Aggregation ([infra/dcp/main.tf](../../infra/dcp/main.tf))**: Aggregates individual variables into typed local configuration objects (`global_config`, `spanner_config`, `ingestion_config`, `datacommons_services_config`, `auth_config`, `redis_config`), passing storage settings directly.
 3. **Stack Interface ([infra/dcp/modules/stack/variables.tf](../../infra/dcp/modules/stack/variables.tf))**: The stack orchestrator defines strongly typed `object({...})` schema declarations for each configuration block.
 4. **Submodule Invocation ([infra/dcp/modules/stack/main.tf](../../infra/dcp/modules/stack/main.tf))**: The stack module unpacks configuration objects into short, module-scoped variables (`create_instance`, `instance_id`).
 
@@ -114,9 +116,8 @@ Deploying DCP on Google Cloud involves specific account and service constraints.
 
 ### Stateful vs Stateless Deletion Protection
 DCP separates deletion protection into two independent variables in `infra/dcp/variables.tf`:
-* **`stateful_deletion_protection`** (defaults to `true`): Protects data storage layers, including Cloud Spanner databases, instances, and GCS storage buckets. Prevents accidental destruction during automated cleanups.
+* **`stateful_deletion_protection`** (defaults to `false`): Controls deletion protection on persistent storage layers, including Cloud Spanner databases and GCS storage buckets. Enable this flag in production to prevent accidental destruction during automated cleanups. When enabled, teardown requires explicitly setting `stateful_deletion_protection = false` and running `terraform apply` before running `terraform destroy`.
 * **`stateless_deletion_protection`** (defaults to `false`): Controls compute resources like Cloud Run services, Cloud Run jobs, and Cloud Workflows. Allows quick teardown and redeployment of compute targets.
-* Before running `terraform destroy` on an experimental instance, operators must explicitly set `stateful_deletion_protection = false` in `terraform.tfvars` and run `terraform apply` first to unlock the stateful resources.
 
 ### Service Account Token Creator Requirement
 * Cloud Workflows, Cloud Run jobs, and the `datacommons admin init-db` CLI command run under dedicated service account identities.

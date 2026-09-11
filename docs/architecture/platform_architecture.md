@@ -22,11 +22,11 @@ At a high level, DCP is made up of three core subsystems working together:
 
 ### Importing Data (The Ingestion Pipeline)
 * **From files to the graph**: Converts custom CSV spreadsheets and schema definitions (MCF files) into structured knowledge graph data loaded into Cloud Spanner.
-* **Automated steps**: Google Cloud Workflows orchestrates the entire import: parsing data with `datacommons-data`, running large-scale distributed loading on Cloud Dataflow, and building search embeddings using Vertex AI.
+* **Automated steps**: Google Cloud Workflows orchestrates the entire import: parsing data with `datacommons-data`, running large-scale distributed loading on Cloud Dataflow, generating topic hierarchies and provenance summaries via BigQuery postprocessing, and building search embeddings using Vertex AI.
 * **Safe loading**: An ingestion lock prevents two imports from colliding, ensuring data is written cleanly and safely.
 
 ### Serving Queries (The Web and API Stack)
-* **All-in-one serving container**: A single Cloud Run service (`datacommons-services`) hosts the web frontend for interactive charts, REST and gRPC APIs for applications, and an MCP server for AI agents.
+* **All-in-one serving container**: A single Cloud Run service (`dc-datacommons-service`) running the `datacommons-services` image hosts the web frontend for interactive charts, REST and gRPC APIs for applications, and an MCP server for AI agents.
 * **Combining private and public data**: When a user queries data, the backend (Mixer) checks your private Spanner database and the public Google Data Commons graph at the same time, merging the results into a single response. Your private data always takes priority.
 * **Clean user experience**: While a background import is loading new data, users can continue browsing and querying charts without seeing partial or broken updates. Once the import completes, caches clear automatically so the newest data shows up right away.
 
@@ -39,7 +39,7 @@ The architecture organizes responsibilities hierarchically across four repositor
 * **Serving Layer (`mixer` and `website`)**: Mixer queries backend storage and Base Data Commons; Website serves the frontend UI and proxies requests.
 * **Ingestion Layer (`import`)**: Transforms, validates, and commits batch graph mutations into Cloud Spanner.
 
-### [datacommonsorg/datacommons](../../)
+### [datacommonsorg/datacommons](https://github.com/datacommonsorg/datacommons)
 The platform hub and orchestration repository.
 * **[infra/dcp/](../../infra/dcp)**: Declarative Terraform configurations and reusable modules for Cloud Spanner, Cloud Run, Google Cloud Storage (GCS), Cloud Workflows, Secret Manager, and VPC networking.
 * **[packages/datacommons-cli/](../../packages/datacommons-cli)**: Lightweight entrypoint wrapper for the `datacommons` CLI distribution.
@@ -76,11 +76,11 @@ DCP packages services into container images hosted on Google Cloud Artifact Regi
 
 | Image Name | Source Repository | Compute Target | Role in Platform |
 | :--- | :--- | :--- | :--- |
-| **`datacommons-services`** | `website` (submodules `mixer`) | Cloud Run Service | Unified serving container. Hosts Nginx ingress, Website Flask/React frontend, Envoy gRPC-JSON transcoder, and Go Mixer backend. |
-| **`datacommons-data`** | `website` + `import/simple` | Cloud Run Job | Data preprocessor. Runs `stats.main --mode=dcpbridge` to parse CSV and MCF files into JSON-LD chunks. |
+| **`datacommons-services`** | `website` (submodules `mixer`) | Cloud Run Service (`dc-datacommons-service`) | Unified serving container. Hosts Nginx ingress, Website Flask/React frontend, Envoy gRPC-JSON transcoder, and Go Mixer backend. |
+| **`datacommons-data`** | `website` + `import/simple` | Cloud Run Job (`dc-ingestion-preprocessing-job`) | Data preprocessor. Runs `stats.main --mode=dcpbridge` to parse CSV and MCF files into JSON-LD chunks. |
 | **`ingestion-flex`** | `import/pipeline/ingestion` | Cloud Dataflow | Apache Beam Java Flex Template (`GraphIngestionPipeline`). Ingests graph nodes and observations into Cloud Spanner. |
-| **`datacommons-aggregation-helper`** | `import/pipeline/workflow` | Cloud Run Job | Postprocessing engine. Uses BigQuery federated queries to materialize `STAT_VAR_GROUPS`, `LINKED_EDGES`, and summary tables. |
-| **`datacommons-ingestion-helper`** | `import/pipeline/workflow` | Cloud Run Service | Operational coordinator. Provides REST endpoints for Spanner table locks, metadata history, and Vertex AI embeddings. |
+| **`datacommons-aggregation-helper`** | `import/pipeline/workflow` | Cloud Run Job (`dc-ingestion-postprocessing-job`) | Postprocessing engine. Uses BigQuery federated queries over Spanner to generate `STAT_VAR_GROUPS`, `LINKED_EDGES`, and `ProvenanceSummary`. |
+| **`datacommons-ingestion-helper`** | `import/pipeline/workflow` | Cloud Run Service (`dc-ingestion-helper`) | Operational coordinator. Provides REST endpoints for Spanner table locks, metadata history, and Vertex AI embeddings. |
 
 ---
 
@@ -88,26 +88,26 @@ DCP packages services into container images hosted on Google Cloud Artifact Regi
 
 Batch ingestion loads raw data from Cloud Storage into Cloud Spanner across a 5-stage pipeline orchestrated by Google Cloud Workflows ([workflow.yaml](../../infra/dcp/modules/ingestion/workflow/workflow.yaml)):
 
-1. **Preprocessing**: Cloud Workflows launches Cloud Run job `datacommons-data`, executing `stats.main --mode=dcpbridge` against `gs://<storage_bucket>/<ingestion_input_path>/<dataset>/`. The job validates CSV headers against `config.json`, outputs partitioned JSON-LD shards, and writes a handshake file (`gs://<bucket>/<tempLocation>/datacommons/ingestion_records/<workflow_id>.json`). The workflow reads this handshake blob to extract the sanitized `importList` and `generateStatVarGroups` flag before launching subsequent stages.
-2. **Distributed Locking Protocol**: The workflow calls `POST /database/lock/acquire` on `datacommons-ingestion-helper`:
-   * **Atomic Spanner Transaction**: The helper service executes a read-write transaction on the Spanner `IngestionLock` table (`LockID = 'global_ingestion_lock'`). It checks whether `LockOwner` is null or if `AcquiredTimestamp` exceeds the stale lock timeout (default 82,800 seconds / 23 hours), allowing stale locks from crashed jobs to be claimed safely.
-   * **Contention and Backoff Retry Loop**: If the lock is held by another active run, the endpoint returns HTTP 503. The workflow enters a retry loop (`increment_retries_and_wait`), sleeping for 120 seconds between attempts until acquired or reaching the configured timeout.
-   * **Ingestion History Record**: Once acquired, an `IngestionHistory` entry is committed with status `PENDING`.
-3. **Dataflow Ingestion**: Launches the Apache Beam Java pipeline (`GraphIngestionPipeline`) on Dataflow. Dataflow deletes outdated records for replaced imports, computes 64-bit FarmHash facet identifiers, generates search columns, and streams batched mutations into Spanner tables (`Node`, `Edge`, `Observation`, `TimeSeries`).
-4. **Parallel Postprocessing and Embeddings**: Cloud Workflows executes postprocessing in parallel branches:
-   * **Aggregation Helper Job**: Cloud Run job executing BigQuery federated queries over Spanner to materialize `STAT_VAR_GROUPS`, `LINKED_EDGES`, and `ProvenanceSummary`.
-   * **Vertex AI Embeddings**: Calls `POST /embeddings/ingest` on `ingestion-helper`, which calls Spanner `ML.PREDICT` against Vertex AI to compute vector representations for new statistical variables and entities.
+1. **Preprocessing**: Cloud Workflows launches the Cloud Run preprocessing job (`dc-ingestion-preprocessing-job`, running image `datacommons-data`), executing `stats.main --mode=dcpbridge` against input datasets. The job validates CSV headers against `config.json`, outputs partitioned JSON-LD shards, and writes a handshake file to `<tempLocation>/datacommons/ingestion_records/<workflow_id>.json`. The workflow reads this handshake blob to extract the sanitized `importList` and `generateStatVarGroups` flag before launching subsequent stages.
+2. **Distributed Locking Protocol**: The workflow calls `POST /database/lock/acquire` on `dc-ingestion-helper`:
+   * **Atomic Spanner Transaction**: The helper service executes a read-write transaction on the Spanner `IngestionLock` table (`LockName = 'global_ingestion_lock'`). It checks whether the lock is currently held.
+   * **Contention and Backoff Retry Loop**: If another active run holds the lock, the endpoint returns HTTP 503. The workflow enters a retry loop (`increment_retries_and_wait`), sleeping for 120 seconds between attempts until acquired or reaching `max_lock_retries` (`lock_acquisition_timeout / 120`). The default `lock_acquisition_timeout` of 82,800 seconds (23 hours) defines the lock acquisition retry window, allowing sequential ingestion runs to queue safely behind active jobs.
+   * **Ingestion History Record**: Once acquired, the workflow calls `POST /imports/ingestion-history` on `dc-ingestion-helper` to record an `IngestionHistory` entry with status `PENDING` and stage `dataflow`.
+3. **Dataflow Ingestion**: Cloud Workflows updates `IngestionHistory` to status `RUNNING` (stage `dataflow`) and launches the Apache Beam Java pipeline (`GraphIngestionPipeline`) on Dataflow. Dataflow deletes outdated records for replaced imports, computes 64-bit FarmHash facet identifiers, generates search columns, and streams batched mutations into Spanner tables (`Node`, `Edge`, `Observation`, `TimeSeries`).
+4. **Parallel Postprocessing and Embeddings**: Cloud Workflows updates `IngestionHistory` to status `RUNNING` (stage `postprocessing`) and executes two parallel branches:
+   * **Aggregation Helper Job**: Launches Cloud Run job `dc-ingestion-postprocessing-job` (`datacommons-aggregation-helper`), executing BigQuery federated queries over Spanner to generate statistical variable hierarchies (`STAT_VAR_GROUPS` written to `Node` and `Edge`), graph relationships (`LINKED_EDGES` written to `Edge`), and dataset summaries (`ProvenanceSummary` written to `KeyValueStore`).
+   * **Vertex AI Embeddings**: Calls `POST /embeddings/ingest` on `dc-ingestion-helper`, which executes Spanner `ML.PREDICT` against Vertex AI to compute vector representations for new statistical variables.
 5. **Finalization, Cache Busting, and Rolling Restart**:
-   * Promotes the imported dataset version via `POST /imports/version` on `ingestion-helper`.
-   * Updates `IngestionHistory` to `SUCCESS` with completion timestamp and ingestion metrics.
-   * Flushes the Redis query cache via `POST /cache/clear`.
-   * If `skip_container_restarts = false`, Cloud Workflows issues a patch call (`googleapis.run.v2.projects.locations.services.patch`) on `datacommons-services` to mutate `template.labels.restarted-at`, triggering a zero-downtime rolling revision update.
+   * Updates `IngestionHistory` to status `SUCCESS` and stage `completed` via `POST /imports/ingestion-history`. This commit serves as the atomic version promotion watermark for downstream queries.
+   * If `enable_redis_cache_clearing` is enabled, flushes the Redis query cache via `POST /cache/clear` on `dc-ingestion-helper`.
+   * If `enable_datacommons_services_restart` is enabled, Cloud Workflows issues a patch call (`googleapis.run.v2.projects.locations.services.patch`) on `dc-datacommons-service` to update `template.labels.restarted-at`, triggering a zero-downtime rolling revision restart.
+   * The workflow releases the distributed mutex by calling `POST /database/lock/release` on `dc-ingestion-helper`.
 
 #### Failure Handling and Lock Release Guarantee
 If Dataflow or postprocessing throws an unhandled exception:
-* Cloud Workflows intercepts the error in its global `try/retry/except` block ([workflow.yaml](../../infra/dcp/modules/ingestion/workflow/workflow.yaml)).
-* It logs the failure status (`FAILURE` or `RETRY`) into `IngestionHistory`.
-* The workflow **always executes `release_lock_step`** (`POST /database/lock/release`) before exiting, ensuring the Spanner lock is never orphaned and subsequent ingestion runs are not blocked.
+* Cloud Workflows intercepts the error in its global `try/except` block ([workflow.yaml](../../infra/dcp/modules/ingestion/workflow/workflow.yaml)).
+* It updates `IngestionHistory` to status `FAILED` and stage `failed` via `POST /imports/ingestion-history`.
+* The workflow always executes `release_lock_on_failure` (`POST /database/lock/release`) before re-raising the error, ensuring the Spanner lock is never orphaned and subsequent ingestion runs are not blocked.
 
 ---
 

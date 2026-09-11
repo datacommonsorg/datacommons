@@ -53,9 +53,9 @@ source = "./modules/stack"  ==>  source = "git::https://github.com/datacommonsor
 
 Administrative commands (`init-db`, `migrate-db`, `ingest start`) require access to infrastructure attributes provisioned by Terraform, such as the Spanner database ID, Cloud Workflows name, and Cloud Run service URLs.
 
-The CLI resolves these attributes dynamically via `datacommons_admin/core/utils/tf_utils.py` using two execution modes, populating a strongly typed `TerraformOutputs` dataclass:
+The CLI resolves these attributes dynamically via [tf_utils.py](../../packages/datacommons-admin/datacommons_admin/core/utils/tf_utils.py) using two execution modes, parsing outputs into an in-memory dictionary and accessing values through dedicated helper functions:
 
-* **Remote GCS State Mode**: Used when Click context specifies remote flags (`--project-id`, `--instance-name`, or `--tf-state-location`). Reads `default.tfstate` directly from Cloud Storage via the Google Cloud Client Library without requiring the `terraform` CLI binary.
+* **Remote GCS State Mode**: Used when the operator passes `--tf-state-location` or passes `--project-id` and `--instance-name` together. Reads `default.tfstate` directly from Cloud Storage via the Google Cloud Client Library without requiring the local `terraform` CLI binary.
 * **Local State Mode**: Used when invoked within an active deployment directory without remote state flags. Executes `terraform output -json` as a local subprocess and parses the JSON stdout.
 
 ### Local State Mode (Interactive Workstations)
@@ -73,17 +73,17 @@ In automated environments (such as GitHub Actions, Cloud Build, or remote operat
       --instance-name dev-alice \
       ingest start --imports ALL_IMPORTS
   ```
-* `tf_utils.py` uses the Google Cloud Storage Python client (`google-cloud-storage`) to download the `default.tfstate` blob directly from `gs://<instance-name>-dc-tfstate-<project-id>/default.tfstate`.
+* When `--project-id` and `--instance-name` are passed, `tf_utils.py` downloads the state blob from canonical URI `gs://tf-state-<instance-name>-<project-id>/terraform/state/<instance-name>/default.tfstate`. If `--tf-state-location` is specified, it downloads directly from the provided GCS URI.
 * The CLI extracts the `outputs` JSON block directly from the remote state document.
 
-### Contract Enforcement
-To prevent drift between Terraform exports and CLI expectations, the automated test suite in [packages/datacommons-admin/tests/](../../packages/datacommons-admin/tests/) enforces contract checks during CI:
-1. Every field in the `TerraformOutputs` Python dataclass must exist in [infra/dcp/outputs.tf](../../infra/dcp/outputs.tf).
-2. Every `TF_OUTPUT_*` string constant in `tf_utils.py` must match a declared output in [infra/dcp/outputs.tf](../../infra/dcp/outputs.tf).
-3. Every output delegated by [infra/dcp/outputs.tf](../../infra/dcp/outputs.tf) to `module.stack` must be declared in [infra/dcp/modules/stack/outputs.tf](../../infra/dcp/modules/stack/outputs.tf).
-4. Unit test mock fixtures in `conftest.py` must maintain field parity with `TerraformOutputs`.
+### Terraform Output Key Mapping
+`tf_utils.py` defines explicit string constants for required outputs:
+* Database initialization: `spanner_instance_id`, `spanner_database_id`, `ingestion_service_url`, `ingestion_workflow_service_account_email`, `project_id`.
+* Data ingestion: `ingestion_prep_job_name`, `ingestion_workflow_service_account_email`, `project_id`, `region`, `ingestion_workflow_name`.
 
-Passing explicit remote flags (`--project-id`, `--instance-name`, `--tf-state-location`) strictly overrides local state detection, ensuring deterministic execution on CI/CD runners regardless of working directory.
+Dedicated helper functions (`get_spanner_instance_id()`, `get_ingestion_prep_job_name()`, etc.) retrieve each output on-demand through `get_terraform_output(key)`. The function caches output dictionaries across repeated lookups within a command lifecycle and validates that returned values are non-empty.
+
+Passing explicit remote flags strictly overrides local state detection, ensuring deterministic execution on CI/CD runners regardless of working directory.
 
 ---
 
@@ -98,10 +98,10 @@ Passing explicit remote flags (`--project-id`, `--instance-name`, `--tf-state-lo
 6. **Metadata Seeding**: Calls `${ingestion_helper_url}/database/seed` to populate fundamental statistical entities and units.
 
 ### Ingestion Trigger Flow (`datacommons admin ingest start`)
-1. **Output Discovery**: Reads `ingestion_workflow_name`, `ingestion_workflow_service_account_email`, `ingestion_temp_location`, `project_id`, and `region`.
-2. **Client Initialization**: Instantiates `IngestionJobClient` targeting the Google Cloud Workflows API.
+1. **Output Discovery**: Reads `ingestion_workflow_name`, `ingestion_prep_job_name`, `ingestion_workflow_service_account_email`, `project_id`, and `region` from Terraform state.
+2. **Client Initialization and Environment Discovery**: Instantiates `IngestionJobClient` targeting the Google Cloud Workflows API. Inspects the preprocessing Cloud Run job environment configuration to retrieve runtime parameters, including `TEMP_LOCATION`, `GCP_SPANNER_INSTANCE_ID`, and `GCP_SPANNER_DATABASE_NAME`.
 3. **Workflow Execution**:
-   * Prepares execution arguments containing the target dataset import names (`--imports <dataset>`), Cloud Spanner instance and database IDs, and temporary GCS locations.
+   * Prepares execution arguments containing the target dataset import names (`--imports <dataset>`), Cloud Spanner instance and database IDs, and the temporary GCS location (`tempLocation`).
    * Calls `googleapis.workflows.executions.create` using the Cloud Workflows service account identity.
 4. **Console Link Generation**: Formulates and prints a direct Google Cloud Console URL:
    ```

@@ -19,6 +19,7 @@ To build, test, and contribute, install the following tools:
 * **[uv](https://docs.astral.sh/uv/)**: Python project and package manager.
 * **[Terraform](https://developer.hashicorp.com/terraform/install) (v1.5+)**: Required when modifying configurations in `infra/dcp/`.
 * **[gcloud CLI](https://cloud.google.com/sdk/docs/install-sdk)**: Google Cloud SDK for project authentication.
+* **[Docker](https://docs.docker.com/get-docker/)**: Required for running local hermetic integration tests with Docker Compose.
 
 ---
 
@@ -45,7 +46,7 @@ uv run pytest
 For emulated end-to-end integration tests using Docker Compose, refer to the [Integration Tests Guide](tests/integration/README.md):
 ```bash
 uv run pytest tests/integration/suites/ \
-    --instance local \
+    --instance emulated \
     --test-config foobar_wages
 ```
 
@@ -69,6 +70,8 @@ When contributing documentation, follow the standards defined in [docs/README.md
 
 ---
 
-## License
+## Contributor License Agreement & License
+
+Contributions to this project must be accompanied by a Contributor License Agreement (CLA). If you or your organization have not signed the Google CLA, please sign at [https://cla.developers.google.com/](https://cla.developers.google.com/).
 
 By contributing to Data Commons, you agree that your contributions will be licensed under the [Apache-2.0 License](LICENSE).
