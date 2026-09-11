@@ -42,7 +42,6 @@ The `datacommons-devtools` CLI (short alias: `dc-devtools`) is registered as a w
 To generate a new timestamped migration script with boilerplate pre-filled:
 
 ```bash
-uv run dcp-tools migrations create <change_name> [-d/--description "<description>"]
 uv run datacommons-devtools migrations create <change_name> [-d/--description "<description>"]
 ```
 
