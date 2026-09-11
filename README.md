@@ -8,7 +8,7 @@ Data Commons powers [datacommons.org](https://datacommons.org), Google's open kn
 
 ## Getting Started
 
-* **Deploying or operating a DCP instance?** If you are an administrator, data steward, or operator looking to install and run your own Data Commons instance, follow the **[Data Commons Platform User Guide](docs/user_guide.md)**.
+* **Deploying or operating a DCP instance?** If you are an instance owner, data steward, or administrator looking to install and run your own Data Commons instance, follow the **[Data Commons Platform User Guide](docs/user_guide.md)**.
 * **Developing or contributing to the codebase?** If you are an engineer contributing to DCP, start with the hands-on **[Developer Onboarding Codelab](docs/codelabs/dcp_developer_onboarding.md)** for a guided tutorial deploying and testing an instance, consult the **[Developer Guide](docs/developer_guide.md)** for workbench recipes and monorepo topology, and review **[CONTRIBUTING.md](CONTRIBUTING.md)** for pull request guidelines.
 
 ## Prerequisites
@@ -67,15 +67,15 @@ uv run datacommons admin --project-id my-gcp-project --instance-name prod init-d
 uv run datacommons admin --project-id my-gcp-project --instance-name prod ingest start --imports <import_name>
 ```
 
-## User Documentation (DCP Admins and Operators)
+## Documentation & Guides
 
-If you are an administrator, data steward, or operator looking to install, configure, and manage a Data Commons instance:
+### User Documentation (DCP Instance Owners and Administrators)
+
+If you are an instance owner, data steward, or administrator looking to install, configure, and manage a Data Commons instance:
 
 * **[Data Commons Platform User Guide](docs/user_guide.md)**: Master operational manual covering platform deployment, schema modeling, data ingestion, and instance administration.
 
----
-
-## Developer Documentation (Platform Contributors)
+### Developer Documentation (Platform Contributors)
 
 If you are an engineer contributing to the codebase, creating new services, or tuning platform internals:
 
