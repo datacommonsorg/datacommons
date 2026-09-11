@@ -10,7 +10,7 @@ This document details the dual entrypoint architecture, the central module orche
 
 ---
 
-## 1. Dual Entrypoint Architecture
+## Dual Entrypoint Architecture
 
 DCP supports two distinct deployment workflows: one for external consumers running instances, and one for core platform contributors developing the infrastructure modules:
 
@@ -32,7 +32,7 @@ Platform contributors modifying Terraform definitions or testing changes work di
 
 ---
 
-## 2. Stack Orchestration and Module Topology
+## Stack Orchestration and Module Topology
 
 DCP uses a hierarchical module architecture. Submodules never reference or depend on each other directly. Instead, `infra/dcp/modules/stack/main.tf` serves as the single orchestration hub that passes outputs between submodules and binds cross-module Identity and Access Management (IAM) policies:
 
@@ -71,7 +71,7 @@ Decoupling submodules requires that all cross-service permissions reside central
 
 ---
 
-## 3. Variable Propagation Pipeline and Naming Conventions
+## Variable Propagation Pipeline and Naming Conventions
 
 To keep configurations clean and predictable across dozens of resources, DCP enforces a strict variable propagation pipeline and standardized resource naming rules.
 
@@ -92,7 +92,7 @@ Variables flow downward through four stages:
    * Strip component prefixes inside submodules. Use `create_instance` instead of `spanner_create_instance`, and `memory_size_gb` instead of `redis_memory_size_gb`.
 3. **GCP Resource Names**:
    * All provisioned resources follow the pattern: `${local.name_prefix}dc-[functional-name]`.
-   * `local.name_prefix` evaluates to `"${var.namespace}-"` when a namespace is provided, or an empty string when omitted.
+   * `local.name_prefix` evaluates to `"${var.instance_name}-"` when `var.instance_name` (or the deprecated backward-compatible alias `var.namespace`) is provided, or an empty string when omitted.
    * Examples:
      * Spanner instance: `dc-instance` (or `dev-alice-dc-instance`)
      * Spanner database: `dc-db`
@@ -102,23 +102,23 @@ Variables flow downward through four stages:
 
 ---
 
-## 4. Operational Constraints and Guardrails
+## Operational Constraints and Guardrails
 
 Deploying DCP on Google Cloud involves specific account and service constraints. Understanding these rules prevents deployment failures and data loss:
 
-### 1. BigQuery Reservation Quota Limits
+### BigQuery Reservation Quota Limits
 * Google Cloud enforces a strict quota of **one BigQuery slot reservation per project per region**.
-* If multiple engineers deploy private development instances into the same GCP project (for example, `datcom-website-dev` in `us-central1`), only the first instance can create a reservation.
-* Secondary deployments attempting to create a reservation fail with a resource collision error.
-* **Resolution**: When sharing a GCP project, set `spanner_create_bigquery_reservation = false` in `terraform.tfvars`. Ensure `spanner_enable_bigquery_connection = true` remains enabled so BigQuery can still query Spanner on-demand for postprocessing.
+* In `infra/dcp/modules/spanner/main.tf`, the reservation name is hardcoded to `name = "default"`.
+* If multiple engineers deploy private development instances into the same GCP project (for example, `datcom-website-dev` in `us-central1`), only the first instance can successfully create the reservation. Secondary deployments fail with a resource name collision error (`Already Exists: default`).
+* **Resolution**: When sharing a GCP project, set `spanner_create_bigquery_reservation = false` in `terraform.tfvars`. Ensure `spanner_enable_bigquery_connection = true` remains enabled so BigQuery can still execute on-demand federated queries against Spanner during postprocessing without dedicated slot reservations.
 
-### 2. Stateful vs Stateless Deletion Protection
+### Stateful vs Stateless Deletion Protection
 DCP separates deletion protection into two independent variables in `infra/dcp/variables.tf`:
 * **`stateful_deletion_protection`** (defaults to `true`): Protects data storage layers, including Cloud Spanner databases, instances, and GCS storage buckets. Prevents accidental destruction during automated cleanups.
 * **`stateless_deletion_protection`** (defaults to `false`): Controls compute resources like Cloud Run services, Cloud Run jobs, and Cloud Workflows. Allows quick teardown and redeployment of compute targets.
 * Before running `terraform destroy` on an experimental instance, operators must explicitly set `stateful_deletion_protection = false` in `terraform.tfvars` and run `terraform apply` first to unlock the stateful resources.
 
-### 3. Service Account Token Creator Requirement
+### Service Account Token Creator Requirement
 * Cloud Workflows, Cloud Run jobs, and the `datacommons admin init-db` CLI command run under dedicated service account identities.
 * To execute the workflow or trigger database schema initialization, the deploying developer or CI runner requires permission to impersonate the workflow orchestrator service account.
 * If missing, the developer must grant `roles/iam.serviceAccountTokenCreator` on the workflow service account to their identity:
@@ -128,3 +128,11 @@ DCP separates deletion protection into two independent variables in `infra/dcp/v
       --role="roles/iam.serviceAccountTokenCreator" \
       --project=<project-id>
   ```
+
+---
+
+## Related Documentation
+
+* **Platform Architecture**: Consult [Platform Architecture](platform_architecture.md) for serving container multiplexing and Spanner read consistency.
+* **Admin CLI Architecture**: Consult [Admin CLI Architecture](admin_cli.md) for scaffolding contracts and Terraform state parsing.
+* **Developer Guide**: Consult [Developer Guide](../developer_guide.md#working-on-infrastructure-infradcp) for local submodule symlink testing recipes.

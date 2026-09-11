@@ -75,13 +75,15 @@ DCP federates queries to base Google Data Commons. You must supply a valid API k
 2. Sign in with your Google account and generate a free API key.
 3. Save this key locally; you will provide it in Step 2.
 
-### 5. Install the Data Commons CLI (`datacommons`)
-Install the latest published CLI package from PyPI as a standalone global tool via `uv tool install`:
+### 4. Install the Admin CLI (`datacommons`)
+To contribute to the codebase, run integration test scripts, or work with local submodules, clone the repository:
 ```bash
-# Install the latest published release:
-uv tool install datacommons-cli
+git clone https://github.com/datacommonsorg/datcom-datacommons.git
+cd datcom-datacommons
+```
 
-# Or pin to an exact published release (e.g. 1.1.5):
+Install the Admin CLI tool using `uv`:
+```bash
 uv tool install "datacommons-cli==1.1.5"
 ```
 Alternatively, define a shell alias to execute on-the-fly without global installation:
@@ -89,7 +91,7 @@ Alternatively, define a shell alias to execute on-the-fly without global install
 alias datacommons='uvx --from "datacommons-cli==1.1.5" datacommons'
 ```
 
-*(If you are developing features inside `packages/datacommons-cli` or `packages/datacommons-admin`, you can execute unreleased code directly from your local monorepo checkout using `uv run --package datacommons-cli datacommons`. See the [Developer Guide](../developer_guide.md#working-on-the-cli-datacommons-cli--datacommons-admin) for details).*
+*(If you are developing features inside `packages/datacommons-cli` or `packages/datacommons-admin`, you can execute unreleased code directly from your local monorepo checkout using `uv run --package datacommons-cli datacommons`. See the [Developer Guide](../developer_guide.md#working-on-the-cli-datacommons-cli-and-datacommons-admin) for details).*
 
 Verify the installation:
 ```bash
@@ -165,7 +167,7 @@ You will see five generated files (or four if remote state management was disabl
 * **`main.tf`**: The root configuration that calls the remote DCP stack module:
   `source = "git::https://github.com/datacommonsorg/datacommons.git//infra/dcp/modules/stack?ref=v1.1.5"`
 * **`variables.tf`**: Variable definitions declaring all configuration options and default values.
-* **`outputs.tf`**: Output values that export vital attributes (such as bucket names and service URLs) after deployment.
+* **`outputs.tf`**: Output values that export deployment attributes (such as bucket names and service URLs) after deployment.
 * **`terraform.tfvars`**: Your instance configuration values.
 * **`backend.tf`**: Remote state configuration storing your Terraform state file in a dedicated Cloud Storage bucket (`<project_id>-<instance_name>-tfstate`), ensuring your deployment state is backed up securely in GCP rather than stored only on your local disk.
 
@@ -227,7 +229,7 @@ terraform init
 ```
 You should see: `Terraform has been successfully initialized!`
 
-> **Architecture Pointer**: During scaffolding, `datacommons admin init` rewrote `source = "./modules/stack"` to point to the remote Git release repository. For details on this regex substitution contract and how the root module orchestrates child modules (`modules/datacommons_services`, `modules/ingestion`, etc.), refer to [Admin CLI Architecture](../architecture/admin_cli.md#the-source-regex-substitution-contract) and [Terraform Stack Architecture](../architecture/terraform_stack.md#orchestration-topology-modulesstack).
+> **Architecture Pointer**: During scaffolding, `datacommons admin init` rewrote `source = "./modules/stack"` to point to the remote Git release repository. For details on this regex substitution contract and how the root module orchestrates child modules (`modules/datacommons_services`, `modules/ingestion`, etc.), refer to [Admin CLI Architecture](../architecture/admin_cli.md#the-source-regex-substitution-contract) and [Terraform Stack Architecture](../architecture/terraform_stack.md#stack-orchestration-and-module-topology).
 
 ### 2. Inspect Execution Plan and Apply
 Generate and inspect the execution plan, then apply it to provision your infrastructure.
@@ -367,9 +369,11 @@ gcloud storage ls "gs://$DATA_BUCKET/$INPUT_PATH/"
 The bucket contains committed test dataset folders (`foobar_wages`, `foobar_education`, `financial_trade`). Each dataset contains CSV observations, schema MCFs, and `config.json` mappings.
 
 ### 2. Start Ingestion via the CLI
-Trigger the ingestion workflow. You can ingest a single dataset (`foobar_wages`) or multiple datasets concurrently:
+Navigate to your deployment directory and trigger the ingestion workflow. You can ingest a single dataset (`foobar_wages`) or multiple datasets concurrently:
 
 ```bash
+cd ~/dcp-deployments/$NAMESPACE
+
 # Ingest single dataset:
 datacommons admin ingest start --imports foobar_wages
 
@@ -482,15 +486,15 @@ In this module, you will practice the day-to-day workflow of modifying `terrafor
 ### 1. Inspect the Active Revision in Cloud Run
 Return to the Google Cloud Console and navigate to **Cloud Run > Services > `<namespace>-dc-datacommons-service`**.
 * Click the **Revisions** tab.
-* Note the container image URL currently serving 100% of traffic (for example, `gcr.io/datcom-website-dev/datacommons-services:latest` or `v1.1.5`).
+* Note the container image URL currently serving 100% of traffic (for example, `gcr.io/datcom-ci/datacommons-services:latest` or `1.1.5`).
 
 ### 2. Override the Container Image in `terraform.tfvars`
 Open `~/dcp-deployments/$NAMESPACE/terraform.tfvars` in your editor.
-At the bottom of the file, add an override for the serving container pointing to a specific prior release tag (such as `v1.1.3`):
+At the bottom of the file, add an override for the serving container pointing to a specific prior release tag (such as `1.1.3`):
 
 ```hcl
 # Override serving container image to a specific release tag:
-datacommons_services_image = "gcr.io/datcom-website-dev/datacommons-services:v1.1.3"
+datacommons_services_image = "gcr.io/datcom-ci/datacommons-services:1.1.3"
 ```
 
 Save the file.
@@ -523,10 +527,10 @@ Deployment takes roughly 30 to 45 seconds. Terraform updates the Cloud Run servi
 ### 5. Verify the New Revision in Google Cloud Console
 Return to **Cloud Run > Services > `<namespace>-dc-datacommons-service`** in the Google Cloud Console and refresh the **Revisions** tab:
 1. You will see a new revision listed at the top (for example, `<namespace>-dc-datacommons-service-00002-...`).
-2. Verify that the **Container image URL** displays `gcr.io/datcom-website-dev/datacommons-services:v1.1.3`.
+2. Verify that the **Container image URL** displays `gcr.io/datcom-ci/datacommons-services:1.1.3`.
 3. Notice that Cloud Run automatically routed 100% of traffic to this new revision.
 
-> **Building Your Own Custom Images**: To learn how to build your own custom container images from `datcom-website` or `datcom-import` and push them to Artifact Registry using `gcloud builds submit`, refer to [Building and Overriding Container Images in the Developer Guide](../developer_guide.md#working-with-container-images-building--overriding).
+> **Building Your Own Custom Images**: To learn how to build your own custom container images from `datcom-website` or `datcom-import` and push them to Artifact Registry using `gcloud builds submit`, refer to [Building and Overriding Container Images in the Developer Guide](../developer_guide.md#working-with-container-images-building-and-overriding).
 
 ---
 

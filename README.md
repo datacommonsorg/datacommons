@@ -81,6 +81,6 @@ uv run datacommons admin --project-id my-gcp-project --instance-name prod ingest
 | **[Data Commons Platform User Guide](docs/user_guide.md)** | DCP Admins | Comprehensive operational manual for deploying instances, preparing datasets, and managing platform operations. |
 | **[Contributing Guide](CONTRIBUTING.md)** | Pull Request Authors | Code quality standards, formatting, linting, and unit test requirements. |
 | **[Platform Release Guide](docs/release.md)** | Release Managers | Official 3-stage release candidate workflow and PyPI lockstep publishing procedures. |
-| **[Documentation Map](docs/README.md)** | All Readers | Complete taxonomy and standards for platform documentation. |
+| **[Documentation Standards](docs/README.md)** | All Readers | Platform documentation architecture and writing standards. |
 | **[CLI Reference & Cheatsheet](packages/datacommons-cli/README.md)** | CLI Users & CI/CD | Full command reference and operational CLI cheatsheet. |
 | **[Infrastructure Cheatsheet](infra/dcp/README.md)** | Operators & Contributors | Operational cheatsheet for `infra/dcp/`: commands, inputs, and outputs. |

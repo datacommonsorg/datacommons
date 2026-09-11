@@ -10,7 +10,7 @@ Welcome to the Data Commons Platform (DCP) developer guide. This document serves
 
 ---
 
-## 1. Monorepo Topology and `uv` Workspace
+## Monorepo Topology and `uv` Workspace
 
 This repository is structured as a Python monorepo managed by [uv](https://docs.astral.sh/uv/), alongside Terraform infrastructure configurations and integration test suites.
 
@@ -31,7 +31,7 @@ datcom-datacommons/
 │       └── modules/                     # Submodules (spanner, storage, auth, ingestion, etc.)
 │
 ├── docs/                                # Centralized platform documentation
-│   ├── README.md                        # Documentation blueprint and directory index
+│   ├── README.md                        # Documentation architecture and standards
 │   ├── developer_guide.md               # This document (workbench manual)
 │   ├── user_guide.md                    # Master operational manual for DCP Admins
 │   ├── codelabs/                        # Hands-on interactive tutorials
@@ -79,9 +79,9 @@ uv add --dev <dependency-name>
 
 ---
 
-## 2. Local Development Recipes (The Workbench)
+## Local Development Recipes (The Workbench)
 
-### Working on the CLI (`datacommons-cli` & `datacommons-admin`)
+### Working on the CLI (`datacommons-cli` and `datacommons-admin`)
 
 #### 1. Running Local CLI Code in Editable Mode
 To run unreleased CLI code directly from your working tree without installing the package globally, use `uv run --package datacommons-cli`:
@@ -210,11 +210,11 @@ Running on latest involves four platform layers:
   terraform apply tfplan
   ```
 
-### Working with Container Images (Building & Overriding)
+### Working with Container Images (Building and Overriding)
 
 DCP microservices and batch pipelines run in serverless Google Cloud Run containers and Cloud Dataflow Apache Beam workers. The images originate from multiple repositories across the Data Commons ecosystem:
 
-* For high-level container topology, container roles, and end-to-end data flows, refer to [Platform Architecture](architecture/platform_architecture.md#2-container-images-and-gcp-compute-topology).
+* For high-level container topology, container roles, and end-to-end data flows, refer to [Platform Architecture](architecture/platform_architecture.md#container-images-and-gcp-compute-topology).
 * For the automated release candidate tagging, promotion, and publishing pipelines, refer to the [Release Guide](release.md).
 * This section serves as the developer workbench guide for building custom development containers from source and overriding them in your deployment workspace.
 
@@ -310,7 +310,7 @@ gcloud builds submit --project="$PROJECT_ID" --tag "$INGESTION_HELPER_IMAGE" -f 
 # us-docker.pkg.dev/$PROJECT_ID/datacommons-artifacts/ingestion-helper:<INGESTION_HELPER_TAG>
 ```
 
-##### Dataflow Flex Template & Ingestion Pipeline (`ingestion-flex`)
+##### Dataflow Flex Template and Ingestion Pipeline (`ingestion-flex`)
 Dataflow executes as an Apache Beam Java Flex Template. Building it requires packaging the worker container image and staging the template JSON specification in Cloud Storage:
 
 ```bash
@@ -364,16 +364,21 @@ When building custom container images in a development project (such as `datcom-
 # Retrieve target project number:
 export TARGET_PROJECT_NUM=$(gcloud projects describe <TARGET_PROJECT_ID> --format="value(projectNumber)")
 
-# Grant Artifact Registry Reader to target Cloud Run Service Agent:
+# Option A: Grant Artifact Registry Reader to target Cloud Run Service Agent:
 gcloud artifacts repositories add-iam-policy-binding <REPOSITORY_NAME> \
     --location=us \
     --project=<SOURCE_PROJECT_ID> \
     --member="serviceAccount:service-${TARGET_PROJECT_NUM}@serverless-robot-prod.iam.gserviceaccount.com" \
     --role="roles/artifactregistry.reader"
+
+# Option B: Grant Cloud Storage Object Viewer for Google Container Registry (GCR):
+gcloud storage buckets add-iam-policy-binding "gs://artifacts.<SOURCE_PROJECT_ID>.appspot.com" \
+    --member="serviceAccount:service-${TARGET_PROJECT_NUM}@serverless-robot-prod.iam.gserviceaccount.com" \
+    --role="roles/storage.objectViewer"
 ```
 
-### Triggering Ingestion from Local Workstations (IAM Impersonation)
-When executing `datacommons admin ingest start` directly from a local workstation against a deployed instance, the CLI invokes Google Cloud Workflows using OAuth token impersonation. Before running your first local ingestion against an instance, grant your user account the `roles/iam.serviceAccountTokenCreator` role on the provisioned Ingestion Workflow Service Account:
+### Local Workstation IAM Impersonation (Database Seeding and Ingestion)
+When executing `datacommons admin init-db`, `admin seed-db`, or `admin ingest start` directly from a local workstation against a deployed instance, the CLI calls the Ingestion Helper service or triggers Google Cloud Workflows using OAuth token impersonation. Before running commands against an instance, grant your user account the `roles/iam.serviceAccountTokenCreator` role on the provisioned Ingestion Workflow Service Account:
 
 ```bash
 cd ~/dcp-deployments/<namespace>
@@ -389,7 +394,7 @@ gcloud iam service-accounts add-iam-policy-binding "$ORCHESTRATOR_SA" \
 ```
 
 > [!IMPORTANT]
-> Without this IAM binding, the CLI cannot generate OAuth tokens to authenticate with the Cloud Workflows API, resulting in HTTP 403 Forbidden errors when triggering ingestions.
+> Without this IAM binding, the CLI cannot generate OAuth tokens to authenticate with the Cloud Workflows API or Ingestion Helper service, resulting in HTTP 403 Forbidden errors.
 
 ### Debugging Private Cloud Run Services Locally
 When instances are deployed with `datacommons_services_allow_unauthenticated_access = false` (the secure default), you do not need to make services public or modify IAM policies to test HTTP endpoints. Establish an authenticated local proxy tunnel to the Cloud Run service:
@@ -398,7 +403,7 @@ When instances are deployed with `datacommons_services_allow_unauthenticated_acc
 cd ~/dcp-deployments/<namespace>
 
 export PROJECT_ID="$(terraform output -raw project_id)"
-export SERVICE_NAME="$(terraform output -raw datacommons_services_service_name)"
+export SERVICE_NAME="$(terraform output -raw datacommons_service_name)"
 
 gcloud run services proxy "$SERVICE_NAME" \
     --project="$PROJECT_ID" \
@@ -420,14 +425,14 @@ curl -s -X POST "http://localhost:8080/api/explore/detect-and-fulfill?q=populati
 
 ---
 
-## 3. Testing Strategy and Execution
+## Testing Strategy and Execution
 
 DCP enforces a two-tier testing hierarchy with clear division of responsibilities:
 
 * **Unit Tests (Mandatory for all contributions)**: Fast, lightweight, in-memory tests running via `pytest`. All external network services, cloud APIs (Cloud Spanner, Cloud Workflows, Cloud Storage), and shell calls are mocked. Unit tests execute in seconds, run automatically in pre-submit CI, and are required for every bug fix, feature, and CLI subcommand.
 * **Hermetic Integration Tests (End-to-End Validation)**: Local multi-service testing using Docker Compose to emulate Cloud Spanner, Cloud Storage, and serving containers. Integration tests validate end-to-end data ingestion, schema migrations, and live query resolution without incurring GCP cloud costs. They are heavier and slower than unit tests, primarily run before cutting releases or verifying cross-cutting data pipelines.
 
-### 1. Unit Tests
+### Unit Tests
 Run unit tests across all monorepo packages using `pytest`:
 
 ```bash
@@ -439,7 +444,7 @@ uv run pytest packages/datacommons-admin/tests/
 uv run pytest packages/datacommons-db/tests/
 ```
 
-### 2. Hermetic Integration Tests
+### Hermetic Integration Tests
 The repository includes a hermetic testbed that uses Docker Compose to emulate Cloud Spanner, Cloud Storage, Ingestion Helper, and serving containers locally without incurring GCP cloud costs:
 
 ```bash
@@ -452,27 +457,27 @@ uv run pytest tests/integration/suites/ \
 
 ---
 
-## 4. Debugging Workflows and Common Gotchas
+## Debugging Workflows and Common Gotchas
 
-### 1. Missing `DC_API_KEY`
+### Missing `DC_API_KEY`
 * **Symptom**: Integration tests or local serving queries fail with unauthorized or upstream RPC errors.
 * **Resolution**: DCP federates queries against base Google Data Commons. Obtain a key from [apikeys.datacommons.org](https://apikeys.datacommons.org) and ensure `DC_API_KEY` is exported in your shell:
   ```bash
   export DC_API_KEY="your-api-key"
   ```
 
-### 2. BigQuery Reservation Collision
+### BigQuery Reservation Collision
 * **Symptom**: `terraform apply` fails with an error indicating that a BigQuery slot reservation already exists in the project and region.
 * **Resolution**: Google Cloud allows only one BigQuery slot reservation per project per region. When sharing a development project (such as `datcom-website-dev`), set `spanner_create_bigquery_reservation = false` in your `terraform.tfvars`.
 
-### 3. Spanner Emulator Port Conflicts
+### Spanner Emulator Port Conflicts
 * **Symptom**: Hermetic integration tests report `Address already in use` on port 9010 or 9020.
 * **Resolution**: Ensure no previous Docker Compose test containers are running:
   ```bash
   docker compose -f tests/integration/emulated/docker-compose.yml down -v
   ```
 
-### 4. Service Account Token Creator Missing
+### Service Account Token Creator Missing
 * **Symptom**: `datacommons admin init-db` or `datacommons admin ingest start` fails with HTTP 403 / IAM permission denied when acquiring credentials.
 * **Resolution**: Ensure your GCP user account has `roles/iam.serviceAccountTokenCreator` on the workflow service account:
   ```bash
@@ -481,3 +486,5 @@ uv run pytest tests/integration/suites/ \
       --role="roles/iam.serviceAccountTokenCreator" \
       --project=<project-id>
   ```
+
+

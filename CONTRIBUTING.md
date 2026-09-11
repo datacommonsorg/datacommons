@@ -4,7 +4,7 @@ The Data Commons Platform (DCP) welcomes contributions from developers, research
 
 ---
 
-## 1. Getting Started
+## Getting Started
 
 * **New to DCP?** Start with the [Developer Onboarding Codelab](docs/codelabs/dcp_developer_onboarding.md) to set up and deploy a test instance.
 * **Developer Guide & Codebase Layout**: Read the [Developer Guide](docs/developer_guide.md) for monorepo package details, local development recipes, and testing instructions.
@@ -12,7 +12,7 @@ The Data Commons Platform (DCP) welcomes contributions from developers, research
 
 ---
 
-## 2. Tooling Prerequisites
+## Tooling Prerequisites
 
 To build, test, and contribute, install the following tools:
 * **Python (v3.11+)**: Required for core packages.
@@ -22,7 +22,7 @@ To build, test, and contribute, install the following tools:
 
 ---
 
-## 3. Code Quality and Testing
+## Code Quality and Testing
 
 All code contributions (features, fixes, and CLI subcommands) are expected to include unit tests. Before submitting a pull request, format your code, verify linting, and run the test suite:
 
@@ -51,7 +51,7 @@ uv run pytest tests/integration/suites/ \
 
 ---
 
-## 4. Documentation Standards
+## Documentation Standards
 
 When contributing documentation, follow the standards defined in [docs/README.md](docs/README.md):
 * **Centralize in `docs/`**: Place architectural specifications in `docs/architecture/` and tutorials in `docs/codelabs/`.
@@ -60,7 +60,7 @@ When contributing documentation, follow the standards defined in [docs/README.md
 
 ---
 
-## 5. Pull Request Guidelines
+## Pull Request Guidelines
 
 1. **Focused Changes**: Keep pull requests focused on a single feature or bug fix. Avoid bundling unrelated refactors or reformatting.
 2. **Commit Messages**: Write clear, descriptive commit messages following the Conventional Commits format (for example, `feat(cli): ...`, `fix(terraform): ...`, `docs: ...`).
@@ -69,6 +69,6 @@ When contributing documentation, follow the standards defined in [docs/README.md
 
 ---
 
-## 6. License
+## License
 
 By contributing to Data Commons, you agree that your contributions will be licensed under the [Apache-2.0 License](LICENSE).

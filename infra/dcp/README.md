@@ -37,28 +37,27 @@ terraform output
 
 ---
 
-## Configuration Reference (`terraform.tfvars`)
+## Configuration Reference
 
-The table below documents variables configured in `terraform.tfvars.template`.
+The authoritative source of truth for all configuration options, type constraints, descriptions, and active default values is [variables.tf](variables.tf). To inspect a starter configuration template, consult [terraform.tfvars.template](terraform.tfvars.template).
 
-| Variable | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `project_id` | `string` | *(required)* | Target Google Cloud Project ID. |
-| `instance_name` | `string` | *(required)* | Unique namespace prefix for provisioned GCP resources (such as `dev-alice`). Maximum 16 lowercase alphanumeric characters and hyphens. |
-| `region` | `string` | `"us-central1"` | Primary GCP compute and storage region. |
-| `dcp_version` | `string` | `"latest"` | Unified container and template version string. Set to `"latest"` to pull head digests on every apply, or pin to a specific release (such as `"v1.1.2"` or `"1.1.3rc1"`). |
-| `stateful_deletion_protection` | `bool` | `false` in template (`true` in schema) | Prevents accidental deletion of persistent storage layers (Cloud Spanner databases and GCS storage buckets). Set to `true` in production. |
-| `stateless_deletion_protection` | `bool` | `false` | Controls deletion protection on Cloud Run services, Cloud Run jobs, and Cloud Workflows. Keep `false` for rapid development updates. |
-| `auth_google_datacommons_api_key` | `string` | *(required)* | Data Commons API Key from [apikeys.datacommons.org](https://apikeys.datacommons.org). Required for base knowledge graph federation. |
-| `storage_create_artifacts_bucket` | `bool` | `true` | When `true`, provisions a dedicated GCS bucket: `<instance_name>-dc-artifacts-<project_id>`. Set to `false` when reusing an existing bucket. |
-| `storage_artifacts_bucket_name` | `string` | `null` | Name of existing GCS bucket if `storage_create_artifacts_bucket = false`. |
-| `enable_redis` | `bool` | `false` | When `true`, provisions a Google Cloud MemoryStore Redis instance and Serverless VPC Access connector for low-latency query caching. |
-| `spanner_create_instance` | `bool` | `true` | When `true`, provisions a dedicated Spanner instance. Set to `false` to reuse an existing instance (such as shared `dcp-testing`). |
-| `spanner_instance_id` | `string` | `""` | Target Spanner instance ID when `spanner_create_instance = false`. |
-| `spanner_create_database` | `bool` | `true` | Provisions `<instance_name>-dc-db` inside the Spanner instance. |
-| `spanner_create_bigquery_reservation` | `bool` | `true` | Provisions a dedicated BigQuery slot commitment for Spanner federated queries. **Constraint**: GCP limits projects to one reservation per region. Set to `false` in shared development projects. |
-| `datacommons_services_allow_unauthenticated_access` | `bool` | `false` | When `false`, Cloud Run requires IAM credentials. When `true`, exposes public HTTPS traffic. |
-| `ingestion_input_path` | `string` | `"ingestion/input"` | Root directory inside the artifacts bucket where raw dataset folders are staged. |
+### Key Variable Groups
+
+* **Instance Identity and Authentication**:
+  * `project_id`: Target Google Cloud Project ID.
+  * `instance_name`: Unique namespace prefix for provisioned GCP resources (such as `dev-alice`). Maximum 16 lowercase alphanumeric characters and hyphens.
+  * `region`: Primary GCP compute and storage region.
+  * `auth_google_datacommons_api_key`: Data Commons API Key from [apikeys.datacommons.org](https://apikeys.datacommons.org) for base knowledge graph federation.
+* **Release and Image Management**:
+  * `dcp_version`: Controls unified container image and template version resolution. Set to `"latest"` for bleeding-edge builds, or pin to a specific release tag (see [variables.tf](variables.tf) for current defaults and [Developer Guide](../../docs/developer_guide.md#running-the-stack-on-latest-main-and-latest-builds) for latest workflows).
+  * `datacommons_services_image`, `ingestion_dataflow_template_gcs_path`: Individual container and template overrides when developing or testing custom builds.
+* **Resource Safeguards**:
+  * `stateful_deletion_protection`: Prevents accidental deletion of persistent storage layers (Cloud Spanner databases and GCS storage buckets). Defaulted to protect live databases; must be explicitly disabled prior to running `terraform destroy`.
+  * `stateless_deletion_protection`: Controls deletion protection on Cloud Run services, jobs, and workflows. Keep `false` for rapid development cycles.
+* **Shared Project and Cost-Saving Overrides**:
+  * `spanner_create_bigquery_reservation`: Set to `false` when sharing a GCP project or region, as GCP enforces a limit of one BigQuery reservation per project per region.
+  * `spanner_create_instance`, `storage_create_artifacts_bucket`: Set to `false` when connecting to existing shared Spanner instances or pre-existing GCS buckets.
+  * `enable_redis`: Provisions MemoryStore Redis and VPC Access connector for query caching (keep `false` for minimal test instances).
 
 ---
 
