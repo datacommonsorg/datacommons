@@ -18,7 +18,7 @@ jobs:
       - uses: dorny/paths-filter@v3
         id: filter
         with:
-          predicate-quantifier: 'some-with-excludes'
+          predicate-quantifier: 'every'
           filters: |
             code_changes:
               - '**'
