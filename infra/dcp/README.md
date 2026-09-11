@@ -63,24 +63,9 @@ The authoritative source of truth for all configuration options, type constraint
 
 ## Deployment Outputs
 
-Run `terraform output` to retrieve provisioned infrastructure attributes.
+Run `terraform output` (or `terraform output -json`) after deployment to retrieve provisioned infrastructure attributes.
 
-| Output Name | Description |
-| :--- | :--- |
-| `project_id` | The GCP project ID hosting the deployment. |
-| `region` | The GCP region where resources are deployed. |
-| `spanner_instance_id` | Active Cloud Spanner instance ID. |
-| `spanner_database_id` | Provisioned Cloud Spanner database ID (`<instance_name>-dc-db`). |
-| `storage_artifacts_bucket_name` | Name of the provisioned or referenced GCS artifacts bucket. |
-| `ingestion_input_path` | GCS prefix where dataset input folders are uploaded. |
-| `datacommons_service_name` | Name of the `datacommons-services` Cloud Run service. |
-| `datacommons_service_url` | HTTPS endpoint of the serving service. |
-| `datacommons_service_service_account_email` | Service account identity used by the serving container. |
-| `ingestion_workflow_name` | Name of the Google Cloud Workflows orchestrator. |
-| `ingestion_workflow_id` | Resource ID of the Cloud Workflows orchestrator. |
-| `ingestion_workflow_service_account_email` | Service account identity used by the ingestion workflow. |
-| `ingestion_service_url` | HTTPS endpoint of the `datacommons-ingestion-helper` Cloud Run service. |
-| `ingestion_prep_job_name` | Name of the `datacommons-data` preprocessing Cloud Run job. |
+The authoritative source of truth for all exported attributes and descriptions is [outputs.tf](outputs.tf). The Admin CLI dynamically discovers and consumes these outputs during operational workflows (see [Admin CLI Architecture](../../docs/architecture/admin_cli.md#state-inspection-modes-local-vs-remote-gcs-state)).
 
 ---
 
