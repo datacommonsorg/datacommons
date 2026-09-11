@@ -35,7 +35,6 @@ Every migration script follows standard repository conventions:
 ## 3. Using `dcp-tools migrations`
 ## 3. Using `datacommons-devtools migrations`
 
-The `dcp-tools` CLI is registered as a workspace command in [`pyproject.toml`](../pyproject.toml). You can run it with `uv run dcp-tools migrations <command>` or directly as `dcp-tools migrations <command>` if your virtual environment is active.
 The `datacommons-devtools` CLI (short alias: `dc-devtools`) is registered as a workspace command in [`pyproject.toml`](../pyproject.toml). You can run it with `uv run datacommons-devtools migrations <command>` (or `uv run dc-devtools migrations <command>`).
 
 ### A. Creating a New Migration (`create`)
