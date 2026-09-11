@@ -11,6 +11,27 @@ This document outlines the system topology across the four core repositories, ma
 
 ---
 
+## Core Subsystems and Architecture
+
+At a high level, DCP is made up of three core subsystems working together:
+
+### Managing the Instance (Terraform and the Admin CLI)
+* **Setting up cloud resources**: Terraform scripts in `infra/dcp/` create everything the platform needs in Google Cloud, including Cloud Spanner for data storage, Cloud Run for running services, and Cloud Workflows for coordination.
+* **Running the platform**: The `datacommons admin` CLI makes daily operations straightforward. It helps developers set up new deployment folders, prepare databases, run schema migrations, and trigger data imports.
+* **Automatic connection**: The CLI reads Terraform deployment outputs directly, so it automatically discovers database names, bucket URLs, and service endpoints without requiring manual configuration.
+
+### Importing Data (The Ingestion Pipeline)
+* **From files to the graph**: Converts custom CSV spreadsheets and schema definitions (MCF files) into structured knowledge graph data loaded into Cloud Spanner.
+* **Automated steps**: Google Cloud Workflows orchestrates the entire import: parsing data with `datacommons-data`, running large-scale distributed loading on Cloud Dataflow, and building search embeddings using Vertex AI.
+* **Safe loading**: An ingestion lock prevents two imports from colliding, ensuring data is written cleanly and safely.
+
+### Serving Queries (The Web and API Stack)
+* **All-in-one serving container**: A single Cloud Run service (`datacommons-services`) hosts the web frontend for interactive charts, REST and gRPC APIs for applications, and an MCP server for AI agents.
+* **Combining private and public data**: When a user queries data, the backend (Mixer) checks your private Spanner database and the public Google Data Commons graph at the same time, merging the results into a single response. Your private data always takes priority.
+* **Clean user experience**: While a background import is loading new data, users can continue browsing and querying charts without seeing partial or broken updates. Once the import completes, caches clear automatically so the newest data shows up right away.
+
+---
+
 ## Multi-Repository Topology
 
 The architecture organizes responsibilities hierarchically across four repositories:
