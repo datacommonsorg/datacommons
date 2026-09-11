@@ -48,7 +48,6 @@ uv run datacommons-devtools migrations create <change_name> [-d/--description "<
 
 ```bash
 # Basic creation (description is derived from change name)
-uv run dcp-tools migrations create add_node_tables
 uv run datacommons-devtools migrations create add_node_tables
 
 # Creation with explicit description
