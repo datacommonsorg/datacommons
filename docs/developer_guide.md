@@ -103,7 +103,7 @@ uv run --package datacommons-cli datacommons admin ingest start --imports <datas
 * If the command reads Terraform attributes, fetch them via `tf_utils.get_terraform_outputs()`.
 * Ensure any new output keys added to `infra/dcp/outputs.tf` match fields in the `TerraformOutputs` dataclass (`packages/datacommons-admin/datacommons_admin/core/utils/models.py`). Run the contract test to verify parity:
   ```bash
-  uv run pytest packages/datacommons-admin/tests/core/test_tf_contract.py
+  uv run pytest packages/datacommons-admin/tests/
   ```
 
 ### Working on the Database Layer (`datacommons-db`)

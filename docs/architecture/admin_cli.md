@@ -19,7 +19,7 @@ The CLI tooling is structured across two packages in the repository:
   * `db/`: Database initialization and schema migration runner ([db_cli.py](../../packages/datacommons-admin/datacommons_admin/db/db_cli.py)).
   * `ingest/`: Workflows launch client and runtime configuration inspector ([ingest_cli.py](../../packages/datacommons-admin/datacommons_admin/ingest/ingest_cli.py)).
   * `core/utils/tf_utils.py`: Local and remote GCS Terraform state parser ([tf_utils.py](../../packages/datacommons-admin/datacommons_admin/core/utils/tf_utils.py)).
-  * `tests/core/test_tf_contract.py`: Automated contract parity tests ([test_tf_contract.py](../../packages/datacommons-admin/tests/core/test_tf_contract.py)).
+  * `tests/`: Automated unit and contract parity test suite ([tests/](../../packages/datacommons-admin/tests)).
 
 ### CLI Command Taxonomy
 * **`datacommons admin init`**: Scaffolds a new deployment directory by fetching Terraform templates, modifying module sources, and configuring instance variables.
@@ -76,12 +76,12 @@ In automated environments (such as GitHub Actions, Cloud Build, or remote operat
 * `tf_utils.py` uses the Google Cloud Storage Python client (`google-cloud-storage`) to download the `default.tfstate` blob directly from `gs://<instance-name>-dc-tfstate-<project-id>/default.tfstate`.
 * The CLI extracts the `outputs` JSON block directly from the remote state document.
 
-### Contract Enforcement (`test_tf_contract.py`)
-To prevent drift between Terraform exports and CLI expectations, the test suite in [test_tf_contract.py](../../packages/datacommons-admin/tests/core/test_tf_contract.py) enforces four automated contract checks during CI:
+### Contract Enforcement
+To prevent drift between Terraform exports and CLI expectations, the automated test suite in [packages/datacommons-admin/tests/](../../packages/datacommons-admin/tests/) enforces contract checks during CI:
 1. Every field in the `TerraformOutputs` Python dataclass must exist in [infra/dcp/outputs.tf](../../infra/dcp/outputs.tf).
 2. Every `TF_OUTPUT_*` string constant in `tf_utils.py` must match a declared output in [infra/dcp/outputs.tf](../../infra/dcp/outputs.tf).
-3. Every output delegated by `infra/dcp/outputs.tf` to `module.stack` must be declared in [infra/dcp/modules/stack/outputs.tf](../../infra/dcp/modules/stack/outputs.tf).
-4. Unit test mock fixtures in `conftest.py` must maintain field parity with `TerraformOutputs` (`test_conftest_fixtures_in_sync_with_contract`).
+3. Every output delegated by [infra/dcp/outputs.tf](../../infra/dcp/outputs.tf) to `module.stack` must be declared in [infra/dcp/modules/stack/outputs.tf](../../infra/dcp/modules/stack/outputs.tf).
+4. Unit test mock fixtures in `conftest.py` must maintain field parity with `TerraformOutputs`.
 
 Passing explicit remote flags (`--project-id`, `--instance-name`, `--tf-state-location`) strictly overrides local state detection, ensuring deterministic execution on CI/CD runners regardless of working directory.
 
