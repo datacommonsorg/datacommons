@@ -12,21 +12,22 @@ jobs:
     name: Inspect Changed Files
     runs-on: ubuntu-latest
     outputs:
-      doc_only_change: ${{ steps.filter.outputs.doc_only_change }}
+      code_changes: ${{ steps.filter.outputs.code_changes }}
     steps:
       - uses: actions/checkout@v5
       - uses: dorny/paths-filter@v3
         id: filter
         with:
-          predicate: 'all'
+          predicate-quantifier: 'some-with-excludes'
           filters: |
-            doc_only_change:
-              - 'docs/**'
-              - '**.md'
-              - '.gitignore'
-              - 'LICENSE'
-              - '.github/ISSUE_TEMPLATE/**'
-              - '.github/pull_request_template.md'
+            code_changes:
+              - '**'
+              - '!docs/**'
+              - '!**.md'
+              - '!.gitignore'
+              - '!LICENSE'
+              - '!.github/ISSUE_TEMPLATE/**'
+              - '!.github/pull_request_template.md'
 
   test:
     needs: fileset-diff
@@ -61,7 +62,7 @@ jobs:
 
   hermetic-integration-test:
     needs: fileset-diff
-    if: github.event_name == 'push' || needs.fileset-diff.outputs.doc_only_change == 'false'
+    if: github.event_name == 'push' || github.event_name == 'merge_group' || needs.fileset-diff.outputs.code_changes == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
