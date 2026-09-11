@@ -33,6 +33,8 @@ terraform apply
 terraform output
 ```
 
+> **Local Testing Recipes**: To test local module changes from a scaffolded workspace using local paths or symlinks, or to test against specific released DCP versions vs head, refer to the [Developer Guide](../../docs/developer_guide.md#working-on-infrastructure-infradcp).
+
 ---
 
 ## Configuration Reference (`terraform.tfvars`)
@@ -44,6 +46,7 @@ The table below documents variables configured in `terraform.tfvars.template`.
 | `project_id` | `string` | *(required)* | Target Google Cloud Project ID. |
 | `instance_name` | `string` | *(required)* | Unique namespace prefix for provisioned GCP resources (such as `dev-alice`). Maximum 16 lowercase alphanumeric characters and hyphens. |
 | `region` | `string` | `"us-central1"` | Primary GCP compute and storage region. |
+| `dcp_version` | `string` | `"latest"` | Unified container and template version string. Set to `"latest"` to pull head digests on every apply, or pin to a specific release (such as `"v1.1.2"` or `"1.1.3rc1"`). |
 | `stateful_deletion_protection` | `bool` | `false` in template (`true` in schema) | Prevents accidental deletion of persistent storage layers (Cloud Spanner databases and GCS storage buckets). Set to `true` in production. |
 | `stateless_deletion_protection` | `bool` | `false` | Controls deletion protection on Cloud Run services, Cloud Run jobs, and Cloud Workflows. Keep `false` for rapid development updates. |
 | `auth_google_datacommons_api_key` | `string` | *(required)* | Data Commons API Key from [apikeys.datacommons.org](https://apikeys.datacommons.org). Required for base knowledge graph federation. |

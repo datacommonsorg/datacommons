@@ -135,13 +135,13 @@ Batch ingestion loads raw data from GCS into Cloud Spanner. Google Cloud Workflo
 
 The pipeline execution sequence is declared in [workflow.yaml](../../infra/dcp/modules/ingestion/workflow/workflow.yaml):
 
-1. **Preprocessing** ([workflow.yaml](../../infra/dcp/modules/ingestion/workflow/workflow.yaml)): Cloud Workflows launches Cloud Run job `datacommons-data`, executing `stats.main --mode=dcpbridge` against `gs://<storage_bucket>/<ingestion_input_path>/<dataset>/`. The job validates CSV headers against `config.json`, outputs partitioned JSON-LD shards, and writes a handshake file (`tempLocation/datacommons/ingestion_records/<workflow_id>.json`).
-2. **Locking** ([workflow.yaml](../../infra/dcp/modules/ingestion/workflow/workflow.yaml)): The workflow calls `POST /database/lock/acquire` on `datacommons-ingestion-helper` (retrying on HTTP 503 up to a configurable timeout) and records an `IngestionHistory` entry with status `PENDING`.
-3. **Dataflow Ingestion** ([workflow.yaml](../../infra/dcp/modules/ingestion/workflow/workflow.yaml)): Launches the Apache Beam Java pipeline (`GraphIngestionPipeline`) on Dataflow. Dataflow deletes outdated records for replaced imports, computes 64-bit FarmHash facet identifiers, generates search columns, and streams batched mutations into Spanner tables (`Node`, `Edge`, `Observation`, `TimeSeries`).
-4. **Parallel Postprocessing & Embeddings** ([workflow.yaml](../../infra/dcp/modules/ingestion/workflow/workflow.yaml)): Executes concurrently:
+1. **Preprocessing**: Cloud Workflows launches Cloud Run job `datacommons-data`, executing `stats.main --mode=dcpbridge` against `gs://<storage_bucket>/<ingestion_input_path>/<dataset>/`. The job validates CSV headers against `config.json`, outputs partitioned JSON-LD shards, and writes a handshake file (`tempLocation/datacommons/ingestion_records/<workflow_id>.json`).
+2. **Locking**: The workflow calls `POST /database/lock/acquire` on `datacommons-ingestion-helper` (retrying on HTTP 503 up to a configurable timeout) and records an `IngestionHistory` entry with status `PENDING`.
+3. **Dataflow Ingestion**: Launches the Apache Beam Java pipeline (`GraphIngestionPipeline`) on Dataflow. Dataflow deletes outdated records for replaced imports, computes 64-bit FarmHash facet identifiers, generates search columns, and streams batched mutations into Spanner tables (`Node`, `Edge`, `Observation`, `TimeSeries`).
+4. **Parallel Postprocessing & Embeddings**: Executes concurrently:
    * **Aggregation Helper**: Cloud Run job querying Spanner via BigQuery external connections to materialize `STAT_VAR_GROUPS`, `LINKED_EDGES`, and `ProvenanceSummary`.
    * **Vertex AI Embeddings**: `POST /embeddings/ingest` on `ingestion-helper` computes vector representations for new statistical variables and entities, writing them to Spanner for natural language search.
-5. **Finalization and Cache Busting** ([workflow.yaml](../../infra/dcp/modules/ingestion/workflow/workflow.yaml)): Updates `IngestionHistory` to `SUCCESS`, releases the Spanner lock (`POST /database/lock/release`), flushes Redis (`POST /cache/clear`), and (if `skip_container_restarts = false`) patches `datacommons-services` with an updated timestamp label to trigger rolling container updates.
+5. **Finalization and Cache Busting**: Updates `IngestionHistory` to `SUCCESS`, releases the Spanner lock (`POST /database/lock/release`), flushes Redis (`POST /cache/clear`), and (if `skip_container_restarts = false`) patches `datacommons-services` with an updated timestamp label to trigger rolling container updates.
 
 #### Failure Handling and Lock Release Guarantee
 If Dataflow or postprocessing throws an unhandled exception:

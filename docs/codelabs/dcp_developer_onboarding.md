@@ -291,7 +291,7 @@ The CLI executes the following sequence:
 1. Reads Spanner outputs and the ingestion helper URL from your local Terraform state.
 2. Authenticates against the ingestion helper service using OIDC token impersonation.
 3. Applies base DDL scripts to create Spanner tables (`Node`, `Edge`, `Observation`, `TimeSeries`, `ImportStatus`, `IngestionHistory`).
-4. Runs pending schema migration scripts from [packages/datacommons-db/datacommons_db/migrations/migration_scripts/](../schema_migrations_developer_guide.md).
+4. Runs pending [schema migration scripts](../schema_migrations_developer_guide.md).
 5. Seeds base metadata nodes (statistical variables, units, and sources).
 
 ### 2. Verify Tables in Spanner Studio

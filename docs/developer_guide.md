@@ -116,13 +116,13 @@ uv run --package datacommons-cli datacommons admin ingest start --imports <datas
 
 When modifying Terraform configurations in `infra/dcp/`:
 1. **Module Hierarchy**: Inspect `infra/dcp/main.tf` for root variables and `infra/dcp/modules/stack/main.tf` for module wiring. Refer to [Terraform Stack Architecture](architecture/terraform_stack.md) for variable propagation details.
-2. **Critical Scaffolding Contract**: Never alter or reformat line 166 in `infra/dcp/main.tf`:
+2. **Critical Scaffolding Contract**: The `module "stack"` declaration in `infra/dcp/main.tf` must maintain `source = "./modules/stack"` on a single line:
    ```hcl
    module "stack" {
      source = "./modules/stack"
    ```
-   The `datacommons admin init` CLI command uses regular expression matching on `source = "./modules/stack"` to rewrite the module source to the remote GitHub release URL for downstream users. Modifying this line breaks CLI scaffolding.
-3. **Local Validation and Testing**: Validate and test Terraform changes by copying `infra/dcp/terraform.tfvars.template` to `infra/dcp/terraform.tfvars` and running:
+   The `datacommons admin init` CLI command uses regular expression matching on `source = "./modules/stack"` to rewrite the module source to the remote GitHub release URL for downstream users. Modifying line breaks or whitespace within this string breaks CLI scaffolding.
+3. **Local Validation and Pre-Flight Checks**: Validate and test Terraform changes by copying `infra/dcp/terraform.tfvars.template` to `infra/dcp/terraform.tfvars` and running:
    ```bash
    cd infra/dcp
 
@@ -138,6 +138,45 @@ When modifying Terraform configurations in `infra/dcp/`:
    # Generate execution plan against your project
    terraform plan
    ```
+4. **Testing Local Module Changes in a Scaffolded Workspace**:
+   When testing changes to `infra/dcp/modules/` inside a personal deployment directory created by `admin init` without having to push commits to a remote Git branch:
+   * **Option A (Direct Local Path)**: In your deployment's `main.tf`, replace the remote Git reference with your local monorepo path:
+     ```hcl
+     module "stack" {
+       source = "/absolute/path/to/datcom-datacommons/infra/dcp/modules/stack"
+     ```
+   * **Option B (Local Symlink)**: Create a symlink inside your deployment folder pointing to the local `modules` directory:
+     ```bash
+     ln -s /absolute/path/to/datcom-datacommons/infra/dcp/modules ./modules
+     ```
+     Then point `main.tf` to the local symlink:
+     ```hcl
+     module "stack" {
+       source = "./modules/stack"
+     ```
+   * **Re-Initialize and Plan**:
+     ```bash
+     terraform init -upgrade
+     terraform plan
+     ```
+     Terraform switches from pulling remote Git objects to reading your live local workspace directly. Any edits made in `infra/dcp/modules/` immediately take effect on the next plan or apply.
+5. **Testing Against DCP Versions vs. Head**:
+   The `dcp_version` variable in `terraform.tfvars` governs container images and Dataflow templates:
+   * **Testing Against Head (Latest `main`)**:
+     ```hcl
+     dcp_version = "latest"
+     ```
+     In `infra/dcp/modules/stack/main.tf`, `FORCE_RESTART = timestamp()` ensures Cloud Run pulls the newest `:latest` image digest on each `terraform apply`, and points Dataflow to the `stable` Flex Template.
+   * **Testing Against a Specific Released Version (e.g. `v1.1.2`, `1.1.3rc1`)**:
+     ```hcl
+     dcp_version = "v1.1.2"
+     ```
+     Pins all four Cloud Run container images (`datacommons-services`, `datacommons-data`, `datacommons-aggregation-helper`, `datacommons-ingestion-helper`) to that exact tag.
+   * **Testing Custom Development Container Images**:
+     To test custom container builds before tagging or publishing, override individual container variables directly in `terraform.tfvars`:
+     ```hcl
+     datacommons_services_image = "gcr.io/datcom-ci/datacommons-services:dev-username"
+     ```
 
 ---
 

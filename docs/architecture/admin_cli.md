@@ -69,7 +69,7 @@ When an operator runs `datacommons admin init`, the CLI generates a ready-to-dep
 ```
 
 ### The Source Regex Substitution Contract
-During scaffolding, `_setup_dcp_config_dir()` in [scaffold_utils.py](../../packages/datacommons-admin/datacommons_admin/init/utils/scaffold_utils.py#L176-L182) rewrites the stack module source from a local relative path into a remote Git release URL:
+During scaffolding, `_setup_dcp_config_dir()` in [scaffold_utils.py](../../packages/datacommons-admin/datacommons_admin/init/utils/scaffold_utils.py) rewrites the stack module source from a local relative path into a remote Git release URL:
 ```
 source = "./modules/stack"  ==>  source = "git::https://github.com/datacommonsorg/datacommons.git//infra/dcp/modules/stack?ref=<tag>"
 ```
