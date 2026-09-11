@@ -186,7 +186,7 @@ Running on latest involves four platform layers:
   * **Dataflow Flex Template**: Directs the ingestion pipeline to the unpinned stable Beam template (`gs://datcom-templates/templates/flex/ingestion-stable.json`).
 
 * **Admin CLI on Latest**:
-  Run the CLI against the latest `main` branch either on-the-fly via `uvx` or through an editable local installation:
+  Run the CLI against the latest `main` branch either on-the-fly via `uvx` or through a local repository clone:
   * **Option A (`uvx` pointing to `main`)**:
     Execute the latest CLI directly from GitHub without installing packages globally:
     ```bash
@@ -194,12 +194,13 @@ Running on latest involves four platform layers:
     ```
     > [!NOTE]
     > If scaffolding a new deployment workspace with `admin init` while running against `main`, pass `--tf-git-ref main` (or manually set `?ref=main` in `main.tf`). By default, `admin init` pins the Terraform module source in `main.tf` to the released version tag (such as `v1.1.2`).
-  * **Option B (Editable local clone)**:
-    Install the package in editable mode from your local checkout:
+  * **Option B (Local monorepo checkout)**:
+    Since the `uv` workspace already links all member packages in editable mode by default, run the CLI directly using `uv`:
     ```bash
-    cd /path/fork/of/datacommonsorg/datcom-datacommons/packages/datacommons-admin
-    pip install -e .
+    cd /path/fork/of/datacommonsorg/datcom-datacommons
+    uv run --package datacommons-cli datacommons admin <command>
     ```
+    Any local edits made in `packages/datacommons-cli` or `packages/datacommons-admin` take effect immediately without manual reinstallation.
 
 * **Applying Latest Updates**:
   Pull updated module commits and apply the plan:

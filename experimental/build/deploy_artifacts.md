@@ -31,11 +31,10 @@ We use Google Cloud Build to build and push images to Google Container Registry 
 
 ### Manual Deployment
 
-You can manually trigger a build from your local machine using the `gcloud` CLI. You must provide the `COMMIT_SHA` substitution manually.
+You can manually trigger a build from your local machine using the `gcloud` CLI:
 
 ```bash
 gcloud builds submit --config experimental/build/cloudbuild.yaml \
-  --substitutions=COMMIT_SHA=$(git rev-parse HEAD) \
   --project=datcom-ci \
   .
 ```
@@ -43,4 +42,4 @@ gcloud builds submit --config experimental/build/cloudbuild.yaml \
 This will:
 1.  Upload your current workspace (files in `.`) to Cloud Build.
 2.  Execute steps in `experimental/build/cloudbuild.yaml`.
-3.  Push images to `gcr.io/datcom-ci/datacommons-platform:latest` and `:CommitSHA`.
+3.  Push images to `us-docker.pkg.dev/datcom-ci/gcr.io/datacommons-platform:latest` and `:$SHORT_SHA`.

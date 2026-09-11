@@ -75,7 +75,7 @@ DCP federates queries to base Google Data Commons. You must supply a valid API k
 2. Sign in with your Google account and generate a free API key.
 3. Save this key locally; you will provide it in Step 2.
 
-### 4. Install the Admin CLI (`datacommons`)
+### 5. Install the Admin CLI (`datacommons`)
 To contribute to the codebase, run integration test scripts, or work with local submodules, clone the repository:
 ```bash
 git clone https://github.com/datacommonsorg/datcom-datacommons.git
