@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import json
-
 import click
 import google.auth
 from google.auth.transport.requests import AuthorizedSession
@@ -24,22 +23,15 @@ class IngestionJobClient:
 
     def __init__(
         self,
-        job_name: str | None = None,
-        workflow_name: str | None = None,
-        service_account_email: str | None = None,
-        project_id: str | None = None,
-        location: str | None = None,
-        temp_location: str | None = None,
-        spanner_instance_id: str = "",
-        spanner_database_id: str = "",
+        job_name: str,
+        workflow_name: str = None,
+        service_account_email: str = None,
+        project_id: str = None,
+        location: str = None,
     ) -> None:
-        self.job_name = job_name
         self.service_account_email = service_account_email
         self.project_id = project_id
         self.location = location
-        self.temp_location = temp_location
-        self.spanner_instance_id = spanner_instance_id
-        self.spanner_database_id = spanner_database_id
         base_credentials, _ = google.auth.default()
 
         need_project_and_location = (
@@ -63,15 +55,12 @@ class IngestionJobClient:
         else:
             self.full_workflow_name = None
 
-        if job_name:
-            if not job_name.startswith("projects/"):
-                self.full_job_name = (
-                    f"projects/{project_id}/locations/{location}/jobs/{job_name}"
-                )
-            else:
-                self.full_job_name = job_name
+        if not job_name.startswith("projects/"):
+            self.full_job_name = (
+                f"projects/{project_id}/locations/{location}/jobs/{job_name}"
+            )
         else:
-            self.full_job_name = None
+            self.full_job_name = job_name
 
         if service_account_email:
             from google.auth import impersonated_credentials
@@ -93,27 +82,18 @@ class IngestionJobClient:
                 "Workflow name must be provided to start a workflow execution."
             )
 
-        temp_location = self.temp_location
-        spanner_instance = self.spanner_instance_id
-        spanner_database = self.spanner_database_id
-        region = self.location
+        # 1. Fetch Cloud Run job configuration to get default bucket, region, etc.
+        env_vars = self.get_config()
+        env_dict = {env["name"]: env.get("value") for env in env_vars if "name" in env}
 
-        # If temp_location was not provided directly but job_name is available, fallback to get_config()
-        if not temp_location and self.full_job_name:
-            env_vars = self.get_config()
-            env_dict = {
-                env["name"]: env.get("value") for env in env_vars if "name" in env
-            }
-            temp_location = env_dict.get("TEMP_LOCATION")
-            spanner_instance = env_dict.get("GCP_SPANNER_INSTANCE_ID", spanner_instance)
-            spanner_database = env_dict.get(
-                "GCP_SPANNER_DATABASE_NAME", spanner_database
-            )
-            region = env_dict.get("REGION", region)
+        temp_location = env_dict.get("TEMP_LOCATION")
+        spanner_instance = env_dict.get("GCP_SPANNER_INSTANCE_ID")
+        spanner_database = env_dict.get("GCP_SPANNER_DATABASE_NAME")
+        region = env_dict.get("REGION", self.location)
 
         if not temp_location:
             raise click.ClickException(
-                "TEMP_LOCATION not found in Terraform outputs or preprocessing job environment configuration."
+                "TEMP_LOCATION not found in preprocessing job environment configuration."
             )
 
         # 2. Parse imports argument
@@ -126,7 +106,7 @@ class IngestionJobClient:
             "tempLocation": temp_location,
             "spannerInstanceId": spanner_instance or "",
             "spannerDatabaseId": spanner_database or "",
-            "region": region or "",
+            "region": region,
             "imports": imports_list,
         }
 

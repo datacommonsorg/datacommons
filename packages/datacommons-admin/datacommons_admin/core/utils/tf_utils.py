@@ -22,10 +22,7 @@ import click
 from google.cloud import storage
 from google.cloud.exceptions import Forbidden, GoogleCloudError, NotFound
 
-from datacommons_admin.core.utils.models import (
-    TerraformOutputs,
-    TerraformStateConfig,
-)
+from datacommons_admin.core.utils.models import TerraformStateConfig
 
 TF_OUTPUT_INGESTION_SERVICE_URL = "ingestion_service_url"
 TF_OUTPUT_INGESTION_WORKFLOW_SERVICE_ACCOUNT_EMAIL = (
@@ -207,10 +204,11 @@ def _get_outputs_from_local() -> dict[str, Any]:
     return outputs
 
 
-def get_raw_terraform_outputs(
+def get_terraform_output(
+    key: str,
     config: TerraformStateConfig | None = None,
-) -> dict[str, Any]:
-    """Fetches raw outputs dictionary from Terraform (local or remote GCS state), cached in Click context."""
+) -> str:
+    """Fetches a specific key from Terraform output (local or remote GCS state)."""
     resolved_config = config or _resolve_remote_state_params()
     ctx = click.get_current_context(silent=True) if config is None else None
     params = ctx.find_object(dict) if ctx else None
@@ -223,25 +221,6 @@ def get_raw_terraform_outputs(
             outputs = _get_outputs_from_local()
         if params is not None:
             params[_OUTPUTS_CACHE_KEY] = outputs
-
-    return outputs
-
-
-def get_terraform_outputs(
-    config: TerraformStateConfig | None = None,
-) -> TerraformOutputs:
-    """Fetches, parses, and validates all deployment outputs into a strongly typed TerraformOutputs dataclass."""
-    raw_outputs = get_raw_terraform_outputs(config)
-    return TerraformOutputs.from_state_outputs(raw_outputs)
-
-
-def get_terraform_output(
-    key: str,
-    config: TerraformStateConfig | None = None,
-) -> str:
-    """Fetches a specific key from Terraform output (local or remote GCS state)."""
-    resolved_config = config or _resolve_remote_state_params()
-    outputs = get_raw_terraform_outputs(config)
 
     if key not in outputs:
         raise click.ClickException(
