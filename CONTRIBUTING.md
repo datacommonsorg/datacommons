@@ -9,8 +9,8 @@ This document outlines how to get started as a developer, how our codebase and d
 ## 1. Getting Started for Developers
 
 If you are new to the Data Commons Platform, start with our hands-on developer onboarding codelab:
-* **[Developer Onboarding Codelab](docs/codelabs/dcp_developer_onboarding.md)** *(in progress)*: A step-by-step tutorial that walks you through cloud prerequisites, scaffolding an instance with the CLI, deploying test infrastructure with Terraform, inspecting resources in the Google Cloud Console, seeding the database, running data ingestion, and testing live API queries.
-
+* **[Developer Onboarding Codelab](docs/codelabs/dcp_developer_onboarding.md)**: A step-by-step tutorial that walks you through cloud prerequisites, scaffolding an instance with the CLI, deploying test infrastructure with Terraform, inspecting resources in the Google Cloud Console, seeding the database, running data ingestion, and testing live API queries.
+* **[Platform Architecture](docs/architecture/platform_architecture.md)**: An overview of the 4-repository topology, container artifacts, and end-to-end data flows.
 
 ### Developer Tooling Prerequisites
 
