@@ -10,28 +10,10 @@ This document outlines the system topology across the four core repositories, ma
 
 ## 1. Multi-Repository Topology
 
-The Data Commons codebase spans four core GitHub repositories under the `datacommonsorg` organization. Each repository owns a dedicated layer of the platform stack.
-
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        datacommonsorg/datacommons                      │
-│   Infrastructure (Terraform), Admin CLI, DB Schemas, Integration Tests │
-└──────────────┬─────────────────────────┬───────────────────────────────┘
-               │                         │
-               ▼                         ▼
-┌──────────────────────────────┐  ┌──────────────────────────────────────┐
-│     datacommonsorg/mixer     │  │       datacommonsorg/website         │
-│ Go gRPC API & Query Engine   │  │ Frontend UI & Flask Transcoding      │
-└──────────────┬───────────────┘  └──────┬───────────────────────────────┘
-               │                         │
-               └───────────┬─────────────┘
-                           │
-                           ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│                         datacommonsorg/import                          │
-│   Dataflow (Java Beam), Data Preprocessor, Aggregation & Helper Jobs   │
-└────────────────────────────────────────────────────────────────────────┘
-```
+The architecture organizes responsibilities hierarchically across four repositories:
+* **Orchestration Layer (`datacommons`)**: Deploys declarative cloud infrastructure and coordinates migrations.
+* **Serving Layer (`mixer` and `website`)**: Mixer queries backend storage and Base Data Commons; Website serves the frontend UI and proxies requests.
+* **Ingestion Layer (`import`)**: Transforms, validates, and commits batch graph mutations into Cloud Spanner.
 
 ### 1. [datacommonsorg/datacommons](../../)
 The platform hub and orchestration repository.
@@ -80,60 +62,7 @@ DCP packages services into container images hosted on Google Cloud Artifact Regi
 
 ## 3. End-to-End Ingestion Flow
 
-Batch ingestion loads raw data from GCS into Cloud Spanner. Google Cloud Workflows orchestrates the entire sequence (`infra/dcp/modules/ingestion/workflow/workflow.yaml`).
-
-```
-                    ┌───────────────────────────────┐
-                    │ Raw CSV / MCF in Cloud Storage│
-                    └───────────────┬───────────────┘
-                                    │
-                                    ▼
-┌───────────────────────────────────────────────────────────────────────┐
-│ Stage 1: Preprocessing (Cloud Run Job: datacommons-data)              │
-│ - Validates schema and column mappings in config.json                  │
-│ - Converts inputs to compact JSON-LD shards                           │
-│ - Emits ingestion handshake metadata to GCS                           │
-└───────────────────────────────────┬───────────────────────────────────┘
-                                    │
-                                    ▼
-┌───────────────────────────────────────────────────────────────────────┐
-│ Stage 2: Ingestion Lock (Cloud Run Service: ingestion-helper)        │
-│ - Acquires exclusive Spanner ingestion lock (POST /database/lock/acquire)│
-│ - Sets IngestionHistory status to PENDING                             │
-└───────────────────────────────────┬───────────────────────────────────┘
-                                    │
-                                    ▼
-┌───────────────────────────────────────────────────────────────────────┐
-│ Stage 3: Dataflow Execution (Apache Beam: GraphIngestionPipeline)     │
-│ - Deletes outdated graph elements for registered import namespaces     │
-│ - Computes FarmHash facet IDs and resolves generated columns          │
-│ - Batches and writes mutations into Cloud Spanner tables              │
-└───────────────────────────────────┬───────────────────────────────────┘
-                                    │
-                                    ▼
-┌───────────────────────────────────────────────────────────────────────┐
-│ Stage 4: Parallel Postprocessing & Embeddings                         │
-│ ┌──────────────────────────────────┐ ┌──────────────────────────────┐ │
-│ │ Aggregation Helper (Cloud Run)   │ │ Ingestion Helper (Cloud Run) │ │
-│ │ - BigQuery federated queries     │ │ - Calls Vertex AI API        │ │
-│ │ - Generates STAT_VAR_GROUPS      │ │ - Produces vector embeddings │ │
-│ │ - Computes LINKED_EDGES          │ │ - Writes to Spanner vectors  │ │
-│ └──────────────────────────────────┘ └──────────────────────────────┘ │
-└───────────────────────────────────┬───────────────────────────────────┘
-                                    │
-                                    ▼
-┌───────────────────────────────────────────────────────────────────────┐
-│ Stage 5: Promotion, Cache Invalidation, and Restart                   │
-│ - Updates IngestionHistory status to SUCCESS                          │
-│ - Releases Spanner database lock                                      │
-│ - Flushes Redis cache (POST /cache/clear)                             │
-│ - Restarts datacommons-services Cloud Run service via label patch     │
-└───────────────────────────────────────────────────────────────────────┘
-```
-
-### Ingestion Stage Details and Failure Handling
-
-The pipeline execution sequence is declared in [workflow.yaml](../../infra/dcp/modules/ingestion/workflow/workflow.yaml):
+Batch ingestion loads raw data from Cloud Storage into Cloud Spanner across a 5-stage pipeline orchestrated by Google Cloud Workflows ([workflow.yaml](../../infra/dcp/modules/ingestion/workflow/workflow.yaml)):
 
 1. **Preprocessing**: Cloud Workflows launches Cloud Run job `datacommons-data`, executing `stats.main --mode=dcpbridge` against `gs://<storage_bucket>/<ingestion_input_path>/<dataset>/`. The job validates CSV headers against `config.json`, outputs partitioned JSON-LD shards, and writes a handshake file (`tempLocation/datacommons/ingestion_records/<workflow_id>.json`).
 2. **Locking**: The workflow calls `POST /database/lock/acquire` on `datacommons-ingestion-helper` (retrying on HTTP 503 up to a configurable timeout) and records an `IngestionHistory` entry with status `PENDING`.
@@ -153,43 +82,12 @@ If Dataflow or postprocessing throws an unhandled exception:
 
 ## 4. End-to-End Serving Flow
 
-The serving stack handles incoming data queries from web browsers, REST API clients, SDMX 3.0 consumers, and Model Context Protocol (MCP) agents.
+The serving stack handles incoming data queries from web browsers, REST API clients, SDMX 3.0 consumers, and Model Context Protocol (MCP) agents through a structured four-stage request and response lifecycle:
 
-```
- Client (Web Browser, Curl, SDMX Client, MCP Agent)
-                      │
-                      │ HTTPS Request
-                      ▼
-┌──────────────────────────────────────────────────────────────┐
-│ datacommons-services Container (Cloud Run)                   │
-│                                                              │
-│  ┌────────────────────────────────────────────────────────┐  │
-│  │ Nginx / Envoy Proxy (Port 8081)                         │  │
-│  │ - Transcodes HTTP/JSON requests into binary gRPC       │  │
-│  │ - Routes static assets and Flask web routes            │  │
-│  └──────────────────────────┬─────────────────────────────┘  │
-│                             │                                │
-│                             ▼ gRPC                           │
-│  ┌────────────────────────────────────────────────────────┐  │
-│  │ Mixer Serving Engine (Go gRPC Server)                  │  │
-│  │                                                        │  │
-│  │  ┌──────────────────────────────────────────────────┐  │  │
-│  │  │ Dispatcher & Middleware                          │  │  │
-│  │  │ - Evaluates query parameters                     │  │  │
-│  │  │ - Checks Redis cache for precomputed hits        │  │  │
-│  │  │ - Determines entity expansions                   │  │  │
-│  │  └───────────────┬──────────────────┬───────────────┘  │  │
-│  └──────────────────┼──────────────────┼──────────────────┘  │
-└─────────────────────┼──────────────────┼─────────────────────┘
-                      │                  │
-                      ▼ SQL / GQL        ▼ Remote gRPC
-┌───────────────────────────────┐ ┌────────────────────────────┐
-│ Cloud Spanner Database        │ │ Base Data Commons          │
-│ - Reads pinned to latest      │ │ - Public knowledge graph   │
-│   promoted ingestion timestamp│ │   fallback                 │
-│ - Queries Node, Edge, Obs     │ │ - Resolves global DCIDs    │
-└───────────────────────────────┘ └────────────────────────────┘
-```
+* **Client Layer**: External clients (browsers, cURL, SDMX clients, or AI agents) submit HTTPS requests to the Cloud Run serving endpoint.
+* **Proxy and Routing (Nginx / Envoy)**: Listens on port 8081 inside the `datacommons-services` container, transcodes HTTP/JSON requests into binary gRPC using API definitions, and routes static web requests to Flask.
+* **Serving Backend (Go Mixer)**: Evaluates query parameters, checks Redis and in-memory caches, and coordinates scatter-gather lookups across backend data sources.
+* **Data Sources (Spanner & Base DC)**: Executes timestamp-pinned reads against the private Cloud Spanner database and falls back to Base Data Commons for public global entities and variables.
 
 ### 1. Request Ingestion and Transcoding
 * Clients submit HTTP requests to endpoints such as `/core/api/v2/observation`, `/core/api/v2/resolve`, or `/api/explore/detect-and-fulfill`.

@@ -12,29 +12,10 @@ This document details the dual entrypoint architecture, the central module orche
 
 ## 1. Dual Entrypoint Architecture
 
-DCP supports two distinct deployment workflows: one for external consumers running instances, and one for core platform contributors developing the infrastructure modules.
+DCP supports two distinct deployment workflows: one for external consumers running instances, and one for core platform contributors developing the infrastructure modules:
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│ Consumer Entrypoint (Instance Operators / DCP Admins)                  │
-│                                                                        │
-│ 1. Operator runs: datacommons admin init --namespace dev-user          │
-│ 2. CLI downloads root files (main.tf, variables.tf, outputs.tf)        │
-│ 3. CLI rewrites source to remote GitHub release tag                    │
-│    source = "git::https://github.com/.../modules/stack?ref=v1.1.2"     │
-│ 4. Operator runs terraform init and terraform apply from ~/deployments │
-└────────────────────────────────────────────────────────────────────────┘
-
-┌────────────────────────────────────────────────────────────────────────┐
-│ Contributor Entrypoint (Platform Developers / Core Engineers)          │
-│                                                                        │
-│ 1. Developer clones datacommonsorg/datacommons repository               │
-│ 2. Developer works directly in infra/dcp/                              │
-│ 3. main.tf points directly to local filesystem submodules:             │
-│    source = "./modules/stack"                                          │
-│ 4. Developer runs terraform init and terraform apply locally           │
-└────────────────────────────────────────────────────────────────────────┘
-```
+* **Consumer Entrypoint (Instance Operators / DCP Admins)**: Uses `datacommons admin init` to scaffold a dedicated deployment directory pointing to a remote Git release tag without cloning the monorepo.
+* **Contributor Entrypoint (Platform Developers / Core Engineers)**: Works directly inside `infra/dcp/` in the monorepo, where `main.tf` references local filesystem submodules (`./modules/stack`).
 
 ### The Consumer Entrypoint (`datacommons admin init`)
 External administrators and deployment operators use the `datacommons admin init` command. The CLI scaffolds a standalone deployment workspace without requiring a full clone of the monorepo:
@@ -53,24 +34,11 @@ Platform contributors modifying Terraform definitions or testing changes work di
 
 ## 2. Stack Orchestration and Module Topology
 
-DCP uses a hierarchical module architecture. Submodules never reference or depend on each other directly. Instead, `infra/dcp/modules/stack/main.tf` serves as the single orchestration hub that passes outputs between submodules and binds cross-module Identity and Access Management (IAM) policies.
+DCP uses a hierarchical module architecture. Submodules never reference or depend on each other directly. Instead, `infra/dcp/modules/stack/main.tf` serves as the single orchestration hub that passes outputs between submodules and binds cross-module Identity and Access Management (IAM) policies:
 
-```
-                             infra/dcp/main.tf
-                                     │
-                                     ▼
-                          modules/stack/main.tf
-                        (Central Orchestrator Hub)
-       ┌──────────────┬──────────────┼──────────────┬──────────────┬──────────────┐
-       │              │              │              │              │              │
-       ▼              ▼              ▼              ▼              ▼              ▼
- modules/auth   modules/spanner modules/storage modules/redis modules/ingestion/ modules/
- (Secret Mgr)   (Instance & DB) (GCS Buckets)   (VPC & Cache) ├── preprocessing  datacommons_services
-                                                              ├── dataflow       (Envoy + Mixer + Web)
-                                                              ├── postprocessing
-                                                              ├── helper_service
-                                                              └── workflow
-```
+* **Top Level (`infra/dcp/main.tf`)**: The root configuration entrypoint, invoking `modules/stack`.
+* **Central Orchestrator Hub (`modules/stack/main.tf`)**: The coordinator that instantiates all component submodules, shares unified environment configurations, and wires outputs across dependencies.
+* **Component Submodules**: Specialized modules dedicated to auth, storage, spanner, redis, ingestion, and serving.
 
 ### Module Responsibilities
 * **`modules/auth`**: Provisions Secret Manager secrets for Data Commons and Google Maps API keys.

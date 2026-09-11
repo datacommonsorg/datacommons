@@ -33,40 +33,11 @@ The CLI tooling is structured across two packages in the repository:
 
 ## 2. Terraform Scaffolding Pipeline (`admin init`)
 
-When an operator runs `datacommons admin init`, the CLI generates a ready-to-deploy workspace without requiring a local git clone of the platform repository.
-
-```
-                          GitHub Repository
-                 (datacommonsorg/datacommons @ ref)
-                                  │
-                                  │ HTTP GET raw templates
-                                  ▼
-┌───────────────────────────────────────────────────────────────────────┐
-│ datacommons admin init                                                │
-│                                                                       │
-│ 1. Download templates:                                                │
-│    - variables.tf                                                     │
-│    - main.tf                                                          │
-│    - outputs.tf                                                       │
-│    - terraform.tfvars.template                                        │
-│                                                                       │
-│ 2. Apply Source Regex Substitution Contract:                          │
-│    Rewrite: source = "./modules/stack"                                │
-│    To:      source = "git::https://...//infra/dcp/modules/stack?ref=" │
-│                                                                       │
-│ 3. Populate template tokens:                                          │
-│    $$PROJECT_ID$$    -> user project ID                               │
-│    $$INSTANCE_NAME$$ -> user namespace                                │
-│    $$DC_API_KEY$$    -> user API key                                  │
-│                                                                       │
-│ 4. Write generated workspace:                                         │
-│    ./<namespace>/main.tf                                              │
-│    ./<namespace>/variables.tf                                         │
-│    ./<namespace>/outputs.tf                                           │
-│    ./<namespace>/terraform.tfvars                                     │
-│    ./<namespace>/backend.tf (if remote state enabled)                 │
-└───────────────────────────────────────────────────────────────────────┘
-```
+When an operator runs `datacommons admin init`, the CLI generates a ready-to-deploy workspace through a four-step lifecycle:
+1. **Download Templates**: Fetches `main.tf`, `variables.tf`, `outputs.tf`, and `terraform.tfvars.template` from GitHub for the specified release tag.
+2. **Apply Source Regex Substitution**: Rewrites the local relative module source (`./modules/stack`) to the remote Git reference (`git::https://github.com/datacommonsorg/datacommons.git//infra/dcp/modules/stack?ref=<tag>`).
+3. **Populate Template Tokens**: Replaces placeholder tokens (`$$PROJECT_ID$$`, `$$INSTANCE_NAME$$`, `$$DC_API_KEY$$`) with user-supplied values.
+4. **Write Generated Workspace**: Emits `main.tf`, `variables.tf`, `outputs.tf`, `terraform.tfvars`, and optionally `backend.tf` into the destination directory.
 
 ### The Source Regex Substitution Contract
 During scaffolding, `_setup_dcp_config_dir()` in [scaffold_utils.py](../../packages/datacommons-admin/datacommons_admin/init/utils/scaffold_utils.py) rewrites the stack module source from a local relative path into a remote Git release URL:
@@ -82,34 +53,10 @@ source = "./modules/stack"  ==>  source = "git::https://github.com/datacommonsor
 
 Administrative commands (`init-db`, `migrate-db`, `ingest start`) require access to infrastructure attributes provisioned by Terraform, such as the Spanner database ID, Cloud Workflows name, and Cloud Run service URLs.
 
-The CLI resolves these attributes dynamically via `datacommons_admin/core/utils/tf_utils.py` using two execution modes.
+The CLI resolves these attributes dynamically via `datacommons_admin/core/utils/tf_utils.py` using two execution modes, populating a strongly typed `TerraformOutputs` dataclass:
 
-```
-                  datacommons admin <subcommand>
-                                │
-                                ▼
-               Does Click Context specify Remote Flags?
-              (--project-id, --instance-name, or --tf-state-location)
-                                │
-               ┌────────────────┴────────────────┐
-               │ YES                             │ NO
-               ▼                                 ▼
-┌──────────────────────────────┐  ┌──────────────────────────────────┐
-│ Remote GCS State Mode        │  │ Local State Mode                 │
-│ - Reads GCS state directly   │  │ - Spawns subprocess:             │
-│   via Cloud Storage API      │  │   terraform output -json         │
-│ - Requires zero local TF CLI │  │ - Parses stdout in current working│
-│ - Ideal for CI/CD runners    │  │   directory                      │
-└──────────────┬───────────────┘  └──────────────────┬───────────────┘
-               │                                     │
-               └──────────────────┬──────────────────┘
-                                  │
-                                  ▼
-┌────────────────────────────────────────────────────────────────────┐
-│ Strongly Typed TerraformOutputs Dataclass                           │
-│ (project_id, spanner_instance_id, ingestion_workflow_name, etc.)   │
-└────────────────────────────────────────────────────────────────────┘
-```
+* **Remote GCS State Mode**: Used when Click context specifies remote flags (`--project-id`, `--instance-name`, or `--tf-state-location`). Reads `default.tfstate` directly from Cloud Storage via the Google Cloud Client Library without requiring the `terraform` CLI binary.
+* **Local State Mode**: Used when invoked within an active deployment directory without remote state flags. Executes `terraform output -json` as a local subprocess and parses the JSON stdout.
 
 ### 1. Local State Mode (Interactive Workstations)
 When invoked inside an initialized deployment directory without remote state flags:
