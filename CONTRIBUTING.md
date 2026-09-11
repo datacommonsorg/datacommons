@@ -57,7 +57,7 @@ uv run pytest tests/integration/suites/ \
 When contributing documentation, follow the standards defined in [docs/README.md](docs/README.md):
 * **Centralize in `docs/`**: Place architectural specifications in `docs/architecture/` and tutorials in `docs/codelabs/`.
 * **Keep Local READMEs Operational**: Subsystem READMEs (such as [infra/dcp/README.md](infra/dcp/README.md) and [packages/datacommons-cli/README.md](packages/datacommons-cli/README.md)) focus strictly on operational commands, inputs, outputs, and variable references.
-* **Persona Separation**: [docs/user_guide.md](docs/user_guide.md) serves DCP Admins. Keep developer workflows and codelabs in `docs/codelabs/` or `docs/architecture/`.
+* **Persona Separation**: [docs/user_guide.md](docs/user_guide.md) serves DCP Admins. Keep developer workflows, workbench recipes, and codelabs in [docs/developer_guide.md](docs/developer_guide.md), `docs/codelabs/`, or `docs/architecture/`.
 
 ---
 

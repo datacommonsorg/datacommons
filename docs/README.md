@@ -22,6 +22,6 @@ To keep technical knowledge maintainable, discoverable, and accurate over time, 
 * **Point to Relevant Code**: Rather than transcribing implementation details into markdown tables or prose, link directly to the relevant and illustrative code. When code evolves, the documentation remains accurate because it explains the concept and directs readers to the source for the specifics.
 
 ### 4. Reproducibility and Plain Engineering Writing
-* **Runnable Commands**: All CLI and shell snippets must be directly reproducible, with environment variables (`$PROJECT_ID`, `$NAMESPACE`) explicitly declared before use.
+* **Runnable Commands**: All CLI and shell snippets must be directly reproducible, with environment variables (`$PROJECT_ID`, `$INSTANCE_NAME`) explicitly declared before use.
 * **Link Integrity**: Use relative file links (such as `[developer_guide.md](developer_guide.md)`) to guarantee portability across developer workstations and GitHub viewers.
 * **Direct Phrasing**: Use active voice, clear headings, and established technical terms. Avoid decorative emojis, em dashes, and empty filler words.

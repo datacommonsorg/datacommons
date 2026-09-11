@@ -43,26 +43,35 @@ DCP uses a hierarchical module architecture. Submodules never reference or depen
 ### Module Responsibilities
 * **`modules/auth`**: Provisions Secret Manager secrets for Data Commons and Google Maps API keys.
 * **`modules/spanner`**: Manages the Cloud Spanner instance, databases, processing units, retention policies, and BigQuery federated connections.
-* **`modules/storage`**: Creates the central artifacts GCS bucket (`gs://<instance_name>-dc-artifacts-<project_id>`) for raw input data, intermediate shards, and pipeline handshakes.
+* **`modules/storage`**: Creates the central artifacts GCS bucket (`gs://[<instance_name>-]dc-artifacts-<project_id>`) for raw input data, intermediate shards, and pipeline handshakes.
 * **`modules/redis`**: Provisions a Google Cloud MemoryStore Redis instance and Serverless VPC Access connector for low-latency query caching.
 * **`modules/ingestion/`**: Contains submodules for each ingestion stage:
-  * `preprocessing_job`: Cloud Run job executing `datacommons-data` in `dcpbridge` mode.
-  * `dataflow`: Service accounts, bucket permissions, and IAM policies for Apache Beam Dataflow execution.
-  * `postprocessing_job`: Cloud Run job executing `datacommons-aggregation-helper` via BigQuery federated queries.
-  * `helper_service`: FastAPI Cloud Run service managing Spanner database locks, version promotion, and Vertex AI embeddings.
+  * `preprocessing_job`: Cloud Run job executing `datacommons-data` in `dcpbridge` mode (sourced from `datcom-website`).
+  * `dataflow`: Service accounts, bucket permissions, and IAM policies for Apache Beam Dataflow execution (sourced from `datcom-import`).
+  * `postprocessing_job`: Cloud Run job executing `datacommons-aggregation-helper` via BigQuery federated queries (sourced from `datcom-import`).
+  * `helper_service`: FastAPI Cloud Run service executing `datacommons-ingestion-helper` to manage Spanner database locks, version promotion, and Vertex AI embeddings (sourced from `datcom-import`).
   * `workflow`: Google Cloud Workflows orchestrator coordinating the execution pipeline.
-* **`modules/datacommons_services`**: Cloud Run serving container hosting Envoy, Mixer, and Website.
+* **`modules/datacommons_services`**: Cloud Run serving container hosting Envoy, Mixer, and Website (sourced from `datcom-website`, compiling `datcom-mixer`).
+
+### Container Image Resolution and Version Parameterization
+All container images and template paths in DCP resolve through a unified version parameterization pipeline defined in [infra/dcp/main.tf](../../infra/dcp/main.tf):
+* **Unified Release Tag (`dcp_version`)**: In [infra/dcp/variables.tf](../../infra/dcp/variables.tf), `dcp_version` controls the default image tag applied across all services and jobs (for example, `gcr.io/datcom-ci/datacommons-services:${var.dcp_version}`). Setting `dcp_version = "latest"` deploys bleeding-edge images built from `master`/`main`.
+* **Individual Image Overrides**: Platform developers can override any individual component image during testing by setting dedicated variables in `terraform.tfvars`:
+  * `datacommons_services_image` (serving container)
+  * `ingestion_preprocessing_job_image` (preprocessor)
+  * `ingestion_postprocessing_job_image` (postprocessor)
+  * `ingestion_helper_service_image` (helper service)
+  * `ingestion_dataflow_template_gcs_path` (Dataflow Flex Template JSON spec)
 
 ### Shared Environment Variables
-To keep environment variables uniform across Cloud Run services and jobs, `modules/stack/main.tf` constructs a shared local object: `cloud_run_shared_env_variables`. This block injects:
-* `USE_CLOUDSQL = "false"`
-* `OUTPUT_DIR = gs://<artifacts_bucket>/<artifacts_path>`
-* `TEMP_LOCATION = gs://<artifacts_bucket>/<artifacts_path>/temp`
-* `FORCE_RESTART`: Injects `timestamp()` when `skip_container_restarts = false` to force revision creation and image pulls on apply.
-* `REDIS_HOST` and `REDIS_PORT` (populated conditionally if Redis is enabled)
-* `GCP_SPANNER_INSTANCE_ID` and `GCP_SPANNER_DATABASE_NAME`
-* `PROJECT_ID`, `REGION`, and `WORKFLOW_LOCATION`
-* `USE_SPANNER_GRAPH = "true"`
+To keep environment variables uniform across Cloud Run services and jobs, [infra/dcp/modules/stack/main.tf](../../infra/dcp/modules/stack/main.tf) constructs a shared configuration object: `cloud_run_shared_env_variables`. Instead of manually declaring environment variables per container, this central block injects:
+* **Storage Locations**: Output directory (`OUTPUT_DIR`) and temporary storage (`TEMP_LOCATION`) anchored to the dynamically provisioned artifacts bucket.
+* **Database Identifiers**: Spanner instance and database names (`GCP_SPANNER_INSTANCE_ID`, `GCP_SPANNER_DATABASE_NAME`), populated dynamically from the `spanner` module output, and graph configuration flags.
+* **Regional and Project Routing**: Project ID, compute region, and workflow location metadata.
+* **Cache Coordinates**: MemoryStore Redis host and port coordinates (`REDIS_HOST`, `REDIS_PORT`), populated conditionally when caching is enabled.
+* **Rolling Restart Trigger**: Injects `FORCE_RESTART = timestamp()` whenever `skip_container_restarts = false` to force revision creation and container image re-pulls during deployment.
+
+Consult [infra/dcp/modules/stack/main.tf](../../infra/dcp/modules/stack/main.tf) for the exact variable mappings and default values.
 
 ### Cross-Module IAM Wiring
 Decoupling submodules requires that all cross-service permissions reside centrally in [infra/dcp/modules/stack/main.tf](../../infra/dcp/modules/stack/main.tf):
@@ -88,19 +97,26 @@ Variables flow downward through four stages:
 ### Naming Conventions
 1. **Root Variables (`infra/dcp/variables.tf`)**:
    * Feature toggles follow `enable_<component>` (such as `enable_redis`, `enable_spanner`).
-   * Component variables use prefixes to avoid namespace collisions (such as `spanner_instance_id`, `redis_memory_size_gb`, `ingestion_dataflow_max_workers`).
+   * Component variables use prefixes to avoid namespace collisions (such as `spanner_instance_id`, `redis_memory_size_gb`).
    * Resource creation toggles use `<component>_create_<resource>` (such as `spanner_create_instance`, `spanner_create_database`, `storage_create_artifacts_bucket`).
 2. **Submodule Variables (`infra/dcp/modules/<component>/variables.tf`)**:
-   * Strip component prefixes inside submodules. Use `create_instance` instead of `spanner_create_instance`, and `memory_size_gb` instead of `redis_memory_size_gb`.
+   * Strip component prefixes inside submodules. For example, use `create_instance` instead of `spanner_create_instance`, and `memory_size_gb` instead of `redis_memory_size_gb`.
 3. **GCP Resource Names**:
    * All provisioned resources follow the pattern: `${local.name_prefix}dc-[functional-name]`.
    * `local.name_prefix` evaluates to `"${var.instance_name}-"` when `var.instance_name` (or the deprecated backward-compatible alias `var.namespace`) is provided, or an empty string when omitted.
    * Examples:
      * Spanner instance: `dc-instance` (or `dev-alice-dc-instance`)
      * Spanner database: `dc-db`
-     * Storage bucket: `dev-alice-dc-artifacts-datcom-website-dev`
+     * Storage bucket: `dev-alice-dc-artifacts-<project_id>`
      * Serving service: `dev-alice-dc-datacommons-service`
      * Cloud Workflow: `dev-alice-dc-ingestion-workflow`
+   * Service accounts follow the same prefix convention with compact role identifiers:
+     * Serving SA: `${local.name_prefix}dc-srvs-sa`
+     * Ingestion Workflow SA: `${local.name_prefix}dc-ing-wf-sa`
+     * Dataflow SA: `${local.name_prefix}dc-ing-df-sa`
+     * Preprocessing SA: `${local.name_prefix}dc-ing-pre-sa`
+     * Postprocessing SA: `${local.name_prefix}dc-ing-pst-sa`
+     * Helper Service SA: `${local.name_prefix}dc-ing-hlp-sa`
 
 ---
 
@@ -110,14 +126,14 @@ Deploying DCP on Google Cloud involves specific account and service constraints.
 
 ### BigQuery Reservation Quota Limits
 * Google Cloud enforces a strict quota of **one BigQuery slot reservation per project per region**.
-* In `infra/dcp/modules/spanner/main.tf`, the reservation name is hardcoded to `name = "default"`.
-* If multiple engineers deploy private development instances into the same GCP project (for example, `datcom-website-dev` in `us-central1`), only the first instance can successfully create the reservation. Secondary deployments fail with a resource name collision error (`Already Exists: default`).
+* In [infra/dcp/modules/spanner/main.tf](../../infra/dcp/modules/spanner/main.tf), the reservation resource uses `name = "default"`.
+* If multiple engineers deploy private development instances into the same GCP project and region, only the first instance can successfully create the reservation. Secondary deployments fail with a resource name collision error (`Already Exists: default`).
 * **Resolution**: When sharing a GCP project, set `spanner_create_bigquery_reservation = false` in `terraform.tfvars`. Ensure `spanner_enable_bigquery_connection = true` remains enabled so BigQuery can still execute on-demand federated queries against Spanner during postprocessing without dedicated slot reservations.
 
 ### Stateful vs Stateless Deletion Protection
 DCP separates deletion protection into two independent variables in `infra/dcp/variables.tf`:
-* **`stateful_deletion_protection`** (defaults to `false`): Controls deletion protection on persistent storage layers, including Cloud Spanner databases and GCS storage buckets. Enable this flag in production to prevent accidental destruction during automated cleanups. When enabled, teardown requires explicitly setting `stateful_deletion_protection = false` and running `terraform apply` before running `terraform destroy`.
-* **`stateless_deletion_protection`** (defaults to `false`): Controls compute resources like Cloud Run services, Cloud Run jobs, and Cloud Workflows. Allows quick teardown and redeployment of compute targets.
+* **`stateful_deletion_protection`**: Controls deletion protection on persistent storage layers, including Cloud Spanner databases and GCS storage buckets. Defaults are declared in [infra/dcp/variables.tf](../../infra/dcp/variables.tf). Enable this flag in production to prevent accidental destruction during automated cleanups. When enabled, teardown requires explicitly setting `stateful_deletion_protection = false` and running `terraform apply` before running `terraform destroy`.
+* **`stateless_deletion_protection`**: Controls deletion protection on compute resources like Cloud Run services, Cloud Run jobs, and Cloud Workflows. Defaults are declared in [infra/dcp/variables.tf](../../infra/dcp/variables.tf). Disabling protection allows quick teardown and redeployment of compute targets.
 
 ### Service Account Token Creator Requirement
 * Cloud Workflows, Cloud Run jobs, and the `datacommons admin init-db` CLI command run under dedicated service account identities.
@@ -125,7 +141,7 @@ DCP separates deletion protection into two independent variables in `infra/dcp/v
 * If missing, the developer must grant `roles/iam.serviceAccountTokenCreator` on the workflow service account to their identity:
   ```bash
   gcloud iam service-accounts add-iam-policy-binding <workflow-sa-email> \
-      --member="user:<username>@google.com" \
+      --member="user:<developer-email>" \
       --role="roles/iam.serviceAccountTokenCreator" \
       --project=<project-id>
   ```

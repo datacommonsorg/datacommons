@@ -198,7 +198,7 @@ Running on latest involves four platform layers:
       datacommons admin <command>
     ```
     > [!NOTE]
-    > If scaffolding a new deployment workspace with `admin init` while running against `main`, pass `--tf-git-ref main` (or manually set `?ref=main` in `main.tf`). By default, `admin init` pins the Terraform module source in `main.tf` to the released version tag (such as `v1.1.2`).
+    > If scaffolding a new deployment workspace with `admin init` while running against `main`, pass `--tf-git-ref main` (or manually set `?ref=main` in `main.tf`). By default, `admin init` pins the Terraform module source in `main.tf` to the released version tag corresponding to the CLI version (for example, `v1.x.x`).
   * **Option B (Local monorepo checkout)**:
     Because the `uv` workspace links all member packages in editable mode by default, run the CLI directly using `uv`:
     ```bash
@@ -225,7 +225,7 @@ DCP microservices and batch pipelines run in serverless Google Cloud Run contain
 * This section serves as the developer workbench guide for building custom development containers from source and overriding them in your deployment workspace.
 
 > [!CAUTION]
-> **Protected CI/CD Tags Rule**: Never build, push, or overwrite tags that are reserved for CI/CD or platform automation, such as `:latest`, `:stable`, or version release tags (such as `v1.1.2` or `1.1.3rc1`). Overwriting these tags corrupts automated integration tests, release candidate staging, and production deployments. Always use a descriptive, user-scoped tag for development builds (for example, `<username>-<feature>` or `<username>-test-$(date +%s)`).
+> **Protected CI/CD Tags Rule**: Never build, push, or overwrite tags that are reserved for CI/CD or platform automation, such as `:latest`, `:stable`, or version release tags (for example, release tags like `v1.x.x` or release candidates like `1.x.xrc1`). Overwriting these tags corrupts automated integration tests, release candidate staging, and production deployments. Always use a descriptive, user-scoped tag for development builds (for example, `<username>-<feature>` or `<username>-test-$(date +%s)`).
 
 #### Platform Container and Template Inventory
 
@@ -234,8 +234,8 @@ DCP microservices and batch pipelines run in serverless Google Cloud Run contain
 | **`datacommons-services`** | Envoy, Mixer API, Website serving | `datcom-website`<br>`scripts/push_cdc_services_image.sh` | `gcr.io/<project_id>/datacommons-services:<tag>` | `datacommons_services_image` |
 | **`datacommons-data`** | Preprocessor batch job | `datcom-website`<br>`build/cdc_data/Dockerfile` | `us-docker.pkg.dev/<project_id>/<repository>/datacommons-data:<tag>` | `ingestion_preprocessing_job_image` |
 | **`datacommons-aggregation-helper`** | Postprocessor aggregation job | `datcom-import`<br>`pipeline/workflow/aggregation-helper/Dockerfile` | `gcr.io/<project_id>/datacommons-aggregation-helper:<tag>` | `ingestion_postprocessing_job_image` |
-| **`datacommons-ingestion-helper`** | Lock coordination & migrations | `datcom-import`<br>`pipeline/workflow/ingestion-helper/Dockerfile` | `us-docker.pkg.dev/<project_id>/<repository>/ingestion-helper:<tag>` | `ingestion_helper_service_image` |
-| **`ingestion-flex`** | Apache Beam Dataflow pipeline | `datcom-import`<br>`pipeline/ingestion/Dockerfile` | `us-docker.pkg.dev/<project_id>/<repository>/dataflow-templates/ingestion:<tag>`<br>`gs://<storage_artifacts_bucket_name>/templates/flex/ingestion-<tag>.json` | `ingestion_dataflow_template_gcs_path` |
+| **`datacommons-ingestion-helper`** | Lock coordination & migrations | `datcom-import`<br>`pipeline/workflow/ingestion-helper/Dockerfile` | `us-docker.pkg.dev/<project_id>/<repository>/datacommons-ingestion-helper:<tag>` | `ingestion_helper_service_image` |
+| **`ingestion-flex`** | Apache Beam Dataflow pipeline | `datcom-import`<br>`pipeline/ingestion/cloudbuild.yaml` | `us-docker.pkg.dev/<project_id>/<repository>/dataflow-templates/ingestion:<tag>`<br>`gs://<storage_artifacts_bucket_name>/templates/flex/ingestion-<tag>.json` | `ingestion_dataflow_template_gcs_path` |
 
 #### Building Images via Google Cloud Build
 
@@ -306,34 +306,35 @@ gcloud builds submit . \
 ##### Ingestion Helper Service (`ingestion-helper`)
 ```bash
 cd /path/fork/of/datacommonsorg/import
+cd pipeline/workflow/ingestion-helper
 
 export PROJECT_ID="datcom-website-dev"
 export INGESTION_HELPER_TAG="<username>-<feature>-$(date +%s)"
-export INGESTION_HELPER_IMAGE="us-docker.pkg.dev/$PROJECT_ID/datacommons-artifacts/ingestion-helper:$INGESTION_HELPER_TAG"
-gcloud builds submit --project="$PROJECT_ID" --tag "$INGESTION_HELPER_IMAGE" -f pipeline/workflow/ingestion-helper/Dockerfile .
+export INGESTION_HELPER_IMAGE="us-docker.pkg.dev/$PROJECT_ID/datacommons-artifacts/datacommons-ingestion-helper:$INGESTION_HELPER_TAG"
+gcloud builds submit . \
+    --project="$PROJECT_ID" \
+    --tag="$INGESTION_HELPER_IMAGE"
 
 # Resulting Image URI:
-# us-docker.pkg.dev/$PROJECT_ID/datacommons-artifacts/ingestion-helper:<INGESTION_HELPER_TAG>
+# us-docker.pkg.dev/$PROJECT_ID/datacommons-artifacts/datacommons-ingestion-helper:<INGESTION_HELPER_TAG>
 ```
 
 ##### Dataflow Flex Template and Ingestion Pipeline (`ingestion-flex`)
-Dataflow executes as an Apache Beam Java Flex Template. Building it requires packaging the worker container image and staging the template JSON specification in Cloud Storage:
+Dataflow executes as an Apache Beam Java Flex Template. Building the worker container image and staging the template JSON specification in Cloud Storage is handled through Cloud Build using `pipeline/ingestion/cloudbuild.yaml`:
 
 ```bash
 cd /path/fork/of/datacommonsorg/import
 
-# 1. Build and push custom Dataflow worker image to Artifact Registry:
 export PROJECT_ID="datcom-website-dev"
 export DATAFLOW_TAG="<username>-<feature>-$(date +%s)"
-export DATAFLOW_WORKER_IMAGE="us-docker.pkg.dev/$PROJECT_ID/datacommons-artifacts/dataflow-templates/ingestion:$DATAFLOW_TAG"
-gcloud builds submit --project="$PROJECT_ID" --tag "$DATAFLOW_WORKER_IMAGE" -f pipeline/ingestion/Dockerfile .
+export TEMPLATE_BUCKET="<storage_artifacts_bucket_name>"
+export IMAGE_GCR_PATH="us-docker.pkg.dev/$PROJECT_ID/datacommons-artifacts/dataflow-templates/ingestion"
 
-# 2. Build and stage Dataflow Flex Template JSON specification in Cloud Storage:
-export TEMPLATE_GCS_PATH="gs://<storage_artifacts_bucket_name>/templates/flex/ingestion-$DATAFLOW_TAG.json"
-gcloud dataflow flex-template build "$TEMPLATE_GCS_PATH" \
-    --image "$DATAFLOW_WORKER_IMAGE" \
-    --sdk-language "JAVA" \
-    --metadata-file "pipeline/ingestion/metadata.json"
+# Build Dataflow worker image and stage Flex Template JSON specification in Cloud Storage:
+gcloud builds submit . \
+    --config=pipeline/ingestion/cloudbuild.yaml \
+    --project="$PROJECT_ID" \
+    --substitutions="_VERSION=$DATAFLOW_TAG,_TEMPLATE_BUCKET=$TEMPLATE_BUCKET,_IMAGE_GCR_PATH=$IMAGE_GCR_PATH"
 
 # Resulting Worker Image URI:
 # us-docker.pkg.dev/$PROJECT_ID/datacommons-artifacts/dataflow-templates/ingestion:<DATAFLOW_TAG>
@@ -372,7 +373,7 @@ export TARGET_PROJECT_NUM=$(gcloud projects describe <TARGET_PROJECT_ID> --forma
 
 # Option A: Grant Artifact Registry Reader to target Cloud Run Service Agent:
 gcloud artifacts repositories add-iam-policy-binding <REPOSITORY_NAME> \
-    --location=us \
+    --location=<repository_location> \
     --project=<SOURCE_PROJECT_ID> \
     --member="serviceAccount:service-${TARGET_PROJECT_NUM}@serverless-robot-prod.iam.gserviceaccount.com" \
     --role="roles/artifactregistry.reader"
@@ -409,11 +410,12 @@ When instances are deployed with `datacommons_services_allow_unauthenticated_acc
 cd ~/dcp-deployments/<namespace>
 
 export PROJECT_ID="$(terraform output -raw project_id)"
+export REGION="$(terraform output -raw region)"
 export SERVICE_NAME="$(terraform output -raw datacommons_service_name)"
 
 gcloud run services proxy "$SERVICE_NAME" \
     --project="$PROJECT_ID" \
-    --region=us-central1 \
+    --region="$REGION" \
     --port=8080
 ```
 
@@ -477,7 +479,7 @@ uv run pytest tests/integration/suites/ \
 * **Resolution**: Google Cloud allows only one BigQuery slot reservation per project per region. When sharing a development project (such as `datcom-website-dev`), set `spanner_create_bigquery_reservation = false` in your `terraform.tfvars`.
 
 ### Spanner Emulator Port Conflicts
-* **Symptom**: Hermetic integration tests report `Address already in use` on port 9010 or 9020.
+* **Symptom**: Hermetic integration tests report `Address already in use` on emulator ports (such as port 9010 or 9020).
 * **Resolution**: Ensure no previous Docker Compose test containers are running:
   ```bash
   docker compose -f tests/integration/emulated/docker-compose.yml down -v

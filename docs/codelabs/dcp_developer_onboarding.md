@@ -84,14 +84,14 @@ cd datacommons
 
 Install the Admin CLI tool using `uv`:
 ```bash
-uv tool install "datacommons-cli==1.1.5"
+uv tool install datacommons-cli
 ```
 Alternatively, define a shell alias to execute on-the-fly without global installation:
 ```bash
-alias datacommons='uvx --from "datacommons-cli==1.1.5" datacommons'
+alias datacommons='uvx datacommons'
 ```
 
-*(If you are developing features inside `packages/datacommons-cli` or `packages/datacommons-admin`, you can execute unreleased code directly from your local monorepo checkout using `uv run --package datacommons-cli datacommons`. See the [Developer Guide](../developer_guide.md#working-on-the-cli-datacommons-cli-and-datacommons-admin) for details).*
+*(To run against a specific release or release candidate, pass `--from datacommons-cli==<version>`. If you are developing features inside `packages/datacommons-cli` or `packages/datacommons-admin`, you can execute unreleased code directly from your local monorepo checkout using `uv run --package datacommons-cli datacommons`. See the [Developer Guide](../developer_guide.md#running-the-cli-against-main) for details).*
 
 Verify the installation:
 ```bash
@@ -155,7 +155,7 @@ datacommons admin init \
     --dc-api-key "$DC_API_KEY"
 ```
 
-> **Note**: `datacommons admin init` automatically defaults `--tf-git-ref` to the release tag matching your installed CLI package (for example, `v1.1.5`). You do not need to pass `--tf-git-ref` unless you specifically want to target an older release or release candidate.
+> **Note**: `datacommons admin init` automatically defaults `--tf-git-ref` to the release tag matching your installed CLI package. You do not need to pass `--tf-git-ref` unless you specifically want to target an older release or release candidate.
 
 ### 3. Tour the Scaffolded Files
 Navigate into your newly generated namespace directory:
@@ -165,7 +165,7 @@ ls -la
 ```
 You will see six generated files (or five if remote state management was disabled via `--no-tf-remote-state`):
 * **`main.tf`**: The root configuration that calls the remote DCP stack module:
-  `source = "git::https://github.com/datacommonsorg/datacommons.git//infra/dcp/modules/stack?ref=v1.1.5"`
+  `source = "git::https://github.com/datacommonsorg/datacommons.git//infra/dcp/modules/stack?ref=<release-tag>"`
 * **`variables.tf`**: Variable definitions declaring all configuration options and default values.
 * **`outputs.tf`**: Output values that export deployment attributes (such as bucket names and service URLs) after deployment.
 * **`terraform.tfvars`**: Your instance configuration values.
@@ -246,14 +246,14 @@ terraform plan -out=tfplan
 terraform show -no-color tfplan > tfplan.txt
 ```
 Inspect `tfplan.txt` to review the resources being created. Terraform prints a summary at the bottom:
-`Plan: ~80 to add, 0 to change, 0 to destroy.`
+`Plan: <N> to add, 0 to change, 0 to destroy.`
 
 Now apply the saved execution plan:
 ```bash
 terraform apply tfplan
 ```
 
-Deployment typically takes 3 to 5 minutes as Google Cloud provisions storage buckets, creates the Spanner database, registers Secret Manager secrets, and deploys Cloud Run services and jobs.
+Wait for deployment to complete as Google Cloud provisions storage buckets, creates the Spanner database, registers Secret Manager secrets, and deploys Cloud Run services and jobs.
 
 ### 3. Capture Outputs
 When deployment completes, Terraform displays exported outputs. Export them into your terminal environment for subsequent steps:
@@ -263,9 +263,11 @@ export INPUT_PATH=$(terraform output -raw ingestion_input_path)
 export ORCHESTRATOR_SA=$(terraform output -raw ingestion_workflow_service_account_email)
 export SERVICE_NAME=$(terraform output -raw datacommons_service_name)
 export SERVICE_URL=$(terraform output -raw datacommons_service_url)
+export REGION=$(terraform output -raw region)
 
 echo "Data Bucket: gs://$DATA_BUCKET"
 echo "Serving URL: $SERVICE_URL"
+echo "Region:      $REGION"
 ```
 
 ### 4. Grant Service Account Token Impersonation
@@ -351,8 +353,8 @@ You will see tables including `Node`, `Edge`, `Observation`, `TimeSeries`, and `
 -- Inspect initial seeded metadata nodes (Node stores subject_id, name, types)
 SELECT subject_id, name, types FROM Node LIMIT 10;
 
--- Inspect initial graph edges (Edge stores subject_id, predicate, object_id)
-SELECT subject_id, predicate, object_id FROM Edge LIMIT 10;
+-- Inspect initial graph edges (Edge composite key: subject_id, predicate, object_id, provenance)
+SELECT subject_id, predicate, object_id, provenance FROM Edge LIMIT 10;
 ```
 
 ---
@@ -406,9 +408,23 @@ Watch the workflow progress through its stages, and inspect the underlying compu
    * *Viewing Dataflow Graph and Logs*: Open **Dataflow > Jobs** in the console and click into the running job (named `graph-ingestion-pipeline-...`). You can view the live execution DAG (stages such as `ReadJSONLD`, `ExtractFacets`, and `WriteToSpanner`). Click the **Job Logs** tab for pipeline lifecycle events and the **Worker Logs** tab to stream real-time worker output.
 4. **`run_postprocessing_parallel`**: Runs BigQuery federated queries to materialize statistical variable groups and invokes Vertex AI text embeddings.
    * *Viewing Postprocessing Logs*: Open **Cloud Run > Jobs**, click into `<namespace>-dc-post-job`, click the active execution, and select the **Logs** tab to observe BigQuery aggregation and vector embedding generation.
-5. **`release_lock_step` & `restart_service`**: Releases the Spanner lock and triggers a rolling container restart of `datacommons-services` so the new data is served immediately.
+5. **`release_lock_step` & `restart_service`**: Releases the Spanner lock, clears the cache if Redis caching is enabled, and triggers a rolling container restart of `datacommons-services` if container restarts are enabled.
 
-Ingestion typically takes 4 to 6 minutes. Wait until the execution status displays a green checkmark (`Succeeded`).
+Wait until the execution status displays a green checkmark (`Succeeded`).
+
+### 4. Verify Ingested Data in Spanner Studio
+Return to **Spanner Studio** in the Google Cloud Console and run the following queries to verify that your data was loaded into Spanner:
+
+```sql
+-- Inspect total ingested observation records
+SELECT count(*) AS total_observations FROM Observation;
+
+-- Inspect sample observations for average annual wage
+SELECT variable_measured, entity1, date, value FROM Observation WHERE variable_measured = 'average_annual_wage' LIMIT 10;
+
+-- Verify latest workflow execution history
+SELECT WorkflowExecutionID, Status, Stage, NodeCount, EdgeCount, ObservationCount FROM IngestionHistory ORDER BY CompletionTimestamp DESC LIMIT 1;
+```
 
 ---
 
@@ -423,7 +439,7 @@ In a **separate terminal window**, run:
 ```bash
 gcloud run services proxy "$SERVICE_NAME" \
     --project="$PROJECT_ID" \
-    --region="us-central1" \
+    --region="$REGION" \
     --port=8080
 ```
 Keep this terminal running. The proxy listens on `http://localhost:8080` and automatically injects authentication headers.
@@ -468,7 +484,7 @@ uv run python tests/integration/run_e2e_tests.py \
     --reuse-data
 ```
 
-Because you already ingested `foobar_wages` in Module 6, passing `--reuse-data` skips repeating the 5-minute ingestion pipeline and immediately runs the validation suites (`02_postprocessing`, `03_serving_api`, and `04_mcp_agent`) against your live deployment.
+Because you already ingested `foobar_wages` in Module 6, passing `--reuse-data` skips repeating the ingestion pipeline and immediately runs the validation suites (`02_postprocessing`, `03_serving_api`, and `04_mcp_agent`) against your live deployment.
 
 To test a specific stage (for example, only the serving API tests):
 ```bash
@@ -529,7 +545,7 @@ Apply the saved plan:
 terraform apply tfplan
 ```
 
-Deployment takes roughly 30 to 45 seconds. Terraform updates the Cloud Run service definition, and Cloud Run provisions a new container revision with zero downtime.
+Terraform updates the Cloud Run service definition, and Cloud Run provisions a new container revision with zero downtime.
 
 ### 5. Verify the New Revision in Google Cloud Console
 Return to **Cloud Run > Services > `<namespace>-dc-datacommons-service`** in the Google Cloud Console and refresh the **Revisions** tab:
@@ -576,10 +592,10 @@ terraform destroy
 ```
 
 Terraform presents the deletion plan:
-`Plan: 0 to add, 0 to change, ~80 to destroy.`
+`Plan: 0 to add, 0 to change, <N> to destroy.`
 
 Type `yes` and press Enter. Once complete, Terraform confirms:
-`Destroy complete! Resources: ~80 destroyed.`
+`Destroy complete! Resources: <N> destroyed.`
 
 Because you configured `spanner_create_instance = false`, Terraform deletes your private database (`<namespace>-dc-db`) while preserving the shared `dcp-testing` Spanner instance for teammates.
 

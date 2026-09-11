@@ -17,8 +17,8 @@ At a high level, DCP is made up of three core subsystems working together:
 
 ### Managing the Instance (Terraform and the Admin CLI)
 * **Setting up cloud resources**: Terraform scripts in `infra/dcp/` create everything the platform needs in Google Cloud, including Cloud Spanner for data storage, Cloud Run for running services, and Cloud Workflows for coordination.
-* **Running the platform**: The `datacommons admin` CLI makes daily operations straightforward. It helps developers set up new deployment folders, prepare databases, run schema migrations, and trigger data imports.
-* **Automatic connection**: The CLI reads Terraform deployment outputs directly, so it automatically discovers database names, bucket URLs, and service endpoints without requiring manual configuration.
+* **Running the platform**: The `datacommons admin` CLI makes daily operations straightforward. It automates setting up deployment folders, preparing databases, run schema migrations, and trigger data imports.
+* **Automatic connection**: The CLI reads Terraform deployment outputs directly, discovering database names, bucket URLs, and service endpoints without requiring manual configuration.
 
 ### Importing Data (The Ingestion Pipeline)
 * **From files to the graph**: Converts custom CSV spreadsheets and schema definitions (MCF files) into structured knowledge graph data loaded into Cloud Spanner.
@@ -27,7 +27,7 @@ At a high level, DCP is made up of three core subsystems working together:
 
 ### Serving Queries (The Web and API Stack)
 * **All-in-one serving container**: A single Cloud Run service (`dc-datacommons-service`) running the `datacommons-services` image hosts the web frontend for interactive charts, REST and gRPC APIs for applications, and an MCP server for AI agents.
-* **Combining private and public data**: When a user queries data, the backend (Mixer) checks your private Spanner database and the public Google Data Commons graph at the same time, merging the results into a single response. Your private data always takes priority.
+* **Combining private and public data**: When an external client queries data, the backend (Mixer) checks the local Cloud Spanner database and the public Base Data Commons graph concurrently, merging the results into a single response. Local private data always takes priority.
 * **Clean user experience**: While a background import is loading new data, users can continue browsing and querying charts without seeing partial or broken updates. Once the import completes, caches clear automatically so the newest data shows up right away.
 
 ---
@@ -90,24 +90,24 @@ Batch ingestion loads raw data from Cloud Storage into Cloud Spanner across a 5-
 
 1. **Preprocessing**: Cloud Workflows launches the Cloud Run preprocessing job (`dc-ingestion-preprocessing-job`, running image `datacommons-data`), executing `stats.main --mode=dcpbridge` against input datasets. The job validates CSV headers against `config.json`, outputs partitioned JSON-LD shards, and writes a handshake file to `<tempLocation>/datacommons/ingestion_records/<workflow_id>.json`. The workflow reads this handshake blob to extract the sanitized `importList` and `generateStatVarGroups` flag before launching subsequent stages.
 2. **Distributed Locking Protocol**: The workflow calls `POST /database/lock/acquire` on `dc-ingestion-helper`:
-   * **Atomic Spanner Transaction**: The helper service executes a read-write transaction on the Spanner `IngestionLock` table (`LockName = 'global_ingestion_lock'`). It checks whether the lock is currently held.
-   * **Contention and Backoff Retry Loop**: If another active run holds the lock, the endpoint returns HTTP 503. The workflow enters a retry loop (`increment_retries_and_wait`), sleeping for 120 seconds between attempts until acquired or reaching `max_lock_retries` (`lock_acquisition_timeout / 120`). The default `lock_acquisition_timeout` of 82,800 seconds (23 hours) defines the lock acquisition retry window, allowing sequential ingestion runs to queue safely behind active jobs.
+   * **Atomic Spanner Transaction**: The helper service executes a read-write transaction on the Spanner `IngestionLock` table (`LockID = 'global_ingestion_lock'`). It acquires the lock if unowned or if the existing lock timestamp exceeds the stale timeout threshold (configured via `timeout` parameter).
+   * **Contention and Backoff Retry Loop**: If another active run holds the lock, the endpoint returns HTTP 503. The workflow enters a retry loop (`increment_retries_and_wait`), sleeping between attempts until acquired or reaching `max_lock_retries`. The retry duration and timeout limits are governed by `lock_acquisition_timeout` (defined in [workflow.yaml](../../infra/dcp/modules/ingestion/workflow/workflow.yaml) and [variables.tf](../../infra/dcp/modules/ingestion/workflow/variables.tf)), allowing sequential ingestion runs to queue safely behind active jobs.
    * **Ingestion History Record**: Once acquired, the workflow calls `POST /imports/ingestion-history` on `dc-ingestion-helper` to record an `IngestionHistory` entry with status `PENDING` and stage `dataflow`.
 3. **Dataflow Ingestion**: Cloud Workflows updates `IngestionHistory` to status `RUNNING` (stage `dataflow`) and launches the Apache Beam Java pipeline (`GraphIngestionPipeline`) on Dataflow. Dataflow deletes outdated records for replaced imports, computes 64-bit FarmHash facet identifiers, generates search columns, and streams batched mutations into Spanner tables (`Node`, `Edge`, `Observation`, `TimeSeries`).
 4. **Parallel Postprocessing and Embeddings**: Cloud Workflows updates `IngestionHistory` to status `RUNNING` (stage `postprocessing`) and executes two parallel branches:
    * **Aggregation Helper Job**: Launches Cloud Run job `dc-ingestion-postprocessing-job` (`datacommons-aggregation-helper`), executing BigQuery federated queries over Spanner to generate statistical variable hierarchies (`STAT_VAR_GROUPS` written to `Node` and `Edge`), graph relationships (`LINKED_EDGES` written to `Edge`), and dataset summaries (`ProvenanceSummary` written to `KeyValueStore`).
    * **Vertex AI Embeddings**: Calls `POST /embeddings/ingest` on `dc-ingestion-helper`, which executes Spanner `ML.PREDICT` against Vertex AI to compute vector representations for new statistical variables.
 5. **Finalization, Cache Busting, and Rolling Restart**:
-   * Updates `IngestionHistory` to status `SUCCESS` and stage `completed` via `POST /imports/ingestion-history`. This commit serves as the atomic version promotion watermark for downstream queries.
+   * Updates `IngestionStatus` to status `SUCCESS` via `POST /imports/ingestion-status` and updates `IngestionHistory` to status `SUCCESS` via `POST /imports/ingestion-history`. This commit serves as the atomic version promotion watermark for downstream queries.
+   * Releases the distributed lock by calling `POST /database/lock/release` on `dc-ingestion-helper`.
    * If `enable_redis_cache_clearing` is enabled, flushes the Redis query cache via `POST /cache/clear` on `dc-ingestion-helper`.
    * If `enable_datacommons_services_restart` is enabled, Cloud Workflows issues a patch call (`googleapis.run.v2.projects.locations.services.patch`) on `dc-datacommons-service` to update `template.labels.restarted-at`, triggering a zero-downtime rolling revision restart.
-   * The workflow releases the distributed mutex by calling `POST /database/lock/release` on `dc-ingestion-helper`.
 
 #### Failure Handling and Lock Release Guarantee
 If Dataflow or postprocessing throws an unhandled exception:
 * Cloud Workflows intercepts the error in its global `try/except` block ([workflow.yaml](../../infra/dcp/modules/ingestion/workflow/workflow.yaml)).
-* It updates `IngestionHistory` to status `FAILED` and stage `failed` via `POST /imports/ingestion-history`.
-* The workflow always executes `release_lock_on_failure` (`POST /database/lock/release`) before re-raising the error, ensuring the Spanner lock is never orphaned and subsequent ingestion runs are not blocked.
+* It updates `IngestionHistory` with status `FAILURE` and the active stage via `POST /imports/ingestion-history`, and updates `IngestionStatus` with status `RETRY` via `POST /imports/ingestion-status`.
+* The workflow always executes `release_lock_step` (`POST /database/lock/release`) before re-raising the error, ensuring the Spanner lock is never orphaned and subsequent ingestion runs are not blocked.
 
 ---
 
@@ -145,15 +145,16 @@ Inside the `datacommons-services` Cloud Run container, traffic is multiplexed ac
   * **Base Data Commons Query**: Formulates remote gRPC calls to `api.datacommons.org` to resolve public variables or parent geographic entities.
 
 #### 3. Spanner Transactional Read Staleness and Active Write Isolation
-* To isolate readers from partial updates during background ingestion pipelines, Mixer queries Spanner `IngestionHistory`:
+* To isolate readers from partial updates during background ingestion pipelines, Mixer periodically polls Spanner `IngestionHistory` in the background (configured via `NewTimestampTicker` in [timestamp.go](https://github.com/datacommonsorg/mixer/blob/master/internal/server/spanner/timestamp.go)):
   ```sql
   SELECT MIN(CreationTimestamp) AS StalenessTimestamp
   FROM IngestionHistory
   WHERE (SELECT MAX(CompletionTimestamp) FROM IngestionHistory WHERE Status = 'SUCCESS') IS NULL
      OR CreationTimestamp > (SELECT MAX(CompletionTimestamp) FROM IngestionHistory WHERE Status = 'SUCCESS');
   ```
+* Mixer caches this timestamp atomically in memory. When serving queries, Mixer executes read transactions using `spanner.ReadTimestamp(ts)` (in [query.go](https://github.com/datacommonsorg/mixer/blob/master/internal/server/spanner/query.go)), completely avoiding table lock contention.
 * If an active ingestion run is in flight, Mixer pins reads to `MIN(CreationTimestamp)` of the active run. Readers are guaranteed never to observe uncommitted, partial, or mutating batch data.
-* **Retention Fallback**: If the pinned timestamp exceeds Cloud Spanner's version retention period (default 24 hours) and Spanner returns `FAILED_PRECONDITION`, or if `IngestionHistory` is empty, Mixer catches the error and falls back to exact staleness (15 seconds) against head.
+* **Retention and Uninitialized Fallback**: If `IngestionHistory` is empty, uninitialized, or if the pinned timestamp exceeds Cloud Spanner's configured version retention period (causing Spanner to return `FAILED_PRECONDITION`), Mixer catches the condition and falls back to default exact staleness reads (`defaultStalenessDuration` in [query.go](https://github.com/datacommonsorg/mixer/blob/master/internal/server/spanner/query.go)) against database head.
 
 #### 4. Response Composition
 * Mixer merges local Spanner graph observations with data from Base Data Commons.

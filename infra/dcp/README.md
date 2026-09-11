@@ -52,8 +52,8 @@ The authoritative source of truth for all configuration options, type constraint
   * `dcp_version`: Controls unified container image and template version resolution. Set to `"latest"` for bleeding-edge builds, or pin to a specific release tag (see [variables.tf](variables.tf) for current defaults and [Developer Guide](../../docs/developer_guide.md#running-the-stack-on-latest-main-and-latest-builds) for latest workflows).
   * `datacommons_services_image`, `ingestion_dataflow_template_gcs_path`: Individual container and template overrides when developing or testing custom builds.
 * **Resource Safeguards**:
-  * `stateful_deletion_protection`: Controls deletion protection on persistent storage layers (Cloud Spanner databases and GCS storage buckets). Defaults to `false`; enable for production or persistent data protection.
-  * `stateless_deletion_protection`: Controls deletion protection on Cloud Run services, jobs, and workflows. Keep `false` for rapid development cycles.
+  * `stateful_deletion_protection`: Controls deletion protection on persistent storage layers (Cloud Spanner databases and GCS storage buckets; defaults are declared in [variables.tf](variables.tf)). Enable for production or persistent data protection.
+  * `stateless_deletion_protection`: Controls deletion protection on Cloud Run services, jobs, and workflows (defaults are declared in [variables.tf](variables.tf)). Keep disabled for rapid development cycles.
 * **Shared Project and Cost-Saving Overrides**:
   * `spanner_create_bigquery_reservation`: Set to `false` when sharing a GCP project or region, as GCP enforces a limit of one BigQuery reservation per project per region.
   * `spanner_create_instance`, `storage_create_artifacts_bucket`: Set to `false` when connecting to existing shared Spanner instances or pre-existing GCS buckets.
