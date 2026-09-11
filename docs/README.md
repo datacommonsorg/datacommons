@@ -18,7 +18,7 @@ To keep technical knowledge maintainable, discoverable, and accurate over time, 
 * **DCP Developers (Platform Contributors)**: Engineers contributing to the codebase, creating new Cloud Run services or jobs, debugging Spanner queries, or tuning CLI logic. Everything else in this repository serves this developer persona.
 
 ### 3. Maintainability and Single Source of Truth
-* **Document Contracts, Not Implementation Details**: Documentation explains system boundaries, architectural invariants, and why components interact. Avoid duplicating volatile details that code already defines (such as default configuration values, schema definitions, or exhaustive lists of fields and flags).
+* **Document Contracts, Not Implementation Details**: Documentation explains system boundaries, architectural invariants, and why components interact. Duplicating volatile details that code already defines (such as default configuration values, schema definitions, or exhaustive lists of fields and flags) introduces immediate rot risk as implementations evolve.
 * **Point to Relevant Code**: Rather than transcribing implementation details into markdown tables or prose, link directly to the relevant and illustrative code. When code evolves, the documentation remains accurate because it explains the concept and directs readers to the source for the specifics.
 
 ### 4. Reproducibility and Plain Engineering Writing
