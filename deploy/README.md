@@ -73,8 +73,8 @@ Run these commands locally before initiating Cloud Build runs:
 
 ```bash
 # Validate that all version files match a target tag
-python3 deploy/scripts/validate_release_version.py v1.1.2
+uv run deploy/scripts/validate_release_version.py v1.1.2
 
 # Dry-run wheel packaging, sandbox installation, and CLI smoke test
-python3 deploy/scripts/publish_packages.py --dry-run
+uv run deploy/scripts/publish_packages.py --dry-run
 ```

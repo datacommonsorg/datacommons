@@ -73,7 +73,7 @@ The `gcloud` CLI authenticates your local terminal to Google Cloud Platform.
 DCP federates queries to base Google Data Commons. You must supply a valid API key.
 1. Visit [apikeys.datacommons.org](https://apikeys.datacommons.org).
 2. Sign in with your Google account and generate a free API key.
-3. Save this key locally; you will provide it in Step 2.
+3. Save this key locally; you will provide it in Module 2, Step 2 (or set it in Step 1 when configuring your environment variables).
 
 ### 5. Install the Admin CLI (`datacommons`)
 To contribute to the codebase, run integration test scripts, or work with local submodules, clone the repository:
