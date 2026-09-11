@@ -97,86 +97,109 @@ uv run --package datacommons-cli datacommons admin init-db
 uv run --package datacommons-cli datacommons admin ingest start --imports <dataset_name>
 ```
 
-#### 2. Adding a New CLI Command
-1. Define the Click command in `packages/datacommons-admin/datacommons_admin/<group>/<group>_cli.py`.
-2. Register the command on the group in `packages/datacommons-admin/datacommons_admin/admin_cli.py`.
-3. If the command reads Terraform attributes, fetch them via `tf_utils.get_terraform_outputs()`.
-4. Ensure any new output keys added to `infra/dcp/outputs.tf` match fields in the `TerraformOutputs` dataclass (`packages/datacommons-admin/datacommons_admin/core/utils/models.py`). Run the contract test to verify parity:
-   ```bash
-   uv run pytest packages/datacommons-admin/tests/core/test_tf_contract.py
-   ```
+#### Adding a New CLI Command
+* Define the Click command in `packages/datacommons-admin/datacommons_admin/<group>/<group>_cli.py`.
+* Register the command on the group in `packages/datacommons-admin/datacommons_admin/admin_cli.py`.
+* If the command reads Terraform attributes, fetch them via `tf_utils.get_terraform_outputs()`.
+* Ensure any new output keys added to `infra/dcp/outputs.tf` match fields in the `TerraformOutputs` dataclass (`packages/datacommons-admin/datacommons_admin/core/utils/models.py`). Run the contract test to verify parity:
+  ```bash
+  uv run pytest packages/datacommons-admin/tests/core/test_tf_contract.py
+  ```
 
 ### Working on the Database Layer (`datacommons-db`)
 
-1. **Entity Models**: Graph models (`NodeRecord`, `EdgeRecord`, `ObservationRecord`, `TimeSeriesRecord`) reside in `packages/datacommons-db/datacommons_db/models/`.
-2. **Schema Migrations**: Schema alterations are managed as versioned Python migration scripts in `packages/datacommons-db/datacommons_db/migrations/migration_scripts/`.
-   * For instructions on authoring, naming, and testing migrations, consult the [Schema Migrations Developer Guide](schema_migrations_developer_guide.md).
+* **Entity Models**: Graph models (`NodeRecord`, `EdgeRecord`, `ObservationRecord`, `TimeSeriesRecord`) reside in `packages/datacommons-db/datacommons_db/models/`.
+* **Schema Migrations**: Schema alterations are managed as versioned Python migration scripts in `packages/datacommons-db/datacommons_db/migrations/migration_scripts/`.
+  * For instructions on authoring, naming, and testing migrations, consult the [Schema Migrations Developer Guide](schema_migrations_developer_guide.md).
 
 ### Working on Infrastructure (`infra/dcp`)
 
 When modifying Terraform configurations in `infra/dcp/`:
-1. **Module Hierarchy**: Inspect `infra/dcp/main.tf` for root variables and `infra/dcp/modules/stack/main.tf` for module wiring. Refer to [Terraform Stack Architecture](architecture/terraform_stack.md) for variable propagation details.
-2. **Critical Scaffolding Contract**: The `module "stack"` declaration in `infra/dcp/main.tf` must maintain `source = "./modules/stack"` on a single line:
-   ```hcl
-   module "stack" {
-     source = "./modules/stack"
-   ```
-   The `datacommons admin init` CLI command uses regular expression matching on `source = "./modules/stack"` to rewrite the module source to the remote GitHub release URL for downstream users. Modifying line breaks or whitespace within this string breaks CLI scaffolding.
-3. **Local Validation and Pre-Flight Checks**: Validate and test Terraform changes by copying `infra/dcp/terraform.tfvars.template` to `infra/dcp/terraform.tfvars` and running:
-   ```bash
-   cd infra/dcp
+* **Module Hierarchy**: Inspect `infra/dcp/main.tf` for root variables and `infra/dcp/modules/stack/main.tf` for module wiring. Refer to [Terraform Stack Architecture](architecture/terraform_stack.md) for variable propagation details.
+* **Critical Scaffolding Contract**: The `module "stack"` declaration in `infra/dcp/main.tf` must maintain `source = "./modules/stack"` on a single line:
+  ```hcl
+  module "stack" {
+    source = "./modules/stack"
+  ```
+  The `datacommons admin init` CLI command uses regular expression matching on `source = "./modules/stack"` to rewrite the module source to the remote GitHub release URL for downstream users. Modifying line breaks or whitespace within this string breaks CLI scaffolding.
+* **Local Validation and Pre-Flight Checks**: Validate and test Terraform changes by copying `infra/dcp/terraform.tfvars.template` to `infra/dcp/terraform.tfvars` and running:
+  ```bash
+  cd infra/dcp
 
-   # Check file formatting
-   terraform fmt -check
+  # Check file formatting
+  terraform fmt -check
 
-   # Initialize providers and modules
-   terraform init
+  # Initialize providers and modules
+  terraform init
 
-   # Validate configuration syntax and internal consistency
-   terraform validate
+  # Validate configuration syntax and internal consistency
+  terraform validate
 
-   # Generate execution plan against your project
-   terraform plan
-   ```
-4. **Testing Local Module Changes in a Scaffolded Workspace**:
-   When testing changes to `infra/dcp/modules/` inside a personal deployment directory created by `admin init` without having to push commits to a remote Git branch:
-   * **Option A (Direct Local Path)**: In your deployment's `main.tf`, replace the remote Git reference with your local monorepo path:
-     ```hcl
-     module "stack" {
-       source = "/absolute/path/to/datcom-datacommons/infra/dcp/modules/stack"
-     ```
-   * **Option B (Local Symlink)**: Create a symlink inside your deployment folder pointing to the local `modules` directory:
-     ```bash
-     ln -s /absolute/path/to/datcom-datacommons/infra/dcp/modules ./modules
-     ```
-     Then point `main.tf` to the local symlink:
-     ```hcl
-     module "stack" {
-       source = "./modules/stack"
-     ```
-   * **Re-Initialize and Plan**:
-     ```bash
-     terraform init -upgrade
-     terraform plan
-     ```
-     Terraform switches from pulling remote Git objects to reading your live local workspace directly. Any edits made in `infra/dcp/modules/` immediately take effect on the next plan or apply.
-5. **Testing Against DCP Versions vs. Head**:
-   The `dcp_version` variable in `terraform.tfvars` governs container images and Dataflow templates:
-   * **Testing Against Head (Latest `main`)**:
-     ```hcl
-     dcp_version = "latest"
-     ```
-     In `infra/dcp/modules/stack/main.tf`, `FORCE_RESTART = timestamp()` ensures Cloud Run pulls the newest `:latest` image digest on each `terraform apply`, and points Dataflow to the `stable` Flex Template.
-   * **Testing Against a Specific Released Version (e.g. `v1.1.2`, `1.1.3rc1`)**:
-     ```hcl
-     dcp_version = "v1.1.2"
-     ```
-     Pins all four Cloud Run container images (`datacommons-services`, `datacommons-data`, `datacommons-aggregation-helper`, `datacommons-ingestion-helper`) to that exact tag.
-   * **Testing Custom Development Container Images**:
-     To test custom container builds before tagging or publishing, override individual container variables directly in `terraform.tfvars`:
-     ```hcl
-     datacommons_services_image = "gcr.io/datcom-ci/datacommons-services:dev-username"
-     ```
+  # Generate execution plan against your project
+  terraform plan
+  ```
+* **Testing Local Module Changes in a Scaffolded Workspace**:
+  When testing changes to `infra/dcp/modules/` inside a personal deployment directory created by `admin init` without having to push commits to a remote Git branch:
+  * **Option A (Direct Local Path)**: In your deployment's `main.tf`, replace the remote Git reference with your local monorepo path:
+    ```hcl
+    module "stack" {
+      source = "/absolute/path/to/datcom-datacommons/infra/dcp/modules/stack"
+    ```
+  * **Option B (Local Symlink)**: Create a symlink inside your deployment folder pointing to the local `modules` directory:
+    ```bash
+    ln -s /absolute/path/to/datcom-datacommons/infra/dcp/modules ./modules
+    ```
+    Then point `main.tf` to the local symlink:
+    ```hcl
+    module "stack" {
+      source = "./modules/stack"
+    ```
+  * **Re-Initialize and Plan**:
+    ```bash
+    terraform init -upgrade
+    terraform plan
+    ```
+    Terraform switches from pulling remote Git objects to reading your live local workspace directly. Any edits made in `infra/dcp/modules/` immediately take effect on the next plan or apply.
+
+### Running the Stack on Latest (`main` and `latest` Builds)
+
+When testing cross-repository features or validating unreleased changes against active development branches, deploy your instance against head builds (`main` branch and `:latest` containers) instead of pinned releases.
+
+Running on latest involves four platform layers:
+
+* **Terraform Infrastructure Modules (`main` branch)**:
+  In `~/dcp-deployments/<namespace>/main.tf`, point the root stack module to the `main` branch of `datcom-datacommons` (or use a local symlink to `infra/dcp/modules/stack`):
+  ```hcl
+  module "stack" {
+    source = "git::https://github.com/datacommonsorg/datcom-datacommons.git//infra/dcp/modules/stack?ref=main"
+  }
+  ```
+
+* **Platform Containers & Dataflow Flex Template (`dcp_version = "latest"`)**:
+  In `~/dcp-deployments/<namespace>/terraform.tfvars`, set `dcp_version` to `latest`:
+  ```hcl
+  dcp_version = "latest"
+  ```
+  Setting `dcp_version = "latest"` activates two runtime behaviors:
+  * **Container Image Resolution**: Pins all four Cloud Run services and jobs (`datacommons-services`, `datacommons-data`, `datacommons-aggregation-helper`, `datacommons-ingestion-helper`) to the `:latest` tag in Container Registry (`gcr.io/datcom-ci/...:latest`).
+  * **Cache-Busting Image Pulls (`FORCE_RESTART`)**: Google Cloud Run resolves image tags to SHA-256 digests at deployment definition update time, not at request time. In `infra/dcp/modules/stack/main.tf`, setting `FORCE_RESTART = timestamp()` ensures that each `terraform apply` forces Cloud Run to pull the newest `:latest` image digest.
+  * **Dataflow Flex Template**: Directs the ingestion pipeline to the unpinned stable Beam template (`gs://datcom-templates/templates/flex/ingestion-stable.json`).
+
+* **Admin CLI on Latest**:
+  Ensure your local workstation CLI runs against the latest repository head:
+  ```bash
+  cd /path/fork/of/datacommonsorg/datcom-datacommons/packages/datacommons-admin
+  pip install -e .
+  ```
+
+* **Applying Latest Updates**:
+  Pull updated module commits and apply the plan:
+  ```bash
+  cd ~/dcp-deployments/<namespace>
+  terraform init -upgrade
+  terraform plan -out=tfplan
+  terraform apply tfplan
+  ```
 
 ### Working with Container Images (Building & Overriding)
 
@@ -193,11 +216,11 @@ DCP microservices and batch pipelines run in serverless Google Cloud Run contain
 
 | Component Name | Role | Source Repo & Dockerfile | Destination Registry (Dev) | `terraform.tfvars` Override |
 | :--- | :--- | :--- | :--- | :--- |
-| **`datacommons-services`** | Envoy, Mixer API, Website serving | `datcom-website`<br>`scripts/push_cdc_services_image.sh` | `gcr.io/datcom-website-dev/datacommons-services:<tag>` | `datacommons_services_image` |
-| **`datacommons-data`** | Preprocessor batch job | `datcom-website`<br>`build/cdc_data/Dockerfile` | `us-docker.pkg.dev/datcom-website-dev/datacommons-artifacts/datacommons-data:<tag>` | `ingestion_preprocessing_job_image` |
-| **`datacommons-aggregation-helper`** | Postprocessor aggregation job | `datcom-import`<br>`pipeline/workflow/aggregation-helper/Dockerfile` | `gcr.io/datcom-website-dev/datacommons-aggregation-helper:<tag>` | `ingestion_postprocessing_job_image` |
-| **`datacommons-ingestion-helper`** | Lock coordination & migrations | `datcom-import`<br>`pipeline/workflow/ingestion-helper/Dockerfile` | `us-docker.pkg.dev/datcom-website-dev/datacommons-artifacts/ingestion-helper:<tag>` | `ingestion_helper_service_image` |
-| **`ingestion-flex`** | Apache Beam Dataflow pipeline | `datcom-import`<br>`pipeline/ingestion/Dockerfile` | `us-docker.pkg.dev/datcom-website-dev/datacommons-artifacts/dataflow-templates/ingestion:<tag>`<br>`gs://<bucket>/templates/flex/ingestion-<tag>.json` | `ingestion_dataflow_template_gcs_path` |
+| **`datacommons-services`** | Envoy, Mixer API, Website serving | `datcom-website`<br>`scripts/push_cdc_services_image.sh` | `gcr.io/<project_id>/datacommons-services:<tag>` | `datacommons_services_image` |
+| **`datacommons-data`** | Preprocessor batch job | `datcom-website`<br>`build/cdc_data/Dockerfile` | `us-docker.pkg.dev/<project_id>/<repository>/datacommons-data:<tag>` | `ingestion_preprocessing_job_image` |
+| **`datacommons-aggregation-helper`** | Postprocessor aggregation job | `datcom-import`<br>`pipeline/workflow/aggregation-helper/Dockerfile` | `gcr.io/<project_id>/datacommons-aggregation-helper:<tag>` | `ingestion_postprocessing_job_image` |
+| **`datacommons-ingestion-helper`** | Lock coordination & migrations | `datcom-import`<br>`pipeline/workflow/ingestion-helper/Dockerfile` | `us-docker.pkg.dev/<project_id>/<repository>/ingestion-helper:<tag>` | `ingestion_helper_service_image` |
+| **`ingestion-flex`** | Apache Beam Dataflow pipeline | `datcom-import`<br>`pipeline/ingestion/Dockerfile` | `us-docker.pkg.dev/<project_id>/<repository>/dataflow-templates/ingestion:<tag>`<br>`gs://<storage_artifacts_bucket_name>/templates/flex/ingestion-<tag>.json` | `ingestion_dataflow_template_gcs_path` |
 
 #### Building Images via Google Cloud Build
 
@@ -309,11 +332,11 @@ To test custom container images or Dataflow templates on your deployed DCP insta
 
 ```hcl
 # Custom container image and Dataflow template overrides
-datacommons_services_image           = "gcr.io/datcom-website-dev/datacommons-services:<custom_tag>"
-ingestion_preprocessing_job_image    = "us-docker.pkg.dev/datcom-website-dev/datacommons-artifacts/datacommons-data:<custom_tag>"
-ingestion_postprocessing_job_image   = "gcr.io/datcom-website-dev/datacommons-aggregation-helper:<custom_tag>"
-ingestion_helper_service_image       = "us-docker.pkg.dev/datcom-website-dev/datacommons-artifacts/ingestion-helper:<custom_tag>"
-ingestion_dataflow_template_gcs_path = "gs://<bucket>/templates/flex/ingestion-<custom_tag>.json"
+datacommons_services_image           = "gcr.io/<project_id>/datacommons-services:<custom_tag>"
+ingestion_preprocessing_job_image    = "us-docker.pkg.dev/<project_id>/<repository>/datacommons-data:<custom_tag>"
+ingestion_postprocessing_job_image   = "gcr.io/<project_id>/datacommons-aggregation-helper:<custom_tag>"
+ingestion_helper_service_image       = "us-docker.pkg.dev/<project_id>/<repository>/ingestion-helper:<custom_tag>"
+ingestion_dataflow_template_gcs_path = "gs://<storage_artifacts_bucket_name>/templates/flex/ingestion-<custom_tag>.json"
 ```
 
 Apply the updated configuration:
