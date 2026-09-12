@@ -20,9 +20,9 @@ import unittest
 from unittest import mock
 
 import pandas as pd
-from stats.data import Triple
-from stats.jsonld_stream_db import JsonLdStreamDb
-from util.filesystem import create_store
+from datacommons_preprocessor.stats.data import Triple
+from datacommons_preprocessor.stats.jsonld_stream_db import JsonLdStreamDb
+from datacommons_preprocessor.util.filesystem import create_store
 
 
 class TestJsonLdStreamDb(unittest.TestCase):
@@ -93,7 +93,7 @@ class TestJsonLdStreamDb(unittest.TestCase):
       finally:
         db._temp_dir_obj.cleanup()
 
-  @mock.patch("stats.jsonld_stream_db._CHUNK_SIZE", 4)
+  @mock.patch("datacommons_preprocessor.stats.jsonld_stream_db._CHUNK_SIZE", 4)
   def test_node_chunks_keep_boundary_subject_together(self):
     with tempfile.TemporaryDirectory() as temp_dir:
       temp_store = create_store(temp_dir)
@@ -237,8 +237,8 @@ class TestJsonLdStreamDb(unittest.TestCase):
 
   def test_node_fast_vs_rdflib_parity(self):
     """Rigorous parity test: Compares fast path output with rdflib path output."""
-    from stats.jsonld_stream_db import _write_node_shard_fast
-    from stats.jsonld_stream_db import _write_node_shard_rdflib
+    from datacommons_preprocessor.stats.jsonld_stream_db import _write_node_shard_fast
+    from datacommons_preprocessor.stats.jsonld_stream_db import _write_node_shard_rdflib
 
     complex_triples = [
         Triple(subject_id="sub1",
@@ -268,7 +268,7 @@ class TestJsonLdStreamDb(unittest.TestCase):
                predicate="http://schema.org/url",
                object_id="https://example.org"),
     ]
-    from stats.jsonld_exporter import DCID_URL
+    from datacommons_preprocessor.stats.jsonld_exporter import DCID_URL
     ns_map = {"dcid": DCID_URL}
 
     with tempfile.TemporaryDirectory() as temp_dir_fast, \
@@ -313,7 +313,7 @@ class TestJsonLdStreamDb(unittest.TestCase):
 
   def test_observation_parsing_edge_cases(self):
     """Rigorous data type & properties parsing check to ensure zero property loss."""
-    from stats.jsonld_stream_db import _write_observation_shard
+    from datacommons_preprocessor.stats.jsonld_stream_db import _write_observation_shard
 
     # Custom properties as nested JSON
     custom_props = json.dumps({

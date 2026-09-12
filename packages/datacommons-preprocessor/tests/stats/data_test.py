@@ -14,14 +14,14 @@
 
 import unittest
 
-from stats.data import _get_flattened_dataclass_field_names
-from stats.data import Event
-from stats.data import McfNode
-from stats.data import Observation
-from stats.data import Provenance
-from stats.data import StatVar
-from stats.data import StatVarGroup
-from stats.data import Triple
+from datacommons_preprocessor.stats.data import _get_flattened_dataclass_field_names
+from datacommons_preprocessor.stats.data import Event
+from datacommons_preprocessor.stats.data import McfNode
+from datacommons_preprocessor.stats.data import Observation
+from datacommons_preprocessor.stats.data import Provenance
+from datacommons_preprocessor.stats.data import StatVar
+from datacommons_preprocessor.stats.data import StatVarGroup
+from datacommons_preprocessor.stats.data import Triple
 
 SV_ID1 = "sv_id1"
 SV_NAME1 = "SV Name1"

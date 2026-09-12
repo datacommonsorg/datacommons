@@ -17,13 +17,13 @@ import shutil
 import tempfile
 import unittest
 
-from stats.data import Triple
-import stats.nl as nl
-import stats.schema_constants as sc
+from datacommons_preprocessor.stats.data import Triple
+import datacommons_preprocessor.stats.nl as nl
+import datacommons_preprocessor.stats.schema_constants as sc
 from tests.stats.test_util import compare_files
 from tests.stats.test_util import is_write_mode
 from tests.stats.test_util import read_triples_csv
-from util.filesystem import create_store
+from datacommons_preprocessor.util.filesystem import create_store
 
 _TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               "test_data", "nl")

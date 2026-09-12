@@ -20,7 +20,7 @@ import json
 import threading
 import time
 
-from util.filesystem import File
+from datacommons_preprocessor.util.filesystem import File
 
 # Minimum interval before a report should be saved to disk or cloud.
 # This keeps it from reporting too frequently and running into GCS rate limit issues.

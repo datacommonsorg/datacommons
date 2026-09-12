@@ -34,16 +34,16 @@ from rdflib import Namespace
 from rdflib import RDF
 from rdflib import URIRef
 import requests
-from stats import constants
-from stats import schema_constants as sc
-from stats.data import McfNode
-from stats.data import STAT_VAR_GROUP
-from stats.data import STATISTICAL_VARIABLE
-from stats.data import Triple
-from stats.data import validate_numeric_values
-from util.filesystem import create_store
-from util.filesystem import Dir
-from util.filesystem import File
+from datacommons_preprocessor.stats import constants
+from datacommons_preprocessor.stats import schema_constants as sc
+from datacommons_preprocessor.stats.data import McfNode
+from datacommons_preprocessor.stats.data import STAT_VAR_GROUP
+from datacommons_preprocessor.stats.data import STATISTICAL_VARIABLE
+from datacommons_preprocessor.stats.data import Triple
+from datacommons_preprocessor.stats.data import validate_numeric_values
+from datacommons_preprocessor.util.filesystem import create_store
+from datacommons_preprocessor.util.filesystem import Dir
+from datacommons_preprocessor.util.filesystem import File
 
 FIELD_DB_TYPE = "type"
 FIELD_DB_PARAMS = "params"

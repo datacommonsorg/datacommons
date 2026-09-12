@@ -14,8 +14,8 @@
 
 import unittest
 
-from stats.util import base64_decode_and_gunzip_json
-from stats.util import gzip_and_base64_encode_json
+from datacommons_preprocessor.stats.util import base64_decode_and_gunzip_json
+from datacommons_preprocessor.stats.util import gzip_and_base64_encode_json
 from tests.stats.test_util import use_fake_gzip_time
 
 

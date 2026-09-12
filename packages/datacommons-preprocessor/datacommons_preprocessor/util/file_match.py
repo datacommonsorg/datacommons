@@ -16,7 +16,7 @@ import functools
 import re
 
 import fs.path as fspath
-from util.filesystem import File
+from datacommons_preprocessor.util.filesystem import File
 
 
 def match(f: File, pattern: str) -> bool:

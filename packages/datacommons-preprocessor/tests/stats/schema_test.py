@@ -18,12 +18,12 @@ import unittest
 from unittest import mock
 
 from parameterized import parameterized
-from stats import schema
-from stats import schema_constants as sc
-from stats.data import Triple
-from stats.db import create_and_update_db
-from stats.db import create_sqlite_config
-from util.filesystem import create_store
+from datacommons_preprocessor.stats import schema
+from datacommons_preprocessor.stats import schema_constants as sc
+from datacommons_preprocessor.stats.data import Triple
+from datacommons_preprocessor.stats.db import create_and_update_db
+from datacommons_preprocessor.stats.db import create_sqlite_config
+from datacommons_preprocessor.util.filesystem import create_store
 
 
 def _to_triples(dcid2name: dict[str, str]) -> list[Triple]:
@@ -86,7 +86,7 @@ class TestSchema(unittest.TestCase):
           },
       ),
   ])
-  @mock.patch("util.dc_client.get_property_of_entities")
+  @mock.patch("datacommons_preprocessor.util.dc_client.get_property_of_entities")
   def test_get_schema_names(self, desc: str, db_names: dict[str, str],
                             remote_names: dict[str,
                                                str], input_dcids: list[str],

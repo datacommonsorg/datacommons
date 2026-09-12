@@ -17,15 +17,15 @@ import shutil
 import tempfile
 import unittest
 
-from stats.db import create_and_update_db
-from stats.db import create_sqlite_config
-from stats.mcf_importer import McfImporter
-from stats.reporter import FileImportReporter
-from stats.reporter import ImportReporter
+from datacommons_preprocessor.stats.db import create_and_update_db
+from datacommons_preprocessor.stats.db import create_sqlite_config
+from datacommons_preprocessor.stats.mcf_importer import McfImporter
+from datacommons_preprocessor.stats.reporter import FileImportReporter
+from datacommons_preprocessor.stats.reporter import ImportReporter
 from tests.stats.test_util import compare_files
 from tests.stats.test_util import is_write_mode
 from tests.stats.test_util import write_triples
-from util.filesystem import create_store
+from datacommons_preprocessor.util.filesystem import create_store
 
 _TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               "test_data", "mcf_importer")

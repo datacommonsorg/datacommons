@@ -18,9 +18,9 @@ import sqlite3
 import unittest
 
 import pandas as pd
-from stats.data import Observation
-from stats.data import OBSERVATION_FIELD_NAMES
-from stats.data import Triple
+from datacommons_preprocessor.stats.data import Observation
+from datacommons_preprocessor.stats.data import OBSERVATION_FIELD_NAMES
+from datacommons_preprocessor.stats.data import Triple
 
 # If $TEST_MODE is set to "write", the test will write the goldens.
 _TEST_MODE = os.getenv("TEST_MODE", "")

@@ -19,10 +19,10 @@ import tempfile
 import unittest
 
 from parameterized import parameterized
-from proto.cache_data_pb2 import StatVarGroups
-from stats.svg_cache import _generate_svg_cache_internal
-from stats.util import base64_decode_and_gunzip
-from stats.util import gzip_and_base64_encode
+from datacommons_preprocessor.proto.cache_data_pb2 import StatVarGroups
+from datacommons_preprocessor.stats.svg_cache import _generate_svg_cache_internal
+from datacommons_preprocessor.stats.util import base64_decode_and_gunzip
+from datacommons_preprocessor.stats.util import gzip_and_base64_encode
 from tests.stats.test_util import compare_files
 from tests.stats.test_util import is_write_mode
 from tests.stats.test_util import read_triples_csv

@@ -18,7 +18,7 @@ import sqlite3
 from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-  from stats.db import CloudSqlDbEngine
+  from datacommons_preprocessor.stats.db import CloudSqlDbEngine
 
 BATCH_SIZE = 1_000_000
 

@@ -14,12 +14,12 @@
 
 import logging
 
-from stats.config import Config
-from stats.data import strip_namespace
-from stats.data import ValidationErrorType
-from stats.db import Db
-from stats.util import has_namespace_prefix
-from stats.util import is_uri_or_namespace
+from datacommons_preprocessor.stats.config import Config
+from datacommons_preprocessor.stats.data import strip_namespace
+from datacommons_preprocessor.stats.data import ValidationErrorType
+from datacommons_preprocessor.stats.db import Db
+from datacommons_preprocessor.stats.util import has_namespace_prefix
+from datacommons_preprocessor.stats.util import is_uri_or_namespace
 
 
 class MetadataValidator:

@@ -14,18 +14,18 @@
 
 import logging
 
-from kg_util.mcf_parser import mcf_to_triples
+from datacommons_preprocessor.kg_util.mcf_parser import mcf_to_triples
 import pandas as pd
-from stats import constants
-from stats.data import RowEntity
-from stats.data import strip_namespace
-from stats.data import Triple
-from stats.db import Db
-from stats.importer import Importer
-from stats.nodes import Nodes
-from stats.reporter import FileImportReporter
-from stats.util import is_uri_or_namespace
-from util.filesystem import File
+from datacommons_preprocessor.stats import constants
+from datacommons_preprocessor.stats.data import RowEntity
+from datacommons_preprocessor.stats.data import strip_namespace
+from datacommons_preprocessor.stats.data import Triple
+from datacommons_preprocessor.stats.db import Db
+from datacommons_preprocessor.stats.importer import Importer
+from datacommons_preprocessor.stats.nodes import Nodes
+from datacommons_preprocessor.stats.reporter import FileImportReporter
+from datacommons_preprocessor.stats.util import is_uri_or_namespace
+from datacommons_preprocessor.util.filesystem import File
 
 _ID = 'ID'
 _DCID = 'dcid'

@@ -16,23 +16,23 @@ import logging
 
 from dateutil.parser import parse as date_parse
 import pandas as pd
-from stats import constants
-from stats.data import AggregationConfig
-from stats.data import Event
-from stats.data import filter_invalid_observation_values
-from stats.data import strip_namespace
-from stats.data import strip_namespace_series
-from stats.data import TimePeriod
-from stats.data import Triple
-from stats.db import Db
-from stats.importer import Importer
-from stats.nodes import Nodes
-from stats.reporter import FileImportReporter
-from stats.util import get_namespace_prefix_and_suffix
-from stats.util import has_namespace_prefix
-from util.filesystem import File
+from datacommons_preprocessor.stats import constants
+from datacommons_preprocessor.stats.data import AggregationConfig
+from datacommons_preprocessor.stats.data import Event
+from datacommons_preprocessor.stats.data import filter_invalid_observation_values
+from datacommons_preprocessor.stats.data import strip_namespace
+from datacommons_preprocessor.stats.data import strip_namespace_series
+from datacommons_preprocessor.stats.data import TimePeriod
+from datacommons_preprocessor.stats.data import Triple
+from datacommons_preprocessor.stats.db import Db
+from datacommons_preprocessor.stats.importer import Importer
+from datacommons_preprocessor.stats.nodes import Nodes
+from datacommons_preprocessor.stats.reporter import FileImportReporter
+from datacommons_preprocessor.stats.util import get_namespace_prefix_and_suffix
+from datacommons_preprocessor.stats.util import has_namespace_prefix
+from datacommons_preprocessor.util.filesystem import File
 
-from util import dc_client as dc
+from datacommons_preprocessor.util import dc_client as dc
 
 # Number of entity IDs that will be sampled to resolved their entity type, if one is not specified by the user.
 # Note that the importer assumes that all entities in a given CSV are all of the same type.

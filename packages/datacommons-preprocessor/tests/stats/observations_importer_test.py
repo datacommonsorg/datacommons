@@ -21,20 +21,20 @@ from unittest import mock
 from unittest.mock import MagicMock
 
 import pandas as pd
-from stats.config import Config
-from stats.db import create_and_update_db
-from stats.db import create_sqlite_config
-from stats.nodes import Nodes
-from stats.observations_importer import ObservationsImporter
-from stats.reporter import FileImportReporter
-from stats.reporter import ImportReporter
+from datacommons_preprocessor.stats.config import Config
+from datacommons_preprocessor.stats.db import create_and_update_db
+from datacommons_preprocessor.stats.db import create_sqlite_config
+from datacommons_preprocessor.stats.nodes import Nodes
+from datacommons_preprocessor.stats.observations_importer import ObservationsImporter
+from datacommons_preprocessor.stats.reporter import FileImportReporter
+from datacommons_preprocessor.stats.reporter import ImportReporter
 from tests.stats.test_util import compare_files
 from tests.stats.test_util import is_write_mode
 from tests.stats.test_util import use_fake_gzip_time
 from tests.stats.test_util import write_observations
-from util.filesystem import create_store
+from datacommons_preprocessor.util.filesystem import create_store
 
-from util import dc_client
+from datacommons_preprocessor.util import dc_client
 
 _TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               "test_data", "observations_importer")

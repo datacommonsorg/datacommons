@@ -20,11 +20,11 @@ import logging
 import re
 from typing import Optional, Self
 
-from stats import schema_constants as sc
-from stats.data import ParentSVG2ChildSpecializedNames
-from stats.data import StatVarHierarchyResult
-from stats.data import Triple
-from stats.data import VerticalSpec
+from datacommons_preprocessor.stats import schema_constants as sc
+from datacommons_preprocessor.stats.data import ParentSVG2ChildSpecializedNames
+from datacommons_preprocessor.stats.data import StatVarHierarchyResult
+from datacommons_preprocessor.stats.data import Triple
+from datacommons_preprocessor.stats.data import VerticalSpec
 
 # The maximum length of a SVG ID is 255 characters to match the subject_id column length.
 MAX_SVG_ID_LENGTH = 255

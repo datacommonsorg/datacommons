@@ -22,12 +22,12 @@ from unittest import mock
 
 from fakeredis import FakeRedis
 from freezegun import freeze_time
-from stats import constants
-from stats.data import ValidationErrorType
-from stats.db_cache import ENV_REDIS_HOST
-from stats.runner import create_store as real_create_store
-from stats.runner import RunMode
-from stats.runner import Runner
+from datacommons_preprocessor.stats import constants
+from datacommons_preprocessor.stats.data import ValidationErrorType
+from datacommons_preprocessor.stats.db_cache import ENV_REDIS_HOST
+from datacommons_preprocessor.stats.runner import create_store as real_create_store
+from datacommons_preprocessor.stats.runner import RunMode
+from datacommons_preprocessor.stats.runner import Runner
 from tests.stats.test_util import compare_csv_files
 from tests.stats.test_util import compare_files
 from tests.stats.test_util import is_write_mode
@@ -35,7 +35,7 @@ from tests.stats.test_util import read_full_db_from_file
 from tests.stats.test_util import use_fake_gzip_time
 from tests.stats.test_util import write_full_db_to_file
 
-from util import dc_client
+from datacommons_preprocessor.util import dc_client
 
 _TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               "test_data", "runner")
@@ -527,7 +527,7 @@ class TestRunner(unittest.TestCase):
       dc_client.get_property_of_entities = mock.MagicMock(return_value={})
 
       # Run runner with mocked GCS output path and workflow name
-      from util.filesystem import _StoreWrapper
+      from datacommons_preprocessor.util.filesystem import _StoreWrapper
       original_full_path = _StoreWrapper.full_path
 
       def mock_full_path(self, sub_path=""):
@@ -536,14 +536,14 @@ class TestRunner(unittest.TestCase):
         return original_full_path(self, sub_path)
 
       mock_store = mock.MagicMock()
-      from stats.runner import create_store as real_create_store
+      from datacommons_preprocessor.stats.runner import create_store as real_create_store
 
       def side_effect(path, *args, **kwargs):
         if "ingestion_records" in path:
           return mock_store
         return real_create_store(path, *args, **kwargs)
 
-      with (mock.patch("stats.runner.create_store", side_effect=side_effect),
+      with (mock.patch("datacommons_preprocessor.stats.runner.create_store", side_effect=side_effect),
             mock.patch.dict(
                 os.environ, {
                     "INGESTION_WORKFLOW_NAME": "my-workflow",
@@ -614,7 +614,7 @@ class TestRunner(unittest.TestCase):
         return mock_store_ctx
       return real_create_store(path, *args, **kwargs)
 
-    with mock.patch("stats.runner.create_store",
+    with mock.patch("datacommons_preprocessor.stats.runner.create_store",
                     side_effect=side_effect) as mock_create_store:
       with tempfile.TemporaryDirectory() as temp_dir:
         input_dir = os.path.join(temp_dir, "input_fail")
@@ -691,10 +691,10 @@ class TestRunner(unittest.TestCase):
 
 class TestMain(unittest.TestCase):
 
-  @mock.patch('stats.main.Runner')
+  @mock.patch('datacommons_preprocessor.stats.main.Runner')
   def test_run_with_import_name(self, mock_runner):
-    from stats.main import _run
-    from stats.main import FLAGS
+    from datacommons_preprocessor.stats.main import _run
+    from datacommons_preprocessor.stats.main import FLAGS
 
     # Parse flags with dummy argv to avoid UnparsedFlagAccessError
     FLAGS(["test_program"])

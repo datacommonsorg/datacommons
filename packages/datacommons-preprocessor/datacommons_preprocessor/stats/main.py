@@ -19,10 +19,10 @@ from absl import app
 from absl import flags
 from freezegun import freeze_time
 import requests.adapters
-from stats import constants
-from stats.logger import initialize_logger
-from stats.runner import RunMode
-from stats.runner import Runner
+from datacommons_preprocessor.stats import constants
+from datacommons_preprocessor.stats.logger import initialize_logger
+from datacommons_preprocessor.stats.runner import RunMode
+from datacommons_preprocessor.stats.runner import Runner
 
 FLAGS = flags.FLAGS
 

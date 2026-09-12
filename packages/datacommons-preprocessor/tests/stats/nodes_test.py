@@ -17,16 +17,16 @@ import shutil
 import tempfile
 import unittest
 
-from stats.config import Config
-from stats.data import Property
-from stats.data import Provenance
-from stats.data import StatVar
-from stats.data import StatVarGroup
-from stats.nodes import Nodes
+from datacommons_preprocessor.stats.config import Config
+from datacommons_preprocessor.stats.data import Property
+from datacommons_preprocessor.stats.data import Provenance
+from datacommons_preprocessor.stats.data import StatVar
+from datacommons_preprocessor.stats.data import StatVarGroup
+from datacommons_preprocessor.stats.nodes import Nodes
 from tests.stats.test_util import compare_files
 from tests.stats.test_util import is_write_mode
-from util.filesystem import create_store
-from util.filesystem import File
+from datacommons_preprocessor.util.filesystem import create_store
+from datacommons_preprocessor.util.filesystem import File
 
 _TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               "test_data", "nodes")
@@ -400,7 +400,7 @@ class TestNodes(unittest.TestCase):
     # Inserting a var with no group should create the default custom group
     nodes.variable("Any Var", self.a)
     # Find the default custom root svg among groups and verify its name
-    from stats import schema_constants as sc
+    from datacommons_preprocessor.stats import schema_constants as sc
     default_groups = [
         g for g in nodes.groups.values()
         if g.id == sc.DEFAULT_CUSTOM_ROOT_SVG_ID

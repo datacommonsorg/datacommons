@@ -18,13 +18,13 @@ import json
 import logging
 
 import pandas as pd
-from stats.data import Triple
-from stats.nl_constants import CUSTOM_EMBEDDINGS_INDEX
-from stats.nl_constants import CUSTOM_MODEL
-from stats.nl_constants import CUSTOM_MODEL_PATH
-import stats.schema_constants as sc
-from util.filesystem import Dir
-from util.filesystem import File
+from datacommons_preprocessor.stats.data import Triple
+from datacommons_preprocessor.stats.nl_constants import CUSTOM_EMBEDDINGS_INDEX
+from datacommons_preprocessor.stats.nl_constants import CUSTOM_MODEL
+from datacommons_preprocessor.stats.nl_constants import CUSTOM_MODEL_PATH
+import datacommons_preprocessor.stats.schema_constants as sc
+from datacommons_preprocessor.util.filesystem import Dir
+from datacommons_preprocessor.util.filesystem import File
 import yaml
 
 _DCID_COL = "dcid"

@@ -20,13 +20,13 @@ Currently it only generates the SVG cache but any future ones will be added here
 
 import logging
 
-from proto.cache_data_pb2 import StatVarGroupNode
-from proto.cache_data_pb2 import StatVarGroups
-from stats import schema_constants as sc
-from stats.data import ParentSVG2ChildSpecializedNames
-from stats.data import Triple
-from stats.db import Db
-from stats.util import gzip_and_base64_encode
+from datacommons_preprocessor.proto.cache_data_pb2 import StatVarGroupNode
+from datacommons_preprocessor.proto.cache_data_pb2 import StatVarGroups
+from datacommons_preprocessor.stats import schema_constants as sc
+from datacommons_preprocessor.stats.data import ParentSVG2ChildSpecializedNames
+from datacommons_preprocessor.stats.data import Triple
+from datacommons_preprocessor.stats.db import Db
+from datacommons_preprocessor.stats.util import gzip_and_base64_encode
 
 STAT_VAR_GROUPS_CACHE_KEY = "StatVarGroups"
 

@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 
-from util.filesystem import create_store
+from datacommons_preprocessor.util.filesystem import create_store
 
 
 class TestFilesystem(unittest.TestCase):

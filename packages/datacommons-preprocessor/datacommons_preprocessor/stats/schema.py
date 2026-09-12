@@ -14,10 +14,10 @@
 
 # Functions to fetch schema info from custom dc db and remote dc.
 
-from stats import schema_constants as sc
-from stats.db import Db
+from datacommons_preprocessor.stats import schema_constants as sc
+from datacommons_preprocessor.stats.db import Db
 
-from util import dc_client
+from datacommons_preprocessor.util import dc_client
 
 
 # Gets names of the specified dcids first from db and any remaining

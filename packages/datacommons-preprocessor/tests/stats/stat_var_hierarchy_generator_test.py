@@ -18,14 +18,14 @@ import shutil
 import tempfile
 import unittest
 
-from kg_util import mcf_parser
+from datacommons_preprocessor.kg_util import mcf_parser
 from parameterized import parameterized
-from stats.data import Triple
-from stats.stat_var_hierarchy_generator import *
-from stats.stat_var_hierarchy_generator import _extract_svs
-from stats.stat_var_hierarchy_generator import _generate_internal
-from stats.stat_var_hierarchy_generator import PropVal
-from stats.stat_var_hierarchy_generator import SVPropVals
+from datacommons_preprocessor.stats.data import Triple
+from datacommons_preprocessor.stats.stat_var_hierarchy_generator import *
+from datacommons_preprocessor.stats.stat_var_hierarchy_generator import _extract_svs
+from datacommons_preprocessor.stats.stat_var_hierarchy_generator import _generate_internal
+from datacommons_preprocessor.stats.stat_var_hierarchy_generator import PropVal
+from datacommons_preprocessor.stats.stat_var_hierarchy_generator import SVPropVals
 from tests.stats.test_util import compare_files
 from tests.stats.test_util import is_write_mode
 from tests.stats.test_util import read_triples_csv

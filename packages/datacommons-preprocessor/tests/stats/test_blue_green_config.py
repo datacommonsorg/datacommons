@@ -15,7 +15,7 @@
 import os
 
 import pytest
-from stats.db import get_blue_green_config_from_env
+from datacommons_preprocessor.stats.db import get_blue_green_config_from_env
 
 
 def test_blue_green_disabled_by_default():

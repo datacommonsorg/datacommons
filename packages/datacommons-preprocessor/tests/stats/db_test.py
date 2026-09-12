@@ -21,22 +21,22 @@ from unittest import mock
 
 from freezegun import freeze_time
 import pandas as pd
-from stats.data import Observation
-from stats.data import ObservationProperties
-from stats.data import Triple
-from stats.db import _CLEAR_TABLE_FOR_IMPORT_STATEMENTS
-from stats.db import BulkImportContext
-from stats.db import create_and_update_db
-from stats.db import create_main_dc_config
-from stats.db import create_sqlite_config
-from stats.db import get_cloud_sql_config_from_env
-from stats.db import get_datacommons_platform_config_from_env
-from stats.db import get_sqlite_path_from_env
-from stats.db import ImportStatus
+from datacommons_preprocessor.stats.data import Observation
+from datacommons_preprocessor.stats.data import ObservationProperties
+from datacommons_preprocessor.stats.data import Triple
+from datacommons_preprocessor.stats.db import _CLEAR_TABLE_FOR_IMPORT_STATEMENTS
+from datacommons_preprocessor.stats.db import BulkImportContext
+from datacommons_preprocessor.stats.db import create_and_update_db
+from datacommons_preprocessor.stats.db import create_main_dc_config
+from datacommons_preprocessor.stats.db import create_sqlite_config
+from datacommons_preprocessor.stats.db import get_cloud_sql_config_from_env
+from datacommons_preprocessor.stats.db import get_datacommons_platform_config_from_env
+from datacommons_preprocessor.stats.db import get_sqlite_path_from_env
+from datacommons_preprocessor.stats.db import ImportStatus
 from tests.stats.test_util import compare_files
 from tests.stats.test_util import is_write_mode
 from tests.stats.test_util import read_full_db_from_file
-from util.filesystem import create_store
+from datacommons_preprocessor.util.filesystem import create_store
 
 _TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               "test_data", "db")
@@ -93,7 +93,7 @@ _INDEXES = [('observations_entity_variable', 'observations'),
 
 def _observations_to_df(observations: list[Observation]) -> pd.DataFrame:
   """Helper to convert list of Observation objects to DataFrame."""
-  from stats import constants
+  from datacommons_preprocessor.stats import constants
   return pd.DataFrame([obs.db_tuple() for obs in observations],
                       columns=[
                           constants.COLUMN_ENTITY, constants.COLUMN_VARIABLE,

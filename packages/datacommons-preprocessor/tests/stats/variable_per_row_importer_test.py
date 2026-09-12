@@ -20,21 +20,21 @@ import unittest
 from unittest.mock import MagicMock
 
 import pandas as pd
-from stats.config import Config
-from stats.data import Observation
-from stats.db import create_and_update_db
-from stats.db import create_sqlite_config
-from stats.nodes import Nodes
-from stats.reporter import FileImportReporter
-from stats.reporter import ImportReporter
-from stats.variable_per_row_importer import VariablePerRowImporter
+from datacommons_preprocessor.stats.config import Config
+from datacommons_preprocessor.stats.data import Observation
+from datacommons_preprocessor.stats.db import create_and_update_db
+from datacommons_preprocessor.stats.db import create_sqlite_config
+from datacommons_preprocessor.stats.nodes import Nodes
+from datacommons_preprocessor.stats.reporter import FileImportReporter
+from datacommons_preprocessor.stats.reporter import ImportReporter
+from datacommons_preprocessor.stats.variable_per_row_importer import VariablePerRowImporter
 from tests.stats.test_util import compare_files
 from tests.stats.test_util import is_write_mode
 from tests.stats.test_util import use_fake_gzip_time
 from tests.stats.test_util import write_observations
-from util.filesystem import create_store
+from datacommons_preprocessor.util.filesystem import create_store
 
-from util import dc_client
+from datacommons_preprocessor.util import dc_client
 
 _TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               "test_data", "variable_per_row_importer")
@@ -131,12 +131,12 @@ class TestVariablePerRowImporter(unittest.TestCase):
   def test_unresolved_entity_raises_error(self):
     from unittest import mock
 
-    from stats.db import create_and_update_db
-    from stats.db import create_sqlite_config
-    from stats.importer import EntityResolutionError
-    from util.filesystem import create_store
+    from datacommons_preprocessor.stats.db import create_and_update_db
+    from datacommons_preprocessor.stats.db import create_sqlite_config
+    from datacommons_preprocessor.stats.importer import EntityResolutionError
+    from datacommons_preprocessor.util.filesystem import create_store
 
-    from util import dc_client as dc
+    from datacommons_preprocessor.util import dc_client as dc
     with tempfile.TemporaryDirectory() as temp_dir:
       config_path = os.path.join(temp_dir, "config.json")
       csv_path = os.path.join(temp_dir, "data.csv")

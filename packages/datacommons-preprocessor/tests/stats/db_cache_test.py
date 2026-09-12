@@ -19,11 +19,11 @@ from unittest.mock import patch
 from fakeredis import FakeRedis
 from fakeredis import FakeServer
 from redis.exceptions import ConnectionError
-from stats.db_cache import DEFAULT_REDIS_PORT
-from stats.db_cache import ENV_REDIS_HOST
-from stats.db_cache import ENV_REDIS_PORT
-from stats.db_cache import get_db_cache_from_env
-from stats.db_cache import RedisDbCache
+from datacommons_preprocessor.stats.db_cache import DEFAULT_REDIS_PORT
+from datacommons_preprocessor.stats.db_cache import ENV_REDIS_HOST
+from datacommons_preprocessor.stats.db_cache import ENV_REDIS_PORT
+from datacommons_preprocessor.stats.db_cache import get_db_cache_from_env
+from datacommons_preprocessor.stats.db_cache import RedisDbCache
 
 
 class TestDbCache(unittest.TestCase):

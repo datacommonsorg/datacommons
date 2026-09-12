@@ -24,8 +24,8 @@ from rdflib import Literal
 from rdflib import Namespace
 from rdflib import RDF
 from rdflib import URIRef
-from stats.util import is_entity_reference
-from util.filesystem import create_store
+from datacommons_preprocessor.stats.util import is_entity_reference
+from datacommons_preprocessor.util.filesystem import create_store
 
 DCID_URL = "https://datacommons.org/browser/"
 PREDICATE_URL = "url"

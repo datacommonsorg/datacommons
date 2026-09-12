@@ -14,17 +14,17 @@
 
 import unittest
 
-from stats.config import Config
-from stats.data import AggregationConfig
-from stats.data import AggregationMethod
-from stats.data import ImportType
-from stats.data import InputFileFormat
-from stats.data import Provenance
-from stats.data import Source
-from stats.data import StatVar
-from stats.data import TimePeriod
-from util.filesystem import create_store
-from util.filesystem import File
+from datacommons_preprocessor.stats.config import Config
+from datacommons_preprocessor.stats.data import AggregationConfig
+from datacommons_preprocessor.stats.data import AggregationMethod
+from datacommons_preprocessor.stats.data import ImportType
+from datacommons_preprocessor.stats.data import InputFileFormat
+from datacommons_preprocessor.stats.data import Provenance
+from datacommons_preprocessor.stats.data import Source
+from datacommons_preprocessor.stats.data import StatVar
+from datacommons_preprocessor.stats.data import TimePeriod
+from datacommons_preprocessor.util.filesystem import create_store
+from datacommons_preprocessor.util.filesystem import File
 
 CONFIG_DATA = {
     "inputFiles": {
@@ -399,7 +399,7 @@ class TestConfig(unittest.TestCase):
         }).custom_svg_prefix(), "ONE/g/")
 
   def test_default_custom_root_svg_name(self):
-    from stats import schema_constants as sc
+    from datacommons_preprocessor.stats import schema_constants as sc
 
     # Default name from schema constants
     self.assertEqual(
@@ -412,7 +412,7 @@ class TestConfig(unittest.TestCase):
         }).default_custom_root_svg_name(), "ONE Data")
 
   def test_sv_hierarchy_props_blocklist_merge_and_validation(self):
-    from stats import schema_constants as sc
+    from datacommons_preprocessor.stats import schema_constants as sc
 
     # Default equals schema constant
     self.assertSetEqual(

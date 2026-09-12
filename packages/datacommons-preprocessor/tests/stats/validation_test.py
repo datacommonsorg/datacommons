@@ -15,11 +15,11 @@
 import unittest
 from unittest import mock
 
-from stats.config import Config
-from stats.data import Triple
-from stats.data import ValidationErrorType
-from stats.db import Db
-from stats.validation import MetadataValidator
+from datacommons_preprocessor.stats.config import Config
+from datacommons_preprocessor.stats.data import Triple
+from datacommons_preprocessor.stats.data import ValidationErrorType
+from datacommons_preprocessor.stats.db import Db
+from datacommons_preprocessor.stats.validation import MetadataValidator
 
 
 class TestMetadataValidator(unittest.TestCase):

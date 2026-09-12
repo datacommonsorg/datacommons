@@ -19,7 +19,7 @@ from unittest.mock import MagicMock
 from unittest.mock import Mock
 
 import pytest
-from stats.db_transfer import transfer_sqlite_to_cloud_sql
+from datacommons_preprocessor.stats.db_transfer import transfer_sqlite_to_cloud_sql
 
 
 def test_transfer_validates_sqlite_exists():

@@ -19,11 +19,11 @@ import unittest
 from unittest import mock
 
 import pandas as pd
-from stats.db import create_and_update_db
-from stats.db import create_sqlite_config
-from stats.db import Triple
-from stats.jsonld_exporter import export_to_jsonld
-from util.filesystem import create_store
+from datacommons_preprocessor.stats.db import create_and_update_db
+from datacommons_preprocessor.stats.db import create_sqlite_config
+from datacommons_preprocessor.stats.db import Triple
+from datacommons_preprocessor.stats.jsonld_exporter import export_to_jsonld
+from datacommons_preprocessor.util.filesystem import create_store
 
 
 class TestJsonLdExporter(unittest.TestCase):

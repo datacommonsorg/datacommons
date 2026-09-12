@@ -1,8 +1,8 @@
 import tempfile
 import unittest
 
-from util.file_match import match
-from util.filesystem import create_store
+from datacommons_preprocessor.util.file_match import match
+from datacommons_preprocessor.util.filesystem import create_store
 
 
 class TestFileMatch(unittest.TestCase):

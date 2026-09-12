@@ -19,19 +19,19 @@ import re
 import threading
 
 import pandas as pd
-from stats.config import Config
-from stats.data import Entity
-from stats.data import EntityType
-from stats.data import EventType
-from stats.data import Property
-from stats.data import Provenance
-from stats.data import Source
-from stats.data import StatVar
-from stats.data import StatVarGroup
-from stats.data import strip_namespace
-from stats.data import Triple
-import stats.schema_constants as sc
-from util.filesystem import File
+from datacommons_preprocessor.stats.config import Config
+from datacommons_preprocessor.stats.data import Entity
+from datacommons_preprocessor.stats.data import EntityType
+from datacommons_preprocessor.stats.data import EventType
+from datacommons_preprocessor.stats.data import Property
+from datacommons_preprocessor.stats.data import Provenance
+from datacommons_preprocessor.stats.data import Source
+from datacommons_preprocessor.stats.data import StatVar
+from datacommons_preprocessor.stats.data import StatVarGroup
+from datacommons_preprocessor.stats.data import strip_namespace
+from datacommons_preprocessor.stats.data import Triple
+import datacommons_preprocessor.stats.schema_constants as sc
+from datacommons_preprocessor.util.filesystem import File
 
 _CUSTOM_SV_ID_PREFIX = "custom/statvar_"
 _CUSTOM_GROUP_ID_PREFIX = "custom/g/group_"

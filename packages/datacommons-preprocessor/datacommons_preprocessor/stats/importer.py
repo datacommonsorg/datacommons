@@ -15,12 +15,12 @@
 import logging
 
 import pandas as pd
-from stats import constants
-from stats.data import strip_namespace
-from stats.util import get_namespace_prefix_and_suffix
-from stats.util import has_namespace_prefix
+from datacommons_preprocessor.stats import constants
+from datacommons_preprocessor.stats.data import strip_namespace
+from datacommons_preprocessor.stats.util import get_namespace_prefix_and_suffix
+from datacommons_preprocessor.stats.util import has_namespace_prefix
 
-from util import dc_client as dc
+from datacommons_preprocessor.util import dc_client as dc
 
 
 class EntityResolutionError(ValueError):

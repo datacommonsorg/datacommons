@@ -39,19 +39,19 @@ from rdflib import Literal
 from rdflib import Namespace
 from rdflib import RDF
 import requests
-from stats import constants
-from stats.data import strip_namespace
-from stats.data import Triple
-from stats.data import validate_numeric_values
-from stats.db import Db
-from stats.jsonld_exporter import DCID_URL
-from stats.jsonld_exporter import expand_id
-from stats.jsonld_exporter import write_shard
-from stats.util import is_entity_reference
-from stats.util import is_uri_or_namespace
-from util.filesystem import create_store
-from util.filesystem import Dir
-from util.filesystem import File
+from datacommons_preprocessor.stats import constants
+from datacommons_preprocessor.stats.data import strip_namespace
+from datacommons_preprocessor.stats.data import Triple
+from datacommons_preprocessor.stats.data import validate_numeric_values
+from datacommons_preprocessor.stats.db import Db
+from datacommons_preprocessor.stats.jsonld_exporter import DCID_URL
+from datacommons_preprocessor.stats.jsonld_exporter import expand_id
+from datacommons_preprocessor.stats.jsonld_exporter import write_shard
+from datacommons_preprocessor.stats.util import is_entity_reference
+from datacommons_preprocessor.stats.util import is_uri_or_namespace
+from datacommons_preprocessor.util.filesystem import create_store
+from datacommons_preprocessor.util.filesystem import Dir
+from datacommons_preprocessor.util.filesystem import File
 
 # Configuration Constants
 _CHUNK_SIZE = 10000

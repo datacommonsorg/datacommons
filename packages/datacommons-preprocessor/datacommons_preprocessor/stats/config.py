@@ -15,18 +15,18 @@
 import re
 
 import fs.path as fspath
-from stats import constants
-from stats.data import AggregationConfig
-from stats.data import EntityType
-from stats.data import EventType
-from stats.data import ImportType
-from stats.data import InputFileFormat
-from stats.data import Provenance
-from stats.data import Source
-from stats.data import StatVar
-from stats.data import strip_namespace
-from util.file_match import match
-from util.filesystem import File
+from datacommons_preprocessor.stats import constants
+from datacommons_preprocessor.stats.data import AggregationConfig
+from datacommons_preprocessor.stats.data import EntityType
+from datacommons_preprocessor.stats.data import EventType
+from datacommons_preprocessor.stats.data import ImportType
+from datacommons_preprocessor.stats.data import InputFileFormat
+from datacommons_preprocessor.stats.data import Provenance
+from datacommons_preprocessor.stats.data import Source
+from datacommons_preprocessor.stats.data import StatVar
+from datacommons_preprocessor.stats.data import strip_namespace
+from datacommons_preprocessor.util.file_match import match
+from datacommons_preprocessor.util.filesystem import File
 
 _INPUT_FILES_FIELD = "inputFiles"
 _IMPORT_TYPE_FIELD = "importType"
@@ -244,7 +244,7 @@ class Config:
     Behavior: Adds any provided properties to the built-in blocklist.
     Defaults to sc.SV_HIERARCHY_PROPS_BLOCKLIST if not specified in config.
     """
-    from stats import schema_constants as sc
+    from datacommons_preprocessor.stats import schema_constants as sc
     cfg = self.data.get(_SV_HIERARCHY_PROPS_BLOCKLIST_FIELD)
     if cfg is None:
       return sc.SV_HIERARCHY_PROPS_BLOCKLIST
@@ -265,7 +265,7 @@ class Config:
     - Generated SV ids: '<namespace>/statvar_<n>'
     - Generated manual group ids: '<namespace>/g/group_<n>'
     """
-    from stats import nodes
+    from datacommons_preprocessor.stats import nodes
 
     default_ns = nodes._CUSTOM_GROUP_ID_PREFIX.rsplit("/")[0]
     ns = self.data.get(_CUSTOM_ID_NAMESPACE_FIELD, default_ns)
@@ -291,7 +291,7 @@ class Config:
       customIdNamespace.
     - Else fall back to the built-in default (e.g., 'c/g/').
     """
-    from stats import schema_constants as sc
+    from datacommons_preprocessor.stats import schema_constants as sc
     cfg = self.data.get(_CUSTOM_SVG_PREFIX_FIELD)
     if cfg:
       # Validate allowed chars [A-Za-z0-9_/], cannot start with '/', must end with '/'.
@@ -314,7 +314,7 @@ class Config:
 
   def default_custom_root_svg_name(self) -> str:
     """Returns the display name of the default custom root StatVarGroup."""
-    from stats import schema_constants as sc
+    from datacommons_preprocessor.stats import schema_constants as sc
     return self.data.get(_DEFAULT_CUSTOM_ROOT_SVG_NAME_FIELD,
                          sc.DEFAULT_CUSTOM_ROOT_SVG_NAME)
 

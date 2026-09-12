@@ -24,12 +24,12 @@ from typing import Self
 from urllib.parse import urlparse
 
 import pandas as pd
-from stats import constants
-from stats import schema_constants as sc
-from stats.util import base64_decode_and_gunzip_json
-from stats.util import gzip_and_base64_encode_json
-from stats.util import has_namespace_prefix
-from stats.util import is_uri_or_namespace
+from datacommons_preprocessor.stats import constants
+from datacommons_preprocessor.stats import schema_constants as sc
+from datacommons_preprocessor.stats.util import base64_decode_and_gunzip_json
+from datacommons_preprocessor.stats.util import gzip_and_base64_encode_json
+from datacommons_preprocessor.stats.util import has_namespace_prefix
+from datacommons_preprocessor.stats.util import is_uri_or_namespace
 
 _PREDICATE_TYPE_OF = "typeOf"
 _PREDICATE_NAME = "name"
