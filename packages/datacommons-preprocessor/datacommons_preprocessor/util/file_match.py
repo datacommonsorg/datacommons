@@ -1,0 +1,136 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import functools
+import re
+
+import fs.path as fspath
+from datacommons_preprocessor.util.filesystem import File
+
+
+def match(f: File, pattern: str) -> bool:
+    """Returns true if this file's name or path matches a given pattern."""
+    original_pattern = pattern
+
+    # 1. Parse pattern context
+    protocol, pattern_body, anchored = _parse_pattern(pattern)
+
+    # 2. Check protocol if specified (lazy evaluation)
+    if protocol:
+        if "://" not in f.full_path():
+            return False
+        file_protocol, _ = f.full_path().split("://", 1)
+        if not _full_match(_glob_to_regex(protocol), file_protocol):
+            return False
+
+    # 3. Compile the entire pattern body to a single regex
+    regex_str = _glob_to_regex(pattern_body)
+
+    # 4. Determine target path
+    if anchored:
+        if protocol:
+            target = f.full_path().split("://", 1)[1]
+        elif original_pattern.startswith("//"):
+            if "://" in f.full_path() and f.syspath() is not None:
+                target = fspath.relpath(f.syspath())
+            else:
+                target = fspath.relpath(f.full_path())
+        else:
+            target = "/" + f.path.lstrip("/")
+    else:
+        target = "/" + f.path.lstrip("/")
+
+    # 5. Match target against regex (non-greedy suffix matching for relative paths)
+    regex = f"^(?:{regex_str})$" if anchored else f"^(?:.*?\\/)?(?:{regex_str})$"
+    return re.search(regex, target) is not None
+
+
+def _parse_pattern(pattern: str) -> tuple[str | None, str, bool]:
+    """Parses a pattern into (protocol, body, anchored) tuple."""
+    anchored = False
+    protocol = None
+
+    if "://" in pattern:
+        protocol, pattern = pattern.split("://", 1)
+        anchored = True
+    elif pattern.startswith("//"):
+        pattern = pattern[2:]
+        anchored = True
+    elif pattern.startswith("/"):
+        # Keep leading slash so it matches the target's leading slash
+        anchored = True
+
+    return protocol, pattern, anchored
+
+
+@functools.lru_cache(maxsize=256)
+def _expand_braces(pattern: str) -> str:
+    """Expands standard glob braces: '{dirA,dirB}' -> '(?:dirA|dirB)'."""
+
+    def repl(match):
+        return "(?:" + match.group(1).replace(",", "|") + ")"
+
+    while True:
+        new_pattern = re.sub(r"\{([^}]+)\}", repl, pattern)
+        if new_pattern == pattern:
+            break
+        pattern = new_pattern
+    return pattern
+
+
+@functools.lru_cache(maxsize=256)
+def _glob_to_regex(pattern: str) -> str:
+    """Translates a standard glob pattern to a single regex."""
+    # 1. Validate that double wildcards do not appear in the filename/protocol portion
+    name_part = pattern.rsplit("/", 1)[1] if "/" in pattern else pattern
+    if "**" in name_part:
+        raise ValueError(
+            f"Adjacent double wildcards in the name portion of a pattern are not supported. Pattern: {pattern}"
+        )
+
+    # 2. Escape all regex special characters EXCEPT glob wildcards '*' and braces '{', '}'
+    # This escapes '|', '(', and ')' so they are treated as literal characters.
+    for char in ["\\", ".", "^", "$", "+", "[", "]", "(", ")", "|"]:
+        pattern = pattern.replace(char, "\\" + char)
+
+    # 3. Expand standard glob braces: '{a,b}' -> '(?:a|b)'
+    pattern = _expand_braces(pattern)
+
+    # 4. Escape any remaining '{' and '}' characters
+    for char in ["{", "}"]:
+        pattern = pattern.replace(char, "\\" + char)
+
+    # 5. Protect double wildcards temporarily
+    pattern = pattern.replace("**", "__DOUBLE_WILDCARD__")
+
+    # 6. Process single wildcards segment-by-segment
+    segments = pattern.split("/")
+    for i, seg in enumerate(segments):
+        if seg == "*":
+            segments[i] = "[^/]+"
+        elif "*" in seg:
+            segments[i] = seg.replace("*", "[^/]*")
+
+    pattern = "/".join(segments)
+
+    # 7. Translate protected double wildcards
+    pattern = pattern.replace("/__DOUBLE_WILDCARD__", "(?:/.*)?")
+    pattern = pattern.replace("__DOUBLE_WILDCARD__/", "(?:.*/)?")
+    pattern = pattern.replace("__DOUBLE_WILDCARD__", ".*")
+
+    return pattern
+
+
+def _full_match(regex: str, value: str) -> bool:
+    return re.search(f"^(?:{regex})$", value) is not None

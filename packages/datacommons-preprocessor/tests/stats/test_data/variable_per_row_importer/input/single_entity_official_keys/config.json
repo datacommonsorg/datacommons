@@ -1,0 +1,15 @@
+{
+  "inputFiles": [
+    {
+      "pattern": "input*",
+      "provenance": "dcid:provenance/CustomImport",
+      "columnsToResolve": ["GEOGRAPHY"],
+      "columnMappings": {
+        "dcid:observationAbout": "GEOGRAPHY",
+        "dcid:variableMeasured": "SERIES",
+        "dcid:observationDate": "TIME_PERIOD",
+        "dcid:value": "OBS_VALUE"
+      }
+    }
+  ]
+}

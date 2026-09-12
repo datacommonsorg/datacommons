@@ -1,0 +1,41 @@
+{
+  "dataDownloadUrl": [
+    "tests/stats/test_data/runner/input/config_with_wildcards"
+  ],
+  "inputFiles": {
+    "variable_per_row.csv": {
+      "importType": "observations",
+      "format": "variablePerRow",
+      "entityType": "Country",
+      "provenance": "Provenance1 Name"
+    },
+    "countr*.csv": {
+      "importType": "observations",
+      "format": "variablePerColumn",
+      "entityType": "Country",
+      "provenance": "Provenance1 Name",
+      "columnMappings": {
+        "dcid:observationAbout": "place",
+        "dcid:observationDate": "year"
+      }
+    },
+    "wiki*.csv": {
+      "importType": "observations",
+      "format": "variablePerColumn",
+      "entityType": "Country",
+      "provenance": "Provenance1 Name",
+      "columnMappings": {
+        "dcid:observationAbout": "wikidataid",
+        "dcid:observationDate": "year"
+      }
+    }
+  },
+  "sources": {
+    "Source1 Name": {
+      "url": "http://source1.com",
+      "provenances": {
+        "Provenance1 Name": "http://source1.com/provenance1"
+      }
+    }
+  }
+}
