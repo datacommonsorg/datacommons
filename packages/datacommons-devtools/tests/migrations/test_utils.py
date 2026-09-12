@@ -12,16 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Unit tests for pure Python migration utilities (tools/migrations/utils.py)."""
+"""Unit tests for pure Python migration utilities (datacommons_devtools/migrations/utils.py)."""
 
 import ast
 import datetime
 import json
+import sys
 from pathlib import Path
 
 import pytest
-
-from tools.migrations import utils
+from datacommons_devtools.migrations import utils
 
 # ==============================================================================
 # 0. get_default_migrations_dir Tests
@@ -43,7 +43,14 @@ def test_get_default_migrations_dir_finds_nested_file_parent(
     )
     local_scripts.mkdir(parents=True)
 
-    deeply_nested_file = fake_repo_root / "tools" / "deep" / "sub" / "pkg" / "utils.py"
+    deeply_nested_file = (
+        fake_repo_root
+        / "packages"
+        / "datacommons-devtools"
+        / "datacommons_devtools"
+        / "migrations"
+        / "utils.py"
+    )
     deeply_nested_file.parent.mkdir(parents=True)
     monkeypatch.setattr(utils, "__file__", str(deeply_nested_file))
 
@@ -72,15 +79,52 @@ def test_get_default_migrations_dir_finds_from_cwd(
         / "lib"
         / "python3.11"
         / "site-packages"
-        / "tools"
+        / "datacommons_devtools"
+        / "migrations"
         / "utils.py"
     )
     site_packages_file.parent.mkdir(parents=True)
     monkeypatch.setattr(utils, "__file__", str(site_packages_file))
-    monkeypatch.setattr(Path, "cwd", lambda: fake_repo_root / "tools")
+    monkeypatch.setattr(
+        Path, "cwd", lambda: fake_repo_root / "packages" / "datacommons-devtools"
+    )
 
     resolved = utils.get_default_migrations_dir()
     assert resolved == local_scripts
+
+
+def test_get_default_migrations_dir_falls_back_to_imported_package(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Verifies that upward search falls back to imported package path if not in source tree."""
+    nonexistent_file = tmp_path / "outside" / "utils.py"
+    monkeypatch.setattr(utils, "__file__", str(nonexistent_file))
+    monkeypatch.setattr(Path, "cwd", lambda: tmp_path / "outside")
+
+    import datacommons_db.migrations.migration_scripts as mig_pkg
+
+    assert mig_pkg.__file__ is not None
+    expected_path = Path(mig_pkg.__file__).resolve().parent
+    resolved = utils.get_default_migrations_dir()
+    assert resolved == expected_path
+
+
+def test_get_default_migrations_dir_not_found_raises(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Verifies that FileNotFoundError is raised when migrations dir cannot be found."""
+    nonexistent_file = tmp_path / "outside" / "utils.py"
+    monkeypatch.setattr(utils, "__file__", str(nonexistent_file))
+    monkeypatch.setattr(Path, "cwd", lambda: tmp_path / "outside")
+    monkeypatch.setitem(
+        sys.modules, "datacommons_db.migrations.migration_scripts", None
+    )
+
+    with pytest.raises(
+        FileNotFoundError,
+        match="Could not locate packages/datacommons-db/datacommons_db/migrations/migration_scripts",
+    ):
+        utils.get_default_migrations_dir()
 
 
 # ==============================================================================

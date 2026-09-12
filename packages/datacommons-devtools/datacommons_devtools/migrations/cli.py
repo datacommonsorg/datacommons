@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""tools.migrations.cli - Developer DevOps CLI for Schema Migrations.
+"""datacommons_devtools.migrations.cli - Developer DevOps CLI for Schema Migrations.
 
 PURPOSE:
   Provides internal developer CLI tooling for creating and managing
@@ -30,19 +30,19 @@ COMMANDS:
 
 USAGE EXAMPLES:
   # Create a new migration script
-  uv run dcp-tools migrations create add_node_tables -d "Add Node and Edge tables"
+  uv run datacommons-devtools migrations create add_node_tables -d "Add Node and Edge tables"
 
   # Bump an existing migration script during merge conflict / rebase
-  uv run dcp-tools migrations bump add_node_tables
+  uv run datacommons-devtools migrations bump add_node_tables
   # or by filename
-  uv run dcp-tools migrations bump 20260819135412_add_node_tables.py
+  uv run datacommons-devtools migrations bump 20260819135412_add_node_tables.py
 """
 
 import datetime
 
 import click
 
-from tools.migrations import utils
+from datacommons_devtools.migrations import utils
 
 
 @click.group(
@@ -105,9 +105,9 @@ def bump_command(target: str | None = None, *, yes: bool = False) -> None:
         raise click.UsageError(
             "Missing argument '<NAME|FILE|PREFIX>'.\n\n"
             "Please specify which migration script to bump. Examples:\n"
-            "  - By name:     uv run dcp-tools migrations bump add_edge_indexes\n"
-            "  - By prefix:   uv run dcp-tools migrations bump 20260819135412\n"
-            "  - By filename: uv run dcp-tools migrations bump 20260819135412_add_edge_indexes.py"
+            "  - By name:     uv run datacommons-devtools migrations bump add_edge_indexes\n"
+            "  - By prefix:   uv run datacommons-devtools migrations bump 20260819135412\n"
+            "  - By filename: uv run datacommons-devtools migrations bump 20260819135412_add_edge_indexes.py"
         )
 
     try:
