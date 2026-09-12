@@ -22,7 +22,7 @@ steps:
       - '-t'
       - 'us-docker.pkg.dev/datcom-ci/gcr.io/datacommons-platform:$SHORT_SHA'
       - '-f'
-      - 'build/Dockerfile'
+      - 'experimental/build/Dockerfile'
       - '.'
 
 images:
