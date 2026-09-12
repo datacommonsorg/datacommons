@@ -35,7 +35,12 @@ _API_ROOT_ENV = "DC_API_ROOT"
 # Default REST API endpoint root.
 _DEFAULT_API_ROOT = "https://api.datacommons.org"
 
-_DEBUG = True
+_DEBUG_ENV = "DC_CLIENT_DEBUG"
+
+# Dumps intermediate entity resolution data to _DEBUG_FOLDER. Off by default:
+# it writes to the current working directory, which is not guaranteed to be
+# writable (e.g. a container running as a non-root user).
+_DEBUG = os.environ.get(_DEBUG_ENV, "").lower() in ("1", "true")
 _DEBUG_FOLDER = ".data/debug"
 
 NGRAM_MIN_MATCH_FRACTION = 0.8
@@ -71,10 +76,9 @@ def get_api_root():
   return os.environ.get(_API_ROOT_ENV, _DEFAULT_API_ROOT)
 
 
-if _DEBUG:
-  logging.info("DC API Root: %s", get_api_root())
-  logging.info("DC API Key: %s", get_api_key())
-  os.makedirs(_DEBUG_FOLDER, exist_ok=True)
+logging.info("DC API Root: %s", get_api_root())
+# Deliberately does not log the key itself.
+logging.info("DC API Key is %s", "set" if get_api_key() else "NOT set")
 
 
 def resolve_entities(entities: list[str],
@@ -170,6 +174,7 @@ def resolve_non_place_entities(entities: list[str],
       break
 
   if _DEBUG:
+    os.makedirs(_DEBUG_FOLDER, exist_ok=True)
     entities_file = os.path.join(_DEBUG_FOLDER, f"{entity_type}_entities.json")
     logging.info("Writing %s entities to %s for debugging.", entity_type,
                  entities_file)
