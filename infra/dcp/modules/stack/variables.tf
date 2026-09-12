@@ -45,6 +45,8 @@ variable "datacommons_services_config" {
     max_instances                   = number
     cpu                             = string
     memory                          = string
+    cpu_idle                        = optional(bool, false)
+    startup_cpu_boost               = optional(bool, true)
     google_analytics_tag            = string
     enable_mcp                      = bool
     search_scope                    = string
@@ -69,15 +71,17 @@ variable "auth_config" {
 
 variable "redis_config" {
   type = object({
-    enable                  = bool
-    instance_name           = string
-    memory_size_gb          = number
-    tier                    = string
-    location_id             = string
-    alternative_location_id = string
-    replica_count           = number
-    vpc_network_name        = string
-    vpc_connector_cidr      = string
+    enable                      = bool
+    instance_name               = string
+    memory_size_gb              = number
+    tier                        = string
+    location_id                 = string
+    alternative_location_id     = string
+    replica_count               = number
+    vpc_network_name            = string
+    vpc_connector_cidr          = string
+    vpc_connector_min_instances = number
+    vpc_connector_max_instances = number
   })
 }
 
@@ -106,6 +110,8 @@ variable "ingestion_config" {
     # Workflow & Helper Service
     workflow_lock_acquisition_timeout = number
     helper_service_image              = optional(string)
+    helper_service_cpu_idle           = optional(bool)
+    helper_service_startup_cpu_boost  = optional(bool)
 
     # Dataflow network configuration
     # Use WORKER_IP_PRIVATE when a compute.vmExternalIpAccess org policy
