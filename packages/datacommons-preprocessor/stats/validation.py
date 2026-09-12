@@ -1,0 +1,161 @@
+# Copyright 2026 Google Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import logging
+
+from stats.config import Config
+from stats.data import strip_namespace
+from stats.data import ValidationErrorType
+from stats.db import Db
+from stats.util import has_namespace_prefix
+from stats.util import is_uri_or_namespace
+
+
+class MetadataValidator:
+  """Validates the semantic metadata integrity of an ingestion run.
+
+  Verifies that:
+  1. Any provenance referenced in config.json is defined in the MCF files.
+  2. Any defined provenance in the MCF files points to a Source.
+  """
+
+  def __init__(self, config: Config, db: Db) -> None:
+    self.config = config
+    self.db = db
+
+  def validate(self) -> None:
+    """Performs all metadata validation checks.
+
+    Raises:
+      ValueError: If any validation check fails.
+    """
+    referenced_provenances = self._collect_referenced_provenances()
+    if not referenced_provenances:
+      return
+
+    defined_provenances, provenance_to_source = self._collect_defined_nodes()
+
+    self._validate_provenance_definitions(referenced_provenances,
+                                          defined_provenances)
+    self._validate_source_links(defined_provenances, provenance_to_source)
+
+    logging.info(
+        "Metadata validation completed successfully. All provenances and sources are valid."
+    )
+
+  def _collect_referenced_provenances(self) -> set[str]:
+    """Extracts all referenced provenance DCIDs from config.json.
+
+    Every input file is strictly required to have a valid provenance DCID
+    starting with 'dcid:'.
+    """
+    referenced = set()
+    entries = self.config.data.get("inputFiles", [])
+
+    for entry in entries:
+      if not isinstance(entry, dict):
+        continue
+      prov = entry.get("provenance")
+      if not prov:
+        ex = ValueError(
+            f"Metadata Validation Failed: Every input file in config.json "
+            f"must have a 'provenance' property. "
+            f"Found entry missing provenance: {entry}")
+        ex.error_type = ValidationErrorType.INVALID_CONFIGURATION
+        raise ex
+      if not is_uri_or_namespace(prov):
+        ex = ValueError(
+            f"Metadata Validation Failed: The 'provenance' property must be "
+            f"a valid DCID or URI (e.g., 'dcid:FrogCensusBureau', 'custom:WHO', or a URL). "
+            f"Found invalid provenance: '{prov}'")
+        ex.error_type = ValidationErrorType.INVALID_CONFIGURATION
+        raise ex
+      referenced.add(self._clean_dcid(prov))
+    return referenced
+
+  def _collect_defined_nodes(self) -> tuple[set[str], dict[str, str]]:
+    """Gathers all defined Provenances and their links from Nodes and DB triples."""
+    defined_provenances = set()
+    provenance_to_source = {}
+
+    if hasattr(self.db, "nodes") and self.db.nodes:
+      for prov_id, prov in self.db.nodes.provenances.items():
+        clean_prov_id = self._clean_dcid(prov.id)
+        defined_provenances.add(clean_prov_id)
+        if prov.source_id:
+          provenance_to_source[clean_prov_id] = self._clean_dcid(prov.source_id)
+
+    all_triples = []
+    db_triples = getattr(self.db, "_triples", {})
+    if isinstance(db_triples, dict):
+      for triples_list in db_triples.values():
+        all_triples.extend(triples_list)
+
+    for triple in all_triples:
+      sub = self._clean_dcid(triple.subject_id)
+      pred = strip_namespace(triple.predicate)
+
+      if pred == "typeOf":
+        obj = triple.object_id or ""
+        if "Provenance" in obj:
+          defined_provenances.add(sub)
+
+      elif pred == "source":
+        obj = triple.object_id or triple.object_value or ""
+        if obj:
+          provenance_to_source[sub] = self._clean_dcid(obj)
+
+    return defined_provenances, provenance_to_source
+
+  def _validate_provenance_definitions(self, referenced: set[str],
+                                       defined: set[str]) -> None:
+    """Verifies all referenced provenances exist in the defined set."""
+    missing = sorted(list(referenced - defined))
+    if missing:
+      ex = ValueError(
+          f"Metadata Validation Failed: The following referenced provenances "
+          f"are not defined in your MCF files: {missing}. "
+          f"Please define them in an MCF file (e.g., Node: dcid:YourProvenance)."
+      )
+      ex.error_type = ValidationErrorType.MISSING_PROVENANCE
+      raise ex
+
+  def _validate_source_links(self, defined_provs: set[str],
+                             links: dict[str, str]) -> None:
+    """Verifies all defined provenances link to a Source."""
+    missing_sources = []
+    for prov in sorted(defined_provs):
+      source = links.get(prov)
+      if not source:
+        missing_sources.append(prov)
+
+    if missing_sources:
+      details = [
+          f"  - Provenance '{p}' has no linked Source (source property is missing or empty)"
+          for p in missing_sources
+      ]
+      ex = ValueError(
+          f"Metadata Validation Failed: Linked sources are missing for "
+          f"defined provenances:\n" + "\n".join(details) +
+          f"\nPlease specify a source property on these Provenance nodes.")
+      ex.error_type = ValidationErrorType.MISSING_SOURCE
+      raise ex
+
+  def _clean_dcid(self, val: str) -> str:
+    """Normalizes a DCID value by ensuring it starts with a namespace prefix."""
+    if not val:
+      return ""
+    if has_namespace_prefix(val):
+      return val
+    return f"dcid:{val}"
