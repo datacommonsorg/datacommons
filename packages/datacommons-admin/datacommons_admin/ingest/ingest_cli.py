@@ -136,3 +136,7 @@ def show_config() -> None:
                     val = "[UNSET]"
                 click.secho(f"  {name}: ", fg="bright_black", nl=False)
                 click.secho(str(val), fg="green")
+    else:
+        click.secho(
+            "\nNo ingestion prep job configured in this deployment.", fg="yellow"
+        )

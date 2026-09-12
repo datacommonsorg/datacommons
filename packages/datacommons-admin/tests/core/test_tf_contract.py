@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import dataclasses
 import json
 import re
 from pathlib import Path
@@ -58,7 +59,7 @@ def test_terraform_outputs_dataclass_contract(repo_root: Path) -> None:
     )
 
     declared_outputs = extract_tf_outputs(tf_outputs_file)
-    dataclass_fields = set(TerraformOutputs.__dataclass_fields__.keys())
+    dataclass_fields = {f.name for f in dataclasses.fields(TerraformOutputs)}
 
     missing_in_tf = dataclass_fields - declared_outputs
     assert not missing_in_tf, (

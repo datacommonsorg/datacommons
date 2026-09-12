@@ -98,9 +98,9 @@ class TerraformOutputs:
     def from_state_outputs(cls, raw_outputs: dict[str, Any]) -> "TerraformOutputs":
         """Unwraps Terraform output values, strips whitespace, and instantiates the dataclass."""
         unwrapped: dict[str, Any] = {}
-        fields = cls.__dataclass_fields__
 
-        for key, field_def in fields.items():
+        for field_def in dataclasses.fields(cls):
+            key = field_def.name
             entry = raw_outputs.get(key)
             val = (
                 entry.get("value")
