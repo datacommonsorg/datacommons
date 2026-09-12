@@ -78,3 +78,5 @@ uv run deploy/scripts/validate_release_version.py v1.1.2
 # Dry-run wheel packaging, sandbox installation, and CLI smoke test
 uv run deploy/scripts/publish_packages.py --dry-run
 ```
+
+For complete step-by-step instructions on cutting and validating a release, see the [DCP Release Guide](../docs/release.md).

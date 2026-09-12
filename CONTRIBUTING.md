@@ -9,6 +9,7 @@ The Data Commons Platform (DCP) welcomes contributions from developers, research
 * **New to DCP?** Start with the [Developer Onboarding Codelab](docs/codelabs/dcp_developer_onboarding.md) to set up and deploy a test instance.
 * **Developer Guide & Codebase Layout**: Read the [Developer Guide](docs/developer_guide.md) for monorepo package details, local development recipes, and testing instructions.
 * **Architecture & Data Flows**: Read [Platform Architecture](docs/architecture/platform_architecture.md) for an overview of the 4-repository topology, container artifacts, and data flows.
+* **Documentation Standards**: Read [Documentation Standards and Index](docs/README.md) for documentation guidelines and writing principles.
 
 ---
 

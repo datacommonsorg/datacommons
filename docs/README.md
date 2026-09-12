@@ -25,3 +25,17 @@ To keep technical knowledge maintainable, discoverable, and accurate over time, 
 * **Runnable Commands**: All CLI and shell snippets must be directly reproducible, with environment variables (`$PROJECT_ID`, `$INSTANCE_NAME`) explicitly declared before use.
 * **Link Integrity**: Use relative file links (such as `[developer_guide.md](developer_guide.md)`) to guarantee portability across developer workstations and GitHub viewers.
 * **Direct Phrasing**: Use active voice, clear headings, and established technical terms. Avoid decorative emojis, em dashes, and empty filler words.
+
+---
+
+## Documentation Index
+
+| Guide | Target Persona | Focus |
+| :--- | :--- | :--- |
+| **[User Guide](user_guide.md)** | DCP Admins | Platform deployment, instance operations, and custom dataset management. |
+| **[Developer Guide](developer_guide.md)** | DCP Developers | Monorepo package topology, development workflows, and testing instructions. |
+| **[Onboarding Codelab](codelabs/dcp_developer_onboarding.md)** | DCP Developers | Step-by-step tutorial deploying a test instance from zero to running. |
+| **[Platform Architecture](architecture/platform_architecture.md)** | DCP Developers | Platform components, Cloud Run microservices, and serving request lifecycle. |
+| **[Terraform Stack](architecture/terraform_stack.md)** | DCP Developers | Infrastructure module hierarchy, cross-module IAM wiring, and variable pipeline. |
+| **[Admin CLI Architecture](architecture/admin_cli.md)** | DCP Developers | Command choreographies, Spanner state contracts, and scaffolding contracts. |
+| **[Release Guide](release.md)** | DCP Release Engineers | PEP 440 candidate staging, PyPI immutability rules, and publishing steps. |

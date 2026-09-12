@@ -103,3 +103,4 @@ infra/dcp/
 * **Interactive Onboarding**: Follow [Developer Onboarding Codelab](../../docs/codelabs/dcp_developer_onboarding.md) to deploy, seed, ingest, and tear down an instance.
 * **CLI Tooling**: Review [Admin CLI Architecture](../../docs/architecture/admin_cli.md) to understand how the CLI reads Terraform outputs and orchestrates jobs.
 * **Database Migrations**: Refer to [Schema Migrations Developer Guide](../../docs/schema_migrations_developer_guide.md) for Spanner schema versioning procedures.
+* **Documentation Standards**: Review [Documentation Standards and Index](../../docs/README.md) for architecture guide layouts and repo principles.

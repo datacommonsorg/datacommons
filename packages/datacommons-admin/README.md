@@ -45,6 +45,7 @@
 
 - **Core CLI Package**: [datacommons-cli on PyPI](https://pypi.org/project/datacommons-cli/)
 - **Source Code**: [datacommons-cli on GitHub](https://github.com/datacommonsorg/datacommons/tree/main/packages/datacommons-cli), [datacommons-admin on GitHub](https://github.com/datacommonsorg/datacommons/tree/main/packages/datacommons-admin)
+- **Admin CLI Architecture**: [admin_cli.md](../../docs/architecture/admin_cli.md)
 - **Official Website**: [datacommons.org](https://www.datacommons.org)
 - **Platform Documentation**: [docs.datacommons.org](https://docs.datacommons.org)
 
