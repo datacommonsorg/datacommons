@@ -25,7 +25,7 @@ jobs:
           filters: |
             code_changes:
               - '!docs/**'
-              - '!**.md'
+              - '!**/*.md'
               - '!.gitignore'
               - '!LICENSE'
               - '!experimental/**'
