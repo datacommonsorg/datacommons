@@ -41,27 +41,14 @@ def test_ingest_start_fails_without_imports_flag(runner: CliRunner) -> None:
 
 @pytest.mark.usefixtures("mock_terraform_ingest")
 def test_ingest_show_config_success(
-    mock_job_session,
     runner: CliRunner,
 ) -> None:
-    mock_job_session.get.return_value.json.return_value = {
-        "template": {
-            "template": {
-                "containers": [
-                    {
-                        "env": [
-                            {"name": "GCS_BUCKET", "value": "my-test-bucket"},
-                            {"name": "API_KEY", "valueSource": "secret-api-key"},
-                        ]
-                    }
-                ]
-            }
-        }
-    }
     result = runner.invoke(admin, ["ingest", "show-config"])
     assert result.exit_code == 0
-    assert "GCS_BUCKET: my-test-bucket" in result.output
-    assert "API_KEY: [SECRET: secret-api-key]" in result.output
+    assert (
+        "Preprocessing job is managed dynamically by Cloud Workflows / Cloud Batch"
+        in result.output
+    )
 
 
 @pytest.mark.usefixtures("mock_terraform_ingest")
@@ -74,7 +61,7 @@ def test_ingest_start_with_imports_success(
     assert "Successfully started ingestion workflow!" in result.output
 
     expected_arg = {
-        "tempLocation": "gs://mock-bucket/temp",
+        "tempLocation": "gs://mock-bucket/ingestion/internal/temp",
         "spannerInstanceId": "mock-instance",
         "spannerDatabaseId": "mock-db",
         "region": "us-central1",

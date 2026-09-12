@@ -17,11 +17,13 @@ import re
 
 from datacommons_admin.core.clients import IngestionJobClient
 from datacommons_admin.core.utils.tf_utils import (
-    get_ingestion_prep_job_name,
     get_ingestion_workflow_service_account_email,
     get_project_id,
     get_region,
     get_ingestion_workflow_name,
+    get_storage_artifacts_bucket_name,
+    get_spanner_instance_id,
+    get_spanner_database_id,
 )
 
 
@@ -41,15 +43,26 @@ def start(imports: str) -> None:
     """Start a data ingestion job execution."""
     click.secho("Datacommons Admin Ingest Start", fg="cyan", bold=True)
     click.secho(
-        "Fetching data job name and workflow service account from Terraform outputs...",
+        "Fetching workflow details and service accounts from Terraform outputs...",
         fg="bright_black",
     )
 
-    job_name = get_ingestion_prep_job_name()
     sa_email = get_ingestion_workflow_service_account_email()
     project_id = get_project_id()
     region = get_region()
     workflow_name = get_ingestion_workflow_name()
+    bucket_name = get_storage_artifacts_bucket_name()
+
+    spanner_instance = ""
+    spanner_database = ""
+    try:
+        spanner_instance = get_spanner_instance_id()
+    except Exception:
+        pass
+    try:
+        spanner_database = get_spanner_database_id()
+    except Exception:
+        pass
 
     click.secho(f"Found workflow: {workflow_name}", fg="green")
     click.secho(f"Found workflow service account: {sa_email}", fg="green")
@@ -62,12 +75,16 @@ def start(imports: str) -> None:
 
     client = IngestionJobClient(
         workflow_name=workflow_name,
-        job_name=job_name,
         service_account_email=sa_email,
         project_id=project_id,
         location=region,
     )
-    result = client.start_workflow(imports=imports)
+    result = client.start_workflow(
+        bucket_name=bucket_name,
+        spanner_instance=spanner_instance,
+        spanner_database=spanner_database,
+        imports=imports,
+    )
 
     click.secho("Successfully started ingestion workflow!", fg="green", bold=True)
     res_name = result.get("name")
@@ -95,43 +112,7 @@ def show_config() -> None:
     """Print the current ingestion job configuration (environment variables)."""
     click.secho("Datacommons Admin Ingest Show-Config", fg="cyan", bold=True)
     click.secho(
-        "Fetching data job name and workflow service account from Terraform outputs...",
-        fg="bright_black",
+        "Preprocessing job is managed dynamically by Cloud Workflows / Cloud Batch.\n"
+        "No static Cloud Run preprocessor job exists.",
+        fg="yellow",
     )
-
-    job_name = get_ingestion_prep_job_name()
-    sa_email = get_ingestion_workflow_service_account_email()
-    project_id = get_project_id()
-    region = get_region()
-
-    click.secho(f"Found data job: {job_name}", fg="green")
-    click.secho(f"Found workflow service account: {sa_email}", fg="green")
-    click.secho(f"Found GCP project ID: {project_id}", fg="green")
-    click.secho(f"Found GCP region: {region}", fg="green")
-    click.secho(
-        f"Fetching configuration for Cloud Run job '{job_name}'...",
-        fg="bright_black",
-    )
-
-    client = IngestionJobClient(
-        job_name,
-        service_account_email=sa_email,
-        project_id=project_id,
-        location=region,
-    )
-    env_vars = client.get_config()
-
-    click.secho("\nCurrent ingestion job configuration:", fg="cyan", bold=True)
-    if not env_vars:
-        click.secho("No environment variables configured.", fg="yellow")
-    else:
-        for env in env_vars:
-            name = env.get("name", "UNKNOWN")
-            if "value" in env:
-                val = env["value"]
-            elif "valueSource" in env:
-                val = f"[SECRET: {env['valueSource']}]"
-            else:
-                val = "[UNSET]"
-            click.secho(f"  {name}: ", fg="bright_black", nl=False)
-            click.secho(str(val), fg="green")
