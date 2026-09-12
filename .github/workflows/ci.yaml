@@ -18,16 +18,18 @@ jobs:
       code_changes: ${{ steps.filter.outputs.code_changes }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
+          predicate-quantifier: 'every'
           filters: |
             code_changes:
-              - '**'
               - '!docs/**'
               - '!**.md'
               - '!.gitignore'
               - '!LICENSE'
+              - '!experimental/**'
+              - '!build/**'
 
   test:
     runs-on: ubuntu-latest
