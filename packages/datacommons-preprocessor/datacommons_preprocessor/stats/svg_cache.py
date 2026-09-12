@@ -39,8 +39,13 @@ def generate_svg_cache(db: Db,
   sv_triples = db.select_triples_by_subject_type(sc.TYPE_STATISTICAL_VARIABLE)
   svgs = _generate_svg_cache_internal(svg_triples, sv_triples,
                                       specialized_names)
-  db.insert_key_value(STAT_VAR_GROUPS_CACHE_KEY,
-                      gzip_and_base64_encode(svgs.SerializeToString()))
+  # `StatVarGroups.stat_var_groups` is a proto map field, and protobuf does not
+  # guarantee a serialization order for maps. Without `deterministic=True` the
+  # gzipped blob differs between runs for identical data, which churns the
+  # cached value and makes golden-based tests flaky.
+  db.insert_key_value(
+      STAT_VAR_GROUPS_CACHE_KEY,
+      gzip_and_base64_encode(svgs.SerializeToString(deterministic=True)))
 
 
 # TODO: Move encode / decode methods into a util file.

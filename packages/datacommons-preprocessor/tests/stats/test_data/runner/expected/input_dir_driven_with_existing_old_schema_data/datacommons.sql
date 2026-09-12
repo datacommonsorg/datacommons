@@ -10,7 +10,7 @@ CREATE TABLE key_value_store (
     lookup_key varchar(255),
     value longtext
 );
-INSERT INTO "key_value_store" VALUES('StatVarGroups','H4sIAAAAAAAC/+OS5OJMSdZP1w/Kzy8R4pHi4uKA8bjcEGwhKy4B59LikvxchbDEoszEpJzUYiEhLpayxCJDKTCpBCahYkZgMSOwmBEAlEss8mMAAAA=');
+INSERT INTO "key_value_store" VALUES('StatVarGroups','H4sIAAAAAAAC/+Ny4+JI1k/XD8rPLxGy4hJwLi0uyc9VCEssykxMykktFhLiYilLLDKUApNKYBIqZgQWMwKLGXFJcnGmwA3ikeJCGAsAIsqzJWMAAAA=');
 CREATE TABLE observations (
     entity varchar(255),
     variable varchar(255),
