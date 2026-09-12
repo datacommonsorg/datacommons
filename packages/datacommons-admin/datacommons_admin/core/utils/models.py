@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import dataclasses
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -71,3 +73,54 @@ class TerraformStateConfig:
                 f"GCP project: '{self.project_id}' / instance: '{self.instance_name}'"
             )
         return f"'{Path.cwd()}'"
+
+
+@dataclass(frozen=True)
+class TerraformOutputs:
+    """Strongly typed, validated deployment outputs matching infra/dcp/outputs.tf."""
+
+    project_id: str
+    region: str
+    ingestion_service_url: str
+    ingestion_workflow_name: str
+    ingestion_workflow_service_account_email: str
+    storage_artifacts_bucket_name: str
+    spanner_instance_id: str = ""
+    spanner_database_id: str = ""
+    ingestion_prep_job_name: str | None = None
+
+    @property
+    def ingestion_temp_location(self) -> str:
+        """Derived canonical GCS path for workflow temporary artifacts."""
+        return f"gs://{self.storage_artifacts_bucket_name}/temp"
+
+    @classmethod
+    def from_state_outputs(cls, raw_outputs: dict[str, Any]) -> "TerraformOutputs":
+        """Unwraps Terraform output values, strips whitespace, and instantiates the dataclass."""
+        unwrapped: dict[str, Any] = {}
+
+        for field_def in dataclasses.fields(cls):
+            key = field_def.name
+            entry = raw_outputs.get(key)
+            val = (
+                entry.get("value")
+                if isinstance(entry, dict) and "value" in entry
+                else entry
+            )
+
+            if isinstance(val, str):
+                val = val.strip()
+
+            if val is None or val == "":
+                if field_def.default is not dataclasses.MISSING:
+                    unwrapped[key] = field_def.default
+                elif field_def.default_factory is not dataclasses.MISSING:
+                    unwrapped[key] = field_def.default_factory()
+                else:
+                    raise click.ClickException(
+                        f"Required Terraform output '{key}' is missing or empty in deployment state."
+                    )
+            else:
+                unwrapped[key] = str(val)
+
+        return cls(**unwrapped)

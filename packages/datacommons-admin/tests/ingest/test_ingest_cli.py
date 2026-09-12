@@ -64,6 +64,13 @@ def test_ingest_show_config_success(
     assert "API_KEY: [SECRET: secret-api-key]" in result.output
 
 
+@pytest.mark.usefixtures("mock_terraform_spanner")
+def test_ingest_show_config_no_prep_job(runner: CliRunner) -> None:
+    result = runner.invoke(admin, ["ingest", "show-config"])
+    assert result.exit_code == 0
+    assert "No ingestion prep job configured in this deployment." in result.output
+
+
 @pytest.mark.usefixtures("mock_terraform_ingest")
 def test_ingest_start_with_imports_success(
     mock_job_session,

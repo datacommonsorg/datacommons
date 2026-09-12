@@ -38,8 +38,11 @@ def mock_tf_output_spanner() -> str:
     return (
         '{"ingestion_service_url": {"value": "https://mock-helper"}, '
         '"ingestion_workflow_service_account_email": {"value": "mock-orch-sa@mock.com"}, '
+        '"storage_artifacts_bucket_name": {"value": "mock-bucket"}, '
         '"spanner_instance_id": {"value": "mock-instance"}, '
         '"spanner_database_id": {"value": "mock-db"}, '
+        '"ingestion_workflow_name": {"value": "mock-workflow"}, '
+        '"region": {"value": "us-central1"}, '
         '"project_id": {"value": "mock-proj"}}'
     )
 
@@ -50,6 +53,10 @@ def mock_tf_output_ingest() -> str:
     return (
         '{"ingestion_prep_job_name": {"value": "projects/mock-proj/locations/us-central1/jobs/mock-job"}, '
         '"ingestion_workflow_service_account_email": {"value": "mock-orch-sa@mock.com"}, '
+        '"storage_artifacts_bucket_name": {"value": "mock-bucket"}, '
+        '"ingestion_service_url": {"value": "https://mock-helper"}, '
+        '"spanner_instance_id": {"value": "mock-instance"}, '
+        '"spanner_database_id": {"value": "mock-db"}, '
         '"project_id": {"value": "mock-proj"}, '
         '"region": {"value": "us-central1"}, '
         '"ingestion_workflow_name": {"value": "mock-workflow"}}'
