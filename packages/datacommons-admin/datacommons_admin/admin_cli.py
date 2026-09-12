@@ -17,6 +17,7 @@ import click
 from datacommons_admin.db.db_cli import init_db, migrate_db, seed_db
 from datacommons_admin.ingest.ingest_cli import ingest
 from datacommons_admin.init.init_cli import init
+from datacommons_admin.sdmx.sdmx_cli import sdmx
 
 
 @click.group()
@@ -59,3 +60,4 @@ admin.add_command(init_db)
 admin.add_command(seed_db)
 admin.add_command(migrate_db)
 admin.add_command(ingest)
+admin.add_command(sdmx)
