@@ -29,8 +29,6 @@ jobs:
               - '!**.md'
               - '!.gitignore'
               - '!LICENSE'
-              - '!.github/ISSUE_TEMPLATE/**'
-              - '!.github/pull_request_template.md'
 
   test:
     needs: fileset-diff
