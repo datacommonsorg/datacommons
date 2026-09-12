@@ -1,0 +1,59 @@
+[project]
+name = "datacommons-preprocessor"
+dynamic = ["version"]
+description = 'Data Commons ingestion preprocessor'
+license = "Apache-2.0"
+readme = "README.md"
+requires-python = ">=3.11"
+keywords = []
+authors = []
+urls = {Homepage = "https://github.com/datacommonsorg/datacommons"}
+# Ported from import/simple/requirements.txt. The original used exact `==` pins
+# with no lockfile; those are relaxed to lower bounds here so uv can resolve a
+# single consistent set across the workspace. Pinned transitive dependencies
+# (certifi, six, zipp, tomli, pytz, tzdata, idna, charset-normalizer,
+# platformdirs, importlib-metadata, urllib3) were dropped rather than carried
+# over, since they would over-constrain every other package.
+dependencies = [
+  "absl-py>=1.4.0",
+  "cloud-sql-python-connector>=1.4.3",
+  "freezegun>=1.2.2",
+  "fs>=2.4.16",
+  "fs-gcsfs>=1.5.1",
+  "google-auth>=2.0.0",
+  "google-cloud-storage>=2.14.0",
+  "httpx>=0.26.0",
+  "numpy>=1.25.2",
+  "pandas>=2.1.0",
+  "protobuf>=4.25.3",
+  "PyLD>=2.0.4",
+  "PyMySQL>=1.1.0",
+  "python-dateutil>=2.8.2",
+  "PyYAML>=6.0.1",
+  "rdflib>=7.4.0",
+  "redis>=5.2.1",
+  "requests>=2.31.0",
+  "s2sphere>=0.2.5",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=9.0.3",
+  "fakeredis>=2.26.2",
+  "parameterized>=0.9.0",
+  # Only needed to regenerate proto/cache_data_pb2.py.
+  "mypy-protobuf>=3.6.0",
+]
+
+[build-system]
+requires = ["uv", "setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["datacommons_preprocessor*"]
+
+[tool.setuptools.dynamic]
+version = {file = "VERSION"}

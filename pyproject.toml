@@ -36,10 +36,14 @@ test = [
     "datacommons-db",
     "datacommons-schema",
     "datacommons-admin",
+    "datacommons-preprocessor",
     "google-cloud-spanner>=3.40.0",
     "google-cloud-storage>=2.14.0",
     "pyyaml>=6.0",
     "requests>=2.31.0",
+    # Test-only dependencies of datacommons-preprocessor.
+    "fakeredis>=2.26.2",
+    "parameterized>=0.9.0",
 ]
 
 
@@ -49,12 +53,24 @@ Documentation = "https://github.com/datacommonsorg/datacommons#readme"
 Issues = "https://github.com/datacommonsorg/datacommons/issues"
 Source = "https://github.com/datacommonsorg/datacommons"
 
+[tool.uv]
+override-dependencies = [
+  # fs-gcsfs 1.5.1 (its last release, 2022) declares `urllib3~=1.25`, which
+  # would pull the entire workspace back from urllib3 2.x to 1.26. Its only
+  # use of urllib3 is `urllib3.util.retry.Retry` and a `>= 1.26` version check
+  # to choose `allowed_methods`, both of which behave correctly on 2.x. The cap
+  # is stale, so override it instead of regressing every other package.
+  # TODO: remove once the preprocessor stops depending on fs-gcsfs.
+  "urllib3>=2",
+]
+
 [tool.uv.sources]
 datacommons-api = { workspace = true }
 datacommons-db = { workspace = true }
 datacommons-schema = { workspace = true }
 datacommons-cli = { workspace = true }
 datacommons-admin = { workspace = true }
+datacommons-preprocessor = { workspace = true }
 dcp-tools = { workspace = true }
 
 [tool.uv.workspace]
