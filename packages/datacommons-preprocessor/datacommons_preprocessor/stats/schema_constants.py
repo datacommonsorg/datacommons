@@ -17,13 +17,36 @@
 # Includes all props from [1].
 # Also includes a Custom DC specific property "includedIn".
 SV_HIERARCHY_PROPS_BLOCKLIST: set[str] = {
-    "dcid", "typeOf", "isPublic", "provenance", "resMCFFile", "keyString",
-    "populationType", "constraintProperties", "name", "label", "alternateName",
-    "description", "descriptionUrl", "memberOf", "utteranceTemplate",
-    "searchDescription", "source", "footnote", "isNormalizable",
-    "denominatorForNormalization", "measuredProperty", "measurementMethod",
-    "measurementDenominator", "measurementQualifier", "scalingFactor", "unit",
-    "statType", "censusACSTableId", "includedIn", "observationProperties"
+    "dcid",
+    "typeOf",
+    "isPublic",
+    "provenance",
+    "resMCFFile",
+    "keyString",
+    "populationType",
+    "constraintProperties",
+    "name",
+    "label",
+    "alternateName",
+    "description",
+    "descriptionUrl",
+    "memberOf",
+    "utteranceTemplate",
+    "searchDescription",
+    "source",
+    "footnote",
+    "isNormalizable",
+    "denominatorForNormalization",
+    "measuredProperty",
+    "measurementMethod",
+    "measurementDenominator",
+    "measurementQualifier",
+    "scalingFactor",
+    "unit",
+    "statType",
+    "censusACSTableId",
+    "includedIn",
+    "observationProperties",
 }
 
 PREDICATE_TYPE_OF = "typeOf"
@@ -45,8 +68,10 @@ PREDICATE_MEMBER_LIST = "memberList"
 
 # The set of standard observation properties with first class support in our APIs and FE.
 STANDARD_OBSERVATION_PROPERTIES: set[str] = {
-    PREDICATE_UNIT, PREDICATE_SCALING_FACTOR, PREDICATE_MEASUREMENT_METHOD,
-    PREDICATE_OBSERVATION_PERIOD
+    PREDICATE_UNIT,
+    PREDICATE_SCALING_FACTOR,
+    PREDICATE_MEASUREMENT_METHOD,
+    PREDICATE_OBSERVATION_PERIOD,
 }
 
 TYPE_STATISTICAL_VARIABLE = "StatisticalVariable"

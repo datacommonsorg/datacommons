@@ -31,97 +31,106 @@ from datacommons_preprocessor.stats.util import gzip_and_base64_encode
 STAT_VAR_GROUPS_CACHE_KEY = "StatVarGroups"
 
 
-def generate_svg_cache(db: Db,
-                       specialized_names: ParentSVG2ChildSpecializedNames):
-  """Get svgs and sv triples from db, generate cache and write to DB."""
-  svg_triples = db.select_triples_by_subject_type(
-      sc.TYPE_STATISTICAL_VARIABLE_GROUP)
-  sv_triples = db.select_triples_by_subject_type(sc.TYPE_STATISTICAL_VARIABLE)
-  svgs = _generate_svg_cache_internal(svg_triples, sv_triples,
-                                      specialized_names)
-  # `StatVarGroups.stat_var_groups` is a proto map field, and protobuf does not
-  # guarantee a serialization order for maps. Without `deterministic=True` the
-  # gzipped blob differs between runs for identical data, which churns the
-  # cached value and makes golden-based tests flaky.
-  db.insert_key_value(
-      STAT_VAR_GROUPS_CACHE_KEY,
-      gzip_and_base64_encode(svgs.SerializeToString(deterministic=True)))
+def generate_svg_cache(db: Db, specialized_names: ParentSVG2ChildSpecializedNames):
+    """Get svgs and sv triples from db, generate cache and write to DB."""
+    svg_triples = db.select_triples_by_subject_type(sc.TYPE_STATISTICAL_VARIABLE_GROUP)
+    sv_triples = db.select_triples_by_subject_type(sc.TYPE_STATISTICAL_VARIABLE)
+    svgs = _generate_svg_cache_internal(svg_triples, sv_triples, specialized_names)
+    # `StatVarGroups.stat_var_groups` is a proto map field, and protobuf does not
+    # guarantee a serialization order for maps. Without `deterministic=True` the
+    # gzipped blob differs between runs for identical data, which churns the
+    # cached value and makes golden-based tests flaky.
+    db.insert_key_value(
+        STAT_VAR_GROUPS_CACHE_KEY,
+        gzip_and_base64_encode(svgs.SerializeToString(deterministic=True)),
+    )
 
 
 # TODO: Move encode / decode methods into a util file.
 def _generate_svg_cache_internal(
-    svg_triples: list[Triple], sv_triples: list[Triple],
-    specialized_names: ParentSVG2ChildSpecializedNames) -> StatVarGroups:
-  return _SVGCache(svg_triples, sv_triples, specialized_names).stat_var_groups
+    svg_triples: list[Triple],
+    sv_triples: list[Triple],
+    specialized_names: ParentSVG2ChildSpecializedNames,
+) -> StatVarGroups:
+    return _SVGCache(svg_triples, sv_triples, specialized_names).stat_var_groups
 
 
 class _SVGCache:
+    def __init__(
+        self,
+        svg_triples: list[Triple],
+        sv_triples: list[Triple],
+        specialized_names: ParentSVG2ChildSpecializedNames,
+    ) -> None:
+        self.svg_nodes: dict[str, StatVarGroupNode] = {}
+        self._create_svg_nodes(svg_triples, specialized_names)
+        self._attach_svs(sv_triples)
+        self.stat_var_groups = self._create_cache_proto()
 
-  def __init__(self, svg_triples: list[Triple], sv_triples: list[Triple],
-               specialized_names: ParentSVG2ChildSpecializedNames) -> None:
-    self.svg_nodes: dict[str, StatVarGroupNode] = {}
-    self._create_svg_nodes(svg_triples, specialized_names)
-    self._attach_svs(sv_triples)
-    self.stat_var_groups = self._create_cache_proto()
+    def _create_svg_nodes(
+        self,
+        svg_triples: list[Triple],
+        specialized_names: ParentSVG2ChildSpecializedNames,
+    ):
+        """
+        Creates StatVarGroupNode protos from the SVG triples.
+        Creates ChildSVG instances in these nodes based on specializationOf predicates.
+        If specialized names are available, they are used to set the specialized_entity field in the ChildSVG instances.
+        """
+        for triple in svg_triples:
+            svg_id = triple.subject_id
+            svg_node = self._get_or_create_svg_node(svg_id)
+            object_id = triple.object_id
+            object_value = triple.object_value
+            predicate = triple.predicate
+            if predicate == sc.PREDICATE_NAME and object_value:
+                svg_node.absolute_name = object_value
+            elif predicate == sc.PREDICATE_SPECIALIZATION_OF and object_id:
+                parent_svg_node = self._get_or_create_svg_node(object_id)
+                specialized_entity = specialized_names.get(object_id, {}).get(
+                    svg_id, ""
+                )
+                parent_svg_node.child_stat_var_groups.append(
+                    StatVarGroupNode.ChildSVG(
+                        id=svg_id, specialized_entity=specialized_entity
+                    )
+                )
 
-  def _create_svg_nodes(self, svg_triples: list[Triple],
-                        specialized_names: ParentSVG2ChildSpecializedNames):
-    """
-    Creates StatVarGroupNode protos from the SVG triples.
-    Creates ChildSVG instances in these nodes based on specializationOf predicates.
-    If specialized names are available, they are used to set the specialized_entity field in the ChildSVG instances.
-    """
-    for triple in svg_triples:
-      svg_id = triple.subject_id
-      svg_node = self._get_or_create_svg_node(svg_id)
-      object_id = triple.object_id
-      object_value = triple.object_value
-      predicate = triple.predicate
-      if predicate == sc.PREDICATE_NAME and object_value:
-        svg_node.absolute_name = object_value
-      elif predicate == sc.PREDICATE_SPECIALIZATION_OF and object_id:
-        parent_svg_node = self._get_or_create_svg_node(object_id)
-        specialized_entity = specialized_names.get(object_id,
-                                                   {}).get(svg_id, "")
-        parent_svg_node.child_stat_var_groups.append(
-            StatVarGroupNode.ChildSVG(id=svg_id,
-                                      specialized_entity=specialized_entity))
+    def _attach_svs(self, sv_triples: list[Triple]):
+        """
+        Creates ChildSV protos from the SV triples.
+        The ChildSVs are attached to the StatVarGroupNodes they are a memberOf.
+        We don't compute the descendant counts here since they are computed in mixer itself.
+        See: https://github.com/datacommonsorg/mixer/blob/master/internal/server/statvar/hierarchy/statvar_hierarchy_util.go#L286
+        """
+        sv_id_2_sv: dict[str, StatVarGroupNode.ChildSV] = {}
 
-  def _attach_svs(self, sv_triples: list[Triple]):
-    """
-    Creates ChildSV protos from the SV triples.
-    The ChildSVs are attached to the StatVarGroupNodes they are a memberOf.
-    We don't compute the descendant counts here since they are computed in mixer itself.
-    See: https://github.com/datacommonsorg/mixer/blob/master/internal/server/statvar/hierarchy/statvar_hierarchy_util.go#L286
-    """
-    sv_id_2_sv: dict[str, StatVarGroupNode.ChildSV] = {}
+        for triple in sv_triples:
+            sv_id = triple.subject_id
+            sv = sv_id_2_sv.setdefault(sv_id, StatVarGroupNode.ChildSV(id=sv_id))
+            object_id = triple.object_id
+            object_value = triple.object_value
+            predicate = triple.predicate
+            if predicate == sc.PREDICATE_NAME and object_value:
+                sv.display_name = object_value
+                sv.search_names.append(object_value)
+            elif predicate == sc.PREDICATE_DESCRIPTION and object_value:
+                sv.search_names.append(object_value)
+            elif predicate == sc.PREDICATE_MEMBER_OF and object_id:
+                svg_node = self.svg_nodes.get(object_id)
+                if not svg_node:
+                    logging.warning("SVG not found: %s", object_id)
+                    continue
+                svg_node.child_stat_vars.append(sv)
 
-    for triple in sv_triples:
-      sv_id = triple.subject_id
-      sv = sv_id_2_sv.setdefault(sv_id, StatVarGroupNode.ChildSV(id=sv_id))
-      object_id = triple.object_id
-      object_value = triple.object_value
-      predicate = triple.predicate
-      if predicate == sc.PREDICATE_NAME and object_value:
-        sv.display_name = object_value
-        sv.search_names.append(object_value)
-      elif predicate == sc.PREDICATE_DESCRIPTION and object_value:
-        sv.search_names.append(object_value)
-      elif predicate == sc.PREDICATE_MEMBER_OF and object_id:
-        svg_node = self.svg_nodes.get(object_id)
-        if not svg_node:
-          logging.warning("SVG not found: %s", object_id)
-          continue
-        svg_node.child_stat_vars.append(sv)
+    def _create_cache_proto(self) -> StatVarGroups:
+        """
+        Creates the final cached proto (StatVarGroups) from StatVarGroupNodes.
+        """
+        proto = StatVarGroups()
+        for svg_id, svg_node in self.svg_nodes.items():
+            proto.stat_var_groups[svg_id].CopyFrom(svg_node)
+        return proto
 
-  def _create_cache_proto(self) -> StatVarGroups:
-    """
-    Creates the final cached proto (StatVarGroups) from StatVarGroupNodes.
-    """
-    proto = StatVarGroups()
-    for svg_id, svg_node in self.svg_nodes.items():
-      proto.stat_var_groups[svg_id].CopyFrom(svg_node)
-    return proto
-
-  def _get_or_create_svg_node(self, svg_id) -> StatVarGroupNode:
-    return self.svg_nodes.setdefault(svg_id, StatVarGroupNode())
+    def _get_or_create_svg_node(self, svg_id) -> StatVarGroupNode:
+        return self.svg_nodes.setdefault(svg_id, StatVarGroupNode())

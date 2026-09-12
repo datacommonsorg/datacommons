@@ -23,16 +23,16 @@ _PACKAGE_ROOT = Path(__file__).resolve().parent.parent
 
 @pytest.fixture(autouse=True)
 def _run_from_package_root(monkeypatch: pytest.MonkeyPatch) -> None:
-  """Runs every test with the package root as the working directory.
+    """Runs every test with the package root as the working directory.
 
-  Several golden config fixtures under tests/stats/test_data/runner/config/
-  embed working-directory-relative paths such as
-  "tests/stats/test_data/runner/input/...". In the import repo these resolved
-  because run_test.sh invoked pytest from inside simple/. Here pytest runs from
-  the workspace root, so pin the working directory explicitly rather than
-  rewriting the fixtures.
+    Several golden config fixtures under tests/stats/test_data/runner/config/
+    embed working-directory-relative paths such as
+    "tests/stats/test_data/runner/input/...". In the import repo these resolved
+    because run_test.sh invoked pytest from inside simple/. Here pytest runs from
+    the workspace root, so pin the working directory explicitly rather than
+    rewriting the fixtures.
 
-  This is also what keeps the suite order-independent: without it, a test that
-  changes the working directory leaks into every test that runs after it.
-  """
-  monkeypatch.chdir(_PACKAGE_ROOT)
+    This is also what keeps the suite order-independent: without it, a test that
+    changes the working directory leaks into every test that runs after it.
+    """
+    monkeypatch.chdir(_PACKAGE_ROOT)

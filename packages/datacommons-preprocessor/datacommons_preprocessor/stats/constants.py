@@ -46,11 +46,13 @@ the keys in the dictionary are lower-case as well.
 
 Also, keep the keys sorted so it's easier to spot check should the list get large.
 """
-PRE_RESOLVED_INPUT_COLUMNS_TO_PREFIXES = dict([
-    ("dcid", ""),
-    ("countryAlpha3Code".lower(), "country/"),
-    ("geoId".lower(), "geoId/"),
-])
+PRE_RESOLVED_INPUT_COLUMNS_TO_PREFIXES = dict(
+    [
+        ("dcid", ""),
+        ("countryAlpha3Code".lower(), "country/"),
+        ("geoId".lower(), "geoId/"),
+    ]
+)
 """
 Dictionary of columns names that need to be externally resolved 
 to property names that should be used for resolution.
@@ -60,10 +62,13 @@ the keys in the dictionary are lower-case as well.
 
 Also, keep the keys sorted so it's easier to spot check should the list get large.
 """
-EXTERNALLY_RESOLVED_INPUT_COLUMNS_TO_PREFIXES = dict([
-    ("lat#lng", "geoCoordinate"), ("name", PROPERTY_DESCRIPTION),
-    ("wikidataId".lower(), "wikidataId")
-])
+EXTERNALLY_RESOLVED_INPUT_COLUMNS_TO_PREFIXES = dict(
+    [
+        ("lat#lng", "geoCoordinate"),
+        ("name", PROPERTY_DESCRIPTION),
+        ("wikidataId".lower(), "wikidataId"),
+    ]
+)
 
 DCID_OVERRIDE_PREFIX = "dcid:"
 

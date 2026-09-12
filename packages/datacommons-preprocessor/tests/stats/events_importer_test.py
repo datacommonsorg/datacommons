@@ -34,115 +34,120 @@ from tests.stats.test_util import write_observations
 from tests.stats.test_util import write_triples
 from datacommons_preprocessor.util.filesystem import create_store
 
-_TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                              "test_data", "events_importer")
+_TEST_DATA_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "test_data", "events_importer"
+)
 _INPUT_DIR = os.path.join(_TEST_DATA_DIR, "input")
 _EXPECTED_DIR = os.path.join(_TEST_DATA_DIR, "expected")
 
 
 def _test_import(test: unittest.TestCase, test_name: str):
-  test.maxDiff = None
+    test.maxDiff = None
 
-  with tempfile.TemporaryDirectory() as temp_dir:
-    input_store = create_store(_INPUT_DIR)
-    temp_store = create_store(temp_dir)
+    with tempfile.TemporaryDirectory() as temp_dir:
+        input_store = create_store(_INPUT_DIR)
+        temp_store = create_store(temp_dir)
 
-    input_file_name = f"{test_name}.csv"
-    input_file = input_store.as_dir().open_file(input_file_name,
-                                                create_if_missing=False)
-    input_config_file = input_store.as_dir().open_file("config.json",
-                                                       create_if_missing=False)
-    db_file_name = f"{test_name}.db"
-    db_path = os.path.join(temp_dir, db_file_name)
-    db_file = temp_store.as_dir().open_file(db_file_name)
+        input_file_name = f"{test_name}.csv"
+        input_file = input_store.as_dir().open_file(
+            input_file_name, create_if_missing=False
+        )
+        input_config_file = input_store.as_dir().open_file(
+            "config.json", create_if_missing=False
+        )
+        db_file_name = f"{test_name}.db"
+        db_path = os.path.join(temp_dir, db_file_name)
+        db_file = temp_store.as_dir().open_file(db_file_name)
 
-    output_triples_path = os.path.join(temp_dir, f"{test_name}.triples.db.csv")
-    expected_triples_path = os.path.join(_EXPECTED_DIR,
-                                         f"{test_name}.triples.db.csv")
-    output_observations_path = os.path.join(temp_dir,
-                                            f"{test_name}.observations.db.csv")
-    expected_observations_path = os.path.join(
-        _EXPECTED_DIR, f"{test_name}.observations.db.csv")
+        output_triples_path = os.path.join(temp_dir, f"{test_name}.triples.db.csv")
+        expected_triples_path = os.path.join(
+            _EXPECTED_DIR, f"{test_name}.triples.db.csv"
+        )
+        output_observations_path = os.path.join(
+            temp_dir, f"{test_name}.observations.db.csv"
+        )
+        expected_observations_path = os.path.join(
+            _EXPECTED_DIR, f"{test_name}.observations.db.csv"
+        )
 
-    config = Config(data=json.loads(input_config_file.read()))
-    nodes = Nodes(config)
+        config = Config(data=json.loads(input_config_file.read()))
+        nodes = Nodes(config)
 
-    db = create_and_update_db(create_sqlite_config(db_file))
-    debug_resolve_file = temp_store.as_dir().open_file("debug.csv")
-    report_file = temp_store.as_dir().open_file("report.json")
-    reporter = FileImportReporter(input_file.full_path(),
-                                  ImportReporter(report_file))
+        db = create_and_update_db(create_sqlite_config(db_file))
+        debug_resolve_file = temp_store.as_dir().open_file("debug.csv")
+        report_file = temp_store.as_dir().open_file("report.json")
+        reporter = FileImportReporter(
+            input_file.full_path(), ImportReporter(report_file)
+        )
 
-    EventsImporter(input_file=input_file,
-                   db=db,
-                   debug_resolve_file=debug_resolve_file,
-                   reporter=reporter,
-                   nodes=nodes).do_import()
-    db.insert_triples(nodes.triples())
-    db.commit_and_close()
+        EventsImporter(
+            input_file=input_file,
+            db=db,
+            debug_resolve_file=debug_resolve_file,
+            reporter=reporter,
+            nodes=nodes,
+        ).do_import()
+        db.insert_triples(nodes.triples())
+        db.commit_and_close()
 
-    write_triples(db_path, output_triples_path)
-    write_observations(db_path, output_observations_path)
+        write_triples(db_path, output_triples_path)
+        write_observations(db_path, output_observations_path)
 
-    if is_write_mode():
-      shutil.copy(output_triples_path, expected_triples_path)
-      shutil.copy(output_observations_path, expected_observations_path)
-      return
+        if is_write_mode():
+            shutil.copy(output_triples_path, expected_triples_path)
+            shutil.copy(output_observations_path, expected_observations_path)
+            return
 
-    compare_files(test, output_triples_path, expected_triples_path)
-    compare_files(test, output_observations_path, expected_observations_path)
+        compare_files(test, output_triples_path, expected_triples_path)
+        compare_files(test, output_observations_path, expected_observations_path)
 
-    input_store.close()
-    temp_store.close()
+        input_store.close()
+        temp_store.close()
 
 
 class TestEventsImporter(unittest.TestCase):
+    def test_countryalpha3codes(self):
+        _test_import(self, "countryalpha3codes")
 
-  def test_countryalpha3codes(self):
-    _test_import(self, "countryalpha3codes")
+    def test_idcolumns(self):
+        _test_import(self, "idcolumns")
 
-  def test_idcolumns(self):
-    _test_import(self, "idcolumns")
-
-  def test_column_mappings_semantic(self):
-    config = Config(
-        data={
-            "inputFiles": {
-                "events.csv": {
-                    "eventType": "CrimeEvent",
-                    "entityType": "Country",
-                    "columnMappings": {
-                        "dcid:location": "My_Location",
-                        "dcid:observationDate": "My_Date",
-                        "dcid:IUCR": "My_IUCR",
-                    },
-                }
-            },
-            "sources": {
-                "S1": {
-                    "url": "http://s1",
-                    "provenances": {
-                        "P1": "http://p1"
+    def test_column_mappings_semantic(self):
+        config = Config(
+            data={
+                "inputFiles": {
+                    "events.csv": {
+                        "eventType": "CrimeEvent",
+                        "entityType": "Country",
+                        "columnMappings": {
+                            "dcid:location": "My_Location",
+                            "dcid:observationDate": "My_Date",
+                            "dcid:IUCR": "My_IUCR",
+                        },
                     }
-                }
-            },
-        })
-    nodes = Nodes(config)
-    mock_input = MagicMock()
-    mock_input.path = "events.csv"
-    mock_input.full_path.return_value = "events.csv"
-    mock_input.read_string_io.return_value = io.StringIO(
-        "My_Date,My_Location,My_IUCR\n2023-01-01,country/USA,860\n")
-    importer = EventsImporter(
-        input_file=mock_input,
-        db=MagicMock(),
-        debug_resolve_file=MagicMock(),
-        reporter=MagicMock(),
-        nodes=nodes,
-    )
-    importer._read_csv()
-    importer._rename_columns()
-    self.assertEqual(
-        list(importer.df.columns),
-        [constants.COLUMN_DATE, constants.COLUMN_DCID, "IUCR"],
-    )
+                },
+                "sources": {
+                    "S1": {"url": "http://s1", "provenances": {"P1": "http://p1"}}
+                },
+            }
+        )
+        nodes = Nodes(config)
+        mock_input = MagicMock()
+        mock_input.path = "events.csv"
+        mock_input.full_path.return_value = "events.csv"
+        mock_input.read_string_io.return_value = io.StringIO(
+            "My_Date,My_Location,My_IUCR\n2023-01-01,country/USA,860\n"
+        )
+        importer = EventsImporter(
+            input_file=mock_input,
+            db=MagicMock(),
+            debug_resolve_file=MagicMock(),
+            reporter=MagicMock(),
+            nodes=nodes,
+        )
+        importer._read_csv()
+        importer._rename_columns()
+        self.assertEqual(
+            list(importer.df.columns),
+            [constants.COLUMN_DATE, constants.COLUMN_DCID, "IUCR"],
+        )

@@ -27,12 +27,11 @@ from datacommons_preprocessor.stats.runner import Runner
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string("config_file", None, "The config file.")
-flags.DEFINE_string("input_dir", constants.DEFAULT_INPUT_DIR,
-                    "The input directory.")
-flags.DEFINE_string("output_dir", constants.DEFAULT_OUTPUT_DIR,
-                    "The output directory.")
-flags.DEFINE_list("imports", [],
-                  "The names of the imports (subdirectories under input_dir).")
+flags.DEFINE_string("input_dir", constants.DEFAULT_INPUT_DIR, "The input directory.")
+flags.DEFINE_string("output_dir", constants.DEFAULT_OUTPUT_DIR, "The output directory.")
+flags.DEFINE_list(
+    "imports", [], "The names of the imports (subdirectories under input_dir)."
+)
 flags.DEFINE_enum(
     "mode",
     RunMode.CUSTOM_DC,
@@ -61,31 +60,31 @@ _FREEZE_TIME_IGNORE_LIST = ["transformers"]
 
 
 def _run():
-  # Configure requests adapter default pool size to support parallel GCS uploads
-  requests.adapters.DEFAULT_POOLSIZE = 32
+    # Configure requests adapter default pool size to support parallel GCS uploads
+    requests.adapters.DEFAULT_POOLSIZE = 32
 
-  initialize_logger()
-  logging.info("Starting stats data importer job in mode: %s", FLAGS.mode)
+    initialize_logger()
+    logging.info("Starting stats data importer job in mode: %s", FLAGS.mode)
 
-  Runner(
-      config_file_path=FLAGS.config_file,
-      input_dir_path=FLAGS.input_dir,
-      output_dir_path=FLAGS.output_dir,
-      mode=FLAGS.mode,
-      import_names=FLAGS.imports,
-      import_proxy_entities=FLAGS.import_proxy_entities,
-  ).run()
-  logging.info("Runner finished successfully.")
+    Runner(
+        config_file_path=FLAGS.config_file,
+        input_dir_path=FLAGS.input_dir,
+        output_dir_path=FLAGS.output_dir,
+        mode=FLAGS.mode,
+        import_names=FLAGS.imports,
+        import_proxy_entities=FLAGS.import_proxy_entities,
+    ).run()
+    logging.info("Runner finished successfully.")
 
 
 def main(_):
-  if FLAGS.freeze_time:
-    logging.info("Running with time frozen at: %s", FLAGS.frozen_time)
-    with freeze_time(FLAGS.frozen_time, ignore=_FREEZE_TIME_IGNORE_LIST):
-      _run()
-  else:
-    _run()
+    if FLAGS.freeze_time:
+        logging.info("Running with time frozen at: %s", FLAGS.frozen_time)
+        with freeze_time(FLAGS.frozen_time, ignore=_FREEZE_TIME_IGNORE_LIST):
+            _run()
+    else:
+        _run()
 
 
 if __name__ == "__main__":
-  app.run(main)
+    app.run(main)

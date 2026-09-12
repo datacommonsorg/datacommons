@@ -25,15 +25,13 @@ from datacommons_preprocessor.kg_util import mcf_parser
 
 
 def _triplify(mcf_str):
-  return list(mcf_parser.mcf_to_triples(io.StringIO(mcf_str)))
+    return list(mcf_parser.mcf_to_triples(io.StringIO(mcf_str)))
 
 
 class MCFParserTest(unittest.TestCase):
-
-  def test_failure(self):
-
-    # yapf: disable
-    mcf_errmsg_list = [
+    def test_failure(self):
+        # yapf: disable
+        mcf_errmsg_list = [
         (
             'PropertyWithoutNode: Value',
             'Line 1: Prop-Values before Node or Context block'
@@ -74,17 +72,16 @@ class MCFParserTest(unittest.TestCase):
             'Line 4: duplicate values for namespace prefix rs:'
         ),
     ]
-    # yapf: enable
+        # yapf: enable
 
-    for (mcf, errmsg) in mcf_errmsg_list:
-      with self.assertRaises(AssertionError) as context:
-        _triplify(mcf)
-      self.assertTrue(errmsg in str(context.exception))
+        for mcf, errmsg in mcf_errmsg_list:
+            with self.assertRaises(AssertionError) as context:
+                _triplify(mcf)
+            self.assertTrue(errmsg in str(context.exception))
 
-  def test_success(self):
-
-    # yapf: disable
-    mcf_triples_list = [
+    def test_success(self):
+        # yapf: disable
+        mcf_triples_list = [
         (
             # Test simple MCF, with multiple values & different value types.
             """
@@ -195,27 +192,30 @@ class MCFParserTest(unittest.TestCase):
             ]
         ),
     ]
-    # yapf: enable
+        # yapf: enable
 
-    for (mcf, want) in mcf_triples_list:
-      got = _triplify(mcf)
-      self.assertEqual(got, want)
+        for mcf, want in mcf_triples_list:
+            got = _triplify(mcf)
+            self.assertEqual(got, want)
 
-  @patch('datacommons_preprocessor.kg_util.mcf_parser.reader',
-         side_effect=Exception('Mock reader error'))
-  def test_parse_error(self, mock_reader):
-    mcf = """
+    @patch(
+        "datacommons_preprocessor.kg_util.mcf_parser.reader",
+        side_effect=Exception("Mock reader error"),
+    )
+    def test_parse_error(self, mock_reader):
+        mcf = """
         Node: dcid:dc/mx44
         typeOf: schema:City
         name: "Über"
     """
 
-    with self.assertRaises(ValueError) as context:
-      _triplify(mcf)
-    self.assertIn('Error parsing property typeOf in node dcid:dc/mx44',
-                  str(context.exception))
-    self.assertIn('Mock reader error', str(context.exception.__cause__))
+        with self.assertRaises(ValueError) as context:
+            _triplify(mcf)
+        self.assertIn(
+            "Error parsing property typeOf in node dcid:dc/mx44", str(context.exception)
+        )
+        self.assertIn("Mock reader error", str(context.exception.__cause__))
 
 
-if __name__ == '__main__':
-  unittest.main()
+if __name__ == "__main__":
+    unittest.main()

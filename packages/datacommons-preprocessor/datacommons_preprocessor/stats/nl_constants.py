@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-This file includes constants for artifacts used from main dc for 
+This file includes constants for artifacts used from main dc for
 generating a custom catalog yaml.
 
 See this for full reference:

@@ -20,15 +20,14 @@ from tests.stats.test_util import use_fake_gzip_time
 
 
 class TestUtil(unittest.TestCase):
+    def test_encode_decode_json(self):
+        use_fake_gzip_time()
 
-  def test_encode_decode_json(self):
-    use_fake_gzip_time()
+        data = {"foo": "bar"}
+        expected_encoded_string = "H4sIAAAAAAAC/6tWSsvPV7JSUEpKLFKqBQDfwKkADgAAAA=="
 
-    data = {"foo": "bar"}
-    expected_encoded_string = "H4sIAAAAAAAC/6tWSsvPV7JSUEpKLFKqBQDfwKkADgAAAA=="
+        encoded_string = gzip_and_base64_encode_json(data)
+        self.assertEqual(encoded_string, expected_encoded_string, "encoded string")
 
-    encoded_string = gzip_and_base64_encode_json(data)
-    self.assertEqual(encoded_string, expected_encoded_string, "encoded string")
-
-    decoded_data = base64_decode_and_gunzip_json(encoded_string)
-    self.assertDictEqual(decoded_data, data, "decoded json")
+        decoded_data = base64_decode_and_gunzip_json(encoded_string)
+        self.assertDictEqual(decoded_data, data, "decoded json")

@@ -23,10 +23,9 @@ from datacommons_preprocessor.util import dc_client
 # Gets names of the specified dcids first from db and any remaining
 # ones from remote dc.
 def get_schema_names(dcids: list[str], db: Db) -> dict[str, str]:
-  db_dcid2name = db.select_entity_names(dcids)
-  dcids = list(filter(lambda x: x not in db_dcid2name, dcids))
-  remote_dcid2name = {}
-  if dcids:
-    remote_dcid2name = dc_client.get_property_of_entities(
-        dcids, sc.PREDICATE_NAME)
-  return remote_dcid2name | db_dcid2name
+    db_dcid2name = db.select_entity_names(dcids)
+    dcids = list(filter(lambda x: x not in db_dcid2name, dcids))
+    remote_dcid2name = {}
+    if dcids:
+        remote_dcid2name = dc_client.get_property_of_entities(dcids, sc.PREDICATE_NAME)
+    return remote_dcid2name | db_dcid2name
