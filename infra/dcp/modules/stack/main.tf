@@ -496,6 +496,7 @@ check "warn_pruning_accidentally_left_on" {
 check "warn_pruning_revisions_confirmation" {
   assert {
     condition = !(
+      var.network_config.enable &&
       var.network_config.prune_cloud_run_revisions &&
       !var.network_config.enable_workload_vpc
     )
@@ -504,7 +505,7 @@ check "warn_pruning_revisions_confirmation" {
 }
 
 resource "terraform_data" "prune_cloud_run_revisions" {
-  count = var.network_config.prune_cloud_run_revisions && !var.network_config.enable_workload_vpc ? 1 : 0
+  count = var.network_config.enable && var.network_config.prune_cloud_run_revisions && !var.network_config.enable_workload_vpc ? 1 : 0
 
   triggers_replace = [
     var.network_config.prune_cloud_run_revisions,
