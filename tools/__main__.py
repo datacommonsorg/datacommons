@@ -12,19 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-steps:
-  # Build the container image
-  - name: 'gcr.io/cloud-builders/docker'
-    args: 
-      - 'build'
-      - '-t'
-      - 'us-docker.pkg.dev/datcom-ci/gcr.io/datacommons-platform:latest'
-      - '-t'
-      - 'us-docker.pkg.dev/datcom-ci/gcr.io/datacommons-platform:$SHORT_SHA'
-      - '-f'
-      - 'build/Dockerfile'
-      - '.'
+"""Entrypoint for python -m tools invocation."""
 
-images:
-  - 'us-docker.pkg.dev/datcom-ci/gcr.io/datacommons-platform:latest'
-  - 'us-docker.pkg.dev/datcom-ci/gcr.io/datacommons-platform:$SHORT_SHA'
+from tools.cli import cli
+
+if __name__ == "__main__":
+    cli()

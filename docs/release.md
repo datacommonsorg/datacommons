@@ -2,6 +2,8 @@
 
 This guide details the release procedure for the Data Commons Platform (DCP). All platform packages (`datacommons-cli`, `datacommons-admin`, etc.), Terraform modules, and container images share unified lockstep versioning anchored by the root [`VERSION`](../VERSION) file and the centralized versioning script [`deploy/scripts/apply_version_bump.py`](../deploy/scripts/apply_version_bump.py).
 
+* **Looking for the operational cheatsheet?** Refer to [deploy/README.md](../deploy/README.md) for quick `gcloud builds submit` commands and script references.
+
 ---
 
 ## 1. High-Level Release Overview

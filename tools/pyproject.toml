@@ -1,0 +1,31 @@
+[project]
+name = "dcp-tools"
+version = "0.1.0"
+description = "Internal developer tooling suite for Data Commons Platform"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+dependencies = [
+  "click>=8.1.7",
+]
+
+[project.scripts]
+dcp-tools = "tools.cli:cli"
+
+[build-system]
+requires = ["uv", "setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-dir]
+tools = "."
+
+[tool.setuptools]
+packages = [
+    "tools",
+    "tools.migrations",
+    "tools.migrations.templates",
+    "tools.migrations.tests",
+]
+
+[tool.setuptools.package-data]
+"tools.migrations" = ["templates/*"]
