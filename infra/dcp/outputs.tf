@@ -69,3 +69,18 @@ output "ingestion_input_path" {
   description = "The GCS root directory where input data files are stored."
   value       = var.ingestion_input_path
 }
+
+output "network_id" {
+  description = "ID of the VPC network"
+  value       = module.stack.network_id
+}
+
+output "subnet_id" {
+  description = "ID of the private subnetwork"
+  value       = module.stack.subnet_id
+}
+
+output "subnet_url" {
+  description = "URL / self_link of the private subnetwork"
+  value       = module.stack.subnet_url
+}
