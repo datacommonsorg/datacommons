@@ -12,25 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""tools.cli - Unified DevOps CLI for Data Commons Platform internal developer tools.
+"""datacommons_devtools.cli - Unified DevOps CLI for Data Commons Platform internal developer tools.
 
-Provides a unified entrypoint for developer tooling under the `dcp-tools` command.
+Provides a unified entrypoint for developer tooling under `datacommons-devtools`
+(short alias: `dc-devtools`).
 
 USAGE EXAMPLES:
   # Create a new migration script
-  uv run dcp-tools migrations create add_node_tables -d "Add Node and Edge tables"
+  uv run datacommons-devtools migrations create add_node_tables -d "Add Node and Edge tables"
 
   # Bump an existing migration script during merge conflict / rebase
-  uv run dcp-tools migrations bump add_node_tables
+  uv run datacommons-devtools migrations bump add_node_tables
 """
 
 import click
 
-from tools.migrations.cli import cli as migrations_cli
+from datacommons_devtools.migrations.cli import cli as migrations_cli
 
 
 @click.group(
-    name="dcp-tools",
+    name="datacommons-devtools",
     help="Unified DevOps CLI suite for Data Commons Platform developer tooling.",
 )
 def cli() -> None:
