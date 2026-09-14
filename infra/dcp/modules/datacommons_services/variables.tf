@@ -35,6 +35,18 @@ variable "memory" {
   type = string
 }
 
+variable "cpu_idle" {
+  type        = bool
+  description = "When true, CPU is only allocated during request processing (cheaper for low-traffic services). When false, CPU is always allocated (better performance, avoids cold starts)."
+  default     = false
+}
+
+variable "startup_cpu_boost" {
+  type        = bool
+  description = "Temporarily boost CPU allocation during container startup to reduce cold start latency."
+  default     = true
+}
+
 variable "min_instances" {
   type = number
 }

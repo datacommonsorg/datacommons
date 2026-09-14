@@ -18,6 +18,10 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
     timeout = "1800s"
     containers {
       image = var.image
+      resources {
+        cpu_idle          = var.cpu_idle
+        startup_cpu_boost = var.startup_cpu_boost
+      }
 
       env {
         name  = "PROJECT_ID"

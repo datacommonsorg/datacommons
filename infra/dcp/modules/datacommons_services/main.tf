@@ -40,6 +40,8 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
     containers {
       image = var.image
       resources {
+        cpu_idle          = var.cpu_idle
+        startup_cpu_boost = var.startup_cpu_boost
         limits = {
           cpu    = var.cpu
           memory = var.memory
