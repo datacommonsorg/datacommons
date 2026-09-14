@@ -21,7 +21,7 @@ CREATE TABLE LinkedEdge (
   ancestor STRING(1024) NOT NULL,
   child_type STRING(1024) NOT NULL,
   child STRING(1024) NOT NULL,
-  provenance STRING(1024) NOT NULL,
+  provenance STRING(1024) NOT NULL
 ) PRIMARY KEY(predicate, ancestor, child_type, child, provenance)
 """.strip()
 
