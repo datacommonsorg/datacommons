@@ -55,10 +55,13 @@ def test_sdmx_client_init_service_account_fallback() -> None:
 
 
 def test_sdmx_client_init_auth_failure() -> None:
-    with patch(
-        "google.auth.default",
-        side_effect=Exception("No credentials available"),
-    ), pytest.raises(SdmxAuthError, match="Failed to authenticate"):
+    with (
+        patch(
+            "google.auth.default",
+            side_effect=Exception("No credentials available"),
+        ),
+        pytest.raises(SdmxAuthError, match="Failed to authenticate"),
+    ):
         SdmxClient("https://service.run.app")
 
 
@@ -174,3 +177,62 @@ def test_sdmx_client_network_error() -> None:
     client = SdmxClient("https://mock-service", session=mock_session)
     with pytest.raises(SdmxClientError, match="Network error connecting"):
         client.get_data("Var")
+
+
+def _build_response(
+    status_code: int, reason: str, body: bytes, content_type: str
+) -> requests.Response:
+    response = requests.Response()
+    response.status_code = status_code
+    response.reason = reason
+    response._content = body
+    response.headers["Content-Type"] = content_type
+    return response
+
+
+@pytest.mark.parametrize(
+    ("status_code", "reason", "body", "content_type", "expected"),
+    [
+        # Bodies with no usable detail fall back to the HTTP reason phrase.
+        (401, "Unauthorized", b"", "text/plain", "Unauthorized"),
+        (500, "Internal Server Error", b"   \n", "text/plain", "Internal Server Error"),
+        (400, "Bad Request", b"{}", "application/json", "Bad Request"),
+        (502, "Bad Gateway", b"null", "application/json", "Bad Gateway"),
+        (504, "Gateway Timeout", b"<html>nginx</html>", "text/html", "Gateway Timeout"),
+        # Bodies with usable detail are surfaced as-is.
+        (
+            400,
+            "Bad Request",
+            b'{"message": "unsupported component"}',
+            "application/json",
+            "unsupported component",
+        ),
+        (
+            403,
+            "Forbidden",
+            b'{"error": "permission denied"}',
+            "application/json",
+            "permission denied",
+        ),
+        (403, "Forbidden", b'{"code": 7}', "application/json", '{"code": 7}'),
+        (400, "Bad Request", b"malformed dataflow", "text/plain", "malformed dataflow"),
+    ],
+)
+def test_sdmx_client_error_message_extraction(
+    status_code: int,
+    reason: str,
+    body: bytes,
+    content_type: str,
+    expected: str,
+) -> None:
+    mock_session = MagicMock()
+    mock_session.get.return_value = _build_response(
+        status_code, reason, body, content_type
+    )
+
+    client = SdmxClient("https://mock-service", session=mock_session)
+    with pytest.raises(SdmxAPIError) as exc_info:
+        client.get_data("Var")
+
+    assert exc_info.value.status_code == status_code
+    assert exc_info.value.message == expected

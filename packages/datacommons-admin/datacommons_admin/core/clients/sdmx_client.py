@@ -212,25 +212,41 @@ class SdmxClient:
             ) from e
 
         if not response.ok:
-            try:
-                err_data = response.json()
-                if isinstance(err_data, dict):
-                    err_msg = (
-                        err_data.get("message")
-                        or err_data.get("error")
-                        or response.text
-                    )
-                else:
-                    err_msg = str(err_data)
-            except (ValueError, TypeError):
-                err_text = response.text.strip()
-                if err_text.startswith("<"):
-                    err_msg = f"HTTP {response.status_code} {response.reason}"
-                else:
-                    err_msg = err_text
-            raise SdmxAPIError(response.status_code, err_msg, response=response)
+            raise SdmxAPIError(
+                response.status_code,
+                self._extract_error_message(response),
+                response=response,
+            )
 
         return response
+
+    @staticmethod
+    def _extract_error_message(response: requests.Response) -> str:
+        """Extracts the most informative error message from a non-OK response.
+
+        Falls back to the HTTP reason phrase (e.g. 'Unauthorized') so that
+        responses with blank or uninformative bodies still surface a meaningful
+        description of the failure.
+        """
+        err_msg = ""
+        try:
+            err_data = response.json()
+        except (ValueError, TypeError):
+            err_text = response.text.strip()
+            # HTML bodies (e.g. from a proxy or load balancer error page) are too
+            # noisy to surface verbatim, so leave them to the reason fallback.
+            if not err_text.startswith("<"):
+                err_msg = err_text
+        else:
+            if isinstance(err_data, dict):
+                err_msg = str(err_data.get("message") or err_data.get("error") or "")
+                # Surface the raw payload when it has content but no known error field.
+                if not err_msg.strip() and err_data:
+                    err_msg = response.text
+            elif err_data is not None:
+                err_msg = str(err_data)
+
+        return err_msg.strip() or response.reason or "Unknown error"
 
     def get_data(
         self,
@@ -298,9 +314,7 @@ class SdmxClient:
         Returns:
             Parsed JSON dictionary containing dataConstraints, or raw text if non-JSON.
         """
-        params = self.build_query_params(
-            variable=variable, constraints=constraints
-        )
+        params = self.build_query_params(variable=variable, constraints=constraints)
         path = f"core/api/sdmx/v3/availability/dataflow/{dataflow.lstrip('/')}/{component_id}"
         response = self.request(
             path,

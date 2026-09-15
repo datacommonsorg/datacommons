@@ -286,4 +286,3 @@ def get_ingestion_workflow_name() -> str:
 def get_datacommons_service_url() -> str:
     """Convenience wrapper to fetch the datacommons_service_url Terraform output."""
     return get_terraform_output(TF_OUTPUT_DATACOMMONS_SERVICE_URL)
-

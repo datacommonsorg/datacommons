@@ -388,4 +388,3 @@ def test_get_datacommons_service_url(mock_terraform_sdmx) -> None:
     from datacommons_admin.core.utils.tf_utils import get_datacommons_service_url
 
     assert get_datacommons_service_url() == "https://mock-dc-service"
-
