@@ -32,9 +32,7 @@ def mock_sdmx_session():
 
 
 @pytest.mark.usefixtures("mock_terraform_sdmx")
-def test_sdmx_data_success(
-    mock_sdmx_session: MagicMock, runner: CliRunner
-) -> None:
+def test_sdmx_data_success(mock_sdmx_session: MagicMock, runner: CliRunner) -> None:
     mock_resp = MagicMock()
     mock_resp.ok = True
     mock_resp.text = "STRUCTURE,STRUCTURE_ID,ACTION\ndataflow,DC:DF_OBS,I"
@@ -161,19 +159,12 @@ def test_sdmx_api_error_handling(
         ["sdmx", "availability", "invalidComp", "-v", "Var"],
     )
     assert result.exit_code != 0
-    assert (
-        "SDMX API returned HTTP 400: unsupported SDMX component"
-        in result.output
-    )
+    assert "SDMX API returned HTTP 400: unsupported SDMX component" in result.output
 
 
 @pytest.mark.usefixtures("mock_terraform_sdmx")
-def test_sdmx_network_error(
-    mock_sdmx_session: MagicMock, runner: CliRunner
-) -> None:
-    mock_sdmx_session.get.side_effect = requests.RequestException(
-        "Connection refused"
-    )
+def test_sdmx_network_error(mock_sdmx_session: MagicMock, runner: CliRunner) -> None:
+    mock_sdmx_session.get.side_effect = requests.RequestException("Connection refused")
 
     result = runner.invoke(
         admin,

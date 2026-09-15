@@ -215,4 +215,3 @@ def mock_terraform_sdmx(mock_tf_output_sdmx: str):
         mock_proc.stdout = mock_tf_output_sdmx
         mock_run.return_value = mock_proc
         yield mock_run
-
