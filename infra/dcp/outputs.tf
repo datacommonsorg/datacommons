@@ -69,3 +69,8 @@ output "ingestion_input_path" {
   description = "The GCS root directory where input data files are stored."
   value       = var.ingestion_input_path
 }
+
+output "ingestion_artifacts_path" {
+  description = "The GCS root directory where pre-processed files are placed for the next stage."
+  value       = var.ingestion_artifacts_path
+}

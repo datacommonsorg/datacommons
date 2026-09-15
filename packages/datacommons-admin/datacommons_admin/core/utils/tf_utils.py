@@ -31,6 +31,7 @@ TF_OUTPUT_INGESTION_WORKFLOW_SERVICE_ACCOUNT_EMAIL = (
 TF_OUTPUT_SPANNER_INSTANCE_ID = "spanner_instance_id"
 TF_OUTPUT_SPANNER_DATABASE_ID = "spanner_database_id"
 TF_OUTPUT_STORAGE_ARTIFACTS_BUCKET_NAME = "storage_artifacts_bucket_name"
+TF_OUTPUT_INGESTION_ARTIFACTS_PATH = "ingestion_artifacts_path"
 TF_OUTPUT_PROJECT_ID = "project_id"
 TF_OUTPUT_REGION = "region"
 TF_OUTPUT_INGESTION_WORKFLOW_NAME = "ingestion_workflow_name"
@@ -265,6 +266,10 @@ def get_spanner_database_id() -> str:
 def get_storage_artifacts_bucket_name() -> str:
     """Convenience wrapper to fetch the storage_artifacts_bucket_name Terraform output."""
     return get_terraform_output(TF_OUTPUT_STORAGE_ARTIFACTS_BUCKET_NAME)
+
+def get_ingestion_artifacts_path() -> str:
+    """Convenience wrapper to fetch the ingestion_artifacts_path Terraform output."""
+    return get_terraform_output(TF_OUTPUT_INGESTION_ARTIFACTS_PATH)
 
 def get_project_id() -> str:
     """Convenience wrapper to fetch the project_id Terraform output."""
