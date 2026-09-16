@@ -22,6 +22,7 @@ from datacommons_admin.core.utils.tf_utils import (
     get_region,
     get_ingestion_workflow_name,
     get_storage_artifacts_bucket_name,
+    get_ingestion_artifacts_path,
     get_spanner_instance_id,
     get_spanner_database_id,
 )
@@ -51,18 +52,10 @@ def start(imports: str) -> None:
     project_id = get_project_id()
     region = get_region()
     workflow_name = get_ingestion_workflow_name()
-    bucket_name = get_storage_artifacts_bucket_name()
+    temp_location = _resolve_temp_location()
+    spanner_instance = get_spanner_instance_id()
+    spanner_database = get_spanner_database_id()
 
-    spanner_instance = ""
-    spanner_database = ""
-    try:
-        spanner_instance = get_spanner_instance_id()
-    except Exception:
-        pass
-    try:
-        spanner_database = get_spanner_database_id()
-    except Exception:
-        pass
 
     click.secho(f"Found workflow: {workflow_name}", fg="green")
     click.secho(f"Found workflow service account: {sa_email}", fg="green")
@@ -80,7 +73,7 @@ def start(imports: str) -> None:
         location=region,
     )
     result = client.start_workflow(
-        bucket_name=bucket_name,
+        temp_location=temp_location,
         spanner_instance=spanner_instance,
         spanner_database=spanner_database,
         imports=imports,
@@ -116,3 +109,12 @@ def show_config() -> None:
         "No static Cloud Run preprocessor job exists.",
         fg="yellow",
     )
+
+def _resolve_temp_location() -> str:
+    """Composes the ingestion temp location from Terraform outputs.
+
+    Mirrors the TEMP_LOCATION env var defined in infra/dcp/modules/stack/main.tf.
+    """
+    bucket_name = get_storage_artifacts_bucket_name()
+    artifacts_path = get_ingestion_artifacts_path()
+    return f"gs://{bucket_name}/{artifacts_path.strip('/')}/temp"
