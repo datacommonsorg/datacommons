@@ -64,7 +64,6 @@ class IngestionJobClient:
 
     def start_workflow(
         self, 
-        bucket_name: str = None,
         temp_location: str = None,
         spanner_instance: str = "",
         spanner_database: str = "",
@@ -75,14 +74,7 @@ class IngestionJobClient:
             raise click.ClickException(
                 "Workflow name must be provided to start a workflow execution."
             )
-
-        if not temp_location:
-            if not bucket_name:
-                raise click.ClickException(
-                    "Either bucket_name or temp_location must be provided to start a ingestion."
-                )
-            temp_location = f"gs://{bucket_name}/ingestion/internal/temp"
-        
+  
         # Parse imports argument
         imports_list = []
         if imports:
@@ -135,3 +127,4 @@ class IngestionJobClient:
             return response.json()
         except Exception:
             return {"status": "success", "message": response.text}
+            
