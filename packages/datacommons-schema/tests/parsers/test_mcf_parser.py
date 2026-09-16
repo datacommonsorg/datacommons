@@ -16,7 +16,6 @@ import tempfile
 import unittest
 
 import pytest
-
 from datacommons_schema.parsers.mcf_parser import (
     MCFParseError,
     parse_mcf,
@@ -175,3 +174,59 @@ class TestMCF(unittest.TestCase):
                 nodes = list(parse_mcf(f2))
                 assert len(nodes) == 1
                 assert nodes[0].node_id == "Example"
+
+    def test_multi_entity_variable_parse(self):
+        """Tests parsing multi-entity custom properties and statistical variable with observationProperties."""
+        mcf = """
+    Node: dcid:custom:sourceCountry
+    typeOf: dcid:Property
+    name: "Source country"
+    domainIncludes: dcid:StatisticalVariable
+    rangeIncludes: dcid:Place
+
+    Node: dcid:custom:destinationCountry
+    typeOf: dcid:Property
+    name: "Destination country"
+    domainIncludes: dcid:StatisticalVariable
+    rangeIncludes: dcid:Place
+
+    Node: dcid:custom:FinancialTrade
+    typeOf: dcid:StatisticalVariable
+    name: "Financial Trade"
+    observationProperties: custom:sourceCountry, custom:destinationCountry
+    measuredProperty: dcs:value
+    """
+        nodes = list(parse_mcf_string(mcf))
+        assert len(nodes) == 3
+
+        source_node = nodes[0]
+        assert source_node.node_id == "dcid:custom:sourceCountry"
+        assert source_node.properties["typeOf"][0].get_value() == "dcid:Property"
+        assert (
+            source_node.properties["domainIncludes"][0].get_value()
+            == "dcid:StatisticalVariable"
+        )
+        assert source_node.properties["rangeIncludes"][0].get_value() == "dcid:Place"
+
+        dest_node = nodes[1]
+        assert dest_node.node_id == "dcid:custom:destinationCountry"
+
+        var_node = nodes[2]
+        assert var_node.node_id == "dcid:custom:FinancialTrade"
+        assert var_node.properties["name"][0].get_value() == "Financial Trade"
+        obs_props = var_node.properties["observationProperties"]
+        assert len(obs_props) == 2
+        assert obs_props[0].get_value() == "custom:sourceCountry"
+        assert obs_props[1].get_value() == "custom:destinationCountry"
+
+        # Also test dcid: prefix on observationProperties
+        mcf_dcid = """
+    Node: dcid:FinancialTrade
+    typeOf: dcid:StatisticalVariable
+    observationProperties: dcid:sourceCountry, dcid:destinationCountry
+    """
+        dcid_node = list(parse_mcf_string(mcf_dcid))[0]
+        dcid_obs_props = dcid_node.properties["observationProperties"]
+        assert len(dcid_obs_props) == 2
+        assert dcid_obs_props[0].get_value() == "dcid:sourceCountry"
+        assert dcid_obs_props[1].get_value() == "dcid:destinationCountry"
