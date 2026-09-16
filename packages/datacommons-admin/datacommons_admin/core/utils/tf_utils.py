@@ -267,9 +267,11 @@ def get_storage_artifacts_bucket_name() -> str:
     """Convenience wrapper to fetch the storage_artifacts_bucket_name Terraform output."""
     return get_terraform_output(TF_OUTPUT_STORAGE_ARTIFACTS_BUCKET_NAME)
 
+
 def get_ingestion_artifacts_path() -> str:
     """Convenience wrapper to fetch the ingestion_artifacts_path Terraform output."""
     return get_terraform_output(TF_OUTPUT_INGESTION_ARTIFACTS_PATH)
+
 
 def get_project_id() -> str:
     """Convenience wrapper to fetch the project_id Terraform output."""
