@@ -71,6 +71,6 @@ output "ingestion_input_path" {
 }
 
 output "ingestion_artifacts_path" {
-  description = "The GCS root directory where pre-processed files are placed for the next stage."
+  description = "The GCS path prefix where pre-processed files are placed for the next stage."
   value       = var.ingestion_artifacts_path
 }
