@@ -12,17 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""CLI command tests for developer migration DevOps tooling (tools/migrations/cli.py)."""
+"""CLI command tests for developer migration DevOps tooling (datacommons_devtools/migrations/cli.py)."""
 
 import json
 from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
-
-from tools.cli import cli as dcp_cli
-from tools.migrations import utils
-from tools.migrations.cli import cli
+from datacommons_devtools.cli import cli as devtools_cli
+from datacommons_devtools.migrations import utils
+from datacommons_devtools.migrations.cli import cli
 
 
 @pytest.fixture
@@ -34,7 +33,7 @@ def runner() -> CliRunner:
 def mock_migrations_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Isolates CLI tests to a temporary directory."""
     monkeypatch.setattr(
-        "tools.migrations.utils.get_default_migrations_dir",
+        "datacommons_devtools.migrations.utils.get_default_migrations_dir",
         lambda: tmp_path,
     )
     return tmp_path
@@ -102,7 +101,7 @@ def test_cli_create_command_duplicate_raises(
     """Verifies attempting to create a duplicate migration file with the same timestamp errors out."""
     fixed_now = "20260819120000", "2026-08-19T12:00:00Z"
     monkeypatch.setattr(
-        "tools.migrations.utils.generate_utc_timestamps",
+        "datacommons_devtools.migrations.utils.generate_utc_timestamps",
         lambda *_, **__: fixed_now,
     )
 
@@ -123,7 +122,7 @@ def test_cli_create_command_os_error_raises(
         raise PermissionError("Permission denied: cannot write to migrations dir")
 
     monkeypatch.setattr(
-        "tools.migrations.utils.create_migration_file",
+        "datacommons_devtools.migrations.utils.create_migration_file",
         mock_create_error,
     )
 
@@ -264,24 +263,24 @@ def test_cli_bump_command_help_shows_metavar(runner: CliRunner) -> None:
 
 
 # ==============================================================================
-# 3. 'dcp-tools' Unified CLI Integration Tests
+# 3. 'datacommons-devtools' Unified CLI Integration Tests
 # ==============================================================================
 
 
-def test_dcp_tools_cli_help(runner: CliRunner) -> None:
-    """Verifies top-level dcp-tools CLI help lists migrations command."""
-    result = runner.invoke(dcp_cli, ["--help"])
+def test_devtools_cli_help(runner: CliRunner) -> None:
+    """Verifies top-level datacommons-devtools CLI help lists migrations command."""
+    result = runner.invoke(devtools_cli, ["--help"])
     assert result.exit_code == 0
     assert "migrations" in result.output
     assert "Unified DevOps CLI suite for Data Commons Platform" in result.output
 
 
-def test_dcp_tools_migrations_create_invocation(
+def test_devtools_migrations_create_invocation(
     runner: CliRunner, tmp_path: Path
 ) -> None:
-    """Verifies invoking create via dcp-tools migrations create."""
+    """Verifies invoking create via datacommons-devtools migrations create."""
     result = runner.invoke(
-        dcp_cli,
+        devtools_cli,
         ["migrations", "create", "new_dataset", "-d", "Add dataset table"],
     )
     assert result.exit_code == 0
@@ -289,16 +288,14 @@ def test_dcp_tools_migrations_create_invocation(
     assert len(list(tmp_path.glob("*_new_dataset.py"))) == 1
 
 
-def test_dcp_tools_migrations_bump_invocation(
-    runner: CliRunner, tmp_path: Path
-) -> None:
-    """Verifies invoking bump via dcp-tools migrations bump."""
+def test_devtools_migrations_bump_invocation(runner: CliRunner, tmp_path: Path) -> None:
+    """Verifies invoking bump via datacommons-devtools migrations bump."""
     file_path = tmp_path / "20260817000000_new_dataset.py"
     file_path.write_text(
         utils.generate_migration_content("Add Dataset", "2026-08-17T00:00:00Z")
     )
     result = runner.invoke(
-        dcp_cli,
+        devtools_cli,
         ["migrations", "bump", "new_dataset", "-y"],
     )
     assert result.exit_code == 0

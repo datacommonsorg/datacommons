@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""tools.migrations.utils - Core Utilities for Migration Management.
+"""datacommons_devtools.migrations.utils - Core Utilities for Migration Management.
 
 Provides pure Python helper functions for creating and validating
 Spanner schema migration scripts in packages/datacommons-db.
@@ -36,6 +36,12 @@ def get_default_migrations_dir() -> Path:
 
     Searches upward from the current file and working directory to locate the
     local source tree migration scripts before falling back to package discovery.
+
+    Returns:
+        Path to the migration scripts directory.
+
+    Raises:
+        FileNotFoundError: If the migrations directory cannot be located.
     """
     rel_migration_path = (
         Path("packages")
@@ -62,8 +68,12 @@ def get_default_migrations_dir() -> Path:
     except (ImportError, AttributeError):
         pass
 
-    # Default fallback path relative to repository layout
-    return Path(__file__).resolve().parents[2] / rel_migration_path
+    # Every ancestor of this file and cwd was already checked above, so at
+    # this point there is no valid migrations directory to return.
+    raise FileNotFoundError(
+        "Could not locate packages/datacommons-db/datacommons_db/migrations/"
+        "migration_scripts. Run from within the repository."
+    )
 
 
 def sanitize_name(raw_name: str) -> str:
@@ -135,7 +145,7 @@ def generate_migration_content(description: str, creation_timestamp: str) -> str
     desc_literal = json.dumps(description)
 
     template_text = (
-        resources.files("tools.migrations.templates")
+        resources.files("datacommons_devtools.migrations.templates")
         .joinpath("migration_template.py")
         .read_text(encoding="utf-8")
     )
