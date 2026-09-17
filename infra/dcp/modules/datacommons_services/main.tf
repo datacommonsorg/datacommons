@@ -119,11 +119,16 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
       }
     }
 
+    # Direct VPC Egress
     dynamic "vpc_access" {
-      for_each = var.vpc_connector_id != null && var.vpc_connector_id != "" ? [1] : []
+      for_each = var.vpc_access != null ? [var.vpc_access] : []
       content {
-        connector = var.vpc_connector_id
-        egress    = "PRIVATE_RANGES_ONLY"
+        network_interfaces {
+          network    = vpc_access.value.network_id
+          subnetwork = vpc_access.value.subnet_id
+          tags       = ["dcp-service"]
+        }
+        egress = vpc_access.value.vpc_egress_mode
       }
     }
 

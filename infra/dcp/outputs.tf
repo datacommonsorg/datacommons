@@ -74,3 +74,17 @@ output "ingestion_artifacts_path" {
   description = "The GCS path to input files in the artifacts bucket."
   value       = var.ingestion_artifacts_path
 }
+output "network_id" {
+  description = "ID of the VPC network"
+  value       = module.stack.network_id
+}
+
+output "subnet_id" {
+  description = "ID of the private subnetwork"
+  value       = module.stack.subnet_id
+}
+
+output "subnet_url" {
+  description = "URL / self_link of the private subnetwork"
+  value       = module.stack.subnet_url
+}
