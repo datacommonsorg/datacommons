@@ -127,14 +127,25 @@ check "dataflow_private_ip_requires_subnetwork" {
   }
 }
 
-variable "dataflow_template_gcs_path" {
+variable "ingestion_dataflow_template_gcs_path" {
   type        = string
-  description = "GCS path to the Dataflow Flex Template container spec"
+  description = "GCS path to the ingestion Dataflow Flex Template container spec"
   nullable    = false
 
   validation {
-    condition     = can(regex("^gs://.+[.]json$", var.dataflow_template_gcs_path))
-    error_message = "The dataflow_template_gcs_path must be a valid GCS path starting with 'gs://' and ending with '.json'."
+    condition     = can(regex("^gs://.+[.]json$", var.ingestion_dataflow_template_gcs_path))
+    error_message = "The ingestion_dataflow_template_gcs_path must be a valid GCS path starting with 'gs://' and ending with '.json'."
+  }
+}
+
+variable "rollback_dataflow_template_gcs_path" {
+  type        = string
+  description = "GCS path to the rollback Dataflow Flex Template container spec"
+  nullable    = false
+
+  validation {
+    condition     = can(regex("^gs://.+[.]json$", var.rollback_dataflow_template_gcs_path))
+    error_message = "The rollback_dataflow_template_gcs_path must be a valid GCS path starting with 'gs://' and ending with '.json'."
   }
 }
 
