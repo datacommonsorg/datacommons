@@ -74,11 +74,16 @@ resource "google_cloud_run_v2_job" "dc_data_job" {
         }
 
       }
+      # Direct VPC Egress
       dynamic "vpc_access" {
-        for_each = var.vpc_connector_id != null && var.vpc_connector_id != "" ? [1] : []
+        for_each = var.vpc_access != null ? [var.vpc_access] : []
         content {
-          connector = var.vpc_connector_id
-          egress    = "PRIVATE_RANGES_ONLY"
+          network_interfaces {
+            network    = vpc_access.value.network_id
+            subnetwork = vpc_access.value.subnet_id
+            tags       = ["dcp-job"]
+          }
+          egress = vpc_access.value.vpc_egress_mode
         }
       }
 
