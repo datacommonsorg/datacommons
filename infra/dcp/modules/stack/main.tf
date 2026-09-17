@@ -20,6 +20,14 @@ locals {
   redis_host = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
   redis_port = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
 
+  effective_dataflow_subnetwork = (
+    var.ingestion_config.dataflow_subnetwork != "" ? var.ingestion_config.dataflow_subnetwork :
+    (var.network_config.enable && var.network_config.enable_workload_vpc && module.network.subnet_url != null ? module.network.subnet_url : "")
+  )
+  effective_dataflow_ip_configuration = (
+    local.effective_dataflow_subnetwork != "" ? var.ingestion_config.dataflow_ip_configuration : "WORKER_IP_UNSPECIFIED"
+  )
+
   cloud_run_shared_env_variables = [
     {
       name  = "USE_CLOUDSQL"
@@ -231,8 +239,8 @@ module "ingestion_workflow" {
   ingestion_helper_service_name       = "${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-ingestion-helper"
   enable_redis_cache_clearing         = var.redis_config.enable
   ingestion_artifacts_path            = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
-  dataflow_ip_configuration           = var.network_config.enable && var.network_config.enable_workload_vpc ? var.ingestion_config.dataflow_ip_configuration : "WORKER_IP_UNSPECIFIED"
-  dataflow_subnetwork                 = var.network_config.enable && var.network_config.enable_workload_vpc ? (var.ingestion_config.dataflow_subnetwork != "" ? var.ingestion_config.dataflow_subnetwork : (module.network.subnet_url != null ? module.network.subnet_url : "")) : ""
+  dataflow_ip_configuration           = local.effective_dataflow_ip_configuration
+  dataflow_subnetwork                 = local.effective_dataflow_subnetwork
   dataflow_template_gcs_path          = var.ingestion_config.dataflow_template_gcs_path
   dataflow_max_workers                = var.ingestion_config.dataflow_max_workers
   dataflow_num_workers                = var.ingestion_config.dataflow_num_workers
