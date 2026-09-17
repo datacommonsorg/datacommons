@@ -14,6 +14,7 @@ members = [
     "datacommons-api",
     "datacommons-cli",
     "datacommons-db",
+    "datacommons-devtools",
     "datacommons-platform",
     "datacommons-schema",
 ]
@@ -413,6 +414,16 @@ requires-dist = [
 dev = [{ name = "pytest", specifier = ">=9.0.2" }]
 
 [[package]]
+name = "datacommons-devtools"
+source = { editable = "packages/datacommons-devtools" }
+dependencies = [
+    { name = "click" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "click", specifier = ">=8.1.7" }]
+
+[[package]]
 name = "datacommons-platform"
 source = { editable = "." }
 dependencies = [
@@ -425,6 +436,7 @@ dev = [
     { name = "datacommons-api" },
     { name = "datacommons-client" },
     { name = "datacommons-db" },
+    { name = "datacommons-devtools" },
     { name = "datacommons-schema" },
     { name = "google-cloud-spanner" },
     { name = "google-cloud-storage" },
@@ -460,6 +472,7 @@ dev = [
     { name = "datacommons-api", editable = "packages/datacommons-api" },
     { name = "datacommons-client", specifier = ">=2.1.6" },
     { name = "datacommons-db", editable = "packages/datacommons-db" },
+    { name = "datacommons-devtools", editable = "packages/datacommons-devtools" },
     { name = "datacommons-schema", editable = "packages/datacommons-schema" },
     { name = "google-cloud-spanner", specifier = ">=3.40.0" },
     { name = "google-cloud-storage", specifier = ">=2.14.0" },

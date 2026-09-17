@@ -79,7 +79,7 @@ class DatacommonsCLI:
         self,
         args: list[str],
         env: dict | None = None,
-        timeout: int = 120,
+        timeout: int = 300,
         echo: bool = True,
     ) -> CLIResult:
         """Executes a datacommons CLI command within the workspace context."""
@@ -156,10 +156,14 @@ class DatacommonsCLI:
             return [
                 "uv",
                 "run",
-                "--index-url",
+                "--default-index",
                 "https://test.pypi.org/simple/",
-                "--extra-index-url",
+                "--index",
                 "https://pypi.org/simple/",
+                "--index-strategy",
+                "unsafe-first-match",
+                "--prerelease",
+                "allow",
                 "--with",
                 pkg_spec,
                 "datacommons",

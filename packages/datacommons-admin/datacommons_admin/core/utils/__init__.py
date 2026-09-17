@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datacommons_admin.core.utils import tf_utils, ui_utils
+from datacommons_admin.core.utils import models, tf_utils, ui_utils
 
 __all__ = [
+    "models",
     "tf_utils",
     "ui_utils",
 ]

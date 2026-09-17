@@ -15,9 +15,7 @@
 import os
 
 import click
-
 from datacommons_admin.admin_cli import admin as admin_cli
-
 from . import __version__
 
 

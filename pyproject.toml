@@ -22,7 +22,8 @@ dependencies = [
 [dependency-groups]
 dev = [
   {include-group = "lint"},
-  {include-group = "test"}
+  {include-group = "test"},
+  "datacommons-devtools",
 ]
 lint = [
   "pre-commit>=4.5.1",
@@ -54,6 +55,7 @@ datacommons-db = { workspace = true }
 datacommons-schema = { workspace = true }
 datacommons-cli = { workspace = true }
 datacommons-admin = { workspace = true }
+datacommons-devtools = { workspace = true }
 
 [tool.uv.workspace]
 members = [
@@ -128,7 +130,7 @@ extend-ignore = [
 "packages/*/datacommons_*/migrations/migration_scripts/*.py" = [
     "N999",   # Allow timestamp prefixes (e.g. 20260817000000_*.py) for migration scripts
 ]
-"tools/migrations/templates/*.py" = [
+"packages/datacommons-devtools/datacommons_devtools/migrations/templates/*.py" = [
     "ERA001", # Allow example commented-out code in migration template
     "F401",   # Allow pre-imported modules in migration template
 ]
@@ -170,26 +172,16 @@ url = "https://pypi.org/simple"
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
-[project.scripts]
-manage-migrations = "tools.migrations.manage_migrations_cli:cli"
-
 [tool.setuptools]
-packages = [
-    "tools",
-    "tools.migrations",
-    "tools.migrations.templates",
-    "tools.migrations.tests",
-]
-
-[tool.setuptools.package-data]
-"tools.migrations" = ["templates/*"]
+# Tell setuptools this is a meta-package and to stop looking for code
+packages = []
 
 [tool.setuptools.dynamic]
 version = {file = "VERSION"}
 
 [tool.pytest.ini_options]
 pythonpath = [".", "deploy/scripts"]
-testpaths = ["packages", "deploy/scripts/tests", "tools/migrations/tests"]
+testpaths = ["packages", "deploy/scripts/tests"]
 markers = [
     "cloud_only: mark test or class to run only against live GCP cloud targets.",
 ]

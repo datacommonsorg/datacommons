@@ -8,7 +8,8 @@ Data Commons powers [datacommons.org](https://datacommons.org), Google's open kn
 
 ## Getting Started
 
-This guide covers setting up Data Commons in Google Cloud Platform (GCP), defining schemas in JSON-LD, adding data via the command-line interface, and querying relationships.
+* **Deploying or operating a DCP instance?** If you are an instance owner, data steward, or administrator looking to install and run your own Data Commons instance, follow the **[Data Commons Platform User Guide](docs/user_guide.md)**.
+* **Developing or contributing to the codebase?** If you are an engineer contributing to DCP, start with the hands-on **[Developer Onboarding Codelab](docs/codelabs/dcp_developer_onboarding.md)** for a guided tutorial deploying and testing an instance, consult the **[Developer Guide](docs/developer_guide.md)** for workbench recipes and monorepo topology, and review **[CONTRIBUTING.md](CONTRIBUTING.md)** for pull request guidelines.
 
 ## Prerequisites
 
@@ -44,4 +45,49 @@ terraform plan
 terraform apply
 ```
 
-For the full infrastructure module and complete variable reference, see the detailed [GCP Infrastructure Guide](infra/dcp/README.md).
+Once infrastructure is deployed, initialize the database and trigger data ingestion using the CLI.
+
+You can run these commands directly from your Terraform deployment directory (where state outputs are detected automatically), or from anywhere by passing the `--project-id` and `--instance-name` flags:
+
+#### Option A: Run from your Terraform directory
+```bash
+# Run from inside your deployment folder (e.g. cd prod/)
+uv run datacommons admin init-db
+
+# Trigger data ingestion
+uv run datacommons admin ingest start --imports <import_name>
+```
+
+#### Option B: Run from anywhere (Remote GCS State)
+```bash
+# Run from any directory or CI/CD runner without local Terraform files
+uv run datacommons admin --project-id my-gcp-project --instance-name prod init-db
+
+# Trigger data ingestion
+uv run datacommons admin --project-id my-gcp-project --instance-name prod ingest start --imports <import_name>
+```
+
+## Documentation & Guides
+
+### User Documentation (DCP Instance Owners and Administrators)
+
+If you are an instance owner, data steward, or administrator looking to install, configure, and manage a Data Commons instance:
+
+* **[Data Commons Platform User Guide](docs/user_guide.md)**: Master operational manual covering platform deployment, schema modeling, data ingestion, and instance administration.
+* **[CLI Reference & Cheatsheet](packages/datacommons-cli/README.md)**: Full command reference and operational CLI cheatsheet for instance management, database migrations, and data ingestions.
+
+### Developer Documentation (Platform Contributors)
+
+If you are an engineer contributing to the codebase, creating new services, or tuning platform internals:
+
+| Guide | Target Audience | Purpose |
+| :--- | :--- | :--- |
+| **[Developer Onboarding Codelab](docs/codelabs/dcp_developer_onboarding.md)** | New Developers | Hands-on zero-to-hero onboarding tutorial deploying and testing an instance on GCP. |
+| **[Developer Guide](docs/developer_guide.md)** | Monorepo Developers | Monorepo package layout, `uv workspace` linking, local development recipes, and testing strategy. |
+| **[Platform Architecture](docs/architecture/platform_architecture.md)** | All Contributors | 4-repository architecture, container roles, and complete serving and ingestion data flows. |
+| **[Terraform Stack Architecture](docs/architecture/terraform_stack.md)** | Infrastructure Developers | Module hierarchy, variable propagation pipelines, and cross-module IAM wiring. |
+| **[Admin CLI Architecture](docs/architecture/admin_cli.md)** | CLI Contributors | Admin CLI internals, scaffolding regex contract, and state-driven operation choreography. |
+| **[Contributing Guide](CONTRIBUTING.md)** | Pull Request Authors | Code quality standards, formatting, linting, and unit test requirements. |
+| **[Platform Release Guide](docs/release.md)** | Release Managers | Official 3-stage release candidate workflow and PyPI lockstep publishing procedures. |
+| **[Documentation Standards](docs/README.md)** | All Readers | Platform documentation architecture and writing standards. |
+| **[Infrastructure Cheatsheet](infra/dcp/README.md)** | Operators & Contributors | Operational cheatsheet for `infra/dcp/`: commands, inputs, and outputs. |

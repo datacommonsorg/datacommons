@@ -1,0 +1,4 @@
+# Ignore generated release notes outputs and verification logs
+*.txt
+*.md
+!.gitkeep
