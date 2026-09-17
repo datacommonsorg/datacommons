@@ -95,8 +95,11 @@ datacommons_services_image = "gcr.io/datcom-ci/datacommons-services:my-feature-b
 # 4. Ingestion Postprocessing Cloud Run Job:
 # ingestion_postprocessing_job_image = "gcr.io/datcom-ci/datacommons-postprocessing:my-job"
 
-# 5. Dataflow Flex Template (same bucket, custom template filename):
+# 5. Ingestion Dataflow Flex Template (same bucket, custom template filename):
 # ingestion_dataflow_template_gcs_path = "gs://datcom-templates/templates/flex/ingestion-custom-name.json"
+
+# 6. Rollback Dataflow Flex Template (published separately from ingestion):
+# ingestion_rollback_dataflow_template_gcs_path = "gs://datcom-templates/templates/flex/rollback/rollback-custom-name.json"
 ```
 
 Apply your changes to GCP:
