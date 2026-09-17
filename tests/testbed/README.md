@@ -48,6 +48,9 @@ They allow any engineer on the team to **deploy and test custom container builds
 
 ## 🚀 Step-by-Step Developer Workflow
 
+> Adding a **brand-new** testbed instead of using an existing one?
+> See [CREATING_A_TESTBED.md](./CREATING_A_TESTBED.md).
+
 ### Step 1: Connect to a Testbed
 
 Run the connect script from the repository root:
@@ -72,32 +75,29 @@ Run the connect script from the repository root:
 
 You are now inside your workspace (`tests/testbed/workspaces/testbed-1/`).
 
-Open `terraform.tfvars` in your editor. At the bottom of the file, uncomment the override for the image or version you want to test:
+Open `terraform.tfvars` in your editor. At the bottom of the file you'll find the
+`DEVELOPER TESTBED OVERRIDES` block — uncomment the override for the image or
+version you want to test:
 
 ```hcl
-# =============================================================================
-# DEVELOPER TESTBED OVERRIDES
-# =============================================================================
-
 # --- Option A: Test a platform version tag across all services ---
-# dcp_version = "1.1.2-rc1"
+# dcp_version = "1.1.5rc1"
 
 # --- Option B: Test granular custom container builds ---
-# 1. Main Data Commons Web & Serving Service:
 datacommons_services_image = "gcr.io/datcom-ci/datacommons-services:my-feature-branch"
-
-# 2. Ingestion Helper API Service:
-# ingestion_helper_service_image = "gcr.io/datcom-ci/datacommons-ingestion-helper:my-fix"
-
-# 3. Ingestion Preprocessing Cloud Run Job:
+# ingestion_helper_service_image    = "gcr.io/datcom-ci/datacommons-ingestion-helper:my-fix"
 # ingestion_preprocessing_job_image = "gcr.io/datcom-ci/datacommons-preprocessing:my-job"
-
-# 4. Ingestion Postprocessing Cloud Run Job:
 # ingestion_postprocessing_job_image = "gcr.io/datcom-ci/datacommons-postprocessing:my-job"
-
-# 5. Dataflow Flex Template (same bucket, custom template filename):
 # ingestion_dataflow_template_gcs_path = "gs://datcom-templates/templates/flex/ingestion-custom-name.json"
 ```
+
+The full, authoritative list of testbed overrides (including the Dataflow
+private-IP networking and shared-project settings that `datcom-dcp` requires)
+lives in [`testbed_overrides.tfvars.template`](./testbed_overrides.tfvars.template).
+If a testbed looks like it's missing options, diff against that file rather than
+copying from another testbed's secret — and copy over only the missing lines.
+Appending the whole block to a `terraform.tfvars` that already has it produces
+duplicate keys, which Terraform rejects (`Error: Attribute redefined`).
 
 Apply your changes to GCP:
 
