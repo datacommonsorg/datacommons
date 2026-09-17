@@ -28,6 +28,7 @@ main:
           - provenances_list: []
           - imports_history_list: []
           - imports_history_str: ""
+          - t_pre_timestamp: null
           - launch_params:
               projectId: '$${project_id}'
               spannerInstanceId: '$${default(map.get(input, "spannerInstanceId"), "")}'
@@ -144,6 +145,8 @@ main:
             - unhandled_error:
                 raise: $${e}
     - lock_acquired_success:
+        assign:
+          - t_pre_timestamp: '$${time.format(sys.now())}'
         next: update_history_pending
     - increment_retries_and_wait:
         assign:
@@ -219,6 +222,11 @@ main:
                                 run_flag: '$${run_embeddings}'
                               result: embedding_result
 
+            # Intentionally inject failure to test automated PITR rollback flow
+            - test_intentional_failure_after_postprocessing:
+                raise: "Intentional failure after postprocessing to verify automated PITR rollback"
+
+
             - update_ingestion_status_success:
                 call: update_ingestion_status
                 args:
@@ -239,6 +247,23 @@ main:
         except:
           as: e
           steps:
+            - update_history_rollback_starting:
+                call: update_history
+                args:
+                  workflow_id: '$${workflow_id}'
+                  status: 'RUNNING'
+                  stage: 'rollback'
+                  job_id: '$${job_id}'
+                  import_list: '$${imports_history_list}'
+            - execute_pitr_rollback:
+                call: rollback_subworkflow
+                args:
+                  workflow_id: '$${workflow_id}'
+                  rollback_timestamp: '$${t_pre_timestamp}'
+                  temp_location: '$${input.tempLocation}'
+                  region: '$${input.region}'
+                  launch_params: '$${launch_params}'
+                result: rollback_result
             - update_history_failure:
                 call: update_history
                 args:
@@ -548,3 +573,38 @@ poll_cloud_run_job_execution:
         
     - return_success:
         return: '$${exec_status}'
+
+rollback_subworkflow:
+  params: [workflow_id, rollback_timestamp, temp_location, region, launch_params]
+  steps:
+    - init_rollback_params:
+        assign:
+          - rollback_job_name: '$${"${clean_instance_name_prefix}" + "rollback-" + string(int(sys.now()))}'
+          - rollback_params:
+              projectId: '$${launch_params.projectId}'
+              spannerInstanceId: '$${launch_params.spannerInstanceId}'
+              spannerDatabaseId: '$${launch_params.spannerDatabaseId}'
+              importList: '$${launch_params.importList}'
+              tempLocation: '$${temp_location}'
+              stagingLocation: '$${temp_location}'
+              isRollback: 'true'
+              rollbackTimestamp: '$${rollback_timestamp}'
+              forceCombineNodes: 'false'
+              isBaseDc: '$${launch_params.isBaseDc}'
+              skipDelete: 'false'
+
+    - launch_rollback_dataflow:
+        call: launch_and_poll_dataflow
+        args:
+          job_name: '$${rollback_job_name}'
+          launch_params: '$${rollback_params}'
+          temp_location: '$${temp_location}'
+          region: '$${region}'
+          workflow_id: '$${workflow_id}'
+        result: rollback_job_res
+
+    - return_rollback_result:
+        return:
+          status: "ROLLBACK_SUCCESS"
+          rollbackJobId: '$${rollback_job_res.job_id}'
+          rollbackTimestamp: '$${rollback_timestamp}'
