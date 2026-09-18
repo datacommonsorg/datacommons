@@ -64,9 +64,9 @@ class IngestionJobClient:
 
     def start_workflow(
         self, 
-        temp_location: str = None,
-        spanner_instance: str = "",
-        spanner_database: str = "",
+        temp_location: str,
+        spanner_instance: str,
+        spanner_database: str,
         imports: str | None = None
     ) -> dict:
         """Starts an execution of the Cloud Workflow."""
