@@ -28,7 +28,6 @@ TESTBED_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${TESTBED_DIR}/../.." && pwd)"
 WORKSPACES_ROOT="${TESTBED_DIR}/workspaces"
 INFRA_DCP_DIR="${REPO_ROOT}/infra/dcp"
-OVERRIDES_TEMPLATE="${TESTBED_DIR}/testbed_overrides.tfvars.template"
 
 # Default project if not specified
 DEFAULT_PROJECT="datcom-dcp"
@@ -372,16 +371,12 @@ main() {
         if [[ "$secret_output" =~ "NOT_FOUND" || "$secret_output" =~ "not found" ]]; then
           echo "    Notice: Secret '$SECRET_NAME' does not exist in Secret Manager."
           if [[ ! -f "$local_tfvars" ]]; then
-            echo "    Seeding initial boilerplate terraform.tfvars with project overrides..."
+            echo "    Creating new boilerplate terraform.tfvars for '${INSTANCE}'..."
             cat <<TFVARS > "$local_tfvars"
 project_id    = "${PROJECT}"
 instance_name = "${INSTANCE}"
 region        = "us-central1"
-
 TFVARS
-            if [[ -f "$OVERRIDES_TEMPLATE" ]]; then
-              cat "$OVERRIDES_TEMPLATE" >> "$local_tfvars"
-            fi
           fi
         else
           echo "Error: Failed to access Secret Manager for '$SECRET_NAME':" >&2
