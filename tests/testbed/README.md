@@ -1,6 +1,6 @@
 # Data Commons Platform (DCP) — Developer Testbeds
 
-## 🎯 Overview
+## Overview
 
 DCP Testbeds (e.g. `testbed-1`, `testbed-2`) are shared, pre-warmed Google Cloud environments running in the **`datcom-dcp`** project.
 
@@ -22,7 +22,7 @@ All lifecycle operations are managed using `./tests/testbed/fetch_terraform_stat
 
 ---
 
-## 📋 Prerequisites
+## Prerequisites
 
 1. **Google Cloud SDK (`gcloud`)** authenticated with access to `datcom-dcp`:
    ```bash
@@ -37,7 +37,7 @@ All lifecycle operations are managed using `./tests/testbed/fetch_terraform_stat
 
 ---
 
-## 🚀 Step-by-Step Developer Workflow
+## Step-by-Step Developer Workflow
 
 > Adding a **brand-new** testbed instead of using an existing one?
 > See [CREATING_A_TESTBED.md](./CREATING_A_TESTBED.md).
@@ -125,7 +125,7 @@ If you want your updated configuration or image to remain the **shared baseline*
 
 ---
 
-## 🔍 Discovery & Status
+## Discovery & Status
 
 ### List All Registered Testbeds
 ```bash

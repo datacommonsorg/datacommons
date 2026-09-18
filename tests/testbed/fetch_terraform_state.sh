@@ -109,7 +109,6 @@ check_dependencies() {
     echo "  (or execute via: uv run datacommons <command>)"
     echo ""
   fi
-
   return 0
 }
 
@@ -119,7 +118,7 @@ prompt_instance_if_missing() {
     return 0
   fi
 
-  # If not running interactively, error out
+  # If not running interactively (e.g. CI/CD), error out
   if [[ ! -t 0 ]]; then
     log_error "--instance <name> is required in non-interactive mode."
     return 1
@@ -156,6 +155,7 @@ prompt_instance_if_missing() {
       read -p "Enter instance name: " custom_name
       INSTANCE="$custom_name"
     else
+      # If user typed the name directly
       INSTANCE="$choice"
     fi
   else
@@ -172,25 +172,6 @@ prompt_instance_if_missing() {
   return 0
 }
 
-# Resolve git ref: check locally, fetch tags from remotes if missing
-resolve_git_ref() {
-  local ref="$1"
-  if git rev-parse --verify "${ref}^{commit}" &>/dev/null; then
-    return 0
-  fi
-
-  echo "==> Ref '${ref}' not found locally. Fetching tags from remotes..." >&2
-  git fetch origin --tags --quiet 2>/dev/null || true
-  git fetch upstream --tags --quiet 2>/dev/null || true
-
-  if git rev-parse --verify "${ref}^{commit}" &>/dev/null; then
-    return 0
-  fi
-
-  log_error "Cannot resolve Git reference '${ref}' locally or from remotes." \
-            "See available tags at: https://github.com/datacommonsorg/datacommons/tags"
-  return 1
-}
 
 # Check and configure service account impersonation for CLI commands
 check_sa_impersonation() {
@@ -243,7 +224,6 @@ main() {
     ACTION="connect"
   else
     log_error "Unknown command '$ACTION'"
-    echo "" >&2
     print_usage
     return 1
   fi
@@ -332,7 +312,7 @@ main() {
     fi
 
     # If running interactively, prompt to connect directly
-    if [[ -t 0 && $FORCE -eq 0 ]]; then
+    if [[ -t 0 ]]; then
       echo ""
       read -p "Select a testbed to connect to [1-$found, or press Enter to exit]: " choice
       if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice <= found )); then
@@ -363,38 +343,38 @@ main() {
     mkdir -p "$WORKSPACE_DIR"
 
     echo "==> [2/5] Pulling configuration from Secret Manager ($SECRET_NAME)..."
-    local fetch_secret=1
-    if [[ -f "$WORKSPACE_DIR/terraform.tfvars" ]]; then
-      if [[ $FORCE -eq 1 ]]; then
-        echo "    --force specified: Overwriting local terraform.tfvars with Secret Manager baseline."
-      elif [[ -t 0 ]]; then
+    local tfvars="$WORKSPACE_DIR/terraform.tfvars"
+    local should_fetch=1
+
+    if [[ -f "$tfvars" && $FORCE -eq 0 ]]; then
+      if [[ -t 0 ]]; then
         echo "    Notice: Local terraform.tfvars already exists in '${INSTANCE}'."
         read -p "    Overwrite with Secret Manager baseline? [y/N]: " overwrite_confirm
         if [[ ! "$overwrite_confirm" =~ ^[yY](es)?$ ]]; then
           echo "    Preserving local terraform.tfvars."
-          fetch_secret=0
+          should_fetch=0
         fi
       else
         echo "    Preserving existing local terraform.tfvars."
-        fetch_secret=0
+        should_fetch=0
       fi
+    elif [[ -f "$tfvars" && $FORCE -eq 1 ]]; then
+      echo "    --force specified: Overwriting local terraform.tfvars with Secret Manager baseline."
     fi
 
-    if [[ $fetch_secret -eq 1 ]]; then
-      if [[ -f "$WORKSPACE_DIR/terraform.tfvars" ]]; then
-        cp "$WORKSPACE_DIR/terraform.tfvars" "$WORKSPACE_DIR/terraform.tfvars.bak"
-      fi
+    if [[ $should_fetch -eq 1 ]]; then
+      [[ -f "$tfvars" ]] && cp "$tfvars" "$tfvars.bak"
 
       if gcloud secrets describe "$SECRET_NAME" --project="$PROJECT" &>/dev/null; then
         gcloud secrets versions access latest \
           --secret="$SECRET_NAME" \
-          --project="$PROJECT" > "$WORKSPACE_DIR/terraform.tfvars"
+          --project="$PROJECT" > "$tfvars"
         echo "    Successfully fetched terraform.tfvars from Secret Manager."
       else
         echo "    Warning: Secret '$SECRET_NAME' does not exist in Secret Manager."
-        if [[ ! -f "$WORKSPACE_DIR/terraform.tfvars" ]]; then
+        if [[ ! -f "$tfvars" ]]; then
           echo "    Creating new boilerplate terraform.tfvars for '${INSTANCE}'..."
-          cat <<TFVARS > "$WORKSPACE_DIR/terraform.tfvars"
+          cat <<TFVARS > "$tfvars"
 project_id    = "${PROJECT}"
 instance_name = "${INSTANCE}"
 region        = "us-central1"
@@ -403,59 +383,34 @@ TFVARS
       fi
     fi
 
-    echo "==> [3/5] Configuring Terraform module source: '${MODULES_SOURCE}'..."
+    echo "==> [3/5] Syncing Terraform scaffolding (${MODULES_SOURCE})..."
     if [[ "$MODULES_SOURCE" == "local" ]]; then
       cp "${INFRA_DCP_DIR}"/*.tf "$WORKSPACE_DIR/"
       ln -sfn "${INFRA_DCP_DIR}/modules" "$WORKSPACE_DIR/modules"
-
-      python3 -c "
-import sys, re
-path = sys.argv[1]
-with open(path, 'r') as f:
-    content = f.read()
-updated = re.sub(r'source\s*=\s*\"[^\"]+\"', 'source = \"./modules/stack\"', content, count=1)
-with open(path, 'w') as f:
-    f.write(updated)
-" "$WORKSPACE_DIR/main.tf"
-
-      # Check for dirty working tree in modules
-      local dirty_files
-      dirty_files=$(git status --porcelain "${INFRA_DCP_DIR}/modules" 2>/dev/null || true)
-      if [[ -n "$dirty_files" ]]; then
-        echo "    Notice: Uncommitted changes detected in local infra/dcp/modules."
-      fi
-
     else
       # Module source is a Git tag/ref
-      local target_ref="$MODULES_SOURCE"
-      echo "    Resolving Git reference '${target_ref}'..."
-      if ! resolve_git_ref "$target_ref"; then
-        return 1
-      fi
-
-      echo "    Extracting root Terraform definition files from Git ref '${target_ref}'..."
+      local base_url="https://raw.githubusercontent.com/datacommonsorg/datacommons/${MODULES_SOURCE}/infra/dcp"
+      echo "    Downloading root Terraform files from Git tag '${MODULES_SOURCE}'..."
       for f in variables.tf main.tf outputs.tf; do
-        if ! git show "${target_ref}:infra/dcp/${f}" > "$WORKSPACE_DIR/${f}.tmp" 2>/dev/null; then
-          log_error "Failed to extract ${f} from Git ref '${target_ref}'"
-          rm -f "$WORKSPACE_DIR/${f}.tmp"
+        if ! curl -sSfL "${base_url}/${f}" -o "$WORKSPACE_DIR/${f}"; then
+          log_error "Failed to download '${f}' from Git tag '${MODULES_SOURCE}'." \
+                    "Please verify the tag exists at: https://github.com/datacommonsorg/datacommons/tags"
           return 1
         fi
-        mv "$WORKSPACE_DIR/${f}.tmp" "$WORKSPACE_DIR/${f}"
       done
 
       rm -rf "$WORKSPACE_DIR/modules"
 
-      local git_source="source = \"git::https://github.com/datacommonsorg/datacommons.git//infra/dcp/modules/stack?ref=${target_ref}\""
-      python3 -c "
+      local git_source="git::https://github.com/datacommonsorg/datacommons.git//infra/dcp/modules/stack?ref=${MODULES_SOURCE}"
+      python3 -c '
 import sys, re
-path = sys.argv[1]
-git_src = sys.argv[2]
-with open(path, 'r') as f:
-    content = f.read()
-updated = re.sub(r'source\s*=\s*\"[^\"]+\"', git_src, content, count=1)
-with open(path, 'w') as f:
+path, src = sys.argv[1], sys.argv[2]
+with open(path, "r") as f:
+    txt = f.read()
+updated = re.sub(r"(?m)^\s*source\s*=\s*[\x22\x27]\./modules/stack[\x22\x27]", f"  source = \"{src}\"", txt)
+with open(path, "w") as f:
     f.write(updated)
-" "$WORKSPACE_DIR/main.tf" "$git_source"
+' "$WORKSPACE_DIR/main.tf" "$git_source"
     fi
 
     # Clean module cache so Terraform downloads/updates sources cleanly
@@ -491,14 +446,10 @@ BACKEND
     echo "   2. Edit terraform.tfvars (if needed)"
     echo "   3. terraform apply"
     echo "================================================================================"
-    echo ""
-    return 0
-  fi
-
   # ==============================================================================
   # ACTION: PUSH-CONFIG
   # ==============================================================================
-  if [[ "$ACTION" == "push-config" ]]; then
+  elif [[ "$ACTION" == "push-config" ]]; then
     local TFVARS_FILE="$WORKSPACE_DIR/terraform.tfvars"
     if [[ ! -f "$TFVARS_FILE" ]]; then
       log_error "Local configuration '$TFVARS_FILE' not found." \
@@ -511,7 +462,7 @@ BACKEND
       return 1
     fi
 
-    echo "==> Target secret: $SECRET_NAME (project: $PROJECT)"
+    echo "==> Pushing local terraform.tfvars to Secret Manager ($SECRET_NAME)..."
     if ! gcloud secrets describe "$SECRET_NAME" --project="$PROJECT" &>/dev/null; then
       log_error "Secret '$SECRET_NAME' does not exist in project '$PROJECT'." \
                 "Please ensure the testbed secret has been initialized by an administrator."
@@ -531,12 +482,12 @@ BACKEND
       --data-file="$TFVARS_FILE" \
       --project="$PROJECT"
     echo "==> Secret successfully updated in GCP Secret Manager!"
-    return 0
-  fi
 
-  log_error "Unknown action '$ACTION'"
-  print_usage
-  return 1
+  else
+    log_error "Unknown command '$ACTION'"
+    print_usage
+    return 1
+  fi
 }
 
 main "$@"
