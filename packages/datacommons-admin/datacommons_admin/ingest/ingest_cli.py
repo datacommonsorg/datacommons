@@ -56,7 +56,6 @@ def start(imports: str) -> None:
     spanner_instance = get_spanner_instance_id()
     spanner_database = get_spanner_database_id()
 
-
     click.secho(f"Found workflow: {workflow_name}", fg="green")
     click.secho(f"Found workflow service account: {sa_email}", fg="green")
     click.secho(f"Found GCP project ID: {project_id}", fg="green")
@@ -109,6 +108,7 @@ def show_config() -> None:
         "No static Cloud Run preprocessor job exists.",
         fg="yellow",
     )
+
 
 def _resolve_temp_location() -> str:
     """Composes the ingestion temp location from Terraform outputs.

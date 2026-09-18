@@ -63,18 +63,18 @@ class IngestionJobClient:
         self.session = AuthorizedSession(creds)
 
     def start_workflow(
-        self, 
+        self,
         temp_location: str,
         spanner_instance: str,
         spanner_database: str,
-        imports: str | None = None
+        imports: str | None = None,
     ) -> dict:
         """Starts an execution of the Cloud Workflow."""
         if not self.full_workflow_name:
             raise click.ClickException(
                 "Workflow name must be provided to start a workflow execution."
             )
-  
+
         # Parse imports argument
         imports_list = []
         if imports:
@@ -127,4 +127,3 @@ class IngestionJobClient:
             return response.json()
         except Exception:
             return {"status": "success", "message": response.text}
-            
