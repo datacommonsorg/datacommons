@@ -81,7 +81,7 @@ def test_ingest_start_with_imports_success(
     assert "Successfully started ingestion workflow!" in result.output
 
     expected_arg = {
-        "tempLocation": "gs://mock-bucket/temp",
+        "tempLocation": "gs://mock-bucket/artifacts/temp",
         "spannerInstanceId": "mock-instance",
         "spannerDatabaseId": "mock-db",
         "region": "us-central1",

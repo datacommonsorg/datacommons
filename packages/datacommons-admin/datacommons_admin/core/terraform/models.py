@@ -39,6 +39,7 @@ class TerraformOutputs:
     ingestion_workflow_name: str
     ingestion_workflow_service_account_email: str
     storage_artifacts_bucket_name: str
+    ingestion_artifacts_path: str
 
     # Conditional outputs (can evaluate to null in HCL when feature is disabled)
     spanner_instance_id: str | None = None
@@ -50,9 +51,10 @@ class TerraformOutputs:
         """Derived convenience property computing the canonical GCS path for temporary workflow artifacts.
 
         Note: TEMP_LOCATION is not exported as its own key in outputs.tf; Terraform defines it
-        in modules/stack/main.tf as 'gs://${module.storage.artifacts_bucket_name}/temp'.
+        in modules/stack/main.tf as
+        'gs://${module.storage.artifacts_bucket_name}/${var.ingestion_config.ingestion_artifacts_path}/temp'.
         """
-        return f"gs://{self.storage_artifacts_bucket_name}/temp"
+        return f"gs://{self.storage_artifacts_bucket_name}/{self.ingestion_artifacts_path}/temp"
 
     @classmethod
     def from_state_outputs(cls, raw_outputs: dict[str, Any]) -> "TerraformOutputs":
