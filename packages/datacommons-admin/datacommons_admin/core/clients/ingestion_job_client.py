@@ -23,14 +23,14 @@ class IngestionJobClient:
 
     def __init__(
         self,
-        job_name: str = None,
-        workflow_name: str = None,
-        service_account_email: str = None,
-        project_id: str = None,
-        location: str = None,
-        temp_location: str = None,
-        spanner_instance_id: str = "",
-        spanner_database_id: str = "",
+        job_name: str | None = None,
+        workflow_name: str | None = None,
+        service_account_email: str | None = None,
+        project_id: str | None = None,
+        location: str | None = None,
+        temp_location: str | None = None,
+        spanner_instance_id: str | None = None,
+        spanner_database_id: str | None = None,
     ) -> None:
         self.service_account_email = service_account_email
         self.project_id = project_id
