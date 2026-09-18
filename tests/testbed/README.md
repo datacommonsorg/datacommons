@@ -1,6 +1,6 @@
 # Data Commons Platform (DCP) — Developer Testbeds
 
-## 🎯 Overview
+## Overview
 
 DCP Testbeds (e.g. `testbed-1`, `testbed-2`) are shared, pre-warmed Google Cloud environments running in the **`datcom-dcp`** project.
 
@@ -8,30 +8,21 @@ They allow any engineer on the team to **deploy and test custom container builds
 
 ---
 
-## 🏗 Architecture
+## How It Works
 
-```
-                     ┌──────────────────────────────────────────────┐
-                     │          GCP Project: datcom-dcp             │
-                     │  - Secret Manager: dcp-testbed-1-tfvars     │
-                     │  - GCS Remote State: tf-state-testbed-1-... │
-                     │  - Workflow Service Account (TokenCreator)   │
-                     │  - Cloud Run, Spanner DB, Networking         │
-                     └──────────────────────┬───────────────────────┘
-                                            │
-               ┌────────────────────────────┴────────────────────────────┐
-               │                                                         │
-       1. Connect & Sync                                         3. Push & Persist
-   `./tests/testbed/fetch_terraform_state.sh connect`        `./tests/testbed/fetch_terraform_state.sh push-config`
-   - Pulls tfvars from Secret Manager                        - Saves updated tfvars back to
-   - Configures remote backend state                           Secret Manager so the whole team
-   - Configures SA Impersonation for CLI                       stays in sync.
-   - Sets up `workspaces/testbed-1`
-```
+A testbed pairs a **remote GCP environment** in `datcom-dcp` with a **local workspace** on your machine (`tests/testbed/workspaces/<instance>/`).
+
+All lifecycle operations are managed using `./tests/testbed/fetch_terraform_state.sh`:
+
+| Subcommand | Action | Data Flow |
+| :--- | :--- | :--- |
+| **`connect`** | Sets up your local workspace, wires remote GCS state, configures module sources, and checks IAM permissions. | **Cloud $\to$ Local**<br>(Secret Manager $\to$ `terraform.tfvars`) |
+| **`push-config`** | Promotes your local `terraform.tfvars` to the team's shared baseline secret. | **Local $\to$ Cloud**<br>(`terraform.tfvars` $\to$ Secret Manager) |
+| **`list`** | Lists all active testbeds in the GCP project. | **Cloud $\to$ Terminal** |
 
 ---
 
-## 📋 Prerequisites
+## Prerequisites
 
 1. **Google Cloud SDK (`gcloud`)** authenticated with access to `datcom-dcp`:
    ```bash
@@ -46,62 +37,55 @@ They allow any engineer on the team to **deploy and test custom container builds
 
 ---
 
-## 🚀 Step-by-Step Developer Workflow
+## Step-by-Step Developer Workflow
+
+> Adding a **brand-new** testbed instead of using an existing one?
+> See [CREATING_A_TESTBED.md](./CREATING_A_TESTBED.md).
 
 ### Step 1: Connect to a Testbed
 
-Run the connect script from the repository root:
+Run the connect script from the repository root, choosing where the Terraform modules and `workflow.yaml` come from:
 
 ```bash
-# Connect directly to testbed-1:
-./tests/testbed/fetch_terraform_state.sh connect --instance testbed-1
+# Option A: Connect and pin modules to an official release tag (e.g. v1.1.5):
+./tests/testbed/fetch_terraform_state.sh connect --instance testbed-1 --terraform-modules-source v1.1.5
 
-# OR run interactively to choose from available testbeds:
-./tests/testbed/fetch_terraform_state.sh connect
+# Option B: Connect and use your local modules / workflow.yaml (Default):
+./tests/testbed/fetch_terraform_state.sh connect --instance testbed-1 --terraform-modules-source local
 ```
 
-**What the script does automatically:**
-1. **Pulls Configuration:** Fetches `dcp-testbed-1-tfvars` from GCP Secret Manager.
-2. **Wires Remote State:** Points Terraform backend to `gs://tf-state-testbed-1-datcom-dcp`.
-3. **Initializes Workspace:** Scaffolds and runs `terraform init` inside `tests/testbed/workspaces/testbed-1/`.
-4. **Configures IAM Impersonation:** Grants your user account `roles/iam.serviceAccountTokenCreator` on the testbed's Ingestion Workflow Service Account so you can run `datacommons` CLI commands seamlessly.
+*(You can browse all published release tags on the [GitHub Tags Page](https://github.com/datacommonsorg/datacommons/tags). Tags follow the `vX.Y.Z` format, like `v1.1.5`).*
+
+**What `connect` does automatically:**
+1. **Pulls Configuration:** Fetches `dcp-testbed-1-tfvars` from Secret Manager into `tests/testbed/workspaces/testbed-1/terraform.tfvars`. *(If you already have local edits, it prompts before overwriting).*
+2. **Sets Module Source:** Wires `main.tf` to pull from GitHub at your chosen tag, or symlinks to your local `infra/dcp/modules`.
+3. **Wires Remote State:** Points Terraform backend to `gs://tf-state-testbed-1-datcom-dcp`.
+4. **Initializes Workspace:** Runs `terraform init -upgrade` inside `tests/testbed/workspaces/testbed-1/`.
+5. **Configures IAM Impersonation:** Grants your user account `roles/iam.serviceAccountTokenCreator` on the testbed's Ingestion Workflow Service Account so you can run `datacommons` CLI commands seamlessly.
 
 ---
 
-### Step 2: Override Container Images or Versions
+### Step 2: Edit `terraform.tfvars` and Apply
 
 You are now inside your workspace (`tests/testbed/workspaces/testbed-1/`).
 
-Open `terraform.tfvars` in your editor. At the bottom of the file, uncomment the override for the image or version you want to test:
+Open `terraform.tfvars` in your editor to configure the version or container image you want to test:
 
 ```hcl
-# =============================================================================
-# DEVELOPER TESTBED OVERRIDES
-# =============================================================================
+# Test a baseline release version across all services:
+dcp_version = "1.1.5"
 
-# --- Option A: Test a platform version tag across all services ---
-# dcp_version = "1.1.2-rc1"
-
-# --- Option B: Test granular custom container builds ---
-# 1. Main Data Commons Web & Serving Service:
-datacommons_services_image = "gcr.io/datcom-ci/datacommons-services:my-feature-branch"
-
-# 2. Ingestion Helper API Service:
-# ingestion_helper_service_image = "gcr.io/datcom-ci/datacommons-ingestion-helper:my-fix"
-
-# 3. Ingestion Preprocessing Cloud Run Job:
-# ingestion_preprocessing_job_image = "gcr.io/datcom-ci/datacommons-preprocessing:my-job"
-
-# 4. Ingestion Postprocessing Cloud Run Job:
-# ingestion_postprocessing_job_image = "gcr.io/datcom-ci/datacommons-postprocessing:my-job"
-
-# 5. Dataflow Flex Template (same bucket, custom template filename):
-# ingestion_dataflow_template_gcs_path = "gs://datcom-templates/templates/flex/ingestion-custom-name.json"
+# OR test a custom container build:
+datacommons_services_image = "gcr.io/datcom-website-dev/datacommons-services:my-feature-tag"
 ```
 
-Apply your changes to GCP:
+The full list of testbed overrides lives in [`testbed_overrides.tfvars.template`](./testbed_overrides.tfvars.template).
+
+Inspect and apply your changes to GCP:
 
 ```bash
+cd tests/testbed/workspaces/testbed-1
+terraform plan
 terraform apply
 ```
 *Terraform will roll out a new Cloud Run revision with your custom image in ~60–90 seconds.*
@@ -122,18 +106,6 @@ datacommons <command> ...
 
 The CLI automatically impersonates the testbed's ingestion workflow service account using the TokenCreator IAM role that `fetch_terraform_state.sh` configured in Step 1.
 
-If you ever need to manually bind the impersonation permission for a teammate:
-```bash
-# 1. Get the service account email from your workspace:
-terraform output ingestion_workflow_service_account_email
-
-# 2. Bind the TokenCreator role:
-gcloud iam service-accounts add-iam-policy-binding "SERVICE_ACCOUNT_EMAIL" \
-  --member="user:YOUR_USER_ACCOUNT" \
-  --role="roles/iam.serviceAccountTokenCreator" \
-  --project="datcom-dcp"
-```
-
 ---
 
 ### Step 4: Persisting Configuration (`push-config`)
@@ -141,19 +113,19 @@ gcloud iam service-accounts add-iam-policy-binding "SERVICE_ACCOUNT_EMAIL" \
 If you want your updated configuration or image to remain the **shared baseline** for the testbed:
 
 ```bash
-../../fetch_terraform_state.sh push-config --instance testbed-1
+./tests/testbed/fetch_terraform_state.sh push-config --instance testbed-1
 ```
 
 **When to push:**
-* After verifying a release candidate or stable container image that should stay deployed.
+* After verifying a release candidate or stable container image that should stay deployed for the team.
 * After adding or rotating a shared testbed variable.
 
 **When NOT to push:**
-* If you were only running a temporary, one-off test. (In that case, revert your local edit in `terraform.tfvars` and run `terraform apply` to restore the baseline).
+* If you were only running a temporary, one-off test. (In that case, simply do not run `push-config`).
 
 ---
 
-## 🔍 Discovery & Status
+## Discovery & Status
 
 ### List All Registered Testbeds
 ```bash
