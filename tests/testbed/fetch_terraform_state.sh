@@ -18,7 +18,7 @@
 # Data Commons Platform (DCP) Developer Testbed CLI
 # ==============================================================================
 # Enables rapid connection, configuration synchronization, module source switching,
-# container version overrides, and IAM impersonation for shared developer testbeds.
+# and IAM impersonation for shared developer testbeds in Google Cloud Platform.
 # ==============================================================================
 
 set -eo pipefail
@@ -41,9 +41,8 @@ Usage:
   $0 <command> [options]
 
 Commands:
-  connect       Connect/attach to an existing testbed (pulls baseline secret, inits Terraform, checks IAM)
-  configure     Mutate workspace configuration (switch module sources, bump versions, set image overrides, plan, apply)
-  push-config   Explicitly save and push local terraform.tfvars back to GCP Secret Manager
+  connect       Connect to a testbed (pulls baseline config, wires backend, inits Terraform, checks IAM)
+  push-config   Save and push local terraform.tfvars back to GCP Secret Manager
   list          List available testbeds in the project
 
 Global Options:
@@ -51,38 +50,29 @@ Global Options:
   --project <id>        GCP Project ID (default: ${DEFAULT_PROJECT})
   --yes, -y             Non-interactive mode (automatically confirm prompts)
 
-Options for 'configure':
-  --terraform-source <git|local>   Where Terraform modules come from:
-                                   • git: Hermetic mode. Pins module source to GitHub tag/ref (no local file leaks).
-                                   • local: Dev mode. Symlinks modules to local infra/dcp/modules.
-  --terraform-ref <ref>            Git tag/branch/commit when --terraform-source git is used (default: v<dcp_version>)
-  --dcp-version <version>          Sets dcp_version in terraform.tfvars (updates baseline tag for all services)
-  --services-image <image-uri>     Sets datacommons_services_image in terraform.tfvars
-  --clear-image-overrides          Comments out all custom image overrides, resetting services to dcp_version
-  --plan                           Generate Terraform plan (default: true)
-  --no-plan                        Skip generating Terraform plan
-  --apply                          Execute terraform apply after planning
-  --push-config                    Persist updated terraform.tfvars to Secret Manager after apply (default: false)
+Options for 'connect':
+  --terraform-modules-source <local|tag>
+                        Where Terraform modules (including workflow.yaml) come from:
+                        • local: Dev mode. Symlinks to local infra/dcp/modules (default).
+                        • <tag>: Git tag (e.g. v1.1.5). Loads official modules from GitHub.
+                        (See available tags: https://github.com/datacommonsorg/datacommons/tags)
 
-Common Workflows:
-  1. Attach to an existing testbed without modifying anything:
-     $0 connect --instance testbed-1
+Developer Workflow:
+  1. Connect to an instance:
+     $0 connect --instance testbed-1 --terraform-modules-source v1.1.5
+     # OR to test local module / workflow.yaml edits:
+     $0 connect --instance testbed-1 --terraform-modules-source local
 
-  2. Test a custom container image against a clean release tag:
-     $0 configure --instance testbed-1 \\
-       --terraform-source git --terraform-ref v1.1.5 \\
-       --dcp-version 1.1.5 \\
-       --services-image gcr.io/datcom-website-dev/datacommons-services:my-tag \\
-       --apply
+  2. Navigate to your workspace, edit terraform.tfvars, and apply:
+     cd tests/testbed/workspaces/testbed-1
+     terraform plan
+     terraform apply
 
-  3. Test local Terraform module / workflow.yaml edits:
-     $0 configure --instance testbed-1 --terraform-source local --apply
-
-  4. Reset all custom container overrides back to the baseline release:
-     $0 configure --instance testbed-1 --clear-image-overrides --apply
-
-  5. Deliberately promote local settings to the team's shared secret:
+  3. Push your updated configuration back to the team secret (optional):
      $0 push-config --instance testbed-1
+
+  4. List all active testbeds:
+     $0 list
 HELP
 }
 
@@ -99,11 +89,6 @@ check_dependencies() {
   if ! command -v terraform &>/dev/null; then
     echo "Error: 'terraform' CLI is not installed or not in PATH." >&2
     echo "  Install Terraform: https://developer.hashicorp.com/terraform/install" >&2
-    missing=1
-  fi
-
-  if ! command -v python3 &>/dev/null; then
-    echo "Error: 'python3' is not installed or not in PATH." >&2
     missing=1
   fi
 
@@ -182,7 +167,7 @@ prompt_instance_if_missing() {
   return 0
 }
 
-# Resolve git ref safely: check locally, fetch tags from origin/upstream if missing
+# Resolve git ref: check locally, fetch tags from remotes if missing
 resolve_git_ref() {
   local ref="$1"
   if git rev-parse --verify "${ref}^{commit}" &>/dev/null; then
@@ -197,105 +182,12 @@ resolve_git_ref() {
     return 0
   fi
 
-  echo "Error: Cannot resolve Git reference '${ref}' locally or from git remotes." >&2
+  echo "Error: Cannot resolve Git reference '${ref}' locally or from remotes." >&2
+  echo "See available tags at: https://github.com/datacommonsorg/datacommons/tags" >&2
   return 1
 }
 
-# Python helper to read a variable from terraform.tfvars
-get_tfvar() {
-  local key="$1"
-  local file="$2"
-  if [[ ! -f "$file" ]]; then
-    echo ""
-    return 0
-  fi
-  python3 -c "
-import sys, re
-key = sys.argv[1]
-with open(sys.argv[2], 'r') as f:
-    text = f.read()
-m = re.search(rf'^\s*{re.escape(key)}\s*=\s*\"([^\"]*)\"', text, re.MULTILINE)
-if m:
-    print(m.group(1))
-" "$key" "$file"
-}
-
-# Python helper to update or uncomment a variable in terraform.tfvars
-set_tfvar() {
-  local key="$1"
-  local val="$2"
-  local file="$3"
-  python3 -c "
-import sys, re
-key = sys.argv[1]
-val = sys.argv[2]
-path = sys.argv[3]
-with open(path, 'r') as f:
-    content = f.read()
-
-pattern = rf'^\s*#?\s*{re.escape(key)}\s*=.*$'
-replacement = f'{key} = \"{val}\"'
-if re.search(pattern, content, re.MULTILINE):
-    updated = re.sub(pattern, lambda m: replacement, content, count=1, flags=re.MULTILINE)
-else:
-    updated = content.rstrip() + f'\n{replacement}\n'
-
-with open(path, 'w') as f:
-    f.write(updated)
-" "$key" "$val" "$file"
-}
-
-# Python helper to comment out a variable in terraform.tfvars
-comment_out_tfvar() {
-  local key="$1"
-  local file="$2"
-  if [[ ! -f "$file" ]]; then
-    return 0
-  fi
-  python3 -c "
-import sys, re
-key = sys.argv[1]
-path = sys.argv[2]
-with open(path, 'r') as f:
-    content = f.read()
-
-pattern = rf'^(\s*)({re.escape(key)}\s*=.*)$'
-updated = re.sub(pattern, r'\1# \2', content, flags=re.MULTILINE)
-with open(path, 'w') as f:
-    f.write(updated)
-" "$key" "$file"
-}
-
-# Detect current active module source in a workspace
-detect_active_source() {
-  local ws_dir="$1"
-  local main_tf="$ws_dir/main.tf"
-  if [[ ! -f "$main_tf" ]]; then
-    echo "Unknown"
-    return
-  fi
-
-  if grep -q 'source = "./modules/stack"' "$main_tf"; then
-    echo "local"
-  else
-    local git_ref
-    git_ref=$(python3 -c "
-import sys, re
-with open(sys.argv[1]) as f:
-    content = f.read()
-m = re.search(r'source\s*=\s*\"git::https://github.com/datacommonsorg/datacommons.git//infra/dcp/modules/stack\?ref=([^\"]+)\"', content)
-if m:
-    print(m.group(1))
-" "$main_tf")
-    if [[ -n "$git_ref" ]]; then
-      echo "git ($git_ref)"
-    else
-      echo "custom"
-    fi
-  fi
-}
-
-# Check and grant TokenCreator IAM permission
+# Check and configure service account impersonation for CLI commands
 check_sa_impersonation() {
   local ws_dir="$1"
   local project="$2"
@@ -330,6 +222,8 @@ check_sa_impersonation() {
     else
       echo "    ✔ Service Account impersonation already configured for ${current_user}."
     fi
+  else
+    echo "    Skipped SA impersonation check (instance might not be fully applied yet)."
   fi
 }
 
@@ -338,7 +232,7 @@ main() {
   if [[ "$ACTION" == "--help" || "$ACTION" == "-h" ]]; then
     print_usage
     return 0
-  elif [[ "$ACTION" == "connect" || "$ACTION" == "configure" || "$ACTION" == "push-config" || "$ACTION" == "list" ]]; then
+  elif [[ "$ACTION" == "connect" || "$ACTION" == "push-config" || "$ACTION" == "list" ]]; then
     shift
   elif [[ "$ACTION" == --* || -z "$ACTION" ]]; then
     ACTION="connect"
@@ -351,17 +245,8 @@ main() {
 
   INSTANCE=""
   PROJECT="$DEFAULT_PROJECT"
+  MODULES_SOURCE="local"
   YES_FLAG=0
-
-  # Options for configure
-  TF_SOURCE=""
-  TF_REF=""
-  DCP_VERSION=""
-  SERVICES_IMAGE=""
-  CLEAR_IMAGE_OVERRIDES=0
-  RUN_PLAN=1
-  RUN_APPLY=0
-  DO_PUSH_CONFIG=0
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -373,44 +258,12 @@ main() {
         PROJECT="$2"
         shift 2
         ;;
+      --terraform-modules-source)
+        MODULES_SOURCE="$2"
+        shift 2
+        ;;
       --yes|-y)
         YES_FLAG=1
-        shift
-        ;;
-      --terraform-source)
-        TF_SOURCE="$2"
-        shift 2
-        ;;
-      --terraform-ref)
-        TF_REF="$2"
-        shift 2
-        ;;
-      --dcp-version)
-        DCP_VERSION="$2"
-        shift 2
-        ;;
-      --services-image)
-        SERVICES_IMAGE="$2"
-        shift 2
-        ;;
-      --clear-image-overrides)
-        CLEAR_IMAGE_OVERRIDES=1
-        shift
-        ;;
-      --plan)
-        RUN_PLAN=1
-        shift
-        ;;
-      --no-plan)
-        RUN_PLAN=0
-        shift
-        ;;
-      --apply)
-        RUN_APPLY=1
-        shift
-        ;;
-      --push-config)
-        DO_PUSH_CONFIG=1
         shift
         ;;
       --help|-h)
@@ -487,50 +340,123 @@ main() {
   local WORKSPACE_DIR="${WORKSPACES_ROOT}/${INSTANCE}"
   local STATE_BUCKET="tf-state-${INSTANCE}-${PROJECT}"
 
-  # Helper function to perform baseline connect/attach
-  do_connect() {
+  # ==============================================================================
+  # ACTION: CONNECT
+  # ==============================================================================
+  if [[ "$ACTION" == "connect" ]]; then
     echo "==> [1/5] Connecting to testbed '${INSTANCE}' in project '${PROJECT}'..."
     mkdir -p "$WORKSPACE_DIR"
 
-    echo "==> [2/5] Pulling configuration from Secret Manager ($SECRET_NAME)..."
-    local secret_output
-    if ! secret_output=$(gcloud secrets describe "$SECRET_NAME" --project="$PROJECT" 2>&1); then
-      if [[ "$secret_output" =~ "NOT_FOUND" || "$secret_output" =~ "not found" ]]; then
-        echo "    Notice: Secret '$SECRET_NAME' does not exist in Secret Manager."
-        if [[ ! -f "$WORKSPACE_DIR/terraform.tfvars" ]]; then
-          echo "    Seeding initial terraform.tfvars with project overrides..."
-          cat <<TFVARS > "$WORKSPACE_DIR/terraform.tfvars"
+    echo "==> [2/5] Synchronizing configuration from Secret Manager ($SECRET_NAME)..."
+    local fetch_secret=1
+    local local_tfvars="$WORKSPACE_DIR/terraform.tfvars"
+
+    if [[ -f "$local_tfvars" ]]; then
+      if [[ $YES_FLAG -eq 0 && -t 0 ]]; then
+        echo "    Notice: Local terraform.tfvars already exists in '${INSTANCE}'."
+        read -p "    Overwrite with Secret Manager baseline? [y/N]: " overwrite_confirm
+        if [[ ! "$overwrite_confirm" =~ ^[yY](es)?$ ]]; then
+          echo "    Preserving local terraform.tfvars."
+          fetch_secret=0
+        fi
+      else
+        # In non-interactive mode, preserve existing local file to avoid accidental clobbering
+        echo "    Preserving existing local terraform.tfvars."
+        fetch_secret=0
+      fi
+    fi
+
+    if [[ $fetch_secret -eq 1 ]]; then
+      local secret_output
+      if ! secret_output=$(gcloud secrets describe "$SECRET_NAME" --project="$PROJECT" 2>&1); then
+        if [[ "$secret_output" =~ "NOT_FOUND" || "$secret_output" =~ "not found" ]]; then
+          echo "    Notice: Secret '$SECRET_NAME' does not exist in Secret Manager."
+          if [[ ! -f "$local_tfvars" ]]; then
+            echo "    Seeding initial boilerplate terraform.tfvars with project overrides..."
+            cat <<TFVARS > "$local_tfvars"
 project_id    = "${PROJECT}"
 instance_name = "${INSTANCE}"
 region        = "us-central1"
 
 TFVARS
-          if [[ -f "$OVERRIDES_TEMPLATE" ]]; then
-            cat "$OVERRIDES_TEMPLATE" >> "$WORKSPACE_DIR/terraform.tfvars"
+            if [[ -f "$OVERRIDES_TEMPLATE" ]]; then
+              cat "$OVERRIDES_TEMPLATE" >> "$local_tfvars"
+            fi
           fi
+        else
+          echo "Error: Failed to access Secret Manager for '$SECRET_NAME':" >&2
+          echo "$secret_output" >&2
+          return 1
         fi
       else
-        echo "Error: Failed to access Secret Manager for '$SECRET_NAME':" >&2
-        echo "$secret_output" >&2
-        return 1
+        if [[ -f "$local_tfvars" ]]; then
+          cp "$local_tfvars" "$local_tfvars.bak"
+        fi
+        gcloud secrets versions access latest \
+          --secret="$SECRET_NAME" \
+          --project="$PROJECT" > "$local_tfvars.tmp"
+        mv "$local_tfvars.tmp" "$local_tfvars"
+        echo "    Successfully fetched terraform.tfvars from Secret Manager."
       fi
-    else
-      if [[ -f "$WORKSPACE_DIR/terraform.tfvars" ]]; then
-        cp "$WORKSPACE_DIR/terraform.tfvars" "$WORKSPACE_DIR/terraform.tfvars.bak"
-      fi
-      gcloud secrets versions access latest \
-        --secret="$SECRET_NAME" \
-        --project="$PROJECT" > "$WORKSPACE_DIR/terraform.tfvars.tmp"
-      mv "$WORKSPACE_DIR/terraform.tfvars.tmp" "$WORKSPACE_DIR/terraform.tfvars"
-      echo "    Successfully fetched terraform.tfvars from Secret Manager."
     fi
 
-    # Sync base Terraform files and default local modules symlink if not already configured
-    echo "==> [3/5] Syncing Terraform scaffolding..."
-    cp "${INFRA_DCP_DIR}"/*.tf "$WORKSPACE_DIR/"
-    if [[ ! -L "$WORKSPACE_DIR/modules" && ! -d "$WORKSPACE_DIR/modules" ]]; then
+    echo "==> [3/5] Configuring Terraform module source: '${MODULES_SOURCE}'..."
+    if [[ "$MODULES_SOURCE" == "local" ]]; then
+      cp "${INFRA_DCP_DIR}"/*.tf "$WORKSPACE_DIR/"
       ln -sfn "${INFRA_DCP_DIR}/modules" "$WORKSPACE_DIR/modules"
+
+      python3 -c "
+import sys, re
+path = sys.argv[1]
+with open(path, 'r') as f:
+    content = f.read()
+updated = re.sub(r'source\s*=\s*\"[^\"]+\"', 'source = \"./modules/stack\"', content, count=1)
+with open(path, 'w') as f:
+    f.write(updated)
+" "$WORKSPACE_DIR/main.tf"
+
+      # Check for dirty working tree in modules
+      local dirty_files
+      dirty_files=$(git status --porcelain "${INFRA_DCP_DIR}/modules" 2>/dev/null || true)
+      if [[ -n "$dirty_files" ]]; then
+        echo "    Notice: Uncommitted changes detected in local infra/dcp/modules."
+      fi
+
+    else
+      # Module source is a Git tag/ref
+      local target_ref="$MODULES_SOURCE"
+      echo "    Resolving Git reference '${target_ref}'..."
+      if ! resolve_git_ref "$target_ref"; then
+        return 1
+      fi
+
+      echo "    Extracting root Terraform definition files from Git ref '${target_ref}'..."
+      for f in variables.tf main.tf outputs.tf; do
+        if ! git show "${target_ref}:infra/dcp/${f}" > "$WORKSPACE_DIR/${f}.tmp" 2>/dev/null; then
+          echo "Error: Failed to extract ${f} from Git ref '${target_ref}'" >&2
+          rm -f "$WORKSPACE_DIR/${f}.tmp"
+          return 1
+        fi
+        mv "$WORKSPACE_DIR/${f}.tmp" "$WORKSPACE_DIR/${f}"
+      done
+
+      rm -rf "$WORKSPACE_DIR/modules"
+
+      local git_source="source = \"git::https://github.com/datacommonsorg/datacommons.git//infra/dcp/modules/stack?ref=${target_ref}\""
+      python3 -c "
+import sys, re
+path = sys.argv[1]
+git_src = sys.argv[2]
+with open(path, 'r') as f:
+    content = f.read()
+updated = re.sub(r'source\s*=\s*\"[^\"]+\"', git_src, content, count=1)
+with open(path, 'w') as f:
+    f.write(updated)
+" "$WORKSPACE_DIR/main.tf" "$git_source"
     fi
+
+    # Clean module cache so Terraform downloads/updates sources cleanly
+    rm -rf "$WORKSPACE_DIR/.terraform/modules"
 
     echo "==> [4/5] Setting up remote GCS backend state..."
     cat <<BACKEND > "$WORKSPACE_DIR/backend.tf"
@@ -544,231 +470,26 @@ BACKEND
 
     (
       cd "$WORKSPACE_DIR"
-      echo "    Running terraform init..."
-      terraform init
+      echo "    Running terraform init -upgrade..."
+      terraform init -upgrade
     )
 
     echo "==> [5/5] Checking Service Account impersonation permissions..."
     check_sa_impersonation "$WORKSPACE_DIR" "$PROJECT"
-  }
-
-  # ==============================================================================
-  # ACTION: CONNECT (Read & Attach Only)
-  # ==============================================================================
-  if [[ "$ACTION" == "connect" ]]; then
-    do_connect
 
     echo ""
     echo "================================================================================"
     echo " SUCCESS: Connected to '${INSTANCE}'"
     echo " Workspace directory: ${WORKSPACE_DIR}"
+    echo " Module source:       ${MODULES_SOURCE}"
     echo ""
     echo " Next Steps:"
-    echo "   1. Configure version or custom container overrides:"
-    echo "      $0 configure --instance ${INSTANCE} [options]"
-    echo "   2. Or enter workspace to run terraform directly:"
-    echo "      cd ${WORKSPACE_DIR}"
+    echo "   1. cd ${WORKSPACE_DIR}"
+    echo "   2. Edit terraform.tfvars as needed"
+    echo "   3. terraform plan"
+    echo "   4. terraform apply"
     echo "================================================================================"
     echo ""
-    return 0
-  fi
-
-  # ==============================================================================
-  # ACTION: CONFIGURE (Mutate, Plan & Rollout)
-  # ==============================================================================
-  if [[ "$ACTION" == "configure" ]]; then
-    # Auto-connect if workspace does not exist yet
-    if [[ ! -f "$WORKSPACE_DIR/backend.tf" || ! -f "$WORKSPACE_DIR/terraform.tfvars" ]]; then
-      echo "==> Workspace '${WORKSPACE_DIR}' not initialized yet. Auto-connecting..."
-      do_connect
-      echo ""
-    fi
-
-    local NEED_UPGRADE=0
-
-    # 1. Handle Module Source
-    if [[ -n "$TF_SOURCE" ]]; then
-      if [[ "$TF_SOURCE" == "git" ]]; then
-        # Determine target ref
-        local target_ref="$TF_REF"
-        if [[ -z "$target_ref" ]]; then
-          if [[ -n "$DCP_VERSION" ]]; then
-            target_ref="v${DCP_VERSION}"
-          else
-            local cur_dcp_ver
-            cur_dcp_ver=$(get_tfvar "dcp_version" "$WORKSPACE_DIR/terraform.tfvars")
-            if [[ -n "$cur_dcp_ver" ]]; then
-              target_ref="v${cur_dcp_ver}"
-            else
-              target_ref="main"
-            fi
-          fi
-        fi
-
-        echo "==> Resolving Git ref '${target_ref}'..."
-        if ! resolve_git_ref "$target_ref"; then
-          return 1
-        fi
-
-        echo "==> Configuring hermetic Git module source (ref: ${target_ref})..."
-        # Extract root .tf files from git ref
-        for f in variables.tf main.tf outputs.tf; do
-          if ! git show "${target_ref}:infra/dcp/${f}" > "$WORKSPACE_DIR/${f}.tmp" 2>/dev/null; then
-            echo "Error: Failed to extract ${f} from git ref '${target_ref}'" >&2
-            rm -f "$WORKSPACE_DIR/${f}.tmp"
-            return 1
-          fi
-          mv "$WORKSPACE_DIR/${f}.tmp" "$WORKSPACE_DIR/${f}"
-        done
-
-        # Remove local modules symlink
-        rm -rf "$WORKSPACE_DIR/modules"
-
-        # Rewrite main.tf module source to GitHub
-        python3 -c "
-import sys, re
-path = sys.argv[1]
-ref = sys.argv[2]
-with open(path, 'r') as f:
-    content = f.read()
-
-git_source = f'source = \"git::https://github.com/datacommonsorg/datacommons.git//infra/dcp/modules/stack?ref={ref}\"'
-updated = re.sub(r'source\s*=\s*\"[^\"]+\"', git_source, content, count=1)
-with open(path, 'w') as f:
-    f.write(updated)
-" "$WORKSPACE_DIR/main.tf" "$target_ref"
-
-        # Purge stale module cache
-        rm -rf "$WORKSPACE_DIR/.terraform/modules"
-        NEED_UPGRADE=1
-
-      elif [[ "$TF_SOURCE" == "local" ]]; then
-        echo "==> Configuring local module source (symlink to infra/dcp/modules)..."
-        cp "${INFRA_DCP_DIR}"/*.tf "$WORKSPACE_DIR/"
-        ln -sfn "${INFRA_DCP_DIR}/modules" "$WORKSPACE_DIR/modules"
-
-        python3 -c "
-import sys, re
-path = sys.argv[1]
-with open(path, 'r') as f:
-    content = f.read()
-
-local_source = 'source = \"./modules/stack\"'
-updated = re.sub(r'source\s*=\s*\"[^\"]+\"', local_source, content, count=1)
-with open(path, 'w') as f:
-    f.write(updated)
-" "$WORKSPACE_DIR/main.tf"
-
-        # Purge stale module cache
-        rm -rf "$WORKSPACE_DIR/.terraform/modules"
-        NEED_UPGRADE=1
-
-      else
-        echo "Error: Invalid --terraform-source: '${TF_SOURCE}'. Must be 'git' or 'local'." >&2
-        return 1
-      fi
-    fi
-
-    # 2. Update dcp_version in terraform.tfvars
-    if [[ -n "$DCP_VERSION" ]]; then
-      echo "==> Setting dcp_version = \"${DCP_VERSION}\"..."
-      set_tfvar "dcp_version" "$DCP_VERSION" "$WORKSPACE_DIR/terraform.tfvars"
-    fi
-
-    # 3. Update datacommons_services_image override
-    if [[ -n "$SERVICES_IMAGE" ]]; then
-      echo "==> Setting datacommons_services_image = \"${SERVICES_IMAGE}\"..."
-      set_tfvar "datacommons_services_image" "$SERVICES_IMAGE" "$WORKSPACE_DIR/terraform.tfvars"
-    fi
-
-    # 4. Clear image overrides
-    if [[ $CLEAR_IMAGE_OVERRIDES -eq 1 ]]; then
-      echo "==> Resetting granular container image overrides..."
-      for key in datacommons_services_image ingestion_helper_service_image ingestion_preprocessing_job_image ingestion_postprocessing_job_image ingestion_dataflow_template_gcs_path; do
-        comment_out_tfvar "$key" "$WORKSPACE_DIR/terraform.tfvars"
-      done
-    fi
-
-    # 5. Display Structured Summary
-    local active_src
-    active_src=$(detect_active_source "$WORKSPACE_DIR")
-    local cur_ver
-    cur_ver=$(get_tfvar "dcp_version" "$WORKSPACE_DIR/terraform.tfvars")
-    local cur_services_img
-    cur_services_img=$(get_tfvar "datacommons_services_image" "$WORKSPACE_DIR/terraform.tfvars")
-
-    echo ""
-    echo "================================================================================"
-    echo " Testbed Configuration: ${INSTANCE} (${PROJECT})"
-    echo "================================================================================"
-    echo " • Module Source:     ${active_src}"
-    echo " • Baseline Version:  dcp_version = \"${cur_ver:-default}\""
-    if [[ -n "$cur_services_img" ]]; then
-      echo " • Services Image:    ${cur_services_img}"
-    else
-      echo " • Services Image:    (using baseline dcp_version)"
-    fi
-
-    if [[ "$active_src" == "local" ]]; then
-      local dirty_files
-      dirty_files=$(git status --porcelain "${INFRA_DCP_DIR}/modules" 2>/dev/null || true)
-      if [[ -n "$dirty_files" ]]; then
-        echo " ⚠️ Notice: Uncommitted changes detected in infra/dcp/modules."
-        echo "    Running 'apply' will deploy your uncommitted local modifications."
-      fi
-    fi
-    echo "================================================================================"
-    echo ""
-
-    # 6. Re-init Terraform if upgrade required
-    if [[ $NEED_UPGRADE -eq 1 ]]; then
-      (
-        cd "$WORKSPACE_DIR"
-        echo "==> Re-initializing Terraform with upgraded module source..."
-        terraform init -upgrade
-      )
-    fi
-
-    # 7. Terraform Plan
-    if [[ $RUN_PLAN -eq 1 ]]; then
-      (
-        cd "$WORKSPACE_DIR"
-        echo "==> Generating Terraform plan (tfplan)..."
-        terraform plan -out=tfplan
-      )
-    fi
-
-    # 8. Terraform Apply
-    if [[ $RUN_APPLY -eq 1 ]]; then
-      if [[ $YES_FLAG -eq 0 && -t 0 ]]; then
-        echo ""
-        local confirm
-        read -p "Apply this plan to '${INSTANCE}' in project '${PROJECT}'? [y/N]: " confirm
-        if [[ ! "$confirm" =~ ^[yY](es)?$ ]]; then
-          echo "Apply cancelled."
-          return 0
-        fi
-      fi
-
-      (
-        cd "$WORKSPACE_DIR"
-        echo "==> Executing terraform apply..."
-        terraform apply tfplan
-      )
-      echo ""
-      echo "✔ Successfully applied configuration to '${INSTANCE}'."
-
-      # 9. Push Config (only if explicitly set)
-      if [[ $DO_PUSH_CONFIG -eq 1 ]]; then
-        echo ""
-        echo "==> Pushing updated terraform.tfvars to Secret Manager ($SECRET_NAME)..."
-        gcloud secrets versions add "$SECRET_NAME" \
-          --data-file="$WORKSPACE_DIR/terraform.tfvars" \
-          --project="$PROJECT"
-        echo "✔ Secret successfully updated in GCP Secret Manager!"
-      fi
-    fi
-
     return 0
   fi
 
@@ -780,6 +501,11 @@ with open(path, 'w') as f:
     if [[ ! -f "$tfvars_file" ]]; then
       echo "Error: Local configuration '$tfvars_file' not found." >&2
       echo "Have you run '$0 connect --instance $INSTANCE' first?" >&2
+      return 1
+    fi
+
+    if [[ ! -s "$tfvars_file" ]]; then
+      echo "Error: Local configuration '$tfvars_file' is empty. Refusing to push." >&2
       return 1
     fi
 

@@ -16,9 +16,9 @@ All lifecycle operations are managed using `./tests/testbed/fetch_terraform_stat
 
 | Subcommand | Action | Data Flow |
 | :--- | :--- | :--- |
-| **`connect`** | Sets up your local workspace, wires remote GCS state, and checks IAM permissions. | **Cloud $\to$ Local**<br>(Secret Manager $\to$ `terraform.tfvars`) |
-| **`configure`** | Updates container images, versions, or module sources (Git vs. local), then plans and applies. | **Local $\to$ Cloud**<br>(Workspace $\to$ Cloud Run revision) |
-| **`push-config`** | Promotes your local settings to the team's shared baseline. *(Opt-in, default false)* | **Local $\to$ Cloud**<br>(`terraform.tfvars` $\to$ Secret Manager) |
+| **`connect`** | Sets up your local workspace, wires remote GCS state, configures module sources, and checks IAM permissions. | **Cloud $\to$ Local**<br>(Secret Manager $\to$ `terraform.tfvars`) |
+| **`push-config`** | Promotes your local `terraform.tfvars` to the team's shared baseline secret. | **Local $\to$ Cloud**<br>(`terraform.tfvars` $\to$ Secret Manager) |
+| **`list`** | Lists all active testbeds in the GCP project. | **Cloud $\to$ Terminal** |
 
 ---
 
@@ -42,59 +42,53 @@ All lifecycle operations are managed using `./tests/testbed/fetch_terraform_stat
 > Adding a **brand-new** testbed instead of using an existing one?
 > See [CREATING_A_TESTBED.md](./CREATING_A_TESTBED.md).
 
-### Step 1: Connect to a Testbed (Read/Attach)
+### Step 1: Connect to a Testbed
 
-Attach to an existing testbed to download its current baseline configuration:
+Run the connect script from the repository root, choosing where the Terraform modules and `workflow.yaml` come from:
 
 ```bash
-# Connect directly to testbed-1:
-./tests/testbed/fetch_terraform_state.sh connect --instance testbed-1
+# Option A: Connect and pin modules to an official release tag (e.g. v1.1.5):
+./tests/testbed/fetch_terraform_state.sh connect --instance testbed-1 --terraform-modules-source v1.1.5
 
-# OR run interactively to choose from available testbeds:
-./tests/testbed/fetch_terraform_state.sh connect
+# Option B: Connect and use your local modules / workflow.yaml (Default):
+./tests/testbed/fetch_terraform_state.sh connect --instance testbed-1 --terraform-modules-source local
 ```
 
+*(You can browse all published release tags on the [GitHub Tags Page](https://github.com/datacommonsorg/datacommons/tags). Tags follow the `vX.Y.Z` format, like `v1.1.5`).*
+
 **What `connect` does automatically:**
-1. **Pulls Configuration:** Fetches `dcp-testbed-1-tfvars` from GCP Secret Manager into `tests/testbed/workspaces/testbed-1/terraform.tfvars`.
-2. **Wires Remote State:** Configures GCS backend state (`gs://tf-state-testbed-1-datcom-dcp`).
-3. **Initializes Workspace:** Scaffolds and runs `terraform init`.
-4. **Configures IAM Impersonation:** Grants your user account `roles/iam.serviceAccountTokenCreator` on the testbed's Ingestion Workflow Service Account so you can run `datacommons` CLI commands seamlessly.
+1. **Pulls Configuration:** Fetches `dcp-testbed-1-tfvars` from Secret Manager into `tests/testbed/workspaces/testbed-1/terraform.tfvars`. *(If you already have local edits, it prompts before overwriting).*
+2. **Sets Module Source:** Wires `main.tf` to pull from GitHub at your chosen tag, or symlinks to your local `infra/dcp/modules`.
+3. **Wires Remote State:** Points Terraform backend to `gs://tf-state-testbed-1-datcom-dcp`.
+4. **Initializes Workspace:** Runs `terraform init -upgrade` inside `tests/testbed/workspaces/testbed-1/`.
+5. **Configures IAM Impersonation:** Grants your user account `roles/iam.serviceAccountTokenCreator` on the testbed's Ingestion Workflow Service Account so you can run `datacommons` CLI commands seamlessly.
 
 ---
 
-### Step 2: Configure and Deploy (`configure`)
+### Step 2: Edit `terraform.tfvars` and Apply
 
-The `configure` command modifies your testbed's orchestration sources, container versions, and image overrides, then plans and applies.
+You are now inside your workspace (`tests/testbed/workspaces/testbed-1/`).
 
-#### Option A: Test a custom container build against a clean release tag (Hermetic Mode)
-To ensure no local working tree changes or uncommitted `workflow.yaml` edits leak into the testbed:
-```bash
-./tests/testbed/fetch_terraform_state.sh configure \
-  --instance testbed-1 \
-  --terraform-source git \
-  --terraform-ref v1.1.5 \
-  --dcp-version 1.1.5 \
-  --services-image gcr.io/datcom-website-dev/datacommons-services:my-feature-tag \
-  --apply
+Open `terraform.tfvars` in your editor to configure the version or container image you want to test:
+
+```hcl
+# Test a baseline release version across all services:
+dcp_version = "1.1.5"
+
+# OR test a custom container build:
+datacommons_services_image = "gcr.io/datcom-website-dev/datacommons-services:my-feature-tag"
 ```
 
-#### Option B: Test local Terraform modules and workflow edits (Dev Mode)
-To deploy your local working branch's Terraform modules and `workflow.yaml`:
-```bash
-./tests/testbed/fetch_terraform_state.sh configure \
-  --instance testbed-1 \
-  --terraform-source local \
-  --apply
-```
+The full list of testbed overrides lives in [`testbed_overrides.tfvars.template`](./testbed_overrides.tfvars.template).
 
-#### Option C: Reset all custom container overrides
-To remove all custom `*_image` overrides and restore services to the baseline `dcp_version`:
+Inspect and apply your changes to GCP:
+
 ```bash
-./tests/testbed/fetch_terraform_state.sh configure \
-  --instance testbed-1 \
-  --clear-image-overrides \
-  --apply
+cd tests/testbed/workspaces/testbed-1
+terraform plan
+terraform apply
 ```
+*Terraform will roll out a new Cloud Run revision with your custom image in ~60–90 seconds.*
 
 ---
 
@@ -116,21 +110,18 @@ The CLI automatically impersonates the testbed's ingestion workflow service acco
 
 ### Step 4: Persisting Configuration (`push-config`)
 
-> [!IMPORTANT]
-> Developer experiments and custom container overrides **never mutate the team's shared secret by default**.
-> Only push your configuration when you have verified your changes and deliberately want them to become the new baseline for the entire team.
-
-To promote your local configuration to Secret Manager:
+If you want your updated configuration or image to remain the **shared baseline** for the testbed:
 
 ```bash
-# Explicit standalone command:
 ./tests/testbed/fetch_terraform_state.sh push-config --instance testbed-1
-
-# OR pass --push-config directly during configure:
-./tests/testbed/fetch_terraform_state.sh configure --instance testbed-1 --dcp-version 1.1.5 --apply --push-config
 ```
 
-The full, authoritative list of testbed overrides lives in [`testbed_overrides.tfvars.template`](./testbed_overrides.tfvars.template).
+**When to push:**
+* After verifying a release candidate or stable container image that should stay deployed for the team.
+* After adding or rotating a shared testbed variable.
+
+**When NOT to push:**
+* If you were only running a temporary, one-off test. (In that case, simply do not run `push-config`).
 
 ---
 

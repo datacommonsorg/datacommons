@@ -54,5 +54,5 @@ gcloud secrets versions add dcp-testbed-3-tfvars \
 When using local modules, `connect` copies `infra/dcp/*.tf` into the workspace but symlinks `modules/`. Switching git branches changes the modules underneath you while the root `.tf` files stay stale, producing confusing "unsupported argument" errors.
 
 **Solution:**
-* Run `./tests/testbed/fetch_terraform_state.sh configure --terraform-source git --terraform-ref <tag>` to hermetically pin Terraform modules directly from GitHub, eliminating branch skew.
-* If testing local changes across branches, re-run `./tests/testbed/fetch_terraform_state.sh configure --terraform-source local` to refresh root `.tf` files.
+* Run `./tests/testbed/fetch_terraform_state.sh connect --instance <instance> --terraform-modules-source <tag>` (e.g. `v1.1.5`, see [GitHub Tags](https://github.com/datacommonsorg/datacommons/tags)) to pin Terraform modules directly from GitHub, eliminating branch skew.
+* If testing local changes across branches, re-run `./tests/testbed/fetch_terraform_state.sh connect --instance <instance> --terraform-modules-source local` to refresh root `.tf` files.
