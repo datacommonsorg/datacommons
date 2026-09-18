@@ -18,8 +18,10 @@ The CLI tooling is structured across two packages in the repository:
   * `init/`: Deployment scaffolding and template rewrite logic ([init_cli.py](../../packages/datacommons-admin/datacommons_admin/init/init_cli.py), [scaffold_utils.py](../../packages/datacommons-admin/datacommons_admin/init/utils/scaffold_utils.py)).
   * `db/`: Database initialization and schema migration runner ([db_cli.py](../../packages/datacommons-admin/datacommons_admin/db/db_cli.py), [migration_utils.py](../../packages/datacommons-admin/datacommons_admin/db/utils/migration_utils.py)).
   * `ingest/`: Workflows launch client and runtime configuration inspector ([ingest_cli.py](../../packages/datacommons-admin/datacommons_admin/ingest/ingest_cli.py), [ingestion_job_client.py](../../packages/datacommons-admin/datacommons_admin/core/clients/ingestion_job_client.py)).
-  * `core/utils/tf_utils.py`: Local and remote GCS Terraform state parser ([tf_utils.py](../../packages/datacommons-admin/datacommons_admin/core/utils/tf_utils.py)).
-  * `tests/`: Automated unit test suite verifying state parsing, GCS URI resolution, and command behaviors ([tests/](../../packages/datacommons-admin/tests)).
+  * `core/clients/`: Authenticated HTTP clients for the Ingestion Helper service ([ingestion_helper_client.py](../../packages/datacommons-admin/datacommons_admin/core/clients/ingestion_helper_client.py)) and Cloud Workflows / Cloud Run Jobs ([ingestion_job_client.py](../../packages/datacommons-admin/datacommons_admin/core/clients/ingestion_job_client.py)).
+  * `core/terraform/`: Local and remote GCS Terraform state parser ([state.py](../../packages/datacommons-admin/datacommons_admin/core/terraform/state.py)) and strongly typed deployment output model ([models.py](../../packages/datacommons-admin/datacommons_admin/core/terraform/models.py)).
+  * `core/utils/`: Shared interactive terminal prompt and formatting helpers ([ui_utils.py](../../packages/datacommons-admin/datacommons_admin/core/utils/ui_utils.py)).
+  * `tests/`: Automated unit and contract test suite verifying state parsing, GCS URI resolution, HCL output parity, and command behaviors ([tests/](../../packages/datacommons-admin/tests)).
 
 ### CLI Command Taxonomy
 * **`datacommons admin init`**: Scaffolds a new deployment directory by fetching Terraform templates, modifying module sources, and configuring instance variables.
@@ -53,14 +55,14 @@ source = "./modules/stack"  ==>  source = "git::https://github.com/datacommonsor
 
 Administrative commands (`init-db`, `migrate-db`, `ingest start`, `ingest show-config`) require access to infrastructure attributes provisioned by Terraform, such as the Spanner database ID, Cloud Workflows name, and Cloud Run service URLs.
 
-The CLI resolves these attributes dynamically via [tf_utils.py](../../packages/datacommons-admin/datacommons_admin/core/utils/tf_utils.py) using two execution modes, parsing outputs into an in-memory dictionary and accessing values through dedicated functional getter helpers:
+The CLI resolves these attributes dynamically via [state.py](../../packages/datacommons-admin/datacommons_admin/core/terraform/state.py) using two execution modes, parsing and validating outputs into the strongly typed `TerraformOutputs` dataclass defined in [models.py](../../packages/datacommons-admin/datacommons_admin/core/terraform/models.py):
 
 * **Remote GCS State Mode**: Used when the operator passes `--tf-state-location` or passes `--project-id` and `--instance-name` together. Reads `default.tfstate` directly from Cloud Storage via the Google Cloud Client Library without requiring the local `terraform` CLI binary.
 * **Local State Mode**: Used when invoked within an active deployment directory without remote state flags. Executes `terraform output -json` as a local subprocess and parses the JSON stdout.
 
 ### Local State Mode (Interactive Workstations)
 When invoked inside an initialized deployment directory without remote state flags:
-* `tf_utils.py` locates the local `terraform` binary using `shutil.which("terraform")`.
+* `state.py` locates the local `terraform` binary using `shutil.which("terraform")`.
 * It executes `terraform output -json` as a subprocess within the current working directory.
 * It parses the standard output JSON into an in-memory dictionary of output values.
 
@@ -73,33 +75,28 @@ In automated environments (such as GitHub Actions, Cloud Build, or remote operat
       --instance-name dev-alice \
       ingest start --imports ALL_IMPORTS
   ```
-* When `--project-id` and `--instance-name` are passed, `tf_utils.py` downloads the state blob from canonical URI `gs://tf-state-<instance-name>-<project-id>/terraform/state/<instance-name>/default.tfstate`. If `--tf-state-location` is specified, it downloads directly from the provided GCS URI.
+* When `--project-id` and `--instance-name` are passed, `state.py` downloads the state blob from canonical URI `gs://tf-state-<instance-name>-<project-id>/terraform/state/<instance-name>/default.tfstate`. If `--tf-state-location` is specified, it downloads directly from the provided GCS URI.
 * The CLI extracts the `outputs` JSON block directly from the remote state document.
 
-### Terraform Output Key Mapping
-`tf_utils.py` defines explicit string constants for required outputs:
-* Database initialization: `spanner_instance_id`, `spanner_database_id`, `ingestion_service_url`, `ingestion_workflow_service_account_email`, `project_id`.
-* Data ingestion: `ingestion_prep_job_name`, `ingestion_workflow_service_account_email`, `project_id`, `region`, `ingestion_workflow_name`.
-
-Dedicated functional getters (`get_spanner_instance_id()`, `get_ingestion_prep_job_name()`, etc.) retrieve each output on-demand through `get_terraform_output(key)`. The function caches output dictionaries across repeated lookups within a command lifecycle and validates that returned values are non-empty.
-
-Passing explicit remote flags strictly overrides local state detection, ensuring deterministic execution on CI/CD runners regardless of working directory.
+### Typed Terraform Output Contract (`TerraformOutputs`)
+Rather than relying on loose dictionary lookups, CLI subcommands pass the root CLI state flags (`project_id`, `instance_name`, `tf_state_location`) into `get_terraform_outputs()` in [state.py](../../packages/datacommons-admin/datacommons_admin/core/terraform/state.py) to parse deployment state into the `TerraformOutputs` dataclass ([models.py](../../packages/datacommons-admin/datacommons_admin/core/terraform/models.py)):
+* **Validation and Field Extraction**: `TerraformOutputs.from_state_outputs()` extracts scalar values from Terraform's `{"value": ...}` JSON envelope, strips whitespace, enforces that required attributes are non-empty, and computes derived paths such as `ingestion_temp_location` (`gs://<storage_artifacts_bucket_name>/temp`).
+* **Precedence**: Passing explicit remote flags (`--project-id` and `--instance-name`, or `--tf-state-location`) strictly overrides local state detection, ensuring deterministic execution on CI/CD runners regardless of working directory.
 
 ### Test Suite Architecture
-The test suite in [packages/datacommons-admin/tests/core/test_tf_utils.py](../../packages/datacommons-admin/tests/core/test_tf_utils.py) tests the state resolution mechanics:
-* Local state tests mock subprocess execution of `terraform output -json`.
-* Remote GCS state tests mock Google Cloud Storage client downloads for canonical and explicit state locations.
-* Error tests verify handling of missing state files (HTTP 404), unauthenticated access, invalid JSON structure, missing required output keys, and malformed GCS URIs.
-* Falsy value tests verify that boolean false and numeric zero outputs parse correctly.
-
-Note: Automated unit tests validate state parsing logic and error handling against mock payloads. They do not dynamically parse `outputs.tf` at test time.
+The state resolution and contract verification suite spans two complementary test modules under `packages/datacommons-admin/tests/core/`:
+* **State Resolution Unit Tests ([test_tf_state.py](../../packages/datacommons-admin/tests/core/test_tf_state.py))**:
+  * Mocks subprocess execution of `terraform output -json` for local state mode and Google Cloud Storage client downloads for remote state mode.
+  * Verifies handling of missing state files (HTTP 404), permission errors (HTTP 403), malformed JSON, and missing required output keys.
+* **Automated HCL Contract Tests ([test_tf_contract.py](../../packages/datacommons-admin/tests/core/test_tf_contract.py))**:
+  * Dynamically parses [infra/dcp/outputs.tf](../../infra/dcp/outputs.tf) at test time and verifies that every field defined on `TerraformOutputs` is explicitly declared in `infra/dcp/outputs.tf`.
 
 ---
 
 ## Operational Execution Flows
 
 ### Database Initialization Flow (`datacommons admin init-db`)
-1. **Output Discovery**: Reads `ingestion_service_url`, `ingestion_workflow_service_account_email`, `spanner_instance_id`, `spanner_database_id`, and `project_id` from Terraform state via functional getters in [tf_utils.py](../../packages/datacommons-admin/datacommons_admin/core/utils/tf_utils.py).
+1. **Output Discovery**: Calls `get_terraform_outputs()` in [state.py](../../packages/datacommons-admin/datacommons_admin/core/terraform/state.py) to load validated project, Spanner, and Ingestion Helper endpoints from Terraform state.
 2. **Client Authentication**: Instantiates `IngestionHelperClient` configured with OpenID Connect (OIDC) ID token impersonation for the workflow service account. Prerequisite: the executing user account must hold `roles/iam.serviceAccountTokenCreator` on the workflow service account.
 3. **Database Check and Safety Guard**: Calls `is_database_initialized(project_id, instance_id, database_id)`. If the `Node` table exists, the CLI halts execution to avoid overwriting existing data, directing operators to run `migrate-db` or `seed-db` instead.
 4. **Base Schema Creation**: Sends an authenticated HTTP POST request to `${ingestion_service_url}/database/initialize` to apply base DDL scripts via the Ingestion Helper service in `datcom-import`. This creates the required Spanner tables (`Node`, `Edge`, `TimeSeries`, `Observation`, `ImportStatus`, `IngestionHistory`, `ImportVersionHistory`, `IngestionLock`, `KeyValueStore`, `NodeEmbedding`), secondary indexes, and embedding models.
@@ -113,22 +110,21 @@ Note: Automated unit tests validate state parsing logic and error handling again
 4. **Lock Coordination & Application**: Acquires the distributed lock via Ingestion Helper (`workflow_id="schema-migration"`), applies all pending migrations directly to Cloud Spanner, and releases the lock in a finally block.
 
 ### Ingestion Trigger Flow (`datacommons admin ingest start`)
-1. **Output Discovery**: Reads `ingestion_workflow_name`, `ingestion_prep_job_name`, `ingestion_workflow_service_account_email`, `project_id`, and `region` from Terraform state. Note that `TEMP_LOCATION` is not an exported Terraform output.
-2. **Runtime Environment Discovery**: Instantiates `IngestionJobClient` and queries the Cloud Run Admin API (`GET https://run.googleapis.com/v2/{job_name}`) for the preprocessing Cloud Run job definition. It inspects the container environment variables to retrieve runtime parameters: `TEMP_LOCATION`, `GCP_SPANNER_INSTANCE_ID`, and `GCP_SPANNER_DATABASE_NAME`.
-3. **Workflow Execution**:
+1. **Output Discovery**: Calls `get_terraform_outputs()` to resolve the Cloud Workflow name, service account email, project ID, region, Spanner identifiers, and derived temporary GCS location (`gs://<storage_artifacts_bucket_name>/temp`) directly from Terraform state without requiring extra runtime Cloud Run API calls.
+2. **Workflow Execution**:
    * Parses the comma-separated `--imports` flag into a list of import names.
    * Constructs the execution argument JSON payload containing `tempLocation`, `spannerInstanceId`, `spannerDatabaseId`, `region`, and `imports`.
    * Sends an authenticated HTTP POST request to the Google Cloud Workflow Executions REST API (`https://workflowexecutions.googleapis.com/v1/{full_workflow_name}/executions`) using an `AuthorizedSession` authenticated via impersonated service account credentials.
-4. **Console Link Generation**: Formulates and prints a direct Google Cloud Console URL:
+3. **Console Link Generation**: Formulates and prints a direct Google Cloud Console URL:
    ```
    https://console.cloud.google.com/workflows/workflow/<region>/<workflow_name>/execution/<execution_id>/summary?project=<project_id>
    ```
    This allows operators to immediately monitor live execution progress.
-5. **Asynchronous Pipeline Coordination**: The Cloud Workflow coordinates pipeline execution across preprocessing, Dataflow, postprocessing, and cache invalidation. During execution, the workflow manages the `IngestionLock`, `IngestionHistory`, and `ImportStatus` tables by calling Ingestion Helper endpoints; the Admin CLI process exits immediately after triggering the execution.
+4. **Asynchronous Pipeline Coordination**: The Cloud Workflow coordinates pipeline execution across preprocessing, Dataflow, postprocessing, and cache invalidation. During execution, the workflow manages the `IngestionLock`, `IngestionHistory`, and `ImportStatus` tables by calling Ingestion Helper endpoints; the Admin CLI process exits immediately after triggering the execution.
 
 ### Runtime Configuration Flow (`datacommons admin ingest show-config`)
-1. **Output Discovery**: Reads `ingestion_prep_job_name`, `ingestion_workflow_service_account_email`, `project_id`, and `region` from Terraform state.
-2. **Inspection**: Queries the Cloud Run Admin API for the preprocessing job definition and prints active environment variables, distinguishing explicit values from secret references.
+1. **Output Discovery**: Calls `get_terraform_outputs()` to read and display core deployment attributes (`project_id`, `region`, `ingestion_workflow_service_account_email`, and optional `ingestion_prep_job_name`) directly from Terraform state.
+2. **Job Environment Inspection**: If `ingestion_prep_job_name` is configured in the deployment, queries the Cloud Run Admin API for the preprocessing job definition and prints its container environment variables, distinguishing explicit values from secret references.
 
 ---
 
