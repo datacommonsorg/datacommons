@@ -236,7 +236,7 @@ with open(path, 'r') as f:
 pattern = rf'^\s*#?\s*{re.escape(key)}\s*=.*$'
 replacement = f'{key} = \"{val}\"'
 if re.search(pattern, content, re.MULTILINE):
-    updated = re.sub(pattern, replacement, content, count=1, flags=re.MULTILINE)
+    updated = re.sub(pattern, lambda m: replacement, content, count=1, flags=re.MULTILINE)
 else:
     updated = content.rstrip() + f'\n{replacement}\n'
 
@@ -259,8 +259,8 @@ path = sys.argv[2]
 with open(path, 'r') as f:
     content = f.read()
 
-pattern = rf'^(\s*){re.escape(key)}\s*=(.*)$'
-updated = re.sub(pattern, r'\1# \g<0>', content, flags=re.MULTILINE)
+pattern = rf'^(\s*)({re.escape(key)}\s*=.*)$'
+updated = re.sub(pattern, r'\1# \2', content, flags=re.MULTILINE)
 with open(path, 'w') as f:
     f.write(updated)
 " "$key" "$file"
@@ -520,7 +520,8 @@ TFVARS
       fi
       gcloud secrets versions access latest \
         --secret="$SECRET_NAME" \
-        --project="$PROJECT" > "$WORKSPACE_DIR/terraform.tfvars"
+        --project="$PROJECT" > "$WORKSPACE_DIR/terraform.tfvars.tmp"
+      mv "$WORKSPACE_DIR/terraform.tfvars.tmp" "$WORKSPACE_DIR/terraform.tfvars"
       echo "    Successfully fetched terraform.tfvars from Secret Manager."
     fi
 
@@ -612,9 +613,12 @@ BACKEND
         echo "==> Configuring hermetic Git module source (ref: ${target_ref})..."
         # Extract root .tf files from git ref
         for f in variables.tf main.tf outputs.tf; do
-          if git show "${target_ref}:infra/dcp/${f}" > "$WORKSPACE_DIR/${f}.tmp" 2>/dev/null; then
-            mv "$WORKSPACE_DIR/${f}.tmp" "$WORKSPACE_DIR/${f}"
+          if ! git show "${target_ref}:infra/dcp/${f}" > "$WORKSPACE_DIR/${f}.tmp" 2>/dev/null; then
+            echo "Error: Failed to extract ${f} from git ref '${target_ref}'" >&2
+            rm -f "$WORKSPACE_DIR/${f}.tmp"
+            return 1
           fi
+          mv "$WORKSPACE_DIR/${f}.tmp" "$WORKSPACE_DIR/${f}"
         done
 
         # Remove local modules symlink
