@@ -4,10 +4,12 @@ main:
     - init:
         assign:
           - project_id: '${project_id}'
+          - region: '${region}'
+          - temp_location: '${temp_location}'
           - workflow_id: '$${sys.get_env("GOOGLE_CLOUD_WORKFLOW_EXECUTION_ID")}'
           - version: '$${"version-" + string(int(sys.now()))}'
-          - bucket_name: '$${text.split(input.tempLocation, "/")[2]}'
-          - temp_path_prefix: '$${text.replace_all(input.tempLocation, "gs://" + bucket_name + "/", "")}'
+          - bucket_name: '$${text.split(temp_location, "/")[2]}'
+          - temp_path_prefix: '$${text.replace_all(temp_location, "gs://" + bucket_name + "/", "")}'
           - execution_error: null
           - postprocessing_result: null
           - embedding_result: null
@@ -30,11 +32,11 @@ main:
           - imports_history_str: ""
           - launch_params:
               projectId: '$${project_id}'
-              spannerInstanceId: '$${default(map.get(input, "spannerInstanceId"), "")}'
-              spannerDatabaseId: '$${default(map.get(input, "spannerDatabaseId"), "")}'
+              spannerInstanceId: '${spanner_instance_id}'
+              spannerDatabaseId: '${spanner_database_id}'
               importList: '$${default(map.get(input, "importList"), "")}'
-              tempLocation: '$${input.tempLocation}'
-              stagingLocation: '$${input.tempLocation}'
+              tempLocation: '$${temp_location}'
+              stagingLocation: '$${temp_location}'
               forceCombineNodes: 'true'
               isBaseDc: 'false'
     - normalize_imports:
@@ -93,9 +95,9 @@ main:
         args:
           job_name: '$${prep_job_name}'
           workflow_id: '$${workflow_id}'
-          temp_location: '$${input.tempLocation}'
+          temp_location: '$${temp_location}'
           imports_arg: '$${comma_separated_imports}'
-          region: '$${input.region}'
+          region: '$${region}'
           project_id: '${project_id}'
         result: prep_res
 
@@ -171,8 +173,8 @@ main:
                 args:
                   job_name: '$${dataflow_job_name}'
                   launch_params: '$${launch_params}'
-                  temp_location: '$${input.tempLocation}'
-                  region: '$${input.region}'
+                  temp_location: '$${temp_location}'
+                  region: '$${region}'
                   workflow_id: '$${workflow_id}'
                 result: dataflow_res
             
@@ -206,7 +208,7 @@ main:
                                 run_flag: '$${run_postproc}'
                                 import_list: '$${provenances_list}'
                                 job_name: '$${postproc_job_name}'
-                                region: '$${input.region}'
+                                region: '$${region}'
                                 project_id: '$${project_id}'
                                 workflow_id: '$${workflow_id}'
                                 generate_stat_var_groups: '$${generate_stat_var_groups}'

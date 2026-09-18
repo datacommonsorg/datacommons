@@ -89,6 +89,23 @@ variable "ingestion_artifacts_path" {
   description = "Path where pre-processed files are placed for the next stage"
 }
 
+variable "temp_location" {
+  type        = string
+  description = "GCS path for temporary workflow and Dataflow staging artifacts"
+}
+
+variable "spanner_instance_id" {
+  type        = string
+  description = "Cloud Spanner instance ID for ingestion"
+  default     = ""
+}
+
+variable "spanner_database_id" {
+  type        = string
+  description = "Cloud Spanner database ID for ingestion"
+  default     = ""
+}
+
 variable "dataflow_ip_configuration" {
   type        = string
   description = <<-EOT
