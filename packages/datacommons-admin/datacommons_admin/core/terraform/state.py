@@ -233,9 +233,7 @@ def get_terraform_outputs(
     resolved_config = config or _resolve_remote_state_params()
     ctx = click.get_current_context(silent=True) if config is None else None
     params = ctx.find_object(dict) if ctx else None
-    cached: TerraformOutputs | None = (
-        params.get(_OUTPUTS_CACHE_KEY) if params else None
-    )
+    cached: TerraformOutputs | None = params.get(_OUTPUTS_CACHE_KEY) if params else None
 
     if cached is None:
         raw_outputs = (
