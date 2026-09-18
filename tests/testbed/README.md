@@ -8,26 +8,17 @@ They allow any engineer on the team to **deploy and test custom container builds
 
 ---
 
-## 🏗 Architecture
+## How It Works
 
-```
-                     ┌──────────────────────────────────────────────┐
-                     │          GCP Project: datcom-dcp             │
-                     │  - Secret Manager: dcp-testbed-1-tfvars     │
-                     │  - GCS Remote State: tf-state-testbed-1-... │
-                     │  - Workflow Service Account (TokenCreator)   │
-                     │  - Cloud Run, Spanner DB, Networking         │
-                     └──────────────────────┬───────────────────────┘
-                                            │
-               ┌────────────────────────────┼────────────────────────────┐
-               │                            │                            │
-       1. Connect & Attach          2. Configure & Deploy        3. Push & Persist
-   `fetch_terraform_state.sh connect`             `fetch_terraform_state.sh configure`       `fetch_terraform_state.sh push-config`
-   - Pulls baseline secret          - Switches module sources    - Opt-in save back to
-   - Wires remote backend state       (git tag vs local disk)      Secret Manager so the
-   - Configures SA Impersonation    - Updates versions & images    team baseline updates
-   - Inits local workspace          - Runs plan & apply
-```
+A testbed pairs a **remote GCP environment** in `datcom-dcp` with a **local workspace** on your machine (`tests/testbed/workspaces/<instance>/`).
+
+All lifecycle operations are managed using `./tests/testbed/fetch_terraform_state.sh`:
+
+| Subcommand | Action | Data Flow |
+| :--- | :--- | :--- |
+| **`connect`** | Sets up your local workspace, wires remote GCS state, and checks IAM permissions. | **Cloud $\to$ Local**<br>(Secret Manager $\to$ `terraform.tfvars`) |
+| **`configure`** | Updates container images, versions, or module sources (Git vs. local), then plans and applies. | **Local $\to$ Cloud**<br>(Workspace $\to$ Cloud Run revision) |
+| **`push-config`** | Promotes your local settings to the team's shared baseline. *(Opt-in, default false)* | **Local $\to$ Cloud**<br>(`terraform.tfvars` $\to$ Secret Manager) |
 
 ---
 
