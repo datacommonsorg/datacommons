@@ -153,35 +153,6 @@ def mock_job_session():
 
         mock_session_inst = MagicMock()
 
-        mock_get_resp = MagicMock()
-        mock_get_resp.ok = True
-        mock_get_resp.json.return_value = {
-            "template": {
-                "template": {
-                    "containers": [
-                        {
-                            "env": [
-                                {
-                                    "name": "TEMP_LOCATION",
-                                    "value": "gs://mock-bucket/temp",
-                                },
-                                {
-                                    "name": "GCP_SPANNER_INSTANCE_ID",
-                                    "value": "mock-instance",
-                                },
-                                {
-                                    "name": "GCP_SPANNER_DATABASE_NAME",
-                                    "value": "mock-db",
-                                },
-                                {"name": "REGION", "value": "us-central1"},
-                            ]
-                        }
-                    ]
-                }
-            }
-        }
-        mock_session_inst.get.return_value = mock_get_resp
-
         mock_resp = MagicMock()
         mock_resp.ok = True
         mock_resp.json.return_value = {

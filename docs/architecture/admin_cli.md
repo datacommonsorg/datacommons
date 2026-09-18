@@ -79,7 +79,7 @@ In automated environments (such as GitHub Actions, Cloud Build, or remote operat
 ### Typed Terraform Output Contract (`TerraformOutputs`)
 Rather than relying on loose dictionary lookups, CLI subcommands call `get_terraform_outputs()` in [state.py](../../packages/datacommons-admin/datacommons_admin/core/terraform/state.py) to parse deployment state into the `TerraformOutputs` dataclass ([models.py](../../packages/datacommons-admin/datacommons_admin/core/terraform/models.py)):
 * **Validation and Field Extraction**: `TerraformOutputs.from_state_outputs()` extracts scalar values from Terraform's `{"value": ...}` JSON envelope, strips whitespace, enforces that required attributes are non-empty, and computes derived paths such as `ingestion_temp_location` (`gs://<storage_artifacts_bucket_name>/temp`).
-* **Caching**: Raw state outputs are cached in the active Click context so repeated calls within a single CLI invocation do not re-read local state or re-download from GCS.
+* **Caching**: The parsed `TerraformOutputs` instance is cached in the active Click context so repeated calls within a single CLI invocation return the same object without re-reading local state or re-downloading from GCS.
 * **Precedence**: Passing explicit remote flags (`--project-id` and `--instance-name`, or `--tf-state-location`) strictly overrides local state detection, ensuring deterministic execution on CI/CD runners regardless of working directory.
 
 ### Test Suite Architecture

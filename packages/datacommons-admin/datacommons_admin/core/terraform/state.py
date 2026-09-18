@@ -226,29 +226,25 @@ def _get_outputs_from_local() -> dict[str, Any]:
     return outputs
 
 
-def _fetch_raw_terraform_outputs(
-    config: TerraformStateConfig | None = None,
-) -> dict[str, Any]:
-    """Internal helper that fetches raw outputs dictionary from local or remote GCS Terraform state, cached in Click context."""
-    resolved_config = config or _resolve_remote_state_params()
-    ctx = click.get_current_context(silent=True) if config is None else None
-    params = ctx.find_object(dict) if ctx else None
-    outputs = params.get(_OUTPUTS_CACHE_KEY) if params else None
-
-    if outputs is None:
-        if resolved_config.is_remote:
-            outputs = _get_outputs_from_gcs(resolved_config)
-        else:
-            outputs = _get_outputs_from_local()
-        if params is not None:
-            params[_OUTPUTS_CACHE_KEY] = outputs
-
-    return outputs
-
-
 def get_terraform_outputs(
     config: TerraformStateConfig | None = None,
 ) -> TerraformOutputs:
-    """Sole public entrypoint to fetch, parse, and validate deployment outputs into a strongly typed TerraformOutputs dataclass."""
-    raw_outputs = _fetch_raw_terraform_outputs(config)
-    return TerraformOutputs.from_state_outputs(raw_outputs)
+    """Sole public entrypoint to fetch, parse, and validate deployment outputs into a cached, immutable TerraformOutputs dataclass."""
+    resolved_config = config or _resolve_remote_state_params()
+    ctx = click.get_current_context(silent=True) if config is None else None
+    params = ctx.find_object(dict) if ctx else None
+    cached: TerraformOutputs | None = (
+        params.get(_OUTPUTS_CACHE_KEY) if params else None
+    )
+
+    if cached is None:
+        raw_outputs = (
+            _get_outputs_from_gcs(resolved_config)
+            if resolved_config.is_remote
+            else _get_outputs_from_local()
+        )
+        cached = TerraformOutputs.from_state_outputs(raw_outputs)
+        if params is not None:
+            params[_OUTPUTS_CACHE_KEY] = cached
+
+    return cached

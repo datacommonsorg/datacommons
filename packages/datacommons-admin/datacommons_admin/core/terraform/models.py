@@ -71,8 +71,8 @@ class TerraformOutputs:
     storage_artifacts_bucket_name: str
 
     # Conditional outputs (can evaluate to null in HCL when feature is disabled)
-    spanner_instance_id: str = ""
-    spanner_database_id: str = ""
+    spanner_instance_id: str | None = None
+    spanner_database_id: str | None = None
     ingestion_prep_job_name: str | None = None
 
     @property

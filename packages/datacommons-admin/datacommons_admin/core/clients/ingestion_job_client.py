@@ -101,8 +101,8 @@ class IngestionJobClient:
         # 2. Construct payload argument (must be a JSON string)
         argument_dict = {
             "tempLocation": self.temp_location,
-            "spannerInstanceId": self.spanner_instance_id,
-            "spannerDatabaseId": self.spanner_database_id,
+            "spannerInstanceId": self.spanner_instance_id or "",
+            "spannerDatabaseId": self.spanner_database_id or "",
             "region": self.location or "",
             "imports": imports_list,
         }

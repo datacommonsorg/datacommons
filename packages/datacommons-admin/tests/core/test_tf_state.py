@@ -20,7 +20,6 @@ from click.testing import CliRunner
 from datacommons_admin.admin_cli import admin
 from datacommons_admin.core.terraform.models import TerraformStateConfig
 from datacommons_admin.core.terraform.state import (
-    _fetch_raw_terraform_outputs,
     _parse_gcs_uri,
     _parse_terraform_state_outputs,
     _resolve_gcs_uri,
@@ -47,6 +46,7 @@ def test_get_terraform_outputs_from_gcs_canonical_success(
     def test_cmd() -> None:
         tf1 = get_terraform_outputs()
         tf2 = get_terraform_outputs()
+        assert tf1 is tf2
         click.echo(f"PROJ={tf1.project_id} CACHED_PROJ={tf2.project_id}")
 
     result = runner.invoke(
@@ -89,6 +89,7 @@ def test_get_terraform_outputs_from_gcs_location_success(
     def test_cmd() -> None:
         tf1 = get_terraform_outputs()
         tf2 = get_terraform_outputs()
+        assert tf1 is tf2
         click.echo(f"PROJ={tf1.project_id} CACHED_PROJ={tf2.project_id}")
 
     result = runner.invoke(
@@ -321,44 +322,3 @@ def test_terraform_state_config() -> None:
         _resolve_gcs_uri(canonical_cfg)
         == "gs://tf-state-my-inst-my-proj/terraform/state/my-inst/default.tfstate"
     )
-
-
-@patch("google.cloud.storage.Client")
-def test_fetch_raw_terraform_outputs_handles_falsy_values(
-    mock_storage_client: MagicMock, runner: CliRunner
-) -> None:
-    mock_client_inst = MagicMock()
-    mock_storage_client.return_value = mock_client_inst
-    mock_bucket = MagicMock()
-    mock_client_inst.bucket.return_value = mock_bucket
-    mock_blob = MagicMock()
-    mock_bucket.blob.return_value = mock_blob
-
-    state_content = """{
-      "version": 4,
-      "outputs": {
-        "bool_key": {"value": false},
-        "zero_key": {"value": 0}
-      }
-    }"""
-    mock_blob.download_as_text.return_value = state_content
-
-    @admin.command(name="test-falsy-outputs")
-    def test_cmd() -> None:
-        raw = _fetch_raw_terraform_outputs()
-        val1 = raw["bool_key"]["value"]
-        val2 = raw["zero_key"]["value"]
-        click.echo(f"BOOL={val1} ZERO={val2}")
-
-    result = runner.invoke(
-        admin,
-        [
-            "--project-id",
-            "mock-project",
-            "--instance-name",
-            "mock-instance",
-            "test-falsy-outputs",
-        ],
-    )
-    assert result.exit_code == 0
-    assert "BOOL=False ZERO=0" in result.output

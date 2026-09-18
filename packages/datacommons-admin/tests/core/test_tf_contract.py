@@ -151,8 +151,9 @@ def test_terraform_outputs_from_state_outputs_edge_cases() -> None:
 
     parsed = TerraformOutputs.from_state_outputs(base_valid)
     assert parsed.project_id == "test-proj"
-    assert parsed.spanner_instance_id == ""
-    assert parsed.spanner_database_id == ""
+    assert parsed.ingestion_temp_location == "gs://bucket/temp"
+    assert parsed.spanner_instance_id is None
+    assert parsed.spanner_database_id is None
     assert parsed.ingestion_prep_job_name is None
 
     # Missing or whitespace-only required field raises ClickException
