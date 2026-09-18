@@ -17,8 +17,8 @@
 # ==============================================================================
 # Data Commons Platform (DCP) Developer Testbed CLI
 # ==============================================================================
-# Enables rapid connection, configuration synchronization, module source switching,
-# and IAM impersonation for shared developer testbeds in Google Cloud Platform.
+# Enables rapid connection, configuration synchronization, and IAM impersonation
+# for shared and developer testbeds in Google Cloud Platform.
 # ==============================================================================
 
 set -eo pipefail
@@ -40,21 +40,21 @@ Usage:
   $0 <command> [options]
 
 Commands:
-  connect       Connect to a testbed (pulls baseline config, wires backend, inits Terraform, checks IAM)
+  connect       Connect to a testbed (pulls config, inits Terraform, checks IAM impersonation)
   push-config   Save and push local terraform.tfvars back to GCP Secret Manager
   list          List available testbeds in the project
 
-Global Options:
-  --instance <name>     Instance name (e.g. testbed-1, testbed-2)
-  --project <id>        GCP Project ID (default: ${DEFAULT_PROJECT})
-  --force               Skip interactive confirmation prompts
+Options:
+  --instance <name>   Instance name (e.g. testbed-1, testbed-alpha, alice)
+  --project <id>      GCP Project ID (default: ${DEFAULT_PROJECT})
+  --force             Skip interactive confirmation prompts
 
 Options for 'connect':
   --terraform-modules-source <local|tag>
-                        Where Terraform modules (including workflow.yaml) come from:
-                        • local: Dev mode. Symlinks to local infra/dcp/modules (default).
-                        • <tag>: Git tag (e.g. v1.1.5). Loads official modules from GitHub.
-                        (See available tags: https://github.com/datacommonsorg/datacommons/tags)
+                      Where Terraform modules (including workflow.yaml) come from:
+                      • local: Dev mode. Symlinks to local infra/dcp/modules (default).
+                      • <tag>: Git tag (e.g. v1.1.5). Loads official modules from GitHub.
+                      (See available tags: https://github.com/datacommonsorg/datacommons/tags)
 
 Developer Workflow:
   1. Connect to an instance:
@@ -64,10 +64,9 @@ Developer Workflow:
 
   2. Navigate to your workspace, edit terraform.tfvars, and apply:
      cd tests/testbed/workspaces/testbed-1
-     terraform plan
      terraform apply
 
-  3. Push your updated configuration back to the team secret (optional):
+  3. Push your updated configuration back to the team secret:
      $0 push-config --instance testbed-1
 
   4. List all active testbeds:
@@ -160,7 +159,7 @@ prompt_instance_if_missing() {
       INSTANCE="$choice"
     fi
   else
-    read -p "No existing testbeds found. Enter instance name to connect: " INSTANCE
+    read -p "No existing testbeds found. Enter instance name to create/connect: " INSTANCE
   fi
 
   if [[ -z "$INSTANCE" ]]; then
@@ -297,12 +296,12 @@ main() {
     echo "================================================================================"
 
     echo "Fetching registered testbed secrets from Secret Manager..."
-    local secrets
-    secrets=$(gcloud secrets list --project="${PROJECT}" --format="value(name)" 2>/dev/null || true)
+    local SECRETS
+    SECRETS=$(gcloud secrets list --project="${PROJECT}" --format="value(name)" 2>/dev/null || true)
 
     local found=0
     local options=()
-    for s in $secrets; do
+    for s in $SECRETS; do
       local secret_id
       secret_id=$(basename "$s")
       if [[ "$secret_id" =~ ^dcp-(.+)-tfvars$ ]]; then
@@ -353,14 +352,11 @@ main() {
     echo "==> [1/5] Connecting to testbed '${INSTANCE}' in project '${PROJECT}'..."
     mkdir -p "$WORKSPACE_DIR"
 
-    echo "==> [2/5] Synchronizing configuration from Secret Manager ($SECRET_NAME)..."
+    echo "==> [2/5] Pulling configuration from Secret Manager ($SECRET_NAME)..."
     local fetch_secret=1
-    local local_tfvars="$WORKSPACE_DIR/terraform.tfvars"
-
-    if [[ -f "$local_tfvars" ]]; then
+    if [[ -f "$WORKSPACE_DIR/terraform.tfvars" ]]; then
       if [[ $FORCE -eq 1 ]]; then
         echo "    --force specified: Overwriting local terraform.tfvars with Secret Manager baseline."
-        fetch_secret=1
       elif [[ -t 0 ]]; then
         echo "    Notice: Local terraform.tfvars already exists in '${INSTANCE}'."
         read -p "    Overwrite with Secret Manager baseline? [y/N]: " overwrite_confirm
@@ -369,39 +365,31 @@ main() {
           fetch_secret=0
         fi
       else
-        # In non-interactive mode without --force, preserve existing local file
         echo "    Preserving existing local terraform.tfvars."
         fetch_secret=0
       fi
     fi
 
     if [[ $fetch_secret -eq 1 ]]; then
-      local secret_output
-      if ! secret_output=$(gcloud secrets describe "$SECRET_NAME" --project="$PROJECT" 2>&1); then
-        if [[ "$secret_output" =~ "NOT_FOUND" || "$secret_output" =~ "not found" ]]; then
-          echo "    Notice: Secret '$SECRET_NAME' does not exist in Secret Manager."
-          if [[ ! -f "$local_tfvars" ]]; then
-            echo "    Creating new boilerplate terraform.tfvars for '${INSTANCE}'..."
-            cat <<TFVARS > "$local_tfvars"
+      if [[ -f "$WORKSPACE_DIR/terraform.tfvars" ]]; then
+        cp "$WORKSPACE_DIR/terraform.tfvars" "$WORKSPACE_DIR/terraform.tfvars.bak"
+      fi
+
+      if gcloud secrets describe "$SECRET_NAME" --project="$PROJECT" &>/dev/null; then
+        gcloud secrets versions access latest \
+          --secret="$SECRET_NAME" \
+          --project="$PROJECT" > "$WORKSPACE_DIR/terraform.tfvars"
+        echo "    Successfully fetched terraform.tfvars from Secret Manager."
+      else
+        echo "    Warning: Secret '$SECRET_NAME' does not exist in Secret Manager."
+        if [[ ! -f "$WORKSPACE_DIR/terraform.tfvars" ]]; then
+          echo "    Creating new boilerplate terraform.tfvars for '${INSTANCE}'..."
+          cat <<TFVARS > "$WORKSPACE_DIR/terraform.tfvars"
 project_id    = "${PROJECT}"
 instance_name = "${INSTANCE}"
 region        = "us-central1"
 TFVARS
-          fi
-        else
-          log_error "Failed to access Secret Manager for '$SECRET_NAME':"
-          echo "$secret_output" >&2
-          return 1
         fi
-      else
-        if [[ -f "$local_tfvars" ]]; then
-          cp "$local_tfvars" "$local_tfvars.bak"
-        fi
-        gcloud secrets versions access latest \
-          --secret="$SECRET_NAME" \
-          --project="$PROJECT" > "$local_tfvars.tmp"
-        mv "$local_tfvars.tmp" "$local_tfvars"
-        echo "    Successfully fetched terraform.tfvars from Secret Manager."
       fi
     fi
 
@@ -490,9 +478,8 @@ BACKEND
     echo ""
     echo " Next Steps:"
     echo "   1. cd ${WORKSPACE_DIR}"
-    echo "   2. Edit terraform.tfvars as needed"
-    echo "   3. terraform plan"
-    echo "   4. terraform apply"
+    echo "   2. Edit terraform.tfvars (if needed)"
+    echo "   3. terraform apply"
     echo "================================================================================"
     echo ""
     return 0
@@ -502,15 +489,15 @@ BACKEND
   # ACTION: PUSH-CONFIG
   # ==============================================================================
   if [[ "$ACTION" == "push-config" ]]; then
-    local tfvars_file="$WORKSPACE_DIR/terraform.tfvars"
-    if [[ ! -f "$tfvars_file" ]]; then
-      log_error "Local configuration '$tfvars_file' not found." \
+    local TFVARS_FILE="$WORKSPACE_DIR/terraform.tfvars"
+    if [[ ! -f "$TFVARS_FILE" ]]; then
+      log_error "Local configuration '$TFVARS_FILE' not found." \
                 "Have you run '$0 connect --instance $INSTANCE' first?"
       return 1
     fi
 
-    if [[ ! -s "$tfvars_file" ]]; then
-      log_error "Local configuration '$tfvars_file' is empty. Refusing to push."
+    if [[ ! -s "$TFVARS_FILE" ]]; then
+      log_error "Local configuration '$TFVARS_FILE' is empty. Refusing to push."
       return 1
     fi
 
@@ -531,7 +518,7 @@ BACKEND
     fi
 
     gcloud secrets versions add "$SECRET_NAME" \
-      --data-file="$tfvars_file" \
+      --data-file="$TFVARS_FILE" \
       --project="$PROJECT"
     echo "==> Secret successfully updated in GCP Secret Manager!"
     return 0
