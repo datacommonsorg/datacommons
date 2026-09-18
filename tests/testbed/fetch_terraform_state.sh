@@ -76,7 +76,11 @@ HELP
 }
 
 log_error() {
-  echo "Error: $*" >&2
+  echo "Error: $1" >&2
+  shift
+  for line in "$@"; do
+    echo "  $line" >&2
+  done
 }
 
 # Ensure dependencies exist
@@ -84,12 +88,14 @@ check_dependencies() {
   local missing=0
 
   if ! command -v gcloud &>/dev/null; then
-    log_error "'gcloud' CLI is not installed or not in PATH. Install Google Cloud SDK: https://cloud.google.com/sdk/docs/install"
+    log_error "'gcloud' CLI is not installed or not in PATH." \
+              "Install Google Cloud SDK: https://cloud.google.com/sdk/docs/install"
     missing=1
   fi
 
   if ! command -v terraform &>/dev/null; then
-    log_error "'terraform' CLI is not installed or not in PATH. Install Terraform: https://developer.hashicorp.com/terraform/install"
+    log_error "'terraform' CLI is not installed or not in PATH." \
+              "Install Terraform: https://developer.hashicorp.com/terraform/install"
     missing=1
   fi
 
@@ -174,7 +180,8 @@ resolve_git_ref() {
     return 0
   fi
 
-  log_error "Cannot resolve Git reference '${ref}' locally or from remotes. See available tags at: https://github.com/datacommonsorg/datacommons/tags"
+  log_error "Cannot resolve Git reference '${ref}' locally or from remotes." \
+            "See available tags at: https://github.com/datacommonsorg/datacommons/tags"
   return 1
 }
 
@@ -489,7 +496,8 @@ BACKEND
   if [[ "$ACTION" == "push-config" ]]; then
     local tfvars_file="$WORKSPACE_DIR/terraform.tfvars"
     if [[ ! -f "$tfvars_file" ]]; then
-      log_error "Local configuration '$tfvars_file' not found. Have you run '$0 connect --instance $INSTANCE' first?"
+      log_error "Local configuration '$tfvars_file' not found." \
+                "Have you run '$0 connect --instance $INSTANCE' first?"
       return 1
     fi
 
@@ -500,7 +508,8 @@ BACKEND
 
     echo "==> Target secret: $SECRET_NAME (project: $PROJECT)"
     if ! gcloud secrets describe "$SECRET_NAME" --project="$PROJECT" &>/dev/null; then
-      log_error "Secret '$SECRET_NAME' does not exist in project '$PROJECT'. Please ensure the testbed secret has been initialized by an administrator."
+      log_error "Secret '$SECRET_NAME' does not exist in project '$PROJECT'." \
+                "Please ensure the testbed secret has been initialized by an administrator."
       return 1
     fi
 
