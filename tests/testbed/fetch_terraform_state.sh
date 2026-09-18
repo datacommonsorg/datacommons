@@ -75,18 +75,22 @@ Developer Workflow:
 HELP
 }
 
+log_error() {
+  echo "Error: $*" >&2
+}
+
 # Ensure dependencies exist
 check_dependencies() {
   local missing=0
 
   if ! command -v gcloud &>/dev/null; then
-    echo "Error: 'gcloud' CLI is not installed or not in PATH." >&2
+    log_error "'gcloud' CLI is not installed or not in PATH."
     echo "  Install Google Cloud SDK: https://cloud.google.com/sdk/docs/install" >&2
     missing=1
   fi
 
   if ! command -v terraform &>/dev/null; then
-    echo "Error: 'terraform' CLI is not installed or not in PATH." >&2
+    log_error "'terraform' CLI is not installed or not in PATH."
     echo "  Install Terraform: https://developer.hashicorp.com/terraform/install" >&2
     missing=1
   fi
@@ -106,7 +110,7 @@ prompt_instance_if_missing() {
 
   # If not running interactively, error out
   if [[ ! -t 0 ]]; then
-    echo "Error: --instance <name> is required in non-interactive mode." >&2
+    log_error "--instance <name> is required in non-interactive mode."
     return 1
   fi
 
@@ -148,7 +152,7 @@ prompt_instance_if_missing() {
   fi
 
   if [[ -z "$INSTANCE" ]]; then
-    echo "Error: Instance name cannot be empty." >&2
+    log_error "Instance name cannot be empty."
     return 1
   fi
 
@@ -172,7 +176,7 @@ resolve_git_ref() {
     return 0
   fi
 
-  echo "Error: Cannot resolve Git reference '${ref}' locally or from remotes." >&2
+  log_error "Cannot resolve Git reference '${ref}' locally or from remotes."
   echo "See available tags at: https://github.com/datacommonsorg/datacommons/tags" >&2
   return 1
 }
@@ -227,7 +231,7 @@ main() {
   elif [[ "$ACTION" == --* || -z "$ACTION" ]]; then
     ACTION="connect"
   else
-    echo "Error: Unknown command '$ACTION'" >&2
+    log_error "Unknown command '$ACTION'"
     echo "" >&2
     print_usage
     return 1
@@ -261,7 +265,7 @@ main() {
         return 0
         ;;
       *)
-        echo "Error: Unknown option: $1" >&2
+        log_error "Unknown option: $1"
         print_usage
         return 1
         ;;
@@ -373,7 +377,7 @@ region        = "us-central1"
 TFVARS
           fi
         else
-          echo "Error: Failed to access Secret Manager for '$SECRET_NAME':" >&2
+          log_error "Failed to access Secret Manager for '$SECRET_NAME':"
           echo "$secret_output" >&2
           return 1
         fi
@@ -422,7 +426,7 @@ with open(path, 'w') as f:
       echo "    Extracting root Terraform definition files from Git ref '${target_ref}'..."
       for f in variables.tf main.tf outputs.tf; do
         if ! git show "${target_ref}:infra/dcp/${f}" > "$WORKSPACE_DIR/${f}.tmp" 2>/dev/null; then
-          echo "Error: Failed to extract ${f} from Git ref '${target_ref}'" >&2
+          log_error "Failed to extract ${f} from Git ref '${target_ref}'"
           rm -f "$WORKSPACE_DIR/${f}.tmp"
           return 1
         fi
@@ -488,19 +492,19 @@ BACKEND
   if [[ "$ACTION" == "push-config" ]]; then
     local tfvars_file="$WORKSPACE_DIR/terraform.tfvars"
     if [[ ! -f "$tfvars_file" ]]; then
-      echo "Error: Local configuration '$tfvars_file' not found." >&2
+      log_error "Local configuration '$tfvars_file' not found."
       echo "Have you run '$0 connect --instance $INSTANCE' first?" >&2
       return 1
     fi
 
     if [[ ! -s "$tfvars_file" ]]; then
-      echo "Error: Local configuration '$tfvars_file' is empty. Refusing to push." >&2
+      log_error "Local configuration '$tfvars_file' is empty. Refusing to push."
       return 1
     fi
 
     echo "==> Target secret: $SECRET_NAME (project: $PROJECT)"
     if ! gcloud secrets describe "$SECRET_NAME" --project="$PROJECT" &>/dev/null; then
-      echo "Error: Secret '$SECRET_NAME' does not exist in project '$PROJECT'." >&2
+      log_error "Secret '$SECRET_NAME' does not exist in project '$PROJECT'."
       echo "Please ensure the testbed secret has been initialized by an administrator." >&2
       return 1
     fi
@@ -521,7 +525,7 @@ BACKEND
     return 0
   fi
 
-  echo "Error: Unknown action '$ACTION'" >&2
+  log_error "Unknown action '$ACTION'"
   print_usage
   return 1
 }
