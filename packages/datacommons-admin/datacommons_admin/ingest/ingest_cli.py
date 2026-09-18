@@ -32,7 +32,8 @@ def ingest() -> None:
     required=True,
     help="The names of the imports to run (comma-separated).",
 )
-def start(imports: str) -> None:
+@click.pass_context
+def start(ctx: click.Context, imports: str) -> None:
     """Start a data ingestion job execution."""
     click.secho("Datacommons Admin Ingest Start", fg="cyan", bold=True)
     click.secho(
@@ -40,7 +41,12 @@ def start(imports: str) -> None:
         fg="bright_black",
     )
 
-    tf = get_terraform_outputs()
+    state_params = ctx.obj or {}
+    tf = get_terraform_outputs(
+        project_id=state_params.get("project_id"),
+        instance_name=state_params.get("instance_name"),
+        tf_state_location=state_params.get("tf_state_location"),
+    )
 
     click.secho(f"Found workflow: {tf.ingestion_workflow_name}", fg="green")
     click.secho(
@@ -87,7 +93,8 @@ def start(imports: str) -> None:
 
 
 @ingest.command(name="show-config")
-def show_config() -> None:
+@click.pass_context
+def show_config(ctx: click.Context) -> None:
     """Print the current ingestion job configuration (environment variables)."""
     click.secho("Datacommons Admin Ingest Show-Config", fg="cyan", bold=True)
     click.secho(
@@ -95,7 +102,12 @@ def show_config() -> None:
         fg="bright_black",
     )
 
-    tf = get_terraform_outputs()
+    state_params = ctx.obj or {}
+    tf = get_terraform_outputs(
+        project_id=state_params.get("project_id"),
+        instance_name=state_params.get("instance_name"),
+        tf_state_location=state_params.get("tf_state_location"),
+    )
 
     if not tf.ingestion_prep_job_name:
         click.secho(

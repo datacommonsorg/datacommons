@@ -24,13 +24,20 @@ from datacommons_admin.db.utils.migration_utils import (
 )
 
 
-def _setup_ingestion_client() -> tuple[IngestionHelperClient, str, str, str]:
+def _setup_ingestion_client(
+    ctx: click.Context,
+) -> tuple[IngestionHelperClient, str, str, str]:
     click.secho(
         "Fetching ingestion service URL, workflow service account, and Spanner details from Terraform outputs...",
         fg="bright_black",
     )
 
-    tf = get_terraform_outputs()
+    state_params = ctx.obj or {}
+    tf = get_terraform_outputs(
+        project_id=state_params.get("project_id"),
+        instance_name=state_params.get("instance_name"),
+        tf_state_location=state_params.get("tf_state_location"),
+    )
 
     if not tf.spanner_instance_id or not tf.spanner_database_id:
         raise click.ClickException(
@@ -75,10 +82,12 @@ def _run_seed_db(client: Any, instance_id: str, database_id: str) -> None:
     is_flag=True,
     help="Automatically confirm and apply pending migrations without prompting.",
 )
-def migrate_db(auto_approve: bool) -> bool:
+@click.pass_context
+def migrate_db(ctx: click.Context, auto_approve: bool) -> bool:
     """Apply pending schema migrations to the Spanner database.
 
     Args:
+        ctx: Click execution context containing root admin flags.
         auto_approve: If True, automatically confirms and applies pending migrations without prompting.
 
     Returns:
@@ -88,7 +97,7 @@ def migrate_db(auto_approve: bool) -> bool:
         click.ClickException: If reading Terraform outputs, checking pending migrations, acquiring lock, or applying migrations fails.
     """
     click.secho("Datacommons Admin Migrate-DB", fg="cyan", bold=True)
-    client, project_id, instance_id, database_id = _setup_ingestion_client()
+    client, project_id, instance_id, database_id = _setup_ingestion_client(ctx)
     return _run_migrations(
         client,
         project_id,
@@ -102,10 +111,11 @@ def migrate_db(auto_approve: bool) -> bool:
 @click.option(
     "--init-only", is_flag=True, help="Only initialize the database without seeding."
 )
-def init_db(init_only: bool) -> None:
+@click.pass_context
+def init_db(ctx: click.Context, init_only: bool) -> None:
     """Initialize (and by default seed) the Spanner database via the DCP Ingestion Helper service."""
     click.secho("Datacommons Admin Init-DB", fg="cyan", bold=True)
-    client, project_id, instance_id, database_id = _setup_ingestion_client()
+    client, project_id, instance_id, database_id = _setup_ingestion_client(ctx)
 
     if is_database_initialized(project_id, instance_id, database_id):
         click.secho(
@@ -143,8 +153,9 @@ def init_db(init_only: bool) -> None:
 
 
 @click.command(name="seed-db")
-def seed_db() -> None:
+@click.pass_context
+def seed_db(ctx: click.Context) -> None:
     """Seed the Spanner database via the DCP Ingestion Helper service."""
     click.secho("Datacommons Admin Seed-DB", fg="cyan", bold=True)
-    client, _project_id, instance_id, database_id = _setup_ingestion_client()
+    client, _project_id, instance_id, database_id = _setup_ingestion_client(ctx)
     _run_seed_db(client, instance_id, database_id)

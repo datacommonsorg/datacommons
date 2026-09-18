@@ -77,21 +77,17 @@ In automated environments (such as GitHub Actions, Cloud Build, or remote operat
 * The CLI extracts the `outputs` JSON block directly from the remote state document.
 
 ### Typed Terraform Output Contract (`TerraformOutputs`)
-Rather than relying on loose dictionary lookups, CLI subcommands call `get_terraform_outputs()` in [state.py](../../packages/datacommons-admin/datacommons_admin/core/terraform/state.py) to parse deployment state into the `TerraformOutputs` dataclass ([models.py](../../packages/datacommons-admin/datacommons_admin/core/terraform/models.py)):
+Rather than relying on loose dictionary lookups, CLI subcommands pass the root CLI state flags (`project_id`, `instance_name`, `tf_state_location`) into `get_terraform_outputs()` in [state.py](../../packages/datacommons-admin/datacommons_admin/core/terraform/state.py) to parse deployment state into the `TerraformOutputs` dataclass ([models.py](../../packages/datacommons-admin/datacommons_admin/core/terraform/models.py)):
 * **Validation and Field Extraction**: `TerraformOutputs.from_state_outputs()` extracts scalar values from Terraform's `{"value": ...}` JSON envelope, strips whitespace, enforces that required attributes are non-empty, and computes derived paths such as `ingestion_temp_location` (`gs://<storage_artifacts_bucket_name>/temp`).
-* **Caching**: The parsed `TerraformOutputs` instance is cached in the active Click context so repeated calls within a single CLI invocation return the same object without re-reading local state or re-downloading from GCS.
 * **Precedence**: Passing explicit remote flags (`--project-id` and `--instance-name`, or `--tf-state-location`) strictly overrides local state detection, ensuring deterministic execution on CI/CD runners regardless of working directory.
 
 ### Test Suite Architecture
 The state resolution and contract verification suite spans two complementary test modules under `packages/datacommons-admin/tests/core/`:
 * **State Resolution Unit Tests ([test_tf_state.py](../../packages/datacommons-admin/tests/core/test_tf_state.py))**:
   * Mocks subprocess execution of `terraform output -json` for local state mode and Google Cloud Storage client downloads for remote state mode.
-  * Verifies handling of missing state files (HTTP 404), permission errors (HTTP 403), malformed JSON, missing required output keys, and falsy value preservation.
+  * Verifies handling of missing state files (HTTP 404), permission errors (HTTP 403), malformed JSON, and missing required output keys.
 * **Automated HCL Contract Tests ([test_tf_contract.py](../../packages/datacommons-admin/tests/core/test_tf_contract.py))**:
-  * Dynamically parses [infra/dcp/outputs.tf](../../infra/dcp/outputs.tf) and [infra/dcp/modules/stack/outputs.tf](../../infra/dcp/modules/stack/outputs.tf) at test time.
-  * Verifies that every field defined on `TerraformOutputs` is explicitly declared in `infra/dcp/outputs.tf`.
-  * Verifies that outputs delegated via `module.stack.<name>` in root `outputs.tf` exist in `modules/stack/outputs.tf`.
-  * Verifies that mock Terraform output fixtures in [conftest.py](../../packages/datacommons-admin/tests/conftest.py) remain in sync with `outputs.tf` and cleanly instantiate `TerraformOutputs`.
+  * Dynamically parses [infra/dcp/outputs.tf](../../infra/dcp/outputs.tf) at test time and verifies that every field defined on `TerraformOutputs` is explicitly declared in `infra/dcp/outputs.tf`.
 
 ---
 

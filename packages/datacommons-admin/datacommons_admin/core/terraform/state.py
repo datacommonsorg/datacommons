@@ -24,8 +24,6 @@ from google.cloud.exceptions import Forbidden, GoogleCloudError, NotFound
 
 from datacommons_admin.core.terraform.models import TerraformOutputs
 
-_OUTPUTS_CACHE_KEY = "terraform_outputs"
-
 
 def get_default_bucket_name(instance_name: str, project_id: str) -> str:
     """Returns the default Google Cloud Storage bucket name for Terraform state."""
@@ -212,30 +210,24 @@ def _get_outputs_from_local() -> dict[str, Any]:
     return outputs
 
 
-def get_terraform_outputs() -> TerraformOutputs:
-    """Sole public entrypoint to fetch, parse, and validate deployment outputs into a cached, immutable TerraformOutputs dataclass."""
-    ctx = click.get_current_context(silent=True)
-    params = ctx.find_object(dict) if ctx else None
-    cached: TerraformOutputs | None = params.get(_OUTPUTS_CACHE_KEY) if params else None
+def get_terraform_outputs(
+    project_id: str | None = None,
+    instance_name: str | None = None,
+    tf_state_location: str | None = None,
+) -> TerraformOutputs:
+    """Fetches, parses, and validates deployment outputs into an immutable TerraformOutputs dataclass."""
+    clean_project_id = _clean_str(project_id)
+    clean_instance_name = _clean_str(instance_name)
+    clean_location = _clean_str(tf_state_location)
 
-    if cached is None:
-        raw_params = params or {}
-        project_id = _clean_str(raw_params.get("project_id"))
-        instance_name = _clean_str(raw_params.get("instance_name"))
-        tf_state_location = _clean_str(raw_params.get("tf_state_location"))
-
-        gcs_uri = _resolve_remote_state_gcs_uri(
-            project_id=project_id,
-            instance_name=instance_name,
-            tf_state_location=tf_state_location,
-        )
-        raw_outputs = (
-            _get_outputs_from_gcs(gcs_uri, project_id)
-            if gcs_uri
-            else _get_outputs_from_local()
-        )
-        cached = TerraformOutputs.from_state_outputs(raw_outputs)
-        if params is not None:
-            params[_OUTPUTS_CACHE_KEY] = cached
-
-    return cached
+    gcs_uri = _resolve_remote_state_gcs_uri(
+        project_id=clean_project_id,
+        instance_name=clean_instance_name,
+        tf_state_location=clean_location,
+    )
+    raw_outputs = (
+        _get_outputs_from_gcs(gcs_uri, clean_project_id)
+        if gcs_uri
+        else _get_outputs_from_local()
+    )
+    return TerraformOutputs.from_state_outputs(raw_outputs)
