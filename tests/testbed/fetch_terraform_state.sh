@@ -47,7 +47,7 @@ Commands:
 Global Options:
   --instance <name>     Instance name (e.g. testbed-1, testbed-2)
   --project <id>        GCP Project ID (default: ${DEFAULT_PROJECT})
-  --yes, -y             Non-interactive mode (automatically confirm prompts)
+  --force               Skip interactive confirmation prompts
 
 Options for 'connect':
   --terraform-modules-source <local|tag>
@@ -101,15 +101,6 @@ check_dependencies() {
 # Interactive prompt to select or enter an instance if --instance was omitted
 prompt_instance_if_missing() {
   if [[ -n "$INSTANCE" ]]; then
-    return 0
-  fi
-
-  # Auto-infer instance name if running inside a workspace folder (e.g. tests/testbed/workspaces/testbed-1)
-  local current_dir
-  current_dir="$(pwd)"
-  if [[ "$current_dir" == *"/workspaces/"* ]]; then
-    INSTANCE="$(basename "$current_dir")"
-    echo "==> Auto-detected instance '$INSTANCE' from current directory."
     return 0
   fi
 
@@ -245,7 +236,7 @@ main() {
   INSTANCE=""
   PROJECT="$DEFAULT_PROJECT"
   MODULES_SOURCE="local"
-  YES_FLAG=0
+  FORCE=0
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -261,8 +252,8 @@ main() {
         MODULES_SOURCE="$2"
         shift 2
         ;;
-      --yes|-y)
-        YES_FLAG=1
+      --force)
+        FORCE=1
         shift
         ;;
       --help|-h)
@@ -316,7 +307,7 @@ main() {
     fi
 
     # If running interactively, prompt to connect directly
-    if [[ -t 0 && $YES_FLAG -eq 0 ]]; then
+    if [[ -t 0 && $FORCE -eq 0 ]]; then
       echo ""
       read -p "Select a testbed to connect to [1-$found, or press Enter to exit]: " choice
       if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice <= found )); then
@@ -351,7 +342,10 @@ main() {
     local local_tfvars="$WORKSPACE_DIR/terraform.tfvars"
 
     if [[ -f "$local_tfvars" ]]; then
-      if [[ $YES_FLAG -eq 0 && -t 0 ]]; then
+      if [[ $FORCE -eq 1 ]]; then
+        echo "    --force specified: Overwriting local terraform.tfvars with Secret Manager baseline."
+        fetch_secret=1
+      elif [[ -t 0 ]]; then
         echo "    Notice: Local terraform.tfvars already exists in '${INSTANCE}'."
         read -p "    Overwrite with Secret Manager baseline? [y/N]: " overwrite_confirm
         if [[ ! "$overwrite_confirm" =~ ^[yY](es)?$ ]]; then
@@ -359,7 +353,7 @@ main() {
           fetch_secret=0
         fi
       else
-        # In non-interactive mode, preserve existing local file to avoid accidental clobbering
+        # In non-interactive mode without --force, preserve existing local file
         echo "    Preserving existing local terraform.tfvars."
         fetch_secret=0
       fi
@@ -511,7 +505,7 @@ BACKEND
       return 1
     fi
 
-    if [[ $YES_FLAG -eq 0 && -t 0 ]]; then
+    if [[ $FORCE -eq 0 && -t 0 ]]; then
       local confirm
       read -p "Are you sure you want to push your local terraform.tfvars to the shared secret '$SECRET_NAME'? [y/N]: " confirm
       if [[ ! "$confirm" =~ ^[yY](es)?$ ]]; then
