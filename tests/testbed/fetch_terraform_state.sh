@@ -363,13 +363,21 @@ main() {
     fi
 
     if [[ $should_fetch -eq 1 ]]; then
-      [[ -f "$tfvars" ]] && cp "$tfvars" "$tfvars.bak"
+      local tmp_tfvars="$WORKSPACE_DIR/terraform.tfvars.tmp"
 
       if gcloud secrets describe "$SECRET_NAME" --project="$PROJECT" &>/dev/null; then
-        gcloud secrets versions access latest \
-          --secret="$SECRET_NAME" \
-          --project="$PROJECT" > "$tfvars"
-        echo "    Successfully fetched terraform.tfvars from Secret Manager."
+        if gcloud secrets versions access latest \
+            --secret="$SECRET_NAME" \
+            --project="$PROJECT" > "$tmp_tfvars" && [[ -s "$tmp_tfvars" ]]; then
+          [[ -f "$tfvars" ]] && cp "$tfvars" "$tfvars.bak"
+          mv "$tmp_tfvars" "$tfvars"
+          echo "    Successfully fetched terraform.tfvars from Secret Manager."
+        else
+          rm -f "$tmp_tfvars"
+          log_error "Failed to fetch valid configuration from Secret Manager ('$SECRET_NAME')." \
+                    "Please check your GCP credentials ('gcloud auth login') and secret permissions."
+          return 1
+        fi
       else
         echo "    Warning: Secret '$SECRET_NAME' does not exist in Secret Manager."
         if [[ ! -f "$tfvars" ]]; then
