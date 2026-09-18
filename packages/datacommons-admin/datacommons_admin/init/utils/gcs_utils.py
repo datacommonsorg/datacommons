@@ -17,7 +17,7 @@ import sys
 import click
 from google.api_core import exceptions
 from google.cloud import storage
-from datacommons_admin.core.terraform.models import get_default_bucket_name
+from datacommons_admin.core.terraform.state import get_default_bucket_name
 from datacommons_admin.core.utils.ui_utils import (
     _confirm,
     _log_resolved_value,

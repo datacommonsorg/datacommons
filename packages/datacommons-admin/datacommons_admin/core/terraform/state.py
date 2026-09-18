@@ -30,6 +30,23 @@ from datacommons_admin.core.terraform.models import (
 _OUTPUTS_CACHE_KEY = "terraform_outputs"
 
 
+def get_default_bucket_name(instance_name: str, project_id: str) -> str:
+    """Returns the default Google Cloud Storage bucket name for Terraform state."""
+    return f"tf-state-{instance_name}-{project_id}"
+
+
+def get_default_state_prefix(instance_name: str) -> str:
+    """Returns the default Google Cloud Storage object prefix for Terraform state."""
+    return f"terraform/state/{instance_name}"
+
+
+def get_default_state_uri(project_id: str, instance_name: str) -> str:
+    """Returns the GCS URI used by the default remote-state configuration."""
+    bucket_name = get_default_bucket_name(instance_name, project_id)
+    prefix = get_default_state_prefix(instance_name)
+    return f"gs://{bucket_name}/{prefix}/default.tfstate"
+
+
 def _clean_str(value: object | None) -> str | None:
     """Strips whitespace from string values and normalizes empty strings to None."""
     if isinstance(value, str):
@@ -51,7 +68,20 @@ def _resolve_remote_state_params() -> TerraformStateConfig:
     )
 
 
-def parse_gcs_uri(gcs_uri: str) -> tuple[str, str]:
+def _resolve_gcs_uri(config: TerraformStateConfig) -> str:
+    """Computes the fully qualified GCS URI for remote state."""
+    if config.tf_state_location:
+        return config.tf_state_location
+
+    if config.project_id and config.instance_name:
+        return get_default_state_uri(config.project_id, config.instance_name)
+
+    raise click.ClickException(
+        "Cannot compute GCS URI for local Terraform state configuration."
+    )
+
+
+def _parse_gcs_uri(gcs_uri: str) -> tuple[str, str]:
     """Parses and validates a Google Cloud Storage URI into bucket and blob name components."""
     if not gcs_uri.startswith("gs://"):
         raise click.ClickException(
@@ -68,7 +98,7 @@ def parse_gcs_uri(gcs_uri: str) -> tuple[str, str]:
     return parts[0].strip(), parts[1].strip()
 
 
-def download_gcs_blob_text(
+def _download_gcs_blob_text(
     bucket_name: str, blob_name: str, project_id: str | None = None
 ) -> str:
     """Downloads the text content of a GCS blob with structured error handling."""
@@ -103,7 +133,7 @@ def download_gcs_blob_text(
         ) from e
 
 
-def parse_terraform_state_outputs(
+def _parse_terraform_state_outputs(
     state_json_str: str, source_description: str
 ) -> dict[str, Any]:
     """Parses raw Terraform state JSON and extracts the outputs dictionary."""
@@ -133,10 +163,10 @@ def _get_outputs_from_gcs(
     config: TerraformStateConfig,
 ) -> dict[str, Any]:
     """Downloads and parses Terraform outputs directly from GCS remote state."""
-    gcs_uri = config.gcs_uri
-    bucket_name, blob_name = parse_gcs_uri(gcs_uri)
-    content = download_gcs_blob_text(bucket_name, blob_name, config.project_id)
-    return parse_terraform_state_outputs(content, gcs_uri)
+    gcs_uri = _resolve_gcs_uri(config)
+    bucket_name, blob_name = _parse_gcs_uri(gcs_uri)
+    content = _download_gcs_blob_text(bucket_name, blob_name, config.project_id)
+    return _parse_terraform_state_outputs(content, gcs_uri)
 
 
 def _get_outputs_from_local() -> dict[str, Any]:

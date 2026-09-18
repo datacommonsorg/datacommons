@@ -14,27 +14,9 @@
 
 import dataclasses
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 import click
-
-
-def get_default_bucket_name(instance_name: str, project_id: str) -> str:
-    """Returns the default Google Cloud Storage bucket name for Terraform state."""
-    return f"tf-state-{instance_name}-{project_id}"
-
-
-def get_default_state_prefix(instance_name: str) -> str:
-    """Returns the default Google Cloud Storage object prefix for Terraform state."""
-    return f"terraform/state/{instance_name}"
-
-
-def get_default_state_uri(project_id: str, instance_name: str) -> str:
-    """Returns the GCS URI used by the default remote-state configuration."""
-    bucket_name = get_default_bucket_name(instance_name, project_id)
-    prefix = get_default_state_prefix(instance_name)
-    return f"gs://{bucket_name}/{prefix}/default.tfstate"
 
 
 # frozen=True ensures parsed state configuration cannot be mutated accidentally across helper calls.
@@ -65,30 +47,6 @@ class TerraformStateConfig:
     def is_remote(self) -> bool:
         """Determines whether remote GCS state resolution should be used."""
         return bool(self.tf_state_location or (self.project_id and self.instance_name))
-
-    @property
-    def gcs_uri(self) -> str:
-        """Computes the fully qualified GCS URI for remote state."""
-        if self.tf_state_location:
-            return self.tf_state_location
-
-        if self.project_id and self.instance_name:
-            return get_default_state_uri(self.project_id, self.instance_name)
-
-        raise click.ClickException(
-            "Cannot compute GCS URI for local Terraform state configuration."
-        )
-
-    @property
-    def location_description(self) -> str:
-        """Returns a human-readable description of the state location for error messages."""
-        if self.tf_state_location:
-            return f"GCS URI '{self.tf_state_location}'"
-        if self.project_id and self.instance_name:
-            return (
-                f"GCP project: '{self.project_id}' / instance: '{self.instance_name}'"
-            )
-        return f"'{Path.cwd()}'"
 
 
 # frozen=True ensures parsed deployment outputs cannot be mutated accidentally across CLI commands or helpers.

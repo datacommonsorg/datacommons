@@ -15,7 +15,7 @@
 import click
 
 from datacommons_admin import __version__
-from datacommons_admin.core.terraform.models import get_default_state_prefix
+from datacommons_admin.core.terraform.state import get_default_state_prefix
 from datacommons_admin.init.utils.gcs_utils import (
     DEFAULT_BUCKET_LOCATION,
     _configure_remote_state,

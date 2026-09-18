@@ -29,17 +29,10 @@ class IngestionJobClient:
         service_account_email: str | None = None,
         project_id: str | None = None,
         location: str | None = None,
-        temp_location: str | None = None,
-        spanner_instance_id: str = "",
-        spanner_database_id: str = "",
     ) -> None:
-        self.job_name = job_name
         self.service_account_email = service_account_email
         self.project_id = project_id
         self.location = location
-        self.temp_location = temp_location
-        self.spanner_instance_id = spanner_instance_id
-        self.spanner_database_id = spanner_database_id
         base_credentials, _ = google.auth.default()
 
         need_project_and_location = (
@@ -86,47 +79,30 @@ class IngestionJobClient:
 
         self.session = AuthorizedSession(creds)
 
-    def start_workflow(self, imports: str | None = None) -> dict:
+    def start_workflow(
+        self,
+        temp_location: str,
+        spanner_instance_id: str = "",
+        spanner_database_id: str = "",
+        imports: str | None = None,
+    ) -> dict:
         """Starts an execution of the Cloud Workflow."""
         if not self.full_workflow_name:
             raise click.ClickException(
                 "Workflow name must be provided to start a workflow execution."
             )
 
-        temp_location = self.temp_location
-        spanner_instance = self.spanner_instance_id
-        spanner_database = self.spanner_database_id
-        region = self.location
-
-        # If temp_location was not provided directly but job_name is available, fallback to get_config()
-        if not temp_location and self.full_job_name:
-            env_vars = self.get_config()
-            env_dict = {
-                env["name"]: env.get("value") for env in env_vars if "name" in env
-            }
-            temp_location = env_dict.get("TEMP_LOCATION")
-            spanner_instance = env_dict.get("GCP_SPANNER_INSTANCE_ID", spanner_instance)
-            spanner_database = env_dict.get(
-                "GCP_SPANNER_DATABASE_NAME", spanner_database
-            )
-            region = env_dict.get("REGION", region)
-
-        if not temp_location:
-            raise click.ClickException(
-                "TEMP_LOCATION not found in Terraform outputs or preprocessing job environment configuration."
-            )
-
-        # 2. Parse imports argument
+        # 1. Parse imports argument
         imports_list = []
         if imports:
             imports_list = [imp.strip() for imp in imports.split(",") if imp.strip()]
 
-        # 3. Construct payload argument (must be a JSON string)
+        # 2. Construct payload argument (must be a JSON string)
         argument_dict = {
             "tempLocation": temp_location,
-            "spannerInstanceId": spanner_instance or "",
-            "spannerDatabaseId": spanner_database or "",
-            "region": region or "",
+            "spannerInstanceId": spanner_instance_id,
+            "spannerDatabaseId": spanner_database_id,
+            "region": self.location or "",
             "imports": imports_list,
         }
 

@@ -21,9 +21,10 @@ from datacommons_admin.admin_cli import admin
 from datacommons_admin.core.terraform.models import TerraformStateConfig
 from datacommons_admin.core.terraform.state import (
     _fetch_raw_terraform_outputs,
+    _parse_gcs_uri,
+    _parse_terraform_state_outputs,
+    _resolve_gcs_uri,
     get_terraform_outputs,
-    parse_gcs_uri,
-    parse_terraform_state_outputs,
 )
 from google.cloud.exceptions import NotFound
 
@@ -254,31 +255,31 @@ def test_get_terraform_outputs_missing_project_or_instance_flag(
 
 
 def test_parse_gcs_uri_success() -> None:
-    bucket, blob = parse_gcs_uri("gs://my-bucket/path/to/default.tfstate")
+    bucket, blob = _parse_gcs_uri("gs://my-bucket/path/to/default.tfstate")
     assert bucket == "my-bucket"
     assert blob == "path/to/default.tfstate"
 
 
 def test_parse_gcs_uri_invalid_scheme() -> None:
     with pytest.raises(click.ClickException, match="Must start with 'gs://'"):
-        parse_gcs_uri("https://storage.googleapis.com/b/o")
+        _parse_gcs_uri("https://storage.googleapis.com/b/o")
 
 
 def test_parse_gcs_uri_missing_bucket_or_blob() -> None:
     with pytest.raises(
         click.ClickException, match="Must specify bucket and object path"
     ):
-        parse_gcs_uri("gs://bucket-only")
+        _parse_gcs_uri("gs://bucket-only")
 
     with pytest.raises(
         click.ClickException, match="Must specify bucket and object path"
     ):
-        parse_gcs_uri("gs:///blob-only")
+        _parse_gcs_uri("gs:///blob-only")
 
 
 def test_parse_terraform_state_outputs_success() -> None:
     raw_json = '{"outputs": {"k1": {"value": "v1"}, "bool_k": {"value": false}, "int_k": {"value": 0}}}'
-    outputs = parse_terraform_state_outputs(raw_json, "test-source")
+    outputs = _parse_terraform_state_outputs(raw_json, "test-source")
     assert outputs["k1"]["value"] == "v1"
     assert outputs["bool_k"]["value"] is False
     assert outputs["int_k"]["value"] == 0
@@ -288,13 +289,13 @@ def test_parse_terraform_state_outputs_errors() -> None:
     with pytest.raises(
         click.ClickException, match="Failed to parse Terraform state.*as valid JSON"
     ):
-        parse_terraform_state_outputs("invalid-json", "test-source")
+        _parse_terraform_state_outputs("invalid-json", "test-source")
 
     with pytest.raises(click.ClickException, match="Expected a JSON object"):
-        parse_terraform_state_outputs('["not", "a", "dict"]', "test-source")
+        _parse_terraform_state_outputs('["not", "a", "dict"]', "test-source")
 
     with pytest.raises(click.ClickException, match="No outputs found"):
-        parse_terraform_state_outputs('{"outputs": {}}', "test-source")
+        _parse_terraform_state_outputs('{"outputs": {}}', "test-source")
 
 
 def test_terraform_state_config() -> None:
@@ -307,17 +308,17 @@ def test_terraform_state_config() -> None:
         tf_state_location="gs://custom-b/custom-p/custom.tfstate"
     )
     assert uri_cfg.is_remote
-    assert uri_cfg.gcs_uri == "gs://custom-b/custom-p/custom.tfstate"
+    assert _resolve_gcs_uri(uri_cfg) == "gs://custom-b/custom-p/custom.tfstate"
 
     # Explicit locations are exact object URIs, regardless of file extension.
     exact_cfg = TerraformStateConfig(tf_state_location="gs://custom-b/custom-state")
-    assert exact_cfg.gcs_uri == "gs://custom-b/custom-state"
+    assert _resolve_gcs_uri(exact_cfg) == "gs://custom-b/custom-state"
 
     # Canonical project-id + instance-name mode
     canonical_cfg = TerraformStateConfig(project_id="my-proj", instance_name="my-inst")
     assert canonical_cfg.is_remote
     assert (
-        canonical_cfg.gcs_uri
+        _resolve_gcs_uri(canonical_cfg)
         == "gs://tf-state-my-inst-my-proj/terraform/state/my-inst/default.tfstate"
     )
 

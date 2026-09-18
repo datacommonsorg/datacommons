@@ -17,7 +17,7 @@ import re
 import click
 
 from datacommons_admin.core.clients import IngestionJobClient
-from datacommons_admin.core.terraform import get_terraform_outputs
+from datacommons_admin.core.terraform.state import get_terraform_outputs
 
 
 @click.group(name="ingest")
@@ -56,15 +56,16 @@ def start(imports: str) -> None:
 
     client = IngestionJobClient(
         workflow_name=tf.ingestion_workflow_name,
-        temp_location=tf.ingestion_temp_location,
         service_account_email=tf.ingestion_workflow_service_account_email,
         project_id=tf.project_id,
         location=tf.region,
+    )
+    result = client.start_workflow(
+        temp_location=tf.ingestion_temp_location,
         spanner_instance_id=tf.spanner_instance_id,
         spanner_database_id=tf.spanner_database_id,
-        job_name=tf.ingestion_prep_job_name,
+        imports=imports,
     )
-    result = client.start_workflow(imports=imports)
 
     click.secho("Successfully started ingestion workflow!", fg="green", bold=True)
     res_name = result.get("name")
@@ -98,45 +99,43 @@ def show_config() -> None:
 
     tf = get_terraform_outputs()
 
-    if tf.ingestion_prep_job_name:
-        click.secho(f"Found data job: {tf.ingestion_prep_job_name}", fg="green")
+    if not tf.ingestion_prep_job_name:
+        click.secho(
+            "\nNo ingestion prep job configured in this deployment.", fg="yellow"
+        )
+        return
+
+    click.secho(f"Found data job: {tf.ingestion_prep_job_name}", fg="green")
     click.secho(
         f"Found workflow service account: {tf.ingestion_workflow_service_account_email}",
         fg="green",
     )
     click.secho(f"Found GCP project ID: {tf.project_id}", fg="green")
     click.secho(f"Found GCP region: {tf.region}", fg="green")
+    click.secho(
+        f"Fetching configuration for Cloud Run job '{tf.ingestion_prep_job_name}'...",
+        fg="bright_black",
+    )
 
-    if tf.ingestion_prep_job_name:
-        click.secho(
-            f"Fetching configuration for Cloud Run job '{tf.ingestion_prep_job_name}'...",
-            fg="bright_black",
-        )
+    client = IngestionJobClient(
+        job_name=tf.ingestion_prep_job_name,
+        service_account_email=tf.ingestion_workflow_service_account_email,
+        project_id=tf.project_id,
+        location=tf.region,
+    )
+    env_vars = client.get_config()
 
-        client = IngestionJobClient(
-            job_name=tf.ingestion_prep_job_name,
-            workflow_name=tf.ingestion_workflow_name,
-            service_account_email=tf.ingestion_workflow_service_account_email,
-            project_id=tf.project_id,
-            location=tf.region,
-        )
-        env_vars = client.get_config()
-
-        click.secho("\nCurrent ingestion job configuration:", fg="cyan", bold=True)
-        if not env_vars:
-            click.secho("No environment variables configured.", fg="yellow")
-        else:
-            for env in env_vars:
-                name = env.get("name", "UNKNOWN")
-                if "value" in env:
-                    val = env["value"]
-                elif "valueSource" in env:
-                    val = f"[SECRET: {env['valueSource']}]"
-                else:
-                    val = "[UNSET]"
-                click.secho(f"  {name}: ", fg="bright_black", nl=False)
-                click.secho(str(val), fg="green")
+    click.secho("\nCurrent ingestion job configuration:", fg="cyan", bold=True)
+    if not env_vars:
+        click.secho("No environment variables configured.", fg="yellow")
     else:
-        click.secho(
-            "\nNo ingestion prep job configured in this deployment.", fg="yellow"
-        )
+        for env in env_vars:
+            name = env.get("name", "UNKNOWN")
+            if "value" in env:
+                val = env["value"]
+            elif "valueSource" in env:
+                val = f"[SECRET: {env['valueSource']}]"
+            else:
+                val = "[UNSET]"
+            click.secho(f"  {name}: ", fg="bright_black", nl=False)
+            click.secho(str(val), fg="green")
