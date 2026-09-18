@@ -71,6 +71,13 @@ datacommons --help
 datacommons --version
 ```
 
+Commands are organized into two groups:
+
+| Group | Purpose |
+| --- | --- |
+| [**`admin`**](#administrative-commands) | Deploy and operate a Data Commons Platform instance: infrastructure, databases, and ingestion. |
+| [**`client`**](#client-commands) | Query the APIs of a Data Commons instance, including the public Data Commons API. |
+
 ---
 
 ## Administrative Commands
@@ -134,8 +141,6 @@ These options can be passed to `datacommons admin` for any administrative comman
 | **`seed-db`** | Seeds or re-applies base geographic entities and schema definitions to Cloud Spanner. |
 | **`ingest start`** | Triggers a Cloud Workflows + Cloud Run background data ingestion pipeline for custom datasets. |
 | **`ingest show-config`**| Displays current background ingestion parameters, service URLs, and Cloud Run job environment variables. |
-| **`sdmx data`** | Fetches statistical observations from the SDMX 3.0 Data API formatted as SDMX-CSV. |
-| **`sdmx availability`** | Queries available dimension values and constraints from the SDMX 3.0 Availability API formatted as SDMX-JSON. |
 
 ---
 
@@ -214,57 +219,142 @@ datacommons admin ingest show-config
 datacommons admin --project-id my-project --instance-name my-instance ingest show-config
 ```
 
-#### `datacommons admin sdmx`
-Provides Data Commons Platform (DCP) administrators with a direct way to query, inspect, and validate custom SDMX 3.0 observation and availability endpoints on their deployed instance without constructing raw HTTP requests or manually managing authentication tokens.
+---
 
-##### `datacommons admin sdmx data`
-Queries the SDMX 3.0 Data endpoint (`/core/api/sdmx/v3/data/dataflow/DC/DF_OBS/1.0.0/*`) for statistical observations matching a specified variable and dimension filters, returning standard SDMX-CSV formatted output.
+## Client Commands
+
+Data Commons APIs are queried under the `client` sub-command group. These commands are for anyone consuming data, and require no administrative access to the deployment:
 
 ```bash
-# Query observations for a variable with dimension constraints:
-datacommons admin sdmx data -v FinancialTrade -f sourceCountry=country/FRA
+datacommons client [OPTIONS] COMMAND [ARGS]...
+```
 
-# Combine multiple filters and save cleanly to a CSV file:
-datacommons admin sdmx data -v FinancialTrade -f sourceCountry=country/FRA -f provenance=FooBarTrade -o output.csv
+### Selecting an Endpoint
 
-# Query via remote state:
-datacommons admin --project-id my-project --instance-name my-instance sdmx data -v FinancialTrade -f sourceCountry=country/FRA
+A Data Commons deployment is reached in one of two ways, depending on whether its URL is publicly reachable:
+
+| Mode | Flags | Authentication |
+| --- | --- | --- |
+| **Public API** *(default)* | *none*, or `--url` | API key |
+| **Private DCP instance** | `--project-id` + `--instance-name` | Google Cloud IAM |
+
+#### 1. Public Data Commons API (default)
+
+With no targeting flags, commands query `https://api.datacommons.org`, which requires an API key. Issue one at [apikeys.datacommons.org](https://apikeys.datacommons.org) and pass it with `--api-key`, or set `DATACOMMONS_API_KEY` once:
+
+```bash
+export DATACOMMONS_API_KEY=your-api-key
+datacommons client sdmx-data -v Count_Person -f observationAbout=country/USA
+```
+
+#### 2. Any reachable endpoint
+
+`--url` accepts a bare host or a full URL, which is useful for other Data Commons deployments and for local development. A bare host defaults to HTTPS:
+
+```bash
+# Equivalent to the default endpoint:
+datacommons client --url api.datacommons.org sdmx-data -v Count_Person -f observationAbout=country/USA
+
+# A local development server:
+datacommons client --url http://localhost:8080 sdmx-data -v Count_Person -f observationAbout=country/USA
+```
+
+#### 3. Private DCP instance
+
+A DCP instance deployed on Cloud Run is private by default and sits behind IAM, so it cannot be reached by URL alone. Select it by name instead: the CLI reads its service URL from the instance's remote Terraform state in GCS and signs requests with your Google Cloud credentials.
+
+```bash
+gcloud auth application-default login
+datacommons client --project-id my-project --instance-name my-instance \
+    sdmx-data -v FinancialTrade -f sourceCountry=country/FRA
+```
+
+> [!NOTE]
+> `--url` and `--project-id`/`--instance-name` are mutually exclusive: the first names an endpoint directly, while the second resolves one. `--project-id` and `--instance-name` must always be given together.
+
+#### Global Options
+
+These options can be passed to `datacommons client` for any client command:
+
+| Option | Description |
+| --- | --- |
+| `--url TEXT` | Endpoint to query, as a bare host or full URL. Defaults to `https://api.datacommons.org`. |
+| `--project-id TEXT` | GCP project of a DCP instance to resolve from its remote Terraform state. Requires `--instance-name`. |
+| `--instance-name TEXT` | Name of the DCP instance to resolve. Requires `--project-id`. |
+| `--api-key TEXT` | API key for the endpoint. Defaults to the `DATACOMMONS_API_KEY` environment variable. |
+
+---
+
+### Available Commands
+
+| Command | Description |
+| --- | --- |
+| **`sdmx-data`** | Fetches statistical observations from the SDMX 3.0 Data API formatted as SDMX-CSV. |
+| **`sdmx-availability`** | Queries available dimension values and constraints from the SDMX 3.0 Availability API formatted as SDMX-JSON. |
+
+Both commands write only the API response to `stdout` and route progress messages to `stderr`, so output stays clean when piped or redirected.
+
+> [!NOTE]
+> Deployments serve the SDMX API under different path prefixes: the public Data Commons API uses `/sdmx/v3/…`, while a DCP instance uses `/core/api/sdmx/v3/…`. The CLI detects the correct prefix per endpoint and reuses it for the rest of the session, so no configuration is needed.
+
+---
+
+### Command Reference & Examples
+
+#### `datacommons client sdmx-data`
+
+Fetches statistical observations matching a variable and a set of dimension filters, returning standard SDMX-CSV.
+
+```bash
+# Observations for a variable, constrained to one entity:
+datacommons client sdmx-data -v Count_Person -f observationAbout=country/USA
+
+# Multiple filters, saved directly to a CSV file:
+datacommons client sdmx-data -v FinancialTrade \
+    -f sourceCountry=country/FRA -f provenance=FooBarTrade -o output.csv
+
+# Against a private DCP instance:
+datacommons client --project-id my-project --instance-name my-instance \
+    sdmx-data -v FinancialTrade -f sourceCountry=country/FRA
 ```
 
 Key Options:
-- `-v, --variable TEXT` *(required)*: The statistical variable measured (e.g. `FinancialTrade`).
-- `-f, --filter TEXT`: Constraint filter in `key=value` format (e.g. `-f sourceCountry=country/FRA`). Can be specified multiple times to filter across dimensions.
-- `-o, --output PATH`: Destination file path for the CSV output. Progress messages route to stderr so redirection and output files remain clean.
-- `--log / --no-log`: Enable server-side SDMX parsing and execution logs (default: enabled).
-- `--multi-entity / --no-multi-entity`: Enable querying across multi-entity schemas (default: enabled).
+- `-v, --variable TEXT` *(required)*: The statistical variable measured (e.g. `Count_Person`).
+- `-f, --filter TEXT`: Constraint in `key=value` form (e.g. `-f observationAbout=country/FRA`). Repeat the flag to constrain several components; comma-separate values to match any of them.
+- `-o, --output PATH`: Write the response to this file instead of stdout.
+- `--log / --no-log`: Request server-side SDMX execution logs (default: enabled).
+- `--multi-entity / --no-multi-entity`: Query across multi-entity schemas (default: enabled).
 
 **Sample SDMX Data Response (CSV):**
 ```csv
-STRUCTURE,STRUCTURE_ID,ACTION,variableMeasured,destinationCountry,sourceCountry,unit,measurementMethod,observationPeriod,provenance,TIME_PERIOD,OBS_VALUE,scalingFactor,facetId
-dataflow,DC:DF_OBS(1.0.0),I,FinancialTrade,country/USA,country/FRA,NotApplicable,NotApplicable,NotApplicable,FooBarTrade,2026,102,,18039223912603122474
-dataflow,DC:DF_OBS(1.0.0),I,FinancialTrade,country/USA,country/FRA,NotApplicable,NotApplicable,NotApplicable,FooBarTrade,2025,101,,18039223912603122474
-dataflow,DC:DF_OBS(1.0.0),I,FinancialTrade,country/USA,country/FRA,NotApplicable,NotApplicable,NotApplicable,FooBarTrade,2024,100,,18039223912603122474
+STRUCTURE,STRUCTURE_ID,ACTION,variableMeasured,observationAbout,unit,measurementMethod,observationPeriod,provenance,TIME_PERIOD,OBS_VALUE,scalingFactor,facetId
+dataflow,DC:DF_OBS(1.0.0),I,Count_Person,country/USA,NotApplicable,CensusACS5yrSurvey,NotApplicable,dc/base/CensusACS5YearSurvey,2024,3.34922499E8,,10169881228856630405
+dataflow,DC:DF_OBS(1.0.0),I,Count_Person,country/USA,NotApplicable,CensusACS5yrSurvey,NotApplicable,dc/base/CensusACS5YearSurvey,2023,3.3238754E8,,10169881228856630405
+dataflow,DC:DF_OBS(1.0.0),I,Count_Person,country/USA,NotApplicable,WikidataPopulation,NotApplicable,dc/base/WikidataPopulation,2021,3.322782E8,,12850099660527362240
 ```
 
-##### `datacommons admin sdmx availability`
-Queries the SDMX 3.0 Availability endpoint (`/core/api/sdmx/v3/availability/dataflow/DC/DF_OBS/1.0.0/*`) to inspect valid dimension values and data constraints for a given component and variable, returning SDMX-JSON Structure output.
+#### `datacommons client sdmx-availability`
+
+Inspects the values available for a dimension or attribute, returning SDMX-JSON Structure. Use it to discover what can be filtered on before issuing a data query.
 
 ```bash
-# Check available provenances for a variable:
-datacommons admin sdmx availability provenance -v FinancialTrade
+# Which provenances carry data for a variable:
+datacommons client sdmx-availability provenance -v Count_Person
 
-# Check available destination countries filtered by source country:
-datacommons admin sdmx availability destinationCountry -v FinancialTrade -f sourceCountry=country/FRA
+# Narrow the availability query with a constraint:
+datacommons client sdmx-availability destinationCountry -v FinancialTrade \
+    -f sourceCountry=country/FRA
 
-# Save availability structure to a JSON file via remote state:
-datacommons admin --project-id my-project --instance-name my-instance sdmx availability provenance -v FinancialTrade -o availability.json
+# Save the structure to a file, against a private DCP instance:
+datacommons client --project-id my-project --instance-name my-instance \
+    sdmx-availability provenance -v FinancialTrade -o availability.json
 ```
 
 Key Arguments and Options:
-- `COMPONENT_ID` *(argument, required)*: The target dimension or attribute ID to inspect (e.g. `provenance`, `unit`, `destinationCountry`).
+- `COMPONENT_ID` *(argument, required)*: The dimension or attribute to inspect (e.g. `provenance`, `unit`, `destinationCountry`).
 - `-v, --variable TEXT` *(required)*: The statistical variable measured.
-- `-f, --filter TEXT`: Constraint filter in `key=value` format to narrow the availability query.
-- `-o, --output PATH`: Destination file path for the formatted JSON output.
+- `-f, --filter TEXT`: Constraint in `key=value` form, used to narrow the availability query.
+- `-o, --output PATH`: Write the formatted JSON to this file instead of stdout.
 
 **Sample SDMX Availability Response (SDMX-JSON Structure):**
 ```json
@@ -272,7 +362,7 @@ Key Arguments and Options:
   "meta": {
     "schema": "https://json.sdmx.org/2.0.0/sdmx-json-structure-schema.json",
     "id": "DF_OBS_AVAILABILITY",
-    "prepared": "2026-09-10T23:28:13Z",
+    "prepared": "2026-09-18T23:43:05Z",
     "sender": {
       "id": "DC"
     }
@@ -294,10 +384,10 @@ Key Arguments and Options:
                 "include": true,
                 "values": [
                   {
-                    "value": "FooBarTrade"
+                    "value": "dc/base/CensusACS5YearSurvey"
                   },
                   {
-                    "value": "WHO"
+                    "value": "dc/base/WikidataPopulation"
                   }
                 ]
               }
@@ -308,6 +398,22 @@ Key Arguments and Options:
     ]
   }
 }
+```
+
+---
+
+### Programmatic Usage
+
+The client backing these commands is importable for use in scripts and tests:
+
+```python
+from datacommons_cli.client import ConnectionOptions, SdmxClient, resolve_connection
+
+connection = resolve_connection(ConnectionOptions(api_key="your-api-key"))
+client = SdmxClient(connection)
+
+csv_text = client.get_data("Count_Person", {"observationAbout": "country/USA"})
+availability = client.get_availability("provenance", "Count_Person")
 ```
 
 ---
@@ -344,12 +450,27 @@ datacommons admin --tf-state-location gs://my-project-prod-tfstate/terraform/sta
 
 # Inspect ingestion job configuration
 datacommons admin --project-id my-project --instance-name prod ingest show-config
+```
 
-# Query SDMX observations to CSV
-datacommons admin --project-id my-project --instance-name prod sdmx data -v FinancialTrade -f sourceCountry=country/FRA -o data.csv
+### Querying Data Cheatsheet
+```bash
+# Query the public Data Commons API
+export DATACOMMONS_API_KEY=your-api-key
+datacommons client sdmx-data -v Count_Person -f observationAbout=country/USA
 
-# Query SDMX dimension availability to JSON
-datacommons admin --project-id my-project --instance-name prod sdmx availability provenance -v FinancialTrade
+# Discover which provenances carry data for a variable
+datacommons client sdmx-availability provenance -v Count_Person
+
+# Query SDMX observations from a private DCP instance to CSV
+datacommons client --project-id my-project --instance-name prod \
+    sdmx-data -v FinancialTrade -f sourceCountry=country/FRA -o data.csv
+
+# Query SDMX dimension availability from a private DCP instance
+datacommons client --project-id my-project --instance-name prod \
+    sdmx-availability provenance -v FinancialTrade
+
+# Query a local development server
+datacommons client --url http://localhost:8080 sdmx-data -v Count_Person -f observationAbout=country/USA
 ```
 
 ---

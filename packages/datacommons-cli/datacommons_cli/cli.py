@@ -16,6 +16,9 @@ import os
 
 import click
 from datacommons_admin.admin_cli import admin as admin_cli
+
+from datacommons_cli.client import client as client_cli
+
 from . import __version__
 
 
@@ -68,5 +71,5 @@ def cli():
     pass
 
 
-# Add admin CLI commands to the main CLI
 cli.add_command(admin_cli)
+cli.add_command(client_cli)

@@ -283,6 +283,10 @@ def get_ingestion_workflow_name() -> str:
     return get_terraform_output(TF_OUTPUT_INGESTION_WORKFLOW_NAME)
 
 
-def get_datacommons_service_url() -> str:
-    """Convenience wrapper to fetch the datacommons_service_url Terraform output."""
-    return get_terraform_output(TF_OUTPUT_DATACOMMONS_SERVICE_URL)
+def get_datacommons_service_url(config: TerraformStateConfig | None = None) -> str:
+    """Convenience wrapper to fetch the datacommons_service_url Terraform output.
+
+    Accepts an explicit state config so that callers outside a Click context,
+    such as the `datacommons client` commands, can resolve a named instance.
+    """
+    return get_terraform_output(TF_OUTPUT_DATACOMMONS_SERVICE_URL, config)

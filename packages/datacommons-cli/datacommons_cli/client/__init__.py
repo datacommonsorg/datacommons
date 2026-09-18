@@ -12,12 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datacommons_admin.core.clients.ingestion_helper_client import (
-    IngestionHelperClient,
+"""Client-side access to the APIs of a Data Commons instance."""
+
+from datacommons_cli.client.client_cli import client
+from datacommons_cli.client.connection import (
+    API_KEY_ENV_VAR,
+    PUBLIC_API_URL,
+    Connection,
+    ConnectionOptions,
+    resolve_connection,
 )
-from datacommons_admin.core.clients.ingestion_job_client import IngestionJobClient
+from datacommons_cli.client.sdmx_client import (
+    SdmxAPIError,
+    SdmxClient,
+    SdmxClientError,
+)
 
 __all__ = [
-    "IngestionHelperClient",
-    "IngestionJobClient",
+    "API_KEY_ENV_VAR",
+    "PUBLIC_API_URL",
+    "Connection",
+    "ConnectionOptions",
+    "SdmxAPIError",
+    "SdmxClient",
+    "SdmxClientError",
+    "client",
+    "resolve_connection",
 ]

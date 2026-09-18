@@ -365,12 +365,16 @@ source = { editable = "packages/datacommons-cli" }
 dependencies = [
     { name = "click" },
     { name = "datacommons-admin" },
+    { name = "google-auth" },
+    { name = "requests" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.1.7" },
     { name = "datacommons-admin", editable = "packages/datacommons-admin" },
+    { name = "google-auth", specifier = ">=2.28.0" },
+    { name = "requests", specifier = ">=2.31.0" },
 ]
 
 [[package]]
