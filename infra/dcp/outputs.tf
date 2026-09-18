@@ -64,3 +64,8 @@ output "ingestion_input_path" {
   description = "The GCS root directory where input data files are stored."
   value       = var.ingestion_input_path
 }
+
+output "ingestion_artifacts_path" {
+  description = "The GCS path to input files in the artifacts bucket."
+  value       = var.ingestion_artifacts_path
+}
