@@ -283,6 +283,16 @@ main() {
     esac
   done
 
+  # Auto-infer instance name if running inside a workspace folder (e.g. tests/testbed/workspaces/testbed-1)
+  if [[ -z "$INSTANCE" ]]; then
+    local CURRENT_DIR
+    CURRENT_DIR="$(pwd)"
+    if [[ "$CURRENT_DIR" == *"/workspaces/"* ]]; then
+      INSTANCE="$(basename "$CURRENT_DIR")"
+      echo "==> Auto-detected instance '$INSTANCE' from current directory."
+    fi
+  fi
+
   if ! check_dependencies; then
     return 1
   fi
