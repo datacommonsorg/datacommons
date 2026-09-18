@@ -27,17 +27,6 @@ from datacommons_admin.core.utils.models import (
     TerraformStateConfig,
 )
 
-TF_OUTPUT_INGESTION_SERVICE_URL = "ingestion_service_url"
-TF_OUTPUT_INGESTION_WORKFLOW_SERVICE_ACCOUNT_EMAIL = (
-    "ingestion_workflow_service_account_email"
-)
-TF_OUTPUT_SPANNER_INSTANCE_ID = "spanner_instance_id"
-TF_OUTPUT_SPANNER_DATABASE_ID = "spanner_database_id"
-TF_OUTPUT_INGESTION_PREP_JOB_NAME = "ingestion_prep_job_name"
-TF_OUTPUT_PROJECT_ID = "project_id"
-TF_OUTPUT_REGION = "region"
-TF_OUTPUT_INGESTION_WORKFLOW_NAME = "ingestion_workflow_name"
-
 _OUTPUTS_CACHE_KEY = "terraform_outputs"
 
 
@@ -261,43 +250,3 @@ def get_terraform_output(
         )
 
     return str(raw_val)
-
-
-def get_ingestion_service_url() -> str:
-    """Convenience wrapper to fetch the ingestion_service_url Terraform output."""
-    return get_terraform_output(TF_OUTPUT_INGESTION_SERVICE_URL)
-
-
-def get_ingestion_workflow_service_account_email() -> str:
-    """Convenience wrapper to fetch the ingestion_workflow_service_account_email Terraform output."""
-    return get_terraform_output(TF_OUTPUT_INGESTION_WORKFLOW_SERVICE_ACCOUNT_EMAIL)
-
-
-def get_spanner_instance_id() -> str:
-    """Convenience wrapper to fetch the spanner_instance_id Terraform output."""
-    return get_terraform_output(TF_OUTPUT_SPANNER_INSTANCE_ID)
-
-
-def get_spanner_database_id() -> str:
-    """Convenience wrapper to fetch the spanner_database_id Terraform output."""
-    return get_terraform_output(TF_OUTPUT_SPANNER_DATABASE_ID)
-
-
-def get_ingestion_prep_job_name() -> str:
-    """Convenience wrapper to fetch the ingestion_prep_job_name Terraform output."""
-    return get_terraform_output(TF_OUTPUT_INGESTION_PREP_JOB_NAME)
-
-
-def get_project_id() -> str:
-    """Convenience wrapper to fetch the project_id Terraform output."""
-    return get_terraform_output(TF_OUTPUT_PROJECT_ID)
-
-
-def get_region() -> str:
-    """Convenience wrapper to fetch the region Terraform output."""
-    return get_terraform_output(TF_OUTPUT_REGION)
-
-
-def get_ingestion_workflow_name() -> str:
-    """Convenience wrapper to fetch the ingestion_workflow_name Terraform output."""
-    return get_terraform_output(TF_OUTPUT_INGESTION_WORKFLOW_NAME)

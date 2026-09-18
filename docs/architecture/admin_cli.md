@@ -89,7 +89,7 @@ The state resolution and contract verification suite spans two complementary tes
   * Verifies handling of missing state files (HTTP 404), permission errors (HTTP 403), malformed JSON, missing required output keys, and falsy value preservation.
 * **Automated HCL Contract Tests ([test_tf_contract.py](../../packages/datacommons-admin/tests/core/test_tf_contract.py))**:
   * Dynamically parses [infra/dcp/outputs.tf](../../infra/dcp/outputs.tf) and [infra/dcp/modules/stack/outputs.tf](../../infra/dcp/modules/stack/outputs.tf) at test time.
-  * Verifies that every field defined on `TerraformOutputs` and every `TF_OUTPUT_*` constant in `tf_utils.py` is explicitly declared in `infra/dcp/outputs.tf`.
+  * Verifies that every field defined on `TerraformOutputs` is explicitly declared in `infra/dcp/outputs.tf`.
   * Verifies that outputs delegated via `module.stack.<name>` in root `outputs.tf` exist in `modules/stack/outputs.tf`.
   * Verifies that mock Terraform output fixtures in [conftest.py](../../packages/datacommons-admin/tests/conftest.py) remain in sync with `outputs.tf` and cleanly instantiate `TerraformOutputs`.
 
