@@ -103,6 +103,14 @@ check_dependencies() {
     return 1
   fi
 
+  # Check for datacommons CLI (warning if not in PATH or uv)
+  if ! command -v datacommons &>/dev/null && ! uv run datacommons --help &>/dev/null 2>&1; then
+    echo "Notice: 'datacommons' CLI is not installed in PATH."
+    echo "  To run ingestion/workflow CLI commands, install it via: pip install -e packages/datacommons-cli"
+    echo "  (or execute via: uv run datacommons <command>)"
+    echo ""
+  fi
+
   return 0
 }
 
