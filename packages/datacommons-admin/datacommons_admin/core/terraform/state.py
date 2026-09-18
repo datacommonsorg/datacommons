@@ -35,14 +35,6 @@ def get_default_state_prefix(instance_name: str) -> str:
     return f"terraform/state/{instance_name}"
 
 
-def _clean_str(value: object | None) -> str | None:
-    """Strips whitespace from string values and normalizes empty strings to None."""
-    if isinstance(value, str):
-        cleaned = value.strip()
-        return cleaned if cleaned else None
-    return None
-
-
 def _resolve_remote_state_gcs_uri(
     project_id: str | None = None,
     instance_name: str | None = None,
@@ -216,17 +208,13 @@ def get_terraform_outputs(
     tf_state_location: str | None = None,
 ) -> TerraformOutputs:
     """Fetches, parses, and validates deployment outputs into an immutable TerraformOutputs dataclass."""
-    clean_project_id = _clean_str(project_id)
-    clean_instance_name = _clean_str(instance_name)
-    clean_location = _clean_str(tf_state_location)
-
     gcs_uri = _resolve_remote_state_gcs_uri(
-        project_id=clean_project_id,
-        instance_name=clean_instance_name,
-        tf_state_location=clean_location,
+        project_id=project_id,
+        instance_name=instance_name,
+        tf_state_location=tf_state_location,
     )
     raw_outputs = (
-        _get_outputs_from_gcs(gcs_uri, clean_project_id)
+        _get_outputs_from_gcs(gcs_uri, project_id)
         if gcs_uri
         else _get_outputs_from_local()
     )

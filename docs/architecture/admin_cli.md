@@ -18,8 +18,10 @@ The CLI tooling is structured across two packages in the repository:
   * `init/`: Deployment scaffolding and template rewrite logic ([init_cli.py](../../packages/datacommons-admin/datacommons_admin/init/init_cli.py), [scaffold_utils.py](../../packages/datacommons-admin/datacommons_admin/init/utils/scaffold_utils.py)).
   * `db/`: Database initialization and schema migration runner ([db_cli.py](../../packages/datacommons-admin/datacommons_admin/db/db_cli.py), [migration_utils.py](../../packages/datacommons-admin/datacommons_admin/db/utils/migration_utils.py)).
   * `ingest/`: Workflows launch client and runtime configuration inspector ([ingest_cli.py](../../packages/datacommons-admin/datacommons_admin/ingest/ingest_cli.py), [ingestion_job_client.py](../../packages/datacommons-admin/datacommons_admin/core/clients/ingestion_job_client.py)).
-  * `core/terraform/`: Local and remote GCS Terraform state parser ([state.py](../../packages/datacommons-admin/datacommons_admin/core/terraform/state.py)) and strongly typed deployment state models ([models.py](../../packages/datacommons-admin/datacommons_admin/core/terraform/models.py)).
-  * `tests/`: Automated unit test suite verifying state parsing, GCS URI resolution, and command behaviors ([tests/](../../packages/datacommons-admin/tests)).
+  * `core/clients/`: Authenticated HTTP clients for the Ingestion Helper service ([ingestion_helper_client.py](../../packages/datacommons-admin/datacommons_admin/core/clients/ingestion_helper_client.py)) and Cloud Workflows / Cloud Run Jobs ([ingestion_job_client.py](../../packages/datacommons-admin/datacommons_admin/core/clients/ingestion_job_client.py)).
+  * `core/terraform/`: Local and remote GCS Terraform state parser ([state.py](../../packages/datacommons-admin/datacommons_admin/core/terraform/state.py)) and strongly typed deployment output model ([models.py](../../packages/datacommons-admin/datacommons_admin/core/terraform/models.py)).
+  * `core/utils/`: Shared interactive terminal prompt and formatting helpers ([ui_utils.py](../../packages/datacommons-admin/datacommons_admin/core/utils/ui_utils.py)).
+  * `tests/`: Automated unit and contract test suite verifying state parsing, GCS URI resolution, HCL output parity, and command behaviors ([tests/](../../packages/datacommons-admin/tests)).
 
 ### CLI Command Taxonomy
 * **`datacommons admin init`**: Scaffolds a new deployment directory by fetching Terraform templates, modifying module sources, and configuring instance variables.
