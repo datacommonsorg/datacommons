@@ -1,0 +1,75 @@
+# =============================================================================
+# DEVELOPER TESTBED OVERRIDES (For Custom Testing & Verification)
+# =============================================================================
+# Append this block to the bottom of a testbed's `terraform.tfvars`.
+#
+# The upstream `infra/dcp/terraform.tfvars.template` is the template shipped to
+# all Data Commons users and intentionally does NOT contain these testbed-only
+# settings. This file is the canonical copy for `datcom-dcp` testbeds.
+#
+# How to use:
+# 1. To test a specific platform release version, uncomment `dcp_version`.
+# 2. To test a custom container build for a specific service or job, uncomment
+#    the corresponding image variable below and supply your container image URL.
+# 3. Apply changes: `terraform apply`
+# 4. When satisfied with your test, push the updated config to Secret Manager:
+#    ./tests/testbed/fetch_terraform_state.sh push-config --instance <instance_name>
+# =============================================================================
+
+# --- Option A: Platform Release Version Override ---
+# Overrides the version tag across all containers.
+# dcp_version = "1.1.5rc1"
+
+# --- Option B: Granular Artifact / Image Overrides ---
+
+# 1. Main Data Commons Web & Serving Service
+# datacommons_services_image = "gcr.io/datcom-ci/datacommons-services:your-test-tag"
+
+# 2. Ingestion Helper API Service
+# ingestion_helper_service_image = "gcr.io/datcom-ci/datacommons-ingestion-helper:your-test-tag"
+
+# 3. Ingestion Preprocessing Cloud Run Job
+# ingestion_preprocessing_job_image = "gcr.io/datcom-ci/datacommons-preprocessing:your-test-tag"
+
+# 4. Ingestion Postprocessing Cloud Run Job
+# ingestion_postprocessing_job_image = "gcr.io/datcom-ci/datacommons-postprocessing:your-test-tag"
+
+# 5. Dataflow Ingestion Flex Template Container Spec (GCS Path)
+# ingestion_dataflow_template_gcs_path = "gs://datcom-templates/templates/flex/ingestion-your-test-tag.json"
+
+# --- Option C: VPC Networking ---
+# Provision VPC networking for DCP services and ingestion jobs.
+# Leave false for a standard testbed; set true only when testing the VPC path.
+#
+# NOTE: Decommissioning is a TWO-STAGE process. Set enable_workload_vpc = false
+# and apply, THEN set enable_network = false and apply again. Flipping both at
+# once will fail.
+enable_network = false
+
+# =============================================================================
+# Ingestion - Dataflow Network Configuration
+# =============================================================================
+# These settings and Option C are MUTUALLY EXCLUSIVE. Pick one:
+#
+# (a) enable_network = false  -> KEEP the two lines below.
+#     The compute.vmExternalIpAccess org policy blocks Dataflow workers from
+#     obtaining external IPs, so they must attach to the default network's
+#     subnet with a private IP. Without these, every ingestion Dataflow job
+#     fails to start its workers.
+#
+# (b) enable_network = true   -> DELETE the two lines below.
+#     An explicit ingestion_dataflow_subnetwork takes PRECEDENCE over the VPC's
+#     subnet (see effective_dataflow_subnetwork in modules/stack/main.tf), so
+#     leaving it set silently pins Dataflow to the default network and bypasses
+#     the VPC you are trying to test.
+ingestion_dataflow_ip_configuration = "WORKER_IP_PRIVATE"
+ingestion_dataflow_subnetwork       = "regions/us-central1/subnetworks/default"
+
+# =============================================================================
+# Shared-Project Overrides
+# =============================================================================
+# Only ONE BigQuery reservation may exist per GCP project per region, and
+# datcom-dcp already has one. The upstream template defaults this to `true`,
+# which will fail partway through `terraform apply` and leave a half-built
+# testbed. Keep it false for every additional testbed in this project.
+spanner_create_bigquery_reservation = false
