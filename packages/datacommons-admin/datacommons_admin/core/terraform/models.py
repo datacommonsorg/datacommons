@@ -19,36 +19,6 @@ from typing import Any
 import click
 
 
-# frozen=True ensures parsed state configuration cannot be mutated accidentally across helper calls.
-@dataclass(frozen=True)
-class TerraformStateConfig:
-    """Encapsulates and validates configuration parameters for locating Terraform state.
-
-    Attributes:
-        project_id: GCP project ID used for canonical bucket derivation and GCS client auth.
-        instance_name: DCP instance name prefix used for canonical bucket and object path derivation.
-        tf_state_location: Explicit GCS URI pointing directly to the Terraform state file.
-    """
-
-    project_id: str | None = None
-    instance_name: str | None = None
-    tf_state_location: str | None = None
-
-    def __post_init__(self) -> None:
-        """Validates configuration combinations upon initialization."""
-        if not self.tf_state_location and (
-            bool(self.project_id) != bool(self.instance_name)
-        ):
-            raise click.ClickException(
-                "Both --project-id and --instance-name must be specified together to locate remote state."
-            )
-
-    @property
-    def is_remote(self) -> bool:
-        """Determines whether remote GCS state resolution should be used."""
-        return bool(self.tf_state_location or (self.project_id and self.instance_name))
-
-
 # frozen=True ensures parsed deployment outputs cannot be mutated accidentally across CLI commands or helpers.
 @dataclass(frozen=True)
 class TerraformOutputs:
@@ -57,7 +27,7 @@ class TerraformOutputs:
     Rule for Required vs. Optional Attributes:
       - Required fields (no default): Must correspond to unconditional Terraform outputs
         in infra/dcp/outputs.tf that are guaranteed to be non-null in every deployment.
-      - Optional fields (with default "" or None): Must correspond to conditional Terraform
+      - Optional fields (with default None): Must correspond to conditional Terraform
         outputs in infra/dcp/modules/stack/outputs.tf whose HCL expressions can evaluate
         to null when a feature/module is disabled (e.g., var.spanner_config.enable ? ... : null).
     """
@@ -106,8 +76,6 @@ class TerraformOutputs:
             if val is None or val == "":
                 if field_def.default is not dataclasses.MISSING:
                     parsed_fields[key] = field_def.default
-                elif field_def.default_factory is not dataclasses.MISSING:
-                    parsed_fields[key] = field_def.default_factory()
                 else:
                     raise click.ClickException(
                         f"Required Terraform output '{key}' is missing or empty in deployment state."

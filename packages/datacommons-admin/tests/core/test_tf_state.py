@@ -18,11 +18,10 @@ import click
 import pytest
 from click.testing import CliRunner
 from datacommons_admin.admin_cli import admin
-from datacommons_admin.core.terraform.models import TerraformStateConfig
 from datacommons_admin.core.terraform.state import (
     _parse_gcs_uri,
     _parse_terraform_state_outputs,
-    _resolve_gcs_uri,
+    _resolve_remote_state_gcs_uri,
     get_terraform_outputs,
 )
 from google.cloud.exceptions import NotFound
@@ -299,26 +298,26 @@ def test_parse_terraform_state_outputs_errors() -> None:
         _parse_terraform_state_outputs('{"outputs": {}}', "test-source")
 
 
-def test_terraform_state_config() -> None:
+def test_resolve_remote_state_gcs_uri() -> None:
     # Local mode
-    local_cfg = TerraformStateConfig()
-    assert not local_cfg.is_remote
+    assert _resolve_remote_state_gcs_uri() is None
 
     # Explicit URI mode
-    uri_cfg = TerraformStateConfig(
-        tf_state_location="gs://custom-b/custom-p/custom.tfstate"
+    assert (
+        _resolve_remote_state_gcs_uri(
+            tf_state_location="gs://custom-b/custom-p/custom.tfstate"
+        )
+        == "gs://custom-b/custom-p/custom.tfstate"
     )
-    assert uri_cfg.is_remote
-    assert _resolve_gcs_uri(uri_cfg) == "gs://custom-b/custom-p/custom.tfstate"
 
     # Explicit locations are exact object URIs, regardless of file extension.
-    exact_cfg = TerraformStateConfig(tf_state_location="gs://custom-b/custom-state")
-    assert _resolve_gcs_uri(exact_cfg) == "gs://custom-b/custom-state"
+    assert (
+        _resolve_remote_state_gcs_uri(tf_state_location="gs://custom-b/custom-state")
+        == "gs://custom-b/custom-state"
+    )
 
     # Canonical project-id + instance-name mode
-    canonical_cfg = TerraformStateConfig(project_id="my-proj", instance_name="my-inst")
-    assert canonical_cfg.is_remote
     assert (
-        _resolve_gcs_uri(canonical_cfg)
+        _resolve_remote_state_gcs_uri(project_id="my-proj", instance_name="my-inst")
         == "gs://tf-state-my-inst-my-proj/terraform/state/my-inst/default.tfstate"
     )

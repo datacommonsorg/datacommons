@@ -22,10 +22,7 @@ import click
 from google.cloud import storage
 from google.cloud.exceptions import Forbidden, GoogleCloudError, NotFound
 
-from datacommons_admin.core.terraform.models import (
-    TerraformOutputs,
-    TerraformStateConfig,
-)
+from datacommons_admin.core.terraform.models import TerraformOutputs
 
 _OUTPUTS_CACHE_KEY = "terraform_outputs"
 
@@ -40,13 +37,6 @@ def get_default_state_prefix(instance_name: str) -> str:
     return f"terraform/state/{instance_name}"
 
 
-def get_default_state_uri(project_id: str, instance_name: str) -> str:
-    """Returns the GCS URI used by the default remote-state configuration."""
-    bucket_name = get_default_bucket_name(instance_name, project_id)
-    prefix = get_default_state_prefix(instance_name)
-    return f"gs://{bucket_name}/{prefix}/default.tfstate"
-
-
 def _clean_str(value: object | None) -> str | None:
     """Strips whitespace from string values and normalizes empty strings to None."""
     if isinstance(value, str):
@@ -55,30 +45,26 @@ def _clean_str(value: object | None) -> str | None:
     return None
 
 
-def _resolve_remote_state_params() -> TerraformStateConfig:
-    """Extracts and validates remote-state parameters from the Click context."""
-    ctx = click.get_current_context(silent=True)
-    params = ctx.find_object(dict) if ctx else None
-    params = params or {}
+def _resolve_remote_state_gcs_uri(
+    project_id: str | None = None,
+    instance_name: str | None = None,
+    tf_state_location: str | None = None,
+) -> str | None:
+    """Returns the remote GCS state URI if remote flags are provided, or None for local state."""
+    if tf_state_location:
+        return tf_state_location
 
-    return TerraformStateConfig(
-        project_id=_clean_str(params.get("project_id")),
-        instance_name=_clean_str(params.get("instance_name")),
-        tf_state_location=_clean_str(params.get("tf_state_location")),
-    )
+    if bool(project_id) != bool(instance_name):
+        raise click.ClickException(
+            "Both --project-id and --instance-name must be specified together to locate remote state."
+        )
 
+    if project_id and instance_name:
+        bucket = get_default_bucket_name(instance_name, project_id)
+        prefix = get_default_state_prefix(instance_name)
+        return f"gs://{bucket}/{prefix}/default.tfstate"
 
-def _resolve_gcs_uri(config: TerraformStateConfig) -> str:
-    """Computes the fully qualified GCS URI for remote state."""
-    if config.tf_state_location:
-        return config.tf_state_location
-
-    if config.project_id and config.instance_name:
-        return get_default_state_uri(config.project_id, config.instance_name)
-
-    raise click.ClickException(
-        "Cannot compute GCS URI for local Terraform state configuration."
-    )
+    return None
 
 
 def _parse_gcs_uri(gcs_uri: str) -> tuple[str, str]:
@@ -160,12 +146,12 @@ def _parse_terraform_state_outputs(
 
 
 def _get_outputs_from_gcs(
-    config: TerraformStateConfig,
+    gcs_uri: str,
+    project_id: str | None = None,
 ) -> dict[str, Any]:
     """Downloads and parses Terraform outputs directly from GCS remote state."""
-    gcs_uri = _resolve_gcs_uri(config)
     bucket_name, blob_name = _parse_gcs_uri(gcs_uri)
-    content = _download_gcs_blob_text(bucket_name, blob_name, config.project_id)
+    content = _download_gcs_blob_text(bucket_name, blob_name, project_id)
     return _parse_terraform_state_outputs(content, gcs_uri)
 
 
@@ -226,19 +212,26 @@ def _get_outputs_from_local() -> dict[str, Any]:
     return outputs
 
 
-def get_terraform_outputs(
-    config: TerraformStateConfig | None = None,
-) -> TerraformOutputs:
+def get_terraform_outputs() -> TerraformOutputs:
     """Sole public entrypoint to fetch, parse, and validate deployment outputs into a cached, immutable TerraformOutputs dataclass."""
-    resolved_config = config or _resolve_remote_state_params()
-    ctx = click.get_current_context(silent=True) if config is None else None
+    ctx = click.get_current_context(silent=True)
     params = ctx.find_object(dict) if ctx else None
     cached: TerraformOutputs | None = params.get(_OUTPUTS_CACHE_KEY) if params else None
 
     if cached is None:
+        raw_params = params or {}
+        project_id = _clean_str(raw_params.get("project_id"))
+        instance_name = _clean_str(raw_params.get("instance_name"))
+        tf_state_location = _clean_str(raw_params.get("tf_state_location"))
+
+        gcs_uri = _resolve_remote_state_gcs_uri(
+            project_id=project_id,
+            instance_name=instance_name,
+            tf_state_location=tf_state_location,
+        )
         raw_outputs = (
-            _get_outputs_from_gcs(resolved_config)
-            if resolved_config.is_remote
+            _get_outputs_from_gcs(gcs_uri, project_id)
+            if gcs_uri
             else _get_outputs_from_local()
         )
         cached = TerraformOutputs.from_state_outputs(raw_outputs)
