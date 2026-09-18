@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import json
-
 import click
 import google.auth
 from google.auth.transport.requests import AuthorizedSession
@@ -24,15 +23,21 @@ class IngestionJobClient:
 
     def __init__(
         self,
-        job_name: str | None = None,
-        workflow_name: str | None = None,
-        service_account_email: str | None = None,
-        project_id: str | None = None,
-        location: str | None = None,
+        job_name: str = None,
+        workflow_name: str = None,
+        service_account_email: str = None,
+        project_id: str = None,
+        location: str = None,
+        temp_location: str = None,
+        spanner_instance_id: str = "",
+        spanner_database_id: str = "",
     ) -> None:
         self.service_account_email = service_account_email
         self.project_id = project_id
         self.location = location
+        self.temp_location = temp_location
+        self.spanner_instance_id = spanner_instance_id
+        self.spanner_database_id = spanner_database_id
         base_credentials, _ = google.auth.default()
 
         need_project_and_location = (
@@ -56,15 +61,12 @@ class IngestionJobClient:
         else:
             self.full_workflow_name = None
 
-        if job_name:
-            if not job_name.startswith("projects/"):
-                self.full_job_name = (
-                    f"projects/{project_id}/locations/{location}/jobs/{job_name}"
-                )
-            else:
-                self.full_job_name = job_name
+        if job_name and not job_name.startswith("projects/"):
+            self.full_job_name = (
+                f"projects/{project_id}/locations/{location}/jobs/{job_name}"
+            )
         else:
-            self.full_job_name = None
+            self.full_job_name = job_name
 
         if service_account_email:
             from google.auth import impersonated_credentials
@@ -79,17 +81,16 @@ class IngestionJobClient:
 
         self.session = AuthorizedSession(creds)
 
-    def start_workflow(
-        self,
-        temp_location: str,
-        spanner_instance_id: str = "",
-        spanner_database_id: str = "",
-        imports: str | None = None,
-    ) -> dict:
+    def start_workflow(self, imports: str | None = None) -> dict:
         """Starts an execution of the Cloud Workflow."""
         if not self.full_workflow_name:
             raise click.ClickException(
                 "Workflow name must be provided to start a workflow execution."
+            )
+
+        if not self.temp_location:
+            raise click.ClickException(
+                "Temporary GCS location must be provided to start a workflow execution."
             )
 
         # 1. Parse imports argument
@@ -99,9 +100,9 @@ class IngestionJobClient:
 
         # 2. Construct payload argument (must be a JSON string)
         argument_dict = {
-            "tempLocation": temp_location,
-            "spannerInstanceId": spanner_instance_id,
-            "spannerDatabaseId": spanner_database_id,
+            "tempLocation": self.temp_location,
+            "spannerInstanceId": self.spanner_instance_id,
+            "spannerDatabaseId": self.spanner_database_id,
             "region": self.location or "",
             "imports": imports_list,
         }
