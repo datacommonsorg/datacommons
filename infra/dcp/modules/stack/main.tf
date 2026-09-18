@@ -239,6 +239,9 @@ module "ingestion_workflow" {
   ingestion_helper_service_name       = "${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-ingestion-helper"
   enable_redis_cache_clearing         = var.redis_config.enable
   ingestion_artifacts_path            = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
+  temp_location                       = "gs://${module.storage.artifacts_bucket_name}/${var.ingestion_config.ingestion_artifacts_path}/temp"
+  spanner_instance_id                 = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
+  spanner_database_id                 = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
   dataflow_ip_configuration           = local.effective_dataflow_ip_configuration
   dataflow_subnetwork                 = local.effective_dataflow_subnetwork
   dataflow_template_gcs_path          = var.ingestion_config.dataflow_template_gcs_path
