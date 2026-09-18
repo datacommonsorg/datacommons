@@ -22,7 +22,7 @@ They allow any engineer on the team to **deploy and test custom container builds
                ┌────────────────────────────┼────────────────────────────┐
                │                            │                            │
        1. Connect & Attach          2. Configure & Deploy        3. Push & Persist
-   `testbed.sh connect`             `testbed.sh configure`       `testbed.sh push-config`
+   `fetch_terraform_state.sh connect`             `fetch_terraform_state.sh configure`       `fetch_terraform_state.sh push-config`
    - Pulls baseline secret          - Switches module sources    - Opt-in save back to
    - Wires remote backend state       (git tag vs local disk)      Secret Manager so the
    - Configures SA Impersonation    - Updates versions & images    team baseline updates
@@ -57,13 +57,11 @@ Attach to an existing testbed to download its current baseline configuration:
 
 ```bash
 # Connect directly to testbed-1:
-./tests/testbed/testbed.sh connect --instance testbed-1
+./tests/testbed/fetch_terraform_state.sh connect --instance testbed-1
 
 # OR run interactively to choose from available testbeds:
-./tests/testbed/testbed.sh connect
+./tests/testbed/fetch_terraform_state.sh connect
 ```
-
-*(Note: `fetch_terraform_state.sh` is supported as a backward-compatible alias).*
 
 **What `connect` does automatically:**
 1. **Pulls Configuration:** Fetches `dcp-testbed-1-tfvars` from GCP Secret Manager into `tests/testbed/workspaces/testbed-1/terraform.tfvars`.
@@ -80,7 +78,7 @@ The `configure` command modifies your testbed's orchestration sources, container
 #### Option A: Test a custom container build against a clean release tag (Hermetic Mode)
 To ensure no local working tree changes or uncommitted `workflow.yaml` edits leak into the testbed:
 ```bash
-./tests/testbed/testbed.sh configure \
+./tests/testbed/fetch_terraform_state.sh configure \
   --instance testbed-1 \
   --terraform-source git \
   --terraform-ref v1.1.5 \
@@ -92,7 +90,7 @@ To ensure no local working tree changes or uncommitted `workflow.yaml` edits lea
 #### Option B: Test local Terraform modules and workflow edits (Dev Mode)
 To deploy your local working branch's Terraform modules and `workflow.yaml`:
 ```bash
-./tests/testbed/testbed.sh configure \
+./tests/testbed/fetch_terraform_state.sh configure \
   --instance testbed-1 \
   --terraform-source local \
   --apply
@@ -101,7 +99,7 @@ To deploy your local working branch's Terraform modules and `workflow.yaml`:
 #### Option C: Reset all custom container overrides
 To remove all custom `*_image` overrides and restore services to the baseline `dcp_version`:
 ```bash
-./tests/testbed/testbed.sh configure \
+./tests/testbed/fetch_terraform_state.sh configure \
   --instance testbed-1 \
   --clear-image-overrides \
   --apply
@@ -121,7 +119,7 @@ uv run datacommons <command> ...
 datacommons <command> ...
 ```
 
-The CLI automatically impersonates the testbed's ingestion workflow service account using the TokenCreator IAM role that `testbed.sh` configured in Step 1.
+The CLI automatically impersonates the testbed's ingestion workflow service account using the TokenCreator IAM role that `fetch_terraform_state.sh` configured in Step 1.
 
 ---
 
@@ -135,10 +133,10 @@ To promote your local configuration to Secret Manager:
 
 ```bash
 # Explicit standalone command:
-./tests/testbed/testbed.sh push-config --instance testbed-1
+./tests/testbed/fetch_terraform_state.sh push-config --instance testbed-1
 
 # OR pass --push-config directly during configure:
-./tests/testbed/testbed.sh configure --instance testbed-1 --dcp-version 1.1.5 --apply --push-config
+./tests/testbed/fetch_terraform_state.sh configure --instance testbed-1 --dcp-version 1.1.5 --apply --push-config
 ```
 
 The full, authoritative list of testbed overrides lives in [`testbed_overrides.tfvars.template`](./testbed_overrides.tfvars.template).
@@ -149,6 +147,6 @@ The full, authoritative list of testbed overrides lives in [`testbed_overrides.t
 
 ### List All Registered Testbeds
 ```bash
-./tests/testbed/testbed.sh list
+./tests/testbed/fetch_terraform_state.sh list
 ```
 Displays all registered testbed secrets in `datcom-dcp` and allows interactive selection to connect immediately.

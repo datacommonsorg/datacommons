@@ -3,7 +3,7 @@
 > **One-time bootstrap.** Only needed when adding a brand-new testbed. To use an
 > existing one, see [README.md](./README.md).
 
-`testbed.sh` (formerly `fetch_terraform_state.sh`) only **connects** to testbeds that already exist — it
+`fetch_terraform_state.sh` only **connects** to testbeds that already exist — it
 has no `create` command, and `push-config` refuses to create a missing secret
 ("*Please ensure the testbed secret has been initialized by an administrator*").
 Provisioning is done with the Data Commons CLI.
@@ -54,5 +54,5 @@ gcloud secrets versions add dcp-testbed-3-tfvars \
 When using local modules, `connect` copies `infra/dcp/*.tf` into the workspace but symlinks `modules/`. Switching git branches changes the modules underneath you while the root `.tf` files stay stale, producing confusing "unsupported argument" errors.
 
 **Solution:**
-* Run `./tests/testbed/testbed.sh configure --terraform-source git --terraform-ref <tag>` to hermetically pin Terraform modules directly from GitHub, eliminating branch skew.
-* If testing local changes across branches, re-run `./tests/testbed/testbed.sh configure --terraform-source local` to refresh root `.tf` files.
+* Run `./tests/testbed/fetch_terraform_state.sh configure --terraform-source git --terraform-ref <tag>` to hermetically pin Terraform modules directly from GitHub, eliminating branch skew.
+* If testing local changes across branches, re-run `./tests/testbed/fetch_terraform_state.sh configure --terraform-source local` to refresh root `.tf` files.
