@@ -12,6 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Contract tests enforcing synchronization between Terraform outputs and Admin CLI models.
+
+This module statically parses the repository's Terraform HCL files (`infra/dcp/outputs.tf`
+and `infra/dcp/modules/stack/outputs.tf`) to prevent silent contract drift between
+infrastructure definitions and the Python Admin CLI. Specifically, it verifies that:
+1. Every attribute required by the `TerraformOutputs` dataclass is declared in root `outputs.tf`.
+2. Every output delegated via `module.stack.*` in root `outputs.tf` exists in `modules/stack/outputs.tf`.
+3. Shared pytest mock fixtures in `conftest.py` match the real `outputs.tf` schema.
+"""
+
 import dataclasses
 import json
 import re
@@ -19,7 +29,7 @@ from pathlib import Path
 
 import click
 import pytest
-from datacommons_admin.core.utils.models import TerraformOutputs
+from datacommons_admin.core.terraform.models import TerraformOutputs
 
 
 def _strip_hcl_comments(content: str) -> str:

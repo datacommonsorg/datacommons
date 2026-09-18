@@ -100,8 +100,8 @@ uv run --package datacommons-cli datacommons admin ingest start --imports <datas
 #### Adding a New CLI Command
 * Define the Click command in `packages/datacommons-admin/datacommons_admin/<group>/<group>_cli.py`.
 * Register the command on the group in `packages/datacommons-admin/datacommons_admin/admin_cli.py`.
-* If the command reads Terraform attributes, call `get_terraform_outputs()` in `packages/datacommons-admin/datacommons_admin/core/utils/tf_utils.py` to load the validated `TerraformOutputs` dataclass defined in `packages/datacommons-admin/datacommons_admin/core/utils/models.py`. This resolves outputs seamlessly from either local state (`terraform output -json`) or remote GCS backend state (`--project-id` and `--instance-name`, or `--tf-state-location`).
-* If adding new required Terraform outputs, export them in `infra/dcp/modules/stack/outputs.tf` (if delegated) and `infra/dcp/outputs.tf`, add the typed field to `TerraformOutputs` in `models.py`, and update test fixtures in `packages/datacommons-admin/tests/conftest.py`. Run the core unit and contract test suite to verify synchronization:
+* If the command reads Terraform attributes, call `get_terraform_outputs()` from `packages/datacommons-admin/datacommons_admin/core/terraform` to load the validated `TerraformOutputs` dataclass defined in `packages/datacommons-admin/datacommons_admin/core/terraform/models.py`. This resolves outputs seamlessly from either local state (`terraform output -json`) or remote GCS backend state (`--project-id` and `--instance-name`, or `--tf-state-location`).
+* If adding new required Terraform outputs, export them in `infra/dcp/modules/stack/outputs.tf` (if delegated) and `infra/dcp/outputs.tf`, add the typed field to `TerraformOutputs` in `core/terraform/models.py`, and update test fixtures in `packages/datacommons-admin/tests/conftest.py`. Run the core unit and contract test suite to verify synchronization:
   ```bash
   uv run pytest packages/datacommons-admin/tests/core/
   ```

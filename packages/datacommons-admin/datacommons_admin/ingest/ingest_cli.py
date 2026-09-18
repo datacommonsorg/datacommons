@@ -17,7 +17,7 @@ import re
 import click
 
 from datacommons_admin.core.clients import IngestionJobClient
-from datacommons_admin.core.utils.tf_utils import get_terraform_outputs
+from datacommons_admin.core.terraform import get_terraform_outputs
 
 
 @click.group(name="ingest")

@@ -17,6 +17,7 @@ import sys
 import click
 from google.api_core import exceptions
 from google.cloud import storage
+from datacommons_admin.core.terraform.models import get_default_bucket_name
 from datacommons_admin.core.utils.ui_utils import (
     _confirm,
     _log_resolved_value,
@@ -24,23 +25,6 @@ from datacommons_admin.core.utils.ui_utils import (
 
 
 DEFAULT_BUCKET_LOCATION = "US"
-
-
-def _get_default_bucket_name(instance_name: str, project_id: str) -> str:
-    """Returns the default Google Cloud Storage bucket name for Terraform state."""
-    return f"tf-state-{instance_name}-{project_id}"
-
-
-def _get_default_state_prefix(instance_name: str) -> str:
-    """Returns the default Google Cloud Storage object prefix for Terraform state."""
-    return f"terraform/state/{instance_name}"
-
-
-def get_default_state_uri(project_id: str, instance_name: str) -> str:
-    """Returns the GCS URI used by the default remote-state configuration."""
-    bucket_name = _get_default_bucket_name(instance_name, project_id)
-    prefix = _get_default_state_prefix(instance_name)
-    return f"gs://{bucket_name}/{prefix}/default.tfstate"
 
 
 def _create_and_configure_bucket(
@@ -139,7 +123,7 @@ def _configure_remote_state(
 
     is_default = False
     if not bucket_name:
-        bucket_name = _get_default_bucket_name(instance_name, project_id)
+        bucket_name = get_default_bucket_name(instance_name, project_id)
         is_default = True
 
     click.echo(

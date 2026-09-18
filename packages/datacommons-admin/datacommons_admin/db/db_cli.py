@@ -17,7 +17,7 @@ from typing import Any
 import click
 
 from datacommons_admin.core.clients import IngestionHelperClient
-from datacommons_admin.core.utils.tf_utils import get_terraform_outputs
+from datacommons_admin.core.terraform import get_terraform_outputs
 from datacommons_admin.db.utils.migration_utils import (
     _run_migrations,
     is_database_initialized,

@@ -15,15 +15,22 @@
 from unittest.mock import MagicMock, patch
 
 import click
+import pytest
 from click.testing import CliRunner
 from datacommons_admin.admin_cli import admin
-from datacommons_admin.core.utils.tf_utils import get_terraform_output
+from datacommons_admin.core.terraform.models import TerraformStateConfig
+from datacommons_admin.core.terraform.state import (
+    _fetch_raw_terraform_outputs,
+    get_terraform_outputs,
+    parse_gcs_uri,
+    parse_terraform_state_outputs,
+)
 from google.cloud.exceptions import NotFound
 
 
 @patch("google.cloud.storage.Client")
-def test_get_terraform_output_from_gcs_canonical_success(
-    mock_storage_client: MagicMock, runner: CliRunner
+def test_get_terraform_outputs_from_gcs_canonical_success(
+    mock_storage_client: MagicMock, runner: CliRunner, mock_tf_output_spanner: str
 ) -> None:
     mock_client_inst = MagicMock()
     mock_storage_client.return_value = mock_client_inst
@@ -32,22 +39,14 @@ def test_get_terraform_output_from_gcs_canonical_success(
     mock_blob = MagicMock()
     mock_bucket.blob.return_value = mock_blob
 
-    state_content = """{
-      "version": 4,
-      "outputs": {
-        "test_key": {
-          "value": "gcs-resolved-val",
-          "type": "string"
-        }
-      }
-    }"""
+    state_content = f'{{"version": 4, "outputs": {mock_tf_output_spanner}}}'
     mock_blob.download_as_text.return_value = state_content
 
-    @admin.command(name="test-get-output-canonical-success")
+    @admin.command(name="test-get-outputs-canonical-success")
     def test_cmd() -> None:
-        val = get_terraform_output("test_key")
-        cached_val = get_terraform_output("test_key")
-        click.echo(f"VAL={val} CACHED_VAL={cached_val}")
+        tf1 = get_terraform_outputs()
+        tf2 = get_terraform_outputs()
+        click.echo(f"PROJ={tf1.project_id} CACHED_PROJ={tf2.project_id}")
 
     result = runner.invoke(
         admin,
@@ -56,11 +55,11 @@ def test_get_terraform_output_from_gcs_canonical_success(
             "mock-project",
             "--instance-name",
             "mock-instance",
-            "test-get-output-canonical-success",
+            "test-get-outputs-canonical-success",
         ],
     )
     assert result.exit_code == 0
-    assert "VAL=gcs-resolved-val" in result.output
+    assert "PROJ=mock-proj CACHED_PROJ=mock-proj" in result.output
     mock_storage_client.assert_called_with(project="mock-project")
     mock_client_inst.bucket.assert_called_once_with(
         "tf-state-mock-instance-mock-project"
@@ -68,11 +67,12 @@ def test_get_terraform_output_from_gcs_canonical_success(
     mock_bucket.blob.assert_called_once_with(
         "terraform/state/mock-instance/default.tfstate"
     )
+    mock_blob.download_as_text.assert_called_once()
 
 
 @patch("google.cloud.storage.Client")
-def test_get_terraform_output_from_gcs_location_success(
-    mock_storage_client: MagicMock, runner: CliRunner
+def test_get_terraform_outputs_from_gcs_location_success(
+    mock_storage_client: MagicMock, runner: CliRunner, mock_tf_output_spanner: str
 ) -> None:
     mock_client_inst = MagicMock()
     mock_storage_client.return_value = mock_client_inst
@@ -81,42 +81,35 @@ def test_get_terraform_output_from_gcs_location_success(
     mock_blob = MagicMock()
     mock_bucket.blob.return_value = mock_blob
 
-    state_content = """{
-      "version": 4,
-      "outputs": {
-        "test_key": {
-          "value": "gcs-resolved-val",
-          "type": "string"
-        }
-      }
-    }"""
+    state_content = f'{{"version": 4, "outputs": {mock_tf_output_spanner}}}'
     mock_blob.download_as_text.return_value = state_content
 
-    @admin.command(name="test-get-output-location-success")
+    @admin.command(name="test-get-outputs-location-success")
     def test_cmd() -> None:
-        val = get_terraform_output("test_key")
-        cached_val = get_terraform_output("test_key")
-        click.echo(f"VAL={val} CACHED_VAL={cached_val}")
+        tf1 = get_terraform_outputs()
+        tf2 = get_terraform_outputs()
+        click.echo(f"PROJ={tf1.project_id} CACHED_PROJ={tf2.project_id}")
 
     result = runner.invoke(
         admin,
         [
             "--tf-state-location",
             "gs://custom-bucket/custom-prefix/state.tfstate",
-            "test-get-output-location-success",
+            "test-get-outputs-location-success",
         ],
     )
     assert result.exit_code == 0
-    assert "VAL=gcs-resolved-val" in result.output
+    assert "PROJ=mock-proj CACHED_PROJ=mock-proj" in result.output
     mock_storage_client.assert_called_once_with()
     mock_client_inst.bucket.assert_called_once_with("custom-bucket")
     mock_bucket.blob.assert_called_once_with("custom-prefix/state.tfstate")
+    mock_blob.download_as_text.assert_called_once()
 
 
-def test_get_terraform_output_from_gcs_invalid_uri(runner: CliRunner) -> None:
+def test_get_terraform_outputs_from_gcs_invalid_uri(runner: CliRunner) -> None:
     @admin.command(name="test-invalid-uri")
     def test_cmd() -> None:
-        get_terraform_output("test_key")
+        get_terraform_outputs()
 
     result = runner.invoke(
         admin,
@@ -131,7 +124,7 @@ def test_get_terraform_output_from_gcs_invalid_uri(runner: CliRunner) -> None:
 
 
 @patch("google.cloud.storage.Client")
-def test_get_terraform_output_from_gcs_not_found(
+def test_get_terraform_outputs_from_gcs_not_found(
     mock_storage_client: MagicMock, runner: CliRunner
 ) -> None:
     mock_client_inst = MagicMock()
@@ -144,7 +137,7 @@ def test_get_terraform_output_from_gcs_not_found(
 
     @admin.command(name="test-not-found")
     def test_cmd() -> None:
-        get_terraform_output("test_key")
+        get_terraform_outputs()
 
     result = runner.invoke(
         admin,
@@ -161,7 +154,7 @@ def test_get_terraform_output_from_gcs_not_found(
 
 
 @patch("google.cloud.storage.Client")
-def test_get_terraform_output_from_gcs_invalid_json(
+def test_get_terraform_outputs_from_gcs_invalid_json(
     mock_storage_client: MagicMock, runner: CliRunner
 ) -> None:
     mock_client_inst = MagicMock()
@@ -174,7 +167,7 @@ def test_get_terraform_output_from_gcs_invalid_json(
 
     @admin.command(name="test-invalid-json")
     def test_cmd() -> None:
-        get_terraform_output("test_key")
+        get_terraform_outputs()
 
     result = runner.invoke(
         admin,
@@ -191,7 +184,7 @@ def test_get_terraform_output_from_gcs_invalid_json(
 
 
 @patch("google.cloud.storage.Client")
-def test_get_terraform_output_from_gcs_missing_key(
+def test_get_terraform_outputs_from_gcs_missing_key(
     mock_storage_client: MagicMock, runner: CliRunner
 ) -> None:
     mock_client_inst = MagicMock()
@@ -206,7 +199,7 @@ def test_get_terraform_output_from_gcs_missing_key(
 
     @admin.command(name="test-missing-key")
     def test_cmd() -> None:
-        get_terraform_output("test_key")
+        get_terraform_outputs()
 
     result = runner.invoke(
         admin,
@@ -219,15 +212,15 @@ def test_get_terraform_output_from_gcs_missing_key(
         ],
     )
     assert result.exit_code != 0
-    assert "Terraform output key 'test_key' not found" in result.output
+    assert "Required Terraform output 'project_id' is missing or empty" in result.output
 
 
-def test_get_terraform_output_missing_project_or_instance_flag(
+def test_get_terraform_outputs_missing_project_or_instance_flag(
     runner: CliRunner,
 ) -> None:
     @admin.command(name="test-missing-pair")
     def test_cmd() -> None:
-        get_terraform_output("test_key")
+        get_terraform_outputs()
 
     # Only project-id without instance-name or tf-state-location
     res1 = runner.invoke(
@@ -261,25 +254,17 @@ def test_get_terraform_output_missing_project_or_instance_flag(
 
 
 def test_parse_gcs_uri_success() -> None:
-    from datacommons_admin.core.utils.tf_utils import parse_gcs_uri
-
     bucket, blob = parse_gcs_uri("gs://my-bucket/path/to/default.tfstate")
     assert bucket == "my-bucket"
     assert blob == "path/to/default.tfstate"
 
 
 def test_parse_gcs_uri_invalid_scheme() -> None:
-    import pytest
-    from datacommons_admin.core.utils.tf_utils import parse_gcs_uri
-
     with pytest.raises(click.ClickException, match="Must start with 'gs://'"):
         parse_gcs_uri("https://storage.googleapis.com/b/o")
 
 
 def test_parse_gcs_uri_missing_bucket_or_blob() -> None:
-    import pytest
-    from datacommons_admin.core.utils.tf_utils import parse_gcs_uri
-
     with pytest.raises(
         click.ClickException, match="Must specify bucket and object path"
     ):
@@ -292,8 +277,6 @@ def test_parse_gcs_uri_missing_bucket_or_blob() -> None:
 
 
 def test_parse_terraform_state_outputs_success() -> None:
-    from datacommons_admin.core.utils.tf_utils import parse_terraform_state_outputs
-
     raw_json = '{"outputs": {"k1": {"value": "v1"}, "bool_k": {"value": false}, "int_k": {"value": 0}}}'
     outputs = parse_terraform_state_outputs(raw_json, "test-source")
     assert outputs["k1"]["value"] == "v1"
@@ -302,9 +285,6 @@ def test_parse_terraform_state_outputs_success() -> None:
 
 
 def test_parse_terraform_state_outputs_errors() -> None:
-    import pytest
-    from datacommons_admin.core.utils.tf_utils import parse_terraform_state_outputs
-
     with pytest.raises(
         click.ClickException, match="Failed to parse Terraform state.*as valid JSON"
     ):
@@ -318,8 +298,6 @@ def test_parse_terraform_state_outputs_errors() -> None:
 
 
 def test_terraform_state_config() -> None:
-    from datacommons_admin.core.utils.models import TerraformStateConfig
-
     # Local mode
     local_cfg = TerraformStateConfig()
     assert not local_cfg.is_remote
@@ -345,7 +323,7 @@ def test_terraform_state_config() -> None:
 
 
 @patch("google.cloud.storage.Client")
-def test_get_terraform_output_handles_falsy_values(
+def test_fetch_raw_terraform_outputs_handles_falsy_values(
     mock_storage_client: MagicMock, runner: CliRunner
 ) -> None:
     mock_client_inst = MagicMock()
@@ -366,8 +344,9 @@ def test_get_terraform_output_handles_falsy_values(
 
     @admin.command(name="test-falsy-outputs")
     def test_cmd() -> None:
-        val1 = get_terraform_output("bool_key")
-        val2 = get_terraform_output("zero_key")
+        raw = _fetch_raw_terraform_outputs()
+        val1 = raw["bool_key"]["value"]
+        val2 = raw["zero_key"]["value"]
         click.echo(f"BOOL={val1} ZERO={val2}")
 
     result = runner.invoke(

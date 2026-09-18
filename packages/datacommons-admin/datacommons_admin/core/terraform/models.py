@@ -19,9 +19,25 @@ from typing import Any
 
 import click
 
-from datacommons_admin.init.utils.gcs_utils import get_default_state_uri
+
+def get_default_bucket_name(instance_name: str, project_id: str) -> str:
+    """Returns the default Google Cloud Storage bucket name for Terraform state."""
+    return f"tf-state-{instance_name}-{project_id}"
 
 
+def get_default_state_prefix(instance_name: str) -> str:
+    """Returns the default Google Cloud Storage object prefix for Terraform state."""
+    return f"terraform/state/{instance_name}"
+
+
+def get_default_state_uri(project_id: str, instance_name: str) -> str:
+    """Returns the GCS URI used by the default remote-state configuration."""
+    bucket_name = get_default_bucket_name(instance_name, project_id)
+    prefix = get_default_state_prefix(instance_name)
+    return f"gs://{bucket_name}/{prefix}/default.tfstate"
+
+
+# frozen=True ensures parsed state configuration cannot be mutated accidentally across helper calls.
 @dataclass(frozen=True)
 class TerraformStateConfig:
     """Encapsulates and validates configuration parameters for locating Terraform state.
@@ -75,33 +91,51 @@ class TerraformStateConfig:
         return f"'{Path.cwd()}'"
 
 
+# frozen=True ensures parsed deployment outputs cannot be mutated accidentally across CLI commands or helpers.
 @dataclass(frozen=True)
 class TerraformOutputs:
-    """Strongly typed, validated deployment outputs matching infra/dcp/outputs.tf."""
+    """Strongly typed, validated deployment outputs matching infra/dcp/outputs.tf.
 
+    Rule for Required vs. Optional Attributes:
+      - Required fields (no default): Must correspond to unconditional Terraform outputs
+        in infra/dcp/outputs.tf that are guaranteed to be non-null in every deployment.
+      - Optional fields (with default "" or None): Must correspond to conditional Terraform
+        outputs in infra/dcp/modules/stack/outputs.tf whose HCL expressions can evaluate
+        to null when a feature/module is disabled (e.g., var.spanner_config.enable ? ... : null).
+    """
+
+    # Unconditional outputs (always present in every deployment)
     project_id: str
     region: str
     ingestion_service_url: str
     ingestion_workflow_name: str
     ingestion_workflow_service_account_email: str
     storage_artifacts_bucket_name: str
+
+    # Conditional outputs (can evaluate to null in HCL when feature is disabled)
     spanner_instance_id: str = ""
     spanner_database_id: str = ""
     ingestion_prep_job_name: str | None = None
 
     @property
     def ingestion_temp_location(self) -> str:
-        """Derived canonical GCS path for workflow temporary artifacts."""
+        """Derived convenience property computing the canonical GCS path for temporary workflow artifacts.
+
+        Note: TEMP_LOCATION is not exported as its own key in outputs.tf; Terraform defines it
+        in modules/stack/main.tf as 'gs://${module.storage.artifacts_bucket_name}/temp'.
+        """
         return f"gs://{self.storage_artifacts_bucket_name}/temp"
 
     @classmethod
     def from_state_outputs(cls, raw_outputs: dict[str, Any]) -> "TerraformOutputs":
-        """Unwraps Terraform output values, strips whitespace, and instantiates the dataclass."""
-        unwrapped: dict[str, Any] = {}
+        """Extracts scalar values from Terraform's JSON output objects, strips whitespace, and validates fields."""
+        parsed_fields: dict[str, Any] = {}
 
         for field_def in dataclasses.fields(cls):
             key = field_def.name
             entry = raw_outputs.get(key)
+            # Terraform JSON format represents each output as {"value": <val>, "type": ..., "sensitive": ...}.
+            # Support both standard Terraform output objects and flat key-value test dictionaries.
             val = (
                 entry.get("value")
                 if isinstance(entry, dict) and "value" in entry
@@ -113,14 +147,14 @@ class TerraformOutputs:
 
             if val is None or val == "":
                 if field_def.default is not dataclasses.MISSING:
-                    unwrapped[key] = field_def.default
+                    parsed_fields[key] = field_def.default
                 elif field_def.default_factory is not dataclasses.MISSING:
-                    unwrapped[key] = field_def.default_factory()
+                    parsed_fields[key] = field_def.default_factory()
                 else:
                     raise click.ClickException(
                         f"Required Terraform output '{key}' is missing or empty in deployment state."
                     )
             else:
-                unwrapped[key] = str(val)
+                parsed_fields[key] = str(val)
 
-        return cls(**unwrapped)
+        return cls(**parsed_fields)

@@ -22,7 +22,7 @@ import click
 from google.cloud import storage
 from google.cloud.exceptions import Forbidden, GoogleCloudError, NotFound
 
-from datacommons_admin.core.utils.models import (
+from datacommons_admin.core.terraform.models import (
     TerraformOutputs,
     TerraformStateConfig,
 )
@@ -196,10 +196,10 @@ def _get_outputs_from_local() -> dict[str, Any]:
     return outputs
 
 
-def get_raw_terraform_outputs(
+def _fetch_raw_terraform_outputs(
     config: TerraformStateConfig | None = None,
 ) -> dict[str, Any]:
-    """Fetches raw outputs dictionary from Terraform (local or remote GCS state), cached in Click context."""
+    """Internal helper that fetches raw outputs dictionary from local or remote GCS Terraform state, cached in Click context."""
     resolved_config = config or _resolve_remote_state_params()
     ctx = click.get_current_context(silent=True) if config is None else None
     params = ctx.find_object(dict) if ctx else None
@@ -219,34 +219,6 @@ def get_raw_terraform_outputs(
 def get_terraform_outputs(
     config: TerraformStateConfig | None = None,
 ) -> TerraformOutputs:
-    """Fetches, parses, and validates all deployment outputs into a strongly typed TerraformOutputs dataclass."""
-    raw_outputs = get_raw_terraform_outputs(config)
+    """Sole public entrypoint to fetch, parse, and validate deployment outputs into a strongly typed TerraformOutputs dataclass."""
+    raw_outputs = _fetch_raw_terraform_outputs(config)
     return TerraformOutputs.from_state_outputs(raw_outputs)
-
-
-def get_terraform_output(
-    key: str,
-    config: TerraformStateConfig | None = None,
-) -> str:
-    """Fetches a specific key from Terraform output (local or remote GCS state)."""
-    resolved_config = config or _resolve_remote_state_params()
-    outputs = get_raw_terraform_outputs(config)
-
-    if key not in outputs:
-        raise click.ClickException(
-            f"Terraform output key '{key}' not found in {resolved_config.location_description}.\n"
-            "Please verify that your Terraform configuration exports this output."
-        )
-
-    output_entry = outputs[key]
-    if isinstance(output_entry, dict) and "value" in output_entry:
-        raw_val = output_entry["value"]
-    else:
-        raw_val = output_entry
-
-    if raw_val is None or (isinstance(raw_val, str) and not raw_val.strip()):
-        raise click.ClickException(
-            f"Terraform output '{key}' is empty or null. Please verify your deployment state."
-        )
-
-    return str(raw_val)

@@ -84,10 +84,10 @@ def mock_terraform_spanner(mock_tf_output_spanner: str):
     """Mocks Terraform CLI check and terraform output for DB commands."""
     with (
         patch(
-            "datacommons_admin.core.utils.tf_utils.shutil.which",
+            "datacommons_admin.core.terraform.state.shutil.which",
             return_value="terraform",
         ),
-        patch("datacommons_admin.core.utils.tf_utils.subprocess.run") as mock_run,
+        patch("datacommons_admin.core.terraform.state.subprocess.run") as mock_run,
     ):
         mock_proc = MagicMock()
         mock_proc.stdout = mock_tf_output_spanner
@@ -100,10 +100,10 @@ def mock_terraform_ingest(mock_tf_output_ingest: str):
     """Mocks Terraform CLI check and terraform output for Ingest commands."""
     with (
         patch(
-            "datacommons_admin.core.utils.tf_utils.shutil.which",
+            "datacommons_admin.core.terraform.state.shutil.which",
             return_value="terraform",
         ),
-        patch("datacommons_admin.core.utils.tf_utils.subprocess.run") as mock_run,
+        patch("datacommons_admin.core.terraform.state.subprocess.run") as mock_run,
     ):
         mock_proc = MagicMock()
         mock_proc.stdout = mock_tf_output_ingest
