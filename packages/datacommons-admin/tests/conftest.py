@@ -48,7 +48,10 @@ def mock_tf_output_spanner() -> str:
 def mock_tf_output_ingest() -> str:
     """Returns a mock JSON string representing Terraform outputs for Ingest commands."""
     return (
-        '{"ingestion_prep_job_name": {"value": "projects/mock-proj/locations/us-central1/jobs/mock-job"}, '
+        '{"storage_artifacts_bucket_name": {"value": "mock-bucket"}, '
+        '"ingestion_artifacts_path": {"value": "mock-artifact-path"}, '
+        '"spanner_instance_id": {"value": "mock-instance"}, '
+        '"spanner_database_id": {"value": "mock-db"}, '
         '"ingestion_workflow_service_account_email": {"value": "mock-orch-sa@mock.com"}, '
         '"project_id": {"value": "mock-proj"}, '
         '"region": {"value": "us-central1"}, '
