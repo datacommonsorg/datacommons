@@ -16,13 +16,25 @@ from pathlib import Path
 
 import pytest
 import requests
-from datacommons_admin.core.clients import SdmxClient
+from datacommons_cli.client import Connection, SdmxClient
+from datacommons_cli.client.connection import ApiLayout
 
 from tests.integration.core.cli_runner import DatacommonsCLI
 from tests.integration.core.config_schema import (
     SDMXAvailabilityQuerySpec,
     SDMXDataQuerySpec,
 )
+
+
+@pytest.fixture
+def sdmx_connection(dcp_target, auth_headers) -> Connection:
+    """Connects the SDMX client to the live DCP instance under test."""
+    return Connection(
+        base_url=dcp_target.serving_url,
+        headers=auth_headers,
+        preferred_layout=ApiLayout.CORE_API,
+        auth_hint="",
+    )
 
 
 class TestSDMXAPI:
@@ -95,7 +107,7 @@ class TestSDMXAPI:
     def test_sdmx_client_data_query(
         self,
         seeded_testbed,
-        dcp_target,
+        sdmx_connection: Connection,
         sdmx_data_spec: SDMXDataQuerySpec | None,
     ):
         """Validates SdmxClient.get_data programmatic access against live endpoints."""
@@ -114,7 +126,7 @@ class TestSDMXAPI:
             if k != "variableMeasured"
         }
 
-        client = SdmxClient(base_url=dcp_target.serving_url)
+        client = SdmxClient(sdmx_connection)
         csv_text = client.get_data(
             variable=var,
             constraints=other_constraints,
@@ -129,7 +141,7 @@ class TestSDMXAPI:
     def test_sdmx_client_availability_query(
         self,
         seeded_testbed,
-        dcp_target,
+        sdmx_connection: Connection,
         sdmx_avail_spec: SDMXAvailabilityQuerySpec | None,
     ):
         """Validates SdmxClient.get_availability programmatic access against live endpoints."""
@@ -151,7 +163,7 @@ class TestSDMXAPI:
             if k != "variableMeasured"
         }
 
-        client = SdmxClient(base_url=dcp_target.serving_url)
+        client = SdmxClient(sdmx_connection)
         result = client.get_availability(
             component_id=component_id,
             variable=var,
@@ -165,6 +177,28 @@ class TestSDMXAPI:
             )
 
 
+def _client_args(dcp_target, *args: str) -> list[str]:
+    """Builds CLI arguments targeting the DCP instance under test."""
+    return [
+        "client",
+        "--project-id",
+        dcp_target.project_id,
+        "--instance-name",
+        dcp_target.instance_name,
+        *args,
+    ]
+
+
+def _filter_args(constraints: dict) -> list[str]:
+    """Renders every constraint except the variable as a --filter argument."""
+    return [
+        arg
+        for key, value in constraints.items()
+        if key != "variableMeasured"
+        for arg in ("-f", f"{key}={value}")
+    ]
+
+
 @pytest.mark.cloud_only
 class TestSDMXCLI:
     """Validates Data Commons CLI SDMX commands against live target testbed."""
@@ -172,10 +206,11 @@ class TestSDMXCLI:
     def test_sdmx_cli_data_query(
         self,
         seeded_testbed,
+        dcp_target,
         dcp_cli: DatacommonsCLI,
         sdmx_data_spec: SDMXDataQuerySpec | None,
     ):
-        """Validates 'datacommons admin sdmx data' returns live observations."""
+        """Validates 'datacommons client sdmx-data' returns live observations."""
         if not sdmx_data_spec:
             pytest.skip("SDMX data query spec not defined.")
 
@@ -183,13 +218,15 @@ class TestSDMXCLI:
         if not var:
             pytest.skip("No variableMeasured constraint defined.")
 
-        cli_args = ["admin", "sdmx", "data", "-v", var]
-        for k, v in sdmx_data_spec.constraints.items():
-            if k == "variableMeasured":
-                continue
-            cli_args.extend(["-f", f"{k}={v}"])
-
-        res = dcp_cli.run(cli_args)
+        res = dcp_cli.run(
+            _client_args(
+                dcp_target,
+                "sdmx-data",
+                "-v",
+                var,
+                *_filter_args(sdmx_data_spec.constraints),
+            )
+        )
         assert res.exit_code == 0, f"SDMX CLI data query failed: {res.output}"
 
         for expected in sdmx_data_spec.expected_csv_contains:
@@ -200,11 +237,12 @@ class TestSDMXCLI:
     def test_sdmx_cli_data_output_file(
         self,
         seeded_testbed,
+        dcp_target,
         dcp_cli: DatacommonsCLI,
         sdmx_data_spec: SDMXDataQuerySpec | None,
         tmp_path: Path,
     ):
-        """Validates 'datacommons admin sdmx data -o <file>' writes observations to file."""
+        """Validates 'datacommons client sdmx-data -o <file>' writes observations to file."""
         if not sdmx_data_spec:
             pytest.skip("SDMX data query spec not defined.")
 
@@ -213,13 +251,17 @@ class TestSDMXCLI:
             pytest.skip("No variableMeasured constraint defined.")
 
         out_file = tmp_path / "live_observations.csv"
-        cli_args = ["admin", "sdmx", "data", "-v", var, "-o", str(out_file)]
-        for k, v in sdmx_data_spec.constraints.items():
-            if k == "variableMeasured":
-                continue
-            cli_args.extend(["-f", f"{k}={v}"])
-
-        res = dcp_cli.run(cli_args)
+        res = dcp_cli.run(
+            _client_args(
+                dcp_target,
+                "sdmx-data",
+                "-v",
+                var,
+                "-o",
+                str(out_file),
+                *_filter_args(sdmx_data_spec.constraints),
+            )
+        )
         assert res.exit_code == 0, f"SDMX CLI data query with -o failed: {res.output}"
         assert out_file.exists(), f"Output file '{out_file}' was not created."
 
@@ -232,10 +274,11 @@ class TestSDMXCLI:
     def test_sdmx_cli_availability_query(
         self,
         seeded_testbed,
+        dcp_target,
         dcp_cli: DatacommonsCLI,
         sdmx_avail_spec: SDMXAvailabilityQuerySpec | None,
     ):
-        """Validates 'datacommons admin sdmx availability' returns live dimension values."""
+        """Validates 'datacommons client sdmx-availability' returns live dimension values."""
         if not sdmx_avail_spec:
             pytest.skip("SDMX availability query spec not defined.")
 
@@ -246,13 +289,16 @@ class TestSDMXCLI:
         parts = sdmx_avail_spec.dataflow.rstrip("/").split("/")
         component_id = parts[-1] if parts else "provenance"
 
-        cli_args = ["admin", "sdmx", "availability", component_id, "-v", var]
-        for k, v in sdmx_avail_spec.constraints.items():
-            if k == "variableMeasured":
-                continue
-            cli_args.extend(["-f", f"{k}={v}"])
-
-        res = dcp_cli.run(cli_args)
+        res = dcp_cli.run(
+            _client_args(
+                dcp_target,
+                "sdmx-availability",
+                component_id,
+                "-v",
+                var,
+                *_filter_args(sdmx_avail_spec.constraints),
+            )
+        )
         assert res.exit_code == 0, f"SDMX CLI availability query failed: {res.output}"
 
         if sdmx_avail_spec.expected_provenance:

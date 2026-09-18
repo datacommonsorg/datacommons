@@ -11,6 +11,8 @@ authors = []
 dependencies = [
   "click>=8.1.7",
   "datacommons-admin==1.1.5",
+  "google-auth>=2.28.0",
+  "requests>=2.31.0",
 ]
 urls = {Homepage = "https://github.com/datacommonsorg/datacommons"}
 
