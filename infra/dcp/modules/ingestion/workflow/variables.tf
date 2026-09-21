@@ -71,67 +71,33 @@ variable "datacommons_services_name" {
   default     = ""
 }
 
-variable "preprocessing_job_image" {
-  type        = string
-  description = "Docker image URL for the data ingestion preprocessing batch job"
-  default     = "gcr.io/datcom-ci/datacommons-data:latest"
-}
+variable "preprocessing_config" {
+  description = <<-EOT
+    Configuration for the Cloud Batch preprocessing job launched by this
+    workflow. All values are rendered into the batch job spec in workflow.yaml;
+    no Terraform resource is created for the job itself.
+  EOT
 
-variable "preprocessing_job_cpu" {
-  type        = string
-  description = "CPU allocated for preprocessing batch job"
-  default     = "4"
-}
+  type = object({
+    # Batch job runtime
+    image   = optional(string, "gcr.io/datcom-ci/datacommons-data:latest")
+    cpu     = optional(string, "4")
+    memory  = optional(string, "16Gi")
+    timeout = optional(string, "3600s")
 
-variable "preprocessing_job_memory" {
-  type        = string
-  description = "Memory allocated for preprocessing batch job"
-  default     = "16Gi"
-}
+    # Identity
+    service_account_email     = string
+    dc_api_key_secret_version = optional(string, "")
 
-variable "preprocessing_job_timeout" {
-  type        = string
-  description = "Timeout for preprocessing batch job"
-  default     = "3600s"
-}
+    # Data locations
+    bucket_name = string
+    input_path  = string
 
-variable "preprocessing_service_account_email" {
-  type        = string
-  description = "Service account email to run the preprocessing batch job"
-}
-
-variable "bucket_name" {
-  type        = string
-  description = "GCS bucket name for ingestion artifacts"
-}
-
-variable "ingestion_input_path" {
-  type        = string
-  description = "Input path in GCS bucket"
-}
-
-variable "spanner_instance_id" {
-  type        = string
-  description = "Spanner instance ID"
-  default     = ""
-}
-
-variable "spanner_database_id" {
-  type        = string
-  description = "Spanner database ID"
-  default     = ""
-}
-
-variable "enable_spanner_embeddings" {
-  type        = bool
-  description = "Whether Spanner embeddings generation is enabled"
-  default     = true
-}
-
-variable "dc_api_key_secret_version" {
-  type        = string
-  description = "Secret Manager version path for DC_API_KEY"
-  default     = ""
+    # Spanner targets for the preprocessing container
+    spanner_instance_id       = optional(string, "")
+    spanner_database_id       = optional(string, "")
+    enable_spanner_embeddings = optional(bool, true)
+  })
 }
 
 variable "postprocessing_job_name" {
