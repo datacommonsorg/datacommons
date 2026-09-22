@@ -23,7 +23,7 @@ Run the deployer script from your terminal:
 ./deploy_prober.sh \
   --project datcom-dcp \
   --prober-name dcp-prober \
-  --schedule "0 */3 * * *" \
+  --schedule "17 */3 * * *" \
   --alert-email datacommons-alerts+dcp-prober@google.com \
   --test-config foobar_wages
 ```
@@ -41,7 +41,7 @@ If you only modified Terraform configurations, alert recipients, cron schedules,
   --project datcom-dcp \
   --prober-name dcp-prober \
   --alert-email datacommons-alerts+dcp-prober@google.com \
-  --schedule "0 */3 * * *"
+  --schedule "17 */3 * * *"
 ```
 
 ---
@@ -52,7 +52,7 @@ If you only modified Terraform configurations, alert recipients, cron schedules,
 | :--- | :--- | :--- |
 | `--project <id>` | Active `gcloud` project | Target GCP Project ID for the prober |
 | `--prober-name <name>` | `dcp-prober` | Resource name prefix for Cloud Run Job, Scheduler, and Bucket |
-| `--schedule <cron>` | `0 */3 * * *` | Cron schedule for recurring prober execution |
+| `--schedule <cron>` | `17 */3 * * *` | Cron schedule for recurring prober execution |
 | `--test-config <name>` | `foobar_wages` | Test dataset manifest to run on each execution |
 | `--alert-email <email>` | *(none)* | Email address for Cloud Monitoring failure notifications |
 | `--dc-api-key <key>` | *(none)* | Optional Data Commons API key |

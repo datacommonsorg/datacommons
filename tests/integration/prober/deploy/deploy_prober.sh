@@ -36,7 +36,7 @@ fi
 PROJECT="${DETECTED_PROJECT}"
 PROBER_NAME="dcp-prober"
 TEST_CONFIG="foobar_wages"
-SCHEDULE="0 */3 * * *"
+SCHEDULE="17 */3 * * *"
 LOCATION="us-central1"
 ALERT_EMAIL=""
 DC_API_KEY="${DC_API_KEY:-}"

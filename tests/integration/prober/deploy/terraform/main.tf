@@ -237,6 +237,10 @@ resource "google_monitoring_alert_policy" "prober_failure" {
 
     condition_matched_log {
       filter = "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"${google_cloud_run_v2_job.prober_job.name}\" AND jsonPayload.event_type=\"PROBER_EXECUTION_SUMMARY\" AND jsonPayload.status=\"FAILED\""
+      label_extractors = {
+        "execution_name" = "EXTRACT(labels.\"run.googleapis.com/execution_name\")"
+        "instance_name"  = "EXTRACT(jsonPayload.instance_name)"
+      }
     }
   }
 
@@ -251,7 +255,14 @@ resource "google_monitoring_alert_policy" "prober_failure" {
 
   documentation {
     subject   = "🚨 [CRITICAL] DCP Prober Failed on ${var.project_id}"
-    content   = "DCP Integration Prober job '${google_cloud_run_v2_job.prober_job.name}' failed on GCP project '${var.project_id}'.\n\nCheck execution logs and historical GCS reports at:\n`gs://${google_storage_bucket.prober_reports.name}/reports/`"
+    content   = <<-EOT
+      DCP Integration Prober job **`${google_cloud_run_v2_job.prober_job.name}`** failed on GCP project **`${var.project_id}`**.
+
+      * **Failed Execution Logs**: [View Execution `$${log.extracted_label.execution_name}` in Cloud Console](https://console.cloud.google.com/run/jobs/executions/details/${var.region}/$${log.extracted_label.execution_name}/tasks?project=${var.project_id})
+      * **All Prober Executions**: [View `${google_cloud_run_v2_job.prober_job.name}` Job History](https://console.cloud.google.com/run/jobs/details/${var.region}/${google_cloud_run_v2_job.prober_job.name}/executions?project=${var.project_id})
+      * **Ephemeral Instance Name**: `$${log.extracted_label.instance_name}`
+      * **Historical GCS Reports**: `gs://${google_storage_bucket.prober_reports.name}/reports/`
+    EOT
     mime_type = "text/markdown"
   }
 }
