@@ -42,7 +42,7 @@ def _setup_ingestion_client(
     if not tf.spanner_instance_id or not tf.spanner_database_id:
         raise click.ClickException(
             "Cloud Spanner is not enabled or configured in this deployment state. "
-            "Ensure 'spanner_config.enable = true' in your deployment configuration."
+            "Ensure 'enable_spanner = true' in your deployment configuration."
         )
 
     click.secho(f"Found ingestion service URL: {tf.ingestion_service_url}", fg="green")
