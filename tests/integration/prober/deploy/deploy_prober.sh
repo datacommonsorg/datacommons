@@ -40,7 +40,7 @@ SCHEDULE="17 */3 * * *"
 LOCATION="us-central1"
 ALERT_EMAIL=""
 DC_API_KEY="${DC_API_KEY:-}"
-IMAGE_TAG="$(git rev-parse --short HEAD 2>/dev/null || echo "latest")"
+IMAGE_TAG="latest"
 NON_INTERACTIVE=false
 
 SKIP_BUILD=false
