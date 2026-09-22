@@ -22,44 +22,42 @@ import click
 from google.cloud import storage
 from google.cloud.exceptions import Forbidden, GoogleCloudError, NotFound
 
-from datacommons_admin.core.utils.models import TerraformStateConfig
-
-TF_OUTPUT_INGESTION_SERVICE_URL = "ingestion_service_url"
-TF_OUTPUT_INGESTION_WORKFLOW_SERVICE_ACCOUNT_EMAIL = (
-    "ingestion_workflow_service_account_email"
-)
-TF_OUTPUT_SPANNER_INSTANCE_ID = "spanner_instance_id"
-TF_OUTPUT_SPANNER_DATABASE_ID = "spanner_database_id"
-TF_OUTPUT_INGESTION_PREP_JOB_NAME = "ingestion_prep_job_name"
-TF_OUTPUT_PROJECT_ID = "project_id"
-TF_OUTPUT_REGION = "region"
-TF_OUTPUT_INGESTION_WORKFLOW_NAME = "ingestion_workflow_name"
-
-_OUTPUTS_CACHE_KEY = "terraform_outputs"
+from datacommons_admin.core.terraform.models import TerraformOutputs
 
 
-def _clean_str(value: object | None) -> str | None:
-    """Strips whitespace from string values and normalizes empty strings to None."""
-    if isinstance(value, str):
-        cleaned = value.strip()
-        return cleaned if cleaned else None
+def get_default_bucket_name(instance_name: str, project_id: str) -> str:
+    """Returns the default Google Cloud Storage bucket name for Terraform state."""
+    return f"tf-state-{instance_name}-{project_id}"
+
+
+def get_default_state_prefix(instance_name: str) -> str:
+    """Returns the default Google Cloud Storage object prefix for Terraform state."""
+    return f"terraform/state/{instance_name}"
+
+
+def _resolve_remote_state_gcs_uri(
+    project_id: str | None = None,
+    instance_name: str | None = None,
+    tf_state_location: str | None = None,
+) -> str | None:
+    """Returns the remote GCS state URI if remote flags are provided, or None for local state."""
+    if tf_state_location:
+        return tf_state_location
+
+    if bool(project_id) != bool(instance_name):
+        raise click.ClickException(
+            "Both --project-id and --instance-name must be specified together to locate remote state."
+        )
+
+    if project_id and instance_name:
+        bucket = get_default_bucket_name(instance_name, project_id)
+        prefix = get_default_state_prefix(instance_name)
+        return f"gs://{bucket}/{prefix}/default.tfstate"
+
     return None
 
 
-def _resolve_remote_state_params() -> TerraformStateConfig:
-    """Extracts and validates remote-state parameters from the Click context."""
-    ctx = click.get_current_context(silent=True)
-    params = ctx.find_object(dict) if ctx else None
-    params = params or {}
-
-    return TerraformStateConfig(
-        project_id=_clean_str(params.get("project_id")),
-        instance_name=_clean_str(params.get("instance_name")),
-        tf_state_location=_clean_str(params.get("tf_state_location")),
-    )
-
-
-def parse_gcs_uri(gcs_uri: str) -> tuple[str, str]:
+def _parse_gcs_uri(gcs_uri: str) -> tuple[str, str]:
     """Parses and validates a Google Cloud Storage URI into bucket and blob name components."""
     if not gcs_uri.startswith("gs://"):
         raise click.ClickException(
@@ -76,7 +74,7 @@ def parse_gcs_uri(gcs_uri: str) -> tuple[str, str]:
     return parts[0].strip(), parts[1].strip()
 
 
-def download_gcs_blob_text(
+def _download_gcs_blob_text(
     bucket_name: str, blob_name: str, project_id: str | None = None
 ) -> str:
     """Downloads the text content of a GCS blob with structured error handling."""
@@ -111,7 +109,7 @@ def download_gcs_blob_text(
         ) from e
 
 
-def parse_terraform_state_outputs(
+def _parse_terraform_state_outputs(
     state_json_str: str, source_description: str
 ) -> dict[str, Any]:
     """Parses raw Terraform state JSON and extracts the outputs dictionary."""
@@ -138,13 +136,13 @@ def parse_terraform_state_outputs(
 
 
 def _get_outputs_from_gcs(
-    config: TerraformStateConfig,
+    gcs_uri: str,
+    project_id: str | None = None,
 ) -> dict[str, Any]:
     """Downloads and parses Terraform outputs directly from GCS remote state."""
-    gcs_uri = config.gcs_uri
-    bucket_name, blob_name = parse_gcs_uri(gcs_uri)
-    content = download_gcs_blob_text(bucket_name, blob_name, config.project_id)
-    return parse_terraform_state_outputs(content, gcs_uri)
+    bucket_name, blob_name = _parse_gcs_uri(gcs_uri)
+    content = _download_gcs_blob_text(bucket_name, blob_name, project_id)
+    return _parse_terraform_state_outputs(content, gcs_uri)
 
 
 def _get_outputs_from_local() -> dict[str, Any]:
@@ -204,79 +202,20 @@ def _get_outputs_from_local() -> dict[str, Any]:
     return outputs
 
 
-def get_terraform_output(
-    key: str,
-    config: TerraformStateConfig | None = None,
-) -> str:
-    """Fetches a specific key from Terraform output (local or remote GCS state)."""
-    resolved_config = config or _resolve_remote_state_params()
-    ctx = click.get_current_context(silent=True) if config is None else None
-    params = ctx.find_object(dict) if ctx else None
-    outputs = params.get(_OUTPUTS_CACHE_KEY) if params else None
-
-    if outputs is None:
-        if resolved_config.is_remote:
-            outputs = _get_outputs_from_gcs(resolved_config)
-        else:
-            outputs = _get_outputs_from_local()
-        if params is not None:
-            params[_OUTPUTS_CACHE_KEY] = outputs
-
-    if key not in outputs:
-        raise click.ClickException(
-            f"Terraform output key '{key}' not found in {resolved_config.location_description}.\n"
-            "Please verify that your Terraform configuration exports this output."
-        )
-
-    output_entry = outputs[key]
-    if isinstance(output_entry, dict) and "value" in output_entry:
-        raw_val = output_entry["value"]
-    else:
-        raw_val = output_entry
-
-    if raw_val is None or (isinstance(raw_val, str) and not raw_val.strip()):
-        raise click.ClickException(
-            f"Terraform output '{key}' is empty or null. Please verify your deployment state."
-        )
-
-    return str(raw_val)
-
-
-def get_ingestion_service_url() -> str:
-    """Convenience wrapper to fetch the ingestion_service_url Terraform output."""
-    return get_terraform_output(TF_OUTPUT_INGESTION_SERVICE_URL)
-
-
-def get_ingestion_workflow_service_account_email() -> str:
-    """Convenience wrapper to fetch the ingestion_workflow_service_account_email Terraform output."""
-    return get_terraform_output(TF_OUTPUT_INGESTION_WORKFLOW_SERVICE_ACCOUNT_EMAIL)
-
-
-def get_spanner_instance_id() -> str:
-    """Convenience wrapper to fetch the spanner_instance_id Terraform output."""
-    return get_terraform_output(TF_OUTPUT_SPANNER_INSTANCE_ID)
-
-
-def get_spanner_database_id() -> str:
-    """Convenience wrapper to fetch the spanner_database_id Terraform output."""
-    return get_terraform_output(TF_OUTPUT_SPANNER_DATABASE_ID)
-
-
-def get_ingestion_prep_job_name() -> str:
-    """Convenience wrapper to fetch the ingestion_prep_job_name Terraform output."""
-    return get_terraform_output(TF_OUTPUT_INGESTION_PREP_JOB_NAME)
-
-
-def get_project_id() -> str:
-    """Convenience wrapper to fetch the project_id Terraform output."""
-    return get_terraform_output(TF_OUTPUT_PROJECT_ID)
-
-
-def get_region() -> str:
-    """Convenience wrapper to fetch the region Terraform output."""
-    return get_terraform_output(TF_OUTPUT_REGION)
-
-
-def get_ingestion_workflow_name() -> str:
-    """Convenience wrapper to fetch the ingestion_workflow_name Terraform output."""
-    return get_terraform_output(TF_OUTPUT_INGESTION_WORKFLOW_NAME)
+def get_terraform_outputs(
+    project_id: str | None = None,
+    instance_name: str | None = None,
+    tf_state_location: str | None = None,
+) -> TerraformOutputs:
+    """Fetches, parses, and validates deployment outputs into an immutable TerraformOutputs dataclass."""
+    gcs_uri = _resolve_remote_state_gcs_uri(
+        project_id=project_id,
+        instance_name=instance_name,
+        tf_state_location=tf_state_location,
+    )
+    raw_outputs = (
+        _get_outputs_from_gcs(gcs_uri, project_id)
+        if gcs_uri
+        else _get_outputs_from_local()
+    )
+    return TerraformOutputs.from_state_outputs(raw_outputs)
