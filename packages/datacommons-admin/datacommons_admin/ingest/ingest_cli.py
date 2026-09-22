@@ -41,11 +41,10 @@ def start(imports: str) -> None:
     """Start a data ingestion job execution."""
     click.secho("Datacommons Admin Ingest Start", fg="cyan", bold=True)
     click.secho(
-        "Fetching data job name and workflow service account from Terraform outputs...",
+        "Fetching workflow name and service account from Terraform outputs...",
         fg="bright_black",
     )
 
-    job_name = get_ingestion_prep_job_name()
     sa_email = get_ingestion_workflow_service_account_email()
     project_id = get_project_id()
     region = get_region()
@@ -62,7 +61,6 @@ def start(imports: str) -> None:
 
     client = IngestionJobClient(
         workflow_name=workflow_name,
-        job_name=job_name,
         service_account_email=sa_email,
         project_id=project_id,
         location=region,

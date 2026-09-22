@@ -23,7 +23,7 @@ class IngestionJobClient:
 
     def __init__(
         self,
-        job_name: str,
+        job_name: str = None,
         workflow_name: str = None,
         service_account_email: str = None,
         project_id: str = None,
@@ -55,12 +55,15 @@ class IngestionJobClient:
         else:
             self.full_workflow_name = None
 
-        if not job_name.startswith("projects/"):
-            self.full_job_name = (
-                f"projects/{project_id}/locations/{location}/jobs/{job_name}"
-            )
+        if job_name:
+            if not job_name.startswith("projects/"):
+                self.full_job_name = (
+                    f"projects/{project_id}/locations/{location}/jobs/{job_name}"
+                )
+            else:
+                self.full_job_name = job_name
         else:
-            self.full_job_name = job_name
+            self.full_job_name = None
 
         if service_account_email:
             from google.auth import impersonated_credentials
@@ -82,31 +85,11 @@ class IngestionJobClient:
                 "Workflow name must be provided to start a workflow execution."
             )
 
-        # 1. Fetch Cloud Run job configuration to get default bucket, region, etc.
-        env_vars = self.get_config()
-        env_dict = {env["name"]: env.get("value") for env in env_vars if "name" in env}
-
-        temp_location = env_dict.get("TEMP_LOCATION")
-        spanner_instance = env_dict.get("GCP_SPANNER_INSTANCE_ID")
-        spanner_database = env_dict.get("GCP_SPANNER_DATABASE_NAME")
-        region = env_dict.get("REGION", self.location)
-
-        if not temp_location:
-            raise click.ClickException(
-                "TEMP_LOCATION not found in preprocessing job environment configuration."
-            )
-
-        # 2. Parse imports argument
         imports_list = []
         if imports:
             imports_list = [imp.strip() for imp in imports.split(",") if imp.strip()]
 
-        # 3. Construct payload argument (must be a JSON string)
         argument_dict = {
-            "tempLocation": temp_location,
-            "spannerInstanceId": spanner_instance or "",
-            "spannerDatabaseId": spanner_database or "",
-            "region": region,
             "imports": imports_list,
         }
 
@@ -151,6 +134,10 @@ class IngestionJobClient:
 
     def get_config(self) -> list:
         """Retrieves the environment variables configuration of the Cloud Run job."""
+        if not self.full_job_name:
+            raise click.ClickException(
+                "Job name must be provided to fetch job configuration."
+            )
         url = f"https://run.googleapis.com/v2/{self.full_job_name}"
         try:
             response = self.session.get(url, timeout=300)

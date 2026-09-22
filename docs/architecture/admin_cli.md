@@ -113,18 +113,17 @@ Note: Automated unit tests validate state parsing logic and error handling again
 4. **Lock Coordination & Application**: Acquires the distributed lock via Ingestion Helper (`workflow_id="schema-migration"`), applies all pending migrations directly to Cloud Spanner, and releases the lock in a finally block.
 
 ### Ingestion Trigger Flow (`datacommons admin ingest start`)
-1. **Output Discovery**: Reads `ingestion_workflow_name`, `ingestion_prep_job_name`, `ingestion_workflow_service_account_email`, `project_id`, and `region` from Terraform state. Note that `TEMP_LOCATION` is not an exported Terraform output.
-2. **Runtime Environment Discovery**: Instantiates `IngestionJobClient` and queries the Cloud Run Admin API (`GET https://run.googleapis.com/v2/{job_name}`) for the preprocessing Cloud Run job definition. It inspects the container environment variables to retrieve runtime parameters: `TEMP_LOCATION`, `GCP_SPANNER_INSTANCE_ID`, and `GCP_SPANNER_DATABASE_NAME`.
-3. **Workflow Execution**:
+1. **Output Discovery**: Reads `ingestion_workflow_name`, `ingestion_workflow_service_account_email`, `project_id`, and `region` from Terraform state.
+2. **Workflow Execution**:
    * Parses the comma-separated `--imports` flag into a list of import names.
-   * Constructs the execution argument JSON payload containing `tempLocation`, `spannerInstanceId`, `spannerDatabaseId`, `region`, and `imports`.
+   * Constructs the execution argument JSON payload containing `imports` (deployment-level bucket, Spanner, and region parameters are baked directly into the deployed Cloud Workflow YAML via Terraform `templatefile`).
    * Sends an authenticated HTTP POST request to the Google Cloud Workflow Executions REST API (`https://workflowexecutions.googleapis.com/v1/{full_workflow_name}/executions`) using an `AuthorizedSession` authenticated via impersonated service account credentials.
-4. **Console Link Generation**: Formulates and prints a direct Google Cloud Console URL:
+3. **Console Link Generation**: Formulates and prints a direct Google Cloud Console URL:
    ```
    https://console.cloud.google.com/workflows/workflow/<region>/<workflow_name>/execution/<execution_id>/summary?project=<project_id>
    ```
    This allows operators to immediately monitor live execution progress.
-5. **Asynchronous Pipeline Coordination**: The Cloud Workflow coordinates pipeline execution across preprocessing, Dataflow, postprocessing, and cache invalidation. During execution, the workflow manages the `IngestionLock`, `IngestionHistory`, and `ImportStatus` tables by calling Ingestion Helper endpoints; the Admin CLI process exits immediately after triggering the execution.
+4. **Asynchronous Pipeline Coordination**: The Cloud Workflow coordinates pipeline execution across preprocessing, Dataflow, postprocessing, and cache invalidation. During execution, the workflow manages the `IngestionLock`, `IngestionHistory`, and `ImportStatus` tables by calling Ingestion Helper endpoints; the Admin CLI process exits immediately after triggering the execution.
 
 ### Runtime Configuration Flow (`datacommons admin ingest show-config`)
 1. **Output Discovery**: Reads `ingestion_prep_job_name`, `ingestion_workflow_service_account_email`, `project_id`, and `region` from Terraform state.
