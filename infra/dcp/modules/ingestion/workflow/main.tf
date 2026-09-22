@@ -25,8 +25,8 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
     lock_acquisition_timeout            = var.lock_acquisition_timeout
     enable_embeddings_generation        = var.enable_embeddings_generation
     enable_bigquery_postprocessing      = var.enable_bigquery_postprocessing
+    artifacts_bucket_name               = var.artifacts_bucket_name
     ingestion_artifacts_path            = var.ingestion_artifacts_path
-    temp_location                       = var.temp_location
     spanner_instance_id                 = var.spanner_instance_id
     spanner_database_id                 = var.spanner_database_id
     dataflow_template_gcs_path          = var.dataflow_template_gcs_path

@@ -84,14 +84,14 @@ variable "postprocessing_job_name" {
   default     = ""
 }
 
-variable "ingestion_artifacts_path" {
+variable "artifacts_bucket_name" {
   type        = string
-  description = "Path where pre-processed files are placed for the next stage"
+  description = "Name of the GCS bucket for ingestion and workflow artifacts"
 }
 
-variable "temp_location" {
+variable "ingestion_artifacts_path" {
   type        = string
-  description = "GCS path for temporary workflow and Dataflow staging artifacts"
+  description = "Path within the artifacts bucket for ingestion artifacts"
 }
 
 variable "spanner_instance_id" {

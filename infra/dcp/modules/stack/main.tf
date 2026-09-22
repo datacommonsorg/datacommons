@@ -60,10 +60,6 @@ locals {
       value = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
     },
     {
-      name  = "TEMP_LOCATION"
-      value = "gs://${module.storage.artifacts_bucket_name}/${var.ingestion_config.ingestion_artifacts_path}/temp"
-    },
-    {
       name  = "PROJECT_ID"
       value = var.global.project_id
     },
@@ -238,8 +234,8 @@ module "ingestion_workflow" {
   enable_embeddings_generation        = var.spanner_config.enable_embeddings_generation
   ingestion_helper_service_name       = "${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-ingestion-helper"
   enable_redis_cache_clearing         = var.redis_config.enable
-  ingestion_artifacts_path            = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
-  temp_location                       = "gs://${module.storage.artifacts_bucket_name}/${var.ingestion_config.ingestion_artifacts_path}/temp"
+  artifacts_bucket_name               = module.storage.artifacts_bucket_name
+  ingestion_artifacts_path            = var.ingestion_config.ingestion_artifacts_path
   spanner_instance_id                 = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
   spanner_database_id                 = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
   dataflow_ip_configuration           = local.effective_dataflow_ip_configuration
