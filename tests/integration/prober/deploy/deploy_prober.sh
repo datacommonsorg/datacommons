@@ -58,7 +58,7 @@ Options:
   --test-config <name>  Test manifest name (default: ${TEST_CONFIG})
   --schedule <cron>     Cron schedule for prober (default: "${SCHEDULE}")
   --alert-email <email> Optional email address for failure alerts
-  --dc-api-key <key>    Optional Data Commons API Key
+  --dc-api-key <key>    Data Commons API Key (required on initial deploy; auto-reused from Secret Manager afterward)
   --location <region>   GCP Region (default: ${LOCATION})
   --image-tag <tag>     Custom image tag for registry (default: ${IMAGE_TAG})
   --skip-build          Skip container image build step (reuses existing image)
