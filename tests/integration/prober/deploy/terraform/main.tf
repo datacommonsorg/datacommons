@@ -260,9 +260,13 @@ resource "google_monitoring_alert_policy" "prober_failure" {
     content   = <<-EOT
       DCP Integration Prober job **`${google_cloud_run_v2_job.prober_job.name}`** failed on GCP project **`${var.project_id}`**.
 
-      * **Failed Execution Logs**: [View Execution `$${log.extracted_label.execution_name}` in Cloud Console](https://console.cloud.google.com/run/jobs/executions/details/${var.region}/$${log.extracted_label.execution_name}?project=${var.project_id})
+      * **Stage Status**:
+        * **Deploy**: `$${log.extracted_label.deploy_stage}`
+        * **Integration Tests**: `$${log.extracted_label.integration_tests}`
+        * **Teardown**: `$${log.extracted_label.destroy_stage}`
+      * **Failed Execution**: [View Execution `$${log.extracted_label.execution_name}` in Cloud Console](https://console.cloud.google.com/run/jobs/executions/details/${var.region}/$${log.extracted_label.execution_name}?project=${var.project_id})
+        * Click `View logs` in the console to debug
       * **All Prober Executions**: [View `${google_cloud_run_v2_job.prober_job.name}` Job History](https://console.cloud.google.com/run/jobs/details/${var.region}/${google_cloud_run_v2_job.prober_job.name}/executions?project=${var.project_id})
-      * **Stage Status**: Deploy: `$${log.extracted_label.deploy_stage}` | Integration Tests: `$${log.extracted_label.integration_tests}` | Teardown: `$${log.extracted_label.destroy_stage}`
       * **Historical GCS Reports**: [Browse `gs://${google_storage_bucket.prober_reports.name}/reports/`](https://console.cloud.google.com/storage/browser/${google_storage_bucket.prober_reports.name}/reports?project=${var.project_id})
     EOT
     mime_type = "text/markdown"
