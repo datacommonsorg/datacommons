@@ -110,7 +110,6 @@ resource "google_secret_manager_secret" "prober_api_key" {
 }
 
 resource "google_secret_manager_secret_version" "prober_api_key_version" {
-  count       = var.dc_api_key != "" ? 1 : 0
   secret      = google_secret_manager_secret.prober_api_key.id
   secret_data = var.dc_api_key
 }
@@ -147,6 +146,7 @@ resource "google_cloud_run_v2_job" "prober_job" {
 
   depends_on = [
     google_secret_manager_secret.prober_api_key,
+    google_secret_manager_secret_version.prober_api_key_version,
     google_secret_manager_secret_iam_member.prober_sa_api_key_accessor,
     google_project_service.prober_apis
   ]
@@ -237,6 +237,12 @@ resource "google_monitoring_alert_policy" "prober_failure" {
 
     condition_matched_log {
       filter = "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"${google_cloud_run_v2_job.prober_job.name}\" AND jsonPayload.event_type=\"PROBER_EXECUTION_SUMMARY\" AND jsonPayload.status=\"FAILED\""
+      label_extractors = {
+        "execution_name"    = "EXTRACT(labels.\"run.googleapis.com/execution_name\")"
+        "deploy_stage"      = "EXTRACT(jsonPayload.stages.deploy)"
+        "integration_tests" = "EXTRACT(jsonPayload.stages.integration_tests)"
+        "destroy_stage"     = "EXTRACT(jsonPayload.stages.destroy)"
+      }
     }
   }
 
@@ -251,7 +257,18 @@ resource "google_monitoring_alert_policy" "prober_failure" {
 
   documentation {
     subject   = "🚨 [CRITICAL] DCP Prober Failed on ${var.project_id}"
-    content   = "DCP Integration Prober job '${google_cloud_run_v2_job.prober_job.name}' failed on GCP project '${var.project_id}'.\n\nCheck execution logs and historical GCS reports at:\n`gs://${google_storage_bucket.prober_reports.name}/reports/`"
+    content   = <<-EOT
+      DCP Integration Prober job **`${google_cloud_run_v2_job.prober_job.name}`** failed on GCP project **`${var.project_id}`**.
+
+      * **Stage Status**:
+        * **Deploy**: `$${log.extracted_label.deploy_stage}`
+        * **Integration Tests**: `$${log.extracted_label.integration_tests}`
+        * **Teardown**: `$${log.extracted_label.destroy_stage}`
+      * **Failed Execution**: [View Execution `$${log.extracted_label.execution_name}` in Cloud Console](https://console.cloud.google.com/run/jobs/executions/details/${var.region}/$${log.extracted_label.execution_name}?project=${var.project_id})
+        * Click `View logs` in the console to debug
+      * **All Prober Executions**: [View `${google_cloud_run_v2_job.prober_job.name}` Job History](https://console.cloud.google.com/run/jobs/details/${var.region}/${google_cloud_run_v2_job.prober_job.name}/executions?project=${var.project_id})
+      * **Historical GCS Reports**: [Browse `gs://${google_storage_bucket.prober_reports.name}/reports/`](https://console.cloud.google.com/storage/browser/${google_storage_bucket.prober_reports.name}/reports?project=${var.project_id})
+    EOT
     mime_type = "text/markdown"
   }
 }
