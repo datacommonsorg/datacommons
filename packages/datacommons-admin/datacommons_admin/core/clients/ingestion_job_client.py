@@ -28,16 +28,10 @@ class IngestionJobClient:
         service_account_email: str | None = None,
         project_id: str | None = None,
         location: str | None = None,
-        temp_location: str | None = None,
-        spanner_instance_id: str | None = None,
-        spanner_database_id: str | None = None,
     ) -> None:
         self.service_account_email = service_account_email
         self.project_id = project_id
         self.location = location
-        self.temp_location = temp_location
-        self.spanner_instance_id = spanner_instance_id
-        self.spanner_database_id = spanner_database_id
         base_credentials, _ = google.auth.default()
 
         need_project_and_location = (
@@ -88,11 +82,6 @@ class IngestionJobClient:
                 "Workflow name must be provided to start a workflow execution."
             )
 
-        if not self.temp_location:
-            raise click.ClickException(
-                "Temporary GCS location must be provided to start a workflow execution."
-            )
-
         # 1. Parse imports argument
         imports_list = []
         if imports:
@@ -100,10 +89,6 @@ class IngestionJobClient:
 
         # 2. Construct payload argument (must be a JSON string)
         argument_dict = {
-            "tempLocation": self.temp_location,
-            "spannerInstanceId": self.spanner_instance_id or "",
-            "spannerDatabaseId": self.spanner_database_id or "",
-            "region": self.location or "",
             "imports": imports_list,
         }
 

@@ -65,9 +65,6 @@ def start(ctx: click.Context, imports: str) -> None:
         service_account_email=tf.ingestion_workflow_service_account_email,
         project_id=tf.project_id,
         location=tf.region,
-        temp_location=tf.ingestion_temp_location,
-        spanner_instance_id=tf.spanner_instance_id,
-        spanner_database_id=tf.spanner_database_id,
     )
     result = client.start_workflow(imports=imports)
 

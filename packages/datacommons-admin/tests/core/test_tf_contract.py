@@ -85,13 +85,10 @@ def test_terraform_outputs_from_state_outputs_edge_cases() -> None:
         "ingestion_service_url": {"value": "https://service"},
         "ingestion_workflow_name": {"value": "wf"},
         "ingestion_workflow_service_account_email": {"value": "sa@test.com"},
-        "storage_artifacts_bucket_name": {"value": "bucket"},
-        "ingestion_artifacts_path": {"value": "artifacts"},
     }
 
     parsed = TerraformOutputs.from_state_outputs(base_valid)
     assert parsed.project_id == "test-proj"
-    assert parsed.ingestion_temp_location == "gs://bucket/artifacts/temp"
     assert parsed.spanner_instance_id is None
     assert parsed.spanner_database_id is None
     assert parsed.ingestion_prep_job_name is None

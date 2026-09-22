@@ -110,10 +110,10 @@ The state resolution and contract verification suite spans two complementary tes
 4. **Lock Coordination & Application**: Acquires the distributed lock via Ingestion Helper (`workflow_id="schema-migration"`), applies all pending migrations directly to Cloud Spanner, and releases the lock in a finally block.
 
 ### Ingestion Trigger Flow (`datacommons admin ingest start`)
-1. **Output Discovery**: Calls `get_terraform_outputs()` to resolve the Cloud Workflow name, service account email, project ID, region, Spanner identifiers, and derived temporary GCS location (`gs://<storage_artifacts_bucket_name>/temp`) directly from Terraform state without requiring extra runtime Cloud Run API calls.
+1. **Output Discovery**: Calls `get_terraform_outputs()` to resolve the Cloud Workflow name (`ingestion_workflow_name`), service account email (`ingestion_workflow_service_account_email`), project ID (`project_id`), and region (`region`) directly from Terraform state without requiring extra runtime Cloud Run API calls.
 2. **Workflow Execution**:
    * Parses the comma-separated `--imports` flag into a list of import names.
-   * Constructs the execution argument JSON payload containing `tempLocation`, `spannerInstanceId`, `spannerDatabaseId`, `region`, and `imports`.
+   * Constructs the execution argument JSON payload (`{"imports": [...]}`); static deployment infrastructure parameters (GCS bucket/paths, Spanner identifiers, and region) are baked directly into the workflow definition at `terraform apply` time.
    * Sends an authenticated HTTP POST request to the Google Cloud Workflow Executions REST API (`https://workflowexecutions.googleapis.com/v1/{full_workflow_name}/executions`) using an `AuthorizedSession` authenticated via impersonated service account credentials.
 3. **Console Link Generation**: Formulates and prints a direct Google Cloud Console URL:
    ```
