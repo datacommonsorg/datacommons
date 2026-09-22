@@ -60,8 +60,9 @@ locals {
       value = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
     },
     {
+      # TODO: Remove once datacommons-cli no longer checks for TEMP_LOCATION on the preprocessing job (PR #266).
       name  = "TEMP_LOCATION"
-      value = "gs://${module.storage.artifacts_bucket_name}/${var.ingestion_config.ingestion_artifacts_path}/temp"
+      value = "DEPRECATED_UNUSED"
     },
     {
       name  = "PROJECT_ID"
@@ -238,7 +239,10 @@ module "ingestion_workflow" {
   enable_embeddings_generation        = var.spanner_config.enable_embeddings_generation
   ingestion_helper_service_name       = "${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-ingestion-helper"
   enable_redis_cache_clearing         = var.redis_config.enable
-  ingestion_artifacts_path            = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
+  artifacts_bucket_name               = module.storage.artifacts_bucket_name
+  ingestion_artifacts_path            = var.ingestion_config.ingestion_artifacts_path
+  spanner_instance_id                 = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
+  spanner_database_id                 = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
   dataflow_ip_configuration           = local.effective_dataflow_ip_configuration
   dataflow_subnetwork                 = local.effective_dataflow_subnetwork
   dataflow_template_gcs_path          = var.ingestion_config.dataflow_template_gcs_path

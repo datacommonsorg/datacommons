@@ -84,9 +84,26 @@ variable "postprocessing_job_name" {
   default     = ""
 }
 
+variable "artifacts_bucket_name" {
+  type        = string
+  description = "Name of the GCS bucket for ingestion and workflow artifacts"
+}
+
 variable "ingestion_artifacts_path" {
   type        = string
-  description = "Path where pre-processed files are placed for the next stage"
+  description = "Path within the artifacts bucket for ingestion artifacts"
+}
+
+variable "spanner_instance_id" {
+  type        = string
+  description = "Cloud Spanner instance ID for ingestion"
+  default     = ""
+}
+
+variable "spanner_database_id" {
+  type        = string
+  description = "Cloud Spanner database ID for ingestion"
+  default     = ""
 }
 
 variable "dataflow_ip_configuration" {
