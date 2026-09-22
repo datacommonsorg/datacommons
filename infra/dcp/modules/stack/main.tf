@@ -60,6 +60,11 @@ locals {
       value = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
     },
     {
+      # TODO: Remove once datacommons-cli no longer checks for TEMP_LOCATION on the preprocessing job (PR #266).
+      name  = "TEMP_LOCATION"
+      value = "DEPRECATED_UNUSED"
+    },
+    {
       name  = "PROJECT_ID"
       value = var.global.project_id
     },
