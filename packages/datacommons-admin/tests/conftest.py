@@ -146,11 +146,6 @@ def mock_job_session():
 
         mock_session_inst = MagicMock()
 
-        mock_get_resp = MagicMock()
-        mock_get_resp.ok = True
-        mock_get_resp.json.return_value = {}
-        mock_session_inst.get.return_value = mock_get_resp
-
         mock_resp = MagicMock()
         mock_resp.ok = True
         mock_resp.json.return_value = {

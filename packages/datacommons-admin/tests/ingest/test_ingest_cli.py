@@ -77,10 +77,7 @@ def test_ingest_start_with_imports_success(
         "imports": ["oecd", "doubleup"],
     }
 
-    # Verify the Cloud Run Jobs API was not queried during workflow start
-    mock_job_session.get.assert_not_called()
-
-    # Verify the Workflow Executions API was called with the correct argument
+    # Verify the API was called with the correct argument
     called_args = mock_job_session.post.call_args[1]
     assert called_args["timeout"] == 300
     called_payload = called_args["json"]

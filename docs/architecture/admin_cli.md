@@ -116,7 +116,7 @@ Note: Automated unit tests validate state parsing logic and error handling again
 1. **Output Discovery**: Reads `ingestion_workflow_name`, `ingestion_workflow_service_account_email`, `project_id`, and `region` from Terraform state.
 2. **Workflow Execution**:
    * Parses the comma-separated `--imports` flag into a list of import names.
-   * Constructs the execution argument JSON payload containing `imports` (deployment-level bucket, Spanner, and region parameters are baked directly into the deployed Cloud Workflow YAML via Terraform `templatefile`).
+   * Constructs the execution argument JSON payload (`{"imports": [...]}`); static deployment infrastructure parameters (GCS bucket/paths, Spanner identifiers, and region) are baked directly into the workflow definition at `terraform apply` time.
    * Sends an authenticated HTTP POST request to the Google Cloud Workflow Executions REST API (`https://workflowexecutions.googleapis.com/v1/{full_workflow_name}/executions`) using an `AuthorizedSession` authenticated via impersonated service account credentials.
 3. **Console Link Generation**: Formulates and prints a direct Google Cloud Console URL:
    ```
