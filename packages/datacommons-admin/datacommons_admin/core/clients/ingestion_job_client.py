@@ -55,15 +55,12 @@ class IngestionJobClient:
         else:
             self.full_workflow_name = None
 
-        if job_name:
-            if not job_name.startswith("projects/"):
-                self.full_job_name = (
-                    f"projects/{project_id}/locations/{location}/jobs/{job_name}"
-                )
-            else:
-                self.full_job_name = job_name
+        if job_name and not job_name.startswith("projects/"):
+            self.full_job_name = (
+                f"projects/{project_id}/locations/{location}/jobs/{job_name}"
+            )
         else:
-            self.full_job_name = None
+            self.full_job_name = job_name
 
         if service_account_email:
             from google.auth import impersonated_credentials
@@ -85,10 +82,12 @@ class IngestionJobClient:
                 "Workflow name must be provided to start a workflow execution."
             )
 
+        # 1. Parse imports argument
         imports_list = []
         if imports:
             imports_list = [imp.strip() for imp in imports.split(",") if imp.strip()]
 
+        # 2. Construct payload argument (must be a JSON string)
         argument_dict = {
             "imports": imports_list,
         }
@@ -134,10 +133,6 @@ class IngestionJobClient:
 
     def get_config(self) -> list:
         """Retrieves the environment variables configuration of the Cloud Run job."""
-        if not self.full_job_name:
-            raise click.ClickException(
-                "Job name must be provided to fetch job configuration."
-            )
         url = f"https://run.googleapis.com/v2/{self.full_job_name}"
         try:
             response = self.session.get(url, timeout=300)
