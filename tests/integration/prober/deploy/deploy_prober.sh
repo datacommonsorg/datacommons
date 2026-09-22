@@ -195,13 +195,22 @@ fi
 export GOOGLE_CLOUD_PROJECT="${PROJECT}"
 export CLOUDSDK_CORE_PROJECT="${PROJECT}"
 export CLOUDSDK_BILLING_QUOTA_PROJECT="${PROJECT}"
+if [[ -z "$DC_API_KEY" ]]; then
+  DC_API_KEY=$(gcloud secrets versions access latest --secret="${PROBER_NAME}-api-key" --project="${PROJECT}" 2>/dev/null || true)
+fi
+if [[ -z "$DC_API_KEY" ]]; then
+  echo "❌ Error: No Data Commons API key provided and no active secret found in Secret Manager (${PROBER_NAME}-api-key)."
+  echo "   Please pass --dc-api-key <key> or set the DC_API_KEY environment variable."
+  exit 1
+fi
+
 export TF_VAR_project_id="${PROJECT}"
 export TF_VAR_region="${LOCATION}"
 export TF_VAR_prober_name="${PROBER_NAME}"
 export TF_VAR_schedule="${SCHEDULE}"
 export TF_VAR_test_config="${TEST_CONFIG}"
 export TF_VAR_alert_email="${ALERT_EMAIL:-}"
-export TF_VAR_dc_api_key="${DC_API_KEY:-}"
+export TF_VAR_dc_api_key="${DC_API_KEY}"
 
 REGISTRY_PROJECT="datcom-ci"
 REGISTRY_LOCATION="us"
