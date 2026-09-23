@@ -38,8 +38,8 @@ variable "container_image" {
 
 variable "schedule" {
   type        = string
-  description = "Cron schedule for prober execution"
-  default     = "0 */1 * * *"
+  description = "Cron schedule for prober execution (staggered off-peak minute to avoid registry.terraform.io rate limits)"
+  default     = "17 */3 * * *"
 }
 
 variable "test_config" {

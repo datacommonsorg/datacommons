@@ -23,11 +23,11 @@ class IngestionJobClient:
 
     def __init__(
         self,
-        job_name: str,
-        workflow_name: str = None,
-        service_account_email: str = None,
-        project_id: str = None,
-        location: str = None,
+        job_name: str | None = None,
+        workflow_name: str | None = None,
+        service_account_email: str | None = None,
+        project_id: str | None = None,
+        location: str | None = None,
     ) -> None:
         self.service_account_email = service_account_email
         self.project_id = project_id
@@ -55,7 +55,7 @@ class IngestionJobClient:
         else:
             self.full_workflow_name = None
 
-        if not job_name.startswith("projects/"):
+        if job_name and not job_name.startswith("projects/"):
             self.full_job_name = (
                 f"projects/{project_id}/locations/{location}/jobs/{job_name}"
             )
@@ -82,31 +82,13 @@ class IngestionJobClient:
                 "Workflow name must be provided to start a workflow execution."
             )
 
-        # 1. Fetch Cloud Run job configuration to get default bucket, region, etc.
-        env_vars = self.get_config()
-        env_dict = {env["name"]: env.get("value") for env in env_vars if "name" in env}
-
-        temp_location = env_dict.get("TEMP_LOCATION")
-        spanner_instance = env_dict.get("GCP_SPANNER_INSTANCE_ID")
-        spanner_database = env_dict.get("GCP_SPANNER_DATABASE_NAME")
-        region = env_dict.get("REGION", self.location)
-
-        if not temp_location:
-            raise click.ClickException(
-                "TEMP_LOCATION not found in preprocessing job environment configuration."
-            )
-
-        # 2. Parse imports argument
+        # 1. Parse imports argument
         imports_list = []
         if imports:
             imports_list = [imp.strip() for imp in imports.split(",") if imp.strip()]
 
-        # 3. Construct payload argument (must be a JSON string)
+        # 2. Construct payload argument (must be a JSON string)
         argument_dict = {
-            "tempLocation": temp_location,
-            "spannerInstanceId": spanner_instance or "",
-            "spannerDatabaseId": spanner_database or "",
-            "region": region,
             "imports": imports_list,
         }
 

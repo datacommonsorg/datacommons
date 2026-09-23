@@ -4,10 +4,12 @@ main:
     - init:
         assign:
           - project_id: '${project_id}'
+          - region: '${region}'
+          - bucket_name: '${artifacts_bucket_name}'
+          - temp_path_prefix: '${ingestion_artifacts_path}/temp'
+          - temp_gcs_uri: '$${"gs://" + bucket_name + "/" + temp_path_prefix}'
           - workflow_id: '$${sys.get_env("GOOGLE_CLOUD_WORKFLOW_EXECUTION_ID")}'
           - version: '$${"version-" + string(int(sys.now()))}'
-          - bucket_name: '$${text.split(input.tempLocation, "/")[2]}'
-          - temp_path_prefix: '$${text.replace_all(input.tempLocation, "gs://" + bucket_name + "/", "")}'
           - execution_error: null
           - postprocessing_result: null
           - embedding_result: null
@@ -31,11 +33,11 @@ main:
           - t_pre_timestamp: null
           - launch_params:
               projectId: '$${project_id}'
-              spannerInstanceId: '$${default(map.get(input, "spannerInstanceId"), "")}'
-              spannerDatabaseId: '$${default(map.get(input, "spannerDatabaseId"), "")}'
+              spannerInstanceId: '${spanner_instance_id}'
+              spannerDatabaseId: '${spanner_database_id}'
               importList: '$${default(map.get(input, "importList"), "")}'
-              tempLocation: '$${input.tempLocation}'
-              stagingLocation: '$${input.tempLocation}'
+              tempLocation: '$${temp_gcs_uri}'
+              stagingLocation: '$${temp_gcs_uri}'
               forceCombineNodes: 'true'
               isBaseDc: 'false'
     - normalize_imports:
@@ -94,9 +96,9 @@ main:
         args:
           job_name: '$${prep_job_name}'
           workflow_id: '$${workflow_id}'
-          temp_location: '$${input.tempLocation}'
+          temp_gcs_uri: '$${temp_gcs_uri}'
           imports_arg: '$${comma_separated_imports}'
-          region: '$${input.region}'
+          region: '$${region}'
           project_id: '${project_id}'
         result: prep_res
 
@@ -174,8 +176,8 @@ main:
                 args:
                   job_name: '$${dataflow_job_name}'
                   launch_params: '$${launch_params}'
-                  temp_location: '$${input.tempLocation}'
-                  region: '$${input.region}'
+                  temp_gcs_uri: '$${temp_gcs_uri}'
+                  region: '$${region}'
                   workflow_id: '$${workflow_id}'
                   template_path: '${ingestion_dataflow_template_gcs_path}'
                   stage: 'dataflow'
@@ -211,7 +213,7 @@ main:
                                 run_flag: '$${run_postproc}'
                                 import_list: '$${provenances_list}'
                                 job_name: '$${postproc_job_name}'
-                                region: '$${input.region}'
+                                region: '$${region}'
                                 project_id: '$${project_id}'
                                 workflow_id: '$${workflow_id}'
                                 generate_stat_var_groups: '$${generate_stat_var_groups}'
@@ -257,8 +259,8 @@ main:
                 args:
                   workflow_id: '$${workflow_id}'
                   rollback_timestamp: '$${t_pre_timestamp}'
-                  temp_location: '$${input.tempLocation}'
-                  region: '$${input.region}'
+                  temp_gcs_uri: '$${temp_gcs_uri}'
+                  region: '$${region}'
                   launch_params: '$${launch_params}'
                 result: rollback_result
             - update_history_failure:
@@ -414,14 +416,14 @@ run_embeddings_job:
         return: $${res}
 
 launch_and_poll_dataflow:
-  params: [job_name, launch_params, temp_location, region, workflow_id, template_path, stage]
+  params: [job_name, launch_params, temp_gcs_uri, region, workflow_id, template_path, stage]
   steps:
     - build_environment:
         assign:
           - env_map:
               serviceAccountEmail: '${dataflow_service_account_email}'
-              tempLocation: $${temp_location}
-              stagingLocation: $${temp_location}
+              tempLocation: $${temp_gcs_uri}
+              stagingLocation: $${temp_gcs_uri}
               maxWorkers: ${dataflow_max_workers}
               numWorkers: ${dataflow_num_workers}
               machineType: '${dataflow_worker_machine_type}'
@@ -497,7 +499,7 @@ launch_and_poll_dataflow:
           launch_result: $${launch_result}
 
 launch_and_poll_preprocessing_job:
-  params: [job_name, workflow_id, temp_location, imports_arg, region, project_id]
+  params: [job_name, workflow_id, temp_gcs_uri, imports_arg, region, project_id]
   steps:
     - init_args:
         assign:
@@ -518,7 +520,7 @@ launch_and_poll_preprocessing_job:
                     - name: 'WORKFLOW_EXECUTION_ID'
                       value: '$${workflow_id}'
                     - name: 'TEMP_LOCATION'
-                      value: '$${temp_location}'
+                      value: '$${temp_gcs_uri}'
                     - name: 'DATA_RUN_MODE'
                       value: 'dcpbridge'
                   args: '$${container_args}'
@@ -572,7 +574,7 @@ poll_cloud_run_job_execution:
         return: '$${exec_status}'
 
 rollback_subworkflow:
-  params: [workflow_id, rollback_timestamp, temp_location, region, launch_params]
+  params: [workflow_id, rollback_timestamp, temp_gcs_uri, region, launch_params]
   steps:
     - init_rollback_params:
         assign:
@@ -594,7 +596,7 @@ rollback_subworkflow:
         args:
           job_name: '$${rollback_job_name}'
           launch_params: '$${rollback_params}'
-          temp_location: '$${temp_location}'
+          temp_gcs_uri: '$${temp_gcs_uri}'
           region: '$${region}'
           workflow_id: '$${workflow_id}'
           template_path: '${rollback_dataflow_template_gcs_path}'

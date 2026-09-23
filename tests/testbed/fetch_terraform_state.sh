@@ -47,10 +47,20 @@ Commands:
 Options:
   --instance <name>   Instance name (e.g. testbed-1, testbed-alpha, alice)
   --project <id>      GCP Project ID (default: ${DEFAULT_PROJECT})
+  --force             Skip interactive confirmation prompts
+
+Options for 'connect':
+  --terraform-modules-source <local|tag>
+                      Where Terraform modules (including workflow.yaml) come from:
+                      • local: Dev mode. Symlinks to local infra/dcp/modules (default).
+                      • <tag>: Git tag (e.g. v1.1.5). Loads official modules from GitHub.
+                      (See available tags: https://github.com/datacommonsorg/datacommons/tags)
 
 Developer Workflow:
-  1. Connect to an instance (interactive or via flag):
-     $0 connect --instance testbed-1
+  1. Connect to an instance:
+     $0 connect --instance testbed-1 --terraform-modules-source v1.1.5
+     # OR to test local module / workflow.yaml edits:
+     $0 connect --instance testbed-1 --terraform-modules-source local
 
   2. Navigate to your workspace, edit terraform.tfvars, and apply:
      cd tests/testbed/workspaces/testbed-1
@@ -64,19 +74,27 @@ Developer Workflow:
 HELP
 }
 
+log_error() {
+  echo "Error: $1" >&2
+  shift
+  for line in "$@"; do
+    echo "  $line" >&2
+  done
+}
+
 # Ensure dependencies exist
 check_dependencies() {
   local missing=0
 
   if ! command -v gcloud &>/dev/null; then
-    echo "Error: 'gcloud' CLI is not installed or not in PATH."
-    echo "  Install Google Cloud SDK: https://cloud.google.com/sdk/docs/install"
+    log_error "'gcloud' CLI is not installed or not in PATH." \
+              "Install Google Cloud SDK: https://cloud.google.com/sdk/docs/install"
     missing=1
   fi
 
   if ! command -v terraform &>/dev/null; then
-    echo "Error: 'terraform' CLI is not installed or not in PATH."
-    echo "  Install Terraform: https://developer.hashicorp.com/terraform/install"
+    log_error "'terraform' CLI is not installed or not in PATH." \
+              "Install Terraform: https://developer.hashicorp.com/terraform/install"
     missing=1
   fi
 
@@ -102,7 +120,7 @@ prompt_instance_if_missing() {
 
   # If not running interactively (e.g. CI/CD), error out
   if [[ ! -t 0 ]]; then
-    echo "Error: --instance <name> is required in non-interactive mode."
+    log_error "--instance <name> is required in non-interactive mode."
     return 1
   fi
 
@@ -145,13 +163,54 @@ prompt_instance_if_missing() {
   fi
 
   if [[ -z "$INSTANCE" ]]; then
-    echo "Error: Instance name cannot be empty."
+    log_error "Instance name cannot be empty."
     return 1
   fi
 
   echo "==> Selected instance: '$INSTANCE'"
   echo ""
   return 0
+}
+
+
+# Check and configure service account impersonation for CLI commands
+check_sa_impersonation() {
+  local ws_dir="$1"
+  local project="$2"
+
+  local current_user
+  current_user=$(gcloud config get-value account 2>/dev/null || true)
+  local workflow_sa
+  workflow_sa=$(cd "$ws_dir" && terraform output -raw ingestion_workflow_service_account_email 2>/dev/null || true)
+
+  if [[ -n "$current_user" && -n "$workflow_sa" ]]; then
+    echo "    Authenticated user: ${current_user}"
+    echo "    Workflow Service Account: ${workflow_sa}"
+
+    local has_role
+    has_role=$(gcloud iam service-accounts get-iam-policy "$workflow_sa" \
+      --project="$project" \
+      --filter="bindings.role=roles/iam.serviceAccountTokenCreator AND bindings.members=user:${current_user}" \
+      --format="value(bindings.role)" 2>/dev/null || true)
+
+    if [[ -z "$has_role" ]]; then
+      echo "    Granting 'roles/iam.serviceAccountTokenCreator' to user:${current_user} on ${workflow_sa}..."
+      if gcloud iam service-accounts add-iam-policy-binding "$workflow_sa" \
+           --member="user:${current_user}" \
+           --role="roles/iam.serviceAccountTokenCreator" \
+           --project="$project" --quiet &>/dev/null; then
+        echo "    ✔ Successfully configured Service Account impersonation."
+      else
+        echo "    Notice: Could not automatically grant TokenCreator permission (insufficient IAM admin rights)."
+        echo "    If you plan to run ingestion CLI commands, ask a project admin to run:"
+        echo "      gcloud iam service-accounts add-iam-policy-binding \"${workflow_sa}\" --member=\"user:${current_user}\" --role=\"roles/iam.serviceAccountTokenCreator\" --project=\"${project}\""
+      fi
+    else
+      echo "    ✔ Service Account impersonation already configured for ${current_user}."
+    fi
+  else
+    echo "    Skipped SA impersonation check (instance might not be fully applied yet)."
+  fi
 }
 
 main() {
@@ -164,13 +223,15 @@ main() {
   elif [[ "$ACTION" == --* || -z "$ACTION" ]]; then
     ACTION="connect"
   else
-    echo "Error: Unknown command '$ACTION'"
+    log_error "Unknown command '$ACTION'"
     print_usage
     return 1
   fi
 
   INSTANCE=""
   PROJECT="$DEFAULT_PROJECT"
+  MODULES_SOURCE="local"
+  FORCE=0
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -182,12 +243,20 @@ main() {
         PROJECT="$2"
         shift 2
         ;;
+      --terraform-modules-source)
+        MODULES_SOURCE="$2"
+        shift 2
+        ;;
+      --force)
+        FORCE=1
+        shift
+        ;;
       --help|-h)
         print_usage
         return 0
         ;;
       *)
-        echo "Error: Unknown option: $1"
+        log_error "Unknown option: $1"
         print_usage
         return 1
         ;;
@@ -215,7 +284,7 @@ main() {
     echo "================================================================================"
     echo "DCP TESTBEDS in project: ${PROJECT}"
     echo "================================================================================"
-    
+
     echo "Fetching registered testbed secrets from Secret Manager..."
     local SECRETS
     SECRETS=$(gcloud secrets list --project="${PROJECT}" --format="value(name)" 2>/dev/null || true)
@@ -274,31 +343,86 @@ main() {
     mkdir -p "$WORKSPACE_DIR"
 
     echo "==> [2/5] Pulling configuration from Secret Manager ($SECRET_NAME)..."
-    if [[ -f "$WORKSPACE_DIR/terraform.tfvars" ]]; then
-      cp "$WORKSPACE_DIR/terraform.tfvars" "$WORKSPACE_DIR/terraform.tfvars.bak"
+    local tfvars="$WORKSPACE_DIR/terraform.tfvars"
+    local should_fetch=1
+
+    if [[ -f "$tfvars" && $FORCE -eq 0 ]]; then
+      if [[ -t 0 ]]; then
+        echo "    Notice: Local terraform.tfvars already exists in '${INSTANCE}'."
+        read -p "    Overwrite with Secret Manager baseline? [y/N]: " overwrite_confirm
+        if [[ ! "$overwrite_confirm" =~ ^[yY](es)?$ ]]; then
+          echo "    Preserving local terraform.tfvars."
+          should_fetch=0
+        fi
+      else
+        echo "    Preserving existing local terraform.tfvars."
+        should_fetch=0
+      fi
+    elif [[ -f "$tfvars" && $FORCE -eq 1 ]]; then
+      echo "    --force specified: Overwriting local terraform.tfvars with Secret Manager baseline."
     fi
 
-    if gcloud secrets describe "$SECRET_NAME" --project="$PROJECT" &>/dev/null; then
-      gcloud secrets versions access latest \
-        --secret="$SECRET_NAME" \
-        --project="$PROJECT" > "$WORKSPACE_DIR/terraform.tfvars"
-      echo "    Successfully fetched terraform.tfvars from Secret Manager."
-    else
-      echo "    Warning: Secret '$SECRET_NAME' does not exist in Secret Manager."
-      if [[ ! -f "$WORKSPACE_DIR/terraform.tfvars" ]]; then
-        echo "    Creating new boilerplate terraform.tfvars for '${INSTANCE}'..."
-        cat <<TFVARS > "$WORKSPACE_DIR/terraform.tfvars"
+    if [[ $should_fetch -eq 1 ]]; then
+      local tmp_tfvars="$WORKSPACE_DIR/terraform.tfvars.tmp"
+
+      if gcloud secrets describe "$SECRET_NAME" --project="$PROJECT" &>/dev/null; then
+        if gcloud secrets versions access latest \
+            --secret="$SECRET_NAME" \
+            --project="$PROJECT" > "$tmp_tfvars" && [[ -s "$tmp_tfvars" ]]; then
+          [[ -f "$tfvars" ]] && cp "$tfvars" "$tfvars.bak"
+          mv "$tmp_tfvars" "$tfvars"
+          echo "    Successfully fetched terraform.tfvars from Secret Manager."
+        else
+          rm -f "$tmp_tfvars"
+          log_error "Failed to fetch valid configuration from Secret Manager ('$SECRET_NAME')." \
+                    "Please check your GCP credentials ('gcloud auth login') and secret permissions."
+          return 1
+        fi
+      else
+        echo "    Warning: Secret '$SECRET_NAME' does not exist in Secret Manager."
+        if [[ ! -f "$tfvars" ]]; then
+          echo "    Creating new boilerplate terraform.tfvars for '${INSTANCE}'..."
+          cat <<TFVARS > "$tfvars"
 project_id    = "${PROJECT}"
 instance_name = "${INSTANCE}"
 region        = "us-central1"
 TFVARS
+        fi
       fi
     fi
 
-    # Copy root terraform definition files into workspace and symlink modules
-    echo "==> [3/5] Syncing Terraform scaffolding..."
-    cp "${INFRA_DCP_DIR}"/*.tf "$WORKSPACE_DIR/"
-    ln -sfn "${INFRA_DCP_DIR}/modules" "$WORKSPACE_DIR/modules"
+    echo "==> [3/5] Syncing Terraform scaffolding (${MODULES_SOURCE})..."
+    if [[ "$MODULES_SOURCE" == "local" ]]; then
+      cp "${INFRA_DCP_DIR}"/*.tf "$WORKSPACE_DIR/"
+      ln -sfn "${INFRA_DCP_DIR}/modules" "$WORKSPACE_DIR/modules"
+    else
+      # Module source is a Git tag/ref
+      local base_url="https://raw.githubusercontent.com/datacommonsorg/datacommons/${MODULES_SOURCE}/infra/dcp"
+      echo "    Downloading root Terraform files from Git tag '${MODULES_SOURCE}'..."
+      for f in variables.tf main.tf outputs.tf; do
+        if ! curl -sSfL "${base_url}/${f}" -o "$WORKSPACE_DIR/${f}"; then
+          log_error "Failed to download '${f}' from Git tag '${MODULES_SOURCE}'." \
+                    "Please verify the tag exists at: https://github.com/datacommonsorg/datacommons/tags"
+          return 1
+        fi
+      done
+
+      rm -rf "$WORKSPACE_DIR/modules"
+
+      local git_source="git::https://github.com/datacommonsorg/datacommons.git//infra/dcp/modules/stack?ref=${MODULES_SOURCE}"
+      python3 -c '
+import sys, re
+path, src = sys.argv[1], sys.argv[2]
+with open(path, "r") as f:
+    txt = f.read()
+updated = re.sub(r"(?m)^\s*source\s*=\s*[\x22\x27]\./modules/stack[\x22\x27]", f"  source = \"{src}\"", txt)
+with open(path, "w") as f:
+    f.write(updated)
+' "$WORKSPACE_DIR/main.tf" "$git_source"
+    fi
+
+    # Clean module cache so Terraform downloads/updates sources cleanly
+    rm -rf "$WORKSPACE_DIR/.terraform/modules"
 
     echo "==> [4/5] Setting up remote GCS backend state..."
     cat <<BACKEND > "$WORKSPACE_DIR/backend.tf"
@@ -312,78 +436,48 @@ BACKEND
 
     (
       cd "$WORKSPACE_DIR"
-      echo "    Running terraform init..."
-      terraform init
+      echo "    Running terraform init -upgrade..."
+      terraform init -upgrade
     )
 
-    # Check & configure service account impersonation for CLI commands
     echo "==> [5/5] Checking Service Account impersonation permissions..."
-    local CURRENT_USER
-    CURRENT_USER=$(gcloud config get-value account 2>/dev/null || true)
-    local WORKFLOW_SA
-    WORKFLOW_SA=$(cd "$WORKSPACE_DIR" && terraform output -raw ingestion_workflow_service_account_email 2>/dev/null || true)
-
-    if [[ -n "$CURRENT_USER" && -n "$WORKFLOW_SA" ]]; then
-      echo "    Authenticated user: ${CURRENT_USER}"
-      echo "    Workflow Service Account: ${WORKFLOW_SA}"
-      
-      # Check if user already has TokenCreator role using precise gcloud filter
-      local HAS_ROLE
-      HAS_ROLE=$(gcloud iam service-accounts get-iam-policy "$WORKFLOW_SA" \
-        --project="$PROJECT" \
-        --filter="bindings.role=roles/iam.serviceAccountTokenCreator AND bindings.members=user:${CURRENT_USER}" \
-        --format="value(bindings.role)" 2>/dev/null || true)
-
-      if [[ -z "$HAS_ROLE" ]]; then
-        echo "    Granting 'roles/iam.serviceAccountTokenCreator' to user:${CURRENT_USER} on ${WORKFLOW_SA}..."
-        if gcloud iam service-accounts add-iam-policy-binding "$WORKFLOW_SA" \
-             --member="user:${CURRENT_USER}" \
-             --role="roles/iam.serviceAccountTokenCreator" \
-             --project="$PROJECT" --quiet &>/dev/null; then
-          echo "    ✔ Successfully configured Service Account impersonation."
-        else
-          echo "    Notice: Could not automatically grant TokenCreator permission (insufficient IAM admin rights)."
-          echo "    If you plan to run ingestion CLI commands, ask a project admin to run:"
-          echo "      gcloud iam service-accounts add-iam-policy-binding \"${WORKFLOW_SA}\" --member=\"user:${CURRENT_USER}\" --role=\"roles/iam.serviceAccountTokenCreator\" --project=\"${PROJECT}\""
-        fi
-      else
-        echo "    ✔ Service Account impersonation already configured for ${CURRENT_USER}."
-      fi
-    else
-      echo "    Skipped SA impersonation check (instance might not be fully applied yet)."
-    fi
+    check_sa_impersonation "$WORKSPACE_DIR" "$PROJECT"
 
     echo ""
     echo "================================================================================"
     echo " SUCCESS: Connected to '${INSTANCE}'"
     echo " Workspace directory: ${WORKSPACE_DIR}"
+    echo " Module source:       ${MODULES_SOURCE}"
     echo ""
     echo " Next Steps:"
     echo "   1. cd ${WORKSPACE_DIR}"
     echo "   2. Edit terraform.tfvars (if needed)"
     echo "   3. terraform apply"
     echo "================================================================================"
-    echo ""
-
   # ==============================================================================
   # ACTION: PUSH-CONFIG
   # ==============================================================================
   elif [[ "$ACTION" == "push-config" ]]; then
     local TFVARS_FILE="$WORKSPACE_DIR/terraform.tfvars"
     if [[ ! -f "$TFVARS_FILE" ]]; then
-      echo "Error: Local configuration '$TFVARS_FILE' not found."
-      echo "Have you run '$0 connect --instance $INSTANCE' first?"
+      log_error "Local configuration '$TFVARS_FILE' not found." \
+                "Have you run '$0 connect --instance $INSTANCE' first?"
+      return 1
+    fi
+
+    if [[ ! -s "$TFVARS_FILE" ]]; then
+      log_error "Local configuration '$TFVARS_FILE' is empty. Refusing to push."
       return 1
     fi
 
     echo "==> Pushing local terraform.tfvars to Secret Manager ($SECRET_NAME)..."
     if ! gcloud secrets describe "$SECRET_NAME" --project="$PROJECT" &>/dev/null; then
-      echo "Error: Secret '$SECRET_NAME' does not exist in project '$PROJECT'."
-      echo "Please ensure the testbed secret has been initialized by an administrator."
+      log_error "Secret '$SECRET_NAME' does not exist in project '$PROJECT'." \
+                "Please ensure the testbed secret has been initialized by an administrator."
       return 1
     fi
 
-    if [[ -t 0 ]]; then
+    if [[ $FORCE -eq 0 && -t 0 ]]; then
       local confirm
       read -p "Are you sure you want to push your local terraform.tfvars to the shared secret '$SECRET_NAME'? [y/N]: " confirm
       if [[ ! "$confirm" =~ ^[yY](es)?$ ]]; then
@@ -398,8 +492,7 @@ BACKEND
     echo "==> Secret successfully updated in GCP Secret Manager!"
 
   else
-    echo "Error: Unknown command '$ACTION'"
-    echo ""
+    log_error "Unknown command '$ACTION'"
     print_usage
     return 1
   fi

@@ -100,10 +100,10 @@ uv run --package datacommons-cli datacommons admin ingest start --imports <datas
 #### Adding a New CLI Command
 * Define the Click command in `packages/datacommons-admin/datacommons_admin/<group>/<group>_cli.py`.
 * Register the command on the group in `packages/datacommons-admin/datacommons_admin/admin_cli.py`.
-* If the command reads Terraform attributes, fetch them using `get_terraform_output(key)` or the dedicated helper functions in `packages/datacommons-admin/datacommons_admin/core/utils/tf_utils.py` (for example, `get_project_id()`, `get_spanner_instance_id()`, `get_spanner_database_id()`, or `get_ingestion_service_url()`). These helpers resolve outputs either from local state (`terraform.tfstate` or `terraform output -json`) or from remote GCS backend state using the canonical bucket name or the `--tf-state-location` flag.
-* If adding new output keys, define them in `infra/dcp/outputs.tf` and add corresponding helper accessors in `tf_utils.py`. Run the admin unit tests to verify behavior:
+* If the command reads Terraform attributes, pass the root state flags (`project_id`, `instance_name`, `tf_state_location`) into `get_terraform_outputs()` in `packages/datacommons-admin/datacommons_admin/core/terraform/state.py` to load the validated `TerraformOutputs` dataclass defined in `packages/datacommons-admin/datacommons_admin/core/terraform/models.py`. This resolves outputs seamlessly from either local state (`terraform output -json`) or remote GCS backend state (`--project-id` and `--instance-name`, or `--tf-state-location`).
+* If adding new required Terraform outputs, export them in `infra/dcp/modules/stack/outputs.tf` (if delegated) and `infra/dcp/outputs.tf`, add the typed field to `TerraformOutputs` in `core/terraform/models.py`, and update test fixtures in `packages/datacommons-admin/tests/conftest.py`. Run the core unit and contract test suite to verify synchronization:
   ```bash
-  uv run pytest packages/datacommons-admin/tests/core/test_tf_utils.py
+  uv run pytest packages/datacommons-admin/tests/core/
   ```
 
 ### Working on the Database Layer (`datacommons-db`)
