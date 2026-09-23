@@ -352,18 +352,27 @@ class TestValidateReleaseVersion:
         assert exc_info.value.code == 1
 
     def test_validate_release_version_remote_artifacts_success(
-        self, mock_monorepo: Path, monkeypatch: pytest.MonkeyPatch
+        self,
+        mock_monorepo: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture,
     ) -> None:
         """// Test: test_validate_release_version_remote_artifacts_success
 
         // Situation: validate_release_version is called with --check-remote-artifacts
         and all images and templates exist.
-        // Expectation: Validator passes cleanly without error.
+        // Expectation: Validator passes cleanly without error and checks both
+        ingestion and rollback Dataflow artifacts.
         """
         monkeypatch.setattr(
             subprocess, "run", lambda *args, **kwargs: MagicMock(returncode=0)
         )
         validator.validate_release_version("1.0.0", check_remote_artifacts=True)
+        captured = capsys.readouterr().out
+        assert "[OK] Dataflow Worker Image:" in captured
+        assert "[OK] Dataflow Flex Template:" in captured
+        assert "[OK] Rollback Dataflow Worker Image:" in captured
+        assert "[OK] Rollback Dataflow Flex Template:" in captured
 
     def test_validate_release_version_remote_image_missing_fails(
         self, mock_monorepo: Path, monkeypatch: pytest.MonkeyPatch

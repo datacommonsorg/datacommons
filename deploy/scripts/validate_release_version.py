@@ -83,6 +83,55 @@ DATAFLOW_CONFIG = {
 DEFAULT_TEMPLATE_GCS_BASE = DATAFLOW_CONFIG["template_gcs_base"]
 
 
+def _check_gcloud_resource(
+    cmd: list[str], ok_label: str, error_msg: str, errors: list[str]
+) -> None:
+    """Runs a gcloud command to verify a remote artifact exists."""
+    res = subprocess.run(cmd, check=False, capture_output=True, text=True)
+    if res.returncode != 0:
+        detail = f" Details: {res.stderr.strip()}" if res.stderr.strip() else ""
+        errors.append(f"{error_msg}{detail}")
+    else:
+        print(f"  [OK] {ok_label}")
+
+
+def _validate_dataflow_artifacts(
+    label_prefix: str,
+    image_repo: str,
+    template_uri: str,
+    target_version: str,
+    errors: list[str],
+) -> None:
+    """Validates both the worker image and Flex Template spec for a Dataflow pipeline."""
+    image_ref = f"{image_repo}:{target_version}"
+    _check_gcloud_resource(
+        cmd=[
+            "gcloud",
+            "artifacts",
+            "docker",
+            "images",
+            "describe",
+            image_ref,
+            "--format=json",
+        ],
+        ok_label=f"{label_prefix} Worker Image: {image_ref}",
+        error_msg=(
+            f"{label_prefix} Worker Image '{image_ref}' does not exist"
+            " in Artifact Registry."
+        ),
+        errors=errors,
+    )
+    _check_gcloud_resource(
+        cmd=["gcloud", "storage", "ls", template_uri],
+        ok_label=f"{label_prefix} Flex Template: {template_uri}",
+        error_msg=(
+            f"{label_prefix} Flex Template spec '{template_uri}' does not"
+            " exist in GCS."
+        ),
+        errors=errors,
+    )
+
+
 def validate_release_version(
     tag_or_version: str,
     *,
@@ -206,77 +255,42 @@ def validate_release_version(
             # A. Check standard Cloud Run container images in GCR
             for artifact, repo in CONTAINER_IMAGE_MAP.items():
                 image_ref = f"{repo}:{target_version}"
-                cmd = [
-                    "gcloud",
-                    "container",
-                    "images",
-                    "describe",
-                    image_ref,
-                    "--format=json",
-                ]
-                res = subprocess.run(cmd, check=False, capture_output=True, text=True)
-                if res.returncode != 0:
-                    detail = (
-                        f" Details: {res.stderr.strip()}" if res.stderr.strip() else ""
-                    )
-                    errors.append(
+                _check_gcloud_resource(
+                    cmd=[
+                        "gcloud",
+                        "container",
+                        "images",
+                        "describe",
+                        image_ref,
+                        "--format=json",
+                    ],
+                    ok_label=f"Container Image ({artifact}): {image_ref}",
+                    error_msg=(
                         f"Remote container image '{image_ref}' does not exist"
-                        f" in registry.{detail}"
-                    )
-                else:
-                    print(f"  [OK] Container Image ({artifact}): {image_ref}")
+                        " in registry."
+                    ),
+                    errors=errors,
+                )
 
-            # B. Check Dataflow worker container images in Artifact Registry (Ingestion & Rollback)
-            for label, repo_key in (
-                ("Dataflow Worker Image", "image_repo"),
-                ("Rollback Dataflow Worker Image", "rollback_image_repo"),
-            ):
-                df_image_ref = f"{DATAFLOW_CONFIG[repo_key]}:{target_version}"
-                cmd = [
-                    "gcloud",
-                    "artifacts",
-                    "docker",
-                    "images",
-                    "describe",
-                    df_image_ref,
-                    "--format=json",
-                ]
-                res = subprocess.run(cmd, check=False, capture_output=True, text=True)
-                if res.returncode != 0:
-                    detail = (
-                        f" Details: {res.stderr.strip()}" if res.stderr.strip() else ""
-                    )
-                    errors.append(
-                        f"{label} '{df_image_ref}' does not exist in Artifact Registry.{detail}"
-                    )
-                else:
-                    print(f"  [OK] {label}: {df_image_ref}")
-
-            # C. Check Dataflow Flex Template specs in GCS (Ingestion & Rollback)
+            # B. Check Dataflow worker images & Flex Templates (Ingestion & Rollback)
             base_uri = template_gcs_base.rstrip("/")
             rollback_subpath = DATAFLOW_CONFIG["rollback_template_subpath"]
-            for label, template_uri in (
-                (
-                    "Dataflow Flex Template",
-                    f"{base_uri}/ingestion-{target_version}.json",
+            _validate_dataflow_artifacts(
+                label_prefix="Dataflow",
+                image_repo=DATAFLOW_CONFIG["image_repo"],
+                template_uri=f"{base_uri}/ingestion-{target_version}.json",
+                target_version=target_version,
+                errors=errors,
+            )
+            _validate_dataflow_artifacts(
+                label_prefix="Rollback Dataflow",
+                image_repo=DATAFLOW_CONFIG["rollback_image_repo"],
+                template_uri=(
+                    f"{base_uri}/{rollback_subpath}/rollback-{target_version}.json"
                 ),
-                (
-                    "Rollback Dataflow Flex Template",
-                    f"{base_uri}/{rollback_subpath}/rollback-{target_version}.json",
-                ),
-            ):
-                cmd = ["gcloud", "storage", "ls", template_uri]
-                res = subprocess.run(cmd, check=False, capture_output=True, text=True)
-                if res.returncode != 0:
-                    detail = (
-                        f" Details: {res.stderr.strip()}" if res.stderr.strip() else ""
-                    )
-                    errors.append(
-                        f"{label} spec '{template_uri}' does not"
-                        f" exist in GCS.{detail}"
-                    )
-                else:
-                    print(f"  [OK] {label}: {template_uri}")
+                target_version=target_version,
+                errors=errors,
+            )
 
     if errors:
         print("\nRelease validation FAILED with the following error(s):")
