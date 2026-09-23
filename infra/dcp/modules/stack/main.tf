@@ -75,10 +75,6 @@ locals {
     {
       name  = "REGION"
       value = var.global.region
-    },
-    {
-      name  = "USE_SPANNER_GRAPH"
-      value = "true"
     }
   ]
 
