@@ -77,6 +77,18 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
         name  = "REDIS_PORT"
         value = var.redis_port
       }
+      dynamic "env" {
+        for_each = var.redis_auth_secret_id != null ? [var.redis_auth_secret_id] : []
+        content {
+          name = "REDIS_PASSWORD"
+          value_source {
+            secret_key_ref {
+              secret  = env.value
+              version = "latest"
+            }
+          }
+        }
+      }
       env {
         name  = "ENABLE_UNIQUE_INGESTION_RUNS"
         value = "true"
@@ -99,6 +111,16 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
 
     service_account = google_service_account.helper_sa[0].email
   }
+
+  depends_on = [google_secret_manager_secret_iam_member.helper_redis_auth_secret_accessor]
+}
+
+resource "google_secret_manager_secret_iam_member" "helper_redis_auth_secret_accessor" {
+  count     = var.deploy && var.redis_auth_secret_id != null ? 1 : 0
+  project   = var.project_id
+  secret_id = var.redis_auth_secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.helper_sa[0].email}"
 }
 
 resource "google_project_iam_member" "helper_spanner_user" {

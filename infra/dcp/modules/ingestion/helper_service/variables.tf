@@ -70,6 +70,12 @@ variable "redis_port" {
   default     = "6379"
 }
 
+variable "redis_auth_secret_id" {
+  type        = string
+  description = "Optional Secret Manager secret ID holding the Redis AUTH password"
+  default     = null
+}
+
 variable "ingestion_artifacts_path" {
   type        = string
   description = "Path where pre-processed files are placed for the next stage"
