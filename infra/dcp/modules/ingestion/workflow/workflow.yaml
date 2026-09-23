@@ -283,7 +283,7 @@ main:
                   workflow_id: '$${workflow_id}'
                   status: '$${if(rollback_failed, "FAILURE", "SUCCESS")}'
                   stage: 'rollback'
-                  job_id: '$${if(rollback_failed, job_id, rollback_result.rollbackJobId)}'
+                  job_id: null
                   import_list: '$${imports_history_list}'
             - update_ingestion_status_failure:
                 call: update_ingestion_status
@@ -598,7 +598,7 @@ rollback_subworkflow:
   steps:
     - init_rollback_params:
         assign:
-          - rollback_job_name: '$${"${clean_instance_name_prefix}" + "rollback-" + string(int(sys.now()))}'
+          - rollback_job_name: '$${"${clean_instance_name_prefix}rollback-" + string(int(sys.now()))}'
           # RollbackPipelineOptions strictly validates its parameters: only the
           # options below are accepted. Ingestion-only flags (forceCombineNodes,
           # skipDelete, isRollback) are rejected, and tempLocation/stagingLocation
