@@ -31,6 +31,7 @@ main:
           - imports_history_list: []
           - imports_history_str: ""
           - t_pre_timestamp: null
+          - rollback_failed: false
           - launch_params:
               projectId: '$${project_id}'
               spannerInstanceId: '${spanner_instance_id}'
@@ -255,21 +256,34 @@ main:
                   job_id: '$${job_id}'
                   import_list: '$${imports_history_list}'
             - execute_pitr_rollback:
-                call: rollback_subworkflow
-                args:
-                  workflow_id: '$${workflow_id}'
-                  rollback_timestamp: '$${t_pre_timestamp}'
-                  temp_gcs_uri: '$${temp_gcs_uri}'
-                  region: '$${region}'
-                  launch_params: '$${launch_params}'
-                result: rollback_result
-            - update_history_failure:
+                try:
+                  call: rollback_subworkflow
+                  args:
+                    workflow_id: '$${workflow_id}'
+                    rollback_timestamp: '$${t_pre_timestamp}'
+                    temp_gcs_uri: '$${temp_gcs_uri}'
+                    region: '$${region}'
+                    launch_params: '$${launch_params}'
+                  result: rollback_result
+                except:
+                  as: rollback_err
+                  steps:
+                    - log_rollback_failure:
+                        call: sys.log
+                        args:
+                          severity: "ERROR"
+                          text: '$${"PITR rollback failed; holding ingestion lock: " + json.encode_to_string(rollback_err)}'
+                    - mark_rollback_failed:
+                        assign:
+                          - rollback_failed: true
+                          - rollback_result: null
+            - update_history_rollback_final:
                 call: update_history
                 args:
                   workflow_id: '$${workflow_id}'
-                  status: 'FAILURE'
-                  stage: '$${current_stage}'
-                  job_id: '$${job_id}'
+                  status: '$${if(rollback_failed, "FAILURE", "SUCCESS")}'
+                  stage: 'rollback'
+                  job_id: '$${if(rollback_failed, job_id, rollback_result.rollbackJobId)}'
                   import_list: '$${imports_history_list}'
             - update_ingestion_status_failure:
                 call: update_ingestion_status
@@ -281,7 +295,13 @@ main:
             - capture_error:
                 assign:
                   - execution_error: '$${e}'
-    
+
+    - check_lock_release:
+        switch:
+          - condition: '$${rollback_failed}'
+            next: fail_workflow
+        next: release_lock_step
+
     - release_lock_step:
         call: http.post
         args:
