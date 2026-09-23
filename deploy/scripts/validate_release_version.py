@@ -125,8 +125,7 @@ def _validate_dataflow_artifacts(
         cmd=["gcloud", "storage", "ls", template_uri],
         ok_label=f"{label_prefix} Flex Template: {template_uri}",
         error_msg=(
-            f"{label_prefix} Flex Template spec '{template_uri}' does not"
-            " exist in GCS."
+            f"{label_prefix} Flex Template spec '{template_uri}' does not exist in GCS."
         ),
         errors=errors,
     )
