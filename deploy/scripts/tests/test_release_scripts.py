@@ -870,6 +870,11 @@ class TestTagReleaseArtifacts:
         assert "ingestion_helper  : 1.1.1 -> 1.1.2rc1" in captured
         assert "dataflow_image    : [from template 1.1.1] -> 1.1.2rc1" in captured
         assert "ingestion-1.1.1.json -> ingestion-1.1.2rc1.json" in captured
+        assert "rollback_image    : [from template 1.1.1] -> 1.1.2rc1" in captured
+        assert (
+            "rollback/rollback-1.1.1.json -> rollback/rollback-1.1.2rc1.json"
+            in captured
+        )
         assert "gcloud container images add-tag" in captured
         assert "[DRY-RUN]" in captured
         assert "Dry-run complete. No artifacts were modified." in captured
@@ -896,6 +901,11 @@ class TestTagReleaseArtifacts:
         assert "ingestion_helper  : 1.1.2rc2 -> 1.1.2" in captured
         assert "dataflow_image    : [from template 1.1.2rc2] -> 1.1.2" in captured
         assert "ingestion-1.1.2rc2.json -> ingestion-1.1.2.json" in captured
+        assert "rollback_image    : [from template 1.1.2rc2] -> 1.1.2" in captured
+        assert (
+            "rollback/rollback-1.1.2rc2.json -> rollback/rollback-1.1.2.json"
+            in captured
+        )
 
     def test_tag_all_artifacts_redirects_dataflow_latest_to_stable(
         self, capsys: pytest.CaptureFixture
@@ -903,7 +913,7 @@ class TestTagReleaseArtifacts:
         """// Test: test_tag_all_artifacts_redirects_dataflow_latest_to_stable
 
         // Situation: tag_all_artifacts is called with default_source_tag="latest".
-        // Expectation: dataflow template redirects to 'stable', while other images preserve 'latest'.
+        // Expectation: dataflow and rollback templates redirect to 'stable', while other images preserve 'latest'.
         """
         tagger.tag_all_artifacts(
             target_tag="1.1.2rc1",
@@ -917,6 +927,11 @@ class TestTagReleaseArtifacts:
         assert "ingestion_helper  : latest -> 1.1.2rc1" in captured
         assert "dataflow_image    : [from template stable] -> 1.1.2rc1" in captured
         assert "ingestion-stable.json -> ingestion-1.1.2rc1.json" in captured
+        assert "rollback_image    : [from template stable] -> 1.1.2rc1" in captured
+        assert (
+            "rollback/rollback-stable.json -> rollback/rollback-1.1.2rc1.json"
+            in captured
+        )
 
     def test_tag_all_artifacts_dataflow_override_latest_to_stable(
         self, capsys: pytest.CaptureFixture
@@ -924,7 +939,7 @@ class TestTagReleaseArtifacts:
         """// Test: test_tag_all_artifacts_dataflow_override_latest_to_stable
 
         // Situation: dataflow_template_tag="latest" is explicitly passed with a different default_source_tag.
-        // Expectation: dataflow template spec redirects to 'stable'.
+        // Expectation: dataflow and rollback template specs redirect to 'stable'.
         """
         tagger.tag_all_artifacts(
             target_tag="1.1.2rc1",
@@ -936,6 +951,11 @@ class TestTagReleaseArtifacts:
         assert "services          : 1.1.1 -> 1.1.2rc1" in captured
         assert "dataflow_image    : [from template stable] -> 1.1.2rc1" in captured
         assert "ingestion-stable.json -> ingestion-1.1.2rc1.json" in captured
+        assert "rollback_image    : [from template stable] -> 1.1.2rc1" in captured
+        assert (
+            "rollback/rollback-stable.json -> rollback/rollback-1.1.2rc1.json"
+            in captured
+        )
 
     def test_tag_all_artifacts_explicit_dataflow_image_override(
         self, capsys: pytest.CaptureFixture
@@ -943,7 +963,7 @@ class TestTagReleaseArtifacts:
         """// Test: test_tag_all_artifacts_explicit_dataflow_image_override
 
         // Situation: dataflow_image_tag="custom-worker-sha" is explicitly provided.
-        // Expectation: Plan shows custom-worker-sha as dataflow_image source.
+        // Expectation: Plan shows custom-worker-sha as dataflow_image and rollback_image source.
         """
         tagger.tag_all_artifacts(
             target_tag="1.1.2rc1",
@@ -954,7 +974,36 @@ class TestTagReleaseArtifacts:
         captured = capsys.readouterr().out
         assert "dataflow_image    : custom-worker-sha -> 1.1.2rc1" in captured
         assert "ingestion-stable.json -> ingestion-1.1.2rc1.json" in captured
+        assert "rollback_image    : custom-worker-sha -> 1.1.2rc1" in captured
+        assert (
+            "rollback/rollback-stable.json -> rollback/rollback-1.1.2rc1.json"
+            in captured
+        )
         assert "custom-worker-sha (explicit override)" in captured
+
+    def test_tag_all_artifacts_explicit_rollback_overrides(
+        self, capsys: pytest.CaptureFixture
+    ) -> None:
+        """// Test: test_tag_all_artifacts_explicit_rollback_overrides
+
+        // Situation: rollback_template_tag and rollback_image_tag are explicitly overridden.
+        // Expectation: Rollback template and worker image use their overrides while ingestion uses defaults.
+        """
+        tagger.tag_all_artifacts(
+            target_tag="1.1.6rc1",
+            default_source_tag="1.1.5",
+            rollback_template_tag="stable",
+            rollback_image_tag="rb-sha-123",
+            dry_run=True,
+        )
+        captured = capsys.readouterr().out
+        assert "dataflow_image    : [from template 1.1.5] -> 1.1.6rc1" in captured
+        assert "ingestion-1.1.5.json -> ingestion-1.1.6rc1.json" in captured
+        assert "rollback_image    : rb-sha-123 -> 1.1.6rc1" in captured
+        assert (
+            "rollback/rollback-stable.json -> rollback/rollback-1.1.6rc1.json"
+            in captured
+        )
 
     def test_tag_all_artifacts_preserves_explicit_dataflow_version(
         self, capsys: pytest.CaptureFixture
@@ -1081,6 +1130,70 @@ class TestTagReleaseArtifacts:
             == "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion:1.1.3rc2"
         )
         assert uploaded_content["data"]["sdk_info"]["language"] == "JAVA"
+
+    def test_stage_rollback_dataflow_artifacts_dynamic_image_resolution_and_tagging(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """// Test: test_stage_rollback_dataflow_artifacts_dynamic_image_resolution_and_tagging
+
+        // Situation: stage_dataflow_artifacts is called with template_prefix="rollback"
+        and the rollback GCS subpath and Artifact Registry repository.
+        // Expectation: Downloads rollback-<src>.json, tags ingestion-rollback:<target>,
+        and uploads rollback-<target>.json with updated image field.
+        """
+        source_json = tmp_path / "rollback-stable.json"
+        source_json.write_text(
+            json.dumps(
+                {
+                    "image": (
+                        "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion-rollback:a49a6c1"
+                    ),
+                    "sdk_info": {"language": "JAVA"},
+                },
+                indent=2,
+            )
+        )
+
+        uploaded = {}
+        executed_cmds = []
+
+        def mock_gcloud_run(cmd, **kwargs):
+            executed_cmds.append(cmd)
+            if cmd[0] == "gcloud" and cmd[1] == "storage" and cmd[2] == "cp":
+                src = cmd[3]
+                dst = cmd[4]
+                if src.startswith("gs://"):
+                    uploaded["src_uri"] = src
+                    Path(dst).write_text(source_json.read_text())
+                elif dst.startswith("gs://"):
+                    uploaded["target_uri"] = dst
+                    uploaded["data"] = json.loads(Path(src).read_text())
+                return MagicMock(returncode=0)
+            return MagicMock(returncode=0)
+
+        monkeypatch.setattr(subprocess, "run", mock_gcloud_run)
+
+        tagger.stage_dataflow_artifacts(
+            gcs_base="gs://datcom-templates/templates/flex/rollback",
+            template_tag="stable",
+            target_tag="1.1.6rc1",
+            dataflow_image_repo=tagger.ROLLBACK_IMAGE_REPO,
+            template_prefix="rollback",
+            dry_run=False,
+        )
+
+        assert (
+            uploaded["src_uri"]
+            == "gs://datcom-templates/templates/flex/rollback/rollback-stable.json"
+        )
+        assert (
+            uploaded["target_uri"]
+            == "gs://datcom-templates/templates/flex/rollback/rollback-1.1.6rc1.json"
+        )
+        assert (
+            uploaded["data"]["image"]
+            == "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion-rollback:1.1.6rc1"
+        )
 
     def test_stage_dataflow_artifacts_explicit_image_override(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

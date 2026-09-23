@@ -70,10 +70,14 @@ CONTAINER_IMAGE_MAP = {
     "ingestion_helper": "gcr.io/datcom-ci/datacommons-ingestion-helper",
 }
 
-# 2. Dataflow Flex Template & Worker Image Artifacts
+# 2. Dataflow Flex Template & Worker Image Artifacts (Ingestion & Rollback)
 DATAFLOW_CONFIG = {
     "image_repo": "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion",
+    "rollback_image_repo": (
+        "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion-rollback"
+    ),
     "template_gcs_base": "gs://datcom-templates/templates/flex",
+    "rollback_template_subpath": "rollback",
 }
 
 DEFAULT_TEMPLATE_GCS_BASE = DATAFLOW_CONFIG["template_gcs_base"]
@@ -190,7 +194,7 @@ def validate_release_version(
         else:
             print(f"  [OK] infra/dcp/variables.tf (dcp_version default): {m.group(1)}")
 
-    # 5. Optional / CI: Validate remote release artifacts (images & GCS template)
+    # 5. Optional / CI: Validate remote release artifacts (images & GCS templates)
     if check_remote_artifacts:
         print("\nValidating remote release artifacts exist...")
         if not shutil.which("gcloud"):
@@ -222,40 +226,57 @@ def validate_release_version(
                 else:
                     print(f"  [OK] Container Image ({artifact}): {image_ref}")
 
-            # B. Check Dataflow worker container image in Artifact Registry
-            df_image_ref = f"{DATAFLOW_CONFIG['image_repo']}:{target_version}"
-            cmd = [
-                "gcloud",
-                "artifacts",
-                "docker",
-                "images",
-                "describe",
-                df_image_ref,
-                "--format=json",
-            ]
-            res = subprocess.run(cmd, check=False, capture_output=True, text=True)
-            if res.returncode != 0:
-                detail = f" Details: {res.stderr.strip()}" if res.stderr.strip() else ""
-                errors.append(
-                    f"Dataflow worker container image '{df_image_ref}' does not exist in Artifact Registry.{detail}"
-                )
-            else:
-                print(f"  [OK] Dataflow Worker Image: {df_image_ref}")
+            # B. Check Dataflow worker container images in Artifact Registry (Ingestion & Rollback)
+            for label, repo_key in (
+                ("Dataflow Worker Image", "image_repo"),
+                ("Rollback Dataflow Worker Image", "rollback_image_repo"),
+            ):
+                df_image_ref = f"{DATAFLOW_CONFIG[repo_key]}:{target_version}"
+                cmd = [
+                    "gcloud",
+                    "artifacts",
+                    "docker",
+                    "images",
+                    "describe",
+                    df_image_ref,
+                    "--format=json",
+                ]
+                res = subprocess.run(cmd, check=False, capture_output=True, text=True)
+                if res.returncode != 0:
+                    detail = (
+                        f" Details: {res.stderr.strip()}" if res.stderr.strip() else ""
+                    )
+                    errors.append(
+                        f"{label} '{df_image_ref}' does not exist in Artifact Registry.{detail}"
+                    )
+                else:
+                    print(f"  [OK] {label}: {df_image_ref}")
 
-            # C. Check Dataflow Flex Template spec in GCS
-            template_uri = (
-                f"{template_gcs_base.rstrip('/')}/ingestion-{target_version}.json"
-            )
-            cmd = ["gcloud", "storage", "ls", template_uri]
-            res = subprocess.run(cmd, check=False, capture_output=True, text=True)
-            if res.returncode != 0:
-                detail = f" Details: {res.stderr.strip()}" if res.stderr.strip() else ""
-                errors.append(
-                    f"Dataflow Flex Template spec '{template_uri}' does not"
-                    f" exist in GCS.{detail}"
-                )
-            else:
-                print(f"  [OK] Dataflow Flex Template: {template_uri}")
+            # C. Check Dataflow Flex Template specs in GCS (Ingestion & Rollback)
+            base_uri = template_gcs_base.rstrip("/")
+            rollback_subpath = DATAFLOW_CONFIG["rollback_template_subpath"]
+            for label, template_uri in (
+                (
+                    "Dataflow Flex Template",
+                    f"{base_uri}/ingestion-{target_version}.json",
+                ),
+                (
+                    "Rollback Dataflow Flex Template",
+                    f"{base_uri}/{rollback_subpath}/rollback-{target_version}.json",
+                ),
+            ):
+                cmd = ["gcloud", "storage", "ls", template_uri]
+                res = subprocess.run(cmd, check=False, capture_output=True, text=True)
+                if res.returncode != 0:
+                    detail = (
+                        f" Details: {res.stderr.strip()}" if res.stderr.strip() else ""
+                    )
+                    errors.append(
+                        f"{label} spec '{template_uri}' does not"
+                        f" exist in GCS.{detail}"
+                    )
+                else:
+                    print(f"  [OK] {label}: {template_uri}")
 
     if errors:
         print("\nRelease validation FAILED with the following error(s):")
