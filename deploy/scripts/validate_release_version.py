@@ -26,8 +26,8 @@ CHECKS PERFORMED:
   3. All subpackage packages/*/VERSION files match target version.
   4. packages/datacommons-cli/pyproject.toml locks datacommons-admin to ==target_version.
   5. infra/dcp/variables.tf declares dcp_version default matching target_version.
-  6. (Optional/CI via --check-remote-artifacts) All 5 container images exist in GCR/Artifact Registry.
-  7. (Optional/CI via --check-remote-artifacts) Dataflow Flex Template spec exists in GCS.
+  6. (Optional/CI via --check-remote-artifacts) Release container images exist in GCR/Artifact Registry.
+  7. (Optional/CI via --check-remote-artifacts) Dataflow Flex Template specs exist in GCS and reference valid worker images.
 
 NOTE ON INTENTIONAL SELF-CONTAINMENT:
   This script is intentionally self-contained with zero local helper imports so that
@@ -44,6 +44,7 @@ USAGE:
 """
 
 import argparse
+import json
 import re
 import shutil
 import subprocess
@@ -70,17 +71,12 @@ CONTAINER_IMAGE_MAP = {
     "ingestion_helper": "gcr.io/datcom-ci/datacommons-ingestion-helper",
 }
 
-# 2. Dataflow Flex Template & Worker Image Artifacts (Ingestion & Rollback)
-DATAFLOW_CONFIG = {
-    "image_repo": "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion",
-    "rollback_image_repo": (
-        "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion-rollback"
-    ),
-    "template_gcs_base": "gs://datcom-templates/templates/flex",
-    "rollback_template_subpath": "rollback",
+# 2. Dataflow Flex Template GCS Layout
+DEFAULT_TEMPLATE_GCS_BASE = "gs://datcom-templates/templates/flex"
+DATAFLOW_TEMPLATE_SUBPATHS = {
+    "ingestion": "",
+    "rollback": "rollback",
 }
-
-DEFAULT_TEMPLATE_GCS_BASE = DATAFLOW_CONFIG["template_gcs_base"]
 
 
 def _check_gcloud_resource(
@@ -89,21 +85,56 @@ def _check_gcloud_resource(
     """Runs a gcloud command to verify a remote artifact exists."""
     res = subprocess.run(cmd, check=False, capture_output=True, text=True)
     if res.returncode != 0:
-        detail = f" Details: {res.stderr.strip()}" if res.stderr.strip() else ""
+        err_detail = (res.stderr or "").strip() or (res.stdout or "").strip()
+        detail = f" Details: {err_detail}" if err_detail else ""
         errors.append(f"{error_msg}{detail}")
     else:
         print(f"  [OK] {ok_label}")
 
 
 def _validate_dataflow_artifacts(
-    label_prefix: str,
-    image_repo: str,
+    pipeline_name: str,
     template_uri: str,
     target_version: str,
     errors: list[str],
 ) -> None:
-    """Validates both the worker image and Flex Template spec for a Dataflow pipeline."""
-    image_ref = f"{image_repo}:{target_version}"
+    """Validates the Flex Template JSON in GCS and verifies the worker image it references exists."""
+    label = f"{pipeline_name.capitalize()} Dataflow"
+    cat_cmd = ["gcloud", "storage", "cat", template_uri]
+    res = subprocess.run(cat_cmd, check=False, capture_output=True, text=True)
+    if res.returncode != 0:
+        err_detail = (res.stderr or "").strip() or (res.stdout or "").strip()
+        detail = f" Details: {err_detail}" if err_detail else ""
+        errors.append(
+            f"{label} Flex Template spec '{template_uri}' does not exist in GCS.{detail}"
+        )
+        return
+
+    try:
+        data = json.loads(res.stdout or "")
+        if not isinstance(data, dict):
+            raise ValueError("Template JSON root must be a dictionary object.")
+    except (json.JSONDecodeError, ValueError) as e:
+        errors.append(
+            f"{label} Flex Template spec '{template_uri}' contains invalid JSON: {e}"
+        )
+        return
+
+    image_ref = data.get("image")
+    if not image_ref or not isinstance(image_ref, str):
+        errors.append(
+            f"{label} Flex Template spec '{template_uri}' is missing a valid 'image' field."
+        )
+        return
+
+    print(f"  [OK] {label} Flex Template: {template_uri}")
+
+    if not image_ref.endswith(f":{target_version}"):
+        errors.append(
+            f"{label} Flex Template spec '{template_uri}' references image '{image_ref}', "
+            f"expected tag ':{target_version}'."
+        )
+
     _check_gcloud_resource(
         cmd=[
             "gcloud",
@@ -114,18 +145,9 @@ def _validate_dataflow_artifacts(
             image_ref,
             "--format=json",
         ],
-        ok_label=f"{label_prefix} Worker Image: {image_ref}",
+        ok_label=f"{label} Worker Image: {image_ref}",
         error_msg=(
-            f"{label_prefix} Worker Image '{image_ref}' does not exist"
-            " in Artifact Registry."
-        ),
-        errors=errors,
-    )
-    _check_gcloud_resource(
-        cmd=["gcloud", "storage", "ls", template_uri],
-        ok_label=f"{label_prefix} Flex Template: {template_uri}",
-        error_msg=(
-            f"{label_prefix} Flex Template spec '{template_uri}' does not exist in GCS."
+            f"{label} Worker Image '{image_ref}' does not exist in Artifact Registry."
         ),
         errors=errors,
     )
@@ -271,25 +293,19 @@ def validate_release_version(
                     errors=errors,
                 )
 
-            # B. Check Dataflow worker images & Flex Templates (Ingestion & Rollback)
+            # B. Check Dataflow Flex Templates & referenced Worker Images (Ingestion & Rollback)
             base_uri = template_gcs_base.rstrip("/")
-            rollback_subpath = DATAFLOW_CONFIG["rollback_template_subpath"]
-            _validate_dataflow_artifacts(
-                label_prefix="Dataflow",
-                image_repo=DATAFLOW_CONFIG["image_repo"],
-                template_uri=f"{base_uri}/ingestion-{target_version}.json",
-                target_version=target_version,
-                errors=errors,
-            )
-            _validate_dataflow_artifacts(
-                label_prefix="Rollback Dataflow",
-                image_repo=DATAFLOW_CONFIG["rollback_image_repo"],
-                template_uri=(
-                    f"{base_uri}/{rollback_subpath}/rollback-{target_version}.json"
-                ),
-                target_version=target_version,
-                errors=errors,
-            )
+            for name, subpath in DATAFLOW_TEMPLATE_SUBPATHS.items():
+                prefix_path = (
+                    f"{base_uri}/{subpath}".rstrip("/") if subpath else base_uri
+                )
+                template_uri = f"{prefix_path}/{name}-{target_version}.json"
+                _validate_dataflow_artifacts(
+                    pipeline_name=name,
+                    template_uri=template_uri,
+                    target_version=target_version,
+                    errors=errors,
+                )
 
     if errors:
         print("\nRelease validation FAILED with the following error(s):")
@@ -311,7 +327,7 @@ def main() -> None:
     parser.add_argument(
         "--check-remote-artifacts",
         action="store_true",
-        help="Validate that all 5 container images and Dataflow Flex Template exist in remote registries/GCS.",
+        help="Validate that release container images and Dataflow Flex Templates exist in remote registries/GCS.",
     )
     parser.add_argument(
         "--template-bucket",

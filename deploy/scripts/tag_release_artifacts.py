@@ -24,8 +24,8 @@ ARTIFACTS MANAGED:
   2. Preprocessor Image:        gcr.io/datcom-ci/datacommons-data
   3. Postprocessor Image:       gcr.io/datcom-ci/datacommons-aggregation-helper
   4. Ingestion Helper Image:    gcr.io/datcom-ci/datacommons-ingestion-helper
-  5. Dataflow Worker Image:     us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion
-  6. Dataflow Flex Template:    gs://datcom-templates/templates/flex/ingestion-<TAG>.json
+  5. Ingestion Worker Image:    us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion
+  6. Ingestion Flex Template:   gs://datcom-templates/templates/flex/ingestion-<TAG>.json
   7. Rollback Worker Image:     us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion-rollback
   8. Rollback Flex Template:    gs://datcom-templates/templates/flex/rollback/rollback-<TAG>.json
 
@@ -70,20 +70,12 @@ CONTAINER_IMAGE_MAP = {
     "ingestion_helper": "gcr.io/datcom-ci/datacommons-ingestion-helper",
 }
 
-# 2. Dataflow Flex Template & Worker Image Artifacts (Ingestion & Rollback)
-DATAFLOW_CONFIG = {
-    "image_repo": "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion",
-    "rollback_image_repo": (
-        "us-docker.pkg.dev/datcom-ci/gcr.io/dataflow-templates/ingestion-rollback"
-    ),
-    "template_gcs_base": "gs://datcom-templates/templates/flex",
-    "rollback_template_subpath": "rollback",
+# 2. Dataflow Flex Template GCS Layout
+DEFAULT_TEMPLATE_GCS_BASE = "gs://datcom-templates/templates/flex"
+DATAFLOW_TEMPLATE_SUBPATHS = {
+    "ingestion": "",
+    "rollback": "rollback",
 }
-
-DATAFLOW_IMAGE_REPO = DATAFLOW_CONFIG["image_repo"]
-ROLLBACK_IMAGE_REPO = DATAFLOW_CONFIG["rollback_image_repo"]
-DEFAULT_TEMPLATE_GCS_BASE = DATAFLOW_CONFIG["template_gcs_base"]
-ROLLBACK_TEMPLATE_SUBPATH = DATAFLOW_CONFIG["rollback_template_subpath"]
 
 # Anchored SemVer / PEP 440 regex matching releases (1.2.3), pre-releases (1.2.3rc1),
 # and development versions (1.2.0.dev0).
@@ -154,50 +146,42 @@ def stage_dataflow_artifacts(
     gcs_base: str,
     template_tag: str,
     target_tag: str,
-    dataflow_image_repo: str = DATAFLOW_IMAGE_REPO,
     image_tag: str | None = None,
     *,
-    template_prefix: str = "ingestion",
+    subpath: str = "",
+    template_name: str = "ingestion",
+    template_prefix: str | None = None,
     dry_run: bool = False,
 ) -> None:
     """Downloads source template spec, resolves source image, tags worker image, and uploads target template."""
-    src_uri = f"{gcs_base.rstrip('/')}/{template_prefix}-{template_tag}.json"
-    target_uri = f"{gcs_base.rstrip('/')}/{template_prefix}-{target_tag}.json"
-    target_image = f"{dataflow_image_repo}:{target_tag}"
-
-    src_image = (
-        (
-            image_tag
-            if ("/" in image_tag or ":" in image_tag)
-            else f"{dataflow_image_repo}:{image_tag}"
-        )
-        if image_tag
-        else None
-    )
+    name = template_prefix if template_prefix is not None else template_name
+    base_uri = gcs_base.rstrip("/")
+    prefix_path = f"{base_uri}/{subpath}".rstrip("/") if subpath else base_uri
+    src_uri = f"{prefix_path}/{name}-{template_tag}.json"
+    target_uri = f"{prefix_path}/{name}-{target_tag}.json"
 
     print(
-        f"  [DATAFLOW:{template_prefix.upper()}] Staging Dataflow Flex Template & Tagging Worker Image:"
+        f"  [DATAFLOW:{name.upper()}] Staging Dataflow Flex Template & Tagging Worker Image:"
     )
     print(f"             Source Template: {src_uri}")
     print(f"             Target Template: {target_uri}")
-    print(f"             Target Image:    {target_image}")
 
     if dry_run:
-        if src_image:
-            print(f"             Source Image:    {src_image} (explicit override)")
+        if image_tag:
+            print(f"             Source Image:    {image_tag} (explicit override)")
         else:
             print(
                 f"             Source Image:    [dynamic from template {src_uri}['image']]"
             )
         print(
-            f"             [DRY-RUN] Would download {src_uri}, tag image -> {target_image}, set image={target_image}, and upload to {target_uri}"
+            f"             [DRY-RUN] Would download {src_uri}, tag worker image -> :{target_tag}, update 'image' field, and upload to {target_uri}"
         )
         return
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
-        local_src = tmp_path / f"{template_prefix}-{template_tag}.json"
-        local_target = tmp_path / f"{template_prefix}-{target_tag}.json"
+        local_src = tmp_path / f"{name}-{template_tag}.json"
+        local_target = tmp_path / f"{name}-{target_tag}.json"
 
         # 1. Download source template spec
         cp_in_cmd = ["gcloud", "storage", "cp", src_uri, str(local_src)]
@@ -225,19 +209,35 @@ def stage_dataflow_artifacts(
                 f"Error: Failed to parse JSON in downloaded template '{src_uri}': {e}"
             )
 
-        # 3. Resolve source container image
-        if not src_image:
-            src_image = data.get("image")
-            if not src_image or not isinstance(src_image, str):
-                sys.exit(
-                    f"Error: Source template '{src_uri}' missing valid 'image' property (got: {src_image})."
-                )
+        # 3. Derive repository and resolve source/target container image from template
+        template_image = data.get("image")
+        if (
+            not template_image
+            or not isinstance(template_image, str)
+            or ":" not in template_image
+        ):
+            sys.exit(
+                f"Error: Source template '{src_uri}' missing valid 'image' property (got: {template_image})."
+            )
 
+        repo, _ = template_image.rsplit(":", 1)
+        target_image = f"{repo}:{target_tag}"
+
+        if image_tag:
+            src_image = (
+                image_tag
+                if ("/" in image_tag or ":" in image_tag)
+                else f"{repo}:{image_tag}"
+            )
+        else:
+            src_image = template_image
+
+        print(f"             Target Image:    {target_image}")
         print(f"             Source Image:    {src_image}")
 
         # 4. Tag the source image to target tag in Artifact Registry
         tag_container_image(
-            repo=dataflow_image_repo,
+            repo=repo,
             src_tag=src_image,
             target_tag=target_tag,
             dry_run=dry_run,
@@ -314,38 +314,42 @@ def tag_all_artifacts(
         ),
     }
 
-    # Dataflow Flex Template resolution (Ingestion)
-    resolved_template_tag = (
-        normalize_tag(dataflow_template_tag) if dataflow_template_tag else default_src
-    )
-    # Redirect abandoned 'latest' alias to 'stable' for Dataflow template
-    # (mirroring Terraform logic in infra/dcp/main.tf)
-    if resolved_template_tag == "latest":
-        resolved_template_tag = "stable"
+    resolved_template_tags = {
+        "ingestion": (
+            normalize_tag(dataflow_template_tag)
+            if dataflow_template_tag
+            else default_src
+        ),
+        "rollback": (
+            normalize_tag(rollback_template_tag)
+            if rollback_template_tag
+            else (
+                normalize_tag(dataflow_template_tag)
+                if dataflow_template_tag
+                else default_src
+            )
+        ),
+    }
 
-    resolved_image_tag = (
-        normalize_tag(dataflow_image_tag) if dataflow_image_tag else None
-    )
+    # Mirror Terraform logic (infra/dcp/main.tf): redirect abandoned 'latest' alias to 'stable'
+    for name in DATAFLOW_TEMPLATE_SUBPATHS:
+        if resolved_template_tags[name] == "latest":
+            resolved_template_tags[name] = "stable"
 
-    # Dataflow Flex Template resolution (Rollback) — inherits from dataflow_template_tag / default_src
-    resolved_rollback_template_tag = (
-        normalize_tag(rollback_template_tag)
-        if rollback_template_tag
-        else resolved_template_tag
-    )
-    if resolved_rollback_template_tag == "latest":
-        resolved_rollback_template_tag = "stable"
-
-    resolved_rollback_image_tag = (
-        normalize_tag(rollback_image_tag) if rollback_image_tag else resolved_image_tag
-    )
+    resolved_image_tags = {
+        "ingestion": (
+            normalize_tag(dataflow_image_tag) if dataflow_image_tag else None
+        ),
+        "rollback": (normalize_tag(rollback_image_tag) if rollback_image_tag else None),
+    }
 
     # Validate that every required artifact has a resolved source tag
     missing_sources = [k for k, v in resolved_sources.items() if not v]
-    if not resolved_template_tag:
-        missing_sources.append("dataflow_template")
-    if not resolved_rollback_template_tag:
-        missing_sources.append("rollback_template")
+    missing_sources.extend(
+        f"{name}_template"
+        for name in DATAFLOW_TEMPLATE_SUBPATHS
+        if not resolved_template_tags[name]
+    )
 
     if missing_sources:
         sys.exit(
@@ -360,25 +364,21 @@ def tag_all_artifacts(
         src = resolved_sources[artifact]
         print(f"  * {artifact:<18}: {src} -> {target_tag} ({repo})")
 
-    df_img_plan = (
-        f"{resolved_image_tag} -> {target_tag}"
-        if resolved_image_tag
-        else f"[from template {resolved_template_tag}] -> {target_tag}"
-    )
-    print(f"  * {'dataflow_image':<18}: {df_img_plan} ({DATAFLOW_IMAGE_REPO})")
-    print(
-        f"  * {'flex_template':<18}: ingestion-{resolved_template_tag}.json -> ingestion-{target_tag}.json"
-    )
-
-    rb_img_plan = (
-        f"{resolved_rollback_image_tag} -> {target_tag}"
-        if resolved_rollback_image_tag
-        else f"[from template {resolved_rollback_template_tag}] -> {target_tag}"
-    )
-    print(f"  * {'rollback_image':<18}: {rb_img_plan} ({ROLLBACK_IMAGE_REPO})")
-    print(
-        f"  * {'rollback_template':<18}: rollback/rollback-{resolved_rollback_template_tag}.json -> rollback/rollback-{target_tag}.json"
-    )
+    for name, subpath in DATAFLOW_TEMPLATE_SUBPATHS.items():
+        tmpl_tag = resolved_template_tags[name]
+        img_tag = resolved_image_tags[name]
+        img_label = "dataflow_image" if name == "ingestion" else f"{name}_image"
+        tmpl_label = "flex_template" if name == "ingestion" else f"{name}_template"
+        img_plan = (
+            f"{img_tag} -> {target_tag}"
+            if img_tag
+            else f"[from template {tmpl_tag}] -> {target_tag}"
+        )
+        rel_prefix = f"{subpath}/" if subpath else ""
+        print(f"  * {img_label:<18}: {img_plan}")
+        print(
+            f"  * {tmpl_label:<18}: {rel_prefix}{name}-{tmpl_tag}.json -> {rel_prefix}{name}-{target_tag}.json"
+        )
     print("=" * 72)
 
     # 1. Tag standard container images
@@ -394,26 +394,16 @@ def tag_all_artifacts(
 
     # 2. Stage Dataflow Flex Template JSON & Tag Worker Image (Ingestion & Rollback)
     print("\n2. Staging Dataflow Flex Templates & Tagging Worker Images:")
-    stage_dataflow_artifacts(
-        gcs_base=template_gcs_base,
-        template_tag=resolved_template_tag,
-        target_tag=target_tag,
-        dataflow_image_repo=DATAFLOW_IMAGE_REPO,
-        image_tag=resolved_image_tag,
-        template_prefix="ingestion",
-        dry_run=dry_run,
-    )
-
-    rollback_gcs_base = f"{template_gcs_base.rstrip('/')}/{ROLLBACK_TEMPLATE_SUBPATH}"
-    stage_dataflow_artifacts(
-        gcs_base=rollback_gcs_base,
-        template_tag=resolved_rollback_template_tag,
-        target_tag=target_tag,
-        dataflow_image_repo=ROLLBACK_IMAGE_REPO,
-        image_tag=resolved_rollback_image_tag,
-        template_prefix="rollback",
-        dry_run=dry_run,
-    )
+    for name, subpath in DATAFLOW_TEMPLATE_SUBPATHS.items():
+        stage_dataflow_artifacts(
+            gcs_base=template_gcs_base,
+            subpath=subpath,
+            template_name=name,
+            template_tag=resolved_template_tags[name],
+            target_tag=target_tag,
+            image_tag=resolved_image_tags[name],
+            dry_run=dry_run,
+        )
 
     if dry_run:
         print("\nDry-run complete. No artifacts were modified.")
@@ -459,17 +449,19 @@ def main() -> None:
         help="Source tag for datacommons-ingestion-helper image.",
     )
     parser.add_argument(
+        "--ingestion-template-tag",
         "--dataflow-template-tag",
         "--dataflow-template-source-tag",
         dest="dataflow_template_tag",
-        help="Source tag for Dataflow Flex Template spec in GCS (e.g. 'stable' or '1.1.2').",
+        help="Source tag for Ingestion Dataflow Flex Template spec in GCS (e.g. 'stable' or '1.1.2').",
     )
     parser.add_argument(
+        "--ingestion-image-tag",
         "--dataflow-image-tag",
         "--dataflow-image-source-tag",
         dest="dataflow_image_tag",
         help=(
-            "Optional explicit override for Dataflow worker image tag. "
+            "Optional explicit override for Ingestion Dataflow worker image tag. "
             "If omitted, automatically resolved from the source Flex Template JSON."
         ),
     )
@@ -479,7 +471,7 @@ def main() -> None:
         dest="rollback_template_tag",
         help=(
             "Source tag for Rollback Dataflow Flex Template spec in GCS "
-            "(defaults to --dataflow-template-tag / --default-source-tag)."
+            "(defaults to --ingestion-template-tag / --default-source-tag)."
         ),
     )
     parser.add_argument(
