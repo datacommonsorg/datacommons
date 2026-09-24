@@ -77,6 +77,10 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
         name  = "REDIS_PORT"
         value = var.redis_port
       }
+      env {
+        name  = "REDIS_CA_CERT"
+        value = var.redis_ca_cert
+      }
       dynamic "env" {
         for_each = var.redis_auth_secret_id != null ? [var.redis_auth_secret_id] : []
         content {

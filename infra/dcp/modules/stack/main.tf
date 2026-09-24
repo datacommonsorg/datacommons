@@ -17,8 +17,9 @@ module "network" {
 
 locals {
 
-  redis_host = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
-  redis_port = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
+  redis_host    = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
+  redis_port    = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
+  redis_ca_cert = var.redis_config.enable && var.redis_config.enable_tls && length(module.redis) > 0 ? module.redis[0].redis_ca_cert : ""
 
   effective_dataflow_subnetwork = (
     var.ingestion_config.dataflow_subnetwork != "" ? var.ingestion_config.dataflow_subnetwork :
@@ -48,6 +49,10 @@ locals {
     {
       name  = "REDIS_PORT"
       value = local.redis_port
+    },
+    {
+      name  = "REDIS_CA_CERT"
+      value = local.redis_ca_cert
     },
     {
       name = "GCP_SPANNER_INSTANCE_ID"
@@ -226,6 +231,7 @@ module "ingestion_helper_service" {
   redis_host               = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
   redis_port               = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
   redis_auth_secret_id     = var.redis_config.enable && var.redis_config.enable_auth && length(module.redis) > 0 ? module.redis[0].redis_auth_secret_id : null
+  redis_ca_cert            = local.redis_ca_cert
   ingestion_artifacts_path = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
   skip_container_restarts  = var.global.skip_container_restarts
 }
@@ -277,6 +283,7 @@ module "redis" {
   alternative_location_id = var.redis_config.alternative_location_id
   replica_count           = var.redis_config.replica_count
   enable_auth             = var.redis_config.enable_auth
+  enable_tls              = var.redis_config.enable_tls
   vpc_network_id          = module.network.network_id
 
   depends_on = [module.network, terraform_data.redis_network_validation]

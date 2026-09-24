@@ -76,6 +76,12 @@ variable "redis_auth_secret_id" {
   default     = null
 }
 
+variable "redis_ca_cert" {
+  type        = string
+  description = "Optional PEM-encoded CA certificate(s) for Redis TLS (SERVER_AUTHENTICATION)"
+  default     = ""
+}
+
 variable "ingestion_artifacts_path" {
   type        = string
   description = "Path where pre-processed files are placed for the next stage"

@@ -41,3 +41,9 @@ variable "enable_auth" {
   description = "Enable Redis AUTH (password authentication) on the Memorystore instance"
   default     = true
 }
+
+variable "enable_tls" {
+  type        = bool
+  description = "Enable in-transit TLS encryption (SERVER_AUTHENTICATION) on the Memorystore instance"
+  default     = true
+}

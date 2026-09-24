@@ -94,6 +94,7 @@ variable "redis_config" {
     alternative_location_id = string
     replica_count           = number
     enable_auth             = optional(bool, true)
+    enable_tls              = optional(bool, true)
   })
 }
 

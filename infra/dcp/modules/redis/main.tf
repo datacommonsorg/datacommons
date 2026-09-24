@@ -17,6 +17,7 @@ resource "google_redis_instance" "redis_instance" {
   authorized_network      = var.vpc_network_id
   connect_mode            = "DIRECT_PEERING"
   auth_enabled            = var.enable_auth
+  transit_encryption_mode = var.enable_tls ? "SERVER_AUTHENTICATION" : "DISABLED"
 }
 
 resource "google_secret_manager_secret" "redis_auth" {

@@ -134,6 +134,7 @@ locals {
     alternative_location_id = var.redis_alternative_location_id
     replica_count           = var.redis_replica_count
     enable_auth             = var.redis_enable_auth
+    enable_tls              = var.redis_enable_tls
   }
 
   ingestion_config = {
