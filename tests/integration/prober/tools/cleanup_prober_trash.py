@@ -68,14 +68,8 @@ def run_gcloud(args: list[str], project: str) -> list[dict] | dict:
         return []
 
 
-AUTO_YES = False
-
-
 def confirm_delete(resource_type: str, resource_id: str) -> bool:
     """Prompts the user explicitly before deleting any resource. Defaults to NO."""
-    if AUTO_YES:
-        print(f"  [Auto-Approved] Deleting {resource_type} '{resource_id}'...")
-        return True
     try:
         reply = (
             input(f"  ❓ Delete {resource_type} '{resource_id}'? [y/N]: ")
@@ -102,17 +96,7 @@ def main():
         default=os.environ.get("GCP_REGION", "us-central1"),
         help="GCP Region (default: us-central1)",
     )
-    parser.add_argument(
-        "-y",
-        "--yes",
-        action="store_true",
-        help="Automatically approve deletion of detected ephemeral resources without prompting",
-    )
     args = parser.parse_args()
-
-    global AUTO_YES
-    if args.yes:
-        AUTO_YES = True
 
     project = args.project
     region = args.region
@@ -445,7 +429,7 @@ def main():
                 if is_ephemeral_prober_resource(sa_name):
                     if confirm_delete("Orphaned IAM Member", f"{m} ({role})"):
                         print(f"  Removing IAM binding {m} from {role}...")
-                        subprocess.run(
+                        res = subprocess.run(
                             [
                                 "gcloud",
                                 "projects",
@@ -455,9 +439,16 @@ def main():
                                 f"--role={role}",
                                 "--all",
                                 "--quiet",
+                                "--format=none",
                             ],
                             check=False,
+                            capture_output=True,
+                            text=True,
                         )
+                        if res.returncode == 0:
+                            print(f"    ✔ Successfully removed {m} from {role}.")
+                        else:
+                            print(f"    ❌ Error removing IAM binding: {res.stderr.strip()}")
                     else:
                         print(f"  Skipped IAM binding {m}")
 
