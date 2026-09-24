@@ -218,6 +218,18 @@ variable "redis_replica_count" {
   default     = 1
 }
 
+variable "redis_enable_auth" {
+  description = "Enable Redis AUTH (password authentication) on the Memorystore instance. When true, the auto-generated AUTH password is stored in Secret Manager and mounted as REDIS_PASSWORD on DCP services."
+  type        = bool
+  default     = true
+}
+
+variable "redis_enable_tls" {
+  description = "Enable in-transit TLS encryption (SERVER_AUTHENTICATION) on the Memorystore instance. When true, the auto-generated CA certificate is passed as REDIS_CA_CERT on DCP services."
+  type        = bool
+  default     = true
+}
+
 # =============================================================================
 # Spanner Module
 # =============================================================================
