@@ -112,7 +112,6 @@ services:
       - GCP_PROJECT_ID=default
       - GCP_SPANNER_INSTANCE_ID=default
       - GCP_SPANNER_DATABASE_NAME=test-db
-      - USE_SPANNER_GRAPH=true
       - USE_SPANNER_KEY_VALUE_STORE=true
       - USE_CLOUDSQL=false
       - ENABLE_MCP=true
