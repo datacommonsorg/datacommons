@@ -17,8 +17,9 @@ module "network" {
 
 locals {
 
-  redis_host = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
-  redis_port = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
+  redis_host    = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
+  redis_port    = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
+  redis_ca_cert = var.redis_config.enable && var.redis_config.enable_tls && length(module.redis) > 0 ? module.redis[0].redis_ca_cert : ""
 
   effective_dataflow_subnetwork = (
     var.ingestion_config.dataflow_subnetwork != "" ? var.ingestion_config.dataflow_subnetwork :
@@ -50,6 +51,10 @@ locals {
       value = local.redis_port
     },
     {
+      name  = "REDIS_CA_CERT"
+      value = local.redis_ca_cert
+    },
+    {
       name = "GCP_SPANNER_INSTANCE_ID"
       # Use index [0] because module.spanner is now conditional (count). Fallback to empty string if disabled.
       value = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
@@ -78,19 +83,29 @@ locals {
     }
   ]
 
-  datacommons_services_secrets = var.datacommons_services_config.enable ? concat([
-    {
-      name    = "DC_API_KEY"
-      secret  = module.auth.dc_api_key_secret_id
-      version = "latest"
-    }
-    ], !var.datacommons_services_config.website_disable_google_maps_api ? [
-    {
-      name    = "MAPS_API_KEY"
-      secret  = module.auth.maps_api_key_secret_id
-      version = "latest"
-    }
-  ] : []) : []
+  datacommons_services_secrets = var.datacommons_services_config.enable ? concat(
+    [
+      {
+        name    = "DC_API_KEY"
+        secret  = module.auth.dc_api_key_secret_id
+        version = "latest"
+      }
+    ],
+    !var.datacommons_services_config.website_disable_google_maps_api ? [
+      {
+        name    = "MAPS_API_KEY"
+        secret  = module.auth.maps_api_key_secret_id
+        version = "latest"
+      }
+    ] : [],
+    var.redis_config.enable && var.redis_config.enable_auth && length(module.redis) > 0 ? [
+      {
+        name    = "REDIS_PASSWORD"
+        secret  = module.redis[0].redis_auth_secret_id
+        version = "latest"
+      }
+    ] : []
+  ) : []
 }
 
 module "spanner" {
@@ -215,6 +230,8 @@ module "ingestion_helper_service" {
   vpc_access               = module.network.vpc_access
   redis_host               = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
   redis_port               = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
+  redis_auth_secret_id     = var.redis_config.enable && var.redis_config.enable_auth && length(module.redis) > 0 ? module.redis[0].redis_auth_secret_id : null
+  redis_ca_cert            = local.redis_ca_cert
   ingestion_artifacts_path = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
   skip_container_restarts  = var.global.skip_container_restarts
 }
@@ -266,9 +283,11 @@ module "redis" {
   location_id             = var.redis_config.location_id
   alternative_location_id = var.redis_config.alternative_location_id
   replica_count           = var.redis_config.replica_count
-  vpc_network_id          = module.network.network_id != null && module.network.network_id != "" ? module.network.network_id : "projects/${var.global.project_id}/global/networks/default"
+  enable_auth             = var.redis_config.enable_auth
+  enable_tls              = var.redis_config.enable_tls
+  vpc_network_id          = module.network.network_id
 
-  depends_on = [module.network]
+  depends_on = [module.network, terraform_data.redis_network_validation]
 }
 
 module "auth" {
