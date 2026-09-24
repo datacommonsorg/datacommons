@@ -105,43 +105,108 @@ def provision_infra(
     tf_git_ref: str,
     dc_api_key: str,
     dcp_version: str = "latest",
+    local: bool = False,
 ) -> Path:
     """Phase 1: Provisions isolated DCP infrastructure via 'datacommons admin init' and Terraform."""
     print("\n" + "=" * 80)
     print("PHASE 1: PROVISIONING ISOLATED DCP INFRASTRUCTURE")
     print("=" * 80)
 
-    # Step 1: Scaffold workspace using official 'datacommons admin init' command via dynamic uvx
-    print(
-        f"\n==> [Phase 1.1] Scaffolding workspace via 'datacommons admin init' (ref: {tf_git_ref})..."
-    )
     bucket_name = f"tf-state-{prober_name}-{project_id}"
-    init_cmd = build_git_cli_cmd(
-        tf_git_ref,
-        [
+    instance_dir = workspace_dir / instance_name
+
+    if local:
+        print(
+            "\n==> [Phase 1.1] Scaffolding workspace using local CLI & Terraform modules..."
+        )
+        # Run local CLI to scaffold instance workspace
+        init_cmd = [
+            "uv",
+            "run",
+            "datacommons",
             "admin",
             "init",
             f"--project-id={project_id}",
             f"--instance-name={instance_name}",
-            f"--tf-git-ref={tf_git_ref}",
             f"--tf-state-bucket={bucket_name}",
             f"--tf-state-prefix=ephemeral/{instance_name}",
             f"--dc-api-key={dc_api_key}",
             "--force",
-        ],
-    )
-    run_cmd_with_retry(
-        init_cmd,
-        cwd=workspace_dir,
-        max_attempts=2,
-    )
-
-    # The admin init command scaffolds into workspace_dir / instance_name
-    instance_dir = workspace_dir / instance_name
-    if not instance_dir.exists():
-        raise FileNotFoundError(
-            f"Expected scaffolding directory was not created at: {instance_dir}"
+        ]
+        run_cmd_with_retry(
+            init_cmd,
+            cwd=workspace_dir,
+            max_attempts=2,
         )
+
+        if not instance_dir.exists():
+            raise FileNotFoundError(
+                f"Expected scaffolding directory was not created at: {instance_dir}"
+            )
+
+        # In local mode, point the stack module to local infra/dcp/modules
+        local_infra_dcp = REPO_ROOT / "infra" / "dcp"
+        local_modules = local_infra_dcp / "modules"
+        target_modules = instance_dir / "modules"
+
+        # Symlink local modules
+        if target_modules.is_symlink() or target_modules.is_dir() or target_modules.exists():
+            try:
+                target_modules.unlink(missing_ok=True)
+            except Exception:
+                shutil.rmtree(target_modules, ignore_errors=True)
+
+        target_modules.symlink_to(local_modules, target_is_directory=True)
+
+        # Copy local root Terraform files from infra/dcp to ensure root variables and definitions match local code exactly
+        for tf_file in ["variables.tf", "main.tf", "outputs.tf"]:
+            src_file = local_infra_dcp / tf_file
+            if src_file.exists():
+                shutil.copy2(src_file, instance_dir / tf_file)
+
+        # Ensure main.tf uses local module path './modules/stack'
+        main_tf_path = instance_dir / "main.tf"
+        if main_tf_path.exists():
+            import re
+
+            content = main_tf_path.read_text(encoding="utf-8")
+            # Replace any git:: module source with local source
+            content = re.sub(
+                r'source\s*=\s*["\']git::https?://[^"\']+["\']',
+                'source = "./modules/stack"',
+                content,
+            )
+            main_tf_path.write_text(content, encoding="utf-8")
+
+    else:
+        # Step 1: Scaffold workspace using official 'datacommons admin init' command via dynamic uvx
+        print(
+            f"\n==> [Phase 1.1] Scaffolding workspace via 'datacommons admin init' (ref: {tf_git_ref})..."
+        )
+        init_cmd = build_git_cli_cmd(
+            tf_git_ref,
+            [
+                "admin",
+                "init",
+                f"--project-id={project_id}",
+                f"--instance-name={instance_name}",
+                f"--tf-git-ref={tf_git_ref}",
+                f"--tf-state-bucket={bucket_name}",
+                f"--tf-state-prefix=ephemeral/{instance_name}",
+                f"--dc-api-key={dc_api_key}",
+                "--force",
+            ],
+        )
+        run_cmd_with_retry(
+            init_cmd,
+            cwd=workspace_dir,
+            max_attempts=2,
+        )
+
+        if not instance_dir.exists():
+            raise FileNotFoundError(
+                f"Expected scaffolding directory was not created at: {instance_dir}"
+            )
 
     # Step 2: Apply ephemeral prober variable overrides
     print("\n==> [Phase 1.2] Applying ephemeral prober variable overrides...")
@@ -192,6 +257,7 @@ def run_tests(
     report_output: str,
     tf_git_ref: str = "main",
     dcp_version: str = "latest",
+    local: bool = False,
 ) -> int:
     """Phase 2: Executes full integration test suite against the provisioned instance."""
     print("\n" + "=" * 80)
@@ -199,20 +265,24 @@ def run_tests(
     print("=" * 80)
 
     e2e_script = REPO_ROOT / "tests" / "integration" / "run_e2e_tests.py"
+    cmd = [
+        "uv",
+        "run",
+        "--no-sync",
+        "python",
+        str(e2e_script),
+        f"--workspace={instance_dir}",
+        f"--test-config={test_config}",
+        f"--dcp-version={dcp_version}",
+        f"--report-output={report_output}",
+    ]
+    if local:
+        cmd.append("--cli-source=local")
+    else:
+        cmd.extend(["--cli-source=git", f"--cli-version={tf_git_ref}"])
+
     test_res = run_cmd_with_retry(
-        [
-            "uv",
-            "run",
-            "--no-sync",
-            "python",
-            str(e2e_script),
-            f"--workspace={instance_dir}",
-            f"--test-config={test_config}",
-            "--cli-source=git",
-            f"--cli-version={tf_git_ref}",
-            f"--dcp-version={dcp_version}",
-            f"--report-output={report_output}",
-        ],
+        cmd,
         max_attempts=1,
         check=False,
     )
@@ -302,6 +372,11 @@ def main():
         action="store_true",
         help="Skip terraform destroy (for debugging failed runs)",
     )
+    parser.add_argument(
+        "--local",
+        action="store_true",
+        help="Use local CLI code and local Terraform modules instead of fetching from GitHub",
+    )
     args = parser.parse_args()
 
     # Ensure SSL_CERT_FILE is populated on macOS to avoid urllib certificate verification errors
@@ -334,7 +409,8 @@ def main():
     print(f"  Instance Name: {instance_name}")
     print(f"  Project ID:    {args.project}")
     print(f"  Prober Name:   {args.prober_name}")
-    print(f"  Git Ref:       {args.tf_git_ref}")
+    print(f"  Git Ref:       {args.tf_git_ref if not args.local else 'LOCAL'}")
+    print(f"  Local Mode:    {args.local}")
     print(f"  DCP Version:   {args.dcp_version}")
     print(f"  Workspace:     {workspace_dir}")
     print("=" * 80)
@@ -354,6 +430,7 @@ def main():
             tf_git_ref=args.tf_git_ref,
             dc_api_key=dc_api_key,
             dcp_version=args.dcp_version,
+            local=args.local,
         )
         deploy_success = True
 
@@ -364,6 +441,7 @@ def main():
             report_output=args.report_output,
             tf_git_ref=args.tf_git_ref,
             dcp_version=args.dcp_version,
+            local=args.local,
         )
 
     finally:
