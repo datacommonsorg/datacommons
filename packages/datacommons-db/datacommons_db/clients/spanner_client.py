@@ -14,17 +14,52 @@
 
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from enum import StrEnum
+from pathlib import Path
 from typing import Any
 
 from google.auth.credentials import Credentials
 from google.cloud import spanner
 from google.cloud.spanner_v1.transaction import Transaction
 
+from datacommons_db.utils.sql_utils import (
+    parse_sql_to_statements,
+    render_schema_template,
+)
 from datacommons_db.utils.validators import (
     validate_resource_id,
     validate_table_name,
 )
+
+# Canonical bootstrap ontology nodes required by Data Commons graph schema
+BOOTSTRAP_NODES: dict[str, dict[str, Any]] = {
+    "StatisticalVariable": {
+        "name": "StatisticalVariable",
+        "value": "StatisticalVariable",
+        "types": ["Class"],
+    },
+    "StatVarGroup": {
+        "name": "StatVarGroup",
+        "value": "StatVarGroup",
+        "types": ["Class"],
+    },
+    "StatVarObservation": {
+        "name": "StatVarObservation",
+        "value": "StatVarObservation",
+        "types": ["Class"],
+    },
+    "Topic": {
+        "name": "Topic",
+        "value": "Topic",
+        "types": ["Class"],
+    },
+    "dc/g/Root": {
+        "name": "Data Commons Variables",
+        "value": "dc/g/Root",
+        "types": ["StatVarGroup"],
+    },
+}
 
 
 class ExecutionStatus(StrEnum):
@@ -249,3 +284,232 @@ class SpannerClient:
             return QueryResult(
                 status=ExecutionStatus.ERROR, rows=[], error_message=str(e)
             )
+
+    def initialize_database(
+        self,
+        schema_path: Path | str | None = None,
+        *,
+        embedding_table: str = "NodeEmbedding",
+        embedding_index: str = "NodeEmbeddingIndex",
+        embedding_label_index: str = "NodeEmbeddingLabelIndex",
+        embedding_space: int = 768,
+        models: list[dict[str, str]] | None = None,
+        location: str | None = None,
+    ) -> DdlResult:
+        """Initializes the database by executing all base schema DDL statements.
+
+        Resolves template placeholders in the baseline schema file (or custom schema path)
+        and applies the DDL statements to Cloud Spanner.
+
+        Args:
+            schema_path: Path to the schema SQL file. If None, uses the bundled schema.sql.
+            embedding_table: Name of the vector embedding table. Defaults to 'NodeEmbedding'.
+            embedding_index: Name of the vector search index. Defaults to 'NodeEmbeddingIndex'.
+            embedding_label_index: Name of the secondary index on embedding label. Defaults to 'NodeEmbeddingLabelIndex'.
+            embedding_space: Dimensionality of embedding vectors. Defaults to 768.
+            models: List of model dictionaries with 'name' and 'endpoint'. Defaults to text-embedding-005.
+            location: GCP region for model endpoints. Defaults to 'us-central1'.
+
+        Returns:
+            DdlResult indicating execution status.
+        """
+        if schema_path is None:
+            resolved_schema_path = (
+                Path(__file__).parent.parent / "schema" / "schema.sql"
+            )
+        else:
+            resolved_schema_path = Path(schema_path)
+
+        if not resolved_schema_path.exists():
+            return DdlResult(
+                status=ExecutionStatus.ERROR,
+                error_message=f"Schema file not found at '{resolved_schema_path}'",
+            )
+
+        template_content = resolved_schema_path.read_text(encoding="utf-8")
+        rendered_sql = render_schema_template(
+            template_content,
+            project_id=self.project_id,
+            location=location or "us-central1",
+            embedding_table=embedding_table,
+            embedding_index=embedding_index,
+            embedding_label_index=embedding_label_index,
+            embedding_space=embedding_space,
+            models=models,
+        )
+        statements = parse_sql_to_statements(rendered_sql)
+        return self.execute_ddl(statements)
+
+    def seed_database(self) -> DmlResult:
+        """Seeds the database with base empty nodes in the Node table.
+
+        Inserts the bootstrap nodes required for graph relationships if they do
+        not already exist.
+
+        Returns:
+            DmlResult indicating status and rows affected.
+        """
+        def _seed(transaction: Transaction) -> int:
+            subjects = list(BOOTSTRAP_NODES.keys())
+            sql = "SELECT subject_id FROM Node WHERE subject_id IN UNNEST(@subjects)"
+            params = {"subjects": subjects}
+            param_types = {"subjects": spanner.param_types.Array(spanner.param_types.STRING)}
+
+            existing: set[str] = set()
+            for row in transaction.execute_sql(sql, params=params, param_types=param_types):
+                existing.add(str(row[0]))
+
+            missing_subjects = [s for s in subjects if s not in existing]
+            if not missing_subjects:
+                return 0
+
+            dml_stmt = """
+                INSERT INTO Node (subject_id, name, value, types, last_update_timestamp)
+                VALUES (@subject_id, @name, @value, @types, PENDING_COMMIT_TIMESTAMP())
+            """
+            for s in missing_subjects:
+                node = BOOTSTRAP_NODES[s]
+                transaction.execute_update(
+                    dml_stmt,
+                    params={
+                        "subject_id": s,
+                        "name": node["name"],
+                        "value": node["value"],
+                        "types": node["types"],
+                    },
+                    param_types={
+                        "subject_id": spanner.param_types.STRING,
+                        "name": spanner.param_types.STRING,
+                        "value": spanner.param_types.STRING,
+                        "types": spanner.param_types.Array(spanner.param_types.STRING),
+                    },
+                )
+            return len(missing_subjects)
+
+        try:
+            rows_affected = self.database.run_in_transaction(_seed)
+            return DmlResult(status=ExecutionStatus.SUCCESS, rows_affected=rows_affected)
+        except Exception as e:  # noqa: BLE001
+            return DmlResult(
+                status=ExecutionStatus.ERROR,
+                rows_affected=0,
+                error_message=str(e),
+            )
+
+    def acquire_lock(
+        self,
+        workflow_id: str,
+        timeout: int = 300,
+        lock_id: str = "global_ingestion_lock",
+    ) -> bool:
+        """Attempts to acquire the global ingestion lock directly in Spanner.
+
+        Args:
+            workflow_id: The ID of the workflow or process attempting to acquire the lock.
+            timeout: Maximum duration in seconds after which a held lock is considered stale.
+            lock_id: Identifier of the lock row in IngestionLock. Defaults to 'global_ingestion_lock'.
+
+        Returns:
+            True if the lock was acquired, False if currently held by an active owner.
+
+        Raises:
+            Exception: If database transaction execution fails.
+        """
+
+        def _acquire(transaction: Transaction) -> bool:
+            sql = "SELECT LockOwner, AcquiredTimestamp FROM IngestionLock WHERE LockID = @lockId"
+            params = {"lockId": lock_id}
+            param_types = {"lockId": spanner.param_types.STRING}
+
+            row_found = False
+            current_owner = None
+            acquired_at = None
+
+            results = transaction.execute_sql(sql, params=params, param_types=param_types)
+            for row in results:
+                row_found = True
+                current_owner, acquired_at = row[0], row[1]
+
+            lock_is_available = False
+            if not row_found or current_owner is None:
+                lock_is_available = True
+            elif acquired_at is not None:
+                now_utc = datetime.now(UTC)
+                if isinstance(acquired_at, datetime):
+                    acquired_dt = (
+                        acquired_at
+                        if acquired_at.tzinfo
+                        else acquired_at.replace(tzinfo=UTC)
+                    )
+                    elapsed = (now_utc - acquired_dt).total_seconds()
+                    if elapsed > timeout:
+                        lock_is_available = True
+
+            if lock_is_available:
+                if not row_found:
+                    sql_statement = """
+                        INSERT INTO IngestionLock (LockID, LockOwner, AcquiredTimestamp)
+                        VALUES (@lockId, @workflowId, PENDING_COMMIT_TIMESTAMP())
+                    """
+                else:
+                    sql_statement = """
+                        UPDATE IngestionLock
+                        SET LockOwner = @workflowId, AcquiredTimestamp = PENDING_COMMIT_TIMESTAMP()
+                        WHERE LockID = @lockId
+                    """
+                transaction.execute_update(
+                    sql_statement,
+                    params={"workflowId": workflow_id, "lockId": lock_id},
+                    param_types={
+                        "workflowId": spanner.param_types.STRING,
+                        "lockId": spanner.param_types.STRING,
+                    },
+                )
+                return True
+            return False
+
+        return self.database.run_in_transaction(_acquire)
+
+    def release_lock(
+        self,
+        workflow_id: str,
+        lock_id: str = "global_ingestion_lock",
+    ) -> bool:
+        """Releases the global lock if currently owned by the specified workflow_id.
+
+        Args:
+            workflow_id: The ID of the workflow or process attempting to release the lock.
+            lock_id: Identifier of the lock row in IngestionLock. Defaults to 'global_ingestion_lock'.
+
+        Returns:
+            True if the lock was owned and successfully released, False otherwise.
+
+        Raises:
+            Exception: If database transaction execution fails.
+        """
+
+        def _release(transaction: Transaction) -> bool:
+            sql = "SELECT LockOwner, AcquiredTimestamp FROM IngestionLock WHERE LockID = @lockId"
+            params = {"lockId": lock_id}
+            param_types = {"lockId": spanner.param_types.STRING}
+
+            current_owner = None
+            results = transaction.execute_sql(sql, params=params, param_types=param_types)
+            for row in results:
+                current_owner = row[0]
+
+            if current_owner == workflow_id:
+                sql_update = """
+                    UPDATE IngestionLock
+                    SET LockOwner = NULL, AcquiredTimestamp = NULL
+                    WHERE LockID = @lockId
+                """
+                transaction.execute_update(
+                    sql_update,
+                    params={"lockId": lock_id},
+                    param_types={"lockId": spanner.param_types.STRING},
+                )
+                return True
+            return False
+
+        return self.database.run_in_transaction(_release)

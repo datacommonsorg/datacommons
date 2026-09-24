@@ -14,7 +14,6 @@
 
 from unittest.mock import MagicMock, patch
 
-import click
 import pytest
 from click.testing import CliRunner
 from datacommons_admin.admin_cli import admin
@@ -26,7 +25,7 @@ from datacommons_db.migrations.migration_runner import MigrationResult
 @pytest.fixture
 def mock_migration_setup():
     with (
-        patch("datacommons_admin.db.db_cli._setup_ingestion_client") as mock_setup,
+        patch("datacommons_admin.db.db_cli._setup_spanner_client") as mock_setup,
         patch(
             "datacommons_admin.db.utils.migration_utils._create_migration_runner"
         ) as mock_runner_factory,
@@ -37,6 +36,7 @@ def mock_migration_setup():
             "mock-proj",
             "mock-instance",
             "mock-db",
+            "us-central1",
         )
 
         mock_runner = MagicMock()
@@ -137,15 +137,11 @@ def test_migrate_db_lock_busy_error(
 ) -> None:
     mock_client, mock_runner = mock_migration_setup
     mock_runner.get_pending_migrations.return_value = [mock_pending_migration]
-    mock_client.acquire_lock.side_effect = click.ClickException(
-        "Could not acquire database lock: Ingestion Helper returned HTTP 503\n"
-        "An ingestion workflow may currently be running. "
-        "Please wait for active ingestions to finish before running migrations."
-    )
+    mock_client.acquire_lock.return_value = False
 
     result = runner.invoke(admin, ["migrate-db", "-y"])
     assert result.exit_code != 0
-    assert "Ingestion Helper returned HTTP 503" in result.output
+    assert "Could not acquire database lock: Lock is currently held" in result.output
     assert (
         "Please wait for active ingestions to finish before running migrations"
         in result.output

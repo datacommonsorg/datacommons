@@ -12,14 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any
-
 import click
-
-from datacommons_admin.core.clients import IngestionHelperClient
-from datacommons_admin.core.utils.ui_utils import _confirm
 from datacommons_db.clients import SpannerClient
 from datacommons_db.migrations import MigrationRunner
+
+from datacommons_admin.core.utils.ui_utils import _confirm
 
 
 def is_database_initialized(
@@ -47,14 +44,18 @@ def is_database_initialized(
 
 
 def _create_migration_runner(
-    project_id: str, instance_id: str, database_id: str
+    project_id: str,
+    instance_id: str,
+    database_id: str,
+    spanner_client: SpannerClient | None = None,
 ) -> MigrationRunner:
-    """Initializes a SpannerClient and returns a MigrationRunner instance.
+    """Initializes a SpannerClient (if not provided) and returns a MigrationRunner instance.
 
     Args:
         project_id: GCP project ID hosting the Spanner database.
         instance_id: Cloud Spanner instance ID.
         database_id: Cloud Spanner database ID.
+        spanner_client: Optional pre-configured SpannerClient to reuse.
 
     Returns:
         A MigrationRunner instance initialized with a SpannerClient.
@@ -63,21 +64,21 @@ def _create_migration_runner(
         click.ClickException: If initialization of the SpannerClient or MigrationRunner fails.
     """
     try:
-        spanner_client = SpannerClient(
+        client = spanner_client or SpannerClient(
             project_id=project_id,
             instance_id=instance_id,
             database_id=database_id,
         )
-        return MigrationRunner(spanner_client=spanner_client)
+        return MigrationRunner(spanner_client=client)
     except Exception as e:
         raise click.ClickException(f"Failed to initialize migration runner: {e}") from e
 
 
-def _apply_migrations(client: Any, runner: MigrationRunner) -> bool:
+def _apply_migrations(spanner_client: SpannerClient, runner: MigrationRunner) -> bool:
     """Acquires a distributed database lock and applies all pending migrations.
 
     Args:
-        client: IngestionHelperClient instance used for database lock management.
+        spanner_client: SpannerClient instance used for database lock management.
         runner: MigrationRunner instance used to execute schema migrations.
 
     Returns:
@@ -86,12 +87,17 @@ def _apply_migrations(client: Any, runner: MigrationRunner) -> bool:
     Raises:
         click.ClickException: If acquiring the database lock or applying migrations fails.
     """
-    # Attempt to acquire Spanner database lock via the Ingestion Helper service.
     click.secho(
-        "Acquiring database lock via the Ingestion Helper service...",
+        "Acquiring database lock directly via Cloud Spanner...",
         fg="bright_black",
     )
-    client.acquire_lock(workflow_id="schema-migration")
+    acquired = spanner_client.acquire_lock(workflow_id="schema-migration")
+    if not acquired:
+        raise click.ClickException(
+            "Could not acquire database lock: Lock is currently held by another process or workflow.\n"
+            "An ingestion workflow may currently be running. "
+            "Please wait for active ingestions to finish before running migrations."
+        )
 
     try:
         # Apply all pending migrations
@@ -112,12 +118,12 @@ def _apply_migrations(client: Any, runner: MigrationRunner) -> bool:
     finally:
         # Always attempt to release the database lock after migration attempt
         click.secho(
-            "Releasing database lock via the Ingestion Helper service...",
+            "Releasing database lock directly via Cloud Spanner...",
             fg="bright_black",
         )
         try:
-            client.release_lock(workflow_id="schema-migration")
-        except Exception as e:
+            spanner_client.release_lock(workflow_id="schema-migration")
+        except Exception as e:  # noqa: BLE001
             click.secho(
                 f"Warning: {e}",
                 fg="yellow",
@@ -147,16 +153,17 @@ def _confirm_migration(num_pending: int, instance_id: str, database_id: str) -> 
 
 
 def _run_migrations(
-    client: IngestionHelperClient,
+    spanner_client: SpannerClient,
     project_id: str,
     instance_id: str,
     database_id: str,
+    *,
     auto_approve: bool = False,
 ) -> bool:
     """Checks, optionally confirms, and applies pending schema migrations to Spanner.
 
     Args:
-        client: IngestionHelperClient instance.
+        spanner_client: SpannerClient instance.
         project_id: GCP project ID hosting the Spanner database.
         instance_id: Cloud Spanner instance ID.
         database_id: Cloud Spanner database ID.
@@ -172,7 +179,9 @@ def _run_migrations(
         f"Checking schema migrations for Spanner database '{project_id}/{instance_id}/{database_id}'...",
         fg="bright_black",
     )
-    runner = _create_migration_runner(project_id, instance_id, database_id)
+    runner = _create_migration_runner(
+        project_id, instance_id, database_id, spanner_client=spanner_client
+    )
 
     # Fetch pending migrations.
     try:
@@ -200,4 +209,4 @@ def _run_migrations(
         return False
 
     # Apply migrations
-    return _apply_migrations(client, runner)
+    return _apply_migrations(spanner_client, runner)

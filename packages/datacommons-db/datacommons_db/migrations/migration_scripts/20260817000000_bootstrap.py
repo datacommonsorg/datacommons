@@ -30,19 +30,24 @@ class Migration(SchemaMigration):
     creation_timestamp: str = "2026-08-17T00:00:00Z"
 
     def upgrade(self, spanner_client: SpannerClient) -> None:
-        """Executes forward schema changes to initialize SchemaMigrations table.
+        """Executes forward schema changes to initialize SchemaMigrations table and baseline schema.
 
         Args:
             spanner_client: SpannerClient instance to execute DDL / DML.
 
         Raises:
-            RuntimeError: If SchemaMigrations table already exists or DDL operation fails.
+            RuntimeError: If DDL operations fail.
         """
-        if spanner_client.table_exists("SchemaMigrations"):
-            raise RuntimeError("Table 'SchemaMigrations' already exists.")
+        if not spanner_client.table_exists("SchemaMigrations"):
+            result = spanner_client.execute_ddl([_CREATE_SCHEMA_MIGRATIONS_TABLE_DDL])
+            if result.status != ExecutionStatus.SUCCESS:
+                raise RuntimeError(
+                    f"Failed to create SchemaMigrations table: {result.error_message}"
+                )
 
-        result = spanner_client.execute_ddl([_CREATE_SCHEMA_MIGRATIONS_TABLE_DDL])
-        if result.status != ExecutionStatus.SUCCESS:
-            raise RuntimeError(
-                f"Failed to create SchemaMigrations table: {result.error_message}"
-            )
+        if not spanner_client.table_exists("Node"):
+            init_result = spanner_client.initialize_database()
+            if init_result.status != ExecutionStatus.SUCCESS:
+                raise RuntimeError(
+                    f"Failed to initialize baseline schema from schema.sql: {init_result.error_message}"
+                )

@@ -22,11 +22,19 @@ Any malformed migration script submitted in a PR will fail these tests and block
 
 import ast
 import datetime
+import importlib
 import inspect
 import re
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import datacommons_db.migrations.migration_scripts
+import pytest
+from datacommons_db.clients.spanner_client import (
+    DdlResult,
+    ExecutionStatus,
+    SpannerClient,
+)
 from datacommons_db.migrations import MigrationRunner
 
 FILENAME_PATTERN = re.compile(r"^(\d{14})_[a-z0-9_]+\.py$")
@@ -176,3 +184,73 @@ def test_all_migration_scripts_valid_ast_structure():
         assert "upgrade" in method_names, (
             f"{script_file.name} class {mig_class.name} must define an 'upgrade' method"
         )
+
+
+def test_bootstrap_migration_upgrade_fresh_database() -> None:
+    """Verifies that the bootstrap migration initializes SchemaMigrations table and baseline schema on fresh DB."""
+    bootstrap_mod = importlib.import_module(
+        "datacommons_db.migrations.migration_scripts.20260817000000_bootstrap"
+    )
+    migration = bootstrap_mod.Migration()
+    mock_client = MagicMock(spec=SpannerClient)
+    mock_client.table_exists.return_value = False
+    mock_client.execute_ddl.return_value = DdlResult(status=ExecutionStatus.SUCCESS)
+    mock_client.initialize_database.return_value = DdlResult(status=ExecutionStatus.SUCCESS)
+
+    migration.upgrade(mock_client)
+
+    assert mock_client.table_exists.call_count == 2
+    mock_client.execute_ddl.assert_called_once()
+    assert "CREATE TABLE SchemaMigrations" in mock_client.execute_ddl.call_args[0][0][0]
+    mock_client.initialize_database.assert_called_once()
+
+
+def test_bootstrap_migration_upgrade_already_initialized() -> None:
+    """Verifies that the bootstrap migration skips existing SchemaMigrations table and Node table."""
+    bootstrap_mod = importlib.import_module(
+        "datacommons_db.migrations.migration_scripts.20260817000000_bootstrap"
+    )
+    migration = bootstrap_mod.Migration()
+
+    mock_client = MagicMock(spec=SpannerClient)
+    mock_client.table_exists.return_value = True
+
+    migration.upgrade(mock_client)
+
+    mock_client.execute_ddl.assert_not_called()
+    mock_client.initialize_database.assert_not_called()
+
+
+def test_bootstrap_migration_ddl_failure_raises() -> None:
+    """Verifies that bootstrap migration raises RuntimeError if SchemaMigrations creation fails."""
+    bootstrap_mod = importlib.import_module(
+        "datacommons_db.migrations.migration_scripts.20260817000000_bootstrap"
+    )
+    migration = bootstrap_mod.Migration()
+
+    mock_client = MagicMock(spec=SpannerClient)
+    mock_client.table_exists.return_value = False
+    mock_client.execute_ddl.return_value = DdlResult(
+        status=ExecutionStatus.ERROR, error_message="DDL failed"
+    )
+
+    with pytest.raises(RuntimeError, match="Failed to create SchemaMigrations table"):
+        migration.upgrade(mock_client)
+
+
+def test_bootstrap_migration_schema_sql_failure_raises() -> None:
+    """Verifies that bootstrap migration raises RuntimeError if initialize_database fails."""
+    bootstrap_mod = importlib.import_module(
+        "datacommons_db.migrations.migration_scripts.20260817000000_bootstrap"
+    )
+    migration = bootstrap_mod.Migration()
+
+    mock_client = MagicMock(spec=SpannerClient)
+    mock_client.table_exists.side_effect = lambda tbl: tbl == "SchemaMigrations"
+    mock_client.initialize_database.return_value = DdlResult(
+        status=ExecutionStatus.ERROR, error_message="schema.sql syntax error"
+    )
+
+    with pytest.raises(RuntimeError, match="Failed to initialize baseline schema"):
+        migration.upgrade(mock_client)
+

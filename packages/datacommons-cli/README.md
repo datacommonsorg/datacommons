@@ -129,9 +129,8 @@ These options can be passed to `datacommons admin` for any administrative comman
 | Command | Description |
 | --- | --- |
 | **`init`** | Scaffolds a localized Terraform deployment directory for the Data Commons Platform on Google Cloud Platform (GCP). |
-| **`init-db`** | Configures database schemas and seeds baseline tables on Cloud Spanner via the Ingestion Helper service. |
+| **`init-db`** | Configures database schema and applies migrations on Cloud Spanner. |
 | **`migrate-db`** | Checks and applies pending schema migrations to the Cloud Spanner database. |
-| **`seed-db`** | Seeds or re-applies base geographic entities and schema definitions to Cloud Spanner. |
 | **`ingest start`** | Triggers a Cloud Workflows + Cloud Run background data ingestion pipeline for custom datasets. |
 | **`ingest show-config`**| Displays current background ingestion parameters, service URLs, and Cloud Run job environment variables. |
 
@@ -155,7 +154,7 @@ Key Options:
 - `--force`: Overwrite existing files in the target directory if present.
 
 #### `datacommons admin init-db`
-Initializes database schema, applies all migrations, and seeds baseline geographic data on Cloud Spanner. If the database has already been initialized, the command safely detects it and prompts you to use `migrate-db` or `seed-db`.
+Initializes database schema and applies all pending migrations on Cloud Spanner.
 
 ```bash
 # Local state mode:
@@ -163,9 +162,6 @@ datacommons admin init-db
 
 # Remote state mode:
 datacommons admin --project-id my-project --instance-name my-instance init-db
-
-# Initialize schemas and migrations only (skip baseline data seeding):
-datacommons admin init-db --init-only
 ```
 
 #### `datacommons admin migrate-db`
@@ -181,15 +177,6 @@ datacommons admin --project-id my-project --instance-name my-instance migrate-db
 
 Key Options:
 - `-y`, `--yes`: Automatically confirm and apply pending migrations without interactive prompts.
-
-#### `datacommons admin seed-db`
-Seeds baseline geographic nodes and schema mappings on Cloud Spanner via the Ingestion Helper service.
-
-```bash
-datacommons admin seed-db
-# Or via remote state:
-datacommons admin --project-id my-project --instance-name my-instance seed-db
-```
 
 #### `datacommons admin ingest start`
 Triggers an asynchronous data ingestion workflow using Google Cloud Workflows and Cloud Run. Prints the execution ID and a direct Google Cloud Console link for live monitoring.
@@ -237,9 +224,6 @@ datacommons admin ingest start --imports my_import
 ```bash
 # Run migrations non-interactively without local Terraform files
 datacommons admin --project-id my-project --instance-name prod migrate-db -y
-
-# Re-seed Spanner database from anywhere
-datacommons admin --project-id my-project --instance-name prod seed-db
 
 # Trigger ingestion using an explicit GCS state URI
 datacommons admin --tf-state-location gs://my-project-prod-tfstate/terraform/state/prod/default.tfstate ingest start --imports my_dataset

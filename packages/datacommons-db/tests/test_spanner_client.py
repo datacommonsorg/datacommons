@@ -74,6 +74,14 @@ class FakeSnapshot:
             return []
 
         # 2. Fallback / generic test queries
+        if "ingestionlock" in query.lower():
+            if "IngestionLock" in self.db.tables:
+                return [
+                    [r.get("LockOwner"), r.get("AcquiredTimestamp")]
+                    for r in self.db.tables["IngestionLock"]
+                ]
+            return []
+
         if "custom_test_table" in self.db.tables:
             return self.db.tables["custom_test_table"]
 
@@ -96,6 +104,15 @@ class FakeTransaction:
         self.last_params: dict[str, object] | None = None
         self.last_param_types: dict[str, object] | None = None
 
+    def execute_sql(
+        self,
+        query: str,
+        params: dict[str, object] | None = None,
+        param_types: dict[str, object] | None = None,
+    ) -> list[list[object]]:
+        """Execute a query within a transaction."""
+        return self.db.snapshot().execute_sql(query, params=params, param_types=param_types)
+
     def execute_update(
         self,
         query: str,
@@ -115,6 +132,41 @@ class FakeTransaction:
         self.last_query = query
         self.last_params = params
         self.last_param_types = param_types
+
+        # Handle IngestionLock mutations
+        if "ingestionlock" in query.lower():
+            from datetime import UTC, datetime
+            self.db.tables.setdefault("IngestionLock", [])
+            lock_id = params.get("lockId") if params else "global_ingestion_lock"
+            workflow_id = params.get("workflowId") if params else None
+
+            existing = None
+            for row in self.db.tables["IngestionLock"]:
+                if row.get("LockID") == lock_id:
+                    existing = row
+                    break
+
+            if "insert into ingestionlock" in query.lower():
+                self.db.tables["IngestionLock"].append({
+                    "LockID": lock_id,
+                    "LockOwner": workflow_id,
+                    "AcquiredTimestamp": datetime.now(UTC),
+                })
+            elif "update ingestionlock" in query.lower():
+                if existing:
+                    existing["LockOwner"] = workflow_id
+                    existing["AcquiredTimestamp"] = (
+                        datetime.now(UTC) if workflow_id else None
+                    )
+                else:
+                    self.db.tables["IngestionLock"].append({
+                        "LockID": lock_id,
+                        "LockOwner": workflow_id,
+                        "AcquiredTimestamp": (
+                            datetime.now(UTC) if workflow_id else None
+                        ),
+                    })
+
         return 1
 
 
@@ -442,3 +494,92 @@ def test_execute_query_error(fake_spanner_db: FakeSpannerDatabase):
     assert result.status == ExecutionStatus.ERROR
     assert result.rows == []
     assert "Snapshot read failed" in result.error_message
+
+
+# ==============================================================================
+# Database Lifecycle & Locking Tests
+# ==============================================================================
+
+
+def test_initialize_database_success(fake_spanner_db: FakeSpannerDatabase):
+    client = SpannerClient("proj", "inst", "db")
+    result = client.initialize_database()
+    assert isinstance(result, DdlResult)
+    assert result.status == ExecutionStatus.SUCCESS
+    assert client.table_exists("Node") is True
+    assert client.table_exists("Edge") is True
+    assert client.table_exists("TimeSeries") is True
+    assert client.table_exists("Observation") is True
+    assert client.table_exists("IngestionLock") is True
+
+
+def test_initialize_database_missing_file():
+    client = SpannerClient("proj", "inst", "db")
+    result = client.initialize_database(schema_path="/nonexistent/schema.sql")
+    assert result.status == ExecutionStatus.ERROR
+    assert "Schema file not found" in result.error_message
+
+
+def test_seed_database_success(fake_spanner_db: FakeSpannerDatabase):
+    client = SpannerClient("proj", "inst", "db")
+    result = client.seed_database()
+    assert isinstance(result, DmlResult)
+    assert result.status == ExecutionStatus.SUCCESS
+    assert result.rows_affected == 5
+
+
+def test_seed_database_idempotent(fake_spanner_db: FakeSpannerDatabase):
+    client = SpannerClient("proj", "inst", "db")
+    # Simulate that subjects are already present
+    fake_spanner_db.snapshot = MagicMock()
+    mock_snapshot = MagicMock()
+    mock_snapshot.execute_sql.return_value = [
+        ["StatisticalVariable"],
+        ["StatVarGroup"],
+        ["StatVarObservation"],
+        ["Topic"],
+        ["dc/g/Root"],
+    ]
+    fake_spanner_db.snapshot.return_value = mock_snapshot
+
+    result = client.seed_database()
+    assert result.status == ExecutionStatus.SUCCESS
+    assert result.rows_affected == 0
+
+
+def test_acquire_and_release_lock_lifecycle(fake_spanner_db: FakeSpannerDatabase):
+    client = SpannerClient("proj", "inst", "db")
+
+    # 1. Acquire lock
+    acquired = client.acquire_lock(workflow_id="test-workflow")
+    assert acquired is True
+
+    # 2. Release lock
+    released = client.release_lock(workflow_id="test-workflow")
+    assert released is True
+
+
+def test_acquire_lock_held_by_other(fake_spanner_db: FakeSpannerDatabase):
+    client = SpannerClient("proj", "inst", "db")
+
+    # Mock snapshot returning an active lock owned by another workflow
+    mock_snapshot = MagicMock()
+    from datetime import UTC, datetime
+
+    mock_snapshot.execute_sql.return_value = [["other-owner", datetime.now(UTC)]]
+    fake_spanner_db.snapshot = MagicMock(return_value=mock_snapshot)
+
+    acquired = client.acquire_lock(workflow_id="my-workflow", timeout=300)
+    assert acquired is False
+
+
+def test_release_lock_not_owner(fake_spanner_db: FakeSpannerDatabase):
+    client = SpannerClient("proj", "inst", "db")
+
+    # Mock snapshot returning lock owned by someone else
+    mock_snapshot = MagicMock()
+    mock_snapshot.execute_sql.return_value = [["other-owner", None]]
+    fake_spanner_db.snapshot = MagicMock(return_value=mock_snapshot)
+
+    released = client.release_lock(workflow_id="my-workflow")
+    assert released is False
