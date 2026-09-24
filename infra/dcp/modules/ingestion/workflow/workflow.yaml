@@ -247,6 +247,28 @@ main:
         except:
           as: e
           steps:
+            - extract_error_job_id:
+                try:
+                  assign:
+                    - job_id: '$${default(map.get(e, "job_id"), job_id)}'
+                except:
+                  as: _map_err
+                  assign:
+                    - job_id: '$${job_id}'
+            - check_should_rollback:
+                switch:
+                  - condition: '$${job_id != null}'
+                    next: update_history_rollback_starting
+                next: update_history_no_rollback
+            - update_history_no_rollback:
+                call: update_history
+                args:
+                  workflow_id: '$${workflow_id}'
+                  status: 'FAILURE'
+                  stage: '$${current_stage}'
+                  job_id: null
+                  import_list: '$${imports_history_list}'
+                next: update_ingestion_status_failure
             - update_history_rollback_starting:
                 call: update_history
                 args:
@@ -264,7 +286,6 @@ main:
                     temp_gcs_uri: '$${temp_gcs_uri}'
                     region: '$${region}'
                     launch_params: '$${launch_params}'
-                  result: rollback_result
                 except:
                   as: rollback_err
                   steps:
@@ -276,7 +297,6 @@ main:
                     - mark_rollback_failed:
                         assign:
                           - rollback_failed: true
-                          - rollback_result: null
             - update_history_rollback_final:
                 call: update_history
                 args:
@@ -511,7 +531,10 @@ launch_and_poll_dataflow:
             next: return_success
     
     - fail_on_job_status:
-        raise: '$${ "Dataflow job failed with state: " + job_status.currentState }'
+        raise:
+          message: '$${ "Dataflow job failed with state: " + job_status.currentState }'
+          job_id: $${job_id}
+          code: 500
         
     - return_success:
         return:
