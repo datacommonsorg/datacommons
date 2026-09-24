@@ -111,7 +111,9 @@ class FakeTransaction:
         param_types: dict[str, object] | None = None,
     ) -> list[list[object]]:
         """Execute a query within a transaction."""
-        return self.db.snapshot().execute_sql(query, params=params, param_types=param_types)
+        return self.db.snapshot().execute_sql(
+            query, params=params, param_types=param_types
+        )
 
     def execute_update(
         self,
@@ -136,6 +138,7 @@ class FakeTransaction:
         # Handle IngestionLock mutations
         if "ingestionlock" in query.lower():
             from datetime import UTC, datetime
+
             self.db.tables.setdefault("IngestionLock", [])
             lock_id = params.get("lockId") if params else "global_ingestion_lock"
             workflow_id = params.get("workflowId") if params else None
@@ -147,11 +150,13 @@ class FakeTransaction:
                     break
 
             if "insert into ingestionlock" in query.lower():
-                self.db.tables["IngestionLock"].append({
-                    "LockID": lock_id,
-                    "LockOwner": workflow_id,
-                    "AcquiredTimestamp": datetime.now(UTC),
-                })
+                self.db.tables["IngestionLock"].append(
+                    {
+                        "LockID": lock_id,
+                        "LockOwner": workflow_id,
+                        "AcquiredTimestamp": datetime.now(UTC),
+                    }
+                )
             elif "update ingestionlock" in query.lower():
                 if existing:
                     existing["LockOwner"] = workflow_id
@@ -159,13 +164,15 @@ class FakeTransaction:
                         datetime.now(UTC) if workflow_id else None
                     )
                 else:
-                    self.db.tables["IngestionLock"].append({
-                        "LockID": lock_id,
-                        "LockOwner": workflow_id,
-                        "AcquiredTimestamp": (
-                            datetime.now(UTC) if workflow_id else None
-                        ),
-                    })
+                    self.db.tables["IngestionLock"].append(
+                        {
+                            "LockID": lock_id,
+                            "LockOwner": workflow_id,
+                            "AcquiredTimestamp": (
+                                datetime.now(UTC) if workflow_id else None
+                            ),
+                        }
+                    )
 
         return 1
 

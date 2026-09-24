@@ -195,7 +195,9 @@ def test_bootstrap_migration_upgrade_fresh_database() -> None:
     mock_client = MagicMock(spec=SpannerClient)
     mock_client.table_exists.return_value = False
     mock_client.execute_ddl.return_value = DdlResult(status=ExecutionStatus.SUCCESS)
-    mock_client.initialize_database.return_value = DdlResult(status=ExecutionStatus.SUCCESS)
+    mock_client.initialize_database.return_value = DdlResult(
+        status=ExecutionStatus.SUCCESS
+    )
 
     migration.upgrade(mock_client)
 
@@ -253,4 +255,3 @@ def test_bootstrap_migration_schema_sql_failure_raises() -> None:
 
     with pytest.raises(RuntimeError, match="Failed to initialize baseline schema"):
         migration.upgrade(mock_client)
-

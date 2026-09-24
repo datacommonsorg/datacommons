@@ -349,14 +349,19 @@ class SpannerClient:
         Returns:
             DmlResult indicating status and rows affected.
         """
+
         def _seed(transaction: Transaction) -> int:
             subjects = list(BOOTSTRAP_NODES.keys())
             sql = "SELECT subject_id FROM Node WHERE subject_id IN UNNEST(@subjects)"
             params = {"subjects": subjects}
-            param_types = {"subjects": spanner.param_types.Array(spanner.param_types.STRING)}
+            param_types = {
+                "subjects": spanner.param_types.Array(spanner.param_types.STRING)
+            }
 
             existing: set[str] = set()
-            for row in transaction.execute_sql(sql, params=params, param_types=param_types):
+            for row in transaction.execute_sql(
+                sql, params=params, param_types=param_types
+            ):
                 existing.add(str(row[0]))
 
             missing_subjects = [s for s in subjects if s not in existing]
@@ -388,7 +393,9 @@ class SpannerClient:
 
         try:
             rows_affected = self.database.run_in_transaction(_seed)
-            return DmlResult(status=ExecutionStatus.SUCCESS, rows_affected=rows_affected)
+            return DmlResult(
+                status=ExecutionStatus.SUCCESS, rows_affected=rows_affected
+            )
         except Exception as e:  # noqa: BLE001
             return DmlResult(
                 status=ExecutionStatus.ERROR,
@@ -425,7 +432,9 @@ class SpannerClient:
             current_owner = None
             acquired_at = None
 
-            results = transaction.execute_sql(sql, params=params, param_types=param_types)
+            results = transaction.execute_sql(
+                sql, params=params, param_types=param_types
+            )
             for row in results:
                 row_found = True
                 current_owner, acquired_at = row[0], row[1]
@@ -494,7 +503,9 @@ class SpannerClient:
             param_types = {"lockId": spanner.param_types.STRING}
 
             current_owner = None
-            results = transaction.execute_sql(sql, params=params, param_types=param_types)
+            results = transaction.execute_sql(
+                sql, params=params, param_types=param_types
+            )
             for row in results:
                 current_owner = row[0]
 
