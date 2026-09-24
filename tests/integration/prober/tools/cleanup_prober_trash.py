@@ -224,22 +224,24 @@ def main():
                 backups = run_gcloud(
                     ["spanner", "backups", "list", f"--instance={name}"], project
                 )
-                for b in backups:
-                    b_name = b.get("name", "").split("/")[-1]
-                    print(f"    Deleting Spanner Backup {b_name} in {name}...")
-                    subprocess.run(
-                        [
-                            "gcloud",
-                            "spanner",
-                            "backups",
-                            "delete",
-                            b_name,
-                            f"--instance={name}",
-                            f"--project={project}",
-                            "--quiet",
-                        ],
-                        check=False,
-                    )
+                if isinstance(backups, list):
+                    for b in backups:
+                        if isinstance(b, dict) and b.get("name"):
+                            b_name = b["name"].split("/")[-1]
+                            print(f"    Deleting Spanner Backup {b_name} in {name}...")
+                            subprocess.run(
+                                [
+                                    "gcloud",
+                                    "spanner",
+                                    "backups",
+                                    "delete",
+                                    b_name,
+                                    f"--instance={name}",
+                                    f"--project={project}",
+                                    "--quiet",
+                                ],
+                                check=False,
+                            )
                 print(f"  Deleting Spanner Instance {name}...")
                 subprocess.run(
                     [
@@ -448,7 +450,9 @@ def main():
                         if res.returncode == 0:
                             print(f"    ✔ Successfully removed {m} from {role}.")
                         else:
-                            print(f"    ❌ Error removing IAM binding: {res.stderr.strip()}")
+                            print(
+                                f"    ❌ Error removing IAM binding: {res.stderr.strip()}"
+                            )
                     else:
                         print(f"  Skipped IAM binding {m}")
 
