@@ -68,8 +68,14 @@ def run_gcloud(args: list[str], project: str) -> list[dict] | dict:
         return []
 
 
+AUTO_YES = False
+
+
 def confirm_delete(resource_type: str, resource_id: str) -> bool:
     """Prompts the user explicitly before deleting any resource. Defaults to NO."""
+    if AUTO_YES:
+        print(f"  [Auto-Approved] Deleting {resource_type} '{resource_id}'...")
+        return True
     try:
         reply = (
             input(f"  ❓ Delete {resource_type} '{resource_id}'? [y/N]: ")
@@ -96,7 +102,17 @@ def main():
         default=os.environ.get("GCP_REGION", "us-central1"),
         help="GCP Region (default: us-central1)",
     )
+    parser.add_argument(
+        "-y",
+        "--yes",
+        action="store_true",
+        help="Automatically approve deletion of detected ephemeral resources without prompting",
+    )
     args = parser.parse_args()
+
+    global AUTO_YES
+    if args.yes:
+        AUTO_YES = True
 
     project = args.project
     region = args.region
@@ -220,6 +236,26 @@ def main():
         name = inst.get("name", "").split("/")[-1]
         if is_ephemeral_prober_resource(name):
             if confirm_delete("Spanner Instance", name):
+                # Delete any existing backups first; Spanner prevents instance deletion if backups exist.
+                backups = run_gcloud(
+                    ["spanner", "backups", "list", f"--instance={name}"], project
+                )
+                for b in backups:
+                    b_name = b.get("name", "").split("/")[-1]
+                    print(f"    Deleting Spanner Backup {b_name} in {name}...")
+                    subprocess.run(
+                        [
+                            "gcloud",
+                            "spanner",
+                            "backups",
+                            "delete",
+                            b_name,
+                            f"--instance={name}",
+                            f"--project={project}",
+                            "--quiet",
+                        ],
+                        check=False,
+                    )
                 print(f"  Deleting Spanner Instance {name}...")
                 subprocess.run(
                     [
@@ -417,6 +453,7 @@ def main():
                                 project,
                                 f"--member={m}",
                                 f"--role={role}",
+                                "--all",
                                 "--quiet",
                             ],
                             check=False,
