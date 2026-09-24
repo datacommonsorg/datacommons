@@ -9,4 +9,5 @@ output "redis_port" {
 output "redis_auth_secret_id" {
   description = "The Secret Manager secret ID holding the Redis AUTH string, or null if enable_auth is false"
   value       = var.enable_auth ? google_secret_manager_secret.redis_auth[0].secret_id : null
+  depends_on  = [google_secret_manager_secret_version.redis_auth_version]
 }
