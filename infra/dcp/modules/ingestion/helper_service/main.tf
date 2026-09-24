@@ -14,10 +14,8 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
   location            = var.region
   deletion_protection = var.stateless_deletion_protection
 
-  # TODO: Restrict ingress to INGRESS_TRAFFIC_INTERNAL_ONLY once datacommons-admin CLI
-  # supports triggering seed-db and init-db via Cloud Workflows/Jobs or VPC bastion proxies.
-  # Note: IAM authentication (roles/run.invoker) is still strictly enforced by Cloud Run.
-  ingress = "INGRESS_TRAFFIC_ALL"
+  # Ingress is restricted to internal VPC traffic only.
+  ingress = "INGRESS_TRAFFIC_INTERNAL_ONLY"
 
   template {
     timeout = "1800s"
