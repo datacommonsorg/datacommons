@@ -36,7 +36,7 @@ variable "vpc_network_id" {
   description = "The VPC network ID or self_link to peer the Redis instance to"
 }
 
-variable "auth_enabled" {
+variable "enable_auth" {
   type        = bool
   description = "Enable Redis AUTH (password authentication) on the Memorystore instance"
   default     = true

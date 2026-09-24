@@ -218,7 +218,7 @@ variable "redis_replica_count" {
   default     = 1
 }
 
-variable "redis_auth_enabled" {
+variable "redis_enable_auth" {
   description = "Enable Redis AUTH (password authentication) on the Memorystore instance. When true, the auto-generated AUTH password is stored in Secret Manager and mounted as REDIS_PASSWORD on DCP services."
   type        = bool
   default     = true

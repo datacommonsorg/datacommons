@@ -93,7 +93,7 @@ locals {
         version = "latest"
       }
     ] : [],
-    var.redis_config.enable && var.redis_config.auth_enabled && length(module.redis) > 0 ? [
+    var.redis_config.enable && var.redis_config.enable_auth && length(module.redis) > 0 ? [
       {
         name    = "REDIS_PASSWORD"
         secret  = module.redis[0].redis_auth_secret_id
@@ -225,7 +225,7 @@ module "ingestion_helper_service" {
   vpc_access               = module.network.vpc_access
   redis_host               = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
   redis_port               = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
-  redis_auth_secret_id     = var.redis_config.enable && var.redis_config.auth_enabled && length(module.redis) > 0 ? module.redis[0].redis_auth_secret_id : null
+  redis_auth_secret_id     = var.redis_config.enable && var.redis_config.enable_auth && length(module.redis) > 0 ? module.redis[0].redis_auth_secret_id : null
   ingestion_artifacts_path = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
   skip_container_restarts  = var.global.skip_container_restarts
 }
@@ -276,7 +276,7 @@ module "redis" {
   location_id             = var.redis_config.location_id
   alternative_location_id = var.redis_config.alternative_location_id
   replica_count           = var.redis_config.replica_count
-  auth_enabled            = var.redis_config.auth_enabled
+  enable_auth             = var.redis_config.enable_auth
   vpc_network_id          = module.network.network_id
 
   depends_on = [module.network, terraform_data.redis_network_validation]
@@ -467,13 +467,6 @@ resource "google_service_account_iam_member" "ingestion_workflow_act_as_serving_
 # =============================================================================
 # Architecture & Dependency Validations
 # =============================================================================
-check "redis_requires_network" {
-  assert {
-    condition     = !var.redis_config.enable || (var.network_config.enable && var.network_config.enable_workload_vpc)
-    error_message = "enable_redis is set to true, which requires enable_network = true and enable_workload_vpc = true. Cloud Memorystore for Redis only has private IP addresses and requires VPC networking to be accessible from Cloud Run services."
-  }
-}
-
 resource "terraform_data" "redis_network_validation" {
   lifecycle {
     precondition {

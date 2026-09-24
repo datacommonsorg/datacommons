@@ -16,11 +16,11 @@ resource "google_redis_instance" "redis_instance" {
   replica_count           = var.tier == "BASIC" ? 0 : var.replica_count
   authorized_network      = var.vpc_network_id
   connect_mode            = "DIRECT_PEERING"
-  auth_enabled            = var.auth_enabled
+  auth_enabled            = var.enable_auth
 }
 
 resource "google_secret_manager_secret" "redis_auth" {
-  count     = var.auth_enabled ? 1 : 0
+  count     = var.enable_auth ? 1 : 0
   secret_id = "${local.name_prefix}dc-redis-auth"
 
   replication {
@@ -29,7 +29,7 @@ resource "google_secret_manager_secret" "redis_auth" {
 }
 
 resource "google_secret_manager_secret_version" "redis_auth_version" {
-  count       = var.auth_enabled ? 1 : 0
+  count       = var.enable_auth ? 1 : 0
   secret      = google_secret_manager_secret.redis_auth[0].id
   secret_data = google_redis_instance.redis_instance.auth_string
 }
