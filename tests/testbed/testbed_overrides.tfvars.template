@@ -37,6 +37,10 @@
 # 5. Dataflow Ingestion Flex Template Container Spec (GCS Path)
 # ingestion_dataflow_template_gcs_path = "gs://datcom-templates/templates/flex/ingestion-your-test-tag.json"
 
+# 6. Dataflow Rollback Flex Template Container Spec (GCS Path)
+# Published separately from the ingestion template, under a rollback/ prefix.
+# ingestion_rollback_dataflow_template_gcs_path = "gs://datcom-templates/templates/flex/rollback/rollback-your-test-tag.json"
+
 # --- Option C: VPC Networking ---
 # Provision VPC networking for DCP services and ingestion jobs.
 # Leave false for a standard testbed; set true only when testing the VPC path.
