@@ -87,28 +87,45 @@ def _apply_migrations(spanner_client: SpannerClient, runner: MigrationRunner) ->
     Raises:
         click.ClickException: If acquiring the database lock or applying migrations fails.
     """
-    click.secho(
-        "Acquiring database lock directly via Cloud Spanner...",
-        fg="bright_black",
-    )
-    acquired = spanner_client.acquire_lock(workflow_id="schema-migration")
-    if not acquired:
-        raise click.ClickException(
-            "Could not acquire database lock: Lock is currently held by another process or workflow.\n"
-            "An ingestion workflow may currently be running. "
-            "Please wait for active ingestions to finish before running migrations."
-        )
-
+    lock_acquired = False
     try:
+        # If IngestionLock table already exists (existing database), acquire the lock upfront.
+        if spanner_client.table_exists("IngestionLock"):
+            click.secho(
+                "Acquiring database lock directly via Cloud Spanner...",
+                fg="bright_black",
+            )
+            if not spanner_client.acquire_lock(workflow_id="schema-migration"):
+                raise click.ClickException(
+                    "Could not acquire database lock: Lock is currently held by another process or workflow.\n"
+                    "An ingestion workflow may currently be running. "
+                    "Please wait for active ingestions to finish before running migrations."
+                )
+            lock_acquired = True
+
         # Apply all pending migrations
         click.secho("Applying pending schema migrations...", fg="bright_black")
-        results = runner.run_migrations()
+        pending = runner.get_pending_migrations()
 
-        for res in results:
+        for migration in pending:
+            res = runner.apply_migration(migration)
             click.secho(
                 f"  ✔ Applied migration {res.creation_timestamp}: {res.description}",
                 fg="green",
             )
+            # On a fresh database, IngestionLock is created by the baseline migration.
+            # Acquire the lock immediately after IngestionLock becomes available.
+            if not lock_acquired and spanner_client.table_exists("IngestionLock"):
+                click.secho(
+                    "Acquiring database lock directly via Cloud Spanner...",
+                    fg="bright_black",
+                )
+                if not spanner_client.acquire_lock(workflow_id="schema-migration"):
+                    raise click.ClickException(
+                        "Could not acquire database lock: Lock is currently held by another process or workflow."
+                    )
+                lock_acquired = True
+
         click.secho(
             "Successfully applied all schema migrations!", fg="green", bold=True
         )
@@ -116,18 +133,19 @@ def _apply_migrations(spanner_client: SpannerClient, runner: MigrationRunner) ->
     except Exception as e:
         raise click.ClickException(f"Failed to apply schema migrations: {e}") from e
     finally:
-        # Always attempt to release the database lock after migration attempt
-        click.secho(
-            "Releasing database lock directly via Cloud Spanner...",
-            fg="bright_black",
-        )
-        try:
-            spanner_client.release_lock(workflow_id="schema-migration")
-        except Exception as e:  # noqa: BLE001
+        # Always attempt to release the database lock if it was acquired
+        if lock_acquired:
             click.secho(
-                f"Warning: {e}",
-                fg="yellow",
+                "Releasing database lock directly via Cloud Spanner...",
+                fg="bright_black",
             )
+            try:
+                spanner_client.release_lock(workflow_id="schema-migration")
+            except Exception as e:  # noqa: BLE001
+                click.secho(
+                    f"Warning: {e}",
+                    fg="yellow",
+                )
 
 
 def _confirm_migration(num_pending: int, instance_id: str, database_id: str) -> bool:

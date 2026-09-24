@@ -14,8 +14,9 @@
 
 from pathlib import Path
 import re
-from typing import Tuple
+import ssl
 import urllib.request
+import certifi
 
 import click
 
@@ -37,12 +38,13 @@ GITHUB_REPO_URL = "https://github.com/datacommonsorg/datacommons.git"
 def _get_github_templates(ref: str) -> tuple[str, str, str, str]:
     """Fetches variables.tf, main.tf, outputs.tf, and terraform.tfvars.template from GitHub for the given ref."""
     base_url = f"{GITHUB_RAW_BASE_URL}/{ref}/infra/dcp"
+    ssl_context = ssl.create_default_context(cafile=certifi.where())
 
     def fetch(filename: str) -> str:
         url = f"{base_url}/{filename}"
 
         req = urllib.request.Request(url, headers={"User-Agent": "DataCommons-CLI"})
-        with urllib.request.urlopen(req, timeout=10) as response:
+        with urllib.request.urlopen(req, timeout=10, context=ssl_context) as response:
             return response.read().decode("utf-8")
 
     return (
@@ -53,7 +55,7 @@ def _get_github_templates(ref: str) -> tuple[str, str, str, str]:
     )
 
 
-def _validate_instance_name(instance_name: str) -> Tuple[bool, str]:
+def _validate_instance_name(instance_name: str) -> tuple[bool, str]:
     if not instance_name:
         return False, "Instance name must not be empty."
     if len(instance_name) > 16:
@@ -71,7 +73,7 @@ def _validate_instance_name(instance_name: str) -> Tuple[bool, str]:
 
 def _resolve_project_config(
     project_id: str, instance_name: str, force: bool
-) -> Tuple[str, str, Path]:
+) -> tuple[str, str, Path]:
     """Resolves project ID and instance name, and determines target directory."""
     if project_id:
         _log_resolved_value("Project ID", project_id, is_default=False)
