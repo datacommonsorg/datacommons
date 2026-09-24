@@ -430,7 +430,7 @@ def main():
                 )
                 if is_ephemeral_prober_resource(sa_name):
                     if confirm_delete("Orphaned IAM Member", f"{m} ({role})"):
-                        print(f"  Removing IAM binding {m} from {role}...")
+                        print("  Removing...")
                         res = subprocess.run(
                             [
                                 "gcloud",
@@ -448,13 +448,13 @@ def main():
                             text=True,
                         )
                         if res.returncode == 0:
-                            print(f"    ✔ Successfully removed {m} from {role}.")
+                            print("    ✔ Removed.")
                         else:
                             print(
                                 f"    ❌ Error removing IAM binding: {res.stderr.strip()}"
                             )
                     else:
-                        print(f"  Skipped IAM binding {m}")
+                        print("  Skipped.")
 
     print("\n" + "=" * 80)
     print(" ✔ SAFE INTERACTIVE EPHEMERAL CLEANUP COMPLETE!")
