@@ -394,3 +394,25 @@ def update_migration_file(
         file_path.unlink()
 
     return file_path, new_path, new_iso
+
+
+def update_golden_schema() -> Path:
+    """Compiles and updates packages/datacommons-db/datacommons_db/schema/schema_golden.sql.
+
+    Returns:
+        Path to the updated schema_golden.sql file.
+
+    Raises:
+        OSError: If reading migrations or writing the golden file fails.
+        RuntimeError: If schema compilation fails.
+    """
+    from datacommons_db.utils.sql_utils import (
+        generate_golden_schema_sql,
+        get_schema_dir,
+    )
+
+    schema_dir = get_schema_dir()
+    golden_file = schema_dir / "schema_golden.sql"
+    golden_sql = generate_golden_schema_sql(project_id="test-project")
+    golden_file.write_text(golden_sql, encoding="utf-8")
+    return golden_file

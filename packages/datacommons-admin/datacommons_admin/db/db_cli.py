@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from typing import NamedTuple
 
 import click
@@ -41,34 +42,47 @@ def _setup_spanner_client(ctx: click.Context) -> SpannerCLIContext:
     )
 
     state_params = ctx.obj or {}
-    tf = get_terraform_outputs(
-        project_id=state_params.get("project_id"),
-        instance_name=state_params.get("instance_name"),
-        tf_state_location=state_params.get("tf_state_location"),
-    )
+    try:
+        tf = get_terraform_outputs(
+            project_id=state_params.get("project_id"),
+            instance_name=state_params.get("instance_name"),
+            tf_state_location=state_params.get("tf_state_location"),
+        )
+        project_id = tf.project_id
+        instance_id = tf.spanner_instance_id
+        database_id = tf.spanner_database_id
+        region = tf.region
+    except Exception:
+        if os.getenv("SPANNER_EMULATOR_HOST"):
+            project_id = os.getenv("SPANNER_PROJECT_ID", "default")
+            instance_id = os.getenv("SPANNER_INSTANCE_ID", "default")
+            database_id = os.getenv("SPANNER_DATABASE_ID", "test-db")
+            region = os.getenv("GCP_REGION", "us-central1")
+        else:
+            raise
 
-    if not tf.spanner_instance_id or not tf.spanner_database_id:
+    if not instance_id or not database_id:
         raise click.ClickException(
             "Cloud Spanner is not enabled or configured in this deployment state. "
             "Ensure 'enable_spanner = true' in your deployment configuration."
         )
 
     click.secho(
-        f"Found Spanner details: project={tf.project_id}, instance={tf.spanner_instance_id}, database={tf.spanner_database_id}, region={tf.region}",
+        f"Found Spanner details: project={project_id}, instance={instance_id}, database={database_id}, region={region}",
         fg="green",
     )
 
     client = SpannerClient(
-        project_id=tf.project_id,
-        instance_id=tf.spanner_instance_id,
-        database_id=tf.spanner_database_id,
+        project_id=project_id,
+        instance_id=instance_id,
+        database_id=database_id,
     )
     return SpannerCLIContext(
         client=client,
-        project_id=tf.project_id,
-        instance_id=tf.spanner_instance_id,
-        database_id=tf.spanner_database_id,
-        region=tf.region,
+        project_id=project_id,
+        instance_id=instance_id,
+        database_id=database_id,
+        region=region,
     )
 
 

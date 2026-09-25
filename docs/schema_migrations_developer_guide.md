@@ -107,6 +107,20 @@ Proceed with bump? [y/N]: y
 4. Validates Python syntax using AST parsing.
 5. Renames the file on disk to match the new timestamp.
 
+### C. Updating the Golden Schema (`update-golden`)
+
+Whenever you create, modify, or remove a schema migration, the cumulative DDL output changes. The test suite enforces that the baseline schema plus all migrations match the committed golden schema file ([`packages/datacommons-db/datacommons_db/schema/schema_golden.sql`](../packages/datacommons-db/datacommons_db/schema/schema_golden.sql)).
+
+To recompile and update the golden schema file:
+
+```bash
+uv run datacommons-devtools migrations update-golden
+# (or using the short alias)
+uv run dc-devtools migrations update-golden
+```
+
+Always commit the updated `schema_golden.sql` in the same pull request as your new migration script.
+
 ---
 
 ## 4. Writing Migration Logic

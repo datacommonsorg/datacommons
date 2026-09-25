@@ -10,6 +10,7 @@ classifiers = [
 ]
 dependencies = [
   "click>=8.1.7",
+  "datacommons-db",
 ]
 
 [project.scripts]

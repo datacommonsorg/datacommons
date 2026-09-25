@@ -106,10 +106,12 @@ def _initialize_database(spanner_client: SpannerClient) -> bool:
     """
     db_name = f"{spanner_client.instance_id}/{spanner_client.database_id}"
     if is_database_initialized(spanner_client):
-        raise click.ClickException(
-            f"Database '{db_name}' is already initialized.\n"
-            "To apply new schema migrations, run 'datacommons admin migrate-db'."
+        click.secho(
+            f"Spanner database '{db_name}' is already initialized. Skipping initialization and migrations.\n"
+            "To apply schema migrations, please run:\n  datacommons admin migrate-db",
+            fg="yellow",
         )
+        return True
 
     click.secho(
         f"Initializing baseline schema for Spanner database '{spanner_client.project_id}/{db_name}'...",

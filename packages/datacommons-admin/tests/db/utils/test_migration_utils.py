@@ -190,7 +190,7 @@ def test_migrate_db_not_initialized_error(
     mock_runner.apply_migration.assert_not_called()
 
 
-def test_initialize_database_already_initialized_raises(
+def test_initialize_database_already_initialized_skips(
     mock_migration_setup: tuple[MagicMock, MagicMock],
     runner: CliRunner,
 ) -> None:
@@ -198,9 +198,12 @@ def test_initialize_database_already_initialized_raises(
     mock_client.table_exists.return_value = True
 
     result = runner.invoke(admin, ["init-db"])
-    assert result.exit_code != 0
-    assert "Database 'mock-instance/mock-db' is already initialized" in result.output
-    assert "run 'datacommons admin migrate-db'" in result.output
+    assert result.exit_code == 0
+    assert (
+        "Spanner database 'mock-instance/mock-db' is already initialized"
+        in result.output
+    )
+    assert "To apply schema migrations, please run:" in result.output
     mock_client.initialize_database.assert_not_called()
 
 

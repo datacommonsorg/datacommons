@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pathlib import Path
 import re
 import ssl
 import urllib.request
-import certifi
+from pathlib import Path
 
+import certifi
 import click
 
 from datacommons_admin.init.utils.infra_templates import (
