@@ -36,7 +36,8 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
     artifacts_bucket_name               = var.artifacts_bucket_name
     ingestion_artifacts_path            = var.ingestion_artifacts_path
     vpc_network                         = var.vpc_network
-    dataflow_template_gcs_path          = var.dataflow_template_gcs_path
+    ingestion_dataflow_template_gcs_path = var.ingestion_dataflow_template_gcs_path
+    rollback_dataflow_template_gcs_path  = var.rollback_dataflow_template_gcs_path
     dataflow_service_account_email      = var.dataflow_service_account_email
     dataflow_ip_configuration           = var.dataflow_ip_configuration
     dataflow_subnetwork                 = var.dataflow_subnetwork

@@ -83,3 +83,8 @@ output "subnet_url" {
   description = "URL / self_link of the private subnetwork"
   value       = module.stack.subnet_url
 }
+
+output "ingestion_prep_job_name" {
+  description = "Deprecated: Name of the data ingestion pre-processing job"
+  value       = ""
+}
