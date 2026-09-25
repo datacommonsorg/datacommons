@@ -48,6 +48,7 @@ class SpannerClient:
         database_id: str,
         credentials: Credentials | None = None,
         *,
+        region: str = "us-central1",
         disable_builtin_metrics: bool = True,
     ) -> None:
         """Initialize the SpannerClient.
@@ -57,6 +58,7 @@ class SpannerClient:
             instance_id: Cloud Spanner instance ID.
             database_id: Cloud Spanner database ID.
             credentials: Optional Google Cloud credentials object.
+            region: GCP region hosting the database and model endpoints. Defaults to 'us-central1'.
             disable_builtin_metrics: Whether to disable built-in Cloud Monitoring metrics export.
         """
         validate_resource_id("project_id", project_id)
@@ -66,6 +68,7 @@ class SpannerClient:
         self.project_id = project_id
         self.instance_id = instance_id
         self.database_id = database_id
+        self.region = region
 
         self.client = spanner.Client(
             project=project_id,
@@ -211,28 +214,11 @@ class SpannerClient:
                 status=ExecutionStatus.ERROR, rows=[], error_message=str(e)
             )
 
-    def initialize_database(
-        self,
-        *,
-        embedding_table: str = "NodeEmbedding",
-        embedding_index: str = "NodeEmbeddingIndex",
-        embedding_label_index: str = "NodeEmbeddingLabelIndex",
-        embedding_space: int = 768,
-        models: list[dict[str, str]] | None = None,
-        location: str | None = None,
-    ) -> DdlResult:
+    def initialize_database(self) -> DdlResult:
         """Initializes the database by executing all base schema DDL statements.
 
         Resolves template placeholders in the baseline schema file (schema.sql)
         and applies the DDL statements to Cloud Spanner.
-
-        Args:
-            embedding_table: Name of the vector embedding table. Defaults to 'NodeEmbedding'.
-            embedding_index: Name of the vector search index. Defaults to 'NodeEmbeddingIndex'.
-            embedding_label_index: Name of the secondary index on embedding label. Defaults to 'NodeEmbeddingLabelIndex'.
-            embedding_space: Dimensionality of embedding vectors. Defaults to 768.
-            models: List of model dictionaries with 'name' and 'endpoint'. Defaults to text-embedding-005.
-            location: GCP region for model endpoints. Defaults to 'us-central1'.
 
         Returns:
             DdlResult indicating execution status.
@@ -248,12 +234,7 @@ class SpannerClient:
         rendered_sql = render_schema_template(
             template_content,
             project_id=self.project_id,
-            location=location or "us-central1",
-            embedding_table=embedding_table,
-            embedding_index=embedding_index,
-            embedding_label_index=embedding_label_index,
-            embedding_space=embedding_space,
-            models=models,
+            region=self.region,
         )
         statements = parse_sql_to_statements(rendered_sql)
         return self.execute_ddl(statements)

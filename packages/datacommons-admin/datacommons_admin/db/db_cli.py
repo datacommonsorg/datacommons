@@ -61,6 +61,7 @@ def _setup_spanner_client(ctx: click.Context) -> SpannerClient:
         project_id=project_id,
         instance_id=instance_id,
         database_id=database_id,
+        region=region,
     )
 
 

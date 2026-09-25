@@ -44,21 +44,18 @@ def test_parse_sql_to_statements_with_inline_comments():
     assert stmts[0] == "CREATE TABLE Baz (id INT64) PRIMARY KEY (id)"
 
 
-def test_render_schema_template_suffix():
+def test_render_schema_template():
     template = """
-    CREATE TABLE {{ embedding_table }} (id INT64);
-    {% for model in models %}
-    CREATE MODEL {{ model.name }} REMOTE OPTIONS (endpoint = '{{ model.endpoint }}');
-    {% endfor %}
-    -- Trailing comment
-    CREATE TABLE SuffixTable (val STRING(MAX));
+    CREATE TABLE NodeEmbedding (id INT64);
+    CREATE MODEL NodeEmbeddingModel REMOTE OPTIONS (
+      endpoint = '//aiplatform.googleapis.com/projects/{project_id}/locations/{region}/publishers/google/models/text-embedding-005'
+    );
     """
     rendered = render_schema_template(
         template,
-        models=[{"name": "MyModel", "endpoint": "custom-endpoint"}],
-        project_id="test-proj",
-        location="us-central1",
+        project_id="my-gcp-project",
+        region="europe-west1",
     )
-    assert "CREATE MODEL MyModel" in rendered
-    assert "SuffixTable" in rendered
-    assert "-- Trailing comment" in rendered
+    assert "projects/my-gcp-project/locations/europe-west1" in rendered
+    assert "{project_id}" not in rendered
+    assert "{region}" not in rendered

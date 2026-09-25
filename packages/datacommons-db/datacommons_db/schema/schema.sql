@@ -220,28 +220,27 @@ CREATE INDEX KeyValueStoreByProvenance ON KeyValueStore(provenance) OPTIONS (
 
 -- NodeEmbedding table, NodeEmbeddingIndex index and NodeEmbeddingModel model are necessary for embeddings to work properly.
 
-CREATE TABLE {{ embedding_table }} (
+CREATE TABLE NodeEmbedding (
   subject_id STRING(1024) NOT NULL,
   embedding_label STRING(1024) NOT NULL,
   embedding_content_key STRING(1024) NOT NULL,
   embedding_content JSON,
   node_types ARRAY<STRING(1024)>,
-  embeddings ARRAY<FLOAT64>(vector_length=>{{ embedding_space }})
+  embeddings ARRAY<FLOAT64>(vector_length=>768)
 ) PRIMARY KEY(subject_id, embedding_label, embedding_content_key),
 INTERLEAVE IN PARENT Node ON DELETE CASCADE;
 
-CREATE VECTOR INDEX {{ embedding_index }}
-ON {{ embedding_table }}(embeddings, embedding_label)
+CREATE VECTOR INDEX NodeEmbeddingIndex
+ON NodeEmbedding(embeddings, embedding_label)
 WHERE embeddings IS NOT NULL
 OPTIONS (
   distance_type = 'COSINE'
 );
 
-CREATE INDEX {{ embedding_label_index }}
-ON {{ embedding_table }}(embedding_label) STORING (embedding_content, embeddings, node_types);
+CREATE INDEX NodeEmbeddingLabelIndex
+ON NodeEmbedding(embedding_label) STORING (embedding_content, embeddings, node_types);
 
-{% for model in models %}
-CREATE MODEL {{ model.name }}
+CREATE MODEL NodeEmbeddingModel
 INPUT(
   content STRING(MAX),
   task_type STRING(MAX),
@@ -253,6 +252,5 @@ OUTPUT(
       values ARRAY<FLOAT64>>
 )
 REMOTE OPTIONS (
-  endpoint = '{{ model.endpoint }}'
+  endpoint = '//aiplatform.googleapis.com/projects/{project_id}/locations/{region}/publishers/google/models/text-embedding-005'
 );
-{% endfor %}

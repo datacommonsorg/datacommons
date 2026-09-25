@@ -21,74 +21,21 @@ def render_schema_template(
     template_sql: str,
     *,
     project_id: str,
-    location: str = "us-central1",
-    embedding_table: str = "NodeEmbedding",
-    embedding_index: str = "NodeEmbeddingIndex",
-    embedding_label_index: str = "NodeEmbeddingLabelIndex",
-    embedding_space: int = 768,
-    models: list[dict[str, str]] | None = None,
+    region: str = "us-central1",
 ) -> str:
-    """Renders placeholders and CREATE MODEL blocks in the baseline schema template.
+    """Renders placeholders in the baseline schema template.
 
     Args:
-        template_sql: The raw SQL template string containing Jinja-style placeholders.
+        template_sql: The raw SQL template string containing {project_id} and {region}.
         project_id: GCP project ID hosting the Vertex AI endpoint.
-        location: GCP region for model endpoints. Defaults to 'us-central1'.
-        embedding_table: Name of the vector embedding table. Defaults to 'NodeEmbedding'.
-        embedding_index: Name of the vector search index. Defaults to 'NodeEmbeddingIndex'.
-        embedding_label_index: Name of the secondary index on embedding label.
-        embedding_space: Dimensionality of embedding vectors. Defaults to 768.
-        models: Optional list of model configuration dicts with 'name' and 'endpoint'.
+        region: GCP region hosting the Vertex AI endpoint. Defaults to 'us-central1'.
 
     Returns:
         Rendered SQL script string ready for statement parsing.
     """
-    resolved_models = models or [
-        {"name": "NodeEmbeddingModel", "endpoint": "text-embedding-005"}
-    ]
-
-    rendered = (
-        template_sql.replace("{{ embedding_table }}", embedding_table)
-        .replace("{{ embedding_index }}", embedding_index)
-        .replace("{{ embedding_label_index }}", embedding_label_index)
-        .replace("{{ embedding_space }}", str(embedding_space))
+    return template_sql.replace("{project_id}", project_id).replace(
+        "{region}", region
     )
-
-    if "{% for model in models %}" in rendered:
-        model_ddls: list[str] = []
-        for m in resolved_models:
-            m_name = m["name"]
-            m_endpoint = m["endpoint"]
-            if not m_endpoint.startswith("//"):
-                m_endpoint = (
-                    f"//aiplatform.googleapis.com/projects/{project_id}"
-                    f"/locations/{location}/publishers/google/models/{m_endpoint}"
-                )
-            model_ddls.append(
-                f"CREATE MODEL {m_name}\n"
-                "INPUT(\n"
-                "  content STRING(MAX),\n"
-                "  task_type STRING(MAX),\n"
-                ")\n"
-                "OUTPUT(\n"
-                "  embeddings\n"
-                "    STRUCT<\n"
-                "      statistics STRUCT<truncated BOOL, token_count FLOAT64>,\n"
-                "      values ARRAY<FLOAT64>>\n"
-                ")\n"
-                "REMOTE OPTIONS (\n"
-                f"  endpoint = '{m_endpoint}'\n"
-                ");"
-            )
-
-        parts = rendered.split("{% for model in models %}")
-        prefix = parts[0]
-        suffix = ""
-        if len(parts) > 1 and "{% endfor %}" in parts[1]:
-            suffix = parts[1].split("{% endfor %}", 1)[1]
-        rendered = prefix + "\n" + "\n".join(model_ddls) + suffix
-
-    return rendered
 
 
 def parse_sql_to_statements(sql_content: str) -> list[str]:

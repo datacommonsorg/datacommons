@@ -61,11 +61,15 @@ def get_golden_schema_path() -> Path:
     return pkg_root / "tests" / "goldens" / "schema_golden.sql"
 
 
-def generate_golden_schema_sql(project_id: str = "test-project") -> str:
+def generate_golden_schema_sql(
+    project_id: str = "test-project",
+    region: str = "us-central1",
+) -> str:
     """Generates the cumulative golden schema SQL string from baseline schema.sql and all migrations.
 
     Args:
         project_id: GCP project ID used for model endpoint interpolation.
+        region: GCP region used for model endpoint interpolation. Defaults to 'us-central1'.
 
     Returns:
         Formatted golden schema SQL string with license header.
@@ -74,7 +78,9 @@ def generate_golden_schema_sql(project_id: str = "test-project") -> str:
     schema_sql_path = schema_dir / "schema.sql"
     template_content = schema_sql_path.read_text(encoding="utf-8")
 
-    rendered = render_schema_template(template_content, project_id=project_id)
+    rendered = render_schema_template(
+        template_content, project_id=project_id, region=region
+    )
     baseline_statements = parse_sql_to_statements(rendered)
 
     # Collect DDL statements from all forward migration scripts
