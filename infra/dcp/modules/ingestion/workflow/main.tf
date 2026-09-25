@@ -2,6 +2,14 @@ locals {
   name_prefix                = var.instance_name != "" ? "${var.instance_name}-" : ""
   should_run_postprocessing  = var.enable_bigquery_postprocessing || var.enable_embeddings_generation
   clean_instance_name_prefix = var.instance_name != "" ? "${replace(lower(var.instance_name), "_", "-")}-" : ""
+  preprocessing_cpu_milli    = can(regex("m$", var.preprocessing_config.cpu)) ? tonumber(trimsuffix(var.preprocessing_config.cpu, "m")) : tonumber(var.preprocessing_config.cpu) * 1000
+
+  preprocessing_memory_mib = (
+    can(regex("Gi$", var.preprocessing_config.memory)) ? tonumber(trimsuffix(var.preprocessing_config.memory, "Gi")) * 1024 :
+    can(regex("G$", var.preprocessing_config.memory)) ? tonumber(trimsuffix(var.preprocessing_config.memory, "G")) * 1024 :
+    can(regex("Mi$", var.preprocessing_config.memory)) ? tonumber(trimsuffix(var.preprocessing_config.memory, "Mi")) :
+    tonumber(var.preprocessing_config.memory)
+  )
 }
 
 resource "google_service_account" "workflow_sa" {
@@ -19,31 +27,40 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
   deletion_protection = var.stateless_deletion_protection
 
   source_contents = templatefile("${path.module}/workflow.yaml", {
-    project_id                           = var.project_id
-    region                               = var.region
-    ingestion_helper_url                 = var.ingestion_helper_url
-    lock_acquisition_timeout             = var.lock_acquisition_timeout
-    enable_embeddings_generation         = var.enable_embeddings_generation
-    enable_bigquery_postprocessing       = var.enable_bigquery_postprocessing
-    artifacts_bucket_name                = var.artifacts_bucket_name
-    ingestion_artifacts_path             = var.ingestion_artifacts_path
-    spanner_instance_id                  = var.spanner_instance_id
-    spanner_database_id                  = var.spanner_database_id
+    project_id                          = var.project_id
+    region                              = var.region
+    ingestion_helper_url                = var.ingestion_helper_url
+    lock_acquisition_timeout            = var.lock_acquisition_timeout
+    enable_embeddings_generation        = var.enable_embeddings_generation
+    enable_bigquery_postprocessing      = var.enable_bigquery_postprocessing
+    artifacts_bucket_name               = var.artifacts_bucket_name
+    ingestion_artifacts_path            = var.ingestion_artifacts_path
+    vpc_network                         = var.vpc_network
     ingestion_dataflow_template_gcs_path = var.ingestion_dataflow_template_gcs_path
     rollback_dataflow_template_gcs_path  = var.rollback_dataflow_template_gcs_path
-    dataflow_service_account_email       = var.dataflow_service_account_email
-    dataflow_ip_configuration            = var.dataflow_ip_configuration
-    dataflow_subnetwork                  = var.dataflow_subnetwork
-    embeddings_timeout                   = var.embeddings_timeout
-    clean_instance_name_prefix           = local.clean_instance_name_prefix
-    enable_redis_cache_clearing          = var.enable_redis_cache_clearing
-    preprocessing_job_name               = var.preprocessing_job_name
-    postprocessing_job_name              = var.postprocessing_job_name
-    dataflow_max_workers                 = var.dataflow_max_workers
-    dataflow_num_workers                 = var.dataflow_num_workers
-    dataflow_worker_machine_type         = var.dataflow_worker_machine_type
-    enable_datacommons_services_restart  = var.enable_datacommons_services_restart
-    datacommons_services_name            = var.datacommons_services_name
+    dataflow_service_account_email      = var.dataflow_service_account_email
+    dataflow_ip_configuration           = var.dataflow_ip_configuration
+    dataflow_subnetwork                 = var.dataflow_subnetwork
+    embeddings_timeout                  = var.embeddings_timeout
+    clean_instance_name_prefix          = local.clean_instance_name_prefix
+    enable_redis_cache_clearing         = var.enable_redis_cache_clearing
+    preprocessing_job_image             = var.preprocessing_config.image
+    preprocessing_cpu_milli             = local.preprocessing_cpu_milli
+    preprocessing_memory_mib            = local.preprocessing_memory_mib
+    preprocessing_timeout               = var.preprocessing_config.timeout
+    preprocessing_service_account_email = var.preprocessing_config.service_account_email
+    bucket_name                         = var.preprocessing_config.bucket_name
+    ingestion_input_path                = var.preprocessing_config.input_path
+    spanner_instance_id                 = var.preprocessing_config.spanner_instance_id
+    spanner_database_id                 = var.preprocessing_config.spanner_database_id
+    enable_spanner_embeddings           = var.preprocessing_config.enable_spanner_embeddings
+    dc_api_key_secret_version           = var.preprocessing_config.dc_api_key_secret_version
+    postprocessing_job_name             = var.postprocessing_job_name
+    dataflow_max_workers                = var.dataflow_max_workers
+    dataflow_num_workers                = var.dataflow_num_workers
+    dataflow_worker_machine_type        = var.dataflow_worker_machine_type
+    enable_datacommons_services_restart = var.enable_datacommons_services_restart
+    datacommons_services_name           = var.datacommons_services_name
   })
 }
 

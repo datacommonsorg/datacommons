@@ -21,6 +21,10 @@ locals {
   redis_port    = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
   redis_ca_cert = var.redis_config.enable && var.redis_config.enable_tls && length(module.redis) > 0 ? module.redis[0].redis_ca_cert : ""
 
+  effective_vpc_network = (
+    var.network_config.enable && var.network_config.enable_workload_vpc && module.network.network_id != null ? module.network.network_id : ""
+  )
+
   effective_dataflow_subnetwork = (
     var.ingestion_config.dataflow_subnetwork != "" ? var.ingestion_config.dataflow_subnetwork :
     (var.network_config.enable && var.network_config.enable_workload_vpc && module.network.subnet_url != null ? module.network.subnet_url : "")
@@ -147,22 +151,8 @@ module "ingestion_preprocessing_job" {
   source = "../ingestion/preprocessing_job"
   count  = var.ingestion_config.enable_ingestion ? 1 : 0
 
-  project_id                    = var.global.project_id
-  instance_name                 = var.global.instance_name
-  region                        = var.global.region
-  stateless_deletion_protection = var.global.stateless_deletion_protection
-  image                         = var.ingestion_config.preprocessing_job_image
-  cpu                           = var.ingestion_config.preprocessing_job_cpu
-  memory                        = var.ingestion_config.preprocessing_job_memory
-  timeout                       = var.ingestion_config.preprocessing_job_timeout
-  vpc_access                    = module.network.vpc_access
-  bucket_name                   = module.storage.artifacts_bucket_name
-  input_path                    = var.ingestion_config.input_path
-  ingestion_artifacts_path      = var.ingestion_config.ingestion_artifacts_path
-  run_database_init             = false
-  use_spanner                   = true
-  enable_spanner_embeddings     = var.datacommons_services_config.resolve_with_spanner_embeddings
-  env_vars                      = local.cloud_run_shared_env_variables
+  project_id    = var.global.project_id
+  instance_name = var.global.instance_name
   env_secrets = {
     DC_API_KEY = {
       secret_id = module.auth.dc_api_key_secret_id
@@ -256,6 +246,7 @@ module "ingestion_workflow" {
   ingestion_artifacts_path             = var.ingestion_config.ingestion_artifacts_path
   spanner_instance_id                  = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
   spanner_database_id                  = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
+  vpc_network                          = local.effective_vpc_network
   dataflow_ip_configuration            = local.effective_dataflow_ip_configuration
   dataflow_subnetwork                  = local.effective_dataflow_subnetwork
   ingestion_dataflow_template_gcs_path = var.ingestion_config.ingestion_dataflow_template_gcs_path
@@ -263,10 +254,22 @@ module "ingestion_workflow" {
   dataflow_max_workers                 = var.ingestion_config.dataflow_max_workers
   dataflow_num_workers                 = var.ingestion_config.dataflow_num_workers
   dataflow_worker_machine_type         = var.ingestion_config.dataflow_worker_machine_type
-  preprocessing_job_name               = var.ingestion_config.enable_ingestion ? module.ingestion_preprocessing_job[0].job_name : ""
-  postprocessing_job_name              = var.ingestion_config.enable_ingestion ? module.ingestion_postprocessing_job[0].job_name : ""
-  enable_datacommons_services_restart  = var.datacommons_services_config.enable
-  datacommons_services_name            = "${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-datacommons-service"
+  preprocessing_config = {
+    image                     = var.ingestion_config.preprocessing_job_image
+    cpu                       = var.ingestion_config.preprocessing_job_cpu
+    memory                    = var.ingestion_config.preprocessing_job_memory
+    timeout                   = var.ingestion_config.preprocessing_job_timeout
+    service_account_email     = length(module.ingestion_preprocessing_job) > 0 ? module.ingestion_preprocessing_job[0].service_account_email : ""
+    dc_api_key_secret_version = module.auth.dc_api_key_secret_id != "" ? "${module.auth.dc_api_key_secret_id}/versions/latest" : ""
+    bucket_name               = module.storage.artifacts_bucket_name
+    input_path                = var.ingestion_config.input_path
+    spanner_instance_id       = var.spanner_config.enable && length(module.spanner) > 0 ? module.spanner[0].spanner_instance_id : ""
+    spanner_database_id       = var.spanner_config.enable && length(module.spanner) > 0 ? module.spanner[0].spanner_database_id : ""
+    enable_spanner_embeddings = var.datacommons_services_config.resolve_with_spanner_embeddings
+  }
+  postprocessing_job_name             = var.ingestion_config.enable_ingestion ? module.ingestion_postprocessing_job[0].job_name : ""
+  enable_datacommons_services_restart = var.datacommons_services_config.enable
+  datacommons_services_name           = "${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-datacommons-service"
 
   depends_on = [module.ingestion_helper_service]
 }
@@ -381,28 +384,11 @@ resource "google_project_iam_member" "workflow_invoker" {
   member  = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
 
-resource "google_cloud_run_v2_job_iam_member" "workflow_pre_viewer" {
-  count    = var.ingestion_config.enable_ingestion ? 1 : 0
-  location = var.global.region
-  name     = module.ingestion_preprocessing_job[0].job_name
-  role     = "roles/run.viewer"
-  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
-}
-
-resource "google_cloud_run_v2_job_iam_member" "workflow_pre_invoker" {
-  count    = var.ingestion_config.enable_ingestion ? 1 : 0
-  location = var.global.region
-  name     = module.ingestion_preprocessing_job[0].job_name
-  role     = "roles/run.invoker"
-  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
-}
-
-resource "google_cloud_run_v2_job_iam_member" "workflow_pre_developer" {
-  count    = var.ingestion_config.enable_ingestion ? 1 : 0
-  location = var.global.region
-  name     = module.ingestion_preprocessing_job[0].job_name
-  role     = "roles/run.developer"
-  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+resource "google_project_iam_member" "workflow_batch_editor" {
+  count   = var.ingestion_config.enable_ingestion ? 1 : 0
+  project = var.global.project_id
+  role    = "roles/batch.jobsEditor"
+  member  = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
 
 resource "google_service_account_iam_member" "workflow_pre_sa_user" {
