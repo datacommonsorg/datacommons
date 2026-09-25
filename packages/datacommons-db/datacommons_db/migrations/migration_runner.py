@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from google.cloud import spanner
 
 import datacommons_db.migrations.migration_scripts
-from datacommons_db.clients.spanner_client import ExecutionStatus, SpannerClient
+from datacommons_db.clients import ExecutionStatus, SpannerClient
 from datacommons_db.migrations.base import SchemaMigration
 
 logger = logging.getLogger(__name__)

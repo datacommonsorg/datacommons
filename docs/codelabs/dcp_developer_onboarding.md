@@ -270,15 +270,29 @@ echo "Serving URL: $SERVICE_URL"
 echo "Region:      $REGION"
 ```
 
-### 4. Grant Service Account Token Impersonation
-Grant your user identity permission to impersonate the Cloud Workflows orchestrator service account. This allows you to trigger database seeding and ingestion workflows via the CLI:
+### 4. Grant IAM Permissions for Database Setup and Workflow Execution
+Configure your user identity with permissions for direct Spanner administration and workflow execution:
 
-```bash
-gcloud iam service-accounts add-iam-policy-binding "$ORCHESTRATOR_SA" \
-    --member="user:$(gcloud config get-value account)" \
-    --role="roles/iam.serviceAccountTokenCreator" \
-    --project="$PROJECT_ID"
-```
+1. **Spanner Permissions (for `init-db`, `migrate-db`)**:
+   These commands connect directly to Cloud Spanner from your CLI. Grant `roles/spanner.databaseAdmin` and `roles/spanner.databaseUser` on your project:
+   ```bash
+   gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+       --member="user:$(gcloud config get-value account)" \
+       --role="roles/spanner.databaseAdmin"
+
+   gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+       --member="user:$(gcloud config get-value account)" \
+       --role="roles/spanner.databaseUser"
+   ```
+
+2. **Workflow Token Impersonation (for `ingest start`)**:
+   Grant your user identity permission to impersonate the Cloud Workflows orchestrator service account:
+   ```bash
+   gcloud iam service-accounts add-iam-policy-binding "$ORCHESTRATOR_SA" \
+       --member="user:$(gcloud config get-value account)" \
+       --role="roles/iam.serviceAccountTokenCreator" \
+       --project="$PROJECT_ID"
+   ```
 
 ---
 
@@ -334,9 +348,9 @@ datacommons admin init-db
 ```
 
 The CLI executes the following sequence:
-1. Reads Spanner outputs and the ingestion helper URL from your local Terraform state.
-2. Authenticates against the ingestion helper service using OIDC token impersonation.
-3. Applies base DDL scripts to create Spanner tables (`Node`, `Edge`, `Observation`, `TimeSeries`, `ImportStatus`, `IngestionHistory`).
+1. Reads Spanner instance, database, and region directly from your local Terraform state.
+2. Connects directly to Cloud Spanner using your authenticated credentials.
+3. Applies base DDL scripts to create Spanner tables (`Node`, `Edge`, `Observation`, `TimeSeries`, `ImportStatus`, `IngestionHistory`, `IngestionLock`, etc.).
 4. Runs pending [schema migration scripts](../schema_migrations_developer_guide.md).
 5. Seeds base metadata nodes (statistical variables, units, and sources).
 

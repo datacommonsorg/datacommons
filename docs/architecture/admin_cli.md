@@ -25,9 +25,8 @@ The CLI tooling is structured across two packages in the repository:
 
 ### CLI Command Taxonomy
 * **`datacommons admin init`**: Scaffolds a new deployment directory by fetching Terraform templates, modifying module sources, and configuring instance variables.
-* **`datacommons admin init-db`**: Initializes the Cloud Spanner database schema, runs pending migrations, and seeds required base metadata.
+* **`datacommons admin init-db`**: Initializes the Cloud Spanner database schema and runs pending migrations.
 * **`datacommons admin migrate-db`**: Checks for and applies pending Spanner schema migrations with distributed locking.
-* **`datacommons admin seed-db`**: Seeds base statistical variable metadata and graph definitions.
 * **`datacommons admin ingest start`**: Launches a Cloud Workflows ingestion run for registered datasets.
 * **`datacommons admin ingest show-config`**: Displays current runtime environment variables from the preprocessing job.
 
@@ -96,18 +95,15 @@ The state resolution and contract verification suite spans two complementary tes
 ## Operational Execution Flows
 
 ### Database Initialization Flow (`datacommons admin init-db`)
-1. **Output Discovery**: Calls `get_terraform_outputs()` in [state.py](../../packages/datacommons-admin/datacommons_admin/core/terraform/state.py) to load validated project, Spanner, and Ingestion Helper endpoints from Terraform state.
-2. **Client Authentication**: Instantiates `IngestionHelperClient` configured with OpenID Connect (OIDC) ID token impersonation for the workflow service account. Prerequisite: the executing user account must hold `roles/iam.serviceAccountTokenCreator` on the workflow service account.
-3. **Database Check and Safety Guard**: Calls `is_database_initialized(project_id, instance_id, database_id)`. If the `Node` table exists, the CLI halts execution to avoid overwriting existing data, directing operators to run `migrate-db` or `seed-db` instead.
-4. **Base Schema Creation**: Sends an authenticated HTTP POST request to `${ingestion_service_url}/database/initialize` to apply base DDL scripts via the Ingestion Helper service in `datcom-import`. This creates the required Spanner tables (`Node`, `Edge`, `TimeSeries`, `Observation`, `ImportStatus`, `IngestionHistory`, `ImportVersionHistory`, `IngestionLock`, `KeyValueStore`, `NodeEmbedding`), secondary indexes, and embedding models.
-5. **Schema Migrations (Local Execution)**: Runs `_run_migrations()`, executing pending Python migration scripts subclassing `SchemaMigration` from [packages/datacommons-db/datacommons_db/migrations/migration_scripts/](../../packages/datacommons-db/datacommons_db/migrations/migration_scripts). While base DDL runs remotely through Ingestion Helper, schema migrations execute locally within the CLI Python process via `datacommons_db.migrations.MigrationRunner`, establishing a direct connection to Cloud Spanner. The runner coordinates distributed lock state by acquiring and releasing `workflow_id="schema-migration"` in the `IngestionLock` table via the Ingestion Helper lock endpoints (`/database/lock/acquire` and `/database/lock/release`).
-6. **Metadata Seeding**: Unless `--init-only` is passed, calls `${ingestion_service_url}/database/seed` to populate fundamental statistical entities and units.
+1. **Output Discovery**: Calls `get_terraform_outputs()` in [state.py](../../packages/datacommons-admin/datacommons_admin/core/terraform/state.py) to load validated project, Spanner instance, database, and region from Terraform state.
+2. **Client Authentication**: Instantiates `SpannerClient` configured with caller End-User Credentials (EUC). Prerequisite: the executing user account must hold `roles/spanner.databaseAdmin` and `roles/spanner.databaseUser`.
+3. **Unified Schema Migration Execution**: Delegates directly to `_run_migrations(..., auto_approve=True)` via `datacommons_db.migrations.MigrationRunner`. The very first migration (`20260817000000_bootstrap.py`) initializes the `SchemaMigrations` tracking table and applies the baseline `schema.sql`. All subsequent migrations are then applied in order under distributed Spanner lock coordination.
 
 ### Schema Migration Flow (`datacommons admin migrate-db`)
-1. **Output Discovery**: Resolves Spanner instance, database, project ID, and Ingestion Helper configuration from Terraform state.
+1. **Output Discovery**: Resolves Spanner instance, database, and project ID from Terraform state.
 2. **Pending Migration Check**: Queries pending migrations via `MigrationRunner.get_pending_migrations()`. If no migrations are pending, the command exits.
 3. **Operator Confirmation**: If pending migrations exist, prompts for confirmation before applying DDL modifications, unless auto-approved via `-y` or `--yes`.
-4. **Lock Coordination & Application**: Acquires the distributed lock via Ingestion Helper (`workflow_id="schema-migration"`), applies all pending migrations directly to Cloud Spanner, and releases the lock in a finally block.
+4. **Lock Coordination & Application**: Directly acquires the distributed lock on Cloud Spanner (`spanner_client.acquire_lock("schema-migration")`), applies all pending migrations to Cloud Spanner, and releases the lock in a `finally` block.
 
 ### Ingestion Trigger Flow (`datacommons admin ingest start`)
 1. **Output Discovery**: Calls `get_terraform_outputs()` to resolve the Cloud Workflow name (`ingestion_workflow_name`), service account email (`ingestion_workflow_service_account_email`), project ID (`project_id`), and region (`region`) directly from Terraform state without requiring extra runtime Cloud Run API calls.

@@ -201,13 +201,35 @@ To retrieve the full state of all resources and output variables, use the follow
 terraform show
 ```
 
-### Step 5: Grant IAM permissions to impersonate service account
+### Step 5: Grant IAM permissions to run database setup and workflows
 
-To set up the Spanner tables and run the data ingestion workflow, Terraform creates a project-wide [service account](https://docs.cloud.google.com/iam/docs/service-account-overview) with a restricted set of resource access permissions.
+To initialize Spanner tables, execute schema migrations, and run data ingestion workflows, your user account and project service accounts require appropriate IAM roles.
 
-The service account name is <code><var>INSTANCE_NAME</var>-dc-ing-wf-sa@datcom-website-dev.iam.gserviceaccount.com</code>.
+#### 1. Permissions for Database Initialization and Schema Migrations (`init-db`, `migrate-db`)
 
-To run the datacommons CLI commands that execute these processes, you need to impersonate the service account using your own credentials. To do so, you create a one-time IAM binding that gives your account permission to act as the service account.
+The `init-db` and `migrate-db` CLI commands connect directly to Cloud Spanner from your workstation (using your End-User Credentials via `gcloud auth application-default login`).
+
+Ensure your user account has been granted the following Spanner IAM roles on the project (or directly on the Spanner instance/database):
+* **[roles/spanner.databaseAdmin](https://docs.cloud.google.com/iam/docs/roles-permissions/spanner#spanner.databaseAdmin)**: Required to execute DDL statements (creating and altering tables, indexes, and embedding models).
+* **[roles/spanner.databaseUser](https://docs.cloud.google.com/iam/docs/roles-permissions/spanner#spanner.databaseUser)**: Required to read and write database rows (tracking migrations in `SchemaMigrations` and managing distributed locks in `IngestionLock`).
+
+You can grant these roles using the following command:
+<pre>
+gcloud projects add-iam-policy-binding "<var>PROJECT_ID</var>" \
+  --member="user:<var>YOUR_USER_ACCOUNT</var>" \
+  --role="roles/spanner.databaseAdmin"
+
+gcloud projects add-iam-policy-binding "<var>PROJECT_ID</var>" \
+  --member="user:<var>YOUR_USER_ACCOUNT</var>" \
+  --role="roles/spanner.databaseUser"
+</pre>
+
+#### 2. Permissions for Workflow Execution (`ingest start`)
+
+Terraform creates a project-wide [service account](https://docs.cloud.google.com/iam/docs/service-account-overview) to run the data ingestion workflow:
+<code><var>INSTANCE_NAME</var>-dc-ing-wf-sa@<var>PROJECT_ID</var>.iam.gserviceaccount.com</code>.
+
+To run the `datacommons admin ingest start` command, you need to impersonate this service account using your own credentials. To do so, create an IAM binding giving your account the Token Creator role:
 
 1. Ensure you have authenticated as in [step 1](#step1).
 1. Optionally, from your Terraform directory, run the following to get the name of the service account:
@@ -220,7 +242,6 @@ To run the datacommons CLI commands that execute these processes, you need to im
     --member="user:<var>YOUR_USER_ACCOUNT</var>" \
     --role="roles/iam.serviceAccountTokenCreator" \
     --project="<var>PROJECT_ID</var>"</pre>
-    Your user account is whatever email address you are using as a member of your GCP project.
 
 To verify that your account has been added as a principal to the service account, you can look up the details as follows:
 
@@ -234,6 +255,8 @@ From the directory where your Terraform configuration is stored, run the followi
 ```
 uvx datacommons-cli admin init-db
 ```
+
+This command connects directly to Cloud Spanner using your authenticated credentials to execute the bundled DDL schema, apply pending migrations, and seed initial metadata.
 
 When it completes, verify that the tables are created correctly:
 

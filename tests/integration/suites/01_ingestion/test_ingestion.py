@@ -26,10 +26,10 @@ from tests.integration.core.spanner_client import SpannerClient
 from tests.integration.core.target import DCPTarget
 
 
-@pytest.mark.cloud_only
 class TestCLIIngestion:
     """Validates Data Commons CLI ingestion commands against target workspace."""
 
+    @pytest.mark.cloud_only
     def test_01_cli_ingest_show_config(
         self, dcp_cli: DatacommonsCLI, dcp_target: DCPTarget
     ):
@@ -74,6 +74,7 @@ class TestCLIIngestion:
             or "is already initialized" in res.output
         )
 
+    @pytest.mark.cloud_only
     def test_03_cli_ingest_start(
         self,
         request,

@@ -136,8 +136,8 @@ DCP separates deletion protection into two independent variables in `infra/dcp/v
 * **`stateless_deletion_protection`**: Controls deletion protection on compute resources like Cloud Run services, Cloud Run jobs, and Cloud Workflows. Defaults are declared in [infra/dcp/variables.tf](../../infra/dcp/variables.tf). Disabling protection allows quick teardown and redeployment of compute targets.
 
 ### Service Account Token Creator Requirement
-* Cloud Workflows, Cloud Run jobs, and the `datacommons admin init-db` CLI command run under dedicated service account identities.
-* To execute the workflow or trigger database schema initialization, the deploying developer or CI runner requires permission to impersonate the workflow orchestrator service account.
+* Cloud Workflows and Cloud Run jobs run under dedicated service account identities.
+* To execute the workflow using the `datacommons admin ingest start` CLI command, the deploying developer or CI runner requires permission to impersonate the workflow orchestrator service account.
 * If missing, the developer must grant `roles/iam.serviceAccountTokenCreator` on the workflow service account to their identity:
   ```bash
   gcloud iam service-accounts add-iam-policy-binding <workflow-sa-email> \

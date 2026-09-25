@@ -14,6 +14,7 @@
 
 import re
 from collections.abc import Callable
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -60,23 +61,33 @@ class FakeSnapshot:
         Args:
             query: SQL query string.
             params: Parameter dictionary (e.g. `{"table_name": "Node"}`).
-            param_types: Parameter types dictionary (e.g. `{"table_name": spanner.param_types.STRING}`).
+            param_types: Parameter types dictionary.
 
         Returns:
             A list of rows, where each row is a list of column values.
         """
         _ = param_types
-        # 1. Querying information_schema.tables
-        if "information_schema.tables" in query.lower():
+        normalized = query.lower()
+
+        # Schema introspection: table existence check
+        if "information_schema.tables" in normalized:
             table_name = str(params.get("table_name")) if params else None
-            if table_name and table_name in self.db.tables:
-                return [[1]]
+            return [[1]] if table_name and table_name in self.db.tables else []
+
+        # Lock table check
+        if "from ingestionlock" in normalized:
+            if "IngestionLock" in self.db.tables:
+                return [
+                    [r.get("LockOwner"), r.get("AcquiredTimestamp")]
+                    for r in self.db.tables["IngestionLock"]
+                ]
             return []
 
-        # 2. Fallback / generic test queries
-        if "custom_test_table" in self.db.tables:
-            return self.db.tables["custom_test_table"]
+        # Custom table for test_execute_query_custom_table
+        if "from custom_test_table" in normalized:
+            return self.db.tables.get("custom_test_table", [])
 
+        # Generic parameterized query test
         if params and "name" in params:
             return [[f"result_for_{params['name']}"]]
 
@@ -95,6 +106,17 @@ class FakeTransaction:
         self.last_query: str | None = None
         self.last_params: dict[str, object] | None = None
         self.last_param_types: dict[str, object] | None = None
+
+    def execute_sql(
+        self,
+        query: str,
+        params: dict[str, object] | None = None,
+        param_types: dict[str, object] | None = None,
+    ) -> list[list[object]]:
+        """Execute a query within a transaction."""
+        return self.db.snapshot().execute_sql(
+            query, params=params, param_types=param_types
+        )
 
     def execute_update(
         self,
@@ -115,6 +137,44 @@ class FakeTransaction:
         self.last_query = query
         self.last_params = params
         self.last_param_types = param_types
+
+        # Handle IngestionLock mutations
+        if "ingestionlock" in query.lower():
+            self.db.tables.setdefault("IngestionLock", [])
+            lock_id = params.get("lockId") if params else "global_ingestion_lock"
+            workflow_id = params.get("workflowId") if params else None
+
+            existing = None
+            for row in self.db.tables["IngestionLock"]:
+                if row.get("LockID") == lock_id:
+                    existing = row
+                    break
+
+            if "insert into ingestionlock" in query.lower():
+                self.db.tables["IngestionLock"].append(
+                    {
+                        "LockID": lock_id,
+                        "LockOwner": workflow_id,
+                        "AcquiredTimestamp": datetime.now(UTC),
+                    }
+                )
+            elif "update ingestionlock" in query.lower():
+                if existing:
+                    existing["LockOwner"] = workflow_id
+                    existing["AcquiredTimestamp"] = (
+                        datetime.now(UTC) if workflow_id else None
+                    )
+                else:
+                    self.db.tables["IngestionLock"].append(
+                        {
+                            "LockID": lock_id,
+                            "LockOwner": workflow_id,
+                            "AcquiredTimestamp": (
+                                datetime.now(UTC) if workflow_id else None
+                            ),
+                        }
+                    )
+
         return 1
 
 
@@ -442,3 +502,56 @@ def test_execute_query_error(fake_spanner_db: FakeSpannerDatabase):
     assert result.status == ExecutionStatus.ERROR
     assert result.rows == []
     assert "Snapshot read failed" in result.error_message
+
+
+# ==============================================================================
+# Database Lifecycle & Locking Tests
+# ==============================================================================
+
+
+def test_initialize_database_success(fake_spanner_db: FakeSpannerDatabase):
+    client = SpannerClient("proj", "inst", "db")
+    result = client.initialize_database()
+    assert isinstance(result, DdlResult)
+    assert result.status == ExecutionStatus.SUCCESS
+    assert client.table_exists("Node") is True
+    assert client.table_exists("Edge") is True
+    assert client.table_exists("TimeSeries") is True
+    assert client.table_exists("Observation") is True
+    assert client.table_exists("IngestionLock") is True
+
+
+def test_acquire_and_release_lock_lifecycle(fake_spanner_db: FakeSpannerDatabase):
+    client = SpannerClient("proj", "inst", "db")
+
+    # 1. Acquire lock
+    acquired = client.acquire_lock(workflow_id="test-workflow")
+    assert acquired is True
+
+    # 2. Release lock
+    released = client.release_lock(workflow_id="test-workflow")
+    assert released is True
+
+
+def test_acquire_lock_held_by_other(fake_spanner_db: FakeSpannerDatabase):
+    client = SpannerClient("proj", "inst", "db")
+
+    # Mock snapshot returning an active lock owned by another workflow
+    mock_snapshot = MagicMock()
+    mock_snapshot.execute_sql.return_value = [["other-owner", datetime.now(UTC)]]
+    fake_spanner_db.snapshot = MagicMock(return_value=mock_snapshot)
+
+    acquired = client.acquire_lock(workflow_id="my-workflow", timeout=300)
+    assert acquired is False
+
+
+def test_release_lock_not_owner(fake_spanner_db: FakeSpannerDatabase):
+    client = SpannerClient("proj", "inst", "db")
+
+    # Mock snapshot returning lock owned by someone else
+    mock_snapshot = MagicMock()
+    mock_snapshot.execute_sql.return_value = [["other-owner", None]]
+    fake_spanner_db.snapshot = MagicMock(return_value=mock_snapshot)
+
+    released = client.release_lock(workflow_id="my-workflow")
+    assert released is False

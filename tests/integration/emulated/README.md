@@ -25,7 +25,7 @@ The emulated stack runs the following containers in a shared bridge network (`it
 
 The emulated stack validates core database schemas, DirectRunner graph ingestion, and serving APIs offline. Certain cloud-managed features require live GCP services and are marked with `@pytest.mark.cloud_only` (skipped automatically when running with `--instance=emulated`):
 
-* **Cloud CLI Ingestion (`TestCLIIngestion`)**: The `datacommons admin ingest start` command invokes GCP Cloud Workflows and monitors Dataflow jobs via Cloud APIs. In emulated mode, data is ingested directly into the Spanner emulator via Beam DirectRunner.
+* **Cloud Orchestration & Ingestion Workflows (`test_01_cli_ingest_show_config`, `test_03_cli_ingest_start`)**: The `datacommons admin ingest start` command invokes GCP Cloud Workflows and monitors Dataflow jobs via Cloud APIs. In emulated mode, database initialization (`test_02_cli_init_db`) runs directly against the local Spanner emulator, while dataset ingestion is executed via Beam DirectRunner.
 * **SVG Hierarchy Aggregations (`TestSVGHierarchy`)**: Statistical Variable Group (SVG) parent-child specialization generation relies on BigQuery postprocessing aggregations.
 * **Vector Embeddings & Semantic Search (`TestEmbeddings`, `TestMCPTools::search_indicators`)**: Generating embeddings and resolving natural language indicator queries requires Vertex AI Vector Search.
 

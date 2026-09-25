@@ -302,3 +302,57 @@ def test_devtools_migrations_bump_invocation(runner: CliRunner, tmp_path: Path) 
     assert "Successfully bumped migration script" in result.output
     assert not file_path.exists()
     assert len(list(tmp_path.glob("*_new_dataset.py"))) == 1
+
+
+# ==============================================================================
+# 3. 'update-golden' Command Tests
+# ==============================================================================
+
+
+def test_cli_update_golden_command(
+    runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Verifies update-golden command successfully updates the golden schema file."""
+    mock_golden = tmp_path / "schema_golden.sql"
+    monkeypatch.setattr(
+        "datacommons_devtools.migrations.utils.update_golden_schema",
+        lambda: mock_golden,
+    )
+
+    result = runner.invoke(cli, ["update-golden"])
+    assert result.exit_code == 0
+    assert "Successfully updated golden schema:" in result.output
+    assert str(mock_golden) in result.output
+
+
+def test_devtools_migrations_update_golden_invocation(
+    runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Verifies invoking update-golden via datacommons-devtools migrations update-golden."""
+    mock_golden = tmp_path / "schema_golden.sql"
+    monkeypatch.setattr(
+        "datacommons_devtools.migrations.utils.update_golden_schema",
+        lambda: mock_golden,
+    )
+
+    result = runner.invoke(devtools_cli, ["migrations", "update-golden"])
+    assert result.exit_code == 0
+    assert "Successfully updated golden schema:" in result.output
+
+
+def test_cli_update_golden_failure_raises(
+    runner: CliRunner, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Verifies update-golden command handles failure exceptions gracefully."""
+
+    def _fail():
+        raise RuntimeError("Spanner DDL parse failure")
+
+    monkeypatch.setattr(
+        "datacommons_devtools.migrations.utils.update_golden_schema",
+        _fail,
+    )
+
+    result = runner.invoke(cli, ["update-golden"])
+    assert result.exit_code != 0
+    assert "Failed to update golden schema: Spanner DDL parse failure" in result.output

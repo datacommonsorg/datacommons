@@ -26,6 +26,11 @@ import re
 from importlib import resources
 from pathlib import Path
 
+from datacommons_db.migrations import (
+    generate_golden_schema_sql,
+    get_golden_schema_path,
+)
+
 FILENAME_PATTERN = re.compile(r"^(\d{14})_([a-z0-9_]+)\.py$")
 ISO_8601_UTC_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 NAME_PATTERN = re.compile(r"^[a-z0-9_]+$")
@@ -394,3 +399,20 @@ def update_migration_file(
         file_path.unlink()
 
     return file_path, new_path, new_iso
+
+
+def update_golden_schema() -> Path:
+    """Compiles and updates packages/datacommons-db/tests/goldens/schema_golden.sql.
+
+    Returns:
+        Path to the updated schema_golden.sql file.
+
+    Raises:
+        OSError: If reading migrations or writing the golden file fails.
+        RuntimeError: If schema compilation fails.
+    """
+    golden_file = get_golden_schema_path()
+    golden_file.parent.mkdir(parents=True, exist_ok=True)
+    golden_sql = generate_golden_schema_sql(project_id="test-project")
+    golden_file.write_text(golden_sql, encoding="utf-8")
+    return golden_file
