@@ -122,11 +122,14 @@ def _resolve_deployed_artifacts(
             if imgs:
                 resolved[resource_map[rname]] = imgs[0]
 
-        # Extract Dataflow template GCS path from Workflow source_contents
+        # Extract Dataflow template GCS path from Workflow source_contents.
+        # The template is passed to the shared launcher subworkflow as
+        # `template_path`; the ingestion launch site appears before the rollback
+        # subworkflow, so the first match is the ingestion Flex Template.
         if rname == "ingestion_orchestrator":
             source = attrs.get("source_contents", "")
             match = re.search(
-                r"['\"]?containerSpecGcsPath['\"]?\s*:\s*['\"]?(gs://[^\s'\"\\,]+\.json)['\"]?",
+                r"['\"]?(?:containerSpecGcsPath|template_path)['\"]?\s*:\s*['\"]?(gs://[^\s'\"\\,]+\.json)['\"]?",
                 source,
             )
             if match:

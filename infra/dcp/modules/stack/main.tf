@@ -17,8 +17,9 @@ module "network" {
 
 locals {
 
-  redis_host = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
-  redis_port = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
+  redis_host    = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
+  redis_port    = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
+  redis_ca_cert = var.redis_config.enable && var.redis_config.enable_tls && length(module.redis) > 0 ? module.redis[0].redis_ca_cert : ""
 
   effective_dataflow_subnetwork = (
     var.ingestion_config.dataflow_subnetwork != "" ? var.ingestion_config.dataflow_subnetwork :
@@ -50,6 +51,10 @@ locals {
       value = local.redis_port
     },
     {
+      name  = "REDIS_CA_CERT"
+      value = local.redis_ca_cert
+    },
+    {
       name = "GCP_SPANNER_INSTANCE_ID"
       # Use index [0] because module.spanner is now conditional (count). Fallback to empty string if disabled.
       value = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
@@ -75,26 +80,32 @@ locals {
     {
       name  = "REGION"
       value = var.global.region
-    },
-    {
-      name  = "USE_SPANNER_GRAPH"
-      value = "true"
     }
   ]
 
-  datacommons_services_secrets = var.datacommons_services_config.enable ? concat([
-    {
-      name    = "DC_API_KEY"
-      secret  = module.auth.dc_api_key_secret_id
-      version = "latest"
-    }
-    ], !var.datacommons_services_config.website_disable_google_maps_api ? [
-    {
-      name    = "MAPS_API_KEY"
-      secret  = module.auth.maps_api_key_secret_id
-      version = "latest"
-    }
-  ] : []) : []
+  datacommons_services_secrets = var.datacommons_services_config.enable ? concat(
+    [
+      {
+        name    = "DC_API_KEY"
+        secret  = module.auth.dc_api_key_secret_id
+        version = "latest"
+      }
+    ],
+    !var.datacommons_services_config.website_disable_google_maps_api ? [
+      {
+        name    = "MAPS_API_KEY"
+        secret  = module.auth.maps_api_key_secret_id
+        version = "latest"
+      }
+    ] : [],
+    var.redis_config.enable && var.redis_config.enable_auth && length(module.redis) > 0 ? [
+      {
+        name    = "REDIS_PASSWORD"
+        secret  = module.redis[0].redis_auth_secret_id
+        version = "latest"
+      }
+    ] : []
+  ) : []
 }
 
 module "spanner" {
@@ -219,6 +230,8 @@ module "ingestion_helper_service" {
   vpc_access               = module.network.vpc_access
   redis_host               = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
   redis_port               = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
+  redis_auth_secret_id     = var.redis_config.enable && var.redis_config.enable_auth && length(module.redis) > 0 ? module.redis[0].redis_auth_secret_id : null
+  redis_ca_cert            = local.redis_ca_cert
   ingestion_artifacts_path = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
   skip_container_restarts  = var.global.skip_container_restarts
 }
@@ -227,32 +240,33 @@ module "ingestion_helper_service" {
 module "ingestion_workflow" {
   source = "../ingestion/workflow"
 
-  deploy                              = var.ingestion_config.enable_ingestion
-  instance_name                       = var.global.instance_name
-  region                              = var.global.region
-  stateless_deletion_protection       = var.global.stateless_deletion_protection
-  project_id                          = var.global.project_id
-  lock_acquisition_timeout            = var.ingestion_config.workflow_lock_acquisition_timeout
-  ingestion_helper_url                = module.ingestion_helper_service.ingestion_helper_url
-  dataflow_service_account_email      = module.ingestion_dataflow.service_account_email
-  enable_bigquery_postprocessing      = var.ingestion_config.workflow_enable_bigquery_postprocessing
-  enable_embeddings_generation        = var.spanner_config.enable_embeddings_generation
-  ingestion_helper_service_name       = "${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-ingestion-helper"
-  enable_redis_cache_clearing         = var.redis_config.enable
-  artifacts_bucket_name               = module.storage.artifacts_bucket_name
-  ingestion_artifacts_path            = var.ingestion_config.ingestion_artifacts_path
-  spanner_instance_id                 = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
-  spanner_database_id                 = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
-  dataflow_ip_configuration           = local.effective_dataflow_ip_configuration
-  dataflow_subnetwork                 = local.effective_dataflow_subnetwork
-  dataflow_template_gcs_path          = var.ingestion_config.dataflow_template_gcs_path
-  dataflow_max_workers                = var.ingestion_config.dataflow_max_workers
-  dataflow_num_workers                = var.ingestion_config.dataflow_num_workers
-  dataflow_worker_machine_type        = var.ingestion_config.dataflow_worker_machine_type
-  preprocessing_job_name              = var.ingestion_config.enable_ingestion ? module.ingestion_preprocessing_job[0].job_name : ""
-  postprocessing_job_name             = var.ingestion_config.enable_ingestion ? module.ingestion_postprocessing_job[0].job_name : ""
-  enable_datacommons_services_restart = var.datacommons_services_config.enable
-  datacommons_services_name           = "${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-datacommons-service"
+  deploy                               = var.ingestion_config.enable_ingestion
+  instance_name                        = var.global.instance_name
+  region                               = var.global.region
+  stateless_deletion_protection        = var.global.stateless_deletion_protection
+  project_id                           = var.global.project_id
+  lock_acquisition_timeout             = var.ingestion_config.workflow_lock_acquisition_timeout
+  ingestion_helper_url                 = module.ingestion_helper_service.ingestion_helper_url
+  dataflow_service_account_email       = module.ingestion_dataflow.service_account_email
+  enable_bigquery_postprocessing       = var.ingestion_config.workflow_enable_bigquery_postprocessing
+  enable_embeddings_generation         = var.spanner_config.enable_embeddings_generation
+  ingestion_helper_service_name        = "${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-ingestion-helper"
+  enable_redis_cache_clearing          = var.redis_config.enable
+  artifacts_bucket_name                = module.storage.artifacts_bucket_name
+  ingestion_artifacts_path             = var.ingestion_config.ingestion_artifacts_path
+  spanner_instance_id                  = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
+  spanner_database_id                  = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
+  dataflow_ip_configuration            = local.effective_dataflow_ip_configuration
+  dataflow_subnetwork                  = local.effective_dataflow_subnetwork
+  ingestion_dataflow_template_gcs_path = var.ingestion_config.ingestion_dataflow_template_gcs_path
+  rollback_dataflow_template_gcs_path  = var.ingestion_config.rollback_dataflow_template_gcs_path
+  dataflow_max_workers                 = var.ingestion_config.dataflow_max_workers
+  dataflow_num_workers                 = var.ingestion_config.dataflow_num_workers
+  dataflow_worker_machine_type         = var.ingestion_config.dataflow_worker_machine_type
+  preprocessing_job_name               = var.ingestion_config.enable_ingestion ? module.ingestion_preprocessing_job[0].job_name : ""
+  postprocessing_job_name              = var.ingestion_config.enable_ingestion ? module.ingestion_postprocessing_job[0].job_name : ""
+  enable_datacommons_services_restart  = var.datacommons_services_config.enable
+  datacommons_services_name            = "${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-datacommons-service"
 
   depends_on = [module.ingestion_helper_service]
 }
@@ -269,9 +283,11 @@ module "redis" {
   location_id             = var.redis_config.location_id
   alternative_location_id = var.redis_config.alternative_location_id
   replica_count           = var.redis_config.replica_count
-  vpc_network_id          = module.network.network_id != null && module.network.network_id != "" ? module.network.network_id : "projects/${var.global.project_id}/global/networks/default"
+  enable_auth             = var.redis_config.enable_auth
+  enable_tls              = var.redis_config.enable_tls
+  vpc_network_id          = module.network.network_id
 
-  depends_on = [module.network]
+  depends_on = [module.network, terraform_data.redis_network_validation]
 }
 
 module "auth" {

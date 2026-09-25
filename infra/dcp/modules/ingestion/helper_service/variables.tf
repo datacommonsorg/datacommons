@@ -70,6 +70,18 @@ variable "redis_port" {
   default     = "6379"
 }
 
+variable "redis_auth_secret_id" {
+  type        = string
+  description = "Optional Secret Manager secret ID holding the Redis AUTH password"
+  default     = null
+}
+
+variable "redis_ca_cert" {
+  type        = string
+  description = "Optional PEM-encoded CA certificate(s) for Redis TLS (SERVER_AUTHENTICATION)"
+  default     = ""
+}
+
 variable "ingestion_artifacts_path" {
   type        = string
   description = "Path where pre-processed files are placed for the next stage"
