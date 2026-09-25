@@ -36,13 +36,17 @@ class SpannerCLIContext(NamedTuple):
 
 
 def _setup_spanner_client(ctx: click.Context) -> SpannerCLIContext:
-    click.secho(
-        "Fetching Spanner details and region from Terraform outputs...",
-        fg="bright_black",
-    )
-
     state_params = ctx.obj or {}
-    try:
+    if os.getenv("SPANNER_EMULATOR_HOST"):
+        project_id = os.getenv("SPANNER_PROJECT_ID", "default")
+        instance_id = os.getenv("SPANNER_INSTANCE_ID", "default")
+        database_id = os.getenv("SPANNER_DATABASE_ID", "test-db")
+        region = os.getenv("GCP_REGION", "us-central1")
+    else:
+        click.secho(
+            "Fetching Spanner details and region from Terraform outputs...",
+            fg="bright_black",
+        )
         tf = get_terraform_outputs(
             project_id=state_params.get("project_id"),
             instance_name=state_params.get("instance_name"),
@@ -52,14 +56,6 @@ def _setup_spanner_client(ctx: click.Context) -> SpannerCLIContext:
         instance_id = tf.spanner_instance_id
         database_id = tf.spanner_database_id
         region = tf.region
-    except Exception:
-        if os.getenv("SPANNER_EMULATOR_HOST"):
-            project_id = os.getenv("SPANNER_PROJECT_ID", "default")
-            instance_id = os.getenv("SPANNER_INSTANCE_ID", "default")
-            database_id = os.getenv("SPANNER_DATABASE_ID", "test-db")
-            region = os.getenv("GCP_REGION", "us-central1")
-        else:
-            raise
 
     if not instance_id or not database_id:
         raise click.ClickException(

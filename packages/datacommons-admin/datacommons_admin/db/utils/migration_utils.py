@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import click
-from datacommons_db.clients import SpannerClient
+from datacommons_db.clients import ExecutionStatus, SpannerClient
 from datacommons_db.migrations import MigrationRunner
 
 from datacommons_admin.core.utils.ui_utils import _confirm
@@ -118,7 +118,7 @@ def _initialize_database(spanner_client: SpannerClient) -> bool:
         fg="bright_black",
     )
     init_result = spanner_client.initialize_database()
-    if init_result.status.value != "SUCCESS":
+    if init_result.status != ExecutionStatus.SUCCESS:
         raise click.ClickException(
             f"Failed to initialize baseline schema: {init_result.error_message}"
         )
