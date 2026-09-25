@@ -397,7 +397,7 @@ def update_migration_file(
 
 
 def update_golden_schema() -> Path:
-    """Compiles and updates packages/datacommons-db/datacommons_db/schema/schema_golden.sql.
+    """Compiles and updates packages/datacommons-db/tests/goldens/schema_golden.sql.
 
     Returns:
         Path to the updated schema_golden.sql file.
@@ -408,11 +408,11 @@ def update_golden_schema() -> Path:
     """
     from datacommons_db.utils.sql_utils import (
         generate_golden_schema_sql,
-        get_schema_dir,
+        get_golden_schema_path,
     )
 
-    schema_dir = get_schema_dir()
-    golden_file = schema_dir / "schema_golden.sql"
+    golden_file = get_golden_schema_path()
+    golden_file.parent.mkdir(parents=True, exist_ok=True)
     golden_sql = generate_golden_schema_sql(project_id="test-project")
     golden_file.write_text(golden_sql, encoding="utf-8")
     return golden_file

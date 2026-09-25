@@ -30,7 +30,7 @@ COMMANDS:
 
   3. update-golden
      Recompiles the cumulative Spanner DDL schema from all migrations and updates
-     packages/datacommons-db/datacommons_db/schema/schema_golden.sql to prevent test drift.
+     packages/datacommons-db/tests/goldens/schema_golden.sql to prevent test drift.
 
 USAGE EXAMPLES:
   # Create a new migration script
@@ -159,7 +159,7 @@ def bump_command(target: str | None = None, *, yes: bool = False) -> None:
     short_help="Recompile and update the golden schema SQL file.",
 )
 def update_golden_command() -> None:
-    """Recompile packages/datacommons-db/datacommons_db/schema/schema_golden.sql from all migration scripts."""
+    """Recompile packages/datacommons-db/tests/goldens/schema_golden.sql from all migration scripts."""
     try:
         golden_file = utils.update_golden_schema()
     except (OSError, RuntimeError, ValueError) as e:

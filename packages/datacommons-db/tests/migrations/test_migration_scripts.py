@@ -241,16 +241,15 @@ def test_cumulative_schema_matches_golden_file() -> None:
 
     If this test fails in CI, a developer added or modified a schema migration script without
     updating the golden schema artifact. Run:
-        uv run python scripts/update_schema_golden.py
-    and commit the resulting changes to 'schema_golden.sql'.
+        uv run datacommons-devtools migrations update-golden
+    and commit the resulting changes to 'packages/datacommons-db/tests/goldens/schema_golden.sql'.
     """
     from datacommons_db.utils.sql_utils import (
         generate_golden_schema_sql,
-        get_schema_dir,
+        get_golden_schema_path,
     )
 
-    schema_dir = get_schema_dir()
-    golden_path = schema_dir / "schema_golden.sql"
+    golden_path = get_golden_schema_path()
 
     assert golden_path.exists(), (
         f"Missing schema_golden.sql file at '{golden_path}'. "
@@ -265,5 +264,5 @@ def test_cumulative_schema_matches_golden_file() -> None:
         f"does not match golden schema in '{golden_path.name}'.\n"
         "If you added or modified migration scripts, please update the golden file by running:\n"
         "    uv run datacommons-devtools migrations update-golden\n"
-        "and commit the updated 'packages/datacommons-db/datacommons_db/schema/schema_golden.sql'."
+        "and commit the updated 'packages/datacommons-db/tests/goldens/schema_golden.sql'."
     )

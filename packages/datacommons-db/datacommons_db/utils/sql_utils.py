@@ -120,12 +120,22 @@ def parse_sql_to_statements(sql_content: str) -> list[str]:
 
 
 def get_schema_dir() -> Path:
-    """Resolves the directory containing the schema SQL files.
+    """Resolves the directory containing the baseline schema SQL files.
 
     Returns:
-        Path to the schema directory containing schema.sql and schema_golden.sql.
+        Path to the schema directory containing schema.sql.
     """
     return Path(__file__).resolve().parent.parent / "schema"
+
+
+def get_golden_schema_path() -> Path:
+    """Resolves the path to the golden schema SQL file.
+
+    Returns:
+        Path to packages/datacommons-db/tests/goldens/schema_golden.sql.
+    """
+    pkg_root = Path(__file__).resolve().parent.parent.parent
+    return pkg_root / "tests" / "goldens" / "schema_golden.sql"
 
 
 def generate_golden_schema_sql(project_id: str = "test-project") -> str:
@@ -188,7 +198,7 @@ def generate_golden_schema_sql(project_id: str = "test-project") -> str:
 -- by applying schema.sql followed by all forward migration scripts up to HEAD.
 --
 -- To update this file when adding or editing migrations:
---   uv run python scripts/update_schema_golden.py
+--   uv run datacommons-devtools migrations update-golden
 -- ============================================================================
 """
     return header + "\n" + ";\n\n".join(all_stmts) + ";\n"

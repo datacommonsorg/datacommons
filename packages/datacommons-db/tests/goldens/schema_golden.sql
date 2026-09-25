@@ -19,7 +19,7 @@
 -- by applying schema.sql followed by all forward migration scripts up to HEAD.
 --
 -- To update this file when adding or editing migrations:
---   uv run python scripts/update_schema_golden.py
+--   uv run datacommons-devtools migrations update-golden
 -- ============================================================================
 
 CREATE TABLE Node (

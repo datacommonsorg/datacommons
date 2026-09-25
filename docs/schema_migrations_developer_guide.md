@@ -109,7 +109,7 @@ Proceed with bump? [y/N]: y
 
 ### C. Updating the Golden Schema (`update-golden`)
 
-Whenever you create, modify, or remove a schema migration, the cumulative DDL output changes. The test suite enforces that the baseline schema plus all migrations match the committed golden schema file ([`packages/datacommons-db/datacommons_db/schema/schema_golden.sql`](../packages/datacommons-db/datacommons_db/schema/schema_golden.sql)).
+Whenever you create, modify, or remove a schema migration, the cumulative DDL output changes. The test suite enforces that the baseline schema plus all migrations match the committed golden schema file ([`packages/datacommons-db/tests/goldens/schema_golden.sql`](../packages/datacommons-db/tests/goldens/schema_golden.sql)).
 
 To recompile and update the golden schema file:
 
