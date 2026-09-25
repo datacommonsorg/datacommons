@@ -62,4 +62,3 @@ def test_render_schema_template_suffix():
     assert "CREATE MODEL MyModel" in rendered
     assert "SuffixTable" in rendered
     assert "-- Trailing comment" in rendered
-
