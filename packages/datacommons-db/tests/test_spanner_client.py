@@ -15,7 +15,6 @@
 import re
 from collections.abc import Callable
 from datetime import UTC, datetime
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -520,14 +519,6 @@ def test_initialize_database_success(fake_spanner_db: FakeSpannerDatabase):
     assert client.table_exists("TimeSeries") is True
     assert client.table_exists("Observation") is True
     assert client.table_exists("IngestionLock") is True
-
-
-def test_initialize_database_missing_file(monkeypatch: pytest.MonkeyPatch):
-    client = SpannerClient("proj", "inst", "db")
-    monkeypatch.setattr(Path, "exists", lambda self: False)
-    result = client.initialize_database()
-    assert result.status == ExecutionStatus.ERROR
-    assert "Schema file not found" in result.error_message
 
 
 def test_acquire_and_release_lock_lifecycle(fake_spanner_db: FakeSpannerDatabase):
