@@ -12,7 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datacommons_db.utils.sql_utils import parse_sql_to_statements
+from datacommons_db.utils.sql_utils import (
+    parse_sql_to_statements,
+    render_schema_template,
+)
 
 
 def test_parse_sql_to_statements_basic():
@@ -39,3 +42,24 @@ def test_parse_sql_to_statements_with_inline_comments():
     stmts = parse_sql_to_statements(sql)
     assert len(stmts) == 1
     assert stmts[0] == "CREATE TABLE Baz (id INT64) PRIMARY KEY (id)"
+
+
+def test_render_schema_template_suffix():
+    template = """
+    CREATE TABLE {{ embedding_table }} (id INT64);
+    {% for model in models %}
+    CREATE MODEL {{ model.name }} REMOTE OPTIONS (endpoint = '{{ model.endpoint }}');
+    {% endfor %}
+    -- Trailing comment
+    CREATE TABLE SuffixTable (val STRING(MAX));
+    """
+    rendered = render_schema_template(
+        template,
+        models=[{"name": "MyModel", "endpoint": "custom-endpoint"}],
+        project_id="test-proj",
+        location="us-central1",
+    )
+    assert "CREATE MODEL MyModel" in rendered
+    assert "SuffixTable" in rendered
+    assert "-- Trailing comment" in rendered
+

@@ -79,8 +79,12 @@ def render_schema_template(
                 ");"
             )
 
-        prefix = rendered.split("{% for model in models %}")[0]
-        rendered = prefix + "\n" + "\n".join(model_ddls)
+        parts = rendered.split("{% for model in models %}")
+        prefix = parts[0]
+        suffix = ""
+        if len(parts) > 1 and "{% endfor %}" in parts[1]:
+            suffix = parts[1].split("{% endfor %}", 1)[1]
+        rendered = prefix + "\n" + "\n".join(model_ddls) + suffix
 
     return rendered
 
@@ -89,7 +93,8 @@ def parse_sql_to_statements(sql_content: str) -> list[str]:
     """Parses a SQL script string into a list of individual DDL statements.
 
     Filters out single-line comments starting with '--' so that semicolons inside
-    comments do not interfere with splitting statements.
+    comments do not interfere with splitting statements. Note: Tailored for
+    canonical schema DDL statements delimited by semicolons.
 
     Args:
         sql_content: Full text content of a SQL file or script.

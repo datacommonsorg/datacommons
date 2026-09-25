@@ -69,14 +69,6 @@ def _setup_spanner_client(ctx: click.Context) -> SpannerCLIContext:
     )
 
 
-def _as_spanner_context(
-    val: SpannerCLIContext | tuple[SpannerClient, str, str, str, str],
-) -> SpannerCLIContext:
-    if isinstance(val, SpannerCLIContext):
-        return val
-    return SpannerCLIContext(*val)
-
-
 @click.command(name="migrate-db")
 @click.option(
     "-y",
@@ -100,7 +92,7 @@ def migrate_db(ctx: click.Context, *, auto_approve: bool) -> bool:
         click.ClickException: If reading Terraform outputs, checking pending migrations, acquiring lock, or applying migrations fails.
     """
     click.secho("Datacommons Admin Migrate-DB", fg="cyan", bold=True)
-    spanner_ctx = _as_spanner_context(_setup_spanner_client(ctx))
+    spanner_ctx = _setup_spanner_client(ctx)
     return _run_migrations(
         spanner_ctx.client,
         spanner_ctx.project_id,
@@ -115,7 +107,7 @@ def migrate_db(ctx: click.Context, *, auto_approve: bool) -> bool:
 def init_db(ctx: click.Context) -> None:
     """Initialize the Spanner database schema and apply all migrations."""
     click.secho("Datacommons Admin Init-DB", fg="cyan", bold=True)
-    spanner_ctx = _as_spanner_context(_setup_spanner_client(ctx))
+    spanner_ctx = _setup_spanner_client(ctx)
 
     _run_migrations(
         spanner_ctx.client,

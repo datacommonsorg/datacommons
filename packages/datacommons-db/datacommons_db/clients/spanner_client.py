@@ -509,7 +509,7 @@ class SpannerClient:
             for row in results:
                 current_owner = row[0]
 
-            if current_owner == workflow_id:
+            if current_owner and current_owner == workflow_id:
                 sql_update = """
                     UPDATE IngestionLock
                     SET LockOwner = NULL, AcquiredTimestamp = NULL

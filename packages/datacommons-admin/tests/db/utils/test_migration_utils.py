@@ -17,6 +17,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from click.testing import CliRunner
 from datacommons_admin.admin_cli import admin
+from datacommons_admin.db.db_cli import SpannerCLIContext
 from datacommons_admin.db.utils.migration_utils import is_database_initialized
 from datacommons_db.clients.spanner_client import ExecutionStatus
 from datacommons_db.migrations.migration_runner import MigrationResult
@@ -31,12 +32,12 @@ def mock_migration_setup():
         ) as mock_runner_factory,
     ):
         mock_client = MagicMock()
-        mock_setup.return_value = (
-            mock_client,
-            "mock-proj",
-            "mock-instance",
-            "mock-db",
-            "us-central1",
+        mock_setup.return_value = SpannerCLIContext(
+            client=mock_client,
+            project_id="mock-proj",
+            instance_id="mock-instance",
+            database_id="mock-db",
+            region="us-central1",
         )
 
         mock_runner = MagicMock()
@@ -74,13 +75,11 @@ def test_migrate_db_apply_success(
 ) -> None:
     mock_client, mock_runner = mock_migration_setup
     mock_runner.get_pending_migrations.return_value = [mock_pending_migration]
-    mock_runner.run_migrations.return_value = [
-        MigrationResult(
-            status=ExecutionStatus.SUCCESS,
-            creation_timestamp="20260817000000",
-            description="Bootstrap migration",
-        )
-    ]
+    mock_runner.apply_migration.return_value = MigrationResult(
+        status=ExecutionStatus.SUCCESS,
+        creation_timestamp="20260817000000",
+        description="Bootstrap migration",
+    )
 
     result = runner.invoke(admin, ["migrate-db", *args], input=input_str)
     assert result.exit_code == 0
@@ -88,7 +87,7 @@ def test_migrate_db_apply_success(
     assert "Applied migration 20260817000000: Bootstrap migration" in result.output
     assert "Successfully applied all schema migrations!" in result.output
     mock_client.acquire_lock.assert_called_once_with(workflow_id="schema-migration")
-    mock_runner.run_migrations.assert_called_once()
+    mock_runner.apply_migration.assert_called_once()
     mock_client.release_lock.assert_called_once_with(workflow_id="schema-migration")
 
 
@@ -111,7 +110,7 @@ def test_migrate_db_user_cancels(
     )
     assert "Migration cancelled." in result.output
     mock_client.acquire_lock.assert_not_called()
-    mock_runner.run_migrations.assert_not_called()
+    mock_runner.apply_migration.assert_not_called()
 
 
 def test_migrate_db_failure_releases_lock(
@@ -121,7 +120,7 @@ def test_migrate_db_failure_releases_lock(
 ) -> None:
     mock_client, mock_runner = mock_migration_setup
     mock_runner.get_pending_migrations.return_value = [mock_pending_migration]
-    mock_runner.run_migrations.side_effect = RuntimeError("DDL operation failed")
+    mock_runner.apply_migration.side_effect = RuntimeError("DDL operation failed")
 
     result = runner.invoke(admin, ["migrate-db", "-y"])
     assert result.exit_code != 0
