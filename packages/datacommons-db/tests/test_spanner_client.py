@@ -14,6 +14,7 @@
 
 import re
 from collections.abc import Callable
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -137,8 +138,6 @@ class FakeTransaction:
 
         # Handle IngestionLock mutations
         if "ingestionlock" in query.lower():
-            from datetime import UTC, datetime
-
             self.db.tables.setdefault("IngestionLock", [])
             lock_id = params.get("lockId") if params else "global_ingestion_lock"
             workflow_id = params.get("workflowId") if params else None
@@ -571,8 +570,6 @@ def test_acquire_lock_held_by_other(fake_spanner_db: FakeSpannerDatabase):
 
     # Mock snapshot returning an active lock owned by another workflow
     mock_snapshot = MagicMock()
-    from datetime import UTC, datetime
-
     mock_snapshot.execute_sql.return_value = [["other-owner", datetime.now(UTC)]]
     fake_spanner_db.snapshot = MagicMock(return_value=mock_snapshot)
 

@@ -36,6 +36,10 @@ from datacommons_db.clients.spanner_client import (
     SpannerClient,
 )
 from datacommons_db.migrations import MigrationRunner
+from datacommons_db.utils.sql_utils import (
+    generate_golden_schema_sql,
+    get_golden_schema_path,
+)
 
 FILENAME_PATTERN = re.compile(r"^(\d{14})_[a-z0-9_]+\.py$")
 ISO_8601_UTC_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
@@ -244,11 +248,6 @@ def test_cumulative_schema_matches_golden_file() -> None:
         uv run datacommons-devtools migrations update-golden
     and commit the resulting changes to 'packages/datacommons-db/tests/goldens/schema_golden.sql'.
     """
-    from datacommons_db.utils.sql_utils import (
-        generate_golden_schema_sql,
-        get_golden_schema_path,
-    )
-
     golden_path = get_golden_schema_path()
 
     assert golden_path.exists(), (
