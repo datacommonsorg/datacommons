@@ -13,9 +13,7 @@
 # limitations under the License.
 
 from collections.abc import Iterator
-from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +21,13 @@ from google.auth.credentials import Credentials
 from google.cloud import spanner
 from google.cloud.spanner_v1.transaction import Transaction
 
+from datacommons_db.clients.models import (
+    DdlResult,
+    DmlResult,
+    ExecutionStatus,
+    LockState,
+    QueryResult,
+)
 from datacommons_db.utils.sql_utils import (
     parse_sql_to_statements,
     render_schema_template,
@@ -31,56 +36,6 @@ from datacommons_db.utils.validators import (
     validate_resource_id,
     validate_table_name,
 )
-
-
-class ExecutionStatus(StrEnum):
-    """Status of a Spanner database operation."""
-
-    SUCCESS = "SUCCESS"
-    ERROR = "ERROR"
-
-
-@dataclass(frozen=True)
-class DdlResult:
-    """Result of a DDL statement execution.
-
-    Attributes:
-        status: Execution status enum (SUCCESS or ERROR).
-        error_message: Error message string if execution failed, None otherwise.
-    """
-
-    status: ExecutionStatus
-    error_message: str | None = None
-
-
-@dataclass(frozen=True)
-class DmlResult:
-    """Result of a DML statement execution inside a read-write transaction.
-
-    Attributes:
-        status: Execution status enum (SUCCESS or ERROR).
-        rows_affected: Number of rows modified by the DML statement (0 on failure).
-        error_message: Error message string if execution failed, None otherwise.
-    """
-
-    status: ExecutionStatus
-    rows_affected: int = 0
-    error_message: str | None = None
-
-
-@dataclass(frozen=True)
-class QueryResult:
-    """Result of a snapshot read query.
-
-    Attributes:
-        status: Execution status enum (SUCCESS or ERROR).
-        rows: List of rows where each row is a list of column values ([] on failure).
-        error_message: Error message string if execution failed, None otherwise.
-    """
-
-    status: ExecutionStatus
-    rows: list[list[Any]] = field(default_factory=list)
-    error_message: str | None = None
 
 
 class SpannerClient:
@@ -258,7 +213,6 @@ class SpannerClient:
 
     def initialize_database(
         self,
-        schema_path: Path | str | None = None,
         *,
         embedding_table: str = "NodeEmbedding",
         embedding_index: str = "NodeEmbeddingIndex",
@@ -269,11 +223,10 @@ class SpannerClient:
     ) -> DdlResult:
         """Initializes the database by executing all base schema DDL statements.
 
-        Resolves template placeholders in the baseline schema file (or custom schema path)
+        Resolves template placeholders in the baseline schema file (schema.sql)
         and applies the DDL statements to Cloud Spanner.
 
         Args:
-            schema_path: Path to the schema SQL file. If None, uses the bundled schema.sql.
             embedding_table: Name of the vector embedding table. Defaults to 'NodeEmbedding'.
             embedding_index: Name of the vector search index. Defaults to 'NodeEmbeddingIndex'.
             embedding_label_index: Name of the secondary index on embedding label. Defaults to 'NodeEmbeddingLabelIndex'.
@@ -284,20 +237,14 @@ class SpannerClient:
         Returns:
             DdlResult indicating execution status.
         """
-        if schema_path is None:
-            resolved_schema_path = (
-                Path(__file__).parent.parent / "schema" / "schema.sql"
-            )
-        else:
-            resolved_schema_path = Path(schema_path)
-
-        if not resolved_schema_path.exists():
+        schema_path = Path(__file__).parent.parent / "schema" / "schema.sql"
+        if not schema_path.exists():
             return DdlResult(
                 status=ExecutionStatus.ERROR,
-                error_message=f"Schema file not found at '{resolved_schema_path}'",
+                error_message=f"Schema file not found at '{schema_path}'",
             )
 
-        template_content = resolved_schema_path.read_text(encoding="utf-8")
+        template_content = schema_path.read_text(encoding="utf-8")
         rendered_sql = render_schema_template(
             template_content,
             project_id=self.project_id,
@@ -322,25 +269,18 @@ class SpannerClient:
         return (datetime.now(UTC) - acquired_dt).total_seconds() > timeout
 
     @staticmethod
-    def _get_lock_state(
-        transaction: Transaction, lock_id: str
-    ) -> tuple[bool, str | None, datetime | None]:
-        """Fetches the current lock row within a transaction.
-
-        Returns:
-            Tuple of (row_exists, lock_owner, acquired_timestamp).
-        """
+    def _get_lock_state(transaction: Transaction, lock_id: str) -> LockState:
+        """Fetches the current lock row within a transaction."""
         sql = "SELECT LockOwner, AcquiredTimestamp FROM IngestionLock WHERE LockID = @lockId"
-        results = list(
-            transaction.execute_sql(
-                sql,
-                params={"lockId": lock_id},
-                param_types={"lockId": spanner.param_types.STRING},
-            )
+        rows = transaction.execute_sql(
+            sql,
+            params={"lockId": lock_id},
+            param_types={"lockId": spanner.param_types.STRING},
         )
-        if not results:
-            return False, None, None
-        return True, results[0][0], results[0][1]
+        for row in rows:
+            owner, acquired_at = row[0], row[1]
+            return LockState(exists=True, owner=owner, acquired_at=acquired_at)
+        return LockState(exists=False)
 
     def acquire_lock(
         self,
@@ -363,8 +303,8 @@ class SpannerClient:
         """
 
         def _acquire(transaction: Transaction) -> bool:
-            exists, owner, acquired_at = self._get_lock_state(transaction, lock_id)
-            if owner and not self._is_lock_stale(acquired_at, timeout):
+            lock = self._get_lock_state(transaction, lock_id)
+            if lock.owner and not self._is_lock_stale(lock.acquired_at, timeout):
                 return False
 
             sql_statement = (
@@ -373,7 +313,7 @@ class SpannerClient:
                 SET LockOwner = @workflowId, AcquiredTimestamp = PENDING_COMMIT_TIMESTAMP()
                 WHERE LockID = @lockId
                 """
-                if exists
+                if lock.exists
                 else """
                 INSERT INTO IngestionLock (LockID, LockOwner, AcquiredTimestamp)
                 VALUES (@lockId, @workflowId, PENDING_COMMIT_TIMESTAMP())
@@ -410,8 +350,8 @@ class SpannerClient:
         """
 
         def _release(transaction: Transaction) -> bool:
-            _, owner, _ = self._get_lock_state(transaction, lock_id)
-            if owner != workflow_id:
+            lock = self._get_lock_state(transaction, lock_id)
+            if lock.owner != workflow_id:
                 return False
 
             sql_update = """

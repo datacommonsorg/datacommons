@@ -17,7 +17,7 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from datacommons_db.clients.spanner_client import ExecutionStatus, SpannerClient
+from datacommons_db.clients import ExecutionStatus, SpannerClient
 from datacommons_db.migrations.migration_runner import MigrationRunner
 from datacommons_db.utils.sql_utils import (
     get_schema_dir,

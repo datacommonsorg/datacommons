@@ -15,6 +15,7 @@
 import re
 from collections.abc import Callable
 from datetime import UTC, datetime
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -61,21 +62,21 @@ class FakeSnapshot:
         Args:
             query: SQL query string.
             params: Parameter dictionary (e.g. `{"table_name": "Node"}`).
-            param_types: Parameter types dictionary (e.g. `{"table_name": spanner.param_types.STRING}`).
+            param_types: Parameter types dictionary.
 
         Returns:
             A list of rows, where each row is a list of column values.
         """
         _ = param_types
-        # 1. Querying information_schema.tables
-        if "information_schema.tables" in query.lower():
-            table_name = str(params.get("table_name")) if params else None
-            if table_name and table_name in self.db.tables:
-                return [[1]]
-            return []
+        normalized = query.lower()
 
-        # 2. Fallback / generic test queries
-        if "ingestionlock" in query.lower():
+        # Schema introspection: table existence check
+        if "information_schema.tables" in normalized:
+            table_name = str(params.get("table_name")) if params else None
+            return [[1]] if table_name and table_name in self.db.tables else []
+
+        # Lock table check
+        if "from ingestionlock" in normalized:
             if "IngestionLock" in self.db.tables:
                 return [
                     [r.get("LockOwner"), r.get("AcquiredTimestamp")]
@@ -83,9 +84,11 @@ class FakeSnapshot:
                 ]
             return []
 
-        if "custom_test_table" in self.db.tables:
-            return self.db.tables["custom_test_table"]
+        # Custom table for test_execute_query_custom_table
+        if "from custom_test_table" in normalized:
+            return self.db.tables.get("custom_test_table", [])
 
+        # Generic parameterized query test
         if params and "name" in params:
             return [[f"result_for_{params['name']}"]]
 
@@ -519,9 +522,10 @@ def test_initialize_database_success(fake_spanner_db: FakeSpannerDatabase):
     assert client.table_exists("IngestionLock") is True
 
 
-def test_initialize_database_missing_file():
+def test_initialize_database_missing_file(monkeypatch: pytest.MonkeyPatch):
     client = SpannerClient("proj", "inst", "db")
-    result = client.initialize_database(schema_path="/nonexistent/schema.sql")
+    monkeypatch.setattr(Path, "exists", lambda self: False)
+    result = client.initialize_database()
     assert result.status == ExecutionStatus.ERROR
     assert "Schema file not found" in result.error_message
 

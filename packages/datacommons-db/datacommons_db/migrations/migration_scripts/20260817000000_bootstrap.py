@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datacommons_db.clients.spanner_client import ExecutionStatus, SpannerClient
+from datacommons_db.clients import ExecutionStatus, SpannerClient
 from datacommons_db.migrations.base import SchemaMigration
 
 _CREATE_SCHEMA_MIGRATIONS_TABLE_DDL = """
