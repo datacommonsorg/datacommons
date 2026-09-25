@@ -311,6 +311,37 @@ class SpannerClient:
         statements = parse_sql_to_statements(rendered_sql)
         return self.execute_ddl(statements)
 
+    @staticmethod
+    def _is_lock_stale(acquired_at: datetime | None, timeout: int) -> bool:
+        """Determines if a held lock timestamp has exceeded the timeout duration."""
+        if acquired_at is None:
+            return True
+        acquired_dt = (
+            acquired_at if acquired_at.tzinfo else acquired_at.replace(tzinfo=UTC)
+        )
+        return (datetime.now(UTC) - acquired_dt).total_seconds() > timeout
+
+    @staticmethod
+    def _get_lock_state(
+        transaction: Transaction, lock_id: str
+    ) -> tuple[bool, str | None, datetime | None]:
+        """Fetches the current lock row within a transaction.
+
+        Returns:
+            Tuple of (row_exists, lock_owner, acquired_timestamp).
+        """
+        sql = "SELECT LockOwner, AcquiredTimestamp FROM IngestionLock WHERE LockID = @lockId"
+        results = list(
+            transaction.execute_sql(
+                sql,
+                params={"lockId": lock_id},
+                param_types={"lockId": spanner.param_types.STRING},
+            )
+        )
+        if not results:
+            return False, None, None
+        return True, results[0][0], results[0][1]
+
     def acquire_lock(
         self,
         workflow_id: str,
@@ -332,58 +363,31 @@ class SpannerClient:
         """
 
         def _acquire(transaction: Transaction) -> bool:
-            sql = "SELECT LockOwner, AcquiredTimestamp FROM IngestionLock WHERE LockID = @lockId"
-            params = {"lockId": lock_id}
-            param_types = {"lockId": spanner.param_types.STRING}
+            exists, owner, acquired_at = self._get_lock_state(transaction, lock_id)
+            if owner and not self._is_lock_stale(acquired_at, timeout):
+                return False
 
-            row_found = False
-            current_owner = None
-            acquired_at = None
-
-            results = transaction.execute_sql(
-                sql, params=params, param_types=param_types
+            sql_statement = (
+                """
+                UPDATE IngestionLock
+                SET LockOwner = @workflowId, AcquiredTimestamp = PENDING_COMMIT_TIMESTAMP()
+                WHERE LockID = @lockId
+                """
+                if exists
+                else """
+                INSERT INTO IngestionLock (LockID, LockOwner, AcquiredTimestamp)
+                VALUES (@lockId, @workflowId, PENDING_COMMIT_TIMESTAMP())
+                """
             )
-            for row in results:
-                row_found = True
-                current_owner, acquired_at = row[0], row[1]
-
-            lock_is_available = False
-            if not row_found or current_owner is None:
-                lock_is_available = True
-            elif acquired_at is not None:
-                now_utc = datetime.now(UTC)
-                if isinstance(acquired_at, datetime):
-                    acquired_dt = (
-                        acquired_at
-                        if acquired_at.tzinfo
-                        else acquired_at.replace(tzinfo=UTC)
-                    )
-                    elapsed = (now_utc - acquired_dt).total_seconds()
-                    if elapsed > timeout:
-                        lock_is_available = True
-
-            if lock_is_available:
-                if not row_found:
-                    sql_statement = """
-                        INSERT INTO IngestionLock (LockID, LockOwner, AcquiredTimestamp)
-                        VALUES (@lockId, @workflowId, PENDING_COMMIT_TIMESTAMP())
-                    """
-                else:
-                    sql_statement = """
-                        UPDATE IngestionLock
-                        SET LockOwner = @workflowId, AcquiredTimestamp = PENDING_COMMIT_TIMESTAMP()
-                        WHERE LockID = @lockId
-                    """
-                transaction.execute_update(
-                    sql_statement,
-                    params={"workflowId": workflow_id, "lockId": lock_id},
-                    param_types={
-                        "workflowId": spanner.param_types.STRING,
-                        "lockId": spanner.param_types.STRING,
-                    },
-                )
-                return True
-            return False
+            transaction.execute_update(
+                sql_statement,
+                params={"workflowId": workflow_id, "lockId": lock_id},
+                param_types={
+                    "workflowId": spanner.param_types.STRING,
+                    "lockId": spanner.param_types.STRING,
+                },
+            )
+            return True
 
         return self.database.run_in_transaction(_acquire)
 
@@ -406,29 +410,20 @@ class SpannerClient:
         """
 
         def _release(transaction: Transaction) -> bool:
-            sql = "SELECT LockOwner, AcquiredTimestamp FROM IngestionLock WHERE LockID = @lockId"
-            params = {"lockId": lock_id}
-            param_types = {"lockId": spanner.param_types.STRING}
+            _, owner, _ = self._get_lock_state(transaction, lock_id)
+            if owner != workflow_id:
+                return False
 
-            current_owner = None
-            results = transaction.execute_sql(
-                sql, params=params, param_types=param_types
+            sql_update = """
+                UPDATE IngestionLock
+                SET LockOwner = NULL, AcquiredTimestamp = NULL
+                WHERE LockID = @lockId
+            """
+            transaction.execute_update(
+                sql_update,
+                params={"lockId": lock_id},
+                param_types={"lockId": spanner.param_types.STRING},
             )
-            for row in results:
-                current_owner = row[0]
-
-            if current_owner and current_owner == workflow_id:
-                sql_update = """
-                    UPDATE IngestionLock
-                    SET LockOwner = NULL, AcquiredTimestamp = NULL
-                    WHERE LockID = @lockId
-                """
-                transaction.execute_update(
-                    sql_update,
-                    params={"lockId": lock_id},
-                    param_types={"lockId": spanner.param_types.STRING},
-                )
-                return True
-            return False
+            return True
 
         return self.database.run_in_transaction(_release)
