@@ -18,7 +18,10 @@ import click
 from datacommons_db.clients import SpannerClient
 
 from datacommons_admin.core.terraform.state import get_terraform_outputs
-from datacommons_admin.db.utils.migration_utils import _run_migrations
+from datacommons_admin.db.utils.migration_utils import (
+    _initialize_database,
+    _run_migrations,
+)
 
 
 class SpannerCLIContext(NamedTuple):
@@ -95,9 +98,6 @@ def migrate_db(ctx: click.Context, *, auto_approve: bool) -> bool:
     spanner_ctx = _setup_spanner_client(ctx)
     return _run_migrations(
         spanner_ctx.client,
-        spanner_ctx.project_id,
-        spanner_ctx.instance_id,
-        spanner_ctx.database_id,
         auto_approve=auto_approve,
     )
 
@@ -109,10 +109,5 @@ def init_db(ctx: click.Context) -> None:
     click.secho("Datacommons Admin Init-DB", fg="cyan", bold=True)
     spanner_ctx = _setup_spanner_client(ctx)
 
-    _run_migrations(
-        spanner_ctx.client,
-        spanner_ctx.project_id,
-        spanner_ctx.instance_id,
-        spanner_ctx.database_id,
-        auto_approve=True,
-    )
+    _initialize_database(spanner_ctx.client)
+

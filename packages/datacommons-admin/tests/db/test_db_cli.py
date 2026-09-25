@@ -60,29 +60,24 @@ def mock_spanner_client():
 @pytest.mark.usefixtures("mock_terraform_spanner")
 def test_init_db_success(
     mock_spanner_client,
-    mock_run_migrations,
+    mock_initialize_database,
     runner: CliRunner,
 ) -> None:
     result = runner.invoke(admin, ["init-db"])
     assert result.exit_code == 0
     assert "Datacommons Admin Init-DB" in result.output
-    mock_run_migrations.assert_called_once_with(
-        mock_spanner_client,
-        "mock-proj",
-        "mock-instance",
-        "mock-db",
-        auto_approve=True,
-    )
+    mock_initialize_database.assert_called_once_with(mock_spanner_client)
 
 
 @pytest.mark.usefixtures("mock_terraform_spanner")
 def test_init_db_migration_failure(
     mock_spanner_client,
-    mock_run_migrations,
+    mock_initialize_database,
     runner: CliRunner,
 ) -> None:
-    mock_run_migrations.side_effect = click.ClickException("Migration failed")
+    mock_initialize_database.side_effect = click.ClickException("Initialization failed")
 
     result = runner.invoke(admin, ["init-db"])
     assert result.exit_code != 0
-    assert "Migration failed" in result.output
+    assert "Initialization failed" in result.output
+

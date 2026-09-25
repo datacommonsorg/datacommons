@@ -19,59 +19,19 @@ from datacommons_db.migrations import MigrationRunner
 from datacommons_admin.core.utils.ui_utils import _confirm
 
 
-def is_database_initialized(
-    project_id: str, instance_id: str, database_id: str
-) -> bool:
-    """Checks whether the Cloud Spanner database exists and has been initialized.
+def is_database_initialized(spanner_client: SpannerClient) -> bool:
+    """Checks whether the Cloud Spanner database exists and contains the Node table.
 
     Args:
-        project_id: GCP project ID hosting the Spanner database.
-        instance_id: Cloud Spanner instance ID.
-        database_id: Cloud Spanner database ID.
+        spanner_client: SpannerClient instance.
 
     Returns:
         True if the database exists and contains the Node table, False otherwise.
     """
     try:
-        spanner_client = SpannerClient(
-            project_id=project_id,
-            instance_id=instance_id,
-            database_id=database_id,
-        )
         return spanner_client.table_exists("Node")
-    except Exception:  # noqa: BLE001 - must catch all exceptions to safely detect initialization status
+    except Exception:  # noqa: BLE001 - safely detect uninitialized database
         return False
-
-
-def _create_migration_runner(
-    project_id: str,
-    instance_id: str,
-    database_id: str,
-    spanner_client: SpannerClient | None = None,
-) -> MigrationRunner:
-    """Initializes a SpannerClient (if not provided) and returns a MigrationRunner instance.
-
-    Args:
-        project_id: GCP project ID hosting the Spanner database.
-        instance_id: Cloud Spanner instance ID.
-        database_id: Cloud Spanner database ID.
-        spanner_client: Optional pre-configured SpannerClient to reuse.
-
-    Returns:
-        A MigrationRunner instance initialized with a SpannerClient.
-
-    Raises:
-        click.ClickException: If initialization of the SpannerClient or MigrationRunner fails.
-    """
-    try:
-        client = spanner_client or SpannerClient(
-            project_id=project_id,
-            instance_id=instance_id,
-            database_id=database_id,
-        )
-        return MigrationRunner(spanner_client=client)
-    except Exception as e:
-        raise click.ClickException(f"Failed to initialize migration runner: {e}") from e
 
 
 def _apply_migrations(spanner_client: SpannerClient, runner: MigrationRunner) -> bool:
@@ -89,21 +49,18 @@ def _apply_migrations(spanner_client: SpannerClient, runner: MigrationRunner) ->
     """
     lock_acquired = False
     try:
-        # If IngestionLock table already exists (existing database), acquire the lock upfront.
-        if spanner_client.table_exists("IngestionLock"):
-            click.secho(
-                "Acquiring database lock directly via Cloud Spanner...",
-                fg="bright_black",
+        click.secho(
+            "Acquiring database lock directly via Cloud Spanner...",
+            fg="bright_black",
+        )
+        if not spanner_client.acquire_lock(workflow_id="schema-migration"):
+            raise click.ClickException(
+                "Could not acquire database lock: Lock is currently held by another process or workflow.\n"
+                "An ingestion workflow may currently be running. "
+                "Please wait for active ingestions to finish before running migrations."
             )
-            if not spanner_client.acquire_lock(workflow_id="schema-migration"):
-                raise click.ClickException(
-                    "Could not acquire database lock: Lock is currently held by another process or workflow.\n"
-                    "An ingestion workflow may currently be running. "
-                    "Please wait for active ingestions to finish before running migrations."
-                )
-            lock_acquired = True
+        lock_acquired = True
 
-        # Apply all pending migrations
         click.secho("Applying pending schema migrations...", fg="bright_black")
         pending = runner.get_pending_migrations()
 
@@ -113,18 +70,6 @@ def _apply_migrations(spanner_client: SpannerClient, runner: MigrationRunner) ->
                 f"  ✔ Applied migration {res.creation_timestamp}: {res.description}",
                 fg="green",
             )
-            # On a fresh database, IngestionLock is created by the baseline migration.
-            # Acquire the lock immediately after IngestionLock becomes available.
-            if not lock_acquired and spanner_client.table_exists("IngestionLock"):
-                click.secho(
-                    "Acquiring database lock directly via Cloud Spanner...",
-                    fg="bright_black",
-                )
-                if not spanner_client.acquire_lock(workflow_id="schema-migration"):
-                    raise click.ClickException(
-                        "Could not acquire database lock: Lock is currently held by another process or workflow."
-                    )
-                lock_acquired = True
 
         click.secho(
             "Successfully applied all schema migrations!", fg="green", bold=True
@@ -133,7 +78,6 @@ def _apply_migrations(spanner_client: SpannerClient, runner: MigrationRunner) ->
     except Exception as e:
         raise click.ClickException(f"Failed to apply schema migrations: {e}") from e
     finally:
-        # Always attempt to release the database lock if it was acquired
         if lock_acquired:
             click.secho(
                 "Releasing database lock directly via Cloud Spanner...",
@@ -146,6 +90,55 @@ def _apply_migrations(spanner_client: SpannerClient, runner: MigrationRunner) ->
                     f"Warning: {e}",
                     fg="yellow",
                 )
+
+
+def _initialize_database(spanner_client: SpannerClient) -> bool:
+    """Initializes a fresh Spanner database with baseline schema and applies all migrations.
+
+    Args:
+        spanner_client: SpannerClient instance.
+
+    Returns:
+        True if initialization and migrations succeeded.
+
+    Raises:
+        click.ClickException: If database is already initialized or initialization/migrations fail.
+    """
+    db_name = f"{spanner_client.instance_id}/{spanner_client.database_id}"
+    if is_database_initialized(spanner_client):
+        raise click.ClickException(
+            f"Database '{db_name}' is already initialized.\n"
+            "To apply new schema migrations, run 'datacommons admin migrate-db'."
+        )
+
+    click.secho(
+        f"Initializing baseline schema for Spanner database '{spanner_client.project_id}/{db_name}'...",
+        fg="bright_black",
+    )
+    init_result = spanner_client.initialize_database()
+    if init_result.status.value != "SUCCESS":
+        raise click.ClickException(
+            f"Failed to initialize baseline schema: {init_result.error_message}"
+        )
+    click.secho("  ✔ Applied baseline schema (schema.sql)", fg="green")
+
+    runner = MigrationRunner(spanner_client=spanner_client)
+    pending = runner.get_pending_migrations()
+    if not pending:
+        click.secho(
+            "Database initialized successfully with baseline schema!",
+            fg="green",
+            bold=True,
+        )
+        return True
+
+    click.secho(
+        f"Applying {len(pending)} schema migration(s)...",
+        fg="cyan",
+    )
+    res = _apply_migrations(spanner_client, runner)
+    click.secho("Successfully initialized Spanner database!", fg="green", bold=True)
+    return res
 
 
 def _confirm_migration(num_pending: int, instance_id: str, database_id: str) -> bool:
@@ -172,9 +165,6 @@ def _confirm_migration(num_pending: int, instance_id: str, database_id: str) -> 
 
 def _run_migrations(
     spanner_client: SpannerClient,
-    project_id: str,
-    instance_id: str,
-    database_id: str,
     *,
     auto_approve: bool = False,
 ) -> bool:
@@ -182,9 +172,6 @@ def _run_migrations(
 
     Args:
         spanner_client: SpannerClient instance.
-        project_id: GCP project ID hosting the Spanner database.
-        instance_id: Cloud Spanner instance ID.
-        database_id: Cloud Spanner database ID.
         auto_approve: If False, prompts user for interactive confirmation before applying.
 
     Returns:
@@ -193,13 +180,18 @@ def _run_migrations(
     Raises:
         click.ClickException: If checking pending migrations, acquiring the database lock, or applying migrations fails.
     """
+    db_name = f"{spanner_client.instance_id}/{spanner_client.database_id}"
+    if not is_database_initialized(spanner_client):
+        raise click.ClickException(
+            f"Database '{db_name}' has not been initialized.\n"
+            "Please run 'datacommons admin init-db' to initialize the database."
+        )
+
     click.secho(
-        f"Checking schema migrations for Spanner database '{project_id}/{instance_id}/{database_id}'...",
+        f"Checking schema migrations for Spanner database '{spanner_client.project_id}/{db_name}'...",
         fg="bright_black",
     )
-    runner = _create_migration_runner(
-        project_id, instance_id, database_id, spanner_client=spanner_client
-    )
+    runner = MigrationRunner(spanner_client=spanner_client)
 
     # Fetch pending migrations.
     try:
@@ -221,7 +213,7 @@ def _run_migrations(
 
     # Ask user for confirmation if not auto-approved
     if not auto_approve and not _confirm_migration(
-        len(pending), instance_id, database_id
+        len(pending), spanner_client.instance_id, spanner_client.database_id
     ):
         click.secho("Migration cancelled.", fg="yellow")
         return False

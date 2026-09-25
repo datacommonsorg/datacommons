@@ -164,3 +164,11 @@ def mock_run_migrations():
     """Mocks _run_migrations for db commands."""
     with patch("datacommons_admin.db.db_cli._run_migrations") as mock_fn:
         yield mock_fn
+
+
+@pytest.fixture
+def mock_initialize_database():
+    """Mocks _initialize_database for db commands."""
+    with patch("datacommons_admin.db.db_cli._initialize_database") as mock_fn:
+        yield mock_fn
+

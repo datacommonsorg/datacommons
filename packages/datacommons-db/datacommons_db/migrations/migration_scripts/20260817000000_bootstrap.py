@@ -30,7 +30,7 @@ class Migration(SchemaMigration):
     creation_timestamp: str = "2026-08-17T00:00:00Z"
 
     def upgrade(self, spanner_client: SpannerClient) -> None:
-        """Executes forward schema changes to initialize SchemaMigrations table and baseline schema.
+        """Executes forward schema changes to initialize SchemaMigrations table.
 
         Args:
             spanner_client: SpannerClient instance to execute DDL / DML.
@@ -45,9 +45,3 @@ class Migration(SchemaMigration):
                     f"Failed to create SchemaMigrations table: {result.error_message}"
                 )
 
-        if not spanner_client.table_exists("Node"):
-            init_result = spanner_client.initialize_database()
-            if init_result.status != ExecutionStatus.SUCCESS:
-                raise RuntimeError(
-                    f"Failed to initialize baseline schema from schema.sql: {init_result.error_message}"
-                )
