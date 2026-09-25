@@ -526,33 +526,6 @@ def test_initialize_database_missing_file():
     assert "Schema file not found" in result.error_message
 
 
-def test_seed_database_success(fake_spanner_db: FakeSpannerDatabase):
-    client = SpannerClient("proj", "inst", "db")
-    result = client.seed_database()
-    assert isinstance(result, DmlResult)
-    assert result.status == ExecutionStatus.SUCCESS
-    assert result.rows_affected == 5
-
-
-def test_seed_database_idempotent(fake_spanner_db: FakeSpannerDatabase):
-    client = SpannerClient("proj", "inst", "db")
-    # Simulate that subjects are already present
-    fake_spanner_db.snapshot = MagicMock()
-    mock_snapshot = MagicMock()
-    mock_snapshot.execute_sql.return_value = [
-        ["StatisticalVariable"],
-        ["StatVarGroup"],
-        ["StatVarObservation"],
-        ["Topic"],
-        ["dc/g/Root"],
-    ]
-    fake_spanner_db.snapshot.return_value = mock_snapshot
-
-    result = client.seed_database()
-    assert result.status == ExecutionStatus.SUCCESS
-    assert result.rows_affected == 0
-
-
 def test_acquire_and_release_lock_lifecycle(fake_spanner_db: FakeSpannerDatabase):
     client = SpannerClient("proj", "inst", "db")
 

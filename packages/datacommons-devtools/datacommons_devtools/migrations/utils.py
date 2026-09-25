@@ -26,7 +26,7 @@ import re
 from importlib import resources
 from pathlib import Path
 
-from datacommons_db.utils.sql_utils import (
+from datacommons_db.migrations import (
     generate_golden_schema_sql,
     get_golden_schema_path,
 )

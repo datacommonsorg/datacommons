@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-from typing import NamedTuple
 
 import click
 from datacommons_db.clients import SpannerClient
@@ -25,17 +24,7 @@ from datacommons_admin.db.utils.migration_utils import (
 )
 
 
-class SpannerCLIContext(NamedTuple):
-    """Context object holding initialized Spanner client and deployment target metadata."""
-
-    client: SpannerClient
-    project_id: str
-    instance_id: str
-    database_id: str
-    region: str
-
-
-def _setup_spanner_client(ctx: click.Context) -> SpannerCLIContext:
+def _setup_spanner_client(ctx: click.Context) -> SpannerClient:
     state_params = ctx.obj or {}
     if os.getenv("SPANNER_EMULATOR_HOST"):
         project_id = os.getenv("SPANNER_PROJECT_ID", "default")
@@ -68,17 +57,10 @@ def _setup_spanner_client(ctx: click.Context) -> SpannerCLIContext:
         fg="green",
     )
 
-    client = SpannerClient(
+    return SpannerClient(
         project_id=project_id,
         instance_id=instance_id,
         database_id=database_id,
-    )
-    return SpannerCLIContext(
-        client=client,
-        project_id=project_id,
-        instance_id=instance_id,
-        database_id=database_id,
-        region=region,
     )
 
 
@@ -105,9 +87,9 @@ def migrate_db(ctx: click.Context, *, auto_approve: bool) -> bool:
         click.ClickException: If reading Terraform outputs, checking pending migrations, acquiring lock, or applying migrations fails.
     """
     click.secho("Datacommons Admin Migrate-DB", fg="cyan", bold=True)
-    spanner_ctx = _setup_spanner_client(ctx)
+    spanner_client = _setup_spanner_client(ctx)
     return _run_migrations(
-        spanner_ctx.client,
+        spanner_client,
         auto_approve=auto_approve,
     )
 
@@ -117,6 +99,6 @@ def migrate_db(ctx: click.Context, *, auto_approve: bool) -> bool:
 def init_db(ctx: click.Context) -> None:
     """Initialize the Spanner database schema and apply all migrations."""
     click.secho("Datacommons Admin Init-DB", fg="cyan", bold=True)
-    spanner_ctx = _setup_spanner_client(ctx)
+    spanner_client = _setup_spanner_client(ctx)
 
-    _initialize_database(spanner_ctx.client)
+    _initialize_database(spanner_client)

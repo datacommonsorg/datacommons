@@ -35,8 +35,8 @@ from datacommons_db.clients.spanner_client import (
     ExecutionStatus,
     SpannerClient,
 )
-from datacommons_db.migrations import MigrationRunner
-from datacommons_db.utils.sql_utils import (
+from datacommons_db.migrations import (
+    MigrationRunner,
     generate_golden_schema_sql,
     get_golden_schema_path,
 )

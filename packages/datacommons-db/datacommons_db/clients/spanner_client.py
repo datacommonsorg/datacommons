@@ -32,35 +32,6 @@ from datacommons_db.utils.validators import (
     validate_table_name,
 )
 
-# Canonical bootstrap ontology nodes required by Data Commons graph schema
-BOOTSTRAP_NODES: dict[str, dict[str, Any]] = {
-    "StatisticalVariable": {
-        "name": "StatisticalVariable",
-        "value": "StatisticalVariable",
-        "types": ["Class"],
-    },
-    "StatVarGroup": {
-        "name": "StatVarGroup",
-        "value": "StatVarGroup",
-        "types": ["Class"],
-    },
-    "StatVarObservation": {
-        "name": "StatVarObservation",
-        "value": "StatVarObservation",
-        "types": ["Class"],
-    },
-    "Topic": {
-        "name": "Topic",
-        "value": "Topic",
-        "types": ["Class"],
-    },
-    "dc/g/Root": {
-        "name": "Data Commons Variables",
-        "value": "dc/g/Root",
-        "types": ["StatVarGroup"],
-    },
-}
-
 
 class ExecutionStatus(StrEnum):
     """Status of a Spanner database operation."""
@@ -339,69 +310,6 @@ class SpannerClient:
         )
         statements = parse_sql_to_statements(rendered_sql)
         return self.execute_ddl(statements)
-
-    def seed_database(self) -> DmlResult:
-        """Seeds the database with base empty nodes in the Node table.
-
-        Inserts the bootstrap nodes required for graph relationships if they do
-        not already exist.
-
-        Returns:
-            DmlResult indicating status and rows affected.
-        """
-
-        def _seed(transaction: Transaction) -> int:
-            subjects = list(BOOTSTRAP_NODES.keys())
-            sql = "SELECT subject_id FROM Node WHERE subject_id IN UNNEST(@subjects)"
-            params = {"subjects": subjects}
-            param_types = {
-                "subjects": spanner.param_types.Array(spanner.param_types.STRING)
-            }
-
-            existing: set[str] = set()
-            for row in transaction.execute_sql(
-                sql, params=params, param_types=param_types
-            ):
-                existing.add(str(row[0]))
-
-            missing_subjects = [s for s in subjects if s not in existing]
-            if not missing_subjects:
-                return 0
-
-            dml_stmt = """
-                INSERT INTO Node (subject_id, name, value, types, last_update_timestamp)
-                VALUES (@subject_id, @name, @value, @types, PENDING_COMMIT_TIMESTAMP())
-            """
-            for s in missing_subjects:
-                node = BOOTSTRAP_NODES[s]
-                transaction.execute_update(
-                    dml_stmt,
-                    params={
-                        "subject_id": s,
-                        "name": node["name"],
-                        "value": node["value"],
-                        "types": node["types"],
-                    },
-                    param_types={
-                        "subject_id": spanner.param_types.STRING,
-                        "name": spanner.param_types.STRING,
-                        "value": spanner.param_types.STRING,
-                        "types": spanner.param_types.Array(spanner.param_types.STRING),
-                    },
-                )
-            return len(missing_subjects)
-
-        try:
-            rows_affected = self.database.run_in_transaction(_seed)
-            return DmlResult(
-                status=ExecutionStatus.SUCCESS, rows_affected=rows_affected
-            )
-        except Exception as e:  # noqa: BLE001
-            return DmlResult(
-                status=ExecutionStatus.ERROR,
-                rows_affected=0,
-                error_message=str(e),
-            )
 
     def acquire_lock(
         self,

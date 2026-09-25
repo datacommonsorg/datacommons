@@ -13,13 +13,21 @@
 # limitations under the License.
 
 from datacommons_db.migrations.base import SchemaMigration
+from datacommons_db.migrations.golden import (
+    GOLDEN_SCHEMA_HEADER,
+    generate_golden_schema_sql,
+    get_golden_schema_path,
+)
 from datacommons_db.migrations.migration_runner import (
     MigrationResult,
     MigrationRunner,
 )
 
 __all__ = [
+    "GOLDEN_SCHEMA_HEADER",
     "MigrationResult",
     "MigrationRunner",
     "SchemaMigration",
+    "generate_golden_schema_sql",
+    "get_golden_schema_path",
 ]

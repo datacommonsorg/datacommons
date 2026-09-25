@@ -20,7 +20,6 @@ from unittest.mock import patch
 import pytest
 from click.testing import CliRunner
 from datacommons_admin.admin_cli import admin
-from datacommons_admin.db.db_cli import SpannerCLIContext
 from datacommons_db.clients import SpannerClient
 
 
@@ -72,13 +71,7 @@ def test_e2e_init_and_migrate_db_on_spanner_emulator(runner: CliRunner):
     )
 
     with patch("datacommons_admin.db.db_cli._setup_spanner_client") as mock_setup:
-        mock_setup.return_value = SpannerCLIContext(
-            client=spanner_client,
-            project_id=project_id,
-            instance_id=instance_id,
-            database_id=database_id,
-            region="emulator",
-        )
+        mock_setup.return_value = spanner_client
 
         # 1. First init-db on fresh DB
         init_res = runner.invoke(admin, ["init-db"])

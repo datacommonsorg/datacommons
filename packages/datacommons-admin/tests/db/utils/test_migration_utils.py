@@ -17,7 +17,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from click.testing import CliRunner
 from datacommons_admin.admin_cli import admin
-from datacommons_admin.db.db_cli import SpannerCLIContext
 from datacommons_admin.db.utils.migration_utils import is_database_initialized
 from datacommons_db.clients.spanner_client import ExecutionStatus
 from datacommons_db.migrations.migration_runner import MigrationResult
@@ -36,13 +35,7 @@ def mock_migration_setup():
         mock_client.instance_id = "mock-instance"
         mock_client.database_id = "mock-db"
 
-        mock_setup.return_value = SpannerCLIContext(
-            client=mock_client,
-            project_id="mock-proj",
-            instance_id="mock-instance",
-            database_id="mock-db",
-            region="us-central1",
-        )
+        mock_setup.return_value = mock_client
 
         mock_runner = MagicMock()
         mock_runner_cls.return_value = mock_runner
