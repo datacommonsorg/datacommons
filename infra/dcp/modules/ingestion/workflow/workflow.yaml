@@ -30,6 +30,8 @@ main:
           - provenances_list: []
           - imports_history_list: []
           - imports_history_str: ""
+          - t_pre_timestamp: null
+          - rollback_failed: false
           - launch_params:
               projectId: '$${project_id}'
               spannerInstanceId: '${spanner_instance_id}'
@@ -146,6 +148,8 @@ main:
             - unhandled_error:
                 raise: $${e}
     - lock_acquired_success:
+        assign:
+          - t_pre_timestamp: '$${time.format(sys.now())}'
         next: update_history_pending
     - increment_retries_and_wait:
         assign:
@@ -176,6 +180,8 @@ main:
                   temp_gcs_uri: '$${temp_gcs_uri}'
                   region: '$${region}'
                   workflow_id: '$${workflow_id}'
+                  template_path: '${ingestion_dataflow_template_gcs_path}'
+                  stage: 'dataflow'
                 result: dataflow_res
             
             - assign_job_id:
@@ -241,13 +247,63 @@ main:
         except:
           as: e
           steps:
-            - update_history_failure:
+            - extract_error_job_id:
+                try:
+                  assign:
+                    - job_id: '$${default(map.get(e, "job_id"), job_id)}'
+                except:
+                  as: _map_err
+                  assign:
+                    - job_id: '$${job_id}'
+            - check_should_rollback:
+                switch:
+                  - condition: '$${job_id != null}'
+                    next: update_history_rollback_starting
+                next: update_history_no_rollback
+            - update_history_no_rollback:
                 call: update_history
                 args:
                   workflow_id: '$${workflow_id}'
                   status: 'FAILURE'
                   stage: '$${current_stage}'
+                  job_id: null
+                  import_list: '$${imports_history_list}'
+                next: update_ingestion_status_failure
+            - update_history_rollback_starting:
+                call: update_history
+                args:
+                  workflow_id: '$${workflow_id}'
+                  status: 'RUNNING'
+                  stage: 'rollback'
                   job_id: '$${job_id}'
+                  import_list: '$${imports_history_list}'
+            - execute_pitr_rollback:
+                try:
+                  call: rollback_subworkflow
+                  args:
+                    workflow_id: '$${workflow_id}'
+                    rollback_timestamp: '$${t_pre_timestamp}'
+                    temp_gcs_uri: '$${temp_gcs_uri}'
+                    region: '$${region}'
+                    launch_params: '$${launch_params}'
+                except:
+                  as: rollback_err
+                  steps:
+                    - log_rollback_failure:
+                        call: sys.log
+                        args:
+                          severity: "ERROR"
+                          text: '$${"PITR rollback failed; holding ingestion lock: " + json.encode_to_string(rollback_err)}'
+                    - mark_rollback_failed:
+                        assign:
+                          - rollback_failed: true
+            - update_history_rollback_final:
+                call: update_history
+                args:
+                  workflow_id: '$${workflow_id}'
+                  status: '$${if(rollback_failed, "FAILURE", "SUCCESS")}'
+                  stage: 'rollback'
+                  job_id: null
                   import_list: '$${imports_history_list}'
             - update_ingestion_status_failure:
                 call: update_ingestion_status
@@ -259,7 +315,13 @@ main:
             - capture_error:
                 assign:
                   - execution_error: '$${e}'
-    
+
+    - check_lock_release:
+        switch:
+          - condition: '$${rollback_failed}'
+            next: fail_workflow
+        next: release_lock_step
+
     - release_lock_step:
         call: http.post
         args:
@@ -394,7 +456,7 @@ run_embeddings_job:
         return: $${res}
 
 launch_and_poll_dataflow:
-  params: [job_name, launch_params, temp_gcs_uri, region, workflow_id]
+  params: [job_name, launch_params, temp_gcs_uri, region, workflow_id, template_path, stage]
   steps:
     - build_environment:
         assign:
@@ -424,7 +486,7 @@ launch_and_poll_dataflow:
           body:
             launchParameter:
               jobName: $${job_name}
-              containerSpecGcsPath: '${dataflow_template_gcs_path}'
+              containerSpecGcsPath: $${template_path}
               parameters: $${launch_params}
               environment: $${env_map}
         result: launch_result
@@ -438,7 +500,7 @@ launch_and_poll_dataflow:
         args:
           workflow_id: $${workflow_id}
           status: 'RUNNING'
-          stage: 'dataflow'
+          stage: $${stage}
           job_id: $${job_id}
           import_list: null
           
@@ -469,7 +531,10 @@ launch_and_poll_dataflow:
             next: return_success
     
     - fail_on_job_status:
-        raise: '$${ "Dataflow job failed with state: " + job_status.currentState }'
+        raise:
+          message: '$${ "Dataflow job failed with state: " + job_status.currentState }'
+          job_id: $${job_id}
+          code: 500
         
     - return_success:
         return:
@@ -550,3 +615,39 @@ poll_cloud_run_job_execution:
         
     - return_success:
         return: '$${exec_status}'
+
+rollback_subworkflow:
+  params: [workflow_id, rollback_timestamp, temp_gcs_uri, region, launch_params]
+  steps:
+    - init_rollback_params:
+        assign:
+          - rollback_job_name: '$${"${clean_instance_name_prefix}rollback-" + string(int(sys.now()))}'
+          # RollbackPipelineOptions strictly validates its parameters: only the
+          # options below are accepted. Ingestion-only flags (forceCombineNodes,
+          # skipDelete, isRollback) are rejected, and tempLocation/stagingLocation
+          # are supplied via the Dataflow `environment` block instead.
+          - rollback_params:
+              projectId: '$${launch_params.projectId}'
+              spannerInstanceId: '$${launch_params.spannerInstanceId}'
+              spannerDatabaseId: '$${launch_params.spannerDatabaseId}'
+              importList: '$${launch_params.importList}'
+              rollbackTimestamp: '$${rollback_timestamp}'
+              isBaseDc: '$${launch_params.isBaseDc}'
+
+    - launch_rollback_dataflow:
+        call: launch_and_poll_dataflow
+        args:
+          job_name: '$${rollback_job_name}'
+          launch_params: '$${rollback_params}'
+          temp_gcs_uri: '$${temp_gcs_uri}'
+          region: '$${region}'
+          workflow_id: '$${workflow_id}'
+          template_path: '${rollback_dataflow_template_gcs_path}'
+          stage: 'rollback'
+        result: rollback_job_res
+
+    - return_rollback_result:
+        return:
+          status: "ROLLBACK_SUCCESS"
+          rollbackJobId: '$${rollback_job_res.job_id}'
+          rollbackTimestamp: '$${rollback_timestamp}'

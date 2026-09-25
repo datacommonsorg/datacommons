@@ -133,6 +133,8 @@ locals {
     location_id             = var.redis_location_id
     alternative_location_id = var.redis_alternative_location_id
     replica_count           = var.redis_replica_count
+    enable_auth             = var.redis_enable_auth
+    enable_tls              = var.redis_enable_tls
   }
 
   ingestion_config = {
@@ -161,12 +163,13 @@ locals {
     helper_service_image              = coalesce(var.ingestion_helper_service_image, "gcr.io/datcom-ci/datacommons-ingestion-helper:${var.dcp_version}")
 
     # Dataflow Network & Scaling Configuration
-    dataflow_ip_configuration    = var.ingestion_dataflow_ip_configuration
-    dataflow_subnetwork          = var.ingestion_dataflow_subnetwork
-    dataflow_template_gcs_path   = coalesce(var.ingestion_dataflow_template_gcs_path, "gs://datcom-templates/templates/flex/ingestion-${local.df_template_version}.json")
-    dataflow_max_workers         = var.ingestion_dataflow_max_workers
-    dataflow_num_workers         = var.ingestion_dataflow_num_workers
-    dataflow_worker_machine_type = var.ingestion_dataflow_worker_machine_type
+    dataflow_ip_configuration            = var.ingestion_dataflow_ip_configuration
+    dataflow_subnetwork                  = var.ingestion_dataflow_subnetwork
+    ingestion_dataflow_template_gcs_path = coalesce(var.ingestion_dataflow_template_gcs_path, "gs://datcom-templates/templates/flex/ingestion-${local.df_template_version}.json")
+    rollback_dataflow_template_gcs_path  = coalesce(var.ingestion_rollback_dataflow_template_gcs_path, "gs://datcom-templates/templates/flex/rollback/rollback-${local.df_template_version}.json")
+    dataflow_max_workers                 = var.ingestion_dataflow_max_workers
+    dataflow_num_workers                 = var.ingestion_dataflow_num_workers
+    dataflow_worker_machine_type         = var.ingestion_dataflow_worker_machine_type
   }
 }
 
