@@ -220,6 +220,28 @@ def main():
         name = inst.get("name", "").split("/")[-1]
         if is_ephemeral_prober_resource(name):
             if confirm_delete("Spanner Instance", name):
+                # Delete any existing backups first; Spanner prevents instance deletion if backups exist.
+                backups = run_gcloud(
+                    ["spanner", "backups", "list", f"--instance={name}"], project
+                )
+                if isinstance(backups, list):
+                    for b in backups:
+                        if isinstance(b, dict) and b.get("name"):
+                            b_name = b["name"].split("/")[-1]
+                            print(f"    Deleting Spanner Backup {b_name} in {name}...")
+                            subprocess.run(
+                                [
+                                    "gcloud",
+                                    "spanner",
+                                    "backups",
+                                    "delete",
+                                    b_name,
+                                    f"--instance={name}",
+                                    f"--project={project}",
+                                    "--quiet",
+                                ],
+                                check=False,
+                            )
                 print(f"  Deleting Spanner Instance {name}...")
                 subprocess.run(
                     [
@@ -409,7 +431,7 @@ def main():
                 if is_ephemeral_prober_resource(sa_name):
                     if confirm_delete("Orphaned IAM Member", f"{m} ({role})"):
                         print(f"  Removing IAM binding {m} from {role}...")
-                        subprocess.run(
+                        res = subprocess.run(
                             [
                                 "gcloud",
                                 "projects",
@@ -417,10 +439,20 @@ def main():
                                 project,
                                 f"--member={m}",
                                 f"--role={role}",
+                                "--all",
                                 "--quiet",
+                                "--format=none",
                             ],
                             check=False,
+                            capture_output=True,
+                            text=True,
                         )
+                        if res.returncode == 0:
+                            print("    ✔ Removed.")
+                        else:
+                            print(
+                                f"    ❌ Error removing IAM binding: {res.stderr.strip()}"
+                            )
                     else:
                         print(f"  Skipped IAM binding {m}")
 

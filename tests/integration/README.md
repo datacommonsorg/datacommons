@@ -12,7 +12,33 @@ It exercises all core components of the platform across 4 execution stages:
 
 ## 🚀 Quick Start
 
-### 1. Run Tests for a Single Dataset Against a Testbed (e.g. `testbed-1`)
+### 1. Run Hermetic Emulated Tests (Local & Cloud Build)
+Run the entire end-to-end stack (Spanner Omni emulator, Fake GCS, Apache Beam ingestion, Website, and MCP Agent) hermetically on Docker Compose without requiring live GCP infrastructure.
+
+#### Local Execution (macOS / Linux):
+```bash
+# First run (boots emulators, runs schema DDL migrations, ingests dataset, runs tests):
+uv run pytest tests/integration/suites/ \
+    --instance local \
+    --test-config foobar_wages
+
+# Fast re-runs (~1 second by reusing already-seeded emulators):
+uv run pytest tests/integration/suites/ \
+    --instance local \
+    --test-config foobar_wages \
+    --reuse-data
+```
+
+#### Cloud Build CI Execution:
+```bash
+gcloud builds submit \
+    --project=datcom-ci \
+    --config=tests/integration/emulated/cloudbuild_emulated_test.yaml \
+    .
+```
+> 📖 See the [Hermetic Emulated Stack Guide](emulated/README.md) for architecture details, Cloud Build configuration, and image overrides.
+
+### 2. Run Tests Against a Cloud Testbed (e.g. `testbed-1`)
 ```bash
 uv run python tests/integration/run_e2e_tests.py \
     --instance testbed-1 \
@@ -20,7 +46,7 @@ uv run python tests/integration/run_e2e_tests.py \
     --reuse-data
 ```
 
-### 2. Run Composed Multi-Dataset Tests
+### 3. Run Composed Multi-Dataset Tests
 You can combine multiple dataset specs directly on the CLI:
 ```bash
 uv run python tests/integration/run_e2e_tests.py \
@@ -30,7 +56,7 @@ uv run python tests/integration/run_e2e_tests.py \
     --reuse-data
 ```
 
-### 3. Run a Specific Stage / Suite
+### 4. Run a Specific Stage / Suite
 ```bash
 # Run only Serving API suite:
 uv run python tests/integration/run_e2e_tests.py \
@@ -123,6 +149,13 @@ tests/integration/
 ├── README.md                      # This documentation
 ├── run_e2e_tests.py               # Master CLI & programmatic runner
 ├── conftest.py                    # Pytest lifecycle hooks & dynamic parameterization
+│
+├── emulated/                      # Hermetic Local Docker Compose Stack & Cloud Build CI
+│   ├── README.md                  # Local emulated architecture & usage guide
+│   ├── docker-compose.yml         # Spanner Omni, Fake GCS, Helper & Website services
+│   ├── environment.py             # EmulatedEnvironment lifecycle manager
+│   ├── cloudbuild_emulated_test.yaml # Standalone Cloud Build hermetic CI pipeline
+│   └── patches/                   # Runtime patches (IPv4 resolution, GCS & Spanner mock)
 │
 ├── prober/                        # Automated 24/7 GCP Prober & Ephemeral runner
 │   ├── README.md                  # Prober architecture, flow & local debugging

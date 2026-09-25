@@ -22,7 +22,8 @@ dependencies = [
 [dependency-groups]
 dev = [
   {include-group = "lint"},
-  {include-group = "test"}
+  {include-group = "test"},
+  "datacommons-devtools",
 ]
 lint = [
   "pre-commit>=4.5.1",
@@ -54,12 +55,11 @@ datacommons-db = { workspace = true }
 datacommons-schema = { workspace = true }
 datacommons-cli = { workspace = true }
 datacommons-admin = { workspace = true }
-datacommons-integration-tests = { workspace = true }
+datacommons-devtools = { workspace = true }
 
 [tool.uv.workspace]
 members = [
     "packages/*",
-    "tests/datacommons-integration-tests",
 ]
 
 [tool.coverage.run]
@@ -127,24 +127,14 @@ extend-ignore = [
     "S603",   # Subprocess call check in automation scripts
     "S607",   # Partial executable path in automation scripts
 ]
-"packages/*/tests/**/*.py" = [
-    "S101",   # Allow using `assert` in pytests
-    "ANN001", # Ignore missing type annotations in test files
-    "ANN201", # Ignore missing return types in public test functions
-    "ANN202", # Ignore missing return types in private test functions
-    "PLR2004"
-]
 "packages/*/datacommons_*/migrations/migration_scripts/*.py" = [
     "N999",   # Allow timestamp prefixes (e.g. 20260817000000_*.py) for migration scripts
 ]
-"tools/migrations/templates/*.py" = [
+"packages/datacommons-devtools/datacommons_devtools/migrations/templates/*.py" = [
     "ERA001", # Allow example commented-out code in migration template
     "F401",   # Allow pre-imported modules in migration template
 ]
-"tools/**/tests/*.py" = [
-    "S101",   # Allow using `assert` in pytests
-]
-"tests/**/*.py" = [
+"**/tests/**/*.py" = [
     "S101",   # Allow using `assert` in pytests
     "S105",   # Allow hardcoded mock passwords/tokens in tests
     "S106",   # Allow hardcoded mock token arguments in tests
@@ -182,23 +172,17 @@ url = "https://pypi.org/simple"
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
-[project.scripts]
-manage-migrations = "tools.migrations.manage_migrations_cli:cli"
-
 [tool.setuptools]
-packages = [
-    "tools",
-    "tools.migrations",
-    "tools.migrations.templates",
-    "tools.migrations.tests",
-]
-
-[tool.setuptools.package-data]
-"tools.migrations" = ["templates/*"]
+# Tell setuptools this is a meta-package and to stop looking for code
+packages = []
 
 [tool.setuptools.dynamic]
 version = {file = "VERSION"}
 
 [tool.pytest.ini_options]
 pythonpath = [".", "deploy/scripts"]
-testpaths = ["packages", "tests/deploy_scripts", "tools/migrations/tests"]
+testpaths = ["packages", "deploy/scripts/tests"]
+markers = [
+    "cloud_only: mark test or class to run only against live GCP cloud targets.",
+]
+

@@ -36,7 +36,7 @@ fi
 PROJECT="${DETECTED_PROJECT}"
 PROBER_NAME="dcp-prober"
 TEST_CONFIG="foobar_wages"
-SCHEDULE="0 */3 * * *"
+SCHEDULE="17 */3 * * *"
 LOCATION="us-central1"
 ALERT_EMAIL=""
 DC_API_KEY="${DC_API_KEY:-}"
@@ -58,7 +58,7 @@ Options:
   --test-config <name>  Test manifest name (default: ${TEST_CONFIG})
   --schedule <cron>     Cron schedule for prober (default: "${SCHEDULE}")
   --alert-email <email> Optional email address for failure alerts
-  --dc-api-key <key>    Optional Data Commons API Key
+  --dc-api-key <key>    Data Commons API Key (required on initial deploy; auto-reused from Secret Manager afterward)
   --location <region>   GCP Region (default: ${LOCATION})
   --image-tag <tag>     Custom image tag for registry (default: ${IMAGE_TAG})
   --skip-build          Skip container image build step (reuses existing image)
@@ -141,17 +141,53 @@ if [[ -t 0 && "$NON_INTERACTIVE" == "false" ]]; then
   read -p "Enter Prober Resource Name [${PROBER_NAME}]: " INPUT_NAME
   PROBER_NAME="${INPUT_NAME:-$PROBER_NAME}"
 
-  read -p "Enter Cron Schedule [${SCHEDULE}]: " INPUT_SCHEDULE
-  SCHEDULE="${INPUT_SCHEDULE:-$SCHEDULE}"
+  REUSE_SETTINGS=false
+  # Check if existing tfvars secret exists
+  if gcloud secrets describe "${PROBER_NAME}-tfvars" --project="${PROJECT}" &>/dev/null; then
+    ACTIVE_TFVARS=$(gcloud secrets versions access latest --secret="${PROBER_NAME}-tfvars" --project="${PROJECT}" 2>/dev/null || true)
+    if [[ -n "$ACTIVE_TFVARS" ]]; then
+      SAVED_SCHEDULE=$(echo "$ACTIVE_TFVARS" | grep '^schedule' | head -n 1 | cut -d'"' -f2 || true)
+      SAVED_CONFIG=$(echo "$ACTIVE_TFVARS" | grep '^test_config' | head -n 1 | cut -d'"' -f2 || true)
+      SAVED_EMAIL=$(echo "$ACTIVE_TFVARS" | grep '^alert_email' | head -n 1 | cut -d'"' -f2 || true)
+      SAVED_REGION=$(echo "$ACTIVE_TFVARS" | grep '^region' | head -n 1 | cut -d'"' -f2 || true)
 
-  read -p "Enter GCP Region [${LOCATION}]: " INPUT_LOCATION
-  LOCATION="${INPUT_LOCATION:-$LOCATION}"
+      echo ""
+      echo "ℹ️  Found existing deployment settings in Secret Manager (${PROBER_NAME}-tfvars):"
+      echo "   • Schedule:    ${SAVED_SCHEDULE:-$SCHEDULE}"
+      echo "   • Test Config: ${SAVED_CONFIG:-$TEST_CONFIG}"
+      echo "   • Alert Email: ${SAVED_EMAIL:-none}"
+      echo "   • Region:      ${SAVED_REGION:-$LOCATION}"
+      echo "   • API Key:     [Preserved in Secret Manager]"
+      echo ""
 
-  read -p "Enter Alert Notification Email (optional) [none]: " INPUT_ALERT_EMAIL
-  ALERT_EMAIL="${INPUT_ALERT_EMAIL:-$ALERT_EMAIL}"
+      read -p "Do you want to reuse these existing settings? [Y/n]: " REUSE_CHOICE
+      REUSE_CHOICE="${REUSE_CHOICE:-Y}"
+      if [[ "$REUSE_CHOICE" == "Y" || "$REUSE_CHOICE" == "y" ]]; then
+        REUSE_SETTINGS=true
+        SCHEDULE="${SAVED_SCHEDULE:-$SCHEDULE}"
+        TEST_CONFIG="${SAVED_CONFIG:-$TEST_CONFIG}"
+        ALERT_EMAIL="${SAVED_EMAIL:-$ALERT_EMAIL}"
+        LOCATION="${SAVED_REGION:-$LOCATION}"
+      fi
+    fi
+  fi
 
-  read -p "Enter Data Commons API Key (optional) [none]: " INPUT_DC_API_KEY
-  DC_API_KEY="${INPUT_DC_API_KEY:-$DC_API_KEY}"
+  if [[ "$REUSE_SETTINGS" == "false" ]]; then
+    read -p "Enter Cron Schedule [${SCHEDULE}]: " INPUT_SCHEDULE
+    SCHEDULE="${INPUT_SCHEDULE:-$SCHEDULE}"
+
+    read -p "Enter Test Config [${TEST_CONFIG}]: " INPUT_CONFIG
+    TEST_CONFIG="${INPUT_CONFIG:-$TEST_CONFIG}"
+
+    read -p "Enter GCP Region [${LOCATION}]: " INPUT_LOCATION
+    LOCATION="${INPUT_LOCATION:-$LOCATION}"
+
+    read -p "Enter Alert Notification Email (optional) [${ALERT_EMAIL:-none}]: " INPUT_ALERT_EMAIL
+    ALERT_EMAIL="${INPUT_ALERT_EMAIL:-$ALERT_EMAIL}"
+
+    read -p "Enter Data Commons API Key (optional) [keep active]: " INPUT_DC_API_KEY
+    DC_API_KEY="${INPUT_DC_API_KEY:-$DC_API_KEY}"
+  fi
   echo ""
 fi
 
@@ -159,13 +195,22 @@ fi
 export GOOGLE_CLOUD_PROJECT="${PROJECT}"
 export CLOUDSDK_CORE_PROJECT="${PROJECT}"
 export CLOUDSDK_BILLING_QUOTA_PROJECT="${PROJECT}"
+if [[ -z "$DC_API_KEY" ]]; then
+  DC_API_KEY=$(gcloud secrets versions access latest --secret="${PROBER_NAME}-api-key" --project="${PROJECT}" 2>/dev/null || true)
+fi
+if [[ -z "$DC_API_KEY" ]]; then
+  echo "❌ Error: No Data Commons API key provided and no active secret found in Secret Manager (${PROBER_NAME}-api-key)."
+  echo "   Please pass --dc-api-key <key> or set the DC_API_KEY environment variable."
+  exit 1
+fi
+
 export TF_VAR_project_id="${PROJECT}"
 export TF_VAR_region="${LOCATION}"
 export TF_VAR_prober_name="${PROBER_NAME}"
 export TF_VAR_schedule="${SCHEDULE}"
 export TF_VAR_test_config="${TEST_CONFIG}"
 export TF_VAR_alert_email="${ALERT_EMAIL:-}"
-export TF_VAR_dc_api_key="${DC_API_KEY:-}"
+export TF_VAR_dc_api_key="${DC_API_KEY}"
 
 REGISTRY_PROJECT="datcom-ci"
 REGISTRY_LOCATION="us"
@@ -222,7 +267,7 @@ if [[ "$SKIP_BUILD" == "false" ]]; then
   echo "    Prober Commit SHA: ${PROBER_COMMIT:0:8}"
   gcloud builds submit \
     --config="${DEPLOY_DIR}/cloudbuild.yaml" \
-    --substitutions="_IMAGE_URI=${IMAGE_URI},_LATEST_IMAGE_URI=${LATEST_IMAGE_URI},_COMMIT_SHA=${PROBER_COMMIT}" \
+    --substitutions="_REGISTRY_BASE=${REGISTRY_BASE},_IMAGE_NAME=${IMAGE_NAME},_PROJECT_ID=${PROJECT},_PROBER_NAME=${PROBER_NAME},_REGION=${LOCATION},_COMMIT_SHA=${PROBER_COMMIT},_TAG=${IMAGE_TAG},_UPDATE_JOB=false" \
     --project="${REGISTRY_PROJECT}" \
     "${REPO_ROOT}"
 else

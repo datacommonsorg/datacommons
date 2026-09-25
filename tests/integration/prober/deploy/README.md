@@ -4,15 +4,26 @@ This directory contains the automation and Terraform blueprint to deploy and upd
 
 ---
 
-## 🚀 Quickstart: Deploying & Updating Probers
+## 🚀 Automated CI/CD vs. Manual Terraform Deployments
 
-Run the deployer script:
+| Deployment Type | Scope | Trigger | How It Works |
+| :--- | :--- | :--- | :--- |
+| **🤖 Automated CI/CD** (`cloudbuild.yaml`) | **Container Image & Tests** | Push/Merge to `main` (`tests/integration/**`) | Cloud Build automatically builds the new container image and updates the `dcp-prober` Cloud Run Job to use the new image. **Zero manual action needed.** |
+| **🛠️ Manual Infrastructure** (`deploy_prober.sh`) | **Full Terraform Blueprint** | Manual CLI execution | Manages the full GCP infrastructure (Service Accounts, Secrets, GCS Buckets, Cloud Scheduler cron, Cloud Monitoring alerts, and Cloud Run). |
+
+> ℹ️ **Secret Auto-Reuse**: When running `./deploy_prober.sh`, the script automatically detects and reuses existing API keys (`dcp-prober-api-key`) and active settings (`dcp-prober-tfvars`) from Google Secret Manager. You do **not** need to re-enter sensitive keys or provide flags on routine updates.
+
+---
+
+## 🛠️ Manual Deployment & Infrastructure Updates (`deploy_prober.sh`)
+
+Run the deployer script from your terminal:
 
 ```bash
 ./deploy_prober.sh \
   --project datcom-dcp \
   --prober-name dcp-prober \
-  --schedule "0 */3 * * *" \
+  --schedule "17 */3 * * *" \
   --alert-email datacommons-alerts+dcp-prober@google.com \
   --test-config foobar_wages
 ```
@@ -21,7 +32,7 @@ Run the deployer script:
 
 ---
 
-## ⚡ Fast Deploy / Updates (`--skip-build`)
+## ⚡ Fast Infrastructure Updates (`--skip-build`)
 
 If you only modified Terraform configurations, alert recipients, cron schedules, or environment settings and **do not need to rebuild the Docker container**, use `--skip-build`:
 
@@ -30,7 +41,7 @@ If you only modified Terraform configurations, alert recipients, cron schedules,
   --project datcom-dcp \
   --prober-name dcp-prober \
   --alert-email datacommons-alerts+dcp-prober@google.com \
-  --schedule "0 */3 * * *"
+  --schedule "17 */3 * * *"
 ```
 
 ---
@@ -41,11 +52,12 @@ If you only modified Terraform configurations, alert recipients, cron schedules,
 | :--- | :--- | :--- |
 | `--project <id>` | Active `gcloud` project | Target GCP Project ID for the prober |
 | `--prober-name <name>` | `dcp-prober` | Resource name prefix for Cloud Run Job, Scheduler, and Bucket |
-| `--schedule <cron>` | `0 */3 * * *` | Cron schedule for recurring prober execution |
+| `--schedule <cron>` | `17 */3 * * *` | Cron schedule for recurring prober execution |
 | `--test-config <name>` | `foobar_wages` | Test dataset manifest to run on each execution |
 | `--alert-email <email>` | *(none)* | Email address for Cloud Monitoring failure notifications |
-| `--dc-api-key <key>` | *(none)* | Optional Data Commons API key |
+| `--dc-api-key <key>` | Active Secret Manager version | Data Commons API key (required on initial deploy; auto-reused from Secret Manager afterward) |
 | `--location <region>` | `us-central1` | GCP Region for Cloud Run Job and Scheduler |
+| `--image-tag <tag>` | `latest` | Container image tag in Artifact Registry |
 | `--skip-build` | `false` | Skip Cloud Build container packaging |
 | `--non-interactive` | `false` | Run with flags/defaults without interactive prompts |
 

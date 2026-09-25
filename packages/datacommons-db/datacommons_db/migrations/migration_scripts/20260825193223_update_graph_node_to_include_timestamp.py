@@ -54,7 +54,7 @@ CREATE OR REPLACE PROPERTY GRAPH DCGraph
         predicate,
         provenance,
         subject_id)
-  );
+  )
             """,
             ]
         )

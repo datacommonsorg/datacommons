@@ -4,10 +4,12 @@ main:
     - init:
         assign:
           - project_id: '${project_id}'
+          - region: '${region}'
+          - bucket_name: '${artifacts_bucket_name}'
+          - temp_path_prefix: '${ingestion_artifacts_path}/temp'
+          - temp_gcs_uri: '$${"gs://" + bucket_name + "/" + temp_path_prefix}'
           - workflow_id: '$${sys.get_env("GOOGLE_CLOUD_WORKFLOW_EXECUTION_ID")}'
           - version: '$${"version-" + string(int(sys.now()))}'
-          - bucket_name: '$${text.split(input.tempLocation, "/")[2]}'
-          - temp_path_prefix: '$${text.replace_all(input.tempLocation, "gs://" + bucket_name + "/", "")}'
           - execution_error: null
           - postprocessing_result: null
           - embedding_result: null
@@ -25,19 +27,15 @@ main:
           - postproc_job_name: '${postprocessing_job_name}'
           - comma_separated_imports: ""
           - provenances_list: []
-          - imports_status_list: []
           - imports_history_list: []
-          - imports_version_list: []
-          - imports_status_str: ""
           - imports_history_str: ""
-          - imports_version_str: ""
           - launch_params:
               projectId: '$${project_id}'
-              spannerInstanceId: '$${default(map.get(input, "spannerInstanceId"), "")}'
-              spannerDatabaseId: '$${default(map.get(input, "spannerDatabaseId"), "")}'
+              spannerInstanceId: '${spanner_instance_id}'
+              spannerDatabaseId: '${spanner_database_id}'
               importList: '$${default(map.get(input, "importList"), "")}'
-              tempLocation: '$${input.tempLocation}'
-              stagingLocation: '$${input.tempLocation}'
+              tempLocation: '$${temp_gcs_uri}'
+              stagingLocation: '$${temp_gcs_uri}'
               forceCombineNodes: 'true'
               isBaseDc: 'false'
     - normalize_imports:
@@ -75,22 +73,15 @@ main:
           steps:
             - append_lists:
                 assign:
-                  - item_gcs_path: '$${"gs://" + bucket_name + "/${ingestion_artifacts_path}/" + imp.importName + "/" + version}'
-                  - status_item_str: '$${",{\"importName\":\"" + imp.importName + "\",\"latestVersion\":\"" + item_gcs_path + "\",\"graphPath\":\"" + imp.graphPath + "\",\"status\":\"STAGING\"}"}'
                   - history_item_str: '$${",{\"importName\":\"" + imp.importName + "\",\"latestVersion\":\"" + version + "\"}"}'
-                  - version_item_str: '$${",\"" + imp.importName + "\""}'
-                  - imports_status_str: '$${imports_status_str + status_item_str}'
                   - imports_history_str: '$${imports_history_str + history_item_str}'
-                  - imports_version_str: '$${imports_version_str + version_item_str}'
                   - clean_item: '$${text.replace_all(text.replace_all(text.to_lower(imp.importName), "/", "-"), "_", "-")}'
                   - join_prefix: '$${if(combined_import_name == "", "", "-")}'
                   - combined_import_name: '$${combined_import_name + join_prefix + clean_item}'
                   - comma_separated_imports: '$${if(comma_separated_imports == "", imp.importName, comma_separated_imports + "," + imp.importName)}'
     - decode_lists:
         assign:
-          - imports_status_list: '$${json.decode("[" + text.substring(imports_status_str, 1, len(imports_status_str)) + "]")}'
           - imports_history_list: '$${json.decode("[" + text.substring(imports_history_str, 1, len(imports_history_str)) + "]")}'
-          - imports_version_list: '$${json.decode("[" + text.substring(imports_version_str, 1, len(imports_version_str)) + "]")}'
     - set_dataflow_job_name:
         assign:
           - import_name_len: '$${len(combined_import_name)}'
@@ -102,9 +93,9 @@ main:
         call: launch_and_poll_preprocessing_job
         args:
           workflow_id: '$${workflow_id}'
-          temp_location: '$${input.tempLocation}'
+          temp_gcs_uri: '$${temp_gcs_uri}'
           imports_arg: '$${comma_separated_imports}'
-          region: '$${input.region}'
+          region: '$${region}'
           project_id: '${project_id}'
         result: prep_res
 
@@ -175,24 +166,13 @@ main:
     - process_ingestion:
         try:
           steps:
-            - set_staging:
-                call: http.post
-                args:
-                  url: '${ingestion_helper_url}/imports/status'
-                  auth:
-                    type: OIDC
-                  body:
-                    workflowId: '$${workflow_id}'
-                    imports: '$${imports_status_list}'
-                    status: 'STAGING'
-
             - launch_dataflow:
                 call: launch_and_poll_dataflow
                 args:
                   job_name: '$${dataflow_job_name}'
                   launch_params: '$${launch_params}'
-                  temp_location: '$${input.tempLocation}'
-                  region: '$${input.region}'
+                  temp_gcs_uri: '$${temp_gcs_uri}'
+                  region: '$${region}'
                   workflow_id: '$${workflow_id}'
                 result: dataflow_res
 
@@ -226,7 +206,7 @@ main:
                                 run_flag: '$${run_postproc}'
                                 import_list: '$${provenances_list}'
                                 job_name: '$${postproc_job_name}'
-                                region: '$${input.region}'
+                                region: '$${region}'
                                 project_id: '$${project_id}'
                                 workflow_id: '$${workflow_id}'
                                 generate_stat_var_groups: '$${generate_stat_var_groups}'
@@ -238,18 +218,6 @@ main:
                               args:
                                 run_flag: '$${run_embeddings}'
                               result: embedding_result
-
-            - promote_version_step:
-                call: http.post
-                args:
-                  url: '${ingestion_helper_url}/imports/version'
-                  auth:
-                    type: OIDC
-                  body:
-                    workflowId: '$${workflow_id}'
-                    imports: '$${imports_version_list}'
-                    version: '$${version}'
-                    comment: '$${"Auto-promoted by workflow " + workflow_id}'
 
             - update_ingestion_status_success:
                 call: update_ingestion_status
@@ -424,14 +392,14 @@ run_embeddings_job:
         return: $${res}
 
 launch_and_poll_dataflow:
-  params: [job_name, launch_params, temp_location, region, workflow_id]
+  params: [job_name, launch_params, temp_gcs_uri, region, workflow_id]
   steps:
     - build_environment:
         assign:
           - env_map:
               serviceAccountEmail: '${dataflow_service_account_email}'
-              tempLocation: $${temp_location}
-              stagingLocation: $${temp_location}
+              tempLocation: $${temp_gcs_uri}
+              stagingLocation: $${temp_gcs_uri}
               maxWorkers: ${dataflow_max_workers}
               numWorkers: ${dataflow_num_workers}
               machineType: '${dataflow_worker_machine_type}'
@@ -480,6 +448,8 @@ launch_and_poll_dataflow:
                 projectId: '${project_id}'
                 location: $${region}
                 jobId: $${job_id}
+                query:
+                  fields: "id,currentState"
               result: job_status
           - check_terminal:
               switch:
@@ -505,7 +475,7 @@ launch_and_poll_dataflow:
           launch_result: $${launch_result}
 
 launch_and_poll_preprocessing_job:
-  params: [workflow_id, temp_location, imports_arg, region, project_id]
+  params: [workflow_id, temp_gcs_uri, imports_arg, region, project_id]
   steps:
     - init_args:
         assign:
@@ -536,7 +506,7 @@ launch_and_poll_preprocessing_job:
                       environment:
                         variables:
                           WORKFLOW_EXECUTION_ID: '$${workflow_id}'
-                          TEMP_LOCATION: '$${temp_location}'
+                          TEMP_LOCATION: '$${temp_gcs_uri}'
                           INPUT_DIR: 'gs://${bucket_name}/${ingestion_input_path}'
                           OUTPUT_DIR: 'gs://${bucket_name}/${ingestion_artifacts_path}'
                           GCS_BUCKET: '${bucket_name}'
@@ -552,6 +522,13 @@ launch_and_poll_preprocessing_job:
             allocationPolicy:
               serviceAccount:
                 email: '${preprocessing_service_account_email}'
+%{ if vpc_network != "" && dataflow_subnetwork != "" }
+              network:
+                networkInterfaces:
+                  - network: '${vpc_network}'
+                    subnetwork: '${dataflow_subnetwork}'
+                    noExternalIpAddress: ${dataflow_ip_configuration == "WORKER_IP_PRIVATE"}
+%{ endif }
             logsPolicy:
               destination: CLOUD_LOGGING
         result: batch_res

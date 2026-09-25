@@ -16,7 +16,7 @@ FROM python:3.13-slim
 
 # Copy standalone static binaries for terraform and uv
 COPY --from=hashicorp/terraform:1.10 /bin/terraform /bin/terraform
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # Install system dependencies (ca-certificates, git, google-cloud-cli) and clean up in a single layer
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -40,10 +40,9 @@ ENV COMMIT_SHA=$COMMIT_SHA \
     PYTHONDONTWRITEBYTECODE=1 \
     UV_NO_CACHE=1
 
-# 1. Copy dependency specifications, project metadata, tools, and workspace packages
+# 1. Copy dependency specifications, project metadata, and workspace packages
 COPY pyproject.toml uv.lock VERSION README.md LICENSE ./
 COPY packages/ ./packages/
-COPY tools/ ./tools/
 
 # 2. Pre-install dependencies (cached unless dependencies change)
 RUN uv sync --frozen || uv sync

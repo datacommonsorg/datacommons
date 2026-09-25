@@ -48,6 +48,14 @@ class TestMCPTools:
                 "MCP Agent stage disabled or no tool calls declared in manifest."
             )
 
+        if (
+            seeded_testbed.instance_name == "emulated"
+            and mcp_tool_spec.tool_name == "search_indicators"
+        ):
+            pytest.skip(
+                "search_indicators MCP tool relies on vector embeddings search disabled in emulator mode."
+            )
+
         result = mcp_client.call_tool(mcp_tool_spec.tool_name, mcp_tool_spec.arguments)
         assert "content" in result, f"Expected 'content' in tool result, got: {result}"
 

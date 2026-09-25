@@ -20,8 +20,38 @@ from datacommons_admin.init.init_cli import init
 
 
 @click.group()
-def admin() -> None:
-    """Manage a Data Commons Platform instance in Google Cloud"""
+@click.option(
+    "--project-id",
+    default=None,
+    help="GCP project ID used to locate the remote Terraform state bucket.",
+)
+@click.option(
+    "--instance-name",
+    default=None,
+    help="DCP instance name (prefix) used to locate the remote Terraform state bucket.",
+)
+@click.option(
+    "--tf-state-location",
+    default=None,
+    help="Exact GCS URI of the Terraform state file (gs://bucket/prefix/default.tfstate).",
+)
+@click.pass_context
+def admin(
+    ctx: click.Context,
+    project_id: str | None,
+    instance_name: str | None,
+    tf_state_location: str | None,
+) -> None:
+    """Manage a Data Commons Platform instance in Google Cloud.
+
+    Remote-state options select the deployed instance used by the requested
+    admin command. They read state directly from GCS and do not create or
+    update local Terraform files.
+    """
+    ctx.ensure_object(dict)
+    ctx.obj["project_id"] = project_id
+    ctx.obj["instance_name"] = instance_name
+    ctx.obj["tf_state_location"] = tf_state_location
 
 
 admin.add_command(init)

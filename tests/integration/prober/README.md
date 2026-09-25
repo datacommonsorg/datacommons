@@ -49,11 +49,11 @@ flowchart LR
 
 ---
 
-## ⚙️ Deployment & Updates
-
-The continuous prober is deployed to Google Cloud (`datcom-dcp`) and runs autonomously on a recurring Cloud Scheduler cron trigger.
-
-* **Deploying or Updating**: For instructions on deploying new probers or updating existing configurations (such as alert email recipients, cron schedules, or test dataset manifests), see the **[Prober Deployment Runbook](deploy/README.md)**.
+## ⚙️ Deployment & Continuous Delivery
+ 
+* **🤖 Automated CI/CD (Tests & Image)**: When code or test manifests change under `tests/integration/**` on `main`, Cloud Build automatically builds a fresh container image and deploys it to the `dcp-prober` Cloud Run Job. No manual action is required.
+* **🛠️ Manual Infrastructure Deployment (Terraform)**: If you modify the underlying Terraform infrastructure blueprint ([`deploy/terraform/`](deploy/terraform/)), such as IAM policies, alert notification channels, or cron schedules, execute [`deploy/deploy_prober.sh`](deploy/deploy_prober.sh). The script automatically reuses existing secrets and settings from Google Secret Manager.
+* **Runbook**: For full deployment parameters and setup details, see the **[Prober Deployment Runbook](deploy/README.md)**.
 
 ---
 
