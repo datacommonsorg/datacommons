@@ -20,16 +20,15 @@ from pathlib import Path
 import certifi
 import click
 
+from datacommons_admin.core.utils.ui_utils import (
+    _log_resolved_value,
+    _prompt,
+)
 from datacommons_admin.init.utils.infra_templates import (
     BACKEND_TF_TEMPLATE,
     README_TEMPLATE,
     REMOTE_STATE_TEMPLATE,
 )
-from datacommons_admin.core.utils.ui_utils import (
-    _log_resolved_value,
-    _prompt,
-)
-
 
 GITHUB_RAW_BASE_URL = "https://raw.githubusercontent.com/datacommonsorg/datacommons"
 GITHUB_REPO_URL = "https://github.com/datacommonsorg/datacommons.git"
