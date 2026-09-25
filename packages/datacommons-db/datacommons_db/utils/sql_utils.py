@@ -33,9 +33,7 @@ def render_schema_template(
     Returns:
         Rendered SQL script string ready for statement parsing.
     """
-    return template_sql.replace("{project_id}", project_id).replace(
-        "{region}", region
-    )
+    return template_sql.replace("{project_id}", project_id).replace("{region}", region)
 
 
 def parse_sql_to_statements(sql_content: str) -> list[str]:
