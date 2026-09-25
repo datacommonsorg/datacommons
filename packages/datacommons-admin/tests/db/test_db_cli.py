@@ -80,4 +80,3 @@ def test_init_db_migration_failure(
     result = runner.invoke(admin, ["init-db"])
     assert result.exit_code != 0
     assert "Initialization failed" in result.output
-

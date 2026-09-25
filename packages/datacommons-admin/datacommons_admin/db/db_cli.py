@@ -110,4 +110,3 @@ def init_db(ctx: click.Context) -> None:
     spanner_ctx = _setup_spanner_client(ctx)
 
     _initialize_database(spanner_ctx.client)
-

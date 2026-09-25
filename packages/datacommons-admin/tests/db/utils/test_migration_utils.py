@@ -244,7 +244,9 @@ def test_initialize_database_success(
     assert "Initializing baseline schema for Spanner database" in result.output
     assert "Applied baseline schema (schema.sql)" in result.output
     assert "Applying 2 schema migration(s)..." in result.output
-    assert "Applied migration 2026-08-17T00:00:00Z: Bootstrap migration" in result.output
+    assert (
+        "Applied migration 2026-08-17T00:00:00Z: Bootstrap migration" in result.output
+    )
     assert "Applied migration 20260901000000: Add feature table" in result.output
     assert "Successfully applied all schema migrations!" in result.output
     mock_client.initialize_database.assert_called_once()
@@ -266,4 +268,3 @@ def test_initialize_database_failure_raises(
     result = runner.invoke(admin, ["init-db"])
     assert result.exit_code != 0
     assert "Failed to initialize baseline schema: Spanner syntax error" in result.output
-

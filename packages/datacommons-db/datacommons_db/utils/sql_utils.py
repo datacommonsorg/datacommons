@@ -18,7 +18,6 @@ from pathlib import Path
 
 
 def render_schema_template(
-
     template_sql: str,
     *,
     project_id: str,
@@ -166,9 +165,7 @@ def generate_golden_schema_sql(project_id: str = "test-project") -> str:
     for migration in runner.migrations:
         migration.upgrade(mock_client)
 
-    all_stmts = baseline_statements + [
-        s.strip() for s in mig_statements if s.strip()
-    ]
+    all_stmts = baseline_statements + [s.strip() for s in mig_statements if s.strip()]
 
     header = """-- Copyright 2026 Google LLC.
 --
@@ -195,4 +192,3 @@ def generate_golden_schema_sql(project_id: str = "test-project") -> str:
 -- ============================================================================
 """
     return header + "\n" + ";\n\n".join(all_stmts) + ";\n"
-

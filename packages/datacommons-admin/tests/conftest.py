@@ -171,4 +171,3 @@ def mock_initialize_database():
     """Mocks _initialize_database for db commands."""
     with patch("datacommons_admin.db.db_cli._initialize_database") as mock_fn:
         yield mock_fn
-

@@ -44,4 +44,3 @@ class Migration(SchemaMigration):
                 raise RuntimeError(
                     f"Failed to create SchemaMigrations table: {result.error_message}"
                 )
-

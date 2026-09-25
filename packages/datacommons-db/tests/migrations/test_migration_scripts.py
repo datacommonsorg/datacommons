@@ -267,6 +267,3 @@ def test_cumulative_schema_matches_golden_file() -> None:
         "    uv run python scripts/update_schema_golden.py\n"
         "and commit the updated 'packages/datacommons-db/datacommons_db/schema/schema_golden.sql'."
     )
-
-
-
