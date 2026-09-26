@@ -24,7 +24,7 @@ resource "google_project_iam_member" "serving_sa_roles" {
 }
 
 resource "google_secret_manager_secret_iam_member" "serving_secret_accessor" {
-  for_each = { for s in var.secret_env_vars : s.name => s.secret if s.secret != "" }
+  for_each = { for s in var.secret_env_vars : s.name => s.secret }
 
   project   = var.project_id
   secret_id = each.value

@@ -91,7 +91,7 @@ locals {
         version = "latest"
       }
     ],
-    !var.datacommons_services_config.website_disable_google_maps_api ? [
+    !var.datacommons_services_config.website_disable_google_maps_api && (var.auth_config.google_maps_api_key != null || var.auth_config.create_google_maps_key) ? [
       {
         name    = "MAPS_API_KEY"
         secret  = module.auth.maps_api_key_secret_id
