@@ -49,6 +49,7 @@ import json
 import os
 import re
 import subprocess
+import time
 from typing import Callable
 
 
@@ -190,50 +191,11 @@ def main():
     matcher = build_matcher(tag)
 
     # 2. Phase 1: Discovery Manifest
-    print(f"\n==> Scanning 13 GCP resource types in project [{project}]...")
+    print(f"\n==> Scanning 12 GCP resource types in project [{project}]...")
     discovered: list[ResourceItem] = []
 
-    # [1/13] Active Dataflow Jobs (Checked first so cancel starts early)
-    print("  [1/13] Checking Active Dataflow Jobs...", end="", flush=True)
-    df_jobs = run_gcloud(["dataflow", "jobs", "list", f"--region={region}"], project)
-    df_count = 0
-    for dfj in df_jobs:
-        job_id = dfj.get("id", "")
-        job_name = dfj.get("name", "")
-        state = dfj.get("state", "")
-        if matcher(job_name) and state in ("JOB_STATE_RUNNING", "JOB_STATE_PENDING"):
-            df_count += 1
-
-            def _make_df_cancel(j_id=job_id, r=region, p=project):
-                res = subprocess.run(
-                    [
-                        "gcloud",
-                        "dataflow",
-                        "jobs",
-                        "cancel",
-                        j_id,
-                        f"--region={r}",
-                        f"--project={p}",
-                        "--quiet",
-                    ],
-                    check=False,
-                    capture_output=True,
-                )
-                return res.returncode == 0
-
-            discovered.append(
-                ResourceItem(
-                    category="Dataflow Jobs",
-                    resource_type="Dataflow Job",
-                    resource_id=job_id,
-                    display_info=f"{job_name} ({job_id})",
-                    delete_fn=_make_df_cancel,
-                )
-            )
-    print(f" found {df_count}")
-
-    # [2/13] Cloud Run Services
-    print("  [2/13] Checking Cloud Run Services...", end="", flush=True)
+    # [1/12] Cloud Run Services
+    print("  [1/12] Checking Cloud Run Services...", end="", flush=True)
     services = run_gcloud(["run", "services", "list", f"--region={region}"], project)
     svc_count = 0
     for svc in services:
@@ -269,8 +231,8 @@ def main():
             )
     print(f" found {svc_count}")
 
-    # [3/13] Cloud Run Jobs
-    print("  [3/13] Checking Cloud Run Jobs...", end="", flush=True)
+    # [2/12] Cloud Run Jobs
+    print("  [2/12] Checking Cloud Run Jobs...", end="", flush=True)
     jobs = run_gcloud(["run", "jobs", "list", f"--region={region}"], project)
     job_count = 0
     for job in jobs:
@@ -306,8 +268,8 @@ def main():
             )
     print(f" found {job_count}")
 
-    # [4/13] Cloud Workflows
-    print("  [4/13] Checking Cloud Workflows...", end="", flush=True)
+    # [3/12] Cloud Workflows
+    print("  [3/12] Checking Cloud Workflows...", end="", flush=True)
     workflows = run_gcloud(["workflows", "list", f"--location={region}"], project)
     wf_count = 0
     for wf in workflows:
@@ -342,8 +304,97 @@ def main():
             )
     print(f" found {wf_count}")
 
-    # [5/13] Service Accounts
-    print("  [5/13] Checking Service Accounts...", end="", flush=True)
+    # [4/12] Project IAM Bindings
+    print("  [4/12] Checking Project IAM Bindings...", end="", flush=True)
+    policy = run_gcloud(["projects", "get-iam-policy", project], project)
+    iam_count = 0
+    if isinstance(policy, dict):
+        bindings = policy.get("bindings", [])
+        for b in bindings:
+            role = b.get("role", "")
+            members = b.get("members", [])
+            for m in members:
+                sa_name = (
+                    m.replace("deleted:serviceAccount:", "")
+                    .replace("serviceAccount:", "")
+                    .split("@")[0]
+                )
+                if matcher(sa_name):
+                    iam_count += 1
+
+                    def _make_iam_delete(mem=m, r=role, p=project):
+                        for attempt in range(3):
+                            res = subprocess.run(
+                                [
+                                    "gcloud",
+                                    "projects",
+                                    "remove-iam-policy-binding",
+                                    p,
+                                    f"--member={mem}",
+                                    f"--role={r}",
+                                    "--all",
+                                    "--quiet",
+                                    "--format=none",
+                                ],
+                                check=False,
+                                capture_output=True,
+                                text=True,
+                            )
+                            if res.returncode == 0:
+                                return True
+                            stderr = (res.stderr or "").lower()
+                            # If binding is already gone or not found under this name
+                            if "not found" in stderr:
+                                # If member was serviceAccount:..., check if SA was deleted concurrently
+                                # and converted to deleted:serviceAccount:...?...
+                                if mem.startswith("serviceAccount:"):
+                                    pol = run_gcloud(["projects", "get-iam-policy", p], p)
+                                    if isinstance(pol, dict):
+                                        target_sa = mem.split(":")[1]
+                                        for pb in pol.get("bindings", []):
+                                            if pb.get("role") == r:
+                                                for bm in pb.get("members", []):
+                                                    if bm.startswith("deleted:serviceAccount:") and target_sa in bm:
+                                                        res2 = subprocess.run(
+                                                            [
+                                                                "gcloud",
+                                                                "projects",
+                                                                "remove-iam-policy-binding",
+                                                                p,
+                                                                f"--member={bm}",
+                                                                f"--role={r}",
+                                                                "--all",
+                                                                "--quiet",
+                                                                "--format=none",
+                                                            ],
+                                                            check=False,
+                                                            capture_output=True,
+                                                            text=True,
+                                                        )
+                                                        if res2.returncode == 0:
+                                                            return True
+                                # If not found anywhere, it is already deleted
+                                return True
+                            # Only retry on concurrent policy update race conditions
+                            if "concurrent" in stderr or "conflict" in stderr:
+                                time.sleep(0.5 * (attempt + 1))
+                                continue
+                            return False
+                        return False
+
+                    discovered.append(
+                        ResourceItem(
+                            category="Project IAM Bindings",
+                            resource_type="IAM Binding",
+                            resource_id=f"{m} ({role})",
+                            display_info=f"{m} ({role})",
+                            delete_fn=_make_iam_delete,
+                        )
+                    )
+    print(f" found {iam_count}")
+
+    # [5/12] Service Accounts
+    print("  [5/12] Checking Service Accounts...", end="", flush=True)
     sas = run_gcloud(["iam", "service-accounts", "list"], project)
     sa_count = 0
     for sa in sas:
@@ -379,55 +430,8 @@ def main():
             )
     print(f" found {sa_count}")
 
-    # [6/13] Orphaned Project IAM Bindings
-    print("  [6/13] Checking Orphaned Project IAM Bindings...", end="", flush=True)
-    policy = run_gcloud(["projects", "get-iam-policy", project], project)
-    iam_count = 0
-    if isinstance(policy, dict):
-        bindings = policy.get("bindings", [])
-        for b in bindings:
-            role = b.get("role", "")
-            members = b.get("members", [])
-            for m in members:
-                sa_name = (
-                    m.replace("deleted:serviceAccount:", "")
-                    .replace("serviceAccount:", "")
-                    .split("@")[0]
-                )
-                if matcher(sa_name):
-                    iam_count += 1
-
-                    def _make_iam_delete(mem=m, r=role, p=project):
-                        res = subprocess.run(
-                            [
-                                "gcloud",
-                                "projects",
-                                "remove-iam-policy-binding",
-                                p,
-                                f"--member={mem}",
-                                f"--role={r}",
-                                "--quiet",
-                                "--format=none",
-                            ],
-                            check=False,
-                            capture_output=True,
-                            text=True,
-                        )
-                        return res.returncode == 0
-
-                    discovered.append(
-                        ResourceItem(
-                            category="Orphaned IAM Bindings",
-                            resource_type="IAM Binding",
-                            resource_id=f"{m} ({role})",
-                            display_info=f"{m} ({role})",
-                            delete_fn=_make_iam_delete,
-                        )
-                    )
-    print(f" found {iam_count}")
-
-    # [7/13] GCS Buckets
-    print("  [7/13] Checking GCS Buckets...", end="", flush=True)
+    # [6/12] GCS Buckets
+    print("  [6/12] Checking GCS Buckets...", end="", flush=True)
     buckets = run_gcloud(["storage", "buckets", "list"], project)
     bucket_count = 0
     for b in buckets:
@@ -454,8 +458,8 @@ def main():
             )
     print(f" found {bucket_count}")
 
-    # [8/13] Cloud Spanner Instances
-    print("  [8/13] Checking Cloud Spanner Instances...", end="", flush=True)
+    # [7/12] Cloud Spanner Instances
+    print("  [7/12] Checking Cloud Spanner Instances...", end="", flush=True)
     spanner_instances = run_gcloud(["spanner", "instances", "list"], project)
     spanner_count = 0
     for inst in spanner_instances:
@@ -512,8 +516,8 @@ def main():
             )
     print(f" found {spanner_count}")
 
-    # [9/13] MemoryStore Redis Instances
-    print("  [9/13] Checking MemoryStore Redis Instances...", end="", flush=True)
+    # [8/12] MemoryStore Redis Instances
+    print("  [8/12] Checking MemoryStore Redis Instances...", end="", flush=True)
     redis_instances = run_gcloud(
         ["redis", "instances", "list", f"--region={region}"], project
     )
@@ -551,8 +555,8 @@ def main():
             )
     print(f" found {redis_count}")
 
-    # [10/13] Serverless VPC Access Connectors
-    print("  [10/13] Checking Serverless VPC Access Connectors...", end="", flush=True)
+    # [9/12] Serverless VPC Access Connectors
+    print("  [9/12] Checking Serverless VPC Access Connectors...", end="", flush=True)
     connectors = run_gcloud(
         ["compute", "vpc-access", "connectors", "list", f"--region={region}"], project
     )
@@ -591,8 +595,8 @@ def main():
             )
     print(f" found {conn_count}")
 
-    # [11/13] BigQuery Connections
-    print("  [11/13] Checking BigQuery Connections...", end="", flush=True)
+    # [10/12] BigQuery Connections
+    print("  [10/12] Checking BigQuery Connections...", end="", flush=True)
     bq_conns = run_gcloud(
         ["bigquery", "connections", "list", f"--location={region}"], project
     )
@@ -630,8 +634,8 @@ def main():
             )
     print(f" found {bq_count}")
 
-    # [12/13] API Keys
-    print("  [12/13] Checking API Keys...", end="", flush=True)
+    # [11/12] API Keys
+    print("  [11/12] Checking API Keys...", end="", flush=True)
     keys = run_gcloud(["services", "api-keys", "list"], project)
     keys_count = 0
     for key in keys:
@@ -667,8 +671,8 @@ def main():
             )
     print(f" found {keys_count}")
 
-    # [13/13] Secret Manager Secrets
-    print("  [13/13] Checking Secret Manager Secrets...", end="", flush=True)
+    # [12/12] Secret Manager Secrets
+    print("  [12/12] Checking Secret Manager Secrets...", end="", flush=True)
     secrets = run_gcloud(["secrets", "list"], project)
     sec_count = 0
     for s in secrets:
