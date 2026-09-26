@@ -21,6 +21,12 @@ variable "create_google_maps_key" {
   default = true
 }
 
+variable "google_maps_allowed_referrers" {
+  description = "A list of HTTP referrers allowed to use the Google Maps API key (e.g. ['https://example.com/*', 'http://localhost:*']). If empty, no browser referrer restrictions are enforced."
+  type        = list(string)
+  default     = []
+}
+
 
 
 
