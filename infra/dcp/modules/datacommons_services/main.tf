@@ -3,14 +3,7 @@ locals {
 
   datacommons_services_roles = toset(concat(
     [
-      "roles/compute.networkViewer",
-      "roles/redis.editor",
-      "roles/storage.objectViewer",
       "roles/vpcaccess.user",
-      # TODO: Review this overly broad permission.
-      "roles/iam.serviceAccountUser",
-      "roles/secretmanager.secretAccessor",
-      "roles/workflows.invoker"
     ],
     var.use_spanner ? ["roles/spanner.databaseUser"] : [],
     var.use_spanner && var.resolve_with_spanner_embeddings ? ["roles/aiplatform.user"] : []
@@ -28,6 +21,15 @@ resource "google_project_iam_member" "serving_sa_roles" {
   project = var.project_id
   member  = "serviceAccount:${google_service_account.serving_sa.email}"
   role    = each.value
+}
+
+resource "google_secret_manager_secret_iam_member" "serving_secret_accessor" {
+  for_each = { for s in var.secret_env_vars : s.name => s.secret if s.secret != "" }
+
+  project   = var.project_id
+  secret_id = each.value
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.serving_sa.email}"
 }
 
 resource "google_cloud_run_v2_service" "dc_web_service" {
@@ -142,7 +144,10 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
 
   }
 
-  depends_on = [google_project_iam_member.serving_sa_roles]
+  depends_on = [
+    google_project_iam_member.serving_sa_roles,
+    google_secret_manager_secret_iam_member.serving_secret_accessor
+  ]
 }
 
 resource "google_cloud_run_v2_service_iam_member" "public_access" {

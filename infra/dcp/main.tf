@@ -120,9 +120,10 @@ locals {
   }
 
   auth_config = {
-    google_datacommons_api_key = var.auth_google_datacommons_api_key
-    google_maps_api_key        = var.auth_google_maps_api_key
-    create_google_maps_key     = var.auth_create_google_maps_api_key
+    google_datacommons_api_key    = var.auth_google_datacommons_api_key
+    google_maps_api_key           = var.auth_google_maps_api_key
+    create_google_maps_key        = var.auth_create_google_maps_api_key
+    google_maps_allowed_referrers = var.auth_google_maps_allowed_referrers
   }
 
   redis_config = {
@@ -181,8 +182,9 @@ module "stack" {
   global                          = local.global_config
   network_config                  = local.network_config
   spanner_config                  = local.spanner_config
-  storage_create_artifacts_bucket = var.storage_create_artifacts_bucket
-  storage_artifacts_bucket_name   = var.storage_artifacts_bucket_name
+  storage_create_artifacts_bucket            = var.storage_create_artifacts_bucket
+  storage_artifacts_bucket_name              = var.storage_artifacts_bucket_name
+  storage_artifacts_bucket_enable_versioning = var.storage_artifacts_bucket_enable_versioning
   datacommons_services_config     = local.datacommons_services_config
   auth_config                     = local.auth_config
   redis_config                    = local.redis_config

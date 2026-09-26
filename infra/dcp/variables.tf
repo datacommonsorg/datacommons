@@ -77,6 +77,12 @@ variable "auth_create_google_maps_api_key" {
   default     = true
 }
 
+variable "auth_google_maps_allowed_referrers" {
+  description = "A list of HTTP referrers allowed to use the Google Maps API key (e.g. ['https://example.com/*', 'http://localhost:*']). If empty, no browser referrer restrictions are enforced."
+  type        = list(string)
+  default     = []
+}
+
 # =============================================================================
 # Storage Module
 # =============================================================================
@@ -91,6 +97,12 @@ variable "storage_artifacts_bucket_name" {
   description = "The name of the unified GCS bucket for artifacts (serving and ingestion). If not provided, a name will be automatically generated following the pattern [instance_name-]dc-artifacts-[project_id]"
   type        = string
   default     = ""
+}
+
+variable "storage_artifacts_bucket_enable_versioning" {
+  description = "Enable object versioning on the artifacts GCS bucket. Keeps historical versions of objects when overwritten or deleted."
+  type        = bool
+  default     = true
 }
 
 # =============================================================================

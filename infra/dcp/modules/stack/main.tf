@@ -135,6 +135,7 @@ module "storage" {
   # Ingestion Workflow Bucket Vars
   create_artifacts_bucket      = var.storage_create_artifacts_bucket
   artifacts_bucket_name        = var.storage_artifacts_bucket_name
+  enable_versioning            = var.storage_artifacts_bucket_enable_versioning
   region                       = var.global.region
   stateful_deletion_protection = var.global.stateful_deletion_protection
 
@@ -295,9 +296,10 @@ module "auth" {
 
   project_id             = var.global.project_id
   instance_name          = var.global.instance_name
-  dc_api_key             = var.auth_config.google_datacommons_api_key
-  google_maps_api_key    = var.auth_config.google_maps_api_key
-  create_google_maps_key = var.auth_config.create_google_maps_key
+  dc_api_key                    = var.auth_config.google_datacommons_api_key
+  google_maps_api_key           = var.auth_config.google_maps_api_key
+  create_google_maps_key        = var.auth_config.create_google_maps_key
+  google_maps_allowed_referrers = var.auth_config.google_maps_allowed_referrers
 }
 
 module "datacommons_services" {
@@ -372,6 +374,13 @@ resource "google_storage_bucket_iam_member" "preprocessing_bucket_access" {
   bucket = module.storage.artifacts_bucket_name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${module.ingestion_preprocessing_job[0].service_account_email}"
+}
+
+resource "google_storage_bucket_iam_member" "serving_bucket_access" {
+  count  = var.datacommons_services_config.enable ? 1 : 0
+  bucket = module.storage.artifacts_bucket_name
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${module.datacommons_services[0].service_account_email}"
 }
 
 resource "google_project_iam_member" "workflow_invoker" {

@@ -8,6 +8,11 @@ resource "google_storage_bucket" "artifacts_bucket" {
   name                        = local.artifacts_bucket_name
   location                    = var.region
   uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
   force_destroy               = !var.stateful_deletion_protection
+
+  versioning {
+    enabled = var.enable_versioning
+  }
 }
 
