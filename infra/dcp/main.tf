@@ -114,6 +114,8 @@ locals {
     network_name              = var.network_name != "" ? var.network_name : "dc-vpc"
     subnet_cidr               = var.network_subnet_cidr
     enable_cloud_nat          = var.network_enable_cloud_nat
+    enable_flow_logs          = var.network_enable_flow_logs
+    flow_sampling             = var.network_flow_sampling
     existing_network_id       = var.network_existing_network_id
     existing_subnet_id        = var.network_existing_subnet_id
     vpc_egress_mode           = var.network_vpc_egress_mode

@@ -751,7 +751,14 @@ The `config.json `file would look like this:
 
 In this step, you upload your CSV, MCF and `config.json` files to a new or existing Google Cloud Storage bucket.
 
-> **Note:** To perform this procedure, you must have a minimum of [Storage Object Admin](https://docs.cloud.google.com/iam/docs/roles-permissions/storage) or Storage Object User roles.
+> **Note:** The artifacts bucket enforces Public Access Prevention and Uniform Bucket-Level Access. To upload data files or inspect artifacts, individual users or operators must be granted either the **Storage Object User** (`roles/storage.objectUser`) or **Storage Object Admin** (`roles/storage.objectAdmin`) role directly on the bucket (or project).
+>
+> If you need to grant this permission to a user:
+> ```bash
+> gcloud storage buckets add-iam-policy-binding gs://<var>GCS_BUCKET</var> \
+>   --member="user:<var>USER_EMAIL</var>" \
+>   --role="roles/storage.objectUser"
+> ```
 
 If you created a new bucket:
 

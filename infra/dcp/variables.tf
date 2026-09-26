@@ -178,6 +178,18 @@ variable "network_existing_subnet_id" {
   default     = null
 }
 
+variable "network_enable_flow_logs" {
+  description = "Enable VPC Flow Logs on the private subnet for network visibility and security forensics."
+  type        = bool
+  default     = true
+}
+
+variable "network_flow_sampling" {
+  description = "Sampling rate for VPC Flow Logs between 0.0 and 1.0 (default 1.0 = 100% of packets sampled, CIS GCP Benchmark standard)."
+  type        = number
+  default     = 1.0
+}
+
 variable "network_vpc_egress_mode" {
   description = "VPC egress mode for Cloud Run services and jobs (PRIVATE_RANGES_ONLY or ALL_TRAFFIC). Set to ALL_TRAFFIC to route outbound internet traffic through Cloud NAT."
   type        = string

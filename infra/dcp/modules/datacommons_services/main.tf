@@ -5,7 +5,7 @@ locals {
     [
       "roles/vpcaccess.user",
     ],
-    var.use_spanner ? ["roles/spanner.databaseUser"] : [],
+    var.use_spanner ? ["roles/spanner.databaseReader"] : [],
     var.use_spanner && var.resolve_with_spanner_embeddings ? ["roles/aiplatform.user"] : []
   ))
 }

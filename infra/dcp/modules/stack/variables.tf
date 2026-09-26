@@ -83,6 +83,8 @@ variable "network_config" {
     network_name              = optional(string, "dc-vpc")
     subnet_cidr               = optional(string, "10.0.0.0/24")
     enable_cloud_nat          = optional(bool, false)
+    enable_flow_logs          = optional(bool, true)
+    flow_sampling             = optional(number, 1.0)
     existing_network_id       = optional(string, null)
     existing_subnet_id        = optional(string, null)
     vpc_egress_mode           = optional(string, null)

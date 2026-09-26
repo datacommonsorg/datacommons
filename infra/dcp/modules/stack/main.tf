@@ -10,6 +10,8 @@ module "network" {
   network_name        = var.network_config.network_name
   subnet_cidr         = var.network_config.subnet_cidr
   enable_cloud_nat    = var.network_config.enable_cloud_nat
+  enable_flow_logs    = var.network_config.enable_flow_logs
+  flow_sampling       = var.network_config.flow_sampling
   existing_network_id = var.network_config.existing_network_id
   existing_subnet_id  = var.network_config.existing_subnet_id
   vpc_egress_mode     = var.network_config.vpc_egress_mode != null ? var.network_config.vpc_egress_mode : "PRIVATE_RANGES_ONLY"
