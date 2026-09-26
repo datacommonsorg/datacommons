@@ -179,9 +179,13 @@ def main():
 
     if tag:
         print(f"\n🎯 Scope locked to prober tag: [prober-{tag}]")
-        print("   (Only resources matching this specific prober will be scanned or deleted)")
+        print(
+            "   (Only resources matching this specific prober will be scanned or deleted)"
+        )
     else:
-        print("\n🔍 Scope: Scanning ALL ephemeral prober resources matching 'prober-[a-f0-9]{8}'...")
+        print(
+            "\n🔍 Scope: Scanning ALL ephemeral prober resources matching 'prober-[a-f0-9]{8}'..."
+        )
 
     matcher = build_matcher(tag)
 
@@ -202,7 +206,16 @@ def main():
 
             def _make_df_cancel(j_id=job_id, r=region, p=project):
                 res = subprocess.run(
-                    ["gcloud", "dataflow", "jobs", "cancel", j_id, f"--region={r}", f"--project={p}", "--quiet"],
+                    [
+                        "gcloud",
+                        "dataflow",
+                        "jobs",
+                        "cancel",
+                        j_id,
+                        f"--region={r}",
+                        f"--project={p}",
+                        "--quiet",
+                    ],
                     check=False,
                     capture_output=True,
                 )
@@ -230,7 +243,16 @@ def main():
 
             def _make_svc_delete(n=name, p=project, r=region):
                 res = subprocess.run(
-                    ["gcloud", "run", "services", "delete", n, f"--project={p}", f"--region={r}", "--quiet"],
+                    [
+                        "gcloud",
+                        "run",
+                        "services",
+                        "delete",
+                        n,
+                        f"--project={p}",
+                        f"--region={r}",
+                        "--quiet",
+                    ],
                     check=False,
                     capture_output=True,
                 )
@@ -258,7 +280,16 @@ def main():
 
             def _make_job_delete(n=name, p=project, r=region):
                 res = subprocess.run(
-                    ["gcloud", "run", "jobs", "delete", n, f"--project={p}", f"--region={r}", "--quiet"],
+                    [
+                        "gcloud",
+                        "run",
+                        "jobs",
+                        "delete",
+                        n,
+                        f"--project={p}",
+                        f"--region={r}",
+                        "--quiet",
+                    ],
                     check=False,
                     capture_output=True,
                 )
@@ -286,7 +317,15 @@ def main():
 
             def _make_wf_delete(n=name, p=project, r=region):
                 res = subprocess.run(
-                    ["gcloud", "workflows", "delete", n, f"--project={p}", f"--location={r}", "--quiet"],
+                    [
+                        "gcloud",
+                        "workflows",
+                        "delete",
+                        n,
+                        f"--project={p}",
+                        f"--location={r}",
+                        "--quiet",
+                    ],
                     check=False,
                     capture_output=True,
                 )
@@ -315,7 +354,15 @@ def main():
 
             def _make_sa_delete(em=email, p=project):
                 res = subprocess.run(
-                    ["gcloud", "iam", "service-accounts", "delete", em, f"--project={p}", "--quiet"],
+                    [
+                        "gcloud",
+                        "iam",
+                        "service-accounts",
+                        "delete",
+                        em,
+                        f"--project={p}",
+                        "--quiet",
+                    ],
                     check=False,
                     capture_output=True,
                 )
@@ -419,18 +466,37 @@ def main():
 
             def _make_spanner_delete(n=name, p=project):
                 # Delete any backups first
-                backups = run_gcloud(["spanner", "backups", "list", f"--instance={n}"], p)
+                backups = run_gcloud(
+                    ["spanner", "backups", "list", f"--instance={n}"], p
+                )
                 if isinstance(backups, list):
                     for b in backups:
                         if isinstance(b, dict) and b.get("name"):
                             b_name = b["name"].split("/")[-1]
                             subprocess.run(
-                                ["gcloud", "spanner", "backups", "delete", b_name, f"--instance={n}", f"--project={p}", "--quiet"],
+                                [
+                                    "gcloud",
+                                    "spanner",
+                                    "backups",
+                                    "delete",
+                                    b_name,
+                                    f"--instance={n}",
+                                    f"--project={p}",
+                                    "--quiet",
+                                ],
                                 check=False,
                                 capture_output=True,
                             )
                 res = subprocess.run(
-                    ["gcloud", "spanner", "instances", "delete", n, f"--project={p}", "--quiet"],
+                    [
+                        "gcloud",
+                        "spanner",
+                        "instances",
+                        "delete",
+                        n,
+                        f"--project={p}",
+                        "--quiet",
+                    ],
                     check=False,
                     capture_output=True,
                 )
@@ -449,7 +515,9 @@ def main():
 
     # [9/13] MemoryStore Redis Instances
     print("  [9/13] Checking MemoryStore Redis Instances...", end="", flush=True)
-    redis_instances = run_gcloud(["redis", "instances", "list", f"--region={region}"], project)
+    redis_instances = run_gcloud(
+        ["redis", "instances", "list", f"--region={region}"], project
+    )
     redis_count = 0
     for inst in redis_instances:
         name = inst.get("name", "").split("/")[-1]
@@ -458,7 +526,16 @@ def main():
 
             def _make_redis_delete(n=name, p=project, r=region):
                 res = subprocess.run(
-                    ["gcloud", "redis", "instances", "delete", n, f"--region={r}", f"--project={p}", "--quiet"],
+                    [
+                        "gcloud",
+                        "redis",
+                        "instances",
+                        "delete",
+                        n,
+                        f"--region={r}",
+                        f"--project={p}",
+                        "--quiet",
+                    ],
                     check=False,
                     capture_output=True,
                 )
@@ -477,7 +554,9 @@ def main():
 
     # [10/13] Serverless VPC Access Connectors
     print("  [10/13] Checking Serverless VPC Access Connectors...", end="", flush=True)
-    connectors = run_gcloud(["compute", "vpc-access", "connectors", "list", f"--region={region}"], project)
+    connectors = run_gcloud(
+        ["compute", "vpc-access", "connectors", "list", f"--region={region}"], project
+    )
     conn_count = 0
     for conn in connectors:
         name = conn.get("name", "").split("/")[-1]
@@ -486,7 +565,17 @@ def main():
 
             def _make_conn_delete(n=name, p=project, r=region):
                 res = subprocess.run(
-                    ["gcloud", "compute", "vpc-access", "connectors", "delete", n, f"--region={r}", f"--project={p}", "--quiet"],
+                    [
+                        "gcloud",
+                        "compute",
+                        "vpc-access",
+                        "connectors",
+                        "delete",
+                        n,
+                        f"--region={r}",
+                        f"--project={p}",
+                        "--quiet",
+                    ],
                     check=False,
                     capture_output=True,
                 )
@@ -505,7 +594,9 @@ def main():
 
     # [11/13] BigQuery Connections
     print("  [11/13] Checking BigQuery Connections...", end="", flush=True)
-    bq_conns = run_gcloud(["bigquery", "connections", "list", f"--location={region}"], project)
+    bq_conns = run_gcloud(
+        ["bigquery", "connections", "list", f"--location={region}"], project
+    )
     bq_count = 0
     for conn in bq_conns:
         name = conn.get("name", "").split("/")[-1]
@@ -514,7 +605,16 @@ def main():
 
             def _make_bq_delete(n=name, p=project, r=region):
                 res = subprocess.run(
-                    ["gcloud", "bigquery", "connections", "delete", n, f"--location={r}", f"--project={p}", "--quiet"],
+                    [
+                        "gcloud",
+                        "bigquery",
+                        "connections",
+                        "delete",
+                        n,
+                        f"--location={r}",
+                        f"--project={p}",
+                        "--quiet",
+                    ],
                     check=False,
                     capture_output=True,
                 )
@@ -543,7 +643,15 @@ def main():
 
             def _make_key_delete(k_id=key_id, p=project):
                 res = subprocess.run(
-                    ["gcloud", "services", "api-keys", "delete", k_id, f"--project={p}", "--quiet"],
+                    [
+                        "gcloud",
+                        "services",
+                        "api-keys",
+                        "delete",
+                        k_id,
+                        f"--project={p}",
+                        "--quiet",
+                    ],
                     check=False,
                     capture_output=True,
                 )
@@ -616,15 +724,21 @@ def main():
     mode = "quit"
     if args.yes:
         if not tag:
-            print("\n❌ Safety Guard: --yes/-y flag requires an explicit --tag to prevent accidental bulk-wipe.")
+            print(
+                "\n❌ Safety Guard: --yes/-y flag requires an explicit --tag to prevent accidental bulk-wipe."
+            )
             return
         mode = "all"
     else:
         print("\nSelect Deletion Mode:")
         if tag:
-            print(f"  [A] Delete ALL {total} resources for prober [{tag}] at once (auto-approve)")
+            print(
+                f"  [A] Delete ALL {total} resources for prober [{tag}] at once (auto-approve)"
+            )
         else:
-            print(f"  [A] Delete ALL {total} resources across ALL probers (requires typing 'DELETE ALL')")
+            print(
+                f"  [A] Delete ALL {total} resources across ALL probers (requires typing 'DELETE ALL')"
+            )
         print("  [I] Review and delete interactively one-by-one [y/N]")
         print("  [Q] Quit / Cancel (do not delete anything)")
 
@@ -660,7 +774,11 @@ def main():
         success_count = 0
         fail_count = 0
         for item in discovered:
-            print(f"  Deleting {item.resource_type}: {item.display_info}...", end="", flush=True)
+            print(
+                f"  Deleting {item.resource_type}: {item.display_info}...",
+                end="",
+                flush=True,
+            )
             ok = item.delete_fn()
             if ok:
                 print(" ✔ Done")
@@ -669,7 +787,9 @@ def main():
                 print(" ❌ Error")
                 fail_count += 1
         print("\n" + "=" * 80)
-        print(f" ✔ BULK CLEANUP COMPLETE: {success_count} deleted, {fail_count} failed.")
+        print(
+            f" ✔ BULK CLEANUP COMPLETE: {success_count} deleted, {fail_count} failed."
+        )
         print("=" * 80)
 
     elif mode == "interactive":
@@ -678,7 +798,11 @@ def main():
         skipped_count = 0
         for item in discovered:
             if confirm_delete(item.resource_type, item.display_info):
-                print(f"    Deleting {item.resource_type}: {item.display_info}...", end="", flush=True)
+                print(
+                    f"    Deleting {item.resource_type}: {item.display_info}...",
+                    end="",
+                    flush=True,
+                )
                 ok = item.delete_fn()
                 if ok:
                     print(" ✔ Done")
@@ -689,7 +813,9 @@ def main():
                 print(f"    Skipped {item.display_info}")
                 skipped_count += 1
         print("\n" + "=" * 80)
-        print(f" ✔ INTERACTIVE CLEANUP COMPLETE: {success_count} deleted, {skipped_count} skipped.")
+        print(
+            f" ✔ INTERACTIVE CLEANUP COMPLETE: {success_count} deleted, {skipped_count} skipped."
+        )
         print("=" * 80)
 
 
