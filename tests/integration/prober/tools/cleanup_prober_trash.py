@@ -81,9 +81,9 @@ def build_matcher(tag: str | None) -> Callable[[str], bool]:
     """Returns a predicate matching resources for the specific tag or any ephemeral prober."""
     if tag:
         prefix = f"prober-{tag}"
-        return lambda name: name.startswith(prefix)
+        return lambda name: isinstance(name, str) and name.startswith(prefix)
     pattern = re.compile(r"^prober-[a-f0-9]{8}")
-    return lambda name: bool(pattern.match(name))
+    return lambda name: isinstance(name, str) and bool(pattern.match(name))
 
 
 def run_gcloud(args: list[str], project: str) -> list[dict] | dict:
@@ -406,7 +406,6 @@ def main():
                                 p,
                                 f"--member={mem}",
                                 f"--role={r}",
-                                "--all",
                                 "--quiet",
                                 "--format=none",
                             ],
