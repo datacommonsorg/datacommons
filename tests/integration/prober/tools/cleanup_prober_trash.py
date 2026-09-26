@@ -348,13 +348,20 @@ def main():
                                 # If member was serviceAccount:..., check if SA was deleted concurrently
                                 # and converted to deleted:serviceAccount:...?...
                                 if mem.startswith("serviceAccount:"):
-                                    pol = run_gcloud(["projects", "get-iam-policy", p], p)
+                                    pol = run_gcloud(
+                                        ["projects", "get-iam-policy", p], p
+                                    )
                                     if isinstance(pol, dict):
                                         target_sa = mem.split(":")[1]
                                         for pb in pol.get("bindings", []):
                                             if pb.get("role") == r:
                                                 for bm in pb.get("members", []):
-                                                    if bm.startswith("deleted:serviceAccount:") and target_sa in bm:
+                                                    if (
+                                                        bm.startswith(
+                                                            "deleted:serviceAccount:"
+                                                        )
+                                                        and target_sa in bm
+                                                    ):
                                                         res2 = subprocess.run(
                                                             [
                                                                 "gcloud",
