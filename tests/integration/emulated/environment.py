@@ -22,10 +22,13 @@ import contextlib
 import json
 import os
 import subprocess
+import threading
 import time
 from pathlib import Path
 
 import requests
+from google.auth.credentials import AnonymousCredentials
+from google.cloud import spanner
 
 from tests.integration.core.config_schema import TestManifest
 
@@ -147,41 +150,21 @@ class EmulatedEnvironment:
     def _initialize_database(self) -> None:
         # Provisioned in fixture setup so downstream test suites can run in isolation.
         print(">>> Ensuring test-db database exists in Spanner emulator...", flush=True)
-        from google.auth.credentials import AnonymousCredentials
-        from google.cloud import spanner
-
         client = spanner.Client(project="default", credentials=AnonymousCredentials())
-        instance = client.instance("default")
+        config_name = f"{client.project_name}/instanceConfigs/emulator-config"
+        instance = client.instance(
+            "default",
+            configuration_name=config_name,
+            display_name="Local Omni Instance",
+            node_count=1,
+        )
+        if not instance.exists():
+            instance.create().result(timeout=30)
         db = instance.database("test-db")
         if not db.exists():
             db.create().result(timeout=30)
 
-        print(
-            ">>> Initializing database schema DDL via Ingestion Helper (streaming logs)...",
-            flush=True,
-        )
-
-        def _do_initialize():
-            resp = requests.post(
-                f"{self.helper_url}/database/initialize",
-                json={"actionType": "initialize_database"},
-                timeout=120,
-            )
-            resp.raise_for_status()
-
-        self._stream_container_logs_during("itest-ingestion-helper", _do_initialize)
-
-        print(">>> Seeding database base ontology variables...", flush=True)
-
-        def _do_seed():
-            resp = requests.post(
-                f"{self.helper_url}/database/seed",
-                json={"actionType": "seed_database"},
-                timeout=60,
-            )
-            resp.raise_for_status()
-
-        self._stream_container_logs_during("itest-ingestion-helper", _do_seed)
+        print("✔ Spanner emulator test-db database is ready.", flush=True)
 
     def _ingest_dataset(self, manifest: TestManifest) -> None:
         print(">>> Seeding GCS emulator and running ingestion pipeline...", flush=True)
@@ -367,9 +350,6 @@ class EmulatedEnvironment:
         start = time.time()
         while time.time() - start < timeout_secs:
             try:
-                from google.auth.credentials import AnonymousCredentials
-                from google.cloud import spanner
-
                 client = spanner.Client(
                     project="default", credentials=AnonymousCredentials()
                 )
@@ -384,8 +364,6 @@ class EmulatedEnvironment:
 
     def _stream_container_logs_during(self, container_name: str, target_fn):
         """Streams container logs to terminal in real time while target_fn executes."""
-        import threading
-
         proc = subprocess.Popen(
             ["docker", "logs", "-f", "--tail", "0", container_name],
             stdout=subprocess.PIPE,

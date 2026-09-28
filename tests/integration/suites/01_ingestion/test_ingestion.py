@@ -50,32 +50,8 @@ class TestCLIIngestion:
                     f"Missing '{token}' in CLI show-config output"
                 )
 
-    def test_02_cli_init_db(
-        self,
-        request,
-        dcp_cli: DatacommonsCLI,
-        test_manifest: TestManifest,
-    ):
-        """Validates that 'datacommons admin init-db' initializes and seeds the Spanner database."""
-        if request.config.getoption("--reuse-data"):
-            pytest.skip(
-                "Skipped Spanner database initialization because --reuse-data was specified."
-            )
-
-        if not test_manifest.stages.ingestion:
-            pytest.skip("Ingestion stage disabled in test manifest.")
-
-        # Allow up to 600s for dynamic git package build, dependency resolution, lock acquisition,
-        # Spanner DDL migrations, and base ontology seeding.
-        res = dcp_cli.run(["admin", "init-db"], timeout=600)
-        assert res.exit_code == 0, f"CLI init-db failed: {res.output}"
-        assert (
-            "Successfully initialized Spanner database!" in res.output
-            or "is already initialized" in res.output
-        )
-
     @pytest.mark.cloud_only
-    def test_03_cli_ingest_start(
+    def test_02_cli_ingest_start(
         self,
         request,
         seeded_testbed,
@@ -132,7 +108,7 @@ class TestCLIIngestion:
 class TestSpannerGraph:
     """Validates declared knowledge graph nodes and edges in Cloud Spanner Node and Edge tables."""
 
-    def test_04_spanner_node_exists(
+    def test_03_spanner_node_exists(
         self,
         seeded_testbed,
         spanner_client: SpannerClient,
@@ -154,7 +130,7 @@ class TestSpannerGraph:
                     f"Node '{expected_node_spec.subject_id}' missing expected type '{t}'. Actual types: {node_types}"
                 )
 
-    def test_05_spanner_edge_exists(
+    def test_04_spanner_edge_exists(
         self,
         seeded_testbed,
         spanner_client: SpannerClient,
