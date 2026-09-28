@@ -122,6 +122,66 @@ def confirm_delete(resource_type: str, resource_id: str) -> bool:
         return False
 
 
+def extract_sa_name_from_member(member: str) -> str:
+    """Extracts the base service account name from an IAM member string."""
+    return (
+        member.replace("deleted:serviceAccount:", "")
+        .replace("serviceAccount:", "")
+        .split("@")[0]
+    )
+
+
+def remove_iam_binding(project: str, member: str, role: str) -> bool:
+    """Removes an IAM policy binding, retrying on concurrent update conflicts."""
+    for attempt in range(3):
+        res = subprocess.run(
+            [
+                "gcloud",
+                "projects",
+                "remove-iam-policy-binding",
+                project,
+                f"--member={member}",
+                f"--role={role}",
+                "--all",
+                "--quiet",
+                "--format=none",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if res.returncode == 0:
+            return True
+        stderr = (res.stderr or "").lower()
+        # If the binding is already gone or not found, treat as successfully removed
+        if "not found" in stderr:
+            return True
+        # Only retry on concurrent policy update race conditions (HTTP 409)
+        if "concurrent" in stderr or "conflict" in stderr:
+            time.sleep(0.5 * (attempt + 1))
+            continue
+        return False
+    return False
+
+
+def find_matching_iam_bindings(
+    project: str, matcher: Callable[[str], bool]
+) -> list[tuple[str, str]]:
+    """Finds all (member, role) IAM bindings matching the prober filter."""
+    policy = run_gcloud(["projects", "get-iam-policy", project], project)
+    if not isinstance(policy, dict):
+        return []
+
+    matching = []
+    for b in policy.get("bindings", []):
+        role = b.get("role", "")
+        for m in b.get("members", []):
+            sa_name = extract_sa_name_from_member(m)
+            if matcher(sa_name):
+                matching.append((m, role))
+    return matching
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Safe cleanup of orphaned ephemeral prober resources."
@@ -306,99 +366,20 @@ def main():
 
     # [4/12] Project IAM Bindings
     print("  [4/12] Checking Project IAM Bindings...", end="", flush=True)
-    policy = run_gcloud(["projects", "get-iam-policy", project], project)
-    iam_count = 0
-    if isinstance(policy, dict):
-        bindings = policy.get("bindings", [])
-        for b in bindings:
-            role = b.get("role", "")
-            members = b.get("members", [])
-            for m in members:
-                sa_name = (
-                    m.replace("deleted:serviceAccount:", "")
-                    .replace("serviceAccount:", "")
-                    .split("@")[0]
-                )
-                if matcher(sa_name):
-                    iam_count += 1
-
-                    def _make_iam_delete(mem=m, r=role, p=project):
-                        for attempt in range(3):
-                            res = subprocess.run(
-                                [
-                                    "gcloud",
-                                    "projects",
-                                    "remove-iam-policy-binding",
-                                    p,
-                                    f"--member={mem}",
-                                    f"--role={r}",
-                                    "--all",
-                                    "--quiet",
-                                    "--format=none",
-                                ],
-                                check=False,
-                                capture_output=True,
-                                text=True,
-                            )
-                            if res.returncode == 0:
-                                return True
-                            stderr = (res.stderr or "").lower()
-                            # If binding is already gone or not found under this name
-                            if "not found" in stderr:
-                                # If member was serviceAccount:..., check if SA was deleted concurrently
-                                # and converted to deleted:serviceAccount:...?...
-                                if mem.startswith("serviceAccount:"):
-                                    pol = run_gcloud(
-                                        ["projects", "get-iam-policy", p], p
-                                    )
-                                    if isinstance(pol, dict):
-                                        target_sa = mem.split(":")[1]
-                                        for pb in pol.get("bindings", []):
-                                            if pb.get("role") == r:
-                                                for bm in pb.get("members", []):
-                                                    if (
-                                                        bm.startswith(
-                                                            "deleted:serviceAccount:"
-                                                        )
-                                                        and target_sa in bm
-                                                    ):
-                                                        res2 = subprocess.run(
-                                                            [
-                                                                "gcloud",
-                                                                "projects",
-                                                                "remove-iam-policy-binding",
-                                                                p,
-                                                                f"--member={bm}",
-                                                                f"--role={r}",
-                                                                "--all",
-                                                                "--quiet",
-                                                                "--format=none",
-                                                            ],
-                                                            check=False,
-                                                            capture_output=True,
-                                                            text=True,
-                                                        )
-                                                        if res2.returncode == 0:
-                                                            return True
-                                # If not found anywhere, it is already deleted
-                                return True
-                            # Only retry on concurrent policy update race conditions
-                            if "concurrent" in stderr or "conflict" in stderr:
-                                time.sleep(0.5 * (attempt + 1))
-                                continue
-                            return False
-                        return False
-
-                    discovered.append(
-                        ResourceItem(
-                            category="Project IAM Bindings",
-                            resource_type="IAM Binding",
-                            resource_id=f"{m} ({role})",
-                            display_info=f"{m} ({role})",
-                            delete_fn=_make_iam_delete,
-                        )
-                    )
-    print(f" found {iam_count}")
+    matching_bindings = find_matching_iam_bindings(project, matcher)
+    for m, role in matching_bindings:
+        discovered.append(
+            ResourceItem(
+                category="Project IAM Bindings",
+                resource_type="IAM Binding",
+                resource_id=f"{m} ({role})",
+                display_info=f"{m} ({role})",
+                delete_fn=lambda mem=m, r=role, p=project: remove_iam_binding(
+                    p, mem, r
+                ),
+            )
+        )
+    print(f" found {len(matching_bindings)}")
 
     # [5/12] Service Accounts
     print("  [5/12] Checking Service Accounts...", end="", flush=True)
