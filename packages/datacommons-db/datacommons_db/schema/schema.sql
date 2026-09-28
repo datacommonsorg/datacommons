@@ -239,18 +239,3 @@ OPTIONS (
 
 CREATE INDEX NodeEmbeddingLabelIndex
 ON NodeEmbedding(embedding_label) STORING (embedding_content, embeddings, node_types);
-
-CREATE MODEL NodeEmbeddingModel
-INPUT(
-  content STRING(MAX),
-  task_type STRING(MAX),
-)
-OUTPUT(
-  embeddings
-    STRUCT<
-      statistics STRUCT<truncated BOOL, token_count FLOAT64>,
-      values ARRAY<FLOAT64>>
-)
-REMOTE OPTIONS (
-  endpoint = '//aiplatform.googleapis.com/projects/{project_id}/locations/{region}/publishers/google/models/text-embedding-005'
-);

@@ -192,21 +192,6 @@ OPTIONS (
 CREATE INDEX NodeEmbeddingLabelIndex
 ON NodeEmbedding(embedding_label) STORING (embedding_content, embeddings, node_types);
 
-CREATE MODEL NodeEmbeddingModel
-INPUT(
-  content STRING(MAX),
-  task_type STRING(MAX),
-)
-OUTPUT(
-  embeddings
-    STRUCT<
-      statistics STRUCT<truncated BOOL, token_count FLOAT64>,
-      values ARRAY<FLOAT64>>
-)
-REMOTE OPTIONS (
-  endpoint = '//aiplatform.googleapis.com/projects/test-project/locations/us-central1/publishers/google/models/text-embedding-005'
-);
-
 CREATE TABLE SchemaMigrations (
     SchemaMigrationId UUID NOT NULL DEFAULT (NEW_UUID()),
     CreationTimestamp STRING(64) NOT NULL,
@@ -241,3 +226,18 @@ CREATE OR REPLACE PROPERTY GRAPH DCGraph
 ALTER TABLE Edge
 ADD CONSTRAINT FK_Edge_Object_Node
 FOREIGN KEY (object_id) REFERENCES Node (subject_id) NOT ENFORCED;
+
+CREATE MODEL NodeEmbeddingModel
+INPUT(
+  content STRING(MAX),
+  task_type STRING(MAX),
+)
+OUTPUT(
+  embeddings
+    STRUCT<
+      statistics STRUCT<truncated BOOL, token_count FLOAT64>,
+      values ARRAY<FLOAT64>>
+)
+REMOTE OPTIONS (
+  endpoint = '//aiplatform.googleapis.com/projects/test-project/locations/us-central1/publishers/google/models/text-embedding-005'
+);
