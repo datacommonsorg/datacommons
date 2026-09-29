@@ -12,66 +12,57 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any
+import os
 
 import click
+from datacommons_db.clients import SpannerClient
 
-from datacommons_admin.core.clients import IngestionHelperClient
 from datacommons_admin.core.terraform.state import get_terraform_outputs
 from datacommons_admin.db.utils.migration_utils import (
+    _initialize_database,
     _run_migrations,
-    is_database_initialized,
 )
 
 
-def _setup_ingestion_client(
-    ctx: click.Context,
-) -> tuple[IngestionHelperClient, str, str, str]:
-    click.secho(
-        "Fetching ingestion service URL, workflow service account, and Spanner details from Terraform outputs...",
-        fg="bright_black",
-    )
-
+def _setup_spanner_client(ctx: click.Context) -> SpannerClient:
     state_params = ctx.obj or {}
-    tf = get_terraform_outputs(
-        project_id=state_params.get("project_id"),
-        instance_name=state_params.get("instance_name"),
-        tf_state_location=state_params.get("tf_state_location"),
-    )
+    if os.getenv("SPANNER_EMULATOR_HOST"):
+        project_id = os.getenv("SPANNER_PROJECT_ID", "default")
+        instance_id = os.getenv("SPANNER_INSTANCE_ID", "default")
+        database_id = os.getenv("SPANNER_DATABASE_ID", "test-db")
+        region = os.getenv("GCP_REGION", "us-central1")
+    else:
+        click.secho(
+            "Fetching Spanner details and region from Terraform outputs...",
+            fg="bright_black",
+        )
+        tf = get_terraform_outputs(
+            project_id=state_params.get("project_id"),
+            instance_name=state_params.get("instance_name"),
+            tf_state_location=state_params.get("tf_state_location"),
+        )
+        project_id = tf.project_id
+        instance_id = tf.spanner_instance_id
+        database_id = tf.spanner_database_id
+        region = tf.region
 
-    if not tf.spanner_instance_id or not tf.spanner_database_id:
+    if not instance_id or not database_id:
         raise click.ClickException(
             "Cloud Spanner is not enabled or configured in this deployment state. "
             "Ensure 'enable_spanner = true' in your deployment configuration."
         )
 
-    click.secho(f"Found ingestion service URL: {tf.ingestion_service_url}", fg="green")
     click.secho(
-        f"Found ingestion workflow service account: {tf.ingestion_workflow_service_account_email}",
-        fg="green",
-    )
-    click.secho(
-        f"Found Spanner details: project={tf.project_id}, instance={tf.spanner_instance_id}, database={tf.spanner_database_id}",
+        f"Found Spanner details: project={project_id}, instance={instance_id}, database={database_id}, region={region}",
         fg="green",
     )
 
-    client = IngestionHelperClient(
-        tf.ingestion_service_url,
-        service_account_email=tf.ingestion_workflow_service_account_email,
+    return SpannerClient(
+        project_id=project_id,
+        instance_id=instance_id,
+        database_id=database_id,
+        region=region,
     )
-    return client, tf.project_id, tf.spanner_instance_id, tf.spanner_database_id
-
-
-def _run_seed_db(client: Any, instance_id: str, database_id: str) -> None:
-    click.secho(
-        f"Seeding Spanner database '{instance_id}/{database_id}' via the Ingestion Helper service (this may take a few moments)...",
-        fg="bright_black",
-    )
-    result = client.seed_database()
-    click.secho("Successfully seeded Spanner database!", fg="green", bold=True)
-    message = result.get("message")
-    if message:
-        click.secho(f"Details: {message}", fg="bright_black")
 
 
 @click.command(name="migrate-db")
@@ -83,7 +74,7 @@ def _run_seed_db(client: Any, instance_id: str, database_id: str) -> None:
     help="Automatically confirm and apply pending migrations without prompting.",
 )
 @click.pass_context
-def migrate_db(ctx: click.Context, auto_approve: bool) -> bool:
+def migrate_db(ctx: click.Context, *, auto_approve: bool) -> bool:
     """Apply pending schema migrations to the Spanner database.
 
     Args:
@@ -97,65 +88,18 @@ def migrate_db(ctx: click.Context, auto_approve: bool) -> bool:
         click.ClickException: If reading Terraform outputs, checking pending migrations, acquiring lock, or applying migrations fails.
     """
     click.secho("Datacommons Admin Migrate-DB", fg="cyan", bold=True)
-    client, project_id, instance_id, database_id = _setup_ingestion_client(ctx)
+    spanner_client = _setup_spanner_client(ctx)
     return _run_migrations(
-        client,
-        project_id,
-        instance_id,
-        database_id,
+        spanner_client,
         auto_approve=auto_approve,
     )
 
 
 @click.command(name="init-db")
-@click.option(
-    "--init-only", is_flag=True, help="Only initialize the database without seeding."
-)
 @click.pass_context
-def init_db(ctx: click.Context, init_only: bool) -> None:
-    """Initialize (and by default seed) the Spanner database via the DCP Ingestion Helper service."""
+def init_db(ctx: click.Context) -> None:
+    """Initialize the Spanner database schema and apply all migrations."""
     click.secho("Datacommons Admin Init-DB", fg="cyan", bold=True)
-    client, project_id, instance_id, database_id = _setup_ingestion_client(ctx)
+    spanner_client = _setup_spanner_client(ctx)
 
-    if is_database_initialized(project_id, instance_id, database_id):
-        click.secho(
-            f"Spanner database '{instance_id}/{database_id}' is already initialized. Skipping initialization and migrations.",
-            fg="yellow",
-        )
-        click.secho(
-            "To apply schema migrations, please run:\n  datacommons admin migrate-db\n"
-            "To seed the database, please run:\n  datacommons admin seed-db",
-            fg="bright_black",
-        )
-        return
-
-    click.secho(
-        f"Initializing Spanner database '{instance_id}/{database_id}' via the Ingestion Helper service (this may take a few moments)...",
-        fg="bright_black",
-    )
-    result = client.initialize_database()
-
-    click.secho("Successfully initialized Spanner database!", fg="green", bold=True)
-    message = result.get("message")
-    if message:
-        click.secho(f"Details: {message}", fg="bright_black")
-
-    _run_migrations(
-        client,
-        project_id,
-        instance_id,
-        database_id,
-        auto_approve=True,
-    )
-
-    if not init_only:
-        _run_seed_db(client, instance_id, database_id)
-
-
-@click.command(name="seed-db")
-@click.pass_context
-def seed_db(ctx: click.Context) -> None:
-    """Seed the Spanner database via the DCP Ingestion Helper service."""
-    click.secho("Datacommons Admin Seed-DB", fg="cyan", bold=True)
-    client, _project_id, instance_id, database_id = _setup_ingestion_client(ctx)
-    _run_seed_db(client, instance_id, database_id)
+    _initialize_database(spanner_client)

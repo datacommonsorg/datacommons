@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datacommons_db.clients.spanner_client import (
+from datacommons_db.clients.models import (
     DdlResult,
     DmlResult,
     ExecutionStatus,
     QueryResult,
-    SpannerClient,
 )
+from datacommons_db.clients.spanner_client import SpannerClient
 
 __all__ = [
     "DdlResult",

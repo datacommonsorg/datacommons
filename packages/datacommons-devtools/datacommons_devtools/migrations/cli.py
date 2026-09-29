@@ -28,6 +28,10 @@ COMMANDS:
      and creation_timestamp attribute). Used when resolving merge conflicts as multiple developers
      add migrations concurrently.
 
+  3. update-golden
+     Recompiles the cumulative Spanner DDL schema from all migrations and updates
+     packages/datacommons-db/tests/goldens/schema_golden.sql to prevent test drift.
+
 USAGE EXAMPLES:
   # Create a new migration script
   uv run datacommons-devtools migrations create add_node_tables -d "Add Node and Edge tables"
@@ -36,6 +40,9 @@ USAGE EXAMPLES:
   uv run datacommons-devtools migrations bump add_node_tables
   # or by filename
   uv run datacommons-devtools migrations bump 20260819135412_add_node_tables.py
+
+  # Update the golden schema after adding or modifying migrations
+  uv run datacommons-devtools migrations update-golden
 """
 
 import datetime
@@ -145,6 +152,21 @@ def bump_command(target: str | None = None, *, yes: bool = False) -> None:
     click.echo(f"  - Old File:      {old_file.name}")
     click.echo(f"  - New File:      {new_file.name}")
     click.echo(f"  - New Timestamp: {new_iso}")
+
+
+@cli.command(
+    name="update-snapshot",
+    short_help="Recompile and update the cumulative schema snapshot SQL file.",
+)
+def update_snapshot_command() -> None:
+    """Recompile packages/datacommons-db/tests/snapshots/schema_snapshot.sql from all migration scripts."""
+    try:
+        snapshot_file = utils.update_snapshot_schema()
+    except (OSError, RuntimeError, ValueError) as e:
+        raise click.ClickException(f"Failed to update schema snapshot: {e}") from e
+
+    click.secho("✔ Successfully updated schema snapshot:", fg="green", bold=True)
+    click.echo(f"  {snapshot_file}")
 
 
 if __name__ == "__main__":
