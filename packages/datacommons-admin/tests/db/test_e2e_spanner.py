@@ -84,11 +84,11 @@ def test_e2e_init_and_migrate_db_on_spanner_emulator(runner: CliRunner):
         assert spanner_client.table_exists("Edge")
         assert spanner_client.table_exists("SchemaMigrations")
 
-        # 2. Re-running init-db should be rejected with friendly message
+        # 2. Re-running init-db should gracefully skip with a friendly message
         reinit_res = runner.invoke(admin, ["init-db"])
-        assert reinit_res.exit_code != 0
+        assert reinit_res.exit_code == 0
         assert "is already initialized" in reinit_res.output
-        assert "run 'datacommons admin migrate-db'" in reinit_res.output
+        assert "datacommons admin migrate-db" in reinit_res.output
 
         # 3. Running migrate-db should detect up-to-date schema
         mig_res = runner.invoke(admin, ["migrate-db", "-y"])

@@ -355,4 +355,6 @@ def test_cli_update_snapshot_failure_raises(
 
     result = runner.invoke(cli, ["update-snapshot"])
     assert result.exit_code != 0
-    assert "Failed to update schema snapshot: Spanner DDL parse failure" in result.output
+    assert (
+        "Failed to update schema snapshot: Spanner DDL parse failure" in result.output
+    )
