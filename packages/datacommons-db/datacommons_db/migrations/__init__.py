@@ -17,9 +17,17 @@ from datacommons_db.migrations.migration_runner import (
     MigrationResult,
     MigrationRunner,
 )
+from datacommons_db.migrations.snapshot import (
+    SCHEMA_SNAPSHOT_HEADER,
+    generate_schema_snapshot_sql,
+    get_schema_snapshot_path,
+)
 
 __all__ = [
     "MigrationResult",
     "MigrationRunner",
+    "SCHEMA_SNAPSHOT_HEADER",
     "SchemaMigration",
+    "generate_schema_snapshot_sql",
+    "get_schema_snapshot_path",
 ]
