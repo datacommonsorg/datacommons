@@ -181,7 +181,7 @@ class MigrationRunner:
         for m in self.migrations:
             if m.creation_timestamp in applied_migrations:
                 continue
-            if self.spanner_client.is_emulator and not m.emulator_supported:
+            if self.spanner_client.is_emulator is True and not m.emulator_supported:
                 logger.info(
                     "Skipping migration %s (%s) on Spanner emulator (emulator_supported=False).",
                     m.creation_timestamp,

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import contextlib
 import json
 import os
 import subprocess
@@ -534,6 +535,11 @@ def dc_client(dcp_target: DCPTarget, auth_headers: dict):
     if not dcp_target.serving_url:
         pytest.skip("Serving URL not configured for target instance.")
 
+    if dcp_target.instance_name == "emulated":
+        from tests.integration.emulated.environment import EmulatedEnvironment
+
+        EmulatedEnvironment().start_serving()
+
     orig_session_request = requests.Session.request
     orig_requests_get = requests.get
 
@@ -622,6 +628,10 @@ def seeded_testbed(dcp_target, dcp_cli, spanner_client, test_manifest, request):
             project=dcp_target.project_id, credentials=creds
         )
         bucket = storage_client.bucket(bucket_clean)
+        if os.getenv("STORAGE_EMULATOR_HOST") or dcp_target.instance_name == "emulated":
+            with contextlib.suppress(Exception):
+                if not bucket.exists():
+                    bucket.create()
 
         for d in dataset_dirs:
             import_dir = repo_root / d if not Path(d).is_absolute() else Path(d)
@@ -643,5 +653,10 @@ def seeded_testbed(dcp_target, dcp_cli, spanner_client, test_manifest, request):
                     print(f"    ✔ Uploaded {file_path.name}")
     except Exception as e:
         raise RuntimeError(f"Failed to upload datasets to GCS: {e}") from e
+
+    if dcp_target.instance_name == "emulated":
+        from tests.integration.emulated.environment import EmulatedEnvironment
+
+        EmulatedEnvironment().start_serving(manifest=test_manifest)
 
     return dcp_target
