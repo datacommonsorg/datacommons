@@ -38,6 +38,12 @@ uv run datacommons-devtools migrations bump add_node_tables
 
 # Bump by filename with non-interactive confirmation (-y)
 uv run datacommons-devtools migrations bump 20260819135412_add_node_tables.py -y
+
+# Recompile the cumulative engine-materialized schema snapshot using Spanner emulator
+uv run datacommons-devtools migrations update-snapshot
+
+# Recompile statically without Docker/emulator
+uv run datacommons-devtools migrations update-snapshot --offline
 ```
 
 ---

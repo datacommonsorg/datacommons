@@ -316,12 +316,12 @@ def test_cli_update_snapshot_command(
     mock_snapshot = tmp_path / "schema_snapshot.sql"
     monkeypatch.setattr(
         "datacommons_devtools.migrations.utils.update_snapshot_schema",
-        lambda: mock_snapshot,
+        lambda *args, **kwargs: mock_snapshot,
     )
 
     result = runner.invoke(cli, ["update-snapshot"])
     assert result.exit_code == 0
-    assert "Successfully updated schema snapshot:" in result.output
+    assert "Successfully updated schema snapshot" in result.output
     assert str(mock_snapshot) in result.output
 
 
@@ -332,12 +332,12 @@ def test_devtools_migrations_update_snapshot_invocation(
     mock_snapshot = tmp_path / "schema_snapshot.sql"
     monkeypatch.setattr(
         "datacommons_devtools.migrations.utils.update_snapshot_schema",
-        lambda: mock_snapshot,
+        lambda *args, **kwargs: mock_snapshot,
     )
 
     result = runner.invoke(devtools_cli, ["migrations", "update-snapshot"])
     assert result.exit_code == 0
-    assert "Successfully updated schema snapshot:" in result.output
+    assert "Successfully updated schema snapshot" in result.output
 
 
 def test_cli_update_snapshot_failure_raises(
@@ -345,7 +345,7 @@ def test_cli_update_snapshot_failure_raises(
 ) -> None:
     """Verifies update-snapshot command handles failure exceptions gracefully."""
 
-    def _fail():
+    def _fail(*args, **kwargs):
         raise RuntimeError("Spanner DDL parse failure")
 
     monkeypatch.setattr(
@@ -358,3 +358,25 @@ def test_cli_update_snapshot_failure_raises(
     assert (
         "Failed to update schema snapshot: Spanner DDL parse failure" in result.output
     )
+
+
+def test_cli_update_snapshot_offline_flag(
+    runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Verifies update-snapshot --offline flag passes offline=True."""
+    mock_snapshot = tmp_path / "schema_snapshot.sql"
+    called_with_offline = []
+
+    def _mock_update(*, offline: bool = False, **kwargs):  # noqa: ARG001
+        called_with_offline.append(offline)
+        return mock_snapshot
+
+    monkeypatch.setattr(
+        "datacommons_devtools.migrations.utils.update_snapshot_schema",
+        _mock_update,
+    )
+
+    result = runner.invoke(cli, ["update-snapshot", "--offline"])
+    assert result.exit_code == 0
+    assert "Successfully updated schema snapshot (offline mode)" in result.output
+    assert called_with_offline == [True]

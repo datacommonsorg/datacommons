@@ -122,7 +122,7 @@ def _initialize_database(spanner_client: SpannerClient) -> bool:
         raise click.ClickException(
             f"Failed to initialize baseline schema: {init_result.error_message}"
         )
-    click.secho("  ✔ Applied baseline schema (schema.sql)", fg="green")
+    click.secho("  ✔ Applied baseline schema (baseline_schema.sql)", fg="green")
 
     runner = MigrationRunner(spanner_client=spanner_client)
     pending = runner.get_pending_migrations()

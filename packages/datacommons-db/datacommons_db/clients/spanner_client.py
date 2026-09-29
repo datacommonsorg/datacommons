@@ -15,7 +15,6 @@
 import os
 from collections.abc import Iterator
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 from google.auth.credentials import Credentials
@@ -28,10 +27,6 @@ from datacommons_db.clients.models import (
     ExecutionStatus,
     LockState,
     QueryResult,
-)
-from datacommons_db.utils.sql_utils import (
-    parse_sql_to_statements,
-    render_schema_template,
 )
 from datacommons_db.utils.validators import (
     validate_resource_id,
@@ -227,27 +222,25 @@ class SpannerClient:
     def initialize_database(self) -> DdlResult:
         """Initializes the database by executing all base schema DDL statements.
 
-        Resolves template placeholders in the baseline schema file (schema.sql)
-        and applies the DDL statements to Cloud Spanner.
+        Resolves template placeholders in the baseline schema file (baseline_schema.sql)
+        via SchemaLoader and applies the DDL statements to Cloud Spanner.
 
         Returns:
             DdlResult indicating execution status.
         """
-        schema_path = Path(__file__).parent.parent / "schema" / "schema.sql"
-        if not schema_path.exists():
+        try:
+            from datacommons_db.schema.loader import SchemaLoader
+
+            statements = SchemaLoader.load_baseline_statements(
+                project_id=self.project_id,
+                region=self.region,
+            )
+            return self.execute_ddl(statements)
+        except Exception as e:  # noqa: BLE001
             return DdlResult(
                 status=ExecutionStatus.ERROR,
-                error_message=f"Schema file not found at '{schema_path}'",
+                error_message=f"Failed to load or parse baseline schema: {e}",
             )
-
-        template_content = schema_path.read_text(encoding="utf-8")
-        rendered_sql = render_schema_template(
-            template_content,
-            project_id=self.project_id,
-            region=self.region,
-        )
-        statements = parse_sql_to_statements(rendered_sql)
-        return self.execute_ddl(statements)
 
     @staticmethod
     def _is_lock_stale(acquired_at: datetime | None, timeout: int) -> bool:

@@ -22,6 +22,7 @@ import pytest
 from click.testing import CliRunner
 from datacommons_admin.admin_cli import admin
 from datacommons_db.clients import SpannerClient
+from datacommons_db.schema import inspect_database_schema
 from google.auth.credentials import AnonymousCredentials
 from google.cloud import spanner
 
@@ -55,7 +56,17 @@ def test_e2e_init_and_migrate_db_on_spanner_emulator(runner: CliRunner):
 
     # Ensure Spanner instance and database exist in emulator
     client = spanner.Client(project=project_id, credentials=AnonymousCredentials())
-    config_name = f"{client.project_name}/instanceConfigs/emulator-config"
+    configs = list(client.list_instance_configs())
+    config_names = [c.name for c in configs]
+    config_name = next(
+        (c for c in config_names if "default" in c),
+        next(
+            (c for c in config_names if "emulator-config" in c),
+            config_names[0]
+            if config_names
+            else f"{client.project_name}/instanceConfigs/default",
+        ),
+    )
     instance = client.instance(
         instance_id,
         configuration_name=config_name,
@@ -83,13 +94,19 @@ def test_e2e_init_and_migrate_db_on_spanner_emulator(runner: CliRunner):
         # 1. First init-db on fresh DB
         init_res = runner.invoke(admin, ["init-db"])
         assert init_res.exit_code == 0, f"init-db failed: {init_res.output}"
-        assert "Applied baseline schema (schema.sql)" in init_res.output
+        assert "Applied baseline schema (baseline_schema.sql)" in init_res.output
         assert "Successfully initialized Spanner database!" in init_res.output
 
         # Verify tables exist on emulator
         assert spanner_client.table_exists("Node")
         assert spanner_client.table_exists("Edge")
         assert spanner_client.table_exists("SchemaMigrations")
+
+        # Verify live schema DDL via inspect_database_schema()
+        ddl_statements = inspect_database_schema(spanner_client)
+        assert any("CREATE TABLE Node" in s for s in ddl_statements)
+        assert any("CREATE TABLE Edge" in s for s in ddl_statements)
+        assert any("CREATE TABLE SchemaMigrations" in s for s in ddl_statements)
 
         # 2. Re-running init-db should gracefully skip with a friendly message
         reinit_res = runner.invoke(admin, ["init-db"])

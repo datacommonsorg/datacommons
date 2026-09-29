@@ -23,12 +23,12 @@ import contextlib
 import datetime
 import json
 import re
+from collections.abc import Callable
 from importlib import resources
 from pathlib import Path
 
 from datacommons_db.migrations import (
-    generate_schema_snapshot_sql,
-    get_schema_snapshot_path,
+    write_compiled_schema,
 )
 
 FILENAME_PATTERN = re.compile(r"^(\d{14})_([a-z0-9_]+)\.py$")
@@ -401,8 +401,16 @@ def update_migration_file(
     return file_path, new_path, new_iso
 
 
-def update_snapshot_schema() -> Path:
+def update_snapshot_schema(
+    *,
+    offline: bool = False,
+    progress_callback: Callable[[str], None] | None = None,
+) -> Path:
     """Compiles and updates packages/datacommons-db/tests/snapshots/schema_snapshot.sql.
+
+    Args:
+        offline: If True, compiles statically in-memory without Spanner emulator.
+        progress_callback: Optional callback for reporting real-time progress messages.
 
     Returns:
         Path to the updated schema_snapshot.sql file.
@@ -411,10 +419,7 @@ def update_snapshot_schema() -> Path:
         OSError: If reading migrations or writing the snapshot file fails.
         RuntimeError: If schema compilation fails.
     """
-    snapshot_file = get_schema_snapshot_path()
-    snapshot_file.parent.mkdir(parents=True, exist_ok=True)
-    snapshot_sql = generate_schema_snapshot_sql(
-        project_id="test-project", region="us-central1"
+    return write_compiled_schema(
+        prefer_engine=not offline,
+        progress_callback=progress_callback,
     )
-    snapshot_file.write_text(snapshot_sql, encoding="utf-8")
-    return snapshot_file
