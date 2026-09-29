@@ -74,6 +74,7 @@ def test_e2e_init_and_migrate_db_on_spanner_emulator(runner: CliRunner):
         instance_id=instance_id,
         database_id=database_id,
         credentials=AnonymousCredentials(),
+        region="us-central1",
     )
 
     with patch("datacommons_admin.db.db_cli._setup_spanner_client") as mock_setup:

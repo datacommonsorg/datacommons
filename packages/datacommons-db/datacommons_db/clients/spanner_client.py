@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-
 from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
@@ -38,7 +37,6 @@ from datacommons_db.utils.validators import (
     validate_resource_id,
     validate_table_name,
 )
-
 
 DEFAULT_LOCK_TIMEOUT_SECONDS: int = 300
 GLOBAL_INGESTION_LOCK_ID: str = "global_ingestion_lock"
