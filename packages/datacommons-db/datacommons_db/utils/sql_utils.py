@@ -21,14 +21,14 @@ def render_schema_template(
     template_sql: str,
     *,
     project_id: str,
-    region: str = "us-central1",
+    region: str,
 ) -> str:
     """Renders placeholders in the baseline schema template.
 
     Args:
         template_sql: The raw SQL template string containing {project_id} and {region}.
         project_id: GCP project ID hosting the Vertex AI endpoint.
-        region: GCP region hosting the Vertex AI endpoint. Defaults to 'us-central1'.
+        region: GCP region hosting the Vertex AI endpoint.
 
     Returns:
         Rendered SQL script string ready for statement parsing.

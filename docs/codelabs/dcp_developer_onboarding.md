@@ -352,7 +352,6 @@ The CLI executes the following sequence:
 2. Connects directly to Cloud Spanner using your authenticated credentials.
 3. Applies base DDL scripts to create Spanner tables (`Node`, `Edge`, `Observation`, `TimeSeries`, `ImportStatus`, `IngestionHistory`, `IngestionLock`, etc.).
 4. Runs pending [schema migration scripts](../schema_migrations_developer_guide.md).
-5. Seeds base metadata nodes (statistical variables, units, and sources).
 
 ### 2. Verify Tables in Spanner Studio
 Return to the Google Cloud Console, navigate to **Spanner > `<spanner_instance_id>` (e.g. `dcp-testing`) > `<namespace>-dc-db` > Spanner Studio**, and run the following queries:

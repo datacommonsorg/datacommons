@@ -38,6 +38,10 @@ from datacommons_db.utils.validators import (
 )
 
 
+DEFAULT_LOCK_TIMEOUT_SECONDS: int = 300
+GLOBAL_INGESTION_LOCK_ID: str = "global_ingestion_lock"
+
+
 class SpannerClient:
     """Client for Cloud Spanner operations, DDL execution, and query execution."""
 
@@ -48,7 +52,7 @@ class SpannerClient:
         database_id: str,
         credentials: Credentials | None = None,
         *,
-        region: str = "us-central1",
+        region: str,
         disable_builtin_metrics: bool = True,
     ) -> None:
         """Initialize the SpannerClient.
@@ -58,7 +62,7 @@ class SpannerClient:
             instance_id: Cloud Spanner instance ID.
             database_id: Cloud Spanner database ID.
             credentials: Optional Google Cloud credentials object.
-            region: GCP region hosting the database and model endpoints. Defaults to 'us-central1'.
+            region: GCP region hosting the database and model endpoints.
             disable_builtin_metrics: Whether to disable built-in Cloud Monitoring metrics export.
         """
         validate_resource_id("project_id", project_id)
@@ -266,15 +270,14 @@ class SpannerClient:
     def acquire_lock(
         self,
         workflow_id: str,
-        timeout: int = 300,
-        lock_id: str = "global_ingestion_lock",
+        timeout: int = DEFAULT_LOCK_TIMEOUT_SECONDS,
     ) -> bool:
         """Attempts to acquire the global ingestion lock directly in Spanner.
 
         Args:
             workflow_id: The ID of the workflow or process attempting to acquire the lock.
             timeout: Maximum duration in seconds after which a held lock is considered stale.
-            lock_id: Identifier of the lock row in IngestionLock. Defaults to 'global_ingestion_lock'.
+                Defaults to DEFAULT_LOCK_TIMEOUT_SECONDS (300s).
 
         Returns:
             True if the lock was acquired, False if currently held by an active owner.
@@ -284,7 +287,7 @@ class SpannerClient:
         """
 
         def _acquire(transaction: Transaction) -> bool:
-            lock = self._get_lock_state(transaction, lock_id)
+            lock = self._get_lock_state(transaction, GLOBAL_INGESTION_LOCK_ID)
             if lock.owner and not self._is_lock_stale(lock.acquired_at, timeout):
                 return False
 
@@ -302,7 +305,7 @@ class SpannerClient:
             )
             transaction.execute_update(
                 sql_statement,
-                params={"workflowId": workflow_id, "lockId": lock_id},
+                params={"workflowId": workflow_id, "lockId": GLOBAL_INGESTION_LOCK_ID},
                 param_types={
                     "workflowId": spanner.param_types.STRING,
                     "lockId": spanner.param_types.STRING,
@@ -315,13 +318,11 @@ class SpannerClient:
     def release_lock(
         self,
         workflow_id: str,
-        lock_id: str = "global_ingestion_lock",
     ) -> bool:
         """Releases the global lock if currently owned by the specified workflow_id.
 
         Args:
             workflow_id: The ID of the workflow or process attempting to release the lock.
-            lock_id: Identifier of the lock row in IngestionLock. Defaults to 'global_ingestion_lock'.
 
         Returns:
             True if the lock was owned and successfully released, False otherwise.
@@ -331,7 +332,7 @@ class SpannerClient:
         """
 
         def _release(transaction: Transaction) -> bool:
-            lock = self._get_lock_state(transaction, lock_id)
+            lock = self._get_lock_state(transaction, GLOBAL_INGESTION_LOCK_ID)
             if lock.owner != workflow_id:
                 return False
 
@@ -342,7 +343,7 @@ class SpannerClient:
             """
             transaction.execute_update(
                 sql_update,
-                params={"lockId": lock_id},
+                params={"lockId": GLOBAL_INGESTION_LOCK_ID},
                 param_types={"lockId": spanner.param_types.STRING},
             )
             return True

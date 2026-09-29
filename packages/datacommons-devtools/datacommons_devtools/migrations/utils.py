@@ -27,8 +27,8 @@ from importlib import resources
 from pathlib import Path
 
 from datacommons_db.migrations import (
-    generate_golden_schema_sql,
-    get_golden_schema_path,
+    generate_schema_snapshot_sql,
+    get_schema_snapshot_path,
 )
 
 FILENAME_PATTERN = re.compile(r"^(\d{14})_([a-z0-9_]+)\.py$")
@@ -401,18 +401,20 @@ def update_migration_file(
     return file_path, new_path, new_iso
 
 
-def update_golden_schema() -> Path:
-    """Compiles and updates packages/datacommons-db/tests/goldens/schema_golden.sql.
+def update_snapshot_schema() -> Path:
+    """Compiles and updates packages/datacommons-db/tests/snapshots/schema_snapshot.sql.
 
     Returns:
-        Path to the updated schema_golden.sql file.
+        Path to the updated schema_snapshot.sql file.
 
     Raises:
-        OSError: If reading migrations or writing the golden file fails.
+        OSError: If reading migrations or writing the snapshot file fails.
         RuntimeError: If schema compilation fails.
     """
-    golden_file = get_golden_schema_path()
-    golden_file.parent.mkdir(parents=True, exist_ok=True)
-    golden_sql = generate_golden_schema_sql(project_id="test-project")
-    golden_file.write_text(golden_sql, encoding="utf-8")
-    return golden_file
+    snapshot_file = get_schema_snapshot_path()
+    snapshot_file.parent.mkdir(parents=True, exist_ok=True)
+    snapshot_sql = generate_schema_snapshot_sql(
+        project_id="test-project", region="us-central1"
+    )
+    snapshot_file.write_text(snapshot_sql, encoding="utf-8")
+    return snapshot_file

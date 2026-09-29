@@ -16,7 +16,6 @@ from datacommons_db.clients.models import (
     DdlResult,
     DmlResult,
     ExecutionStatus,
-    LockState,
     QueryResult,
 )
 from datacommons_db.clients.spanner_client import SpannerClient
@@ -25,7 +24,6 @@ __all__ = [
     "DdlResult",
     "DmlResult",
     "ExecutionStatus",
-    "LockState",
     "QueryResult",
     "SpannerClient",
 ]

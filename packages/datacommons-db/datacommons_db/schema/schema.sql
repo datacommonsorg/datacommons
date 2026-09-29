@@ -27,8 +27,8 @@
 --   https://github.com/datacommonsorg/datacommons/tree/main/packages/datacommons-db/src/datacommons_db/migrations
 --
 -- Documentation & Tools:
---   - Migrations Directory: https://github.com/datacommonsorg/datacommons/tree/main/packages/datacommons-db/src/datacommons_db/migrations
---   - CLI Command: `datacommons admin manage-migrations`
+--   - CLI Command: `datacommons admin migrate-db`
+--   - Dev Tools: `uv run datacommons-devtools migrations create <name>`
 --
 -- ⚠️ SQUASHING MIGRATIONS:
 -- The ONLY exception when this baseline schema should be modified is during a

@@ -256,7 +256,7 @@ From the directory where your Terraform configuration is stored, run the followi
 uvx datacommons-cli admin init-db
 ```
 
-This command connects directly to Cloud Spanner using your authenticated credentials to execute the bundled DDL schema, apply pending migrations, and seed initial metadata.
+This command connects directly to Cloud Spanner using your authenticated credentials to execute the bundled DDL schema and apply pending migrations.
 
 When it completes, verify that the tables are created correctly:
 

@@ -155,18 +155,18 @@ def bump_command(target: str | None = None, *, yes: bool = False) -> None:
 
 
 @cli.command(
-    name="update-golden",
-    short_help="Recompile and update the golden schema SQL file.",
+    name="update-snapshot",
+    short_help="Recompile and update the cumulative schema snapshot SQL file.",
 )
-def update_golden_command() -> None:
-    """Recompile packages/datacommons-db/tests/goldens/schema_golden.sql from all migration scripts."""
+def update_snapshot_command() -> None:
+    """Recompile packages/datacommons-db/tests/snapshots/schema_snapshot.sql from all migration scripts."""
     try:
-        golden_file = utils.update_golden_schema()
+        snapshot_file = utils.update_snapshot_schema()
     except (OSError, RuntimeError, ValueError) as e:
-        raise click.ClickException(f"Failed to update golden schema: {e}") from e
+        raise click.ClickException(f"Failed to update schema snapshot: {e}") from e
 
-    click.secho("✔ Successfully updated golden schema:", fg="green", bold=True)
-    click.echo(f"  {golden_file}")
+    click.secho("✔ Successfully updated schema snapshot:", fg="green", bold=True)
+    click.echo(f"  {snapshot_file}")
 
 
 if __name__ == "__main__":

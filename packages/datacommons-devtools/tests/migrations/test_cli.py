@@ -305,54 +305,54 @@ def test_devtools_migrations_bump_invocation(runner: CliRunner, tmp_path: Path) 
 
 
 # ==============================================================================
-# 3. 'update-golden' Command Tests
+# 3. 'update-snapshot' Command Tests
 # ==============================================================================
 
 
-def test_cli_update_golden_command(
+def test_cli_update_snapshot_command(
     runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """Verifies update-golden command successfully updates the golden schema file."""
-    mock_golden = tmp_path / "schema_golden.sql"
+    """Verifies update-snapshot command successfully updates the schema snapshot file."""
+    mock_snapshot = tmp_path / "schema_snapshot.sql"
     monkeypatch.setattr(
-        "datacommons_devtools.migrations.utils.update_golden_schema",
-        lambda: mock_golden,
+        "datacommons_devtools.migrations.utils.update_snapshot_schema",
+        lambda: mock_snapshot,
     )
 
-    result = runner.invoke(cli, ["update-golden"])
+    result = runner.invoke(cli, ["update-snapshot"])
     assert result.exit_code == 0
-    assert "Successfully updated golden schema:" in result.output
-    assert str(mock_golden) in result.output
+    assert "Successfully updated schema snapshot:" in result.output
+    assert str(mock_snapshot) in result.output
 
 
-def test_devtools_migrations_update_golden_invocation(
+def test_devtools_migrations_update_snapshot_invocation(
     runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """Verifies invoking update-golden via datacommons-devtools migrations update-golden."""
-    mock_golden = tmp_path / "schema_golden.sql"
+    """Verifies invoking update-snapshot via datacommons-devtools migrations update-snapshot."""
+    mock_snapshot = tmp_path / "schema_snapshot.sql"
     monkeypatch.setattr(
-        "datacommons_devtools.migrations.utils.update_golden_schema",
-        lambda: mock_golden,
+        "datacommons_devtools.migrations.utils.update_snapshot_schema",
+        lambda: mock_snapshot,
     )
 
-    result = runner.invoke(devtools_cli, ["migrations", "update-golden"])
+    result = runner.invoke(devtools_cli, ["migrations", "update-snapshot"])
     assert result.exit_code == 0
-    assert "Successfully updated golden schema:" in result.output
+    assert "Successfully updated schema snapshot:" in result.output
 
 
-def test_cli_update_golden_failure_raises(
+def test_cli_update_snapshot_failure_raises(
     runner: CliRunner, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Verifies update-golden command handles failure exceptions gracefully."""
+    """Verifies update-snapshot command handles failure exceptions gracefully."""
 
     def _fail():
         raise RuntimeError("Spanner DDL parse failure")
 
     monkeypatch.setattr(
-        "datacommons_devtools.migrations.utils.update_golden_schema",
+        "datacommons_devtools.migrations.utils.update_snapshot_schema",
         _fail,
     )
 
-    result = runner.invoke(cli, ["update-golden"])
+    result = runner.invoke(cli, ["update-snapshot"])
     assert result.exit_code != 0
-    assert "Failed to update golden schema: Spanner DDL parse failure" in result.output
+    assert "Failed to update schema snapshot: Spanner DDL parse failure" in result.output

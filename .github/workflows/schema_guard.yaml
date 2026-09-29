@@ -16,9 +16,9 @@ name: Schema Freeze Guard
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, labeled, unlabeled]
-    paths:
-      - 'packages/datacommons-db/datacommons_db/schema/schema.sql'
+    # Trigger on edits or label changes so adding 'schema-squash' label or '[schema-squash]' to title/body re-runs the check
+    types: [opened, synchronize, reopened, labeled, unlabeled, edited]
+  merge_group:
 
 permissions:
   contents: read
@@ -29,8 +29,30 @@ jobs:
     name: Verify Canonical Schema Is Frozen
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Check if schema.sql was modified
+        id: check_modified
+        run: |
+          if [ "${{ github.event_name }}" = "merge_group" ]; then
+            echo "Running in merge_group, bypassing schema freeze check."
+            echo "modified=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          if git diff --name-only "$BASE_SHA" HEAD | grep -q "^packages/datacommons-db/datacommons_db/schema/schema.sql$"; then
+            echo "modified=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "modified=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Check for Schema Squash Bypass
         id: check_bypass
+        if: steps.check_modified.outputs.modified == 'true'
         env:
           PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
           PR_TITLE: ${{ github.event.pull_request.title }}
@@ -44,7 +66,7 @@ jobs:
           fi
 
       - name: Block Direct Schema Modifications
-        if: steps.check_bypass.outputs.bypass != 'true'
+        if: steps.check_modified.outputs.modified == 'true' && steps.check_bypass.outputs.bypass != 'true'
         run: |
           echo "::error file=packages/datacommons-db/datacommons_db/schema/schema.sql,title=Direct schema.sql Edits Prohibited::Direct modifications to schema.sql are strictly prohibited!"
           echo "================================================================================"
@@ -57,7 +79,7 @@ jobs:
           echo "formal migration files in datacommons-db:"
           echo "  packages/datacommons-db/datacommons_db/migrations/migration_scripts"
           echo ""
-          echo "CLI Tool: datacommons admin manage-migrations"
+          echo "CLI Tool: uv run datacommons-devtools migrations create <name>"
           echo ""
           echo "⚠️ HOW TO BYPASS FOR PLANNED SQUASHES:"
           echo "If you are performing an official, planned repo-wide migration squash:"

@@ -97,7 +97,7 @@ The state resolution and contract verification suite spans two complementary tes
 ### Database Initialization Flow (`datacommons admin init-db`)
 1. **Output Discovery**: Calls `get_terraform_outputs()` in [state.py](../../packages/datacommons-admin/datacommons_admin/core/terraform/state.py) to load validated project, Spanner instance, database, and region from Terraform state.
 2. **Client Authentication**: Instantiates `SpannerClient` configured with caller End-User Credentials (EUC). Prerequisite: the executing user account must hold `roles/spanner.databaseAdmin` and `roles/spanner.databaseUser`.
-3. **Unified Schema Migration Execution**: Delegates directly to `_run_migrations(..., auto_approve=True)` via `datacommons_db.migrations.MigrationRunner`. The very first migration (`20260817000000_bootstrap.py`) initializes the `SchemaMigrations` tracking table and applies the baseline `schema.sql`. All subsequent migrations are then applied in order under distributed Spanner lock coordination.
+3. **Unified Schema Migration Execution**: Delegates directly to `_run_migrations(..., auto_approve=True)` via `datacommons_db.migrations.MigrationRunner`. The very first migration (`20260817000000_bootstrap.py`) initializes the `SchemaMigrations` tracking table and applies the templated baseline `schema.sql`. All subsequent migrations are then applied in order under distributed Spanner lock coordination.
 
 ### Schema Migration Flow (`datacommons admin migrate-db`)
 1. **Output Discovery**: Resolves Spanner instance, database, and project ID from Terraform state.

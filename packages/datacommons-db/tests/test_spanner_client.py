@@ -281,10 +281,12 @@ def test_init_success():
         project_id="test-project",
         instance_id="test-instance",
         database_id="test-db",
+        region="us-central1",
     )
     assert client.project_id == "test-project"
     assert client.instance_id == "test-instance"
     assert client.database_id == "test-db"
+    assert client.region == "us-central1"
 
 
 @pytest.mark.parametrize(
@@ -310,7 +312,9 @@ def test_init_validation_errors(proj: str | None, inst: str, db: str):
     with pytest.raises(
         ValueError, match="Invalid (project_id|instance_id|database_id)"
     ):
-        SpannerClient(project_id=proj, instance_id=inst, database_id=db)
+        SpannerClient(
+            project_id=proj, instance_id=inst, database_id=db, region="us-central1"
+        )
 
 
 # ==============================================================================
@@ -319,12 +323,12 @@ def test_init_validation_errors(proj: str | None, inst: str, db: str):
 
 
 def test_table_exists_false():
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("proj", "inst", "db", region="us-central1")
     assert client.table_exists("NonExistentTable") is False
 
 
 def test_table_exists_true():
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("proj", "inst", "db", region="us-central1")
     result = client.execute_ddl(
         ["CREATE TABLE Node (subject_id STRING(64)) PRIMARY KEY (subject_id)"]
     )
@@ -334,7 +338,7 @@ def test_table_exists_true():
 
 
 def test_execute_ddl_multiple_statements():
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("proj", "inst", "db", region="us-central1")
     result = client.execute_ddl(
         [
             "CREATE TABLE Node (subject_id STRING(64)) PRIMARY KEY (subject_id)",
@@ -347,7 +351,7 @@ def test_execute_ddl_multiple_statements():
 
 
 def test_execute_ddl_single_statement():
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("proj", "inst", "db", region="us-central1")
     result = client.execute_ddl(
         ["CREATE TABLE SingleTable (id INT64) PRIMARY KEY (id)"]
     )
@@ -356,7 +360,7 @@ def test_execute_ddl_single_statement():
 
 
 def test_execute_ddl_drop_table():
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("proj", "inst", "db", region="us-central1")
     result1 = client.execute_ddl(
         ["CREATE TABLE Edge (predicate STRING(64)) PRIMARY KEY (predicate)"]
     )
@@ -380,13 +384,13 @@ def test_execute_ddl_drop_table():
     ],
 )
 def test_table_exists_invalid_name(invalid_name: str):
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("proj", "inst", "db", region="us-central1")
     with pytest.raises(ValueError, match="Invalid table name"):
         client.table_exists(invalid_name)
 
 
 def test_execute_ddl_list():
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("proj", "inst", "db", region="us-central1")
     result = client.execute_ddl(
         [
             "CREATE TABLE TableA (id INT64) PRIMARY KEY (id)",
@@ -409,14 +413,14 @@ def test_execute_ddl_list():
     ],
 )
 def test_execute_ddl_invalid_type(invalid_ddl: object):
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("proj", "inst", "db", region="us-central1")
     result = client.execute_ddl(invalid_ddl)
     assert result.status == ExecutionStatus.ERROR
     assert "must be a non-empty list of str" in result.error_message
 
 
 def test_execute_ddl_error(fake_spanner_db: FakeSpannerDatabase):
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("proj", "inst", "db", region="us-central1")
     fake_spanner_db.update_ddl = MagicMock(
         side_effect=RuntimeError("Spanner DDL execution failed")
     )
@@ -431,7 +435,7 @@ def test_execute_ddl_error(fake_spanner_db: FakeSpannerDatabase):
 
 
 def test_execute_dml_with_params(fake_spanner_db: FakeSpannerDatabase):
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("proj", "inst", "db", region="us-central1")
     params = {"val": "test_val"}
     param_types = {"val": spanner.param_types.STRING}
 
@@ -454,7 +458,7 @@ def test_execute_dml_with_params(fake_spanner_db: FakeSpannerDatabase):
 
 
 def test_execute_dml_error(fake_spanner_db: FakeSpannerDatabase):
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("proj", "inst", "db", region="us-central1")
     fake_spanner_db.run_in_transaction = MagicMock(
         side_effect=RuntimeError("Transaction failed")
     )
@@ -466,7 +470,7 @@ def test_execute_dml_error(fake_spanner_db: FakeSpannerDatabase):
 
 
 def test_execute_query_with_params():
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("proj", "inst", "db", region="us-central1")
     params = {"name": "test_node"}
     param_types = {"name": spanner.param_types.STRING}
 
@@ -483,7 +487,7 @@ def test_execute_query_with_params():
 
 def test_execute_query_custom_table(fake_spanner_db: FakeSpannerDatabase):
     fake_spanner_db.tables["custom_test_table"] = [["row1", 10], ["row2", 20]]
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("proj", "inst", "db", region="us-central1")
 
     result = client.execute_query("SELECT name, count FROM custom_test_table")
     assert isinstance(result, QueryResult)
@@ -493,7 +497,7 @@ def test_execute_query_custom_table(fake_spanner_db: FakeSpannerDatabase):
 
 
 def test_execute_query_error(fake_spanner_db: FakeSpannerDatabase):
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("proj", "inst", "db", region="us-central1")
     fake_spanner_db.snapshot = MagicMock(
         side_effect=RuntimeError("Snapshot read failed")
     )
@@ -510,7 +514,7 @@ def test_execute_query_error(fake_spanner_db: FakeSpannerDatabase):
 
 
 def test_initialize_database_success(fake_spanner_db: FakeSpannerDatabase):
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("proj", "inst", "db", region="us-central1")
     result = client.initialize_database()
     assert isinstance(result, DdlResult)
     assert result.status == ExecutionStatus.SUCCESS
@@ -522,7 +526,7 @@ def test_initialize_database_success(fake_spanner_db: FakeSpannerDatabase):
 
 
 def test_acquire_and_release_lock_lifecycle(fake_spanner_db: FakeSpannerDatabase):
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("proj", "inst", "db", region="us-central1")
 
     # 1. Acquire lock
     acquired = client.acquire_lock(workflow_id="test-workflow")
@@ -534,7 +538,7 @@ def test_acquire_and_release_lock_lifecycle(fake_spanner_db: FakeSpannerDatabase
 
 
 def test_acquire_lock_held_by_other(fake_spanner_db: FakeSpannerDatabase):
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("proj", "inst", "db", region="us-central1")
 
     # Mock snapshot returning an active lock owned by another workflow
     mock_snapshot = MagicMock()
@@ -546,7 +550,7 @@ def test_acquire_lock_held_by_other(fake_spanner_db: FakeSpannerDatabase):
 
 
 def test_release_lock_not_owner(fake_spanner_db: FakeSpannerDatabase):
-    client = SpannerClient("proj", "inst", "db")
+    client = SpannerClient("proj", "inst", "db", region="us-central1")
 
     # Mock snapshot returning lock owned by someone else
     mock_snapshot = MagicMock()
