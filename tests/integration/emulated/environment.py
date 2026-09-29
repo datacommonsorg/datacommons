@@ -178,6 +178,21 @@ class EmulatedEnvironment:
         if not db.exists():
             db.create().result(timeout=30)
 
+        # Initialize Spanner schema directly on emulator
+        from datacommons_admin.db.utils.migration_utils import (
+            _initialize_database as init_spanner_schema,
+        )
+        from datacommons_db.clients import SpannerClient
+
+        spanner_client = SpannerClient(
+            project_id="default",
+            instance_id="default",
+            database_id="test-db",
+            credentials=AnonymousCredentials(),
+            region="us-central1",
+        )
+        init_spanner_schema(spanner_client)
+
         print("✔ Spanner emulator test-db database is ready.", flush=True)
 
     def _ingest_dataset(self, manifest: TestManifest) -> None:
@@ -284,7 +299,7 @@ class EmulatedEnvironment:
             "--gcsEndpoint=http://gcs:9099/storage/v1",
             "--isBaseDc=false",
             "--skipDelete=true",
-            "--skipWait=true",
+            "--skipWait=false",
             f"--importList={json.dumps(import_list)}",
         ]
         subprocess.run(loader_cmd, check=True)
