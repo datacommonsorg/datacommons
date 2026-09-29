@@ -358,5 +358,3 @@ def test_cli_update_snapshot_failure_raises(
     assert (
         "Failed to update schema snapshot: Spanner DDL parse failure" in result.output
     )
-
-

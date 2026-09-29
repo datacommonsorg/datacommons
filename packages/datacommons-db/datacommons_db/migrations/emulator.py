@@ -96,7 +96,9 @@ def ensure_emulator_running(
 
     if is_emulator_reachable(DEFAULT_EMULATOR_HOST):
         if progress_callback:
-            progress_callback(f"✔ Found running Spanner emulator at {DEFAULT_EMULATOR_HOST}")
+            progress_callback(
+                f"✔ Found running Spanner emulator at {DEFAULT_EMULATOR_HOST}"
+            )
         return DEFAULT_EMULATOR_HOST
 
     # Step 1: Check if Docker is installed on PATH

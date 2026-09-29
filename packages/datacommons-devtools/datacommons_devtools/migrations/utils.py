@@ -421,4 +421,3 @@ def update_snapshot_schema(
         RuntimeError: If schema compilation fails.
     """
     return write_compiled_schema(progress_callback=progress_callback)
-

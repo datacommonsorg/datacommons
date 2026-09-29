@@ -85,7 +85,11 @@ def test_ephemeral_emulator_database_lifecycle() -> None:
             return_value=mock_client,
         ),
     ):
-        with ephemeral_emulator_database(project_id="default") as (client, db, sp_client):
+        with ephemeral_emulator_database(project_id="default") as (
+            client,
+            db,
+            sp_client,
+        ):
             assert client is mock_client
             assert db is mock_db
             assert sp_client.database_id.startswith("snap-")

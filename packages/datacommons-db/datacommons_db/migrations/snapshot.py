@@ -95,7 +95,9 @@ def _format_snapshot_sql(
     """Combines engine statements and production-only skipped statements into SQL text."""
     engine_sql = ";\n\n".join(s.strip() for s in engine_statements if s.strip()) + ";"
     if skipped_statements:
-        skipped_sql = ";\n\n".join(s.strip() for s in skipped_statements if s.strip()) + ";\n"
+        skipped_sql = (
+            ";\n\n".join(s.strip() for s in skipped_statements if s.strip()) + ";\n"
+        )
         return f"{SCHEMA_SNAPSHOT_HEADER}\n{engine_sql}{PRODUCTION_ONLY_BANNER}\n{skipped_sql}"
     return f"{SCHEMA_SNAPSHOT_HEADER}\n{engine_sql}\n"
 
@@ -142,7 +144,9 @@ def generate_engine_schema_snapshot_sql(
         runner = MigrationRunner(spanner_client)
         pending = runner.get_pending_migrations()
         if progress_callback:
-            progress_callback(f"⚡ Applying {len(pending)} forward schema migration(s)...")
+            progress_callback(
+                f"⚡ Applying {len(pending)} forward schema migration(s)..."
+            )
 
         for migration in pending:
             runner.apply_migration(migration)
@@ -152,11 +156,15 @@ def generate_engine_schema_snapshot_sql(
                 )
 
         if progress_callback:
-            progress_callback("🔬 Introspecting engine-materialized DDL from Spanner...")
+            progress_callback(
+                "🔬 Introspecting engine-materialized DDL from Spanner..."
+            )
         response = client.database_admin_api.get_database_ddl(database=db.name)
         engine_statements = list(response.statements)
         if progress_callback:
-            progress_callback(f"  ✔ Extracted {len(engine_statements)} collapsed schema statements")
+            progress_callback(
+                f"  ✔ Extracted {len(engine_statements)} collapsed schema statements"
+            )
 
         skipped = _collect_skipped_migration_statements(
             runner, project_id, region, progress_callback
@@ -236,4 +244,3 @@ def write_compiled_schema(
 
     path.write_text(content, encoding="utf-8")
     return path
-
