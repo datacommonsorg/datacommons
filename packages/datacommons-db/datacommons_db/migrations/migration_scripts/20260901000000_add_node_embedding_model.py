@@ -16,7 +16,7 @@ from datacommons_db.clients import ExecutionStatus, SpannerClient
 from datacommons_db.migrations.base import SchemaMigration
 
 _CREATE_NODE_EMBEDDING_MODEL_DDL = """
-CREATE MODEL NodeEmbeddingModel
+CREATE OR REPLACE MODEL NodeEmbeddingModel
 INPUT(
   content STRING(MAX),
   task_type STRING(MAX),

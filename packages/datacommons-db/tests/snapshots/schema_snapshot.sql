@@ -227,7 +227,7 @@ ALTER TABLE Edge
 ADD CONSTRAINT FK_Edge_Object_Node
 FOREIGN KEY (object_id) REFERENCES Node (subject_id) NOT ENFORCED;
 
-CREATE MODEL NodeEmbeddingModel
+CREATE OR REPLACE MODEL NodeEmbeddingModel
 INPUT(
   content STRING(MAX),
   task_type STRING(MAX),
