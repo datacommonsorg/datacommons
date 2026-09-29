@@ -165,7 +165,7 @@ class EmulatedEnvironment:
         # Provisioned in fixture setup so downstream test suites can run in isolation.
         print(">>> Ensuring test-db database exists in Spanner emulator...", flush=True)
         client = spanner.Client(project="default", credentials=AnonymousCredentials())
-        config_name = f"{client.project_name}/instanceConfigs/emulator-config"
+        config_name = f"{client.project_name}/instanceConfigs/default"
         instance = client.instance(
             "default",
             configuration_name=config_name,
@@ -178,22 +178,7 @@ class EmulatedEnvironment:
         if not db.exists():
             db.create().result(timeout=30)
 
-        # Initialize Spanner schema directly on emulator
-        from datacommons_admin.db.utils.migration_utils import (
-            _initialize_database as init_spanner_schema,
-        )
-        from datacommons_db.clients import SpannerClient
-
-        spanner_client = SpannerClient(
-            project_id="default",
-            instance_id="default",
-            database_id="test-db",
-            credentials=AnonymousCredentials(),
-            region="us-central1",
-        )
-        init_spanner_schema(spanner_client)
-
-        print("✔ Spanner emulator test-db database is ready.", flush=True)
+        print("✔ Spanner emulator test-db database exists (empty baseline).", flush=True)
 
     def _ingest_dataset(self, manifest: TestManifest) -> None:
         print(">>> Seeding GCS emulator and running ingestion pipeline...", flush=True)

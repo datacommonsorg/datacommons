@@ -575,6 +575,12 @@ def mcp_client(dcp_target: DCPTarget, auth_headers: dict) -> MCPClient:
     """Provides client for executing MCP tools against {serving_url}/mcp."""
     if not dcp_target.serving_url:
         pytest.skip("Serving URL not configured for target instance.")
+
+    if dcp_target.instance_name == "emulated":
+        from tests.integration.emulated.environment import EmulatedEnvironment
+
+        EmulatedEnvironment().start_serving()
+
     mcp_url = f"{dcp_target.serving_url}/mcp"
     return MCPClient(mcp_url=mcp_url, auth_headers=auth_headers)
 
