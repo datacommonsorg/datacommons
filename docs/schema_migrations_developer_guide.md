@@ -126,13 +126,6 @@ uv run dc-devtools migrations update-snapshot
 4. **Production-Only Statements**: Migrations flagged with `emulator_supported = False` (e.g. remote Vertex AI model registrations) are cleanly separated under the `-- 🚀 Production-Only Schema Objects` banner at the bottom of the artifact.
 5. **Safe Cleanup**: Drops the ephemeral database automatically upon completion.
 
-#### Offline Mode:
-If Docker or the emulator is not available on your environment, you can run statically in-memory:
-
-```bash
-uv run datacommons-devtools migrations update-snapshot --offline
-```
-
 Always commit the updated `schema_snapshot.sql` in the same pull request as your new or modified migration script.
 
 ---

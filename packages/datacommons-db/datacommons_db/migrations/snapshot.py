@@ -205,45 +205,35 @@ def write_compiled_schema(
     project_id: str = "default",
     region: str = "us-central1",
     *,
-    prefer_engine: bool = True,
     progress_callback: Callable[[str], None] | None = None,
 ) -> Path:
-    """Compiles and writes the cumulative schema snapshot.
+    """Compiles and writes the cumulative schema snapshot using the Spanner emulator.
 
-    If prefer_engine is True, discovers or auto-starts the Spanner emulator to
-    generate the true engine-collapsed schema DDL. If the emulator cannot be
-    started, falls back to static template generation.
+    Connects to or auto-starts the Cloud Spanner emulator to deploy baseline_schema.sql
+    and all migrations, introspects the true engine-collapsed schema DDL, and writes it.
 
     Args:
         target_path: Optional destination path. Defaults to get_schema_snapshot_path().
         project_id: GCP project ID used for model endpoint interpolation.
         region: GCP region used for model endpoint interpolation.
-        prefer_engine: Whether to use the Spanner emulator engine if available.
         progress_callback: Optional callback for reporting real-time progress messages.
 
     Returns:
         Path to the written schema snapshot file.
+
+    Raises:
+        ConnectionError: If the Spanner emulator is not reachable and auto-start fails.
+        RuntimeError: If database initialization or schema compilation fails.
     """
     path = target_path or get_schema_snapshot_path()
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    if prefer_engine:
-        try:
-            content = generate_engine_schema_snapshot_sql(
-                project_id=project_id,
-                region=region,
-                progress_callback=progress_callback,
-            )
-        except Exception:  # noqa: BLE001
-            if progress_callback:
-                progress_callback("ℹ Falling back to static in-memory schema compilation...")
-            content = generate_schema_snapshot_sql(
-                project_id=project_id, region=region
-            )
-    else:
-        content = generate_schema_snapshot_sql(
-            project_id=project_id, region=region
-        )
+    content = generate_engine_schema_snapshot_sql(
+        project_id=project_id,
+        region=region,
+        progress_callback=progress_callback,
+    )
 
     path.write_text(content, encoding="utf-8")
     return path
+

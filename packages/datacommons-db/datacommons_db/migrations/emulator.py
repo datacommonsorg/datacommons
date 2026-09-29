@@ -103,9 +103,8 @@ def ensure_emulator_running(
     if not shutil.which("docker"):
         raise ConnectionError(
             f"Spanner emulator is not reachable at '{DEFAULT_EMULATOR_HOST}' and Docker was not found on PATH.\n"
-            "To generate the true engine-collapsed schema, please install Docker Desktop and start the emulator:\n"
-            "    docker compose -f tests/integration/emulated/docker-compose.yml up -d spanner\n"
-            "Or run with '--offline' to compile the snapshot statically without Docker."
+            "To generate the engine-collapsed schema, please install Docker Desktop and start the emulator:\n"
+            f"    docker compose -f {get_docker_compose_path()} up -d spanner"
         )
 
     # Step 2: Check if Docker daemon is running
@@ -119,12 +118,12 @@ def ensure_emulator_running(
         if daemon_check.returncode != 0:
             raise ConnectionError(
                 f"Spanner emulator is not reachable at '{DEFAULT_EMULATOR_HOST}', and the Docker daemon is not running.\n"
-                "Please start Docker Desktop, or run with '--offline' to compile the snapshot statically."
+                "Please start Docker Desktop and re-run the command."
             )
     except (subprocess.TimeoutExpired, OSError) as e:
         raise ConnectionError(
             "Failed to communicate with Docker daemon.\n"
-            "Please ensure Docker Desktop is open and running, or run with '--offline'."
+            "Please ensure Docker Desktop is open and running."
         ) from e
 
     # Step 3: Attempt to automatically start the spanner emulator via docker compose
@@ -153,8 +152,7 @@ def ensure_emulator_running(
         except Exception as e:
             raise ConnectionError(
                 f"Spanner emulator auto-launch failed: {e}.\n"
-                f"Please start it manually via: docker compose -f {compose_path} up -d spanner\n"
-                "Or run with '--offline' to compile the snapshot statically."
+                f"Please start it manually via: docker compose -f {compose_path} up -d spanner"
             ) from e
 
     raise ConnectionError(

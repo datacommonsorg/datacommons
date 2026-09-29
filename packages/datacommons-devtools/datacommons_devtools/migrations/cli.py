@@ -158,13 +158,7 @@ def bump_command(target: str | None = None, *, yes: bool = False) -> None:
     name="update-snapshot",
     short_help="Recompile and update the cumulative schema snapshot SQL file.",
 )
-@click.option(
-    "--offline",
-    is_flag=True,
-    default=False,
-    help="Skip the Spanner emulator and compile schema snapshot statically in-memory.",
-)
-def update_snapshot_command(offline: bool) -> None:  # noqa: FBT001
+def update_snapshot_command() -> None:
     """Recompile packages/datacommons-db/tests/snapshots/schema_snapshot.sql from all migration scripts."""
 
     def _on_progress(msg: str) -> None:
@@ -181,23 +175,17 @@ def update_snapshot_command(offline: bool) -> None:  # noqa: FBT001
         else:
             click.echo(msg)
 
-    if offline:
-        click.secho(
-            "ℹ Running in offline mode: compiling schema snapshot statically in-memory...",
-            fg="bright_black",
-        )
-
     try:
         snapshot_file = utils.update_snapshot_schema(
-            offline=offline,
             progress_callback=_on_progress,
         )
     except (OSError, RuntimeError, ValueError, ConnectionError) as e:
         raise click.ClickException(f"Failed to update schema snapshot: {e}") from e
 
-    mode_label = " (offline mode)" if offline else " (engine-collapsed)"
     click.secho(
-        f"\n✔ Successfully updated schema snapshot{mode_label}:", fg="green", bold=True
+        "\n✔ Successfully updated schema snapshot (engine-collapsed):",
+        fg="green",
+        bold=True,
     )
     click.echo(f"  {snapshot_file}")
 

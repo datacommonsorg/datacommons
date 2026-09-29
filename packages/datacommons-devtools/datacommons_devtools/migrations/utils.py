@@ -403,23 +403,22 @@ def update_migration_file(
 
 def update_snapshot_schema(
     *,
-    offline: bool = False,
     progress_callback: Callable[[str], None] | None = None,
 ) -> Path:
     """Compiles and updates packages/datacommons-db/tests/snapshots/schema_snapshot.sql.
 
+    Requires a running or auto-bootable Spanner emulator to extract engine-collapsed DDL.
+
     Args:
-        offline: If True, compiles statically in-memory without Spanner emulator.
         progress_callback: Optional callback for reporting real-time progress messages.
 
     Returns:
         Path to the updated schema_snapshot.sql file.
 
     Raises:
+        ConnectionError: If no emulator is reachable and auto-start fails.
         OSError: If reading migrations or writing the snapshot file fails.
         RuntimeError: If schema compilation fails.
     """
-    return write_compiled_schema(
-        prefer_engine=not offline,
-        progress_callback=progress_callback,
-    )
+    return write_compiled_schema(progress_callback=progress_callback)
+

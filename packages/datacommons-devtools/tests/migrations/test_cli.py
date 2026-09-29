@@ -360,23 +360,3 @@ def test_cli_update_snapshot_failure_raises(
     )
 
 
-def test_cli_update_snapshot_offline_flag(
-    runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    """Verifies update-snapshot --offline flag passes offline=True."""
-    mock_snapshot = tmp_path / "schema_snapshot.sql"
-    called_with_offline = []
-
-    def _mock_update(*, offline: bool = False, **kwargs):  # noqa: ARG001
-        called_with_offline.append(offline)
-        return mock_snapshot
-
-    monkeypatch.setattr(
-        "datacommons_devtools.migrations.utils.update_snapshot_schema",
-        _mock_update,
-    )
-
-    result = runner.invoke(cli, ["update-snapshot", "--offline"])
-    assert result.exit_code == 0
-    assert "Successfully updated schema snapshot (offline mode)" in result.output
-    assert called_with_offline == [True]
