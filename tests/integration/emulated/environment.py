@@ -178,7 +178,9 @@ class EmulatedEnvironment:
         if not db.exists():
             db.create().result(timeout=30)
 
-        print("✔ Spanner emulator test-db database exists (empty baseline).", flush=True)
+        print(
+            "✔ Spanner emulator test-db database exists (empty baseline).", flush=True
+        )
 
     def _ingest_dataset(self, manifest: TestManifest) -> None:
         print(">>> Seeding GCS emulator and running ingestion pipeline...", flush=True)
