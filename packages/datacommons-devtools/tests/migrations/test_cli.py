@@ -302,3 +302,59 @@ def test_devtools_migrations_bump_invocation(runner: CliRunner, tmp_path: Path) 
     assert "Successfully bumped migration script" in result.output
     assert not file_path.exists()
     assert len(list(tmp_path.glob("*_new_dataset.py"))) == 1
+
+
+# ==============================================================================
+# 3. 'update-snapshot' Command Tests
+# ==============================================================================
+
+
+def test_cli_update_snapshot_command(
+    runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Verifies update-snapshot command successfully updates the schema snapshot file."""
+    mock_snapshot = tmp_path / "schema_snapshot.sql"
+    monkeypatch.setattr(
+        "datacommons_devtools.migrations.utils.update_snapshot_schema",
+        lambda: mock_snapshot,
+    )
+
+    result = runner.invoke(cli, ["update-snapshot"])
+    assert result.exit_code == 0
+    assert "Successfully updated schema snapshot:" in result.output
+    assert str(mock_snapshot) in result.output
+
+
+def test_devtools_migrations_update_snapshot_invocation(
+    runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Verifies invoking update-snapshot via datacommons-devtools migrations update-snapshot."""
+    mock_snapshot = tmp_path / "schema_snapshot.sql"
+    monkeypatch.setattr(
+        "datacommons_devtools.migrations.utils.update_snapshot_schema",
+        lambda: mock_snapshot,
+    )
+
+    result = runner.invoke(devtools_cli, ["migrations", "update-snapshot"])
+    assert result.exit_code == 0
+    assert "Successfully updated schema snapshot:" in result.output
+
+
+def test_cli_update_snapshot_failure_raises(
+    runner: CliRunner, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Verifies update-snapshot command handles failure exceptions gracefully."""
+
+    def _fail():
+        raise RuntimeError("Spanner DDL parse failure")
+
+    monkeypatch.setattr(
+        "datacommons_devtools.migrations.utils.update_snapshot_schema",
+        _fail,
+    )
+
+    result = runner.invoke(cli, ["update-snapshot"])
+    assert result.exit_code != 0
+    assert (
+        "Failed to update schema snapshot: Spanner DDL parse failure" in result.output
+    )

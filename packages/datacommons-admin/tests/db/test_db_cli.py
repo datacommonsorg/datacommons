@@ -48,111 +48,35 @@ def test_init_db_terraform_error(runner: CliRunner) -> None:
         assert "Failed to run 'terraform output'" in result.output
 
 
-@pytest.fixture(autouse=True)
-def mock_is_database_initialized():
-    """Mocks is_database_initialized in db_cli to return False by default."""
-    with patch(
-        "datacommons_admin.db.db_cli.is_database_initialized",
-        return_value=False,
-    ) as mock_fn:
-        yield mock_fn
+@pytest.fixture
+def mock_spanner_client():
+    """Mocks SpannerClient in db_cli."""
+    with patch("datacommons_admin.db.db_cli.SpannerClient") as mock_cls:
+        mock_instance = MagicMock()
+        mock_cls.return_value = mock_instance
+        yield mock_instance
 
 
 @pytest.mark.usefixtures("mock_terraform_spanner")
-def test_init_db_database_already_initialized(
-    mock_helper_session,
-    mock_run_migrations,
-    mock_is_database_initialized,
-    runner: CliRunner,
-) -> None:
-    mock_is_database_initialized.return_value = True
-    result = runner.invoke(admin, ["init-db"])
-    assert result.exit_code == 0
-    assert (
-        "Spanner database 'mock-instance/mock-db' is already initialized. Skipping initialization and migrations."
-        in result.output
-    )
-    assert "datacommons admin migrate-db" in result.output
-    assert "datacommons admin seed-db" in result.output
-    mock_is_database_initialized.assert_called_once_with(
-        "mock-proj", "mock-instance", "mock-db"
-    )
-    mock_helper_session.post.assert_not_called()
-    mock_run_migrations.assert_not_called()
-
-
-@pytest.mark.usefixtures("mock_terraform_spanner", "mock_helper_session")
 def test_init_db_success(
-    mock_run_migrations,
-    mock_is_database_initialized,
+    mock_spanner_client,
+    mock_initialize_database,
     runner: CliRunner,
 ) -> None:
     result = runner.invoke(admin, ["init-db"])
     assert result.exit_code == 0
-    assert "Successfully initialized Spanner database" in result.output
-    assert "Details: DB Initialized" in result.output
-    assert "Successfully seeded Spanner database" in result.output
-    mock_is_database_initialized.assert_called_once_with(
-        "mock-proj", "mock-instance", "mock-db"
-    )
-    mock_run_migrations.assert_called_once()
+    assert "Datacommons Admin Init-DB" in result.output
+    mock_initialize_database.assert_called_once_with(mock_spanner_client)
 
 
 @pytest.mark.usefixtures("mock_terraform_spanner")
-def test_init_db_success_no_details(
-    mock_helper_session,
-    mock_run_migrations,
+def test_init_db_migration_failure(
+    mock_spanner_client,
+    mock_initialize_database,
     runner: CliRunner,
 ) -> None:
-    mock_helper_session.post.return_value.json.return_value = {
-        "status": "success",
-        "message": None,
-    }
-    result = runner.invoke(admin, ["init-db"])
-    assert result.exit_code == 0
-    assert "Successfully initialized Spanner database" in result.output
-    assert "Details:" not in result.output
-    assert "Successfully seeded Spanner database" in result.output
-    mock_run_migrations.assert_called_once()
-
-
-@pytest.mark.usefixtures("mock_terraform_spanner", "mock_helper_session")
-def test_init_db_init_only(
-    mock_run_migrations,
-    runner: CliRunner,
-) -> None:
-    result = runner.invoke(admin, ["init-db", "--init-only"])
-    assert result.exit_code == 0
-    assert "Successfully initialized Spanner database" in result.output
-    assert "Seeding Spanner database" not in result.output
-    mock_run_migrations.assert_called_once()
-
-
-@pytest.mark.usefixtures("mock_terraform_spanner", "mock_helper_session")
-def test_init_db_migration_failure_halts_before_seed(
-    mock_run_migrations,
-    runner: CliRunner,
-) -> None:
-    mock_run_migrations.side_effect = click.ClickException("Migration failed")
+    mock_initialize_database.side_effect = click.ClickException("Initialization failed")
 
     result = runner.invoke(admin, ["init-db"])
     assert result.exit_code != 0
-    assert "Successfully initialized Spanner database" in result.output
-    assert "Migration failed" in result.output
-    # Seeding should NOT be called if migrations fail
-    assert "Seeding Spanner database" not in result.output
-    assert "Successfully seeded Spanner database" not in result.output
-
-
-@pytest.mark.usefixtures("mock_terraform_spanner")
-def test_seed_db_success(
-    mock_helper_session,
-    runner: CliRunner,
-) -> None:
-    mock_helper_session.post.return_value.json.return_value = {
-        "status": "success",
-        "message": "DB Seeded",
-    }
-    result = runner.invoke(admin, ["seed-db"])
-    assert result.exit_code == 0
-    assert "Successfully seeded Spanner database" in result.output
+    assert "Initialization failed" in result.output

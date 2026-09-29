@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import contextlib
 import json
 import shutil
 import subprocess
@@ -146,7 +147,15 @@ def _get_outputs_from_gcs(
 
 
 def _get_outputs_from_local() -> dict[str, Any]:
-    """Runs `terraform output -json` locally with contextual validation."""
+    """Runs `terraform output -json` locally or parses local terraform.tfstate directly if present."""
+    local_state_file = Path("terraform.tfstate")
+    if local_state_file.is_file():
+        with contextlib.suppress(OSError, ValueError, click.ClickException):
+            return _parse_terraform_state_outputs(
+                local_state_file.read_text(encoding="utf-8"),
+                source_description=str(local_state_file.resolve()),
+            )
+
     terraform_path = shutil.which("terraform")
     if not terraform_path:
         raise click.ClickException(
