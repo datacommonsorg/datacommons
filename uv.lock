@@ -309,6 +309,7 @@ wheels = [
 name = "datacommons-admin"
 source = { editable = "packages/datacommons-admin" }
 dependencies = [
+    { name = "certifi" },
     { name = "click" },
     { name = "datacommons-db" },
     { name = "google-cloud-storage" },
@@ -317,6 +318,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "certifi", specifier = ">=2024.2.2" },
     { name = "click", specifier = ">=8.1.7" },
     { name = "datacommons-db", editable = "packages/datacommons-db" },
     { name = "google-cloud-storage", specifier = ">=2.13.0" },
@@ -418,10 +420,14 @@ name = "datacommons-devtools"
 source = { editable = "packages/datacommons-devtools" }
 dependencies = [
     { name = "click" },
+    { name = "datacommons-db" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "click", specifier = ">=8.1.7" }]
+requires-dist = [
+    { name = "click", specifier = ">=8.1.7" },
+    { name = "datacommons-db", editable = "packages/datacommons-db" },
+]
 
 [[package]]
 name = "datacommons-platform"

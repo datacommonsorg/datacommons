@@ -37,5 +37,11 @@ Source = "https://github.com/datacommonsorg/datacommons"
 requires = ["uv", "setuptools"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+datacommons_db = ["schema/*.sql"]
+
 [tool.setuptools.dynamic]
 version = {file = "VERSION"}

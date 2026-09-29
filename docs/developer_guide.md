@@ -384,8 +384,8 @@ gcloud storage buckets add-iam-policy-binding "gs://artifacts.<SOURCE_PROJECT_ID
     --role="roles/storage.objectViewer"
 ```
 
-### Local Workstation IAM Impersonation (Database Seeding and Ingestion)
-When executing `datacommons admin init-db`, `admin seed-db`, or `admin ingest start` directly from a local workstation against a deployed instance, the CLI calls the Ingestion Helper service or triggers Google Cloud Workflows using OAuth token impersonation. Before running commands against an instance, grant your user account the `roles/iam.serviceAccountTokenCreator` role on the provisioned Ingestion Workflow Service Account:
+### Local Workstation IAM Impersonation (Ingestion)
+When executing `datacommons admin ingest start` directly from a local workstation against a deployed instance, the CLI triggers Google Cloud Workflows using OAuth token impersonation. Before running ingestion commands against an instance, grant your user account the `roles/iam.serviceAccountTokenCreator` role on the provisioned Ingestion Workflow Service Account:
 
 ```bash
 cd ~/dcp-deployments/<namespace>
