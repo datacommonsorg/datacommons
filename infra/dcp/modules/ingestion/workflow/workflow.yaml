@@ -613,7 +613,7 @@ poll_cloud_batch_job_execution:
               result: job_status
           - check_terminal:
               switch:
-                - condition: '$${job_status.status.state in ["SUCCEEDED", "FAILED", "DELETION_IN_PROGRESS"]}'
+                - condition: '$${default(map.get(default(map.get(job_status, "status"), {}), "state"), "STATE_UNSPECIFIED") in ["SUCCEEDED", "FAILED", "DELETION_IN_PROGRESS"]}'
                   next: check_success
           - wait_for_batch:
               call: sys.sleep
@@ -623,11 +623,11 @@ poll_cloud_batch_job_execution:
 
     - check_success:
         switch:
-          - condition: '$${job_status.status.state == "SUCCEEDED"}'
+          - condition: '$${default(map.get(default(map.get(job_status, "status"), {}), "state"), "STATE_UNSPECIFIED") == "SUCCEEDED"}'
             next: return_success
 
     - fail_on_batch_status:
-        raise: '$${error_prefix + ": " + job_status.name + " (" + job_status.status.state + ")"}'
+        raise: '$${error_prefix + ": " + job_status.name + " (" + default(map.get(default(map.get(job_status, "status"), {}), "state"), "STATE_UNSPECIFIED") + ")"}'
 
     - return_success:
         return: '$${job_status}'
