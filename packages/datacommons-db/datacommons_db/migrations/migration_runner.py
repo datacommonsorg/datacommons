@@ -177,9 +177,20 @@ class MigrationRunner:
                 sorted(unknown_applied),
             )
 
-        return [
-            m for m in self.migrations if m.creation_timestamp not in applied_migrations
-        ]
+        pending: list[SchemaMigration] = []
+        for m in self.migrations:
+            if m.creation_timestamp in applied_migrations:
+                continue
+            if self.spanner_client.is_emulator and not m.emulator_supported:
+                logger.info(
+                    "Skipping migration %s (%s) on Spanner emulator (emulator_supported=False).",
+                    m.creation_timestamp,
+                    m.description,
+                )
+                continue
+            pending.append(m)
+
+        return pending
 
     def apply_migration(self, migration: SchemaMigration) -> MigrationResult:
         """Apply a single migration and record its completion in SchemaMigrations.

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import contextlib
 import json
 import os
 import subprocess
@@ -42,6 +43,7 @@ from tests.integration.core.target import ArtifactConfig, DCPTarget
 
 _GLOBAL_REPORTER: TestReporter | None = None
 _SESSION_START_TIME: float = 0.0
+_EMULATED_ENV: Any = None
 
 
 def pytest_runtest_setup(item):
@@ -467,15 +469,16 @@ def dcp_target(request, test_manifest) -> DCPTarget:
             returncode=1,
         )
 
-    env = None
+    global _EMULATED_ENV
     if instance_opt == "emulated":
         from tests.integration.emulated.environment import EmulatedEnvironment
 
         os.environ["SPANNER_EMULATOR_HOST"] = "localhost:9010"
         os.environ["STORAGE_EMULATOR_HOST"] = "http://localhost:9099"
-        env = EmulatedEnvironment()
+        if _EMULATED_ENV is None:
+            _EMULATED_ENV = EmulatedEnvironment()
         reuse_data_opt = request.config.getoption("--reuse-data", default=False)
-        env.start(manifest=test_manifest, reuse_data=reuse_data_opt)
+        _EMULATED_ENV.start(manifest=test_manifest, reuse_data=reuse_data_opt)
 
     if _GLOBAL_REPORTER is not None:
         _GLOBAL_REPORTER.set_artifacts(asdict(target.artifacts))
@@ -484,8 +487,9 @@ def dcp_target(request, test_manifest) -> DCPTarget:
 
     yield target
 
-    if env is not None and not request.config.getoption("--reuse-data"):
-        env.stop()
+    if _EMULATED_ENV is not None and not request.config.getoption("--reuse-data"):
+        _EMULATED_ENV.stop()
+        _EMULATED_ENV = None
 
 
 @pytest.fixture(scope="session")
@@ -534,6 +538,12 @@ def dc_client(dcp_target: DCPTarget, auth_headers: dict):
     if not dcp_target.serving_url:
         pytest.skip("Serving URL not configured for target instance.")
 
+    if dcp_target.instance_name == "emulated":
+        from tests.integration.emulated.environment import EmulatedEnvironment
+
+        env = _EMULATED_ENV or EmulatedEnvironment()
+        env.start_serving()
+
     orig_session_request = requests.Session.request
     orig_requests_get = requests.get
 
@@ -569,6 +579,13 @@ def mcp_client(dcp_target: DCPTarget, auth_headers: dict) -> MCPClient:
     """Provides client for executing MCP tools against {serving_url}/mcp."""
     if not dcp_target.serving_url:
         pytest.skip("Serving URL not configured for target instance.")
+
+    if dcp_target.instance_name == "emulated":
+        from tests.integration.emulated.environment import EmulatedEnvironment
+
+        env = _EMULATED_ENV or EmulatedEnvironment()
+        env.start_serving()
+
     mcp_url = f"{dcp_target.serving_url}/mcp"
     return MCPClient(mcp_url=mcp_url, auth_headers=auth_headers)
 
@@ -622,6 +639,10 @@ def seeded_testbed(dcp_target, dcp_cli, spanner_client, test_manifest, request):
             project=dcp_target.project_id, credentials=creds
         )
         bucket = storage_client.bucket(bucket_clean)
+        if os.getenv("STORAGE_EMULATOR_HOST") or dcp_target.instance_name == "emulated":
+            with contextlib.suppress(Exception):
+                if not bucket.exists():
+                    bucket.create()
 
         for d in dataset_dirs:
             import_dir = repo_root / d if not Path(d).is_absolute() else Path(d)
@@ -643,5 +664,11 @@ def seeded_testbed(dcp_target, dcp_cli, spanner_client, test_manifest, request):
                     print(f"    ✔ Uploaded {file_path.name}")
     except Exception as e:
         raise RuntimeError(f"Failed to upload datasets to GCS: {e}") from e
+
+    if dcp_target.instance_name == "emulated":
+        from tests.integration.emulated.environment import EmulatedEnvironment
+
+        env = _EMULATED_ENV or EmulatedEnvironment()
+        env.start_serving(manifest=test_manifest)
 
     return dcp_target
