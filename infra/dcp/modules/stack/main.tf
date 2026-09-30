@@ -244,8 +244,10 @@ module "ingestion_workflow" {
   enable_redis_cache_clearing          = var.redis_config.enable
   artifacts_bucket_name                = module.storage.artifacts_bucket_name
   ingestion_artifacts_path             = var.ingestion_config.ingestion_artifacts_path
+  ingestion_input_path                 = var.ingestion_config.input_path
   spanner_instance_id                  = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
   spanner_database_id                  = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
+  enable_spanner_embeddings           = var.datacommons_services_config.resolve_with_spanner_embeddings
   vpc_network                          = local.effective_vpc_network
   dataflow_ip_configuration            = local.effective_dataflow_ip_configuration
   dataflow_subnetwork                  = local.effective_dataflow_subnetwork
@@ -261,11 +263,6 @@ module "ingestion_workflow" {
     timeout                   = var.ingestion_config.preprocessing_job_timeout
     service_account_email     = length(module.ingestion_preprocessing_job) > 0 ? module.ingestion_preprocessing_job[0].service_account_email : ""
     dc_api_key_secret_version = module.auth.dc_api_key_secret_id != "" ? "${module.auth.dc_api_key_secret_id}/versions/latest" : ""
-    bucket_name               = module.storage.artifacts_bucket_name
-    input_path                = var.ingestion_config.input_path
-    spanner_instance_id       = var.spanner_config.enable && length(module.spanner) > 0 ? module.spanner[0].spanner_instance_id : ""
-    spanner_database_id       = var.spanner_config.enable && length(module.spanner) > 0 ? module.spanner[0].spanner_database_id : ""
-    enable_spanner_embeddings = var.datacommons_services_config.resolve_with_spanner_embeddings
   }
   postprocessing_job_name             = var.ingestion_config.enable_ingestion ? module.ingestion_postprocessing_job[0].job_name : ""
   enable_datacommons_services_restart = var.datacommons_services_config.enable

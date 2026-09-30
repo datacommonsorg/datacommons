@@ -548,7 +548,7 @@ launch_and_poll_preprocessing_job:
         switch:
           - condition: '$${imports_arg != ""}'
             assign:
-              - container_commands: '$${list.concat(container_commands, ["--imports=" + imports_arg])}'
+              - container_commands: '$${container_commands + ["--imports=" + imports_arg]}'
     - create_batch_job:
         call: googleapis.batch.v1.projects.locations.jobs.create
         args:
@@ -559,8 +559,8 @@ launch_and_poll_preprocessing_job:
               - taskCount: 1
                 taskSpec:
                   computeResource:
-                    cpuMilli: ${preprocessing_cpu_milli}
-                    memoryMib: ${preprocessing_memory_mib}
+                    cpuMilli: ${preprocessing_cpu}
+                    memoryMib: ${preprocessing_memory}
                   maxRunDuration: '${preprocessing_timeout}'
                   runnables:
                     - container:
@@ -570,9 +570,9 @@ launch_and_poll_preprocessing_job:
                         variables:
                           WORKFLOW_EXECUTION_ID: '$${workflow_id}'
                           TEMP_LOCATION: '$${temp_gcs_uri}'
-                          INPUT_DIR: 'gs://${bucket_name}/${ingestion_input_path}'
-                          OUTPUT_DIR: 'gs://${bucket_name}/${ingestion_artifacts_path}'
-                          GCS_BUCKET: '${bucket_name}'
+                          INPUT_DIR: 'gs://${artifacts_bucket_name}/${ingestion_input_path}'
+                          OUTPUT_DIR: 'gs://${artifacts_bucket_name}/${ingestion_artifacts_path}'
+                          GCS_BUCKET: '${artifacts_bucket_name}'
                           ENABLE_SPANNER_EMBEDDINGS: '${enable_spanner_embeddings}'
                           USE_SPANNER_GRAPH: 'true'
                           GCP_SPANNER_INSTANCE_ID: '${spanner_instance_id}'

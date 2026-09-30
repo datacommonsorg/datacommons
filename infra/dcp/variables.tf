@@ -418,15 +418,15 @@ variable "ingestion_preprocessing_job_image" {
 }
 
 variable "ingestion_preprocessing_job_cpu" {
-  description = "CPU limit for the pre-processing job container"
+  description = "CPU limit in milliCPUs for the pre-processing Cloud Batch container (e.g. '8000' for 8 vCPUs)"
   type        = string
-  default     = "8"
+  default     = "8000"
 }
 
 variable "ingestion_preprocessing_job_memory" {
-  description = "Memory limit for the pre-processing job container"
+  description = "Memory limit in MiB for the pre-processing Cloud Batch container (e.g. '32768' for 32GiB)"
   type        = string
-  default     = "32G"
+  default     = "32768"
 }
 
 variable "ingestion_preprocessing_job_timeout" {

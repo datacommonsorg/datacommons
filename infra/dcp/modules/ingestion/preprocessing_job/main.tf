@@ -1,3 +1,14 @@
+# =============================================================================
+# Ingestion Preprocessing Job Infrastructure
+# =============================================================================
+# Cloud Batch does not maintain static deployed job instances; jobs are launched
+# dynamically on-demand by Cloud Workflows during each ingestion execution.
+#
+# This submodule does not manage job execution or deployment logic. It is
+# maintained to provision and manage the IAM permissions, Service Account, and
+# Secret Manager access required by the preprocessing worker container.
+# =============================================================================
+
 locals {
   name_prefix = var.instance_name != "" ? "${var.instance_name}-" : ""
 }
