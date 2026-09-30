@@ -17,13 +17,21 @@
 from unittest.mock import patch
 
 import pytest
-from datacommons_db.schema.loader import BASELINE_SCHEMA_FILENAME, SchemaLoader
+from datacommons_db.schema.loader import (
+    BASELINE_SCHEMA_FILENAME,
+    SchemaLoader,
+    get_baseline_schema_path,
+    load_baseline_statements,
+    load_baseline_template,
+)
 
 
 def test_get_baseline_schema_path_exists():
-    path = SchemaLoader.get_baseline_schema_path()
+    path = get_baseline_schema_path()
     assert path.exists()
     assert path.name == BASELINE_SCHEMA_FILENAME
+    # Also verify backward compatible class method works
+    assert SchemaLoader.get_baseline_schema_path() == path
 
 
 def test_get_baseline_schema_path_not_found():
@@ -34,17 +42,17 @@ def test_get_baseline_schema_path_not_found():
         patch("pathlib.Path.exists", return_value=False),
         pytest.raises(FileNotFoundError, match="Baseline schema file"),
     ):
-        SchemaLoader.get_baseline_schema_path()
+        get_baseline_schema_path()
 
 
 def test_load_baseline_template():
-    content = SchemaLoader.load_baseline_template()
+    content = load_baseline_template()
     assert "CREATE TABLE Node" in content
     assert "CREATE TABLE Edge" in content
 
 
 def test_load_baseline_statements():
-    statements = SchemaLoader.load_baseline_statements(
+    statements = load_baseline_statements(
         project_id="test-project",
         region="us-central1",
     )

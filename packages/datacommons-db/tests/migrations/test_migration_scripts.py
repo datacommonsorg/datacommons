@@ -37,8 +37,12 @@ from datacommons_db.clients.spanner_client import (
 )
 from datacommons_db.migrations import (
     MigrationRunner,
+    generate_engine_schema_snapshot_sql,
     get_schema_snapshot_path,
+    is_emulator_reachable,
+    write_compiled_schema,
 )
+from datacommons_db.schema.loader import load_baseline_statements
 
 FILENAME_PATTERN = re.compile(r"^(\d{14})_[a-z0-9_]+\.py$")
 ISO_8601_UTC_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
@@ -247,14 +251,6 @@ def test_cumulative_schema_matches_snapshot_file() -> None:
         uv run datacommons-devtools migrations update-snapshot
     and commit the resulting changes to 'packages/datacommons-db/tests/snapshots/schema_snapshot.sql'.
     """
-    import re
-
-    from datacommons_db.migrations import (
-        generate_engine_schema_snapshot_sql,
-        is_emulator_reachable,
-    )
-    from datacommons_db.schema.loader import SchemaLoader
-
     snapshot_path = get_schema_snapshot_path()
 
     assert snapshot_path.exists(), (
@@ -276,7 +272,7 @@ def test_cumulative_schema_matches_snapshot_file() -> None:
             "and commit the updated 'packages/datacommons-db/tests/snapshots/schema_snapshot.sql'."
         )
     else:
-        for stmt in SchemaLoader.load_baseline_statements(
+        for stmt in load_baseline_statements(
             project_id="default", region="us-central1"
         ):
             tbl_match = re.search(r"CREATE\s+TABLE\s+([A-Za-z0-9_]+)", stmt)
@@ -288,8 +284,6 @@ def test_write_compiled_schema_to_custom_path(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Verifies write_compiled_schema correctly writes to an explicit destination path."""
-    from datacommons_db.migrations import write_compiled_schema
-
     custom_path = tmp_path / "subdir" / "snapshot.sql"
     monkeypatch.setattr(
         "datacommons_db.migrations.snapshot.generate_engine_schema_snapshot_sql",

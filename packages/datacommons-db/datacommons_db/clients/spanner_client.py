@@ -28,6 +28,7 @@ from datacommons_db.clients.models import (
     LockState,
     QueryResult,
 )
+from datacommons_db.schema.loader import load_baseline_statements
 from datacommons_db.utils.validators import (
     validate_resource_id,
     validate_table_name,
@@ -229,9 +230,7 @@ class SpannerClient:
             DdlResult indicating execution status.
         """
         try:
-            from datacommons_db.schema.loader import SchemaLoader
-
-            statements = SchemaLoader.load_baseline_statements(
+            statements = load_baseline_statements(
                 project_id=self.project_id,
                 region=self.region,
             )

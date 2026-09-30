@@ -12,21 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Schema module exposing baseline schema definitions and loader utilities."""
+"""Schema module exposing baseline schema definitions and inspection utilities."""
 
-from datacommons_db.schema.inspector import (
-    compare_live_schema_to_compiled,
-    extract_model_names,
-    extract_table_names,
-    inspect_database_schema,
+from datacommons_db.schema.inspector import inspect_database_schema
+from datacommons_db.schema.loader import (
+    BASELINE_SCHEMA_FILENAME,
+    SchemaLoader,
+    get_baseline_schema_path,
+    load_baseline_statements,
+    load_baseline_template,
 )
-from datacommons_db.schema.loader import BASELINE_SCHEMA_FILENAME, SchemaLoader
 
 __all__ = [
     "BASELINE_SCHEMA_FILENAME",
     "SchemaLoader",
-    "compare_live_schema_to_compiled",
-    "extract_model_names",
-    "extract_table_names",
+    "get_baseline_schema_path",
     "inspect_database_schema",
+    "load_baseline_statements",
+    "load_baseline_template",
 ]

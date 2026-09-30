@@ -27,6 +27,7 @@ from collections.abc import Callable
 from importlib import resources
 from pathlib import Path
 
+import sys
 from datacommons_db.migrations import (
     write_compiled_schema,
 )
@@ -65,13 +66,9 @@ def get_default_migrations_dir() -> Path:
                 return candidate
 
     # Fallback to imported package path if running in a non-standard environment
-    try:
-        import datacommons_db.migrations.migration_scripts as mig_pkg
-
-        if mig_pkg.__file__:
-            return Path(mig_pkg.__file__).resolve().parent
-    except (ImportError, AttributeError):
-        pass
+    pkg = sys.modules.get("datacommons_db.migrations.migration_scripts")
+    if pkg and getattr(pkg, "__file__", None):
+        return Path(pkg.__file__).resolve().parent
 
     # Every ancestor of this file and cwd was already checked above, so at
     # this point there is no valid migrations directory to return.

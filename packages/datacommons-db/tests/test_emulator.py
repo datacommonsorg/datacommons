@@ -14,6 +14,8 @@
 
 """Unit tests for datacommons_db.migrations.emulator utilities."""
 
+import subprocess
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -73,9 +75,6 @@ def test_ensure_emulator_running_no_docker_raises() -> None:
 
 def test_ensure_emulator_running_called_process_error_diagnostics() -> None:
     """Verifies docker compose failures surface stderr in ConnectionError."""
-    import subprocess
-    from pathlib import Path
-
     err = subprocess.CalledProcessError(
         1, ["docker", "compose"], stderr=b"port 9010 already in use by process 1234"
     )

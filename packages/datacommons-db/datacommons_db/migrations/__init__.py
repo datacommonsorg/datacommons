@@ -26,7 +26,6 @@ from datacommons_db.migrations.snapshot import (
     PRODUCTION_ONLY_BANNER,
     SCHEMA_SNAPSHOT_HEADER,
     generate_engine_schema_snapshot_sql,
-    generate_schema_snapshot_sql,
     get_schema_snapshot_path,
     write_compiled_schema,
 )
@@ -40,7 +39,6 @@ __all__ = [
     "ensure_emulator_running",
     "ephemeral_emulator_database",
     "generate_engine_schema_snapshot_sql",
-    "generate_schema_snapshot_sql",
     "get_schema_snapshot_path",
     "is_emulator_reachable",
     "write_compiled_schema",

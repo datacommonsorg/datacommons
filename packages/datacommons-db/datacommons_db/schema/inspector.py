@@ -12,21 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Schema inspection utilities for querying and comparing live Cloud Spanner / emulator DDL."""
+from __future__ import annotations
 
-import re
-from typing import Any
+from typing import TYPE_CHECKING
 
-from datacommons_db.clients import SpannerClient
-
-_CREATE_TABLE_PATTERN = re.compile(
-    r"CREATE\s+(?:OR\s+REPLACE\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([A-Za-z0-9_]+)",
-    re.IGNORECASE,
-)
-_CREATE_MODEL_PATTERN = re.compile(
-    r"CREATE\s+(?:OR\s+REPLACE\s+)?MODEL\s+(?:IF\s+NOT\s+EXISTS\s+)?([A-Za-z0-9_]+)",
-    re.IGNORECASE,
-)
+if TYPE_CHECKING:
+    from datacommons_db.clients.spanner_client import SpannerClient
 
 
 def inspect_database_schema(spanner_client: SpannerClient) -> list[str]:
@@ -45,71 +36,3 @@ def inspect_database_schema(spanner_client: SpannerClient) -> list[str]:
         database=database_name
     )
     return list(response.statements)
-
-
-def extract_table_names(ddl_statements: list[str]) -> list[str]:
-    """Extracts table names from a list of DDL statement strings.
-
-    Args:
-        ddl_statements: Sequence of DDL strings (e.g. from get_schema_ddl or migration files).
-
-    Returns:
-        Sorted, deduplicated list of table names.
-    """
-    tables: set[str] = set()
-    for stmt in ddl_statements:
-        match = _CREATE_TABLE_PATTERN.search(stmt)
-        if match:
-            tables.add(match.group(1))
-    return sorted(tables)
-
-
-def extract_model_names(ddl_statements: list[str]) -> list[str]:
-    """Extracts model names from a list of DDL statement strings.
-
-    Args:
-        ddl_statements: Sequence of DDL strings.
-
-    Returns:
-        Sorted, deduplicated list of model names.
-    """
-    models: set[str] = set()
-    for stmt in ddl_statements:
-        match = _CREATE_MODEL_PATTERN.search(stmt)
-        if match:
-            models.add(match.group(1))
-    return sorted(models)
-
-
-def compare_live_schema_to_compiled(
-    spanner_client: SpannerClient,
-    compiled_statements: list[str],
-) -> dict[str, Any]:
-    """Compares the live database schema against expected compiled migration DDL statements.
-
-    Differentiates between tables and remote models, taking into account emulator
-    limitations (e.g. remote Vertex AI models unsupported on Cloud Spanner emulator).
-
-    Args:
-        spanner_client: Connected SpannerClient instance.
-        compiled_statements: List of DDL statements generated from compiled migrations.
-
-    Returns:
-        Dictionary summarizing table parity, model parity, and emulator status.
-    """
-    live_ddl = inspect_database_schema(spanner_client)
-
-    live_tables = set(extract_table_names(live_ddl))
-    expected_tables = set(extract_table_names(compiled_statements))
-
-    live_models = set(extract_model_names(live_ddl))
-    expected_models = set(extract_model_names(compiled_statements))
-
-    return {
-        "is_emulator": spanner_client.is_emulator,
-        "matching_tables": sorted(live_tables & expected_tables),
-        "missing_tables": sorted(expected_tables - live_tables),
-        "extra_tables": sorted(live_tables - expected_tables),
-        "matching_models": sorted(live_models & expected_models),
-        "missing_models": sorted(expected_models - live_models),
-    }
