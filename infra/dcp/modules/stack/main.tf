@@ -247,7 +247,6 @@ module "ingestion_workflow" {
   ingestion_input_path                 = var.ingestion_config.input_path
   spanner_instance_id                  = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
   spanner_database_id                  = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
-  enable_spanner_embeddings           = var.datacommons_services_config.resolve_with_spanner_embeddings
   vpc_network                          = local.effective_vpc_network
   dataflow_ip_configuration            = local.effective_dataflow_ip_configuration
   dataflow_subnetwork                  = local.effective_dataflow_subnetwork

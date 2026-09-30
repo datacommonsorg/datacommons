@@ -542,13 +542,8 @@ launch_and_poll_preprocessing_job:
   steps:
     - init_args:
         assign:
-          - container_commands: ["bash", "./run.sh", "--mode=dcpbridge"]
+          - container_commands: '$${["bash", "./run.sh", "--mode=dcpbridge", "--imports=" + imports_arg]}'
           - batch_job_id: '$${"${clean_instance_name_prefix}prep-" + string(int(sys.now()))}'
-    - set_args:
-        switch:
-          - condition: '$${imports_arg != ""}'
-            assign:
-              - container_commands: '$${container_commands + ["--imports=" + imports_arg]}'
     - create_batch_job:
         call: googleapis.batch.v1.projects.locations.jobs.create
         args:
@@ -573,7 +568,7 @@ launch_and_poll_preprocessing_job:
                           INPUT_DIR: 'gs://${artifacts_bucket_name}/${ingestion_input_path}'
                           OUTPUT_DIR: 'gs://${artifacts_bucket_name}/${ingestion_artifacts_path}'
                           GCS_BUCKET: '${artifacts_bucket_name}'
-                          ENABLE_SPANNER_EMBEDDINGS: '${enable_spanner_embeddings}'
+                          ENABLE_SPANNER_EMBEDDINGS: 'true'
                           USE_SPANNER_GRAPH: 'true'
                           GCP_SPANNER_INSTANCE_ID: '${spanner_instance_id}'
                           GCP_SPANNER_DATABASE_NAME: '${spanner_database_id}'

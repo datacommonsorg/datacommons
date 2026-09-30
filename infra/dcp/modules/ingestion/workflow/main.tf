@@ -44,7 +44,6 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
     preprocessing_service_account_email = var.preprocessing_config.service_account_email
     spanner_instance_id                 = var.spanner_instance_id
     spanner_database_id                 = var.spanner_database_id
-    enable_spanner_embeddings           = var.enable_spanner_embeddings
     dc_api_key_secret_version           = var.preprocessing_config.dc_api_key_secret_version
     postprocessing_job_name             = var.postprocessing_job_name
     dataflow_max_workers                = var.dataflow_max_workers

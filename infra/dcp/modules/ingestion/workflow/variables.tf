@@ -96,11 +96,6 @@ variable "ingestion_input_path" {
   description = "Path within the artifacts bucket for raw ingestion input data"
   default     = ""
 }
-variable "enable_spanner_embeddings" {
-  type        = bool
-  description = "Whether to enable Spanner embeddings generation in preprocessing"
-  default     = true
-}
 
 variable "postprocessing_job_name" {
   type        = string
