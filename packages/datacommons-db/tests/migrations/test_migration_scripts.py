@@ -37,11 +37,11 @@ from datacommons_db.clients.spanner_client import (
 )
 from datacommons_db.migrations import (
     MigrationRunner,
-    generate_engine_schema_snapshot_sql,
     get_schema_snapshot_path,
-    is_emulator_reachable,
     write_compiled_schema,
 )
+from datacommons_db.migrations.emulator import is_emulator_reachable
+from datacommons_db.migrations.snapshot import generate_engine_schema_snapshot_sql
 from datacommons_db.schema.loader import load_baseline_statements
 
 FILENAME_PATTERN = re.compile(r"^(\d{14})_[a-z0-9_]+\.py$")

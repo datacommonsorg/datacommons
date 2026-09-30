@@ -220,11 +220,11 @@ CREATE OR REPLACE PROPERTY GRAPH DCGraph
   );
 
 -- ============================================================================
--- 🚀 Production-Only Schema Objects (Skipped on Spanner Emulator)
+-- ⏭️ Schema Objects Skipped on Spanner Emulator
 -- ============================================================================
 -- The following DDL statements are defined in migrations flagged with
 -- emulator_supported = False (e.g. remote Vertex AI Model registrations that
--- require production Cloud Spanner and Vertex AI infrastructure).
+-- require live Cloud Spanner and Vertex AI infrastructure).
 -- ============================================================================
 
 CREATE OR REPLACE MODEL NodeEmbeddingModel

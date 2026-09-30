@@ -178,22 +178,32 @@ def ensure_emulator_running(
     )
 
 
+def resolve_instance_config(client: spanner.Client) -> str:
+    """Discovers and resolves a supported instance configuration for the emulator.
+
+    Checks the instance configurations exposed by the emulator, preferring 'default'
+    (standard for Spanner Omni) and 'emulator-config' (standard for Google Spanner emulator).
+
+    Args:
+        client: Connected spanner.Client instance.
+
+    Returns:
+        Full instance configuration name string.
+    """
+    configs = [c.name for c in client.list_instance_configs()]
+    for preferred in ("default", "emulator-config"):
+        for name in configs:
+            if preferred in name:
+                return name
+    return configs[0] if configs else f"{client.project_name}/instanceConfigs/default"
+
+
 def _get_or_create_instance(
     client: spanner.Client,
     instance_id: str = DEFAULT_INSTANCE_ID,
 ) -> Instance:
     """Discovers instance configuration and ensures the emulator instance exists."""
-    configs = list(client.list_instance_configs())
-    config_names = [c.name for c in configs]
-    config_name = next(
-        (c for c in config_names if "default" in c),
-        next(
-            (c for c in config_names if "emulator-config" in c),
-            config_names[0]
-            if config_names
-            else f"{client.project_name}/instanceConfigs/default",
-        ),
-    )
+    config_name = resolve_instance_config(client)
     instance = client.instance(
         instance_id,
         configuration_name=config_name,

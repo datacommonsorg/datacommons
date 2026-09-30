@@ -15,19 +15,9 @@
 """Schema module exposing baseline schema definitions and inspection utilities."""
 
 from datacommons_db.schema.inspector import inspect_database_schema
-from datacommons_db.schema.loader import (
-    BASELINE_SCHEMA_FILENAME,
-    SchemaLoader,
-    get_baseline_schema_path,
-    load_baseline_statements,
-    load_baseline_template,
-)
+from datacommons_db.schema.loader import load_baseline_statements
 
 __all__ = [
-    "BASELINE_SCHEMA_FILENAME",
-    "SchemaLoader",
-    "get_baseline_schema_path",
     "inspect_database_schema",
     "load_baseline_statements",
-    "load_baseline_template",
 ]

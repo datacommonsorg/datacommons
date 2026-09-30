@@ -136,3 +136,4 @@ def test_ephemeral_emulator_database_lifecycle() -> None:
             mock_db.drop.assert_not_called()
 
         mock_db.drop.assert_called_once()
+

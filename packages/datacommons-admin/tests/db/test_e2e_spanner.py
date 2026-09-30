@@ -22,6 +22,7 @@ import pytest
 from click.testing import CliRunner
 from datacommons_admin.admin_cli import admin
 from datacommons_db.clients import SpannerClient
+from datacommons_db.migrations.emulator import resolve_instance_config
 from datacommons_db.schema import inspect_database_schema
 from google.auth.credentials import AnonymousCredentials
 from google.cloud import spanner
@@ -56,17 +57,7 @@ def test_e2e_init_and_migrate_db_on_spanner_emulator(runner: CliRunner):
 
     # Ensure Spanner instance and database exist in emulator
     client = spanner.Client(project=project_id, credentials=AnonymousCredentials())
-    configs = list(client.list_instance_configs())
-    config_names = [c.name for c in configs]
-    config_name = next(
-        (c for c in config_names if "default" in c),
-        next(
-            (c for c in config_names if "emulator-config" in c),
-            config_names[0]
-            if config_names
-            else f"{client.project_name}/instanceConfigs/default",
-        ),
-    )
+    config_name = resolve_instance_config(client)
     instance = client.instance(
         instance_id,
         configuration_name=config_name,

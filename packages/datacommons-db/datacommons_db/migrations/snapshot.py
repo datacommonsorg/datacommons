@@ -35,14 +35,14 @@ SCHEMA_SNAPSHOT_HEADER = """-- =================================================
 -- ============================================================================
 """
 
-PRODUCTION_ONLY_BANNER = """
+EMULATOR_SKIPPED_BANNER = """
 
 -- ============================================================================
--- 🚀 Production-Only Schema Objects (Skipped on Spanner Emulator)
+-- ⏭️ Schema Objects Skipped on Spanner Emulator
 -- ============================================================================
 -- The following DDL statements are defined in migrations flagged with
 -- emulator_supported = False (e.g. remote Vertex AI Model registrations that
--- require production Cloud Spanner and Vertex AI infrastructure).
+-- require live Cloud Spanner and Vertex AI infrastructure).
 -- ============================================================================
 """
 
@@ -81,7 +81,7 @@ def _collect_skipped_migration_statements(
             migration.upgrade(mock_client)
             if progress_callback:
                 progress_callback(
-                    f"  ✔ Appended remote model statement ({migration.description})"
+                    f"  ✔ Appended emulator-skipped statement ({migration.description})"
                 )
 
     return [s.strip() for s in skipped_statements if s.strip()]
@@ -91,13 +91,13 @@ def _format_snapshot_sql(
     engine_statements: Sequence[str],
     skipped_statements: Sequence[str] | None = None,
 ) -> str:
-    """Combines engine statements and production-only skipped statements into SQL text."""
+    """Combines engine statements and emulator-skipped statements into SQL text."""
     engine_sql = ";\n\n".join(s.strip() for s in engine_statements if s.strip()) + ";"
     if skipped_statements:
         skipped_sql = (
             ";\n\n".join(s.strip() for s in skipped_statements if s.strip()) + ";\n"
         )
-        return f"{SCHEMA_SNAPSHOT_HEADER}\n{engine_sql}{PRODUCTION_ONLY_BANNER}\n{skipped_sql}"
+        return f"{SCHEMA_SNAPSHOT_HEADER}\n{engine_sql}{EMULATOR_SKIPPED_BANNER}\n{skipped_sql}"
     return f"{SCHEMA_SNAPSHOT_HEADER}\n{engine_sql}\n"
 
 
