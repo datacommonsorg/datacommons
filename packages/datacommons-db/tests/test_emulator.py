@@ -39,6 +39,15 @@ def test_is_emulator_reachable_success() -> None:
         mock_sock.close.assert_called_once()
 
 
+def test_is_emulator_reachable_ipv6() -> None:
+    """Verifies is_emulator_reachable properly parses IPv6 bracketed addresses."""
+    mock_sock = MagicMock()
+    with patch("socket.create_connection", return_value=mock_sock) as mock_conn:
+        assert is_emulator_reachable("[::1]:9010")
+        mock_conn.assert_called_once_with(("::1", 9010), timeout=1)
+        mock_sock.close.assert_called_once()
+
+
 def test_ensure_emulator_running_uses_running() -> None:
     """Verifies ensure_emulator_running returns host if reachable."""
     with patch(
@@ -60,6 +69,37 @@ def test_ensure_emulator_running_no_docker_raises() -> None:
         pytest.raises(ConnectionError, match="Docker was not found on PATH"),
     ):
         ensure_emulator_running()
+
+
+def test_ensure_emulator_running_called_process_error_diagnostics() -> None:
+    """Verifies docker compose failures surface stderr in ConnectionError."""
+    import subprocess
+    from pathlib import Path
+
+    err = subprocess.CalledProcessError(
+        1, ["docker", "compose"], stderr=b"port 9010 already in use by process 1234"
+    )
+    with (
+        patch(
+            "datacommons_db.migrations.emulator.is_emulator_reachable",
+            return_value=False,
+        ),
+        patch("shutil.which", return_value="/usr/local/bin/docker"),
+        patch("subprocess.run") as mock_run,
+        patch(
+            "datacommons_db.migrations.emulator.get_docker_compose_path",
+            return_value=Path("/fake/docker-compose.yml"),
+        ),
+        patch.object(Path, "exists", return_value=True),
+    ):
+        # First call is docker info (success), second call is docker compose up (failure)
+        mock_run.side_effect = [
+            MagicMock(returncode=0),
+            err,
+        ]
+        with pytest.raises(ConnectionError) as exc_info:
+            ensure_emulator_running()
+        assert "port 9010 already in use" in str(exc_info.value)
 
 
 def test_ephemeral_emulator_database_lifecycle() -> None:

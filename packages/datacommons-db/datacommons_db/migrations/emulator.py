@@ -47,9 +47,12 @@ def is_emulator_reachable(host: str | None = None) -> bool:
     """
     target = host or os.getenv("SPANNER_EMULATOR_HOST") or DEFAULT_EMULATOR_HOST
     try:
-        parts = target.split(":")
-        ip = parts[0]
-        port = int(parts[1]) if len(parts) > 1 else 9010
+        if ":" in target:
+            ip, port_str = target.rsplit(":", 1)
+            ip = ip.strip("[]")
+            port = int(port_str)
+        else:
+            ip, port = target, 9010
         sock = socket.create_connection((ip, port), timeout=1)
         sock.close()
         return True
@@ -151,6 +154,17 @@ def ensure_emulator_running(
                         )
                     return DEFAULT_EMULATOR_HOST
                 time.sleep(0.5)
+        except subprocess.CalledProcessError as e:
+            stderr_msg = (
+                e.stderr.decode("utf-8", errors="replace").strip()
+                if isinstance(e.stderr, bytes)
+                else str(e.stderr or e)
+            )
+            error_details = f":\n{stderr_msg}" if stderr_msg else f": {e}"
+            raise ConnectionError(
+                f"Spanner emulator auto-launch failed{error_details}\n"
+                f"Please start it manually via: docker compose -f {compose_path} up -d spanner"
+            ) from e
         except Exception as e:
             raise ConnectionError(
                 f"Spanner emulator auto-launch failed: {e}.\n"

@@ -20,7 +20,7 @@ from typing import Any
 from datacommons_db.clients import SpannerClient
 
 _CREATE_TABLE_PATTERN = re.compile(
-    r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([A-Za-z0-9_]+)",
+    r"CREATE\s+(?:OR\s+REPLACE\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([A-Za-z0-9_]+)",
     re.IGNORECASE,
 )
 _CREATE_MODEL_PATTERN = re.compile(

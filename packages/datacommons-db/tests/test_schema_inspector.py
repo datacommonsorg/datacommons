@@ -28,10 +28,11 @@ def test_extract_table_names():
     ddl = [
         "CREATE TABLE Node (id STRING(MAX)) PRIMARY KEY (id)",
         "CREATE TABLE IF NOT EXISTS Edge (src STRING(MAX)) PRIMARY KEY (src)",
+        "CREATE OR REPLACE TABLE Replacement (id STRING(MAX)) PRIMARY KEY (id)",
         "CREATE INDEX idx ON Node(id)",
     ]
     tables = extract_table_names(ddl)
-    assert tables == ["Edge", "Node"]
+    assert tables == ["Edge", "Node", "Replacement"]
 
 
 def test_extract_model_names():
