@@ -31,4 +31,3 @@ def test_inspect_database_schema():
     ddl = inspect_database_schema(mock_client)
     assert len(ddl) == 2
     assert "CREATE TABLE Node" in ddl[0]
-
