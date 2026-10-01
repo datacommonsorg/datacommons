@@ -146,4 +146,3 @@ def test_integration_prober_deployed_artifact_outputs_contract(
         f"{sorted(missing_in_stack)}\n"
         "These outputs must be declared so the root stack can forward deployed artifact digests."
     )
-
