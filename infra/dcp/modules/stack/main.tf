@@ -23,6 +23,12 @@ locals {
   redis_port    = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
   redis_ca_cert = var.redis_config.enable && var.redis_config.enable_tls && length(module.redis) > 0 ? module.redis[0].redis_ca_cert : ""
 
+  effective_spanner_config = var.spanner_config.enable ? {
+    instance_id            = module.spanner[0].spanner_instance_id
+    database_id            = module.spanner[0].spanner_database_id
+    bigquery_connection_id = module.spanner[0].bigquery_connection_id
+  } : null
+
   effective_vpc_network = (
     var.network_config.enable && var.network_config.enable_workload_vpc && module.network.network_id != null ? module.network.network_id : ""
   )
@@ -164,20 +170,16 @@ module "ingestion_postprocessing_job" {
   source = "../ingestion/postprocessing_job"
   count  = var.ingestion_config.enable_ingestion ? 1 : 0
 
-  project_id                    = var.global.project_id
-  instance_name                 = var.global.instance_name
-  region                        = var.global.region
-  stateless_deletion_protection = var.global.stateless_deletion_protection
-  image                         = var.ingestion_config.postprocessing_job_image
-  cpu                           = var.ingestion_config.postprocessing_job_cpu
-  memory                        = var.ingestion_config.postprocessing_job_memory
-  timeout                       = var.ingestion_config.postprocessing_job_timeout
-  vpc_access                    = module.network.vpc_access
-  spanner_config = var.spanner_config.enable ? {
-    instance_id            = module.spanner[0].spanner_instance_id
-    database_id            = module.spanner[0].spanner_database_id
-    bigquery_connection_id = module.spanner[0].bigquery_connection_id
-  } : null
+  project_id                     = var.global.project_id
+  instance_name                  = var.global.instance_name
+  region                         = var.global.region
+  stateless_deletion_protection  = var.global.stateless_deletion_protection
+  image                          = var.ingestion_config.postprocessing_job_image
+  cpu                            = var.ingestion_config.postprocessing_job_cpu
+  memory                         = var.ingestion_config.postprocessing_job_memory
+  timeout                        = var.ingestion_config.postprocessing_job_timeout
+  vpc_access                     = module.network.vpc_access
+  spanner_config                 = local.effective_spanner_config
   enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
   enable_spanner_embeddings      = var.spanner_config.enable_embeddings_generation
   env_vars                       = local.cloud_run_shared_env_variables
@@ -190,10 +192,7 @@ module "ingestion_dataflow" {
   project_id            = var.global.project_id
   instance_name         = var.global.instance_name
   ingestion_bucket_name = module.storage.artifacts_bucket_name
-  spanner_config = var.spanner_config.enable ? {
-    instance_id = module.spanner[0].spanner_instance_id
-    database_id = module.spanner[0].spanner_database_id
-  } : null
+  spanner_config        = local.effective_spanner_config
 }
 
 module "ingestion_helper_service" {
@@ -204,13 +203,10 @@ module "ingestion_helper_service" {
   instance_name                 = var.global.instance_name
   region                        = var.global.region
   stateless_deletion_protection = var.global.stateless_deletion_protection
-  spanner_config = var.spanner_config.enable ? {
-    instance_id = module.spanner[0].spanner_instance_id
-    database_id = module.spanner[0].spanner_database_id
-  } : null
-  ingestion_bucket_name        = module.storage.artifacts_bucket_name
-  image                        = var.ingestion_config.helper_service_image
-  enable_embeddings_generation = var.spanner_config.enable_embeddings_generation
+  spanner_config                = local.effective_spanner_config
+  ingestion_bucket_name         = module.storage.artifacts_bucket_name
+  image                         = var.ingestion_config.helper_service_image
+  enable_embeddings_generation  = var.spanner_config.enable_embeddings_generation
 
   # Direct VPC Egress from network module
   vpc_access               = module.network.vpc_access
@@ -317,10 +313,7 @@ module "datacommons_services" {
   artifacts_bucket_name         = module.storage.artifacts_bucket_name
   vpc_access                    = module.network.vpc_access
   use_spanner                   = var.spanner_config.enable
-  spanner_config = var.spanner_config.enable ? {
-    instance_id = module.spanner[0].spanner_instance_id
-    database_id = module.spanner[0].spanner_database_id
-  } : null
+  spanner_config                = local.effective_spanner_config
   env_vars = concat(local.cloud_run_shared_env_variables, [
     {
       name  = "INGESTION_WORKFLOW_NAME"
