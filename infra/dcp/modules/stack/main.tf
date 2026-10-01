@@ -183,9 +183,9 @@ module "ingestion_postprocessing_job" {
   memory                         = var.ingestion_config.postprocessing_job_memory
   timeout                        = var.ingestion_config.postprocessing_job_timeout
   vpc_access                     = module.network.vpc_access
-  spanner_instance_id            = try(module.spanner[0].spanner_instance_id, "")
-  spanner_database_id            = try(module.spanner[0].spanner_database_id, "")
-  bigquery_connection_id         = try(module.spanner[0].bigquery_connection_id, "")
+  spanner_instance_id            = coalesce(one(module.spanner[*].spanner_instance_id), "")
+  spanner_database_id            = coalesce(one(module.spanner[*].spanner_database_id), "")
+  bigquery_connection_id         = coalesce(one(module.spanner[*].bigquery_connection_id), "")
   enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
   enable_spanner_embeddings      = var.spanner_config.enable_embeddings_generation
   env_vars                       = local.cloud_run_shared_env_variables
@@ -208,8 +208,8 @@ module "ingestion_helper_service" {
   instance_name                 = var.global.instance_name
   region                        = var.global.region
   stateless_deletion_protection = var.global.stateless_deletion_protection
-  spanner_instance_id           = try(module.spanner[0].spanner_instance_id, "")
-  spanner_database_id           = try(module.spanner[0].spanner_database_id, "")
+  spanner_instance_id           = coalesce(one(module.spanner[*].spanner_instance_id), "")
+  spanner_database_id           = coalesce(one(module.spanner[*].spanner_database_id), "")
   ingestion_bucket_name         = module.storage.artifacts_bucket_name
   image                         = var.ingestion_config.helper_service_image
   enable_embeddings_generation  = var.spanner_config.enable_embeddings_generation
@@ -381,6 +381,7 @@ resource "google_storage_bucket_iam_member" "serving_bucket_access" {
 
 resource "google_spanner_database_iam_member" "serving_spanner_reader" {
   count    = var.spanner_config.enable && var.datacommons_services_config.enable ? 1 : 0
+  project  = var.global.project_id
   instance = one(module.spanner[*].spanner_instance_id)
   database = one(module.spanner[*].spanner_database_id)
   role     = "roles/spanner.databaseReader"
@@ -389,6 +390,7 @@ resource "google_spanner_database_iam_member" "serving_spanner_reader" {
 
 resource "google_spanner_database_iam_member" "dataflow_spanner_user" {
   count    = var.spanner_config.enable && var.ingestion_config.enable_ingestion ? 1 : 0
+  project  = var.global.project_id
   instance = one(module.spanner[*].spanner_instance_id)
   database = one(module.spanner[*].spanner_database_id)
   role     = "roles/spanner.databaseUser"
@@ -397,6 +399,7 @@ resource "google_spanner_database_iam_member" "dataflow_spanner_user" {
 
 resource "google_spanner_database_iam_member" "postprocessing_spanner_user" {
   count    = var.spanner_config.enable && var.ingestion_config.enable_ingestion ? 1 : 0
+  project  = var.global.project_id
   instance = one(module.spanner[*].spanner_instance_id)
   database = one(module.spanner[*].spanner_database_id)
   role     = "roles/spanner.databaseUser"
@@ -405,6 +408,7 @@ resource "google_spanner_database_iam_member" "postprocessing_spanner_user" {
 
 resource "google_spanner_database_iam_member" "helper_spanner_user" {
   count    = var.spanner_config.enable && var.ingestion_config.enable_ingestion ? 1 : 0
+  project  = var.global.project_id
   instance = one(module.spanner[*].spanner_instance_id)
   database = one(module.spanner[*].spanner_database_id)
   role     = "roles/spanner.databaseUser"
