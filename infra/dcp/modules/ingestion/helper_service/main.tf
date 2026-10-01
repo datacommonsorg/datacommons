@@ -125,12 +125,6 @@ resource "google_secret_manager_secret_iam_member" "helper_redis_auth_secret_acc
   member    = "serviceAccount:${google_service_account.helper_sa[0].email}"
 }
 
-resource "google_project_iam_member" "helper_spanner_user" {
-  count   = var.deploy && var.use_spanner ? 1 : 0
-  project = var.project_id
-  role    = "roles/spanner.databaseUser"
-  member  = "serviceAccount:${google_service_account.helper_sa[0].email}"
-}
 
 
 resource "google_storage_bucket_iam_member" "helper_bucket_access" {

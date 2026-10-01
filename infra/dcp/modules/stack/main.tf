@@ -295,8 +295,8 @@ module "redis" {
 module "auth" {
   source = "../auth"
 
-  project_id             = var.global.project_id
-  instance_name          = var.global.instance_name
+  project_id                    = var.global.project_id
+  instance_name                 = var.global.instance_name
   dc_api_key                    = var.auth_config.google_datacommons_api_key
   google_maps_api_key           = var.auth_config.google_maps_api_key
   create_google_maps_key        = var.auth_config.create_google_maps_key
@@ -384,6 +384,27 @@ resource "google_storage_bucket_iam_member" "serving_bucket_access" {
   member = "serviceAccount:${module.datacommons_services[0].service_account_email}"
 }
 
+resource "google_spanner_database_iam_member" "serving_spanner_reader" {
+  count    = var.spanner_config.enable && var.datacommons_services_config.enable ? 1 : 0
+  instance = module.spanner[0].spanner_instance_id
+  database = module.spanner[0].spanner_database_id
+  role     = "roles/spanner.databaseReader"
+  member   = "serviceAccount:${module.datacommons_services[0].service_account_email}"
+}
+
+resource "google_spanner_database_iam_member" "spanner_user_permissions" {
+  for_each = var.spanner_config.enable && var.ingestion_config.enable_ingestion ? {
+    dataflow       = module.ingestion_dataflow.service_account_email
+    postprocessing = module.ingestion_postprocessing_job[0].service_account_email
+    helper         = module.ingestion_helper_service.service_account_email
+  } : {}
+
+  instance = module.spanner[0].spanner_instance_id
+  database = module.spanner[0].spanner_database_id
+  role     = "roles/spanner.databaseUser"
+  member   = "serviceAccount:${each.value}"
+}
+
 resource "google_project_iam_member" "workflow_invoker" {
   count   = var.ingestion_config.enable_ingestion ? 1 : 0
   project = var.global.project_id
@@ -440,13 +461,6 @@ resource "google_project_iam_member" "workflow_dataflow_developer" {
   count   = var.ingestion_config.enable_ingestion ? 1 : 0
   project = var.global.project_id
   role    = "roles/dataflow.developer"
-  member  = "serviceAccount:${module.ingestion_workflow.service_account_email}"
-}
-
-resource "google_project_iam_member" "workflow_run_viewer" {
-  count   = var.ingestion_config.enable_ingestion ? 1 : 0
-  project = var.global.project_id
-  role    = "roles/run.viewer"
   member  = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
 

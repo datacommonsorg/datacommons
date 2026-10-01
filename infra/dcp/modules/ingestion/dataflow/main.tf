@@ -9,12 +9,6 @@ resource "google_service_account" "dataflow_sa" {
   display_name = "Data Commons Ingestion Dataflow SA"
 }
 
-resource "google_project_iam_member" "ingestion_spanner_user" {
-  count   = var.deploy && var.use_spanner ? 1 : 0
-  project = var.project_id
-  role    = "roles/spanner.databaseUser"
-  member  = "serviceAccount:${google_service_account.dataflow_sa[0].email}"
-}
 
 resource "google_project_iam_member" "dataflow_worker" {
   count   = var.deploy ? 1 : 0
