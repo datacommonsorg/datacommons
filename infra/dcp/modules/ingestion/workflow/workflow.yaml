@@ -583,9 +583,11 @@ launch_and_poll_preprocessing_job:
 %{ if worker_subnetwork != "" || vpc_network != "" || worker_ip_configuration == "WORKER_IP_PRIVATE" }
               network:
                 networkInterfaces:
-                  - %{ if vpc_network != "" }network: '${vpc_network}'
-                    %{ endif }%{ if worker_subnetwork != "" }subnetwork: '${worker_subnetwork}'
-                    %{ endif }noExternalIpAddress: ${worker_ip_configuration == "WORKER_IP_PRIVATE"}
+                  - network: '${vpc_network != "" ? vpc_network : "global/networks/default"}'
+%{ if worker_subnetwork != "" }
+                    subnetwork: '${worker_subnetwork}'
+%{ endif }
+                    noExternalIpAddress: ${worker_ip_configuration == "WORKER_IP_PRIVATE"}
 %{ endif }
             logsPolicy:
               destination: CLOUD_LOGGING
