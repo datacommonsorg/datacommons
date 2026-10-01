@@ -73,6 +73,14 @@ datacommons_services_allow_unauthenticated_access = false
 # datacommons_services_google_analytics_tag_id = "your-analytics-tag-id"
 
 # =============================================================================
+# Load Balancer Module
+# =============================================================================
+# Provisions a Google Cloud External Application Load Balancer with a global Anycast IP
+# and a Serverless Network Endpoint Group (NEG) in front of the serving service.
+# When enabled, Cloud Run restricts ingress to only accept traffic from the Load Balancer.
+# enable_load_balancer = false
+
+# =============================================================================
 # Ingestion - Preprocessing Job
 # =============================================================================
 # The root directory path within the Cloud Storage bucket where raw data

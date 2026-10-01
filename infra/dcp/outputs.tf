@@ -88,3 +88,13 @@ output "ingestion_prep_job_name" {
   description = "Deprecated: Name of the data ingestion pre-processing job"
   value       = ""
 }
+
+output "load_balancer_ip" {
+  description = "The external IP address of the External Application Load Balancer."
+  value       = module.stack.load_balancer_ip
+}
+
+output "load_balancer_url" {
+  description = "The HTTP URL of the External Application Load Balancer."
+  value       = module.stack.load_balancer_url
+}
