@@ -40,11 +40,6 @@ output "ingestion_service_url" {
   value       = module.stack.ingestion_service_url
 }
 
-output "ingestion_prep_job_name" {
-  description = "Name of the data ingestion pre-processing job"
-  value       = module.stack.ingestion_prep_job_name
-}
-
 output "ingestion_workflow_service_account_email" {
   description = "Email of the service account used by the ingestion workflow"
   value       = module.stack.ingestion_workflow_service_account_email
@@ -87,4 +82,9 @@ output "subnet_id" {
 output "subnet_url" {
   description = "URL / self_link of the private subnetwork"
   value       = module.stack.subnet_url
+}
+
+output "ingestion_prep_job_name" {
+  description = "Deprecated: Name of the data ingestion pre-processing job"
+  value       = ""
 }

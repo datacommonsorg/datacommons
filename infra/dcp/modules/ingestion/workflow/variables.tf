@@ -71,10 +71,29 @@ variable "datacommons_services_name" {
   default     = ""
 }
 
+variable "preprocessing_config" {
+  description = <<-EOT
+    Configuration for the Cloud Batch preprocessing job launched by this
+    workflow. All values are rendered into the batch job spec in workflow.yaml;
+    no Terraform resource is created for the job itself.
+  EOT
 
-variable "preprocessing_job_name" {
+  type = object({
+    # Batch job runtime
+    image   = optional(string)
+    cpu     = optional(string)
+    memory  = optional(string)
+    timeout = optional(string)
+
+    # Identity
+    service_account_email     = string
+    dc_api_key_secret_version = optional(string, "")
+  })
+}
+
+variable "ingestion_input_path" {
   type        = string
-  description = "Name of the ingestion preprocessing Cloud Run job"
+  description = "Path within the artifacts bucket for raw ingestion input data"
   default     = ""
 }
 
@@ -103,6 +122,12 @@ variable "spanner_instance_id" {
 variable "spanner_database_id" {
   type        = string
   description = "Cloud Spanner database ID for ingestion"
+  default     = ""
+}
+
+variable "vpc_network" {
+  type        = string
+  description = "VPC network ID or self_link for compute workers (used by Cloud Batch when VPC is enabled)."
   default     = ""
 }
 
