@@ -56,25 +56,37 @@ def _resolve_deployed_artifacts(
     artifacts = artifacts or ArtifactConfig()
     outputs = tf_outputs or _read_terraform_outputs(workspace_dir)
 
-    resolved = {
+    ingestion_enabled = bool(
+        outputs.get("ingestion_service_url") or outputs.get("ingestion_bucket_url")
+    )
+
+    resolved: dict[str, Any] = {
         "services_image": outputs.get("datacommons_services_image"),
-        "helper_image": outputs.get("ingestion_helper_image"),
-        "preprocessing_image": outputs.get("ingestion_preprocessing_image"),
-        "postprocessing_image": outputs.get("ingestion_postprocessing_image"),
     }
-    template_path = outputs.get("ingestion_dataflow_template_gcs_path")
+    template_path = None
+
+    if ingestion_enabled:
+        resolved.update(
+            {
+                "helper_image": outputs.get("ingestion_helper_image"),
+                "preprocessing_image": outputs.get("ingestion_preprocessing_image"),
+                "postprocessing_image": outputs.get("ingestion_postprocessing_image"),
+            }
+        )
+        template_path = outputs.get("ingestion_dataflow_template_gcs_path")
 
     missing = [field for field, val in resolved.items() if not val]
-    if missing or not template_path:
+    if missing or (ingestion_enabled and not template_path):
         raise RuntimeError(
             f"❌ Error: Missing required deployed artifacts in Terraform outputs at '{workspace_dir}': "
-            f"missing_images={missing}, missing_template={template_path is None}."
+            f"missing_images={missing}, missing_template={ingestion_enabled and template_path is None}."
         )
 
-    raw_artifacts = {
+    raw_artifacts: dict[str, Any] = {
         **resolved,
-        "dataflow_template_gcs_path": template_path,
     }
+    if ingestion_enabled:
+        raw_artifacts["dataflow_template_gcs_path"] = template_path
 
     digests = _resolve_artifact_digests(raw_artifacts)
 
@@ -82,11 +94,11 @@ def _resolve_deployed_artifacts(
         cli_source=artifacts.cli_source,
         cli_version=artifacts.cli_version,
         target_tag=artifacts.target_tag or "latest",
-        services_image=digests["services_image"],
-        helper_image=digests["helper_image"],
-        preprocessing_image=digests["preprocessing_image"],
-        postprocessing_image=digests["postprocessing_image"],
-        dataflow_template_gcs_path=digests["dataflow_template_gcs_path"],
+        services_image=digests.get("services_image"),
+        helper_image=digests.get("helper_image"),
+        preprocessing_image=digests.get("preprocessing_image"),
+        postprocessing_image=digests.get("postprocessing_image"),
+        dataflow_template_gcs_path=digests.get("dataflow_template_gcs_path"),
     )
 
 
