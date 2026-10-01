@@ -223,36 +223,38 @@ check_spanner_permissions() {
   local spanner_instance
   spanner_instance=$(cd "$ws_dir" && terraform output -raw spanner_instance_id 2>/dev/null || true)
 
-  if [[ -n "$current_user" && -n "$spanner_instance" ]]; then
-    echo "    Spanner Instance: ${spanner_instance}"
-
-    local roles=("roles/spanner.databaseAdmin" "roles/spanner.databaseUser")
-    for role in "${roles[@]}"; do
-      local has_role
-      has_role=$(gcloud spanner instances get-iam-policy "$spanner_instance" \
-        --project="$project" \
-        --filter="bindings.role=${role} AND bindings.members=user:${current_user}" \
-        --format="value(bindings.role)" 2>/dev/null || true)
-
-      if [[ -z "$has_role" ]]; then
-        echo "    Granting '${role}' to user:${current_user} on ${spanner_instance}..."
-        if gcloud spanner instances add-iam-policy-binding "$spanner_instance" \
-             --member="user:${current_user}" \
-             --role="${role}" \
-             --project="$project" --quiet &>/dev/null; then
-          echo "    ✔ Successfully granted ${role}."
-        else
-          echo "    Notice: Could not automatically grant ${role} (insufficient IAM admin rights)."
-          echo "    To run 'datacommons admin init-db' or 'migrate-db', ask a project admin to run:"
-          echo "      gcloud spanner instances add-iam-policy-binding \"${spanner_instance}\" --member=\"user:${current_user}\" --role=\"${role}\" --project=\"${project}\""
-        fi
-      else
-        echo "    ✔ Spanner permission ${role} already configured for ${current_user}."
-      fi
-    done
-  else
+  if [[ -z "$current_user" || -z "$spanner_instance" ]]; then
     echo "    Skipped Spanner permission check (instance might not be fully applied or enabled yet)."
+    return 0
   fi
+
+  echo "    Spanner Instance: ${spanner_instance}"
+
+  local roles=("roles/spanner.databaseAdmin" "roles/spanner.databaseUser")
+  for role in "${roles[@]}"; do
+    local has_role
+    has_role=$(gcloud spanner instances get-iam-policy "$spanner_instance" \
+      --project="$project" \
+      --filter="bindings.role=${role} AND bindings.members=user:${current_user}" \
+      --format="value(bindings.role)" 2>/dev/null || true)
+
+    if [[ -n "$has_role" ]]; then
+      echo "    ✔ Spanner permission ${role} already configured for ${current_user}."
+      continue
+    fi
+
+    echo "    Granting '${role}' to user:${current_user} on ${spanner_instance}..."
+    if gcloud spanner instances add-iam-policy-binding "$spanner_instance" \
+         --member="user:${current_user}" \
+         --role="${role}" \
+         --project="$project" --quiet &>/dev/null; then
+      echo "    ✔ Successfully granted ${role}."
+    else
+      echo "    Notice: Could not automatically grant ${role} (insufficient IAM admin rights)."
+      echo "    To run 'datacommons admin init-db' or 'migrate-db', ask a project admin to run:"
+      echo "      gcloud spanner instances add-iam-policy-binding \"${spanner_instance}\" --member=\"user:${current_user}\" --role=\"${role}\" --project=\"${project}\""
+    fi
+  done
 }
 
 main() {

@@ -51,7 +51,9 @@ def _poll_until_success(
                 logger.debug("Verification passed on attempt %d", attempt)
                 return True
         except Exception:
-            logger.debug("Verification attempt %d raised exception", attempt, exc_info=True)
+            logger.debug(
+                "Verification attempt %d raised exception", attempt, exc_info=True
+            )
         attempt += 1
     return False
 
@@ -85,7 +87,32 @@ class PreflightPermissionChecker:
         )
         return f"{member_type}:{self.current_user}"
 
-    def prompt_and_fix(self, result: PermissionCheckResult) -> bool:
+    def _try_auto_grant(
+        self,
+        grant_commands: list[list[str]],
+        verify_fn: Callable[[], bool],
+        role_label: str,
+        target_name: str,
+    ) -> bool:
+        """Attempts to auto-grant IAM roles using gcloud and polls until propagation."""
+        if not self.current_user:
+            return False
+
+        for cmd in grant_commands:
+            res = subprocess.run(cmd, capture_output=True, text=True, check=False)
+            if res.returncode != 0:
+                return False
+
+        print(f"  ✔ Automatically granted {role_label} on {target_name}")
+        print("  ⏳ Waiting for GCP IAM policy propagation...")
+        if _poll_until_success(verify_fn):
+            print("  ✔ IAM propagation confirmed.")
+            return True
+        return False
+
+    def prompt_and_fix(
+        self, result: PermissionCheckResult, verify_fn: Callable[[], bool]
+    ) -> bool:
         """Interactively prompts the user to apply the fix command if running in a terminal."""
         if not result.fix_command:
             return False
@@ -115,16 +142,7 @@ class PreflightPermissionChecker:
 
             print("   ✔ Permission successfully granted!")
             print("   ⏳ Waiting for GCP IAM policy propagation...")
-
-            # Re-verify based on permission name
-            if result.name == "Service Account Impersonation":
-                return _poll_until_success(self._can_impersonate_workflow_sa)
-            if result.name == "Spanner Access":
-                return _poll_until_success(self._can_access_spanner)
-            if result.name == "GCS Bucket Access":
-                return _poll_until_success(self._can_write_gcs_bucket)
-
-            return True
+            return _poll_until_success(verify_fn)
         except Exception:
             return False
 
@@ -144,16 +162,23 @@ class PreflightPermissionChecker:
             f"\n[Preflight] Running permission checks for user: '{self.current_user}'..."
         )
 
-        checks = [
-            self.check_service_account_impersonation,
-            self.check_gcs_bucket_access,
-            self.check_spanner_access,
+        checks: list[tuple[Callable[[], PermissionCheckResult], Callable[[], bool]]] = [
+            (
+                self.check_service_account_impersonation,
+                self._can_impersonate_workflow_sa,
+            ),
+            (self.check_gcs_bucket_access, self._can_write_gcs_bucket),
+            (self.check_spanner_access, self._can_access_spanner),
         ]
 
         results = []
-        for check in checks:
-            res = check()
-            if not res.passed and sys.stdin.isatty() and self.prompt_and_fix(res):
+        for check_fn, verify_fn in checks:
+            res = check_fn()
+            if (
+                not res.passed
+                and sys.stdin.isatty()
+                and self.prompt_and_fix(res, verify_fn)
+            ):
                 res.passed = True
             results.append(res)
 
@@ -188,7 +213,10 @@ class PreflightPermissionChecker:
             return PermissionCheckResult(
                 passed=False,
                 name="Service Account Impersonation",
-                details="Workflow Service Account email could not be resolved from Terraform workspace (missing output 'ingestion_workflow_service_account_email').",
+                details=(
+                    "Workflow Service Account email could not be resolved from "
+                    "Terraform workspace (missing output 'ingestion_workflow_service_account_email')."
+                ),
             )
 
         if self._can_impersonate_workflow_sa():
@@ -199,30 +227,29 @@ class PreflightPermissionChecker:
                 details=f"Impersonation verified for {sa_email}",
             )
 
-        # Attempt automatic grant if user has admin privileges
-        if self.current_user:
-            grant_cmd = [
-                "gcloud",
-                "iam",
-                "service-accounts",
-                "add-iam-policy-binding",
-                sa_email,
-                f"--member={self.member_spec}",
-                "--role=roles/iam.serviceAccountTokenCreator",
-                f"--project={self.target.project_id}",
-                "--quiet",
-            ]
-            res = subprocess.run(grant_cmd, capture_output=True, text=True, check=False)
-            if res.returncode == 0:
-                print(f"  ✔ Automatically granted TokenCreator IAM role on {sa_email}")
-                print("  ⏳ Waiting for GCP IAM policy propagation...")
-                if _poll_until_success(self._can_impersonate_workflow_sa):
-                    print("  ✔ IAM propagation confirmed.")
-                    return PermissionCheckResult(
-                        passed=True,
-                        name="Service Account Impersonation",
-                        details=f"Automatically granted TokenCreator role to {self.member_spec}",
-                    )
+        # Attempt auto-grant
+        grant_cmd = [
+            "gcloud",
+            "iam",
+            "service-accounts",
+            "add-iam-policy-binding",
+            sa_email,
+            f"--member={self.member_spec}",
+            "--role=roles/iam.serviceAccountTokenCreator",
+            f"--project={self.target.project_id}",
+            "--quiet",
+        ]
+        if self._try_auto_grant(
+            [grant_cmd],
+            self._can_impersonate_workflow_sa,
+            "roles/iam.serviceAccountTokenCreator",
+            sa_email,
+        ):
+            return PermissionCheckResult(
+                passed=True,
+                name="Service Account Impersonation",
+                details=f"Automatically granted TokenCreator role to {self.member_spec}",
+            )
 
         fix_cmd = (
             f"gcloud iam service-accounts add-iam-policy-binding '{sa_email}' "
@@ -256,6 +283,8 @@ class PreflightPermissionChecker:
         try:
             probe_blob.upload_from_string("probe", timeout=10)
             return True
+        except Exception:
+            return False
         finally:
             with contextlib.suppress(Exception):
                 probe_blob.delete(timeout=10)
@@ -272,7 +301,10 @@ class PreflightPermissionChecker:
             return PermissionCheckResult(
                 passed=False,
                 name="GCS Bucket Access",
-                details="Artifacts GCS bucket could not be resolved from Terraform workspace (missing output 'storage_artifacts_bucket_name').",
+                details=(
+                    "Artifacts GCS bucket could not be resolved from Terraform "
+                    "workspace (missing output 'storage_artifacts_bucket_name')."
+                ),
             )
 
         try:
@@ -285,6 +317,30 @@ class PreflightPermissionChecker:
                 )
         except Exception as e:
             logger.debug("GCS check failed: %s", e)
+
+        # Attempt auto-grant
+        grant_cmd = [
+            "gcloud",
+            "storage",
+            "buckets",
+            "add-iam-policy-binding",
+            f"gs://{bucket_name}",
+            f"--member={self.member_spec}",
+            "--role=roles/storage.objectAdmin",
+            f"--project={self.target.project_id}",
+            "--quiet",
+        ]
+        if self._try_auto_grant(
+            [grant_cmd],
+            self._can_write_gcs_bucket,
+            "roles/storage.objectAdmin",
+            f"gs://{bucket_name}",
+        ):
+            return PermissionCheckResult(
+                passed=True,
+                name="GCS Bucket Access",
+                details=f"Write access verified for gs://{bucket_name}",
+            )
 
         fix_cmd = (
             f"gcloud storage buckets add-iam-policy-binding 'gs://{bucket_name}' "
@@ -321,13 +377,17 @@ class PreflightPermissionChecker:
             return PermissionCheckResult(
                 passed=False,
                 name="Spanner Access",
-                details="Spanner instance or database could not be resolved from Terraform workspace (missing output 'spanner_instance_id' or 'spanner_database_id').",
+                details=(
+                    "Spanner instance or database could not be resolved from "
+                    "Terraform workspace (missing output 'spanner_instance_id' or 'spanner_database_id')."
+                ),
             )
 
         try:
             if self._can_access_spanner():
                 print(
-                    f"  ✔ Spanner databaseAdmin & databaseUser access verified on {self.target.spanner_instance}/{self.target.spanner_database}"
+                    "  ✔ Spanner databaseAdmin & databaseUser access verified on "
+                    f"{self.target.spanner_instance}/{self.target.spanner_database}"
                 )
                 return PermissionCheckResult(
                     passed=True,
@@ -337,32 +397,33 @@ class PreflightPermissionChecker:
         except Exception as e:
             logger.debug("Initial Spanner check failed: %s", e)
 
-        # Attempt auto-grant if user has IAM admin privileges
-        if self.current_user:
-            for role in ("roles/spanner.databaseAdmin", "roles/spanner.databaseUser"):
-                grant_cmd = [
-                    "gcloud",
-                    "spanner",
-                    "instances",
-                    "add-iam-policy-binding",
-                    self.target.spanner_instance,
-                    f"--member={self.member_spec}",
-                    f"--role={role}",
-                    f"--project={self.target.project_id}",
-                    "--quiet",
-                ]
-                res = subprocess.run(grant_cmd, capture_output=True, text=True, check=False)
-                if res.returncode == 0:
-                    print(f"  ✔ Automatically granted {role} on {self.target.spanner_instance}")
-
-            print("  ⏳ Waiting for GCP IAM policy propagation...")
-            if _poll_until_success(self._can_access_spanner):
-                print("  ✔ Spanner IAM propagation confirmed.")
-                return PermissionCheckResult(
-                    passed=True,
-                    name="Spanner Access",
-                    details=f"Verified on {self.target.spanner_instance}",
-                )
+        # Attempt auto-grant
+        roles = ("roles/spanner.databaseAdmin", "roles/spanner.databaseUser")
+        grant_cmds = [
+            [
+                "gcloud",
+                "spanner",
+                "instances",
+                "add-iam-policy-binding",
+                self.target.spanner_instance,
+                f"--member={self.member_spec}",
+                f"--role={role}",
+                f"--project={self.target.project_id}",
+                "--quiet",
+            ]
+            for role in roles
+        ]
+        if self._try_auto_grant(
+            grant_cmds,
+            self._can_access_spanner,
+            " & ".join(roles),
+            self.target.spanner_instance,
+        ):
+            return PermissionCheckResult(
+                passed=True,
+                name="Spanner Access",
+                details=f"Verified on {self.target.spanner_instance}",
+            )
 
         fix_cmd = (
             f"gcloud spanner instances add-iam-policy-binding '{self.target.spanner_instance}' "

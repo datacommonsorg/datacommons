@@ -97,6 +97,23 @@ def build_git_cli_cmd(ref: str, args: list[str]) -> list[str]:
     ]
 
 
+def _link_local_workspace(instance_dir: Path) -> None:
+    """Overwrites ephemeral workspace templates and modules with local repository files."""
+    local_infra_dcp = REPO_ROOT / "infra" / "dcp"
+    target_modules = instance_dir / "modules"
+
+    if target_modules.is_symlink():
+        target_modules.unlink()
+    elif target_modules.is_dir():
+        shutil.rmtree(target_modules, ignore_errors=True)
+    target_modules.symlink_to(local_infra_dcp / "modules", target_is_directory=True)
+
+    for tf_file in ("variables.tf", "main.tf", "outputs.tf"):
+        src = local_infra_dcp / tf_file
+        if src.exists():
+            shutil.copy2(src, instance_dir / tf_file)
+
+
 def provision_infra(
     workspace_dir: Path,
     instance_name: str,
@@ -115,98 +132,45 @@ def provision_infra(
     bucket_name = f"tf-state-{prober_name}-{project_id}"
     instance_dir = workspace_dir / instance_name
 
+    # Step 1: Scaffold workspace using 'datacommons admin init'
+    ref_desc = "local CLI & Terraform modules" if local else f"ref: {tf_git_ref}"
+    print(
+        f"\n==> [Phase 1.1] Scaffolding workspace via 'datacommons admin init' ({ref_desc})..."
+    )
+
+    admin_args = [
+        "admin",
+        "init",
+        f"--project-id={project_id}",
+        f"--instance-name={instance_name}",
+        f"--tf-state-bucket={bucket_name}",
+        f"--tf-state-prefix=ephemeral/{instance_name}",
+        f"--dc-api-key={dc_api_key}",
+        "--force",
+    ]
+    if not local:
+        admin_args.append(f"--tf-git-ref={tf_git_ref}")
+
+    init_cmd = (
+        ["uv", "run", "datacommons", *admin_args]
+        if local
+        else build_git_cli_cmd(tf_git_ref, admin_args)
+    )
+
+    run_cmd_with_retry(
+        init_cmd,
+        cwd=workspace_dir,
+        max_attempts=2,
+    )
+
+    if not instance_dir.exists():
+        raise FileNotFoundError(
+            f"Expected scaffolding directory was not created at: {instance_dir}"
+        )
+
+    # In local mode, point the workspace directly to local infra/dcp templates and modules
     if local:
-        print(
-            "\n==> [Phase 1.1] Scaffolding workspace using local CLI & Terraform modules..."
-        )
-        # Run local CLI to scaffold instance workspace
-        init_cmd = [
-            "uv",
-            "run",
-            "datacommons",
-            "admin",
-            "init",
-            f"--project-id={project_id}",
-            f"--instance-name={instance_name}",
-            f"--tf-state-bucket={bucket_name}",
-            f"--tf-state-prefix=ephemeral/{instance_name}",
-            f"--dc-api-key={dc_api_key}",
-            "--force",
-        ]
-        run_cmd_with_retry(
-            init_cmd,
-            cwd=workspace_dir,
-            max_attempts=2,
-        )
-
-        if not instance_dir.exists():
-            raise FileNotFoundError(
-                f"Expected scaffolding directory was not created at: {instance_dir}"
-            )
-
-        # In local mode, point the stack module to local infra/dcp/modules
-        local_infra_dcp = REPO_ROOT / "infra" / "dcp"
-        local_modules = local_infra_dcp / "modules"
-        target_modules = instance_dir / "modules"
-
-        # Symlink local modules
-        if target_modules.is_symlink() or target_modules.is_dir() or target_modules.exists():
-            try:
-                target_modules.unlink(missing_ok=True)
-            except Exception:
-                shutil.rmtree(target_modules, ignore_errors=True)
-
-        target_modules.symlink_to(local_modules, target_is_directory=True)
-
-        # Copy local root Terraform files from infra/dcp to ensure root variables and definitions match local code exactly
-        for tf_file in ["variables.tf", "main.tf", "outputs.tf"]:
-            src_file = local_infra_dcp / tf_file
-            if src_file.exists():
-                shutil.copy2(src_file, instance_dir / tf_file)
-
-        # Ensure main.tf uses local module path './modules/stack'
-        main_tf_path = instance_dir / "main.tf"
-        if main_tf_path.exists():
-            import re
-
-            content = main_tf_path.read_text(encoding="utf-8")
-            # Replace any git:: module source with local source
-            content = re.sub(
-                r'source\s*=\s*["\']git::https?://[^"\']+["\']',
-                'source = "./modules/stack"',
-                content,
-            )
-            main_tf_path.write_text(content, encoding="utf-8")
-
-    else:
-        # Step 1: Scaffold workspace using official 'datacommons admin init' command via dynamic uvx
-        print(
-            f"\n==> [Phase 1.1] Scaffolding workspace via 'datacommons admin init' (ref: {tf_git_ref})..."
-        )
-        init_cmd = build_git_cli_cmd(
-            tf_git_ref,
-            [
-                "admin",
-                "init",
-                f"--project-id={project_id}",
-                f"--instance-name={instance_name}",
-                f"--tf-git-ref={tf_git_ref}",
-                f"--tf-state-bucket={bucket_name}",
-                f"--tf-state-prefix=ephemeral/{instance_name}",
-                f"--dc-api-key={dc_api_key}",
-                "--force",
-            ],
-        )
-        run_cmd_with_retry(
-            init_cmd,
-            cwd=workspace_dir,
-            max_attempts=2,
-        )
-
-        if not instance_dir.exists():
-            raise FileNotFoundError(
-                f"Expected scaffolding directory was not created at: {instance_dir}"
-            )
+        _link_local_workspace(instance_dir)
 
     # Step 2: Apply ephemeral prober variable overrides
     print("\n==> [Phase 1.2] Applying ephemeral prober variable overrides...")
