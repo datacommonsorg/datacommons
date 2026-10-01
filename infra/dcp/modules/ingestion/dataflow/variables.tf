@@ -14,14 +14,11 @@ variable "ingestion_bucket_name" {
   type = string
 }
 
-variable "spanner_instance_id" {
-  type        = string
-  description = "Optional Cloud Spanner instance ID"
-  default     = null
-}
-
-variable "spanner_database_id" {
-  type        = string
-  description = "Optional Cloud Spanner database ID"
+variable "spanner_config" {
+  type = object({
+    instance_id = string
+    database_id = string
+  })
+  description = "Optional Spanner database coordinates"
   default     = null
 }

@@ -32,10 +32,10 @@ resource "google_secret_manager_secret_iam_member" "serving_secret_accessor" {
 }
 
 resource "google_spanner_database_iam_member" "serving_spanner_reader" {
-  count    = var.use_spanner && var.spanner_instance_id != null && var.spanner_database_id != null ? 1 : 0
+  count    = var.use_spanner && var.spanner_config != null ? 1 : 0
   project  = var.project_id
-  instance = var.spanner_instance_id
-  database = var.spanner_database_id
+  instance = var.spanner_config.instance_id
+  database = var.spanner_config.database_id
   role     = "roles/spanner.databaseReader"
   member   = "serviceAccount:${google_service_account.serving_sa.email}"
 }
@@ -83,11 +83,11 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
       }
       env {
         name  = "GCP_SPANNER_INSTANCE_ID"
-        value = var.spanner_instance_id != null ? var.spanner_instance_id : ""
+        value = var.spanner_config != null ? var.spanner_config.instance_id : ""
       }
       env {
         name  = "GCP_SPANNER_DATABASE_NAME"
-        value = var.spanner_database_id != null ? var.spanner_database_id : ""
+        value = var.spanner_config != null ? var.spanner_config.database_id : ""
       }
 
       dynamic "env" {

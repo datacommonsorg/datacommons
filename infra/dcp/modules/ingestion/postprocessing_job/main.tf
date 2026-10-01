@@ -37,19 +37,19 @@ resource "google_cloud_run_v2_job" "dc_postprocessing_job" {
         }
         env {
           name  = "SPANNER_INSTANCE_ID"
-          value = var.spanner_instance_id
+          value = var.spanner_config != null ? var.spanner_config.instance_id : ""
         }
         env {
           name  = "SPANNER_DATABASE_ID"
-          value = var.spanner_database_id
+          value = var.spanner_config != null ? var.spanner_config.database_id : ""
         }
         env {
           name  = "SPANNER_GRAPH_DATABASE_ID"
-          value = var.spanner_database_id
+          value = var.spanner_config != null ? var.spanner_config.database_id : ""
         }
         env {
           name  = "BQ_SPANNER_CONN_ID"
-          value = var.bigquery_connection_id
+          value = var.spanner_config != null && var.spanner_config.bigquery_connection_id != null ? var.spanner_config.bigquery_connection_id : ""
         }
         env {
           name  = "LOCATION"
@@ -97,19 +97,19 @@ resource "google_project_iam_member" "postprocessing_bq_job_user" {
 }
 
 resource "google_spanner_database_iam_member" "postprocessing_spanner_user" {
-  count    = var.spanner_instance_id != null && var.spanner_database_id != null && var.spanner_instance_id != "" && var.spanner_database_id != "" ? 1 : 0
+  count    = var.spanner_config != null ? 1 : 0
   project  = var.project_id
-  instance = var.spanner_instance_id
-  database = var.spanner_database_id
+  instance = var.spanner_config.instance_id
+  database = var.spanner_config.database_id
   role     = "roles/spanner.databaseUser"
   member   = "serviceAccount:${google_service_account.postprocessing_sa.email}"
 }
 
 resource "google_bigquery_connection_iam_member" "postprocessing_bq_connection_user" {
-  count         = var.enable_bigquery_postprocessing && var.bigquery_connection_id != null && var.bigquery_connection_id != "" ? 1 : 0
+  count         = var.enable_bigquery_postprocessing && var.spanner_config != null && var.spanner_config.bigquery_connection_id != null && var.spanner_config.bigquery_connection_id != "" ? 1 : 0
   project       = var.project_id
   location      = var.region
-  connection_id = var.bigquery_connection_id
+  connection_id = var.spanner_config.bigquery_connection_id
   role          = "roles/bigquery.connectionUser"
   member        = "serviceAccount:${google_service_account.postprocessing_sa.email}"
 }

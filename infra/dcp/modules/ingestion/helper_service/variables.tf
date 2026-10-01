@@ -19,14 +19,13 @@ variable "stateless_deletion_protection" {
   description = "Enable deletion protection for stateless resources (Cloud Run) to prevent accidental deletion."
 }
 
-variable "spanner_instance_id" {
-  type    = string
-  default = null
-}
-
-variable "spanner_database_id" {
-  type    = string
-  default = null
+variable "spanner_config" {
+  type = object({
+    instance_id = string
+    database_id = string
+  })
+  description = "Optional Spanner database coordinates"
+  default     = null
 }
 
 variable "ingestion_bucket_name" {

@@ -164,18 +164,20 @@ module "ingestion_postprocessing_job" {
   source = "../ingestion/postprocessing_job"
   count  = var.ingestion_config.enable_ingestion ? 1 : 0
 
-  project_id                     = var.global.project_id
-  instance_name                  = var.global.instance_name
-  region                         = var.global.region
-  stateless_deletion_protection  = var.global.stateless_deletion_protection
-  image                          = var.ingestion_config.postprocessing_job_image
-  cpu                            = var.ingestion_config.postprocessing_job_cpu
-  memory                         = var.ingestion_config.postprocessing_job_memory
-  timeout                        = var.ingestion_config.postprocessing_job_timeout
-  vpc_access                     = module.network.vpc_access
-  spanner_instance_id            = coalesce(one(module.spanner[*].spanner_instance_id), "")
-  spanner_database_id            = coalesce(one(module.spanner[*].spanner_database_id), "")
-  bigquery_connection_id         = coalesce(one(module.spanner[*].bigquery_connection_id), "")
+  project_id                    = var.global.project_id
+  instance_name                 = var.global.instance_name
+  region                        = var.global.region
+  stateless_deletion_protection = var.global.stateless_deletion_protection
+  image                         = var.ingestion_config.postprocessing_job_image
+  cpu                           = var.ingestion_config.postprocessing_job_cpu
+  memory                        = var.ingestion_config.postprocessing_job_memory
+  timeout                       = var.ingestion_config.postprocessing_job_timeout
+  vpc_access                    = module.network.vpc_access
+  spanner_config = var.spanner_config.enable ? {
+    instance_id            = module.spanner[0].spanner_instance_id
+    database_id            = module.spanner[0].spanner_database_id
+    bigquery_connection_id = module.spanner[0].bigquery_connection_id
+  } : null
   enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
   enable_spanner_embeddings      = var.spanner_config.enable_embeddings_generation
   env_vars                       = local.cloud_run_shared_env_variables
@@ -188,8 +190,10 @@ module "ingestion_dataflow" {
   project_id            = var.global.project_id
   instance_name         = var.global.instance_name
   ingestion_bucket_name = module.storage.artifacts_bucket_name
-  spanner_instance_id   = coalesce(one(module.spanner[*].spanner_instance_id), "")
-  spanner_database_id   = coalesce(one(module.spanner[*].spanner_database_id), "")
+  spanner_config = var.spanner_config.enable ? {
+    instance_id = module.spanner[0].spanner_instance_id
+    database_id = module.spanner[0].spanner_database_id
+  } : null
 }
 
 module "ingestion_helper_service" {
@@ -200,11 +204,13 @@ module "ingestion_helper_service" {
   instance_name                 = var.global.instance_name
   region                        = var.global.region
   stateless_deletion_protection = var.global.stateless_deletion_protection
-  spanner_instance_id           = coalesce(one(module.spanner[*].spanner_instance_id), "")
-  spanner_database_id           = coalesce(one(module.spanner[*].spanner_database_id), "")
-  ingestion_bucket_name         = module.storage.artifacts_bucket_name
-  image                         = var.ingestion_config.helper_service_image
-  enable_embeddings_generation  = var.spanner_config.enable_embeddings_generation
+  spanner_config = var.spanner_config.enable ? {
+    instance_id = module.spanner[0].spanner_instance_id
+    database_id = module.spanner[0].spanner_database_id
+  } : null
+  ingestion_bucket_name        = module.storage.artifacts_bucket_name
+  image                        = var.ingestion_config.helper_service_image
+  enable_embeddings_generation = var.spanner_config.enable_embeddings_generation
 
   # Direct VPC Egress from network module
   vpc_access               = module.network.vpc_access
@@ -311,8 +317,10 @@ module "datacommons_services" {
   artifacts_bucket_name         = module.storage.artifacts_bucket_name
   vpc_access                    = module.network.vpc_access
   use_spanner                   = var.spanner_config.enable
-  spanner_instance_id           = coalesce(one(module.spanner[*].spanner_instance_id), "")
-  spanner_database_id           = coalesce(one(module.spanner[*].spanner_database_id), "")
+  spanner_config = var.spanner_config.enable ? {
+    instance_id = module.spanner[0].spanner_instance_id
+    database_id = module.spanner[0].spanner_database_id
+  } : null
   env_vars = concat(local.cloud_run_shared_env_variables, [
     {
       name  = "INGESTION_WORKFLOW_NAME"
