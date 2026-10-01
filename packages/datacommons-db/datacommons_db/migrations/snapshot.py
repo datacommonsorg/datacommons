@@ -72,6 +72,9 @@ def generate_schema_snapshot_sql(
     # Collect DDL statements from all forward migration scripts
     mock_client = MagicMock(spec=SpannerClient)
     mock_client.table_exists.return_value = False
+    mock_client.project_id = project_id
+    mock_client.region = region
+    mock_client.is_emulator = False
     mig_statements: list[str] = []
     mock_client.execute_ddl.side_effect = lambda stmts: (
         mig_statements.extend(stmts),

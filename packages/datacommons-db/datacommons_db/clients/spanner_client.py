@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
@@ -36,7 +37,6 @@ from datacommons_db.utils.validators import (
     validate_resource_id,
     validate_table_name,
 )
-
 
 DEFAULT_LOCK_TIMEOUT_SECONDS: int = 300
 GLOBAL_INGESTION_LOCK_ID: str = "global_ingestion_lock"
@@ -81,6 +81,12 @@ class SpannerClient:
         )
         self.instance = self.client.instance(self.instance_id)
         self.database = self.instance.database(self.database_id)
+
+    @property
+    def is_emulator(self) -> bool:
+        """Indicates whether this client is operating against a Spanner emulator."""
+
+        return bool(os.getenv("SPANNER_EMULATOR_HOST"))
 
     def table_exists(self, table_name: str) -> bool:
         """Check if a table exists in the Cloud Spanner database.

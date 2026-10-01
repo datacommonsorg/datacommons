@@ -2,11 +2,12 @@
 
 A modular, data-driven end-to-end integration test harness for the Data Commons Platform (DCP).
 
-It exercises all core components of the platform across 4 execution stages:
-1. **Ingestion (`suites/01_ingestion/`):** CLI initialization, Spanner Node graph & observation seeding, and Cloud Workflows / Dataflow verification.
-2. **Postprocessing (`suites/02_postprocessing/`):** Statistical Variable Group (SVG) hierarchy trees and Spanner vector embeddings semantic search.
-3. **Serving API (`suites/03_serving_api/`):** Python SDK (`datacommons-client`), `/v2/observation` (point & series), `/v2/node`, and SDMX 3.0 REST endpoints.
-4. **AI Agent & MCP (`04_mcp_agent/`):** Model Context Protocol (MCP) JSON-RPC 2.0 tool execution (`search_indicators`, etc.).
+It exercises all core components of the platform across 5 execution stages:
+1. **Database Setup (`suites/00_setup/`):** CLI Spanner baseline schema initialization and pending migrations (`datacommons admin init-db`).
+2. **Ingestion (`suites/01_ingestion/`):** Spanner Node graph & observation seeding, and Cloud Workflows / Dataflow verification.
+3. **Postprocessing (`suites/02_postprocessing/`):** Statistical Variable Group (SVG) hierarchy trees and Spanner vector embeddings semantic search.
+4. **Serving API (`suites/03_serving_api/`):** Python SDK (`datacommons-client`), `/v2/observation` (point & series), `/v2/node`, and SDMX 3.0 REST endpoints.
+5. **AI Agent & MCP (`04_mcp_agent/`):** Model Context Protocol (MCP) JSON-RPC 2.0 tool execution (`search_indicators`, etc.).
 
 ---
 
@@ -179,6 +180,7 @@ tests/integration/
 │   └── foobar_education/          # FooBar Education CSV, MCF, config.json, test_spec.yaml
 │
 ├── suites/                        # Generic, dataset-agnostic test suites
+│   ├── 00_setup/                  # Database schema baseline & migration initialization
 │   ├── 01_ingestion/              # CLI Ingestion & Cloud Spanner graph verification
 │   ├── 02_postprocessing/         # SVG hierarchy trees & vector embeddings
 │   ├── 03_serving_api/            # datacommons-client (/v2/node, /v2/observation) & SDMX 3.0

@@ -22,10 +22,13 @@ import contextlib
 import json
 import os
 import subprocess
+import threading
 import time
 from pathlib import Path
 
 import requests
+from google.auth.credentials import AnonymousCredentials
+from google.cloud import spanner
 
 from tests.integration.core.config_schema import TestManifest
 
@@ -54,6 +57,7 @@ class EmulatedEnvironment:
         )
         self.spanner_host = os.getenv("SPANNER_EMULATOR_HOST", "localhost:9010")
         self._is_running = False
+        self._is_serving_ready = False
 
     def is_healthy(self) -> bool:
         """Checks if the Website and Spanner stack are already up and serving."""
@@ -87,25 +91,38 @@ class EmulatedEnvironment:
 
         self._cleanup_stale()
 
-        # 1. Start core storage and ingestion helper
+        # 1. Start core storage layer (Spanner emulator and Fake GCS)
         print(
-            ">>> Starting Spanner emulator, Fake GCS, and Ingestion Helper...",
+            ">>> Starting Spanner emulator and Fake GCS...",
             flush=True,
         )
-        self._compose_up("spanner", "gcs", "ingestion-helper")
+        self._compose_up("spanner", "gcs")
         self._wait_for_spanner_ready(timeout_secs=30)
-        self._wait_for_ready(
-            f"{self.helper_url}/docs", "Ingestion Helper", timeout_secs=60
-        )
 
-        # 2. Initialize database schema DDL and base ontology
+        # 2. Ensure test database exists in Spanner emulator (empty baseline)
         self._initialize_database()
 
-        # 3. Ingest test dataset if specified
+        # 3. Ensure test bucket exists in GCS emulator
+        with contextlib.suppress(Exception):
+            requests.post(
+                f"{self.gcs_url}/storage/v1/b?project=test-project",
+                json={"name": "test-bucket"},
+                timeout=5,
+            )
+
+        self._is_running = True
+        print("✔ [Emulated Stack] Storage services are ready!\n", flush=True)
+
+    def start_serving(self, manifest: TestManifest | None = None) -> None:
+        """Starts Website and Mixer serving tier after database schema has been initialized."""
+        if self._is_serving_ready or self.is_healthy():
+            return
+
+        # 1. Ingest test dataset if specified
         if manifest and manifest.stages.ingestion and manifest.ingestion.dataset_dirs:
             self._ingest_dataset(manifest)
 
-        # 4. Start serving tier (Website & Mixer)
+        # 2. Start serving tier (Website & Mixer)
         print(">>> Starting Website and Mixer services (streaming logs)...", flush=True)
         self._compose_up("website")
 
@@ -116,8 +133,8 @@ class EmulatedEnvironment:
 
         self._stream_container_logs_during("itest-website", _do_wait_website)
         self._wait_for_mixer_ready(manifest=manifest, timeout_secs=90)
-        self._is_running = True
-        print("✔ [Emulated Stack] All local services are ready!\n", flush=True)
+        self._is_serving_ready = True
+        print("✔ [Emulated Stack] Serving services are ready!\n", flush=True)
 
     def stop(self) -> None:
         """Tears down all Docker Compose containers and volumes."""
@@ -147,41 +164,23 @@ class EmulatedEnvironment:
     def _initialize_database(self) -> None:
         # Provisioned in fixture setup so downstream test suites can run in isolation.
         print(">>> Ensuring test-db database exists in Spanner emulator...", flush=True)
-        from google.auth.credentials import AnonymousCredentials
-        from google.cloud import spanner
-
         client = spanner.Client(project="default", credentials=AnonymousCredentials())
-        instance = client.instance("default")
+        config_name = f"{client.project_name}/instanceConfigs/default"
+        instance = client.instance(
+            "default",
+            configuration_name=config_name,
+            display_name="Local Omni Instance",
+            node_count=1,
+        )
+        if not instance.exists():
+            instance.create().result(timeout=30)
         db = instance.database("test-db")
         if not db.exists():
             db.create().result(timeout=30)
 
         print(
-            ">>> Initializing database schema DDL via Ingestion Helper (streaming logs)...",
-            flush=True,
+            "✔ Spanner emulator test-db database exists (empty baseline).", flush=True
         )
-
-        def _do_initialize():
-            resp = requests.post(
-                f"{self.helper_url}/database/initialize",
-                json={"actionType": "initialize_database"},
-                timeout=120,
-            )
-            resp.raise_for_status()
-
-        self._stream_container_logs_during("itest-ingestion-helper", _do_initialize)
-
-        print(">>> Seeding database base ontology variables...", flush=True)
-
-        def _do_seed():
-            resp = requests.post(
-                f"{self.helper_url}/database/seed",
-                json={"actionType": "seed_database"},
-                timeout=60,
-            )
-            resp.raise_for_status()
-
-        self._stream_container_logs_during("itest-ingestion-helper", _do_seed)
 
     def _ingest_dataset(self, manifest: TestManifest) -> None:
         print(">>> Seeding GCS emulator and running ingestion pipeline...", flush=True)
@@ -287,7 +286,7 @@ class EmulatedEnvironment:
             "--gcsEndpoint=http://gcs:9099/storage/v1",
             "--isBaseDc=false",
             "--skipDelete=true",
-            "--skipWait=true",
+            "--skipWait=false",
             f"--importList={json.dumps(import_list)}",
         ]
         subprocess.run(loader_cmd, check=True)
@@ -367,9 +366,6 @@ class EmulatedEnvironment:
         start = time.time()
         while time.time() - start < timeout_secs:
             try:
-                from google.auth.credentials import AnonymousCredentials
-                from google.cloud import spanner
-
                 client = spanner.Client(
                     project="default", credentials=AnonymousCredentials()
                 )
@@ -384,8 +380,6 @@ class EmulatedEnvironment:
 
     def _stream_container_logs_during(self, container_name: str, target_fn):
         """Streams container logs to terminal in real time while target_fn executes."""
-        import threading
-
         proc = subprocess.Popen(
             ["docker", "logs", "-f", "--tail", "0", container_name],
             stdout=subprocess.PIPE,

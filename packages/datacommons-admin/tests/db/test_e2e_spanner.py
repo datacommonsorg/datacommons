@@ -15,12 +15,15 @@
 """End-to-end integration tests for init-db and migrate-db workflows on Spanner."""
 
 import os
+import socket
 from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner
 from datacommons_admin.admin_cli import admin
 from datacommons_db.clients import SpannerClient
+from google.auth.credentials import AnonymousCredentials
+from google.cloud import spanner
 
 
 def _is_emulator_available() -> bool:
@@ -28,7 +31,6 @@ def _is_emulator_available() -> bool:
     host = os.getenv("SPANNER_EMULATOR_HOST")
     if not host:
         return False
-    import socket
 
     try:
         parts = host.split(":")
@@ -47,27 +49,32 @@ def _is_emulator_available() -> bool:
 )
 def test_e2e_init_and_migrate_db_on_spanner_emulator(runner: CliRunner):
     """Executes full init-db and migrate-db flows against a live Spanner emulator instance."""
-    from google.auth.credentials import AnonymousCredentials
-    from google.cloud import spanner
-
-    project_id = "test-project"
-    instance_id = "test-instance"
+    project_id = os.getenv("SPANNER_PROJECT_ID", "default")
+    instance_id = os.getenv("SPANNER_INSTANCE_ID", "default")
     database_id = "test-e2e-db"
 
     # Ensure Spanner instance and database exist in emulator
     client = spanner.Client(project=project_id, credentials=AnonymousCredentials())
-    instance = client.instance(instance_id)
+    config_name = f"{client.project_name}/instanceConfigs/emulator-config"
+    instance = client.instance(
+        instance_id,
+        configuration_name=config_name,
+        display_name="Test Emulator Instance",
+        node_count=1,
+    )
     if not instance.exists():
         instance.create().result(timeout=10)
     db = instance.database(database_id)
-    if not db.exists():
-        db.create().result(timeout=10)
+    if db.exists():
+        db.drop()
+    db.create().result(timeout=10)
 
     spanner_client = SpannerClient(
         project_id=project_id,
         instance_id=instance_id,
         database_id=database_id,
         credentials=AnonymousCredentials(),
+        region="us-central1",
     )
 
     with patch("datacommons_admin.db.db_cli._setup_spanner_client") as mock_setup:
