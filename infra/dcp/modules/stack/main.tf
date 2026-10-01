@@ -386,21 +386,21 @@ resource "google_storage_bucket_iam_member" "serving_bucket_access" {
 
 resource "google_spanner_database_iam_member" "serving_spanner_reader" {
   count    = var.spanner_config.enable && var.datacommons_services_config.enable ? 1 : 0
-  instance = module.spanner[0].spanner_instance_id
-  database = module.spanner[0].spanner_database_id
+  instance = one(module.spanner[*].spanner_instance_id)
+  database = one(module.spanner[*].spanner_database_id)
   role     = "roles/spanner.databaseReader"
-  member   = "serviceAccount:${module.datacommons_services[0].service_account_email}"
+  member   = "serviceAccount:${one(module.datacommons_services[*].service_account_email)}"
 }
 
 resource "google_spanner_database_iam_member" "spanner_user_permissions" {
   for_each = var.spanner_config.enable && var.ingestion_config.enable_ingestion ? {
     dataflow       = module.ingestion_dataflow.service_account_email
-    postprocessing = module.ingestion_postprocessing_job[0].service_account_email
+    postprocessing = one(module.ingestion_postprocessing_job[*].service_account_email)
     helper         = module.ingestion_helper_service.service_account_email
   } : {}
 
-  instance = module.spanner[0].spanner_instance_id
-  database = module.spanner[0].spanner_database_id
+  instance = one(module.spanner[*].spanner_instance_id)
+  database = one(module.spanner[*].spanner_database_id)
   role     = "roles/spanner.databaseUser"
   member   = "serviceAccount:${each.value}"
 }
