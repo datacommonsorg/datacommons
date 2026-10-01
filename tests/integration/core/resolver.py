@@ -14,7 +14,6 @@
 
 import json
 import os
-import re
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -48,97 +47,27 @@ def _read_terraform_outputs(workspace_dir: Path) -> dict[str, Any]:
         return {}
 
 
-def _find_container_images(data: Any) -> list[str]:
-    """Recursively extracts container image URIs from nested resource attributes."""
-    images = []
-    if isinstance(data, dict):
-        for k, v in data.items():
-            if k == "image" and isinstance(v, str) and "/" in v:
-                images.append(v)
-            elif isinstance(v, (dict, list)):
-                images.extend(_find_container_images(v))
-    elif isinstance(data, list):
-        for item in data:
-            images.extend(_find_container_images(item))
-    return images
-
-
-def _load_terraform_state(workspace_dir: Path) -> dict | None:
-    """Loads local terraform.tfstate or pulls from remote backend."""
-    tfstate_file = workspace_dir / "terraform.tfstate"
-    if tfstate_file.exists():
-        try:
-            with open(tfstate_file, encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            pass
-
-    if (workspace_dir / ".terraform").exists():
-        proc = subprocess.run(
-            ["terraform", "state", "pull"],
-            cwd=str(workspace_dir),
-            capture_output=True,
-            text=True,
-            timeout=15,
-            check=False,
-        )
-        if proc.returncode == 0 and proc.stdout:
-            try:
-                return json.loads(proc.stdout)
-            except Exception:
-                pass
-    return None
-
-
 def _resolve_deployed_artifacts(
-    workspace_dir: Path, artifacts: ArtifactConfig | None = None
+    workspace_dir: Path,
+    artifacts: ArtifactConfig | None = None,
+    tf_outputs: dict[str, Any] | None = None,
 ) -> ArtifactConfig:
-    """Extracts exact deployed container image digests and Dataflow templates from Terraform state."""
+    """Extracts deployed container image digests and Dataflow templates directly from Terraform outputs."""
     artifacts = artifacts or ArtifactConfig()
-    state_data = _load_terraform_state(workspace_dir) or {}
+    outputs = tf_outputs or _read_terraform_outputs(workspace_dir)
 
-    resource_map = {
-        "dc_web_service": "services_image",
-        "ingestion_helper": "helper_image",
-        "dc_data_job": "preprocessing_image",
-        "dc_postprocessing_job": "postprocessing_image",
+    resolved = {
+        "services_image": outputs.get("datacommons_services_image"),
+        "helper_image": outputs.get("ingestion_helper_image"),
+        "preprocessing_image": outputs.get("ingestion_preprocessing_image"),
+        "postprocessing_image": outputs.get("ingestion_postprocessing_image"),
     }
+    template_path = outputs.get("ingestion_dataflow_template_gcs_path")
 
-    resolved = {}
-    template_path = None
-
-    # Inspect exact resource names from Terraform state
-    for resource in state_data.get("resources", []):
-        rname = resource.get("name", "")
-        instances = resource.get("instances", [])
-        if not instances:
-            continue
-
-        attrs = instances[0].get("attributes", {})
-
-        # Extract container images for Cloud Run services and jobs
-        if rname in resource_map:
-            imgs = _find_container_images(instances)
-            if imgs:
-                resolved[resource_map[rname]] = imgs[0]
-
-        # Extract Dataflow template GCS path from Workflow source_contents.
-        # The template is passed to the shared launcher subworkflow as
-        # `template_path`; the ingestion launch site appears before the rollback
-        # subworkflow, so the first match is the ingestion Flex Template.
-        if rname == "ingestion_orchestrator":
-            source = attrs.get("source_contents", "")
-            match = re.search(
-                r"['\"]?(?:containerSpecGcsPath|template_path)['\"]?\s*:\s*['\"]?(gs://[^\s'\"\\,]+\.json)['\"]?",
-                source,
-            )
-            if match:
-                template_path = match.group(1)
-
-    missing = [field for field in resource_map.values() if field not in resolved]
+    missing = [field for field, val in resolved.items() if not val]
     if missing or not template_path:
         raise RuntimeError(
-            f"❌ Error: Could not find deployed artifacts for missing fields in Terraform state at '{workspace_dir}': "
+            f"❌ Error: Missing required deployed artifacts in Terraform outputs at '{workspace_dir}': "
             f"missing_images={missing}, missing_template={template_path is None}."
         )
 
@@ -325,7 +254,9 @@ def resolve_dcp_target(
     gcs_bucket = tf_outputs.get("storage_artifacts_bucket_name", "")
 
     # Resolve deployed container images and template artifacts
-    resolved_artifacts = _resolve_deployed_artifacts(workspace_path, artifacts)
+    resolved_artifacts = _resolve_deployed_artifacts(
+        workspace_path, artifacts, tf_outputs=tf_outputs
+    )
 
     return DCPTarget(
         project_id=project,
