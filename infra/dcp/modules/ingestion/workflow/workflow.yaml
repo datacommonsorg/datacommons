@@ -627,7 +627,7 @@ poll_cloud_batch_job_execution:
             next: return_success
 
     - fail_on_batch_status:
-        raise: '$${error_prefix + ": " + job_status.name + " (" + ("status" in job_status and "state" in job_status.status ? job_status.status.state : "STATE_UNSPECIFIED") + ")"}'
+        raise: '$${error_prefix + ": " + job_status.name + " (" + job_status.status.state + ")"}'
 
     - return_success:
         return: '$${job_status}'
