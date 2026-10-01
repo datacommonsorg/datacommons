@@ -542,7 +542,24 @@ variable "ingestion_helper_service_image" {
 }
 
 # =============================================================================
-# Ingestion - Dataflow Network Configuration
+# Ingestion - Worker Network Configuration (Dataflow & Cloud Batch)
+# =============================================================================
+
+variable "ingestion_worker_ip_configuration" {
+  description = "IP configuration for ingestion workers (Dataflow and Cloud Batch): WORKER_IP_UNSPECIFIED, WORKER_IP_PUBLIC, WORKER_IP_PRIVATE. Set to WORKER_IP_PRIVATE when compute.vmExternalIpAccess restricts external IPs."
+  type        = string
+  default     = null
+}
+
+variable "ingestion_worker_subnetwork" {
+  description = "Subnetwork for ingestion workers (Dataflow and Cloud Batch). Automatically populated when enable_network = true. If enable_network = false and WORKER_IP_PRIVATE is used, specify the subnet (e.g. regions/us-central1/subnetworks/default)."
+  type        = string
+  default     = null
+}
+
+# =============================================================================
+# TODO: pranj-s - clean this up?
+# Ingestion - Dataflow Network Configuration (Legacy Fallback)
 # =============================================================================
 
 variable "ingestion_dataflow_ip_configuration" {

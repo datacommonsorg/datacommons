@@ -27,13 +27,19 @@ locals {
     var.network_config.enable && var.network_config.enable_workload_vpc && module.network.network_id != null ? module.network.network_id : ""
   )
 
-  effective_dataflow_subnetwork = (
-    var.ingestion_config.dataflow_subnetwork != "" ? var.ingestion_config.dataflow_subnetwork :
+  raw_worker_subnetwork = try(coalesce(var.ingestion_config.worker_subnetwork, var.ingestion_config.dataflow_subnetwork), "")
+  raw_worker_ip_config  = try(coalesce(var.ingestion_config.worker_ip_configuration, var.ingestion_config.dataflow_ip_configuration), "WORKER_IP_UNSPECIFIED")
+
+  effective_worker_subnetwork = (
+    local.raw_worker_subnetwork != "" ? local.raw_worker_subnetwork :
     (var.network_config.enable && var.network_config.enable_workload_vpc && module.network.subnet_url != null ? module.network.subnet_url : "")
   )
-  effective_dataflow_ip_configuration = (
-    local.effective_dataflow_subnetwork != "" ? var.ingestion_config.dataflow_ip_configuration : "WORKER_IP_UNSPECIFIED"
+  effective_worker_ip_configuration = (
+    local.effective_worker_subnetwork != "" ? local.raw_worker_ip_config : "WORKER_IP_UNSPECIFIED"
   )
+
+  effective_dataflow_subnetwork       = local.effective_worker_subnetwork
+  effective_dataflow_ip_configuration = local.effective_worker_ip_configuration
 
   cloud_run_shared_env_variables = [
     {
@@ -251,8 +257,10 @@ module "ingestion_workflow" {
   spanner_instance_id                  = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
   spanner_database_id                  = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
   vpc_network                          = local.effective_vpc_network
-  dataflow_ip_configuration            = local.effective_dataflow_ip_configuration
-  dataflow_subnetwork                  = local.effective_dataflow_subnetwork
+  worker_ip_configuration              = local.effective_worker_ip_configuration
+  worker_subnetwork                    = local.effective_worker_subnetwork
+  dataflow_ip_configuration            = local.effective_worker_ip_configuration
+  dataflow_subnetwork                  = local.effective_worker_subnetwork
   ingestion_dataflow_template_gcs_path = var.ingestion_config.ingestion_dataflow_template_gcs_path
   rollback_dataflow_template_gcs_path  = var.ingestion_config.rollback_dataflow_template_gcs_path
   dataflow_max_workers                 = var.ingestion_config.dataflow_max_workers
@@ -295,8 +303,8 @@ module "redis" {
 module "auth" {
   source = "../auth"
 
-  project_id             = var.global.project_id
-  instance_name          = var.global.instance_name
+  project_id                    = var.global.project_id
+  instance_name                 = var.global.instance_name
   dc_api_key                    = var.auth_config.google_datacommons_api_key
   google_maps_api_key           = var.auth_config.google_maps_api_key
   create_google_maps_key        = var.auth_config.create_google_maps_key
@@ -477,15 +485,15 @@ resource "terraform_data" "redis_network_validation" {
   }
 }
 
-resource "terraform_data" "dataflow_subnet_validation" {
+resource "terraform_data" "worker_subnet_validation" {
   lifecycle {
     precondition {
       condition = (
-        var.ingestion_config.dataflow_ip_configuration != "WORKER_IP_PRIVATE" ||
-        (var.ingestion_config.dataflow_subnetwork != null && var.ingestion_config.dataflow_subnetwork != "") ||
+        local.raw_worker_ip_config != "WORKER_IP_PRIVATE" ||
+        (local.raw_worker_subnetwork != null && local.raw_worker_subnetwork != "") ||
         (var.network_config.enable && var.network_config.enable_workload_vpc && module.network.subnet_url != null && module.network.subnet_url != "")
       )
-      error_message = "dataflow_ip_configuration is set to 'WORKER_IP_PRIVATE', which requires a valid subnetwork. Ensure enable_network and enable_workload_vpc are true and a subnet is available, or provide dataflow_subnetwork."
+      error_message = "worker_ip_configuration is set to 'WORKER_IP_PRIVATE', which requires a valid subnetwork. Ensure enable_network and enable_workload_vpc are true and a subnet is available, or provide ingestion_worker_subnetwork."
     }
   }
 }

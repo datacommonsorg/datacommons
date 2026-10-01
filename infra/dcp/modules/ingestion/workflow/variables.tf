@@ -131,6 +131,42 @@ variable "vpc_network" {
   default     = ""
 }
 
+variable "worker_ip_configuration" {
+  type        = string
+  description = <<-EOT
+    IP configuration for compute workers (Dataflow and Cloud Batch). Set to
+    WORKER_IP_PRIVATE for environments where an org policy
+    (compute.vmExternalIpAccess) restricts VMs from obtaining external IPs.
+    Valid values: WORKER_IP_UNSPECIFIED, WORKER_IP_PUBLIC, WORKER_IP_PRIVATE.
+  EOT
+  default     = "WORKER_IP_UNSPECIFIED"
+  validation {
+    condition     = contains(["WORKER_IP_UNSPECIFIED", "WORKER_IP_PUBLIC", "WORKER_IP_PRIVATE"], var.worker_ip_configuration)
+    error_message = "Must be one of: WORKER_IP_UNSPECIFIED, WORKER_IP_PUBLIC, WORKER_IP_PRIVATE."
+  }
+}
+
+variable "worker_subnetwork" {
+  type        = string
+  description = <<-EOT
+    Subnetwork for compute workers (Dataflow and Cloud Batch). Required when
+    worker_ip_configuration is WORKER_IP_PRIVATE. Format: regions/{region}/subnetworks/{subnetwork}.
+  EOT
+  default     = ""
+
+  validation {
+    condition     = var.worker_subnetwork == "" || can(regex("regions/[a-zA-Z0-9-]+/subnetworks/[a-zA-Z0-9-]+$", var.worker_subnetwork))
+    error_message = "worker_subnetwork must be in the format 'regions/{region}/subnetworks/{subnetwork}' or a full self-link ending with that format."
+  }
+}
+
+check "worker_private_ip_requires_subnetwork" {
+  assert {
+    condition     = var.worker_ip_configuration != "WORKER_IP_PRIVATE" || var.worker_subnetwork != ""
+    error_message = "worker_subnetwork must be specified when worker_ip_configuration is WORKER_IP_PRIVATE."
+  }
+}
+
 variable "dataflow_ip_configuration" {
   type        = string
   description = <<-EOT

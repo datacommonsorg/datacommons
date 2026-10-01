@@ -132,7 +132,12 @@ variable "ingestion_config" {
     workflow_lock_acquisition_timeout = number
     helper_service_image              = optional(string)
 
-    # Dataflow network configuration
+    # Worker Network Configuration (Dataflow & Cloud Batch)
+    worker_ip_configuration = optional(string, "WORKER_IP_UNSPECIFIED")
+    worker_subnetwork       = optional(string, "")
+
+    # TODO - pranj-s: Clean this up
+    # Legacy Dataflow network configuration
     # Use WORKER_IP_PRIVATE when a compute.vmExternalIpAccess org policy
     # blocks Dataflow workers from obtaining external IPs.
     dataflow_ip_configuration            = optional(string, "WORKER_IP_UNSPECIFIED")

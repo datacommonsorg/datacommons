@@ -166,7 +166,11 @@ locals {
     workflow_lock_acquisition_timeout = var.ingestion_workflow_lock_acquisition_timeout
     helper_service_image              = coalesce(var.ingestion_helper_service_image, "gcr.io/datcom-ci/datacommons-ingestion-helper:${var.dcp_version}")
 
-    # Dataflow Network & Scaling Configuration
+    # Worker Network Configuration (Dataflow & Cloud Batch)
+    worker_ip_configuration = try(coalesce(var.ingestion_worker_ip_configuration, var.ingestion_dataflow_ip_configuration), "WORKER_IP_UNSPECIFIED")
+    worker_subnetwork       = try(coalesce(var.ingestion_worker_subnetwork, var.ingestion_dataflow_subnetwork), "")
+
+    # Legacy Dataflow Configuration
     dataflow_ip_configuration            = var.ingestion_dataflow_ip_configuration
     dataflow_subnetwork                  = var.ingestion_dataflow_subnetwork
     ingestion_dataflow_template_gcs_path = coalesce(var.ingestion_dataflow_template_gcs_path, "gs://datcom-templates/templates/flex/ingestion-${local.df_template_version}.json")
@@ -182,16 +186,16 @@ module "stack" {
   # The Data Commons CLI relies on matching 'source = "./modules/stack"' to generate user scaffolding.
   source = "./modules/stack"
 
-  global                          = local.global_config
-  network_config                  = local.network_config
-  spanner_config                  = local.spanner_config
+  global                                     = local.global_config
+  network_config                             = local.network_config
+  spanner_config                             = local.spanner_config
   storage_create_artifacts_bucket            = var.storage_create_artifacts_bucket
   storage_artifacts_bucket_name              = var.storage_artifacts_bucket_name
   storage_artifacts_bucket_enable_versioning = var.storage_artifacts_bucket_enable_versioning
-  datacommons_services_config     = local.datacommons_services_config
-  auth_config                     = local.auth_config
-  redis_config                    = local.redis_config
-  ingestion_config                = local.ingestion_config
+  datacommons_services_config                = local.datacommons_services_config
+  auth_config                                = local.auth_config
+  redis_config                               = local.redis_config
+  ingestion_config                           = local.ingestion_config
 
   depends_on = [google_project_service.apis]
 }

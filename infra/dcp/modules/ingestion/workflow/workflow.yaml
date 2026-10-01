@@ -464,15 +464,15 @@ launch_and_poll_dataflow:
               maxWorkers: ${dataflow_max_workers}
               numWorkers: ${dataflow_num_workers}
               machineType: '${dataflow_worker_machine_type}'
-%{ if dataflow_ip_configuration != "WORKER_IP_UNSPECIFIED" }
+%{ if worker_ip_configuration != "WORKER_IP_UNSPECIFIED" }
     - inject_ip:
         assign:
-          - env_map.ipConfiguration: '${dataflow_ip_configuration}'
+          - env_map.ipConfiguration: '${worker_ip_configuration}'
 %{ endif }
-%{ if dataflow_subnetwork != "" }
+%{ if worker_subnetwork != "" }
     - inject_subnetwork:
         assign:
-          - env_map.subnetwork: '${dataflow_subnetwork}'
+          - env_map.subnetwork: '${worker_subnetwork}'
 %{ endif }
 
     - run_flex_template:
@@ -580,12 +580,12 @@ launch_and_poll_preprocessing_job:
             allocationPolicy:
               serviceAccount:
                 email: '${preprocessing_service_account_email}'
-%{ if vpc_network != "" && dataflow_subnetwork != "" }
+%{ if worker_subnetwork != "" || vpc_network != "" || worker_ip_configuration == "WORKER_IP_PRIVATE" }
               network:
                 networkInterfaces:
-                  - network: '${vpc_network}'
-                    subnetwork: '${dataflow_subnetwork}'
-                    noExternalIpAddress: ${dataflow_ip_configuration == "WORKER_IP_PRIVATE"}
+                  - %{ if vpc_network != "" }network: '${vpc_network}'
+                    %{ endif }%{ if worker_subnetwork != "" }subnetwork: '${worker_subnetwork}'
+                    %{ endif }noExternalIpAddress: ${worker_ip_configuration == "WORKER_IP_PRIVATE"}
 %{ endif }
             logsPolicy:
               destination: CLOUD_LOGGING
