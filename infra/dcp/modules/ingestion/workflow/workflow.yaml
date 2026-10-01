@@ -613,7 +613,7 @@ poll_cloud_batch_job_execution:
               result: job_status
           - check_terminal:
               switch:
-                - condition: '$${"status" in job_status and job_status.status != null and "state" in job_status.status and job_status.status.state in ["SUCCEEDED", "FAILED", "CANCELLED", "CANCELLATION_IN_PROGRESS", "DELETION_IN_PROGRESS"]}'                  
+                - condition: '$${job_status.status.state in ["SUCCEEDED", "FAILED", "UNEXECUTED"]}'                  
                   next: check_success
           - wait_for_batch:
               call: sys.sleep
@@ -623,7 +623,7 @@ poll_cloud_batch_job_execution:
 
     - check_success:
         switch:
-          - condition: '$${"status" in job_status and job_status.status != null and "state" in job_status.status and job_status.status.state == "SUCCEEDED"}'            
+          - condition: '$${job_status.status.state == "SUCCEEDED"}'            
             next: return_success
 
     - fail_on_batch_status:
