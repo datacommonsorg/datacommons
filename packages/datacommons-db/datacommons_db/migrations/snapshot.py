@@ -69,7 +69,6 @@ def _collect_skipped_migration_statements(
     mock_client.project_id = project_id
     mock_client.region = region
     mock_client.is_emulator = False
-
     skipped_statements: list[str] = []
     mock_client.execute_ddl.side_effect = lambda stmts: (
         skipped_statements.extend(stmts),

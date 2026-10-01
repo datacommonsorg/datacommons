@@ -23,11 +23,11 @@ import contextlib
 import datetime
 import json
 import re
+import sys
 from collections.abc import Callable
 from importlib import resources
 from pathlib import Path
 
-import sys
 from datacommons_db.migrations import (
     write_compiled_schema,
 )
