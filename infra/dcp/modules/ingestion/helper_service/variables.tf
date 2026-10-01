@@ -37,10 +37,6 @@ variable "image" {
   description = "Docker image URL for the ingestion support service"
 }
 
-variable "use_spanner" {
-  type    = bool
-  default = true
-}
 
 
 variable "enable_embeddings_generation" {

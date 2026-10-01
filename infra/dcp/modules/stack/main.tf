@@ -183,13 +183,11 @@ module "ingestion_postprocessing_job" {
   memory                         = var.ingestion_config.postprocessing_job_memory
   timeout                        = var.ingestion_config.postprocessing_job_timeout
   vpc_access                     = module.network.vpc_access
-  spanner_instance_id            = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
-  spanner_database_id            = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
-  bigquery_connection_id         = var.spanner_config.enable ? module.spanner[0].bigquery_connection_id : ""
-  use_spanner                    = var.spanner_config.enable
+  spanner_instance_id            = try(module.spanner[0].spanner_instance_id, "")
+  spanner_database_id            = try(module.spanner[0].spanner_database_id, "")
+  bigquery_connection_id         = try(module.spanner[0].bigquery_connection_id, "")
   enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
   enable_spanner_embeddings      = var.spanner_config.enable_embeddings_generation
-  enable_bigquery_connection     = var.spanner_config.enable && var.spanner_config.enable_bigquery_connection
   env_vars                       = local.cloud_run_shared_env_variables
 }
 
@@ -200,7 +198,6 @@ module "ingestion_dataflow" {
   project_id            = var.global.project_id
   instance_name         = var.global.instance_name
   ingestion_bucket_name = module.storage.artifacts_bucket_name
-  use_spanner           = var.spanner_config.enable
 }
 
 module "ingestion_helper_service" {
@@ -211,13 +208,11 @@ module "ingestion_helper_service" {
   instance_name                 = var.global.instance_name
   region                        = var.global.region
   stateless_deletion_protection = var.global.stateless_deletion_protection
-  # Use index [0] because module.spanner is conditional. Fallback to empty string if disabled.
-  spanner_instance_id          = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
-  spanner_database_id          = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
-  ingestion_bucket_name        = module.storage.artifacts_bucket_name
-  image                        = var.ingestion_config.helper_service_image
-  use_spanner                  = var.spanner_config.enable
-  enable_embeddings_generation = var.spanner_config.enable_embeddings_generation
+  spanner_instance_id           = try(module.spanner[0].spanner_instance_id, "")
+  spanner_database_id           = try(module.spanner[0].spanner_database_id, "")
+  ingestion_bucket_name         = module.storage.artifacts_bucket_name
+  image                         = var.ingestion_config.helper_service_image
+  enable_embeddings_generation  = var.spanner_config.enable_embeddings_generation
 
   # Direct VPC Egress from network module
   vpc_access               = module.network.vpc_access
@@ -392,17 +387,37 @@ resource "google_spanner_database_iam_member" "serving_spanner_reader" {
   member   = "serviceAccount:${one(module.datacommons_services[*].service_account_email)}"
 }
 
-resource "google_spanner_database_iam_member" "spanner_user_permissions" {
-  for_each = var.spanner_config.enable && var.ingestion_config.enable_ingestion ? {
-    dataflow       = module.ingestion_dataflow.service_account_email
-    postprocessing = one(module.ingestion_postprocessing_job[*].service_account_email)
-    helper         = module.ingestion_helper_service.service_account_email
-  } : {}
-
+resource "google_spanner_database_iam_member" "dataflow_spanner_user" {
+  count    = var.spanner_config.enable && var.ingestion_config.enable_ingestion ? 1 : 0
   instance = one(module.spanner[*].spanner_instance_id)
   database = one(module.spanner[*].spanner_database_id)
   role     = "roles/spanner.databaseUser"
-  member   = "serviceAccount:${each.value}"
+  member   = "serviceAccount:${module.ingestion_dataflow.service_account_email}"
+}
+
+resource "google_spanner_database_iam_member" "postprocessing_spanner_user" {
+  count    = var.spanner_config.enable && var.ingestion_config.enable_ingestion ? 1 : 0
+  instance = one(module.spanner[*].spanner_instance_id)
+  database = one(module.spanner[*].spanner_database_id)
+  role     = "roles/spanner.databaseUser"
+  member   = "serviceAccount:${one(module.ingestion_postprocessing_job[*].service_account_email)}"
+}
+
+resource "google_spanner_database_iam_member" "helper_spanner_user" {
+  count    = var.spanner_config.enable && var.ingestion_config.enable_ingestion ? 1 : 0
+  instance = one(module.spanner[*].spanner_instance_id)
+  database = one(module.spanner[*].spanner_database_id)
+  role     = "roles/spanner.databaseUser"
+  member   = "serviceAccount:${module.ingestion_helper_service.service_account_email}"
+}
+
+resource "google_bigquery_connection_iam_member" "postprocessing_bq_connection_user" {
+  count         = var.ingestion_config.enable_ingestion && var.ingestion_config.workflow_enable_bigquery_postprocessing && var.spanner_config.enable && var.spanner_config.enable_bigquery_connection ? 1 : 0
+  project       = var.global.project_id
+  location      = var.global.region
+  connection_id = one(module.spanner[*].bigquery_connection_id)
+  role          = "roles/bigquery.connectionUser"
+  member        = "serviceAccount:${one(module.ingestion_postprocessing_job[*].service_account_email)}"
 }
 
 resource "google_project_iam_member" "workflow_invoker" {
