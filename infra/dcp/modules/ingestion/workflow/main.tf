@@ -2,8 +2,6 @@ locals {
   name_prefix                = var.instance_name != "" ? "${var.instance_name}-" : ""
   should_run_postprocessing  = var.enable_bigquery_postprocessing || var.enable_embeddings_generation
   clean_instance_name_prefix = var.instance_name != "" ? "${replace(lower(var.instance_name), "_", "-")}-" : ""
-  effective_worker_ip_config = var.worker_ip_configuration != "WORKER_IP_UNSPECIFIED" ? var.worker_ip_configuration : var.dataflow_ip_configuration
-  effective_worker_subnet    = var.worker_subnetwork != "" ? var.worker_subnetwork : var.dataflow_subnetwork
 }
 
 resource "google_service_account" "workflow_sa" {
@@ -34,10 +32,8 @@ resource "google_workflows_workflow" "ingestion_orchestrator" {
     ingestion_dataflow_template_gcs_path = var.ingestion_dataflow_template_gcs_path
     rollback_dataflow_template_gcs_path  = var.rollback_dataflow_template_gcs_path
     dataflow_service_account_email       = var.dataflow_service_account_email
-    worker_ip_configuration              = local.effective_worker_ip_config
-    worker_subnetwork                    = local.effective_worker_subnet
-    dataflow_ip_configuration            = local.effective_worker_ip_config
-    dataflow_subnetwork                  = local.effective_worker_subnet
+    worker_ip_configuration              = var.worker_ip_configuration
+    worker_subnetwork                    = var.worker_subnetwork
     embeddings_timeout                   = var.embeddings_timeout
     clean_instance_name_prefix           = local.clean_instance_name_prefix
     enable_redis_cache_clearing          = var.enable_redis_cache_clearing

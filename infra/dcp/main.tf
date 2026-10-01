@@ -167,12 +167,10 @@ locals {
     helper_service_image              = coalesce(var.ingestion_helper_service_image, "gcr.io/datcom-ci/datacommons-ingestion-helper:${var.dcp_version}")
 
     # Worker Network Configuration (Dataflow & Cloud Batch)
-    worker_ip_configuration = try(coalesce(var.ingestion_worker_ip_configuration, var.ingestion_dataflow_ip_configuration), "WORKER_IP_UNSPECIFIED")
-    worker_subnetwork       = try(coalesce(var.ingestion_worker_subnetwork, var.ingestion_dataflow_subnetwork), "")
+    worker_ip_configuration = var.ingestion_worker_ip_configuration
+    worker_subnetwork       = var.ingestion_worker_subnetwork
 
-    # Legacy Dataflow Configuration
-    dataflow_ip_configuration            = var.ingestion_dataflow_ip_configuration
-    dataflow_subnetwork                  = var.ingestion_dataflow_subnetwork
+    # Ingestion Dataflow Template & Worker Configuration
     ingestion_dataflow_template_gcs_path = coalesce(var.ingestion_dataflow_template_gcs_path, "gs://datcom-templates/templates/flex/ingestion-${local.df_template_version}.json")
     rollback_dataflow_template_gcs_path  = coalesce(var.ingestion_rollback_dataflow_template_gcs_path, "gs://datcom-templates/templates/flex/rollback/rollback-${local.df_template_version}.json")
     dataflow_max_workers                 = var.ingestion_dataflow_max_workers

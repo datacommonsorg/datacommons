@@ -27,8 +27,8 @@ locals {
     var.network_config.enable && var.network_config.enable_workload_vpc && module.network.network_id != null ? module.network.network_id : ""
   )
 
-  raw_worker_subnetwork = try(coalesce(var.ingestion_config.worker_subnetwork, var.ingestion_config.dataflow_subnetwork), "")
-  raw_worker_ip_config  = try(coalesce(var.ingestion_config.worker_ip_configuration, var.ingestion_config.dataflow_ip_configuration), "WORKER_IP_UNSPECIFIED")
+  raw_worker_subnetwork = var.ingestion_config.worker_subnetwork != null ? var.ingestion_config.worker_subnetwork : ""
+  raw_worker_ip_config  = var.ingestion_config.worker_ip_configuration != null ? var.ingestion_config.worker_ip_configuration : "WORKER_IP_UNSPECIFIED"
 
   effective_worker_subnetwork = (
     local.raw_worker_subnetwork != "" ? local.raw_worker_subnetwork :
@@ -37,9 +37,6 @@ locals {
   effective_worker_ip_configuration = (
     local.effective_worker_subnetwork != "" ? local.raw_worker_ip_config : "WORKER_IP_UNSPECIFIED"
   )
-
-  effective_dataflow_subnetwork       = local.effective_worker_subnetwork
-  effective_dataflow_ip_configuration = local.effective_worker_ip_configuration
 
   cloud_run_shared_env_variables = [
     {
@@ -259,8 +256,6 @@ module "ingestion_workflow" {
   vpc_network                          = local.effective_vpc_network
   worker_ip_configuration              = local.effective_worker_ip_configuration
   worker_subnetwork                    = local.effective_worker_subnetwork
-  dataflow_ip_configuration            = local.effective_worker_ip_configuration
-  dataflow_subnetwork                  = local.effective_worker_subnetwork
   ingestion_dataflow_template_gcs_path = var.ingestion_config.ingestion_dataflow_template_gcs_path
   rollback_dataflow_template_gcs_path  = var.ingestion_config.rollback_dataflow_template_gcs_path
   dataflow_max_workers                 = var.ingestion_config.dataflow_max_workers
