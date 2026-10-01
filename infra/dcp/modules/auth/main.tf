@@ -34,6 +34,13 @@ resource "google_apikeys_key" "maps_api_key" {
     api_targets {
       service = "places_backend"
     }
+
+    dynamic "browser_key_restrictions" {
+      for_each = length(var.google_maps_allowed_referrers) > 0 ? [1] : []
+      content {
+        allowed_referrers = var.google_maps_allowed_referrers
+      }
+    }
   }
 }
 
