@@ -100,3 +100,49 @@ def test_terraform_outputs_from_state_outputs_edge_cases() -> None:
         match="Required Terraform output 'project_id' is missing or empty",
     ):
         TerraformOutputs.from_state_outputs(invalid_missing)
+
+
+def test_integration_prober_deployed_artifact_outputs_contract(
+    repo_root: Path,
+) -> None:
+    """Verifies that all container images and template outputs required by the integration prober
+
+    (_resolve_deployed_artifacts in tests/integration/core/resolver.py) are declared in both
+    root infra/dcp/outputs.tf and infra/dcp/modules/stack/outputs.tf.
+    """
+    root_tf_outputs_file = repo_root / "infra" / "dcp" / "outputs.tf"
+    stack_tf_outputs_file = (
+        repo_root / "infra" / "dcp" / "modules" / "stack" / "outputs.tf"
+    )
+
+    assert root_tf_outputs_file.exists(), (
+        f"Root Terraform outputs file not found: {root_tf_outputs_file}"
+    )
+    assert stack_tf_outputs_file.exists(), (
+        f"Stack Terraform outputs file not found: {stack_tf_outputs_file}"
+    )
+
+    required_prober_outputs = {
+        "datacommons_services_image",
+        "ingestion_helper_image",
+        "ingestion_preprocessing_image",
+        "ingestion_postprocessing_image",
+        "ingestion_dataflow_template_gcs_path",
+    }
+
+    root_declared = extract_tf_outputs(root_tf_outputs_file)
+    stack_declared = extract_tf_outputs(stack_tf_outputs_file)
+
+    missing_in_root = required_prober_outputs - root_declared
+    assert not missing_in_root, (
+        f"The following required prober artifact outputs are missing from {root_tf_outputs_file}:\n"
+        f"{sorted(missing_in_root)}\n"
+        "These outputs must be declared so integration test probers can resolve deployed artifact digests."
+    )
+
+    missing_in_stack = required_prober_outputs - stack_declared
+    assert not missing_in_stack, (
+        f"The following required prober artifact outputs are missing from {stack_tf_outputs_file}:\n"
+        f"{sorted(missing_in_stack)}\n"
+        "These outputs must be declared so the root stack can forward deployed artifact digests."
+    )

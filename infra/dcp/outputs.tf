@@ -50,6 +50,31 @@ output "storage_artifacts_bucket_name" {
   value       = module.stack.storage_artifacts_bucket_name
 }
 
+output "datacommons_services_image" {
+  description = "Container image URI used by the Data Commons serving service"
+  value       = module.stack.datacommons_services_image
+}
+
+output "ingestion_helper_image" {
+  description = "Container image URI used by the ingestion helper service"
+  value       = module.stack.ingestion_helper_image
+}
+
+output "ingestion_preprocessing_image" {
+  description = "Container image URI used by the Cloud Batch preprocessing job"
+  value       = module.stack.ingestion_preprocessing_image
+}
+
+output "ingestion_postprocessing_image" {
+  description = "Container image URI used by the Cloud Run postprocessing job"
+  value       = module.stack.ingestion_postprocessing_image
+}
+
+output "ingestion_dataflow_template_gcs_path" {
+  description = "GCS path to the Dataflow flex template specification"
+  value       = module.stack.ingestion_dataflow_template_gcs_path
+}
+
 output "project_id" {
   description = "The GCP project ID where resources are deployed"
   value       = var.project_id
