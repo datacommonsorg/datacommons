@@ -32,8 +32,6 @@ resource "google_compute_backend_service" "backend" {
   name                  = "${local.name_prefix}dc-backend-service"
   project               = var.project_id
   protocol              = "HTTP"
-  port_name             = "http"
-  timeout_sec           = 300
   enable_cdn            = false
   load_balancing_scheme = "EXTERNAL_MANAGED"
 
