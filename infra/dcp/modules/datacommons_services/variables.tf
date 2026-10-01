@@ -102,6 +102,18 @@ variable "use_spanner" {
   type = bool
 }
 
+variable "spanner_instance_id" {
+  type        = string
+  description = "Optional Cloud Spanner instance ID for query serving"
+  default     = null
+}
+
+variable "spanner_database_id" {
+  type        = string
+  description = "Optional Cloud Spanner database ID for query serving"
+  default     = null
+}
+
 # =============================================================================
 # Shared Environment Variables
 # =============================================================================

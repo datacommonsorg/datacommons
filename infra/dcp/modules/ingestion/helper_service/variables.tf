@@ -20,11 +20,13 @@ variable "stateless_deletion_protection" {
 }
 
 variable "spanner_instance_id" {
-  type = string
+  type    = string
+  default = null
 }
 
 variable "spanner_database_id" {
-  type = string
+  type    = string
+  default = null
 }
 
 variable "ingestion_bucket_name" {

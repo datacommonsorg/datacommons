@@ -96,3 +96,21 @@ resource "google_project_iam_member" "postprocessing_bq_job_user" {
   member  = "serviceAccount:${google_service_account.postprocessing_sa.email}"
 }
 
+resource "google_spanner_database_iam_member" "postprocessing_spanner_user" {
+  count    = var.spanner_instance_id != null && var.spanner_database_id != null && var.spanner_instance_id != "" && var.spanner_database_id != "" ? 1 : 0
+  project  = var.project_id
+  instance = var.spanner_instance_id
+  database = var.spanner_database_id
+  role     = "roles/spanner.databaseUser"
+  member   = "serviceAccount:${google_service_account.postprocessing_sa.email}"
+}
+
+resource "google_bigquery_connection_iam_member" "postprocessing_bq_connection_user" {
+  count         = var.enable_bigquery_postprocessing && var.bigquery_connection_id != null && var.bigquery_connection_id != "" ? 1 : 0
+  project       = var.project_id
+  location      = var.region
+  connection_id = var.bigquery_connection_id
+  role          = "roles/bigquery.connectionUser"
+  member        = "serviceAccount:${google_service_account.postprocessing_sa.email}"
+}
+

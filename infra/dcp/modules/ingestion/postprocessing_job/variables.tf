@@ -22,9 +22,18 @@ variable "vpc_access" {
   description = "Direct VPC Egress configuration. If null, job runs without VPC egress."
   default     = null
 }
-variable "spanner_instance_id" { type = string }
-variable "spanner_database_id" { type = string }
-variable "bigquery_connection_id" { type = string }
+variable "spanner_instance_id" {
+  type    = string
+  default = null
+}
+variable "spanner_database_id" {
+  type    = string
+  default = null
+}
+variable "bigquery_connection_id" {
+  type    = string
+  default = null
+}
 variable "enable_bigquery_postprocessing" { type = bool }
 variable "enable_spanner_embeddings" { type = bool }
 

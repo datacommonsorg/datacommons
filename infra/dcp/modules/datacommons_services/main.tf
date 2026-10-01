@@ -31,6 +31,15 @@ resource "google_secret_manager_secret_iam_member" "serving_secret_accessor" {
   member    = "serviceAccount:${google_service_account.serving_sa.email}"
 }
 
+resource "google_spanner_database_iam_member" "serving_spanner_reader" {
+  count    = var.use_spanner && var.spanner_instance_id != null && var.spanner_database_id != null ? 1 : 0
+  project  = var.project_id
+  instance = var.spanner_instance_id
+  database = var.spanner_database_id
+  role     = "roles/spanner.databaseReader"
+  member   = "serviceAccount:${google_service_account.serving_sa.email}"
+}
+
 resource "google_cloud_run_v2_service" "dc_web_service" {
   name                = "${local.name_prefix}dc-datacommons-service"
   location            = var.region
@@ -71,6 +80,14 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
       env {
         name  = "GCP_PROJECT_ID"
         value = var.project_id
+      }
+      env {
+        name  = "GCP_SPANNER_INSTANCE_ID"
+        value = var.spanner_instance_id != null ? var.spanner_instance_id : ""
+      }
+      env {
+        name  = "GCP_SPANNER_DATABASE_NAME"
+        value = var.spanner_database_id != null ? var.spanner_database_id : ""
       }
 
       dynamic "env" {

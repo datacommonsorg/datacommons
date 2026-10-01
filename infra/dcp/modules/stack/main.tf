@@ -61,16 +61,6 @@ locals {
       value = local.redis_ca_cert
     },
     {
-      name = "GCP_SPANNER_INSTANCE_ID"
-      # Use index [0] because module.spanner is now conditional (count). Fallback to empty string if disabled.
-      value = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
-    },
-    {
-      name = "GCP_SPANNER_DATABASE_NAME"
-      # Use index [0] because module.spanner is now conditional (count). Fallback to empty string if disabled.
-      value = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
-    },
-    {
       # TODO: Remove once datacommons-cli no longer checks for TEMP_LOCATION on the preprocessing job (PR #266).
       name  = "TEMP_LOCATION"
       value = "DEPRECATED_UNUSED"
@@ -198,6 +188,8 @@ module "ingestion_dataflow" {
   project_id            = var.global.project_id
   instance_name         = var.global.instance_name
   ingestion_bucket_name = module.storage.artifacts_bucket_name
+  spanner_instance_id   = coalesce(one(module.spanner[*].spanner_instance_id), "")
+  spanner_database_id   = coalesce(one(module.spanner[*].spanner_database_id), "")
 }
 
 module "ingestion_helper_service" {
@@ -319,6 +311,8 @@ module "datacommons_services" {
   artifacts_bucket_name         = module.storage.artifacts_bucket_name
   vpc_access                    = module.network.vpc_access
   use_spanner                   = var.spanner_config.enable
+  spanner_instance_id           = coalesce(one(module.spanner[*].spanner_instance_id), "")
+  spanner_database_id           = coalesce(one(module.spanner[*].spanner_database_id), "")
   env_vars = concat(local.cloud_run_shared_env_variables, [
     {
       name  = "INGESTION_WORKFLOW_NAME"
@@ -377,51 +371,6 @@ resource "google_storage_bucket_iam_member" "serving_bucket_access" {
   bucket = module.storage.artifacts_bucket_name
   role   = "roles/storage.objectViewer"
   member = "serviceAccount:${module.datacommons_services[0].service_account_email}"
-}
-
-resource "google_spanner_database_iam_member" "serving_spanner_reader" {
-  count    = var.spanner_config.enable && var.datacommons_services_config.enable ? 1 : 0
-  project  = var.global.project_id
-  instance = one(module.spanner[*].spanner_instance_id)
-  database = one(module.spanner[*].spanner_database_id)
-  role     = "roles/spanner.databaseReader"
-  member   = "serviceAccount:${one(module.datacommons_services[*].service_account_email)}"
-}
-
-resource "google_spanner_database_iam_member" "dataflow_spanner_user" {
-  count    = var.spanner_config.enable && var.ingestion_config.enable_ingestion ? 1 : 0
-  project  = var.global.project_id
-  instance = one(module.spanner[*].spanner_instance_id)
-  database = one(module.spanner[*].spanner_database_id)
-  role     = "roles/spanner.databaseUser"
-  member   = "serviceAccount:${module.ingestion_dataflow.service_account_email}"
-}
-
-resource "google_spanner_database_iam_member" "postprocessing_spanner_user" {
-  count    = var.spanner_config.enable && var.ingestion_config.enable_ingestion ? 1 : 0
-  project  = var.global.project_id
-  instance = one(module.spanner[*].spanner_instance_id)
-  database = one(module.spanner[*].spanner_database_id)
-  role     = "roles/spanner.databaseUser"
-  member   = "serviceAccount:${one(module.ingestion_postprocessing_job[*].service_account_email)}"
-}
-
-resource "google_spanner_database_iam_member" "helper_spanner_user" {
-  count    = var.spanner_config.enable && var.ingestion_config.enable_ingestion ? 1 : 0
-  project  = var.global.project_id
-  instance = one(module.spanner[*].spanner_instance_id)
-  database = one(module.spanner[*].spanner_database_id)
-  role     = "roles/spanner.databaseUser"
-  member   = "serviceAccount:${module.ingestion_helper_service.service_account_email}"
-}
-
-resource "google_bigquery_connection_iam_member" "postprocessing_bq_connection_user" {
-  count         = var.ingestion_config.enable_ingestion && var.ingestion_config.workflow_enable_bigquery_postprocessing && var.spanner_config.enable && var.spanner_config.enable_bigquery_connection ? 1 : 0
-  project       = var.global.project_id
-  location      = var.global.region
-  connection_id = one(module.spanner[*].bigquery_connection_id)
-  role          = "roles/bigquery.connectionUser"
-  member        = "serviceAccount:${one(module.ingestion_postprocessing_job[*].service_account_email)}"
 }
 
 resource "google_project_iam_member" "workflow_invoker" {
