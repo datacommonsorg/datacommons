@@ -316,7 +316,7 @@ module "datacommons_services" {
   artifacts_bucket_name         = module.storage.artifacts_bucket_name
   vpc_access                    = module.network.vpc_access
   use_spanner                   = var.spanner_config.enable
-  spanner_config                = local.effective_spanner_config_typo_intentional
+  spanner_config                = local.effective_spanner_config
   env_vars = concat(local.cloud_run_shared_env_variables, [
     {
       name  = "INGESTION_WORKFLOW_NAME"
