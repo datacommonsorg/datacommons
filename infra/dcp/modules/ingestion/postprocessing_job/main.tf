@@ -37,19 +37,19 @@ resource "google_cloud_run_v2_job" "dc_postprocessing_job" {
         }
         env {
           name  = "SPANNER_INSTANCE_ID"
-          value = var.spanner_config != null ? var.spanner_config.instance_id : ""
+          value = try(var.spanner_config.instance_id, "")
         }
         env {
           name  = "SPANNER_DATABASE_ID"
-          value = var.spanner_config != null ? var.spanner_config.database_id : ""
+          value = try(var.spanner_config.database_id, "")
         }
         env {
           name  = "SPANNER_GRAPH_DATABASE_ID"
-          value = var.spanner_config != null ? var.spanner_config.database_id : ""
+          value = try(var.spanner_config.database_id, "")
         }
         env {
           name  = "BQ_SPANNER_CONN_ID"
-          value = var.spanner_config != null && var.spanner_config.bigquery_connection_id != null ? var.spanner_config.bigquery_connection_id : ""
+          value = try(var.spanner_config.bigquery_connection_id, "")
         }
         env {
           name  = "LOCATION"

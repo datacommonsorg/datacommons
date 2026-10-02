@@ -36,15 +36,15 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
       }
       env {
         name  = "SPANNER_INSTANCE_ID"
-        value = var.spanner_config != null ? var.spanner_config.instance_id : ""
+        value = try(var.spanner_config.instance_id, "")
       }
       env {
         name  = "SPANNER_DATABASE_ID"
-        value = var.spanner_config != null ? var.spanner_config.database_id : ""
+        value = try(var.spanner_config.database_id, "")
       }
       env {
         name  = "SPANNER_GRAPH_DATABASE_ID"
-        value = var.spanner_config != null ? var.spanner_config.database_id : ""
+        value = try(var.spanner_config.database_id, "")
       }
 
       env {

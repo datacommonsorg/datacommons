@@ -83,11 +83,11 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
       }
       env {
         name  = "GCP_SPANNER_INSTANCE_ID"
-        value = var.spanner_config != null ? var.spanner_config.instance_id : ""
+        value = try(var.spanner_config.instance_id, "")
       }
       env {
         name  = "GCP_SPANNER_DATABASE_NAME"
-        value = var.spanner_config != null ? var.spanner_config.database_id : ""
+        value = try(var.spanner_config.database_id, "")
       }
 
       dynamic "env" {
