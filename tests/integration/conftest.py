@@ -512,13 +512,16 @@ def spanner_client(dcp_target: DCPTarget) -> SpannerClient:
 
 
 @pytest.fixture(scope="session")
-def auth_headers() -> dict:
+def auth_headers(dcp_target: DCPTarget) -> dict:
     """Provides default HTTP headers with GCP Cloud Run identity token if authenticated."""
     headers = {"X-Use-Multi-Entity-Schema": "true"}
     try:
+        cmd = ["gcloud", "auth", "print-identity-token"]
+        if dcp_target and dcp_target.serving_url:
+            cmd.append(f"--audiences={dcp_target.serving_url}")
         token = (
             subprocess.check_output(
-                ["gcloud", "auth", "print-identity-token"],
+                cmd,
                 stderr=subprocess.DEVNULL,
                 timeout=15,
             )
