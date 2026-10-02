@@ -18,7 +18,10 @@ from datacommons_db.clients.models import (
     ExecutionStatus,
     QueryResult,
 )
-from datacommons_db.clients.spanner_client import SpannerClient
+from datacommons_db.clients.spanner_client import (
+    SpannerClient,
+    resolve_instance_config,
+)
 
 __all__ = [
     "DdlResult",
@@ -26,4 +29,5 @@ __all__ = [
     "ExecutionStatus",
     "QueryResult",
     "SpannerClient",
+    "resolve_instance_config",
 ]
