@@ -1363,8 +1363,8 @@ In general, to troubleshoot any GCP problems, you should go to the Cloud Console
 ### Ingestion workflow fails
 
 1. Go to the link for the workflow output by the  `datacommons ingest start` command.
-2. Under **State**, find the stage that has failed. If it fails on **run_preprocessing**, go to the Cloud Console Cloud Run job page for your preprocessing job. The job is called <code><var>INSTANCE_NAME</var>-dc-ingestion-preprocessing-job</code>.
-3. Select **Observability** > **Logs** and check for any errors. Expand the error entries to get more details. See below for solutions to common Data Commons data job errors.
+2. Under **State**, find the stage that has failed. If it fails on **run_preprocessing**, go to the Cloud Console Batch **Job list** page and click your preprocessing job. Each workflow run creates a new job named <code><var>INSTANCE_NAME</var>-prep-<var>TIMESTAMP</var></code>.
+3. Select the **Logs** tab and check for any errors. Expand the error entries to get more details. See below for solutions to common Data Commons data job errors.
 
 
 #### 401: Unauthorized
