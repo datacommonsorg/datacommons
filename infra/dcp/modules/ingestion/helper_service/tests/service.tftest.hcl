@@ -36,9 +36,12 @@ variables {
   ingestion_bucket_name         = "test-ingestion-bucket"
   ingestion_artifacts_path      = "metadata"
   enable_embeddings_generation  = true
-  spanner_config                = null
-  vpc_access                    = null
-  redis_config                  = null
+  spanner_config = {
+    instance_id = "test-spanner-instance"
+    database_id = "test-spanner-db"
+  }
+  vpc_access   = null
+  redis_config = null
 }
 
 # =============================================================================
@@ -97,7 +100,33 @@ run "baseline_service_contract" {
     error_message = "ENABLE_EMBEDDINGS container env var must reflect var.enable_embeddings_generation"
   }
 
-  # 6. Redis Disabled Fallbacks
+  # 6. Spanner Storage Contract & IAM
+  assert {
+    condition     = google_spanner_database_iam_member.helper_spanner_user.role == "roles/spanner.databaseUser"
+    error_message = "helper_spanner_user role must be roles/spanner.databaseUser"
+  }
+
+  assert {
+    condition     = google_spanner_database_iam_member.helper_spanner_user.instance == "test-spanner-instance" && google_spanner_database_iam_member.helper_spanner_user.database == "test-spanner-db"
+    error_message = "Spanner IAM member must target configured instance and database"
+  }
+
+  assert {
+    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "SPANNER_INSTANCE_ID"]) == "test-spanner-instance"
+    error_message = "SPANNER_INSTANCE_ID must match spanner_config.instance_id"
+  }
+
+  assert {
+    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "SPANNER_DATABASE_ID"]) == "test-spanner-db"
+    error_message = "SPANNER_DATABASE_ID must match spanner_config.database_id"
+  }
+
+  assert {
+    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "SPANNER_GRAPH_DATABASE_ID"]) == "test-spanner-db"
+    error_message = "SPANNER_GRAPH_DATABASE_ID must match spanner_config.database_id"
+  }
+
+  # 7. Redis Disabled Fallbacks
   assert {
     condition     = length(google_secret_manager_secret_iam_member.helper_redis_auth_secret_accessor) == 0
     error_message = "Secret accessor IAM binding must NOT be created when redis_config is null"
@@ -137,76 +166,6 @@ run "instance_name_prefixing" {
   assert {
     condition     = google_service_account.helper_sa.account_id == "prod-dc-ing-hlp-sa"
     error_message = "Service account account_id must be prefixed with instance_name"
-  }
-}
-
-# =============================================================================
-# SCENARIO 3: Storage - Spanner Disabled (try() fallbacks & zero IAM)
-# =============================================================================
-run "spanner_disabled_fallback" {
-  command = plan
-
-  variables {
-    spanner_config = null
-  }
-
-  assert {
-    condition     = length(google_spanner_database_iam_member.helper_spanner_user) == 0
-    error_message = "Database User IAM binding must NOT be created when spanner_config is null"
-  }
-
-  assert {
-    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "SPANNER_INSTANCE_ID"]) == ""
-    error_message = "SPANNER_INSTANCE_ID must fall back to empty string via try() when spanner_config is null"
-  }
-
-  assert {
-    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "SPANNER_DATABASE_ID"]) == ""
-    error_message = "SPANNER_DATABASE_ID must fall back to empty string via try() when spanner_config is null"
-  }
-
-  assert {
-    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "SPANNER_GRAPH_DATABASE_ID"]) == ""
-    error_message = "SPANNER_GRAPH_DATABASE_ID must fall back to empty string via try() when spanner_config is null"
-  }
-}
-
-# =============================================================================
-# SCENARIO 4: Storage - Spanner Enabled (databaseUser IAM & container envs)
-# =============================================================================
-run "spanner_enabled" {
-  command = plan
-
-  variables {
-    spanner_config = {
-      instance_id = "test-spanner-instance"
-      database_id = "test-spanner-db"
-    }
-  }
-
-  assert {
-    condition     = length(google_spanner_database_iam_member.helper_spanner_user) == 1
-    error_message = "Database User IAM binding MUST be created when spanner_config is provided"
-  }
-
-  assert {
-    condition     = google_spanner_database_iam_member.helper_spanner_user[0].role == "roles/spanner.databaseUser"
-    error_message = "Spanner IAM role must be roles/spanner.databaseUser"
-  }
-
-  assert {
-    condition     = google_spanner_database_iam_member.helper_spanner_user[0].instance == "test-spanner-instance" && google_spanner_database_iam_member.helper_spanner_user[0].database == "test-spanner-db"
-    error_message = "Spanner IAM member must target configured instance and database"
-  }
-
-  assert {
-    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "SPANNER_INSTANCE_ID"]) == "test-spanner-instance"
-    error_message = "SPANNER_INSTANCE_ID must match spanner_config.instance_id"
-  }
-
-  assert {
-    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "SPANNER_DATABASE_ID"]) == "test-spanner-db"
-    error_message = "SPANNER_DATABASE_ID must match spanner_config.database_id"
   }
 }
 
