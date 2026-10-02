@@ -166,9 +166,11 @@ locals {
     workflow_lock_acquisition_timeout = var.ingestion_workflow_lock_acquisition_timeout
     helper_service_image              = coalesce(var.ingestion_helper_service_image, "gcr.io/datcom-ci/datacommons-ingestion-helper:${var.dcp_version}")
 
-    # Dataflow Network & Scaling Configuration
-    dataflow_ip_configuration            = var.ingestion_dataflow_ip_configuration
-    dataflow_subnetwork                  = var.ingestion_dataflow_subnetwork
+    # Worker Network Configuration (Dataflow & Cloud Batch)
+    worker_ip_configuration = var.ingestion_worker_ip_configuration
+    worker_subnetwork       = var.ingestion_worker_subnetwork
+
+    # Ingestion Dataflow Template & Worker Configuration
     ingestion_dataflow_template_gcs_path = coalesce(var.ingestion_dataflow_template_gcs_path, "gs://datcom-templates/templates/flex/ingestion-${local.df_template_version}.json")
     rollback_dataflow_template_gcs_path  = coalesce(var.ingestion_rollback_dataflow_template_gcs_path, "gs://datcom-templates/templates/flex/rollback/rollback-${local.df_template_version}.json")
     dataflow_max_workers                 = var.ingestion_dataflow_max_workers

@@ -132,11 +132,11 @@ variable "ingestion_config" {
     workflow_lock_acquisition_timeout = number
     helper_service_image              = optional(string)
 
-    # Dataflow network configuration
-    # Use WORKER_IP_PRIVATE when a compute.vmExternalIpAccess org policy
-    # blocks Dataflow workers from obtaining external IPs.
-    dataflow_ip_configuration            = optional(string, "WORKER_IP_UNSPECIFIED")
-    dataflow_subnetwork                  = optional(string, "")
+    # Worker Network Configuration (Dataflow & Cloud Batch)
+    worker_ip_configuration = optional(string, "WORKER_IP_UNSPECIFIED")
+    worker_subnetwork       = optional(string, "")
+
+    # Ingestion Dataflow Template & Worker Configuration
     ingestion_dataflow_template_gcs_path = optional(string)
     rollback_dataflow_template_gcs_path  = optional(string)
     dataflow_max_workers                 = optional(number, 20)
