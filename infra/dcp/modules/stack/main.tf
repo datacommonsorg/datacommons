@@ -200,8 +200,8 @@ module "ingestion_dataflow" {
 
 module "ingestion_helper_service" {
   source = "../ingestion/helper_service"
+  count  = var.ingestion_config.enable_ingestion ? 1 : 0
 
-  deploy                        = var.ingestion_config.enable_ingestion
   project_id                    = var.global.project_id
   instance_name                 = var.global.instance_name
   region                        = var.global.region
@@ -231,7 +231,7 @@ module "ingestion_workflow" {
   stateless_deletion_protection        = var.global.stateless_deletion_protection
   project_id                           = var.global.project_id
   lock_acquisition_timeout             = var.ingestion_config.workflow_lock_acquisition_timeout
-  ingestion_helper_url                 = module.ingestion_helper_service.ingestion_helper_url
+  ingestion_helper_url                 = one(module.ingestion_helper_service[*].ingestion_helper_url)
   dataflow_service_account_email       = module.ingestion_dataflow.service_account_email
   enable_bigquery_postprocessing       = var.ingestion_config.workflow_enable_bigquery_postprocessing
   enable_embeddings_generation         = var.spanner_config.enable_embeddings_generation

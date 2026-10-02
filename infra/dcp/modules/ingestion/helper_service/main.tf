@@ -3,13 +3,11 @@ locals {
 }
 
 resource "google_service_account" "helper_sa" {
-  count        = var.deploy ? 1 : 0
   account_id   = "${local.name_prefix}dc-ing-hlp-sa"
   display_name = "Data Commons Ingestion Helper SA"
 }
 
 resource "google_cloud_run_v2_service" "ingestion_helper" {
-  count               = var.deploy ? 1 : 0
   name                = "${local.name_prefix}dc-ingestion-helper"
   location            = var.region
   deletion_protection = var.stateless_deletion_protection
@@ -111,41 +109,38 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
       }
     }
 
-    service_account = google_service_account.helper_sa[0].email
+    service_account = google_service_account.helper_sa.email
   }
 
   depends_on = [google_secret_manager_secret_iam_member.helper_redis_auth_secret_accessor]
 }
 
 resource "google_secret_manager_secret_iam_member" "helper_redis_auth_secret_accessor" {
-  count     = var.deploy && var.redis_auth_secret_id != null ? 1 : 0
+  count     = var.redis_auth_secret_id != null ? 1 : 0
   project   = var.project_id
   secret_id = var.redis_auth_secret_id
   role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.helper_sa[0].email}"
+  member    = "serviceAccount:${google_service_account.helper_sa.email}"
 }
 
 resource "google_spanner_database_iam_member" "helper_spanner_user" {
-  count    = var.deploy ? 1 : 0
   project  = var.project_id
   instance = var.spanner_config.instance_id
   database = var.spanner_config.database_id
   role     = "roles/spanner.databaseUser"
-  member   = "serviceAccount:${google_service_account.helper_sa[0].email}"
+  member   = "serviceAccount:${google_service_account.helper_sa.email}"
 }
 
 resource "google_storage_bucket_iam_member" "helper_bucket_access" {
-  count  = var.deploy ? 1 : 0
   bucket = var.ingestion_bucket_name
   role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.helper_sa[0].email}"
+  member = "serviceAccount:${google_service_account.helper_sa.email}"
 }
 
 resource "google_project_iam_member" "helper_dataflow_viewer" {
-  count   = var.deploy ? 1 : 0
   project = var.project_id
   role    = "roles/dataflow.viewer"
-  member  = "serviceAccount:${google_service_account.helper_sa[0].email}"
+  member  = "serviceAccount:${google_service_account.helper_sa.email}"
 }
 
 

@@ -1,6 +1,3 @@
-variable "deploy" {
-  type = bool
-}
 
 variable "project_id" {
   type = string
