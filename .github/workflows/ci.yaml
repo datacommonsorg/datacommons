@@ -81,6 +81,11 @@ jobs:
           terraform -chdir=infra/dcp init -backend=false
           terraform -chdir=infra/dcp validate
 
+      - name: Run datacommons_services Module Unit Tests
+        run: |
+          terraform -chdir=infra/dcp/modules/datacommons_services init -backend=false
+          terraform -chdir=infra/dcp/modules/datacommons_services test
+
       - name: Initialize and Validate Prober Terraform
         run: |
           terraform -chdir=tests/integration/prober/deploy/terraform init -backend=false
