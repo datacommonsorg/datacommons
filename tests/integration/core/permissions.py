@@ -14,7 +14,6 @@
 
 import contextlib
 import logging
-import shlex
 import subprocess
 import sys
 import time
@@ -45,7 +44,6 @@ def _poll_until_success(
     deadline = time.time() + timeout_sec
     attempt = 1
     while time.time() < deadline:
-        time.sleep(interval_sec)
         try:
             if check_fn():
                 logger.debug("Verification passed on attempt %d", attempt)
@@ -54,6 +52,7 @@ def _poll_until_success(
             logger.debug(
                 "Verification attempt %d raised exception", attempt, exc_info=True
             )
+        time.sleep(interval_sec)
         attempt += 1
     return False
 
@@ -79,9 +78,9 @@ class PreflightPermissionChecker:
         except Exception:
             return ""
 
-    def _compute_member_spec(self) -> str:
+    def _compute_member_spec(self) -> str | None:
         if not self.current_user:
-            return "current identity"
+            return None
         member_type = (
             "serviceAccount" if "gserviceaccount.com" in self.current_user else "user"
         )
@@ -95,7 +94,7 @@ class PreflightPermissionChecker:
         target_name: str,
     ) -> bool:
         """Attempts to auto-grant IAM roles using gcloud and polls until propagation."""
-        if not self.current_user:
+        if not self.current_user or not self.member_spec:
             return False
 
         for cmd in grant_commands:
@@ -132,7 +131,8 @@ class PreflightPermissionChecker:
 
             print(f"   Executing: {result.fix_command}...")
             res = subprocess.run(
-                shlex.split(result.fix_command),
+                result.fix_command,
+                shell=True,
                 text=True,
                 check=False,
             )
@@ -256,11 +256,13 @@ class PreflightPermissionChecker:
             f"--member='{self.member_spec}' "
             f"--role='roles/iam.serviceAccountTokenCreator' "
             f"--project='{self.target.project_id}'"
+            if self.member_spec
+            else None
         )
         return PermissionCheckResult(
             passed=False,
             name="Service Account Impersonation",
-            details=f"Identity '{self.member_spec}' lacks TokenCreator role on '{sa_email}'",
+            details=f"Identity '{self.member_spec or 'unknown'}' lacks TokenCreator role on '{sa_email}'",
             fix_command=fix_cmd,
         )
 
@@ -347,6 +349,8 @@ class PreflightPermissionChecker:
             f"--member='{self.member_spec}' "
             f"--role='roles/storage.objectAdmin' "
             f"--project='{self.target.project_id}'"
+            if self.member_spec
+            else None
         )
         return PermissionCheckResult(
             passed=False,
@@ -434,6 +438,8 @@ class PreflightPermissionChecker:
             f"--member='{self.member_spec}' "
             f"--role='roles/spanner.databaseUser' "
             f"--project='{self.target.project_id}'"
+            if self.member_spec
+            else None
         )
         return PermissionCheckResult(
             passed=False,
