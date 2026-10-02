@@ -114,6 +114,21 @@ jobs:
       - name: Run hermetic integration test
         run: uv run python tests/integration/run_e2e_tests.py --instance=emulated --test-config=foobar_wages
 
+  ci-gate:
+    name: All CI Checks Passed
+    runs-on: ubuntu-latest
+    needs:
+      - test
+      - terraform
+      - hermetic-integration-test
+    if: always()
+    steps:
+      - name: Verify all required jobs succeeded
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          echo "⛔ One or more upstream CI jobs failed or were cancelled."
+          echo "Job results: ${{ toJson(needs) }}"
+          exit 1
 
-
-
+      - name: All checks passed
+        run: echo "✅ All CI checks completed successfully!"
