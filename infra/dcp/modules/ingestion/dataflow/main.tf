@@ -10,7 +10,7 @@ resource "google_service_account" "dataflow_sa" {
 }
 
 resource "google_spanner_database_iam_member" "dataflow_spanner_user" {
-  count    = var.deploy && var.spanner_config != null ? 1 : 0
+  count    = var.deploy ? 1 : 0
   project  = var.project_id
   instance = var.spanner_config.instance_id
   database = var.spanner_config.database_id

@@ -36,15 +36,15 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
       }
       env {
         name  = "SPANNER_INSTANCE_ID"
-        value = try(var.spanner_config.instance_id, "")
+        value = var.spanner_config.instance_id
       }
       env {
         name  = "SPANNER_DATABASE_ID"
-        value = try(var.spanner_config.database_id, "")
+        value = var.spanner_config.database_id
       }
       env {
         name  = "SPANNER_GRAPH_DATABASE_ID"
-        value = try(var.spanner_config.database_id, "")
+        value = var.spanner_config.database_id
       }
 
       env {
@@ -126,7 +126,7 @@ resource "google_secret_manager_secret_iam_member" "helper_redis_auth_secret_acc
 }
 
 resource "google_spanner_database_iam_member" "helper_spanner_user" {
-  count    = var.deploy && var.spanner_config != null ? 1 : 0
+  count    = var.deploy ? 1 : 0
   project  = var.project_id
   instance = var.spanner_config.instance_id
   database = var.spanner_config.database_id

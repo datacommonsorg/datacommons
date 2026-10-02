@@ -23,11 +23,11 @@ locals {
   redis_port    = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
   redis_ca_cert = var.redis_config.enable && var.redis_config.enable_tls && length(module.redis) > 0 ? module.redis[0].redis_ca_cert : ""
 
-  effective_spanner_config = var.spanner_config.enable ? {
-    instance_id            = module.spanner[0].spanner_instance_id
-    database_id            = module.spanner[0].spanner_database_id
-    bigquery_connection_id = module.spanner[0].bigquery_connection_id
-  } : null
+  effective_spanner_config = {
+    instance_id            = var.spanner_config.enable && length(module.spanner) > 0 ? module.spanner[0].spanner_instance_id : var.spanner_config.instance_id
+    database_id            = var.spanner_config.enable && length(module.spanner) > 0 ? module.spanner[0].spanner_database_id : var.spanner_config.database_id
+    bigquery_connection_id = var.spanner_config.enable && length(module.spanner) > 0 ? module.spanner[0].bigquery_connection_id : ""
+  }
 
   effective_vpc_network = (
     var.network_config.enable && var.network_config.enable_workload_vpc && module.network.network_id != null ? module.network.network_id : ""

@@ -19,6 +19,5 @@ variable "spanner_config" {
     instance_id = string
     database_id = string
   })
-  description = "Optional Spanner database coordinates"
-  default     = null
+  description = "Spanner database coordinates for dataflow graph loading"
 }

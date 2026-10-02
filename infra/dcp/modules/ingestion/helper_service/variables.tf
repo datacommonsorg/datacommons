@@ -24,8 +24,7 @@ variable "spanner_config" {
     instance_id = string
     database_id = string
   })
-  description = "Optional Spanner database coordinates"
-  default     = null
+  description = "Spanner database coordinates"
 }
 
 variable "ingestion_bucket_name" {

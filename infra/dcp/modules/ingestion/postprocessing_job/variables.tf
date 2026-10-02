@@ -28,8 +28,7 @@ variable "spanner_config" {
     database_id            = string
     bigquery_connection_id = optional(string, "")
   })
-  description = "Optional Spanner database and BigQuery federation connection coordinates"
-  default     = null
+  description = "Spanner database and BigQuery federation connection coordinates"
 }
 variable "enable_bigquery_postprocessing" { type = bool }
 variable "enable_spanner_embeddings" { type = bool }

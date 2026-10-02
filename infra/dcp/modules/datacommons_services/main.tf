@@ -5,7 +5,7 @@ locals {
     [
       "roles/vpcaccess.user",
     ],
-    var.spanner_config != null && var.resolve_with_spanner_embeddings ? ["roles/aiplatform.user"] : []
+    var.resolve_with_spanner_embeddings ? ["roles/aiplatform.user"] : []
   ))
 }
 
@@ -32,7 +32,6 @@ resource "google_secret_manager_secret_iam_member" "serving_secret_accessor" {
 }
 
 resource "google_spanner_database_iam_member" "serving_spanner_reader" {
-  count    = var.spanner_config != null ? 1 : 0
   project  = var.project_id
   instance = var.spanner_config.instance_id
   database = var.spanner_config.database_id
@@ -83,11 +82,11 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
       }
       env {
         name  = "GCP_SPANNER_INSTANCE_ID"
-        value = try(var.spanner_config.instance_id, "")
+        value = var.spanner_config.instance_id
       }
       env {
         name  = "GCP_SPANNER_DATABASE_NAME"
-        value = try(var.spanner_config.database_id, "")
+        value = var.spanner_config.database_id
       }
 
       dynamic "env" {

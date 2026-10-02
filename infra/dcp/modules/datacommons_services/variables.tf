@@ -104,8 +104,7 @@ variable "spanner_config" {
     instance_id = string
     database_id = string
   })
-  description = "Optional Spanner database coordinates for query serving"
-  default     = null
+  description = "Spanner database coordinates for query serving"
 }
 
 # =============================================================================
