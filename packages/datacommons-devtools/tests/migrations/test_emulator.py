@@ -12,14 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Unit tests for datacommons_db.migrations.emulator utilities."""
+"""Unit tests for datacommons_devtools.migrations.emulator utilities."""
 
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from datacommons_db.migrations.emulator import (
+from datacommons_devtools.migrations.emulator import (
     DEFAULT_EMULATOR_HOST,
     ensure_emulator_running,
     ephemeral_emulator_database,
@@ -53,7 +53,7 @@ def test_is_emulator_reachable_ipv6() -> None:
 def test_ensure_emulator_running_uses_running() -> None:
     """Verifies ensure_emulator_running returns host if reachable."""
     with patch(
-        "datacommons_db.migrations.emulator.is_emulator_reachable",
+        "datacommons_devtools.migrations.emulator.is_emulator_reachable",
         return_value=True,
     ):
         host = ensure_emulator_running()
@@ -64,7 +64,7 @@ def test_ensure_emulator_running_no_docker_raises() -> None:
     """Verifies ensure_emulator_running raises ConnectionError if docker not on PATH."""
     with (
         patch(
-            "datacommons_db.migrations.emulator.is_emulator_reachable",
+            "datacommons_devtools.migrations.emulator.is_emulator_reachable",
             return_value=False,
         ),
         patch("shutil.which", return_value=None),
@@ -80,13 +80,13 @@ def test_ensure_emulator_running_called_process_error_diagnostics() -> None:
     )
     with (
         patch(
-            "datacommons_db.migrations.emulator.is_emulator_reachable",
+            "datacommons_devtools.migrations.emulator.is_emulator_reachable",
             return_value=False,
         ),
         patch("shutil.which", return_value="/usr/local/bin/docker"),
         patch("subprocess.run") as mock_run,
         patch(
-            "datacommons_db.migrations.emulator.get_docker_compose_path",
+            "datacommons_devtools.migrations.emulator.get_docker_compose_path",
             return_value=Path("/fake/docker-compose.yml"),
         ),
         patch.object(Path, "exists", return_value=True),
@@ -116,11 +116,11 @@ def test_ephemeral_emulator_database_lifecycle() -> None:
 
     with (
         patch(
-            "datacommons_db.migrations.emulator.ensure_emulator_running",
+            "datacommons_devtools.migrations.emulator.ensure_emulator_running",
             return_value="localhost:9010",
         ),
         patch(
-            "datacommons_db.migrations.emulator.spanner.Client",
+            "datacommons_devtools.migrations.emulator.spanner.Client",
             return_value=mock_client,
         ),
     ):

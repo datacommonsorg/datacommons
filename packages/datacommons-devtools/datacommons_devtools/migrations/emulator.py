@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Spanner emulator discovery, container lifecycle, and ephemeral database management."""
+"""Developer tooling for Spanner emulator discovery, container lifecycle, and ephemeral database management."""
 
 import contextlib
 import os
@@ -24,12 +24,11 @@ import uuid
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
+from datacommons_db.clients import SpannerClient, resolve_instance_config
 from google.auth.credentials import AnonymousCredentials
 from google.cloud import spanner
 from google.cloud.spanner_v1.database import Database
 from google.cloud.spanner_v1.instance import Instance
-
-from datacommons_db.clients import SpannerClient
 
 DEFAULT_EMULATOR_HOST = "localhost:9010"
 DEFAULT_INSTANCE_ID = "default"
@@ -66,7 +65,7 @@ def get_docker_compose_path() -> Path:
     Returns:
         Path to tests/integration/emulated/docker-compose.yml.
     """
-    repo_root = Path(__file__).resolve().parents[5]
+    repo_root = Path(__file__).resolve().parents[4]
     return repo_root / "tests" / "integration" / "emulated" / "docker-compose.yml"
 
 
@@ -176,26 +175,6 @@ def ensure_emulator_running(
         "Check container status with: docker ps\n"
         "Or check logs with: docker logs itest-spanner"
     )
-
-
-def resolve_instance_config(client: spanner.Client) -> str:
-    """Discovers and resolves a supported instance configuration for the emulator.
-
-    Checks the instance configurations exposed by the emulator, preferring 'default'
-    (standard for Spanner Omni) and 'emulator-config' (standard for Google Spanner emulator).
-
-    Args:
-        client: Connected spanner.Client instance.
-
-    Returns:
-        Full instance configuration name string.
-    """
-    configs = [c.name for c in client.list_instance_configs()]
-    for preferred in ("default", "emulator-config"):
-        for name in configs:
-            if preferred in name:
-                return name
-    return configs[0] if configs else f"{client.project_name}/instanceConfigs/default"
 
 
 def _get_or_create_instance(

@@ -21,8 +21,7 @@ from unittest.mock import patch
 import pytest
 from click.testing import CliRunner
 from datacommons_admin.admin_cli import admin
-from datacommons_db.clients import SpannerClient
-from datacommons_db.migrations.emulator import resolve_instance_config
+from datacommons_db.clients import SpannerClient, resolve_instance_config
 from datacommons_db.schema import inspect_database_schema
 from google.auth.credentials import AnonymousCredentials
 from google.cloud import spanner

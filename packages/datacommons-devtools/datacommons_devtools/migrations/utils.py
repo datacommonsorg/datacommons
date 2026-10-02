@@ -28,7 +28,7 @@ from collections.abc import Callable
 from importlib import resources
 from pathlib import Path
 
-from datacommons_db.migrations import (
+from datacommons_devtools.migrations.snapshot import (
     write_compiled_schema,
 )
 

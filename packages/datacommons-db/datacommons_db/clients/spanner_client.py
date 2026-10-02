@@ -38,6 +38,26 @@ DEFAULT_LOCK_TIMEOUT_SECONDS: int = 300
 GLOBAL_INGESTION_LOCK_ID: str = "global_ingestion_lock"
 
 
+def resolve_instance_config(client: spanner.Client) -> str:
+    """Discovers and resolves a supported instance configuration.
+
+    Checks the instance configurations exposed by Spanner or the emulator, preferring
+    'default' (standard for Spanner Omni) and 'emulator-config' (standard for Google Spanner emulator).
+
+    Args:
+        client: Connected google.cloud.spanner.Client instance.
+
+    Returns:
+        Full instance configuration name string.
+    """
+    configs = [c.name for c in client.list_instance_configs()]
+    for preferred in ("default", "emulator-config"):
+        for name in configs:
+            if preferred in name:
+                return name
+    return configs[0] if configs else f"{client.project_name}/instanceConfigs/default"
+
+
 class SpannerClient:
     """Client for Cloud Spanner operations, DDL execution, and query execution."""
 
@@ -83,6 +103,22 @@ class SpannerClient:
         """Indicates whether this client is operating against a Spanner emulator."""
 
         return bool(os.getenv("SPANNER_EMULATOR_HOST"))
+
+    def resolve_instance_config(self) -> str:
+        """Discovers and resolves a supported instance configuration for the client.
+
+        Checks the instance configurations exposed by Spanner or the emulator, preferring
+        'default' (standard for Spanner Omni) and 'emulator-config' (standard for Google Spanner emulator).
+
+        Returns:
+            Full instance configuration name string.
+        """
+        configs = [c.name for c in self.client.list_instance_configs()]
+        for preferred in ("default", "emulator-config"):
+            for name in configs:
+                if preferred in name:
+                    return name
+        return configs[0] if configs else f"{self.client.project_name}/instanceConfigs/default"
 
     def table_exists(self, table_name: str) -> bool:
         """Check if a table exists in the Cloud Spanner database.
