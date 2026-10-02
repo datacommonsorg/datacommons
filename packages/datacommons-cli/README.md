@@ -132,7 +132,7 @@ These options can be passed to `datacommons admin` for any administrative comman
 | **`init-db`** | Configures database schema and applies migrations on Cloud Spanner. |
 | **`migrate-db`** | Checks and applies pending schema migrations to the Cloud Spanner database. |
 | **`ingest start`** | Triggers a Cloud Workflows + Cloud Run background data ingestion pipeline for custom datasets. |
-| **`ingest show-config`**| Displays the ingestion job configuration (project, region, Spanner IDs, GCS bucket) from Terraform outputs. |
+| **`ingest show-config`**| Displays the ingestion job configuration from Terraform outputs. |
 
 ---
 
@@ -191,7 +191,7 @@ Key Options:
 - `--imports TEXT` *(required)*: Comma-separated names of the configured imports to run.
 
 #### `datacommons admin ingest show-config`
-Prints the ingestion job configuration from Terraform outputs: `PROJECT_ID`, `REGION`, `GCP_SPANNER_INSTANCE_ID`, `GCP_SPANNER_DATABASE_NAME`, and `GCS_BUCKET`. Missing values print as `[UNSET]`.
+Prints the ingestion job configuration from Terraform outputs.
 
 ```bash
 datacommons admin ingest show-config
