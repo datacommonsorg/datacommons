@@ -23,6 +23,12 @@ locals {
   redis_port    = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
   redis_ca_cert = var.redis_config.enable && var.redis_config.enable_tls && length(module.redis) > 0 ? module.redis[0].redis_ca_cert : ""
 
+  effective_spanner_config = {
+    instance_id            = var.spanner_config.enable && length(module.spanner) > 0 ? module.spanner[0].spanner_instance_id : var.spanner_config.instance_id
+    database_id            = var.spanner_config.enable && length(module.spanner) > 0 ? module.spanner[0].spanner_database_id : var.spanner_config.database_id
+    bigquery_connection_id = var.spanner_config.enable && length(module.spanner) > 0 ? module.spanner[0].bigquery_connection_id : ""
+  }
+
   effective_vpc_network = (
     var.network_config.enable && var.network_config.enable_workload_vpc && module.network.network_id != null ? module.network.network_id : ""
   )
@@ -62,16 +68,6 @@ locals {
     {
       name  = "REDIS_CA_CERT"
       value = local.redis_ca_cert
-    },
-    {
-      name = "GCP_SPANNER_INSTANCE_ID"
-      # Use index [0] because module.spanner is now conditional (count). Fallback to empty string if disabled.
-      value = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
-    },
-    {
-      name = "GCP_SPANNER_DATABASE_NAME"
-      # Use index [0] because module.spanner is now conditional (count). Fallback to empty string if disabled.
-      value = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
     },
     {
       # TODO: Remove once datacommons-cli no longer checks for TEMP_LOCATION on the preprocessing job (PR #266).
@@ -186,13 +182,9 @@ module "ingestion_postprocessing_job" {
   memory                         = var.ingestion_config.postprocessing_job_memory
   timeout                        = var.ingestion_config.postprocessing_job_timeout
   vpc_access                     = module.network.vpc_access
-  spanner_instance_id            = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
-  spanner_database_id            = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
-  bigquery_connection_id         = var.spanner_config.enable ? module.spanner[0].bigquery_connection_id : ""
-  use_spanner                    = var.spanner_config.enable
+  spanner_config                 = local.effective_spanner_config
   enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
   enable_spanner_embeddings      = var.spanner_config.enable_embeddings_generation
-  enable_bigquery_connection     = var.spanner_config.enable && var.spanner_config.enable_bigquery_connection
   env_vars                       = local.cloud_run_shared_env_variables
 }
 
@@ -203,7 +195,7 @@ module "ingestion_dataflow" {
   project_id            = var.global.project_id
   instance_name         = var.global.instance_name
   ingestion_bucket_name = module.storage.artifacts_bucket_name
-  use_spanner           = var.spanner_config.enable
+  spanner_config        = local.effective_spanner_config
 }
 
 module "ingestion_helper_service" {
@@ -214,13 +206,10 @@ module "ingestion_helper_service" {
   instance_name                 = var.global.instance_name
   region                        = var.global.region
   stateless_deletion_protection = var.global.stateless_deletion_protection
-  # Use index [0] because module.spanner is conditional. Fallback to empty string if disabled.
-  spanner_instance_id          = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
-  spanner_database_id          = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
-  ingestion_bucket_name        = module.storage.artifacts_bucket_name
-  image                        = var.ingestion_config.helper_service_image
-  use_spanner                  = var.spanner_config.enable
-  enable_embeddings_generation = var.spanner_config.enable_embeddings_generation
+  spanner_config                = local.effective_spanner_config
+  ingestion_bucket_name         = module.storage.artifacts_bucket_name
+  image                         = var.ingestion_config.helper_service_image
+  enable_embeddings_generation  = var.spanner_config.enable_embeddings_generation
 
   # Direct VPC Egress from network module
   vpc_access               = module.network.vpc_access
@@ -326,16 +315,15 @@ module "datacommons_services" {
   mcp_instructions_path         = var.datacommons_services_config.instructions_path
   artifacts_bucket_name         = module.storage.artifacts_bucket_name
   vpc_access                    = module.network.vpc_access
-  use_spanner                   = var.spanner_config.enable
+  spanner_config                = local.effective_spanner_config
   env_vars = concat(local.cloud_run_shared_env_variables, [
     {
       name  = "INGESTION_WORKFLOW_NAME"
       value = module.ingestion_workflow.workflow_name != null ? module.ingestion_workflow.workflow_name : ""
     }
   ])
-  secret_env_vars                 = local.datacommons_services_secrets
-  resolve_with_spanner_embeddings = var.datacommons_services_config.resolve_with_spanner_embeddings
-  website_search_scope            = var.datacommons_services_config.website_search_scope
+  secret_env_vars      = local.datacommons_services_secrets
+  website_search_scope = var.datacommons_services_config.website_search_scope
 
   depends_on = [module.ingestion_preprocessing_job]
 }
@@ -443,13 +431,6 @@ resource "google_project_iam_member" "workflow_dataflow_developer" {
   count   = var.ingestion_config.enable_ingestion ? 1 : 0
   project = var.global.project_id
   role    = "roles/dataflow.developer"
-  member  = "serviceAccount:${module.ingestion_workflow.service_account_email}"
-}
-
-resource "google_project_iam_member" "workflow_run_viewer" {
-  count   = var.ingestion_config.enable_ingestion ? 1 : 0
-  project = var.global.project_id
-  role    = "roles/run.viewer"
   member  = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
 

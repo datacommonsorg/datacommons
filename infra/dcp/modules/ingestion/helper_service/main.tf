@@ -36,15 +36,15 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
       }
       env {
         name  = "SPANNER_INSTANCE_ID"
-        value = var.spanner_instance_id
+        value = var.spanner_config.instance_id
       }
       env {
         name  = "SPANNER_DATABASE_ID"
-        value = var.spanner_database_id
+        value = var.spanner_config.database_id
       }
       env {
         name  = "SPANNER_GRAPH_DATABASE_ID"
-        value = var.spanner_database_id
+        value = var.spanner_config.database_id
       }
 
       env {
@@ -125,13 +125,14 @@ resource "google_secret_manager_secret_iam_member" "helper_redis_auth_secret_acc
   member    = "serviceAccount:${google_service_account.helper_sa[0].email}"
 }
 
-resource "google_project_iam_member" "helper_spanner_user" {
-  count   = var.deploy && var.use_spanner ? 1 : 0
-  project = var.project_id
-  role    = "roles/spanner.databaseUser"
-  member  = "serviceAccount:${google_service_account.helper_sa[0].email}"
+resource "google_spanner_database_iam_member" "helper_spanner_user" {
+  count    = var.deploy ? 1 : 0
+  project  = var.project_id
+  instance = var.spanner_config.instance_id
+  database = var.spanner_config.database_id
+  role     = "roles/spanner.databaseUser"
+  member   = "serviceAccount:${google_service_account.helper_sa[0].email}"
 }
-
 
 resource "google_storage_bucket_iam_member" "helper_bucket_access" {
   count  = var.deploy ? 1 : 0

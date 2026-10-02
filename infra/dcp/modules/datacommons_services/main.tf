@@ -1,13 +1,10 @@
 locals {
   name_prefix = var.instance_name != "" ? "${var.instance_name}-" : ""
 
-  datacommons_services_roles = toset(concat(
-    [
-      "roles/vpcaccess.user",
-    ],
-    var.use_spanner ? ["roles/spanner.databaseReader"] : [],
-    var.use_spanner && var.resolve_with_spanner_embeddings ? ["roles/aiplatform.user"] : []
-  ))
+  datacommons_services_roles = toset([
+    "roles/vpcaccess.user",
+    "roles/aiplatform.user",
+  ])
 }
 
 resource "google_service_account" "serving_sa" {
@@ -30,6 +27,14 @@ resource "google_secret_manager_secret_iam_member" "serving_secret_accessor" {
   secret_id = each.value
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.serving_sa.email}"
+}
+
+resource "google_spanner_database_iam_member" "serving_spanner_reader" {
+  project  = var.project_id
+  instance = var.spanner_config.instance_id
+  database = var.spanner_config.database_id
+  role     = "roles/spanner.databaseReader"
+  member   = "serviceAccount:${google_service_account.serving_sa.email}"
 }
 
 resource "google_cloud_run_v2_service" "dc_web_service" {
@@ -73,6 +78,14 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
         name  = "GCP_PROJECT_ID"
         value = var.project_id
       }
+      env {
+        name  = "GCP_SPANNER_INSTANCE_ID"
+        value = var.spanner_config.instance_id
+      }
+      env {
+        name  = "GCP_SPANNER_DATABASE_NAME"
+        value = var.spanner_config.database_id
+      }
 
       dynamic "env" {
         for_each = var.secret_env_vars
@@ -102,18 +115,6 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
       env {
         name  = "DC_INSTRUCTIONS_DIR"
         value = var.mcp_instructions_path != null ? "gs://${var.artifacts_bucket_name}/${var.mcp_instructions_path}" : ""
-      }
-      env {
-        name  = "RESOLVE_WITH_SPANNER_EMBEDDINGS"
-        value = var.resolve_with_spanner_embeddings ? "true" : "false"
-      }
-      env {
-        name  = "ENABLE_UNIQUE_HISTORY_RECORDS"
-        value = "true"
-      }
-      env {
-        name  = "USE_SPANNER_KEY_VALUE_STORE"
-        value = var.use_spanner ? "true" : "false"
       }
       env {
         name  = "V2_RESOLVE_INDICATORS_TARGET"
