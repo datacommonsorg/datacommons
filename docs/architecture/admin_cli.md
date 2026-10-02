@@ -28,7 +28,7 @@ The CLI tooling is structured across two packages in the repository:
 * **`datacommons admin init-db`**: Initializes the Cloud Spanner database schema and runs pending migrations.
 * **`datacommons admin migrate-db`**: Checks for and applies pending Spanner schema migrations with distributed locking.
 * **`datacommons admin ingest start`**: Launches a Cloud Workflows ingestion run for registered datasets.
-* **`datacommons admin ingest show-config`**: Displays current runtime environment variables from the preprocessing job.
+* **`datacommons admin ingest show-config`**: Displays the ingestion job configuration (project, region, Spanner IDs, GCS bucket) from Terraform outputs.
 
 ---
 
@@ -119,8 +119,8 @@ The state resolution and contract verification suite spans two complementary tes
 4. **Asynchronous Pipeline Coordination**: The Cloud Workflow coordinates pipeline execution across preprocessing, Dataflow, postprocessing, and cache invalidation. During execution, the workflow manages the `IngestionLock`, `IngestionHistory`, and `ImportStatus` tables by calling Ingestion Helper endpoints; the Admin CLI process exits immediately after triggering the execution.
 
 ### Runtime Configuration Flow (`datacommons admin ingest show-config`)
-1. **Output Discovery**: Calls `get_terraform_outputs()` to read and display core deployment attributes (`project_id`, `region`, `ingestion_workflow_service_account_email`, and optional `ingestion_prep_job_name`) directly from Terraform state.
-2. **Job Environment Inspection**: If `ingestion_prep_job_name` is configured in the deployment, queries the Cloud Run Admin API for the preprocessing job definition and prints its container environment variables, distinguishing explicit values from secret references.
+1. **Output Discovery**: Calls `get_terraform_outputs()` to read `project_id`, `region`, `spanner_instance_id`, `spanner_database_id`, and `storage_artifacts_bucket_name` from Terraform state.
+2. **Configuration Display**: Prints those values under the environment variable names the workflow passes to the preprocessing job (`PROJECT_ID`, `REGION`, `GCP_SPANNER_INSTANCE_ID`, `GCP_SPANNER_DATABASE_NAME`, `GCS_BUCKET`). Missing values print as `[UNSET]`. No other Cloud APIs are called.
 
 ---
 
