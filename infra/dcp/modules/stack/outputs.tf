@@ -38,7 +38,12 @@ output "ingestion_workflow_name" {
 
 output "ingestion_service_url" {
   description = "URL of the ingestion support Cloud Run service"
-  value       = module.ingestion_helper_service.ingestion_helper_url
+  value       = one(module.ingestion_helper_service[*].ingestion_helper_url)
+}
+
+output "ingestion_service_name" {
+  description = "Name of the ingestion support Cloud Run service"
+  value       = one(module.ingestion_helper_service[*].service_name)
 }
 
 output "ingestion_workflow_service_account_email" {
@@ -58,7 +63,7 @@ output "datacommons_services_image" {
 
 output "ingestion_helper_image" {
   description = "Container image URI used by the ingestion helper service"
-  value       = var.ingestion_config.enable_ingestion ? module.ingestion_helper_service.image : null
+  value       = one(module.ingestion_helper_service[*].image)
 }
 
 output "ingestion_preprocessing_image" {
