@@ -87,6 +87,12 @@ run "baseline_service_contract" {
     condition     = google_project_iam_member.helper_dataflow_viewer.role == "roles/dataflow.viewer"
     error_message = "roles/dataflow.viewer role must be granted for pipeline status inspection"
   }
+
+  # 5. Feature Flags: Embeddings Generation
+  assert {
+    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "ENABLE_EMBEDDINGS"]) == "true"
+    error_message = "ENABLE_EMBEDDINGS container env var must reflect var.enable_embeddings_generation"
+  }
 }
 
 # =============================================================================
