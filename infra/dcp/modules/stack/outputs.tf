@@ -55,6 +55,31 @@ output "storage_artifacts_bucket_name" {
   value       = module.storage.artifacts_bucket_name
 }
 
+output "datacommons_services_image" {
+  description = "Container image URI used by the Data Commons serving service"
+  value       = length(module.datacommons_services) > 0 ? module.datacommons_services[0].image : null
+}
+
+output "ingestion_helper_image" {
+  description = "Container image URI used by the ingestion helper service"
+  value       = var.ingestion_config.enable_ingestion ? module.ingestion_helper_service.image : null
+}
+
+output "ingestion_preprocessing_image" {
+  description = "Container image URI used by the Cloud Batch preprocessing job"
+  value       = var.ingestion_config.enable_ingestion ? module.ingestion_workflow.preprocessing_job_image : null
+}
+
+output "ingestion_postprocessing_image" {
+  description = "Container image URI used by the Cloud Run postprocessing job"
+  value       = var.ingestion_config.enable_ingestion ? module.ingestion_postprocessing_job[0].image : null
+}
+
+output "ingestion_dataflow_template_gcs_path" {
+  description = "GCS path to the Dataflow flex template specification"
+  value       = var.ingestion_config.enable_ingestion ? module.ingestion_workflow.ingestion_dataflow_template_gcs_path : null
+}
+
 output "network_id" {
   description = "ID of the VPC network"
   value       = module.network.network_id

@@ -52,7 +52,7 @@ variable "billing_project_id" {
 variable "dcp_version" {
   description = "The version of the Data Commons Platform to deploy. This controls the default tag for Docker images and template paths if specific overrides are not provided."
   type        = string
-  default     = "1.1.5"
+  default     = "1.1.6"
 }
 
 # =============================================================================
@@ -552,17 +552,17 @@ variable "ingestion_helper_service_image" {
 }
 
 # =============================================================================
-# Ingestion - Dataflow Network Configuration
+# Ingestion - Worker Network Configuration (Dataflow & Cloud Batch)
 # =============================================================================
 
-variable "ingestion_dataflow_ip_configuration" {
-  description = "IP configuration for Dataflow workers (WORKER_IP_UNSPECIFIED, WORKER_IP_PUBLIC, WORKER_IP_PRIVATE). Set to WORKER_IP_PRIVATE when a compute.vmExternalIpAccess org policy restricts VMs from obtaining external IPs. NOTE: WORKER_IP_PRIVATE requires enable_network = true or an explicitly configured ingestion_dataflow_subnetwork."
+variable "ingestion_worker_ip_configuration" {
+  description = "IP configuration for ingestion workers (Dataflow and Cloud Batch): WORKER_IP_UNSPECIFIED, WORKER_IP_PUBLIC, WORKER_IP_PRIVATE. Set to WORKER_IP_PRIVATE when a compute.vmExternalIpAccess org policy restricts VMs from obtaining external IPs. NOTE: WORKER_IP_PRIVATE requires enable_network = true or an explicitly configured ingestion_worker_subnetwork."
   type        = string
   default     = "WORKER_IP_UNSPECIFIED"
 }
 
-variable "ingestion_dataflow_subnetwork" {
-  description = "Subnetwork for Dataflow workers. Automatically populated from the network module when enable_network = true. If enable_network = false and WORKER_IP_PRIVATE is used, this variable must be explicitly provided. Format: regions/{region}/subnetworks/{subnetwork} or full self_link."
+variable "ingestion_worker_subnetwork" {
+  description = "Subnetwork for ingestion workers (Dataflow and Cloud Batch). Automatically populated from the network module when enable_network = true. If enable_network = false and WORKER_IP_PRIVATE is used, this variable must be explicitly provided. Format: regions/{region}/subnetworks/{subnetwork} or full self_link."
   type        = string
   default     = ""
 }
