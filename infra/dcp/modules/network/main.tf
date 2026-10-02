@@ -33,6 +33,15 @@ resource "google_compute_subnetwork" "subnet" {
   private_ip_google_access = true # Ensures internal routing to Spanner, BigQuery, GCS without public IPs
   project                  = var.project_id
 
+  dynamic "log_config" {
+    for_each = var.enable_flow_logs ? [1] : []
+    content {
+      aggregation_interval = "INTERVAL_5_SEC"
+      flow_sampling        = var.flow_sampling
+      metadata             = "INCLUDE_ALL_METADATA"
+    }
+  }
+
   timeouts {
     delete = "10m"
   }

@@ -71,10 +71,29 @@ variable "datacommons_services_name" {
   default     = ""
 }
 
+variable "preprocessing_config" {
+  description = <<-EOT
+    Configuration for the Cloud Batch preprocessing job launched by this
+    workflow. All values are rendered into the batch job spec in workflow.yaml;
+    no Terraform resource is created for the job itself.
+  EOT
 
-variable "preprocessing_job_name" {
+  type = object({
+    # Batch job runtime
+    image   = optional(string)
+    cpu     = optional(string)
+    memory  = optional(string)
+    timeout = optional(string)
+
+    # Identity
+    service_account_email     = string
+    dc_api_key_secret_version = optional(string, "")
+  })
+}
+
+variable "ingestion_input_path" {
   type        = string
-  description = "Name of the ingestion preprocessing Cloud Run job"
+  description = "Path within the artifacts bucket for raw ingestion input data"
   default     = ""
 }
 
@@ -106,41 +125,45 @@ variable "spanner_database_id" {
   default     = ""
 }
 
-variable "dataflow_ip_configuration" {
+variable "vpc_network" {
+  type        = string
+  description = "VPC network ID or self_link for compute workers (used by Cloud Batch when VPC is enabled)."
+  default     = ""
+}
+
+variable "worker_ip_configuration" {
   type        = string
   description = <<-EOT
-    IP configuration for Dataflow workers. Set to WORKER_IP_PRIVATE for
-    environments where an org policy (compute.vmExternalIpAccess) restricts
-    VMs from obtaining external IPs. Requires Private Google Access and
-    Cloud NAT on the target subnet.
+    IP configuration for compute workers (Dataflow and Cloud Batch). Set to
+    WORKER_IP_PRIVATE for environments where an org policy
+    (compute.vmExternalIpAccess) restricts VMs from obtaining external IPs.
     Valid values: WORKER_IP_UNSPECIFIED, WORKER_IP_PUBLIC, WORKER_IP_PRIVATE.
-    See: https://cloud.google.com/dataflow/docs/reference/rest/v1b3/projects.locations.flexTemplates/launch#FlexTemplateRuntimeEnvironment
   EOT
   default     = "WORKER_IP_UNSPECIFIED"
   validation {
-    condition     = contains(["WORKER_IP_UNSPECIFIED", "WORKER_IP_PUBLIC", "WORKER_IP_PRIVATE"], var.dataflow_ip_configuration)
+    condition     = contains(["WORKER_IP_UNSPECIFIED", "WORKER_IP_PUBLIC", "WORKER_IP_PRIVATE"], var.worker_ip_configuration)
     error_message = "Must be one of: WORKER_IP_UNSPECIFIED, WORKER_IP_PUBLIC, WORKER_IP_PRIVATE."
   }
 }
 
-variable "dataflow_subnetwork" {
+variable "worker_subnetwork" {
   type        = string
   description = <<-EOT
-    Subnetwork for Dataflow workers. Required when dataflow_ip_configuration
-    is WORKER_IP_PRIVATE. Format: regions/{region}/subnetworks/{subnetwork}.
+    Subnetwork for compute workers (Dataflow and Cloud Batch). Required when
+    worker_ip_configuration is WORKER_IP_PRIVATE. Format: regions/{region}/subnetworks/{subnetwork}.
   EOT
   default     = ""
 
   validation {
-    condition     = var.dataflow_subnetwork == "" || can(regex("regions/[a-zA-Z0-9-]+/subnetworks/[a-zA-Z0-9-]+$", var.dataflow_subnetwork))
-    error_message = "dataflow_subnetwork must be in the format 'regions/{region}/subnetworks/{subnetwork}' or a full self-link ending with that format."
+    condition     = var.worker_subnetwork == "" || can(regex("regions/[a-zA-Z0-9-]+/subnetworks/[a-zA-Z0-9-]+$", var.worker_subnetwork))
+    error_message = "worker_subnetwork must be in the format 'regions/{region}/subnetworks/{subnetwork}' or a full self-link ending with that format."
   }
 }
 
-check "dataflow_private_ip_requires_subnetwork" {
+check "worker_private_ip_requires_subnetwork" {
   assert {
-    condition     = var.dataflow_ip_configuration != "WORKER_IP_PRIVATE" || var.dataflow_subnetwork != ""
-    error_message = "dataflow_subnetwork must be specified when dataflow_ip_configuration is WORKER_IP_PRIVATE."
+    condition     = var.worker_ip_configuration != "WORKER_IP_PRIVATE" || var.worker_subnetwork != ""
+    error_message = "worker_subnetwork must be specified when worker_ip_configuration is WORKER_IP_PRIVATE."
   }
 }
 

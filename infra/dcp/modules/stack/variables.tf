@@ -18,6 +18,11 @@ variable "storage_artifacts_bucket_name" {
   type = string
 }
 
+variable "storage_artifacts_bucket_enable_versioning" {
+  type    = bool
+  default = true
+}
+
 variable "spanner_config" {
   type = object({
     enable                             = bool
@@ -58,9 +63,10 @@ variable "datacommons_services_config" {
 
 variable "auth_config" {
   type = object({
-    google_datacommons_api_key = string
-    google_maps_api_key        = string
-    create_google_maps_key     = bool
+    google_datacommons_api_key    = string
+    google_maps_api_key           = string
+    create_google_maps_key        = bool
+    google_maps_allowed_referrers = optional(list(string), [])
   })
 }
 
@@ -77,6 +83,8 @@ variable "network_config" {
     network_name              = optional(string, "dc-vpc")
     subnet_cidr               = optional(string, "10.0.0.0/24")
     enable_cloud_nat          = optional(bool, false)
+    enable_flow_logs          = optional(bool, true)
+    flow_sampling             = optional(number, 1.0)
     existing_network_id       = optional(string, null)
     existing_subnet_id        = optional(string, null)
     vpc_egress_mode           = optional(string, null)
@@ -124,11 +132,11 @@ variable "ingestion_config" {
     workflow_lock_acquisition_timeout = number
     helper_service_image              = optional(string)
 
-    # Dataflow network configuration
-    # Use WORKER_IP_PRIVATE when a compute.vmExternalIpAccess org policy
-    # blocks Dataflow workers from obtaining external IPs.
-    dataflow_ip_configuration            = optional(string, "WORKER_IP_UNSPECIFIED")
-    dataflow_subnetwork                  = optional(string, "")
+    # Worker Network Configuration (Dataflow & Cloud Batch)
+    worker_ip_configuration = optional(string, "WORKER_IP_UNSPECIFIED")
+    worker_subnetwork       = optional(string, "")
+
+    # Ingestion Dataflow Template & Worker Configuration
     ingestion_dataflow_template_gcs_path = optional(string)
     rollback_dataflow_template_gcs_path  = optional(string)
     dataflow_max_workers                 = optional(number, 20)

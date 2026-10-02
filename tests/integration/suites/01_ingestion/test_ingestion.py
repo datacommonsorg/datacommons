@@ -29,7 +29,6 @@ from tests.integration.core.target import DCPTarget
 class TestCLIIngestion:
     """Validates Data Commons CLI ingestion commands against target workspace."""
 
-    @pytest.mark.cloud_only
     def test_01_cli_ingest_show_config(
         self, dcp_cli: DatacommonsCLI, dcp_target: DCPTarget
     ):

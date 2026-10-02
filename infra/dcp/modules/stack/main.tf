@@ -10,6 +10,8 @@ module "network" {
   network_name        = var.network_config.network_name
   subnet_cidr         = var.network_config.subnet_cidr
   enable_cloud_nat    = var.network_config.enable_cloud_nat
+  enable_flow_logs    = var.network_config.enable_flow_logs
+  flow_sampling       = var.network_config.flow_sampling
   existing_network_id = var.network_config.existing_network_id
   existing_subnet_id  = var.network_config.existing_subnet_id
   vpc_egress_mode     = var.network_config.vpc_egress_mode != null ? var.network_config.vpc_egress_mode : "PRIVATE_RANGES_ONLY"
@@ -21,12 +23,19 @@ locals {
   redis_port    = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
   redis_ca_cert = var.redis_config.enable && var.redis_config.enable_tls && length(module.redis) > 0 ? module.redis[0].redis_ca_cert : ""
 
-  effective_dataflow_subnetwork = (
-    var.ingestion_config.dataflow_subnetwork != "" ? var.ingestion_config.dataflow_subnetwork :
+  effective_vpc_network = (
+    var.network_config.enable && var.network_config.enable_workload_vpc && module.network.network_id != null ? module.network.network_id : ""
+  )
+
+  raw_worker_subnetwork = var.ingestion_config.worker_subnetwork != null ? var.ingestion_config.worker_subnetwork : ""
+  raw_worker_ip_config  = var.ingestion_config.worker_ip_configuration != null ? var.ingestion_config.worker_ip_configuration : "WORKER_IP_UNSPECIFIED"
+
+  effective_worker_subnetwork = (
+    local.raw_worker_subnetwork != "" ? local.raw_worker_subnetwork :
     (var.network_config.enable && var.network_config.enable_workload_vpc && module.network.subnet_url != null ? module.network.subnet_url : "")
   )
-  effective_dataflow_ip_configuration = (
-    local.effective_dataflow_subnetwork != "" ? var.ingestion_config.dataflow_ip_configuration : "WORKER_IP_UNSPECIFIED"
+  effective_worker_ip_configuration = (
+    local.effective_worker_subnetwork != "" ? local.raw_worker_ip_config : "WORKER_IP_UNSPECIFIED"
   )
 
   cloud_run_shared_env_variables = [
@@ -91,7 +100,7 @@ locals {
         version = "latest"
       }
     ],
-    !var.datacommons_services_config.website_disable_google_maps_api ? [
+    !var.datacommons_services_config.website_disable_google_maps_api && (var.auth_config.google_maps_api_key != null || var.auth_config.create_google_maps_key) ? [
       {
         name    = "MAPS_API_KEY"
         secret  = module.auth.maps_api_key_secret_id
@@ -135,6 +144,7 @@ module "storage" {
   # Ingestion Workflow Bucket Vars
   create_artifacts_bucket      = var.storage_create_artifacts_bucket
   artifacts_bucket_name        = var.storage_artifacts_bucket_name
+  enable_versioning            = var.storage_artifacts_bucket_enable_versioning
   region                       = var.global.region
   stateful_deletion_protection = var.global.stateful_deletion_protection
 
@@ -147,22 +157,8 @@ module "ingestion_preprocessing_job" {
   source = "../ingestion/preprocessing_job"
   count  = var.ingestion_config.enable_ingestion ? 1 : 0
 
-  project_id                    = var.global.project_id
-  instance_name                 = var.global.instance_name
-  region                        = var.global.region
-  stateless_deletion_protection = var.global.stateless_deletion_protection
-  image                         = var.ingestion_config.preprocessing_job_image
-  cpu                           = var.ingestion_config.preprocessing_job_cpu
-  memory                        = var.ingestion_config.preprocessing_job_memory
-  timeout                       = var.ingestion_config.preprocessing_job_timeout
-  vpc_access                    = module.network.vpc_access
-  bucket_name                   = module.storage.artifacts_bucket_name
-  input_path                    = var.ingestion_config.input_path
-  ingestion_artifacts_path      = var.ingestion_config.ingestion_artifacts_path
-  run_database_init             = false
-  use_spanner                   = true
-  enable_spanner_embeddings     = var.datacommons_services_config.resolve_with_spanner_embeddings
-  env_vars                      = local.cloud_run_shared_env_variables
+  project_id    = var.global.project_id
+  instance_name = var.global.instance_name
   env_secrets = {
     DC_API_KEY = {
       secret_id = module.auth.dc_api_key_secret_id
@@ -254,19 +250,28 @@ module "ingestion_workflow" {
   enable_redis_cache_clearing          = var.redis_config.enable
   artifacts_bucket_name                = module.storage.artifacts_bucket_name
   ingestion_artifacts_path             = var.ingestion_config.ingestion_artifacts_path
+  ingestion_input_path                 = var.ingestion_config.input_path
   spanner_instance_id                  = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
   spanner_database_id                  = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
-  dataflow_ip_configuration            = local.effective_dataflow_ip_configuration
-  dataflow_subnetwork                  = local.effective_dataflow_subnetwork
+  vpc_network                          = local.effective_vpc_network
+  worker_ip_configuration              = local.effective_worker_ip_configuration
+  worker_subnetwork                    = local.effective_worker_subnetwork
   ingestion_dataflow_template_gcs_path = var.ingestion_config.ingestion_dataflow_template_gcs_path
   rollback_dataflow_template_gcs_path  = var.ingestion_config.rollback_dataflow_template_gcs_path
   dataflow_max_workers                 = var.ingestion_config.dataflow_max_workers
   dataflow_num_workers                 = var.ingestion_config.dataflow_num_workers
   dataflow_worker_machine_type         = var.ingestion_config.dataflow_worker_machine_type
-  preprocessing_job_name               = var.ingestion_config.enable_ingestion ? module.ingestion_preprocessing_job[0].job_name : ""
-  postprocessing_job_name              = var.ingestion_config.enable_ingestion ? module.ingestion_postprocessing_job[0].job_name : ""
-  enable_datacommons_services_restart  = var.datacommons_services_config.enable
-  datacommons_services_name            = "${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-datacommons-service"
+  preprocessing_config = {
+    image                     = var.ingestion_config.preprocessing_job_image
+    cpu                       = var.ingestion_config.preprocessing_job_cpu
+    memory                    = var.ingestion_config.preprocessing_job_memory
+    timeout                   = var.ingestion_config.preprocessing_job_timeout
+    service_account_email     = length(module.ingestion_preprocessing_job) > 0 ? module.ingestion_preprocessing_job[0].service_account_email : ""
+    dc_api_key_secret_version = module.auth.dc_api_key_secret_id != "" ? "${module.auth.dc_api_key_secret_id}/versions/latest" : ""
+  }
+  postprocessing_job_name             = var.ingestion_config.enable_ingestion ? module.ingestion_postprocessing_job[0].job_name : ""
+  enable_datacommons_services_restart = var.datacommons_services_config.enable
+  datacommons_services_name           = "${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-datacommons-service"
 
   depends_on = [module.ingestion_helper_service]
 }
@@ -293,11 +298,12 @@ module "redis" {
 module "auth" {
   source = "../auth"
 
-  project_id             = var.global.project_id
-  instance_name          = var.global.instance_name
-  dc_api_key             = var.auth_config.google_datacommons_api_key
-  google_maps_api_key    = var.auth_config.google_maps_api_key
-  create_google_maps_key = var.auth_config.create_google_maps_key
+  project_id                    = var.global.project_id
+  instance_name                 = var.global.instance_name
+  dc_api_key                    = var.auth_config.google_datacommons_api_key
+  google_maps_api_key           = var.auth_config.google_maps_api_key
+  create_google_maps_key        = var.auth_config.create_google_maps_key
+  google_maps_allowed_referrers = var.auth_config.google_maps_allowed_referrers
 }
 
 module "datacommons_services" {
@@ -374,6 +380,13 @@ resource "google_storage_bucket_iam_member" "preprocessing_bucket_access" {
   member = "serviceAccount:${module.ingestion_preprocessing_job[0].service_account_email}"
 }
 
+resource "google_storage_bucket_iam_member" "serving_bucket_access" {
+  count  = var.datacommons_services_config.enable ? 1 : 0
+  bucket = module.storage.artifacts_bucket_name
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${module.datacommons_services[0].service_account_email}"
+}
+
 resource "google_project_iam_member" "workflow_invoker" {
   count   = var.ingestion_config.enable_ingestion ? 1 : 0
   project = var.global.project_id
@@ -381,28 +394,11 @@ resource "google_project_iam_member" "workflow_invoker" {
   member  = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
 
-resource "google_cloud_run_v2_job_iam_member" "workflow_pre_viewer" {
-  count    = var.ingestion_config.enable_ingestion ? 1 : 0
-  location = var.global.region
-  name     = module.ingestion_preprocessing_job[0].job_name
-  role     = "roles/run.viewer"
-  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
-}
-
-resource "google_cloud_run_v2_job_iam_member" "workflow_pre_invoker" {
-  count    = var.ingestion_config.enable_ingestion ? 1 : 0
-  location = var.global.region
-  name     = module.ingestion_preprocessing_job[0].job_name
-  role     = "roles/run.invoker"
-  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
-}
-
-resource "google_cloud_run_v2_job_iam_member" "workflow_pre_developer" {
-  count    = var.ingestion_config.enable_ingestion ? 1 : 0
-  location = var.global.region
-  name     = module.ingestion_preprocessing_job[0].job_name
-  role     = "roles/run.developer"
-  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+resource "google_project_iam_member" "workflow_batch_editor" {
+  count   = var.ingestion_config.enable_ingestion ? 1 : 0
+  project = var.global.project_id
+  role    = "roles/batch.jobsEditor"
+  member  = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
 
 resource "google_service_account_iam_member" "workflow_pre_sa_user" {
@@ -484,15 +480,15 @@ resource "terraform_data" "redis_network_validation" {
   }
 }
 
-resource "terraform_data" "dataflow_subnet_validation" {
+resource "terraform_data" "worker_subnet_validation" {
   lifecycle {
     precondition {
       condition = (
-        var.ingestion_config.dataflow_ip_configuration != "WORKER_IP_PRIVATE" ||
-        (var.ingestion_config.dataflow_subnetwork != null && var.ingestion_config.dataflow_subnetwork != "") ||
+        local.raw_worker_ip_config != "WORKER_IP_PRIVATE" ||
+        (local.raw_worker_subnetwork != null && local.raw_worker_subnetwork != "") ||
         (var.network_config.enable && var.network_config.enable_workload_vpc && module.network.subnet_url != null && module.network.subnet_url != "")
       )
-      error_message = "dataflow_ip_configuration is set to 'WORKER_IP_PRIVATE', which requires a valid subnetwork. Ensure enable_network and enable_workload_vpc are true and a subnet is available, or provide dataflow_subnetwork."
+      error_message = "worker_ip_configuration is set to 'WORKER_IP_PRIVATE', which requires a valid subnetwork. Ensure enable_network and enable_workload_vpc are true and a subnet is available, or provide ingestion_worker_subnetwork."
     }
   }
 }
