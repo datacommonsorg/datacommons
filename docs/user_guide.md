@@ -774,7 +774,14 @@ The `config.json `file would look like this:
 
 In this step, you upload your CSV, MCF and `config.json` files to a new or existing Google Cloud Storage bucket.
 
-> **Note:** To perform this procedure, you must have a minimum of [Storage Object Admin](https://docs.cloud.google.com/iam/docs/roles-permissions/storage) or Storage Object User roles.
+> **Note:** The artifacts bucket enforces Public Access Prevention and Uniform Bucket-Level Access. To upload data files or inspect artifacts, individual users or operators must be granted either the **Storage Object User** (`roles/storage.objectUser`) or **Storage Object Admin** (`roles/storage.objectAdmin`) role directly on the bucket (or project).
+>
+> If you need to grant this permission to a user:
+> ```bash
+> gcloud storage buckets add-iam-policy-binding gs://<var>GCS_BUCKET</var> \
+>   --member="user:<var>USER_EMAIL</var>" \
+>   --role="roles/storage.objectUser"
+> ```
 
 If you created a new bucket:
 
@@ -1356,8 +1363,8 @@ In general, to troubleshoot any GCP problems, you should go to the Cloud Console
 ### Ingestion workflow fails
 
 1. Go to the link for the workflow output by the  `datacommons ingest start` command.
-2. Under **State**, find the stage that has failed. If it fails on **run_preprocessing**, go to the Cloud Console Cloud Run job page for your preprocessing job. The job is called <code><var>INSTANCE_NAME</var>-dc-ingestion-preprocessing-job</code>.
-3. Select **Observability** > **Logs** and check for any errors. Expand the error entries to get more details. See below for solutions to common Data Commons data job errors.
+2. Under **State**, find the stage that has failed. If it fails on **run_preprocessing**, go to the Cloud Console Batch **Job list** page and click your preprocessing job. Each workflow run creates a new job named <code><var>INSTANCE_NAME</var>-prep-<var>TIMESTAMP</var></code>.
+3. Select the **Logs** tab and check for any errors. Expand the error entries to get more details. See below for solutions to common Data Commons data job errors.
 
 
 #### 401: Unauthorized

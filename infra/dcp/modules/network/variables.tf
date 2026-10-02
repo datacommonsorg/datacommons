@@ -66,6 +66,18 @@ variable "enable_cloud_nat" {
   default     = false
 }
 
+variable "enable_flow_logs" {
+  type        = bool
+  description = "Enable VPC Flow Logs on the private subnet for network monitoring and security forensics."
+  default     = true
+}
+
+variable "flow_sampling" {
+  type        = number
+  description = "Sampling rate for VPC Flow Logs between 0.0 and 1.0 (default 1.0 = 100% of packets sampled, CIS GCP Benchmark standard)."
+  default     = 1.0
+}
+
 # =============================================================================
 # Existing / Shared VPC Integration
 # =============================================================================

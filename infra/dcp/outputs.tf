@@ -40,11 +40,6 @@ output "ingestion_service_url" {
   value       = module.stack.ingestion_service_url
 }
 
-output "ingestion_prep_job_name" {
-  description = "Name of the data ingestion pre-processing job"
-  value       = module.stack.ingestion_prep_job_name
-}
-
 output "ingestion_workflow_service_account_email" {
   description = "Email of the service account used by the ingestion workflow"
   value       = module.stack.ingestion_workflow_service_account_email
@@ -53,6 +48,31 @@ output "ingestion_workflow_service_account_email" {
 output "storage_artifacts_bucket_name" {
   description = "Name of the unified GCS bucket for artifacts"
   value       = module.stack.storage_artifacts_bucket_name
+}
+
+output "datacommons_services_image" {
+  description = "Container image URI used by the Data Commons serving service"
+  value       = module.stack.datacommons_services_image
+}
+
+output "ingestion_helper_image" {
+  description = "Container image URI used by the ingestion helper service"
+  value       = module.stack.ingestion_helper_image
+}
+
+output "ingestion_preprocessing_image" {
+  description = "Container image URI used by the Cloud Batch preprocessing job"
+  value       = module.stack.ingestion_preprocessing_image
+}
+
+output "ingestion_postprocessing_image" {
+  description = "Container image URI used by the Cloud Run postprocessing job"
+  value       = module.stack.ingestion_postprocessing_image
+}
+
+output "ingestion_dataflow_template_gcs_path" {
+  description = "GCS path to the Dataflow flex template specification"
+  value       = module.stack.ingestion_dataflow_template_gcs_path
 }
 
 output "project_id" {

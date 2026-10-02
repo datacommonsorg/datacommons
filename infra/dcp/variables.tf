@@ -52,7 +52,7 @@ variable "billing_project_id" {
 variable "dcp_version" {
   description = "The version of the Data Commons Platform to deploy. This controls the default tag for Docker images and template paths if specific overrides are not provided."
   type        = string
-  default     = "1.1.5"
+  default     = "1.1.6"
 }
 
 # =============================================================================
@@ -77,6 +77,12 @@ variable "auth_create_google_maps_api_key" {
   default     = true
 }
 
+variable "auth_google_maps_allowed_referrers" {
+  description = "A list of HTTP referrers allowed to use the Google Maps API key (e.g. ['https://example.com/*', 'http://localhost:*']). If empty, no browser referrer restrictions are enforced."
+  type        = list(string)
+  default     = []
+}
+
 # =============================================================================
 # Storage Module
 # =============================================================================
@@ -91,6 +97,12 @@ variable "storage_artifacts_bucket_name" {
   description = "The name of the unified GCS bucket for artifacts (serving and ingestion). If not provided, a name will be automatically generated following the pattern [instance_name-]dc-artifacts-[project_id]"
   type        = string
   default     = ""
+}
+
+variable "storage_artifacts_bucket_enable_versioning" {
+  description = "Enable object versioning on the artifacts GCS bucket. Keeps historical versions of objects when overwritten or deleted."
+  type        = bool
+  default     = true
 }
 
 # =============================================================================
@@ -164,6 +176,18 @@ variable "network_existing_subnet_id" {
   description = "Subnet ID or self_link when attaching to an existing/Shared VPC."
   type        = string
   default     = null
+}
+
+variable "network_enable_flow_logs" {
+  description = "Enable VPC Flow Logs on the private subnet for network visibility and security forensics."
+  type        = bool
+  default     = true
+}
+
+variable "network_flow_sampling" {
+  description = "Sampling rate for VPC Flow Logs between 0.0 and 1.0 (default 1.0 = 100% of packets sampled, CIS GCP Benchmark standard)."
+  type        = number
+  default     = 1.0
 }
 
 variable "network_vpc_egress_mode" {
@@ -418,15 +442,25 @@ variable "ingestion_preprocessing_job_image" {
 }
 
 variable "ingestion_preprocessing_job_cpu" {
-  description = "CPU limit for the pre-processing job container"
+  description = "CPU limit in milliCPUs for the pre-processing Cloud Batch container (e.g. '8000' for 8 vCPUs)"
   type        = string
-  default     = "8"
+  default     = "8000"
+
+  validation {
+    condition     = can(regex("^[0-9]+$", var.ingestion_preprocessing_job_cpu)) && tonumber(var.ingestion_preprocessing_job_cpu) >= 1000
+    error_message = "The ingestion_preprocessing_job_cpu must be an integer representing at least 1000 milliCPUs (1 vCPU, e.g. '8000')."
+  }
 }
 
 variable "ingestion_preprocessing_job_memory" {
-  description = "Memory limit for the pre-processing job container"
+  description = "Memory limit in MiB for the pre-processing Cloud Batch container (e.g. '32768' for 32GiB)"
   type        = string
-  default     = "32G"
+  default     = "32768"
+
+  validation {
+    condition     = can(regex("^[0-9]+$", var.ingestion_preprocessing_job_memory)) && tonumber(var.ingestion_preprocessing_job_memory) >= 1024
+    error_message = "The ingestion_preprocessing_job_memory must be an integer representing at least 1024 MiB (1 GiB, e.g. '32768')."
+  }
 }
 
 variable "ingestion_preprocessing_job_timeout" {
@@ -508,17 +542,17 @@ variable "ingestion_helper_service_image" {
 }
 
 # =============================================================================
-# Ingestion - Dataflow Network Configuration
+# Ingestion - Worker Network Configuration (Dataflow & Cloud Batch)
 # =============================================================================
 
-variable "ingestion_dataflow_ip_configuration" {
-  description = "IP configuration for Dataflow workers (WORKER_IP_UNSPECIFIED, WORKER_IP_PUBLIC, WORKER_IP_PRIVATE). Set to WORKER_IP_PRIVATE when a compute.vmExternalIpAccess org policy restricts VMs from obtaining external IPs. NOTE: WORKER_IP_PRIVATE requires enable_network = true or an explicitly configured ingestion_dataflow_subnetwork."
+variable "ingestion_worker_ip_configuration" {
+  description = "IP configuration for ingestion workers (Dataflow and Cloud Batch): WORKER_IP_UNSPECIFIED, WORKER_IP_PUBLIC, WORKER_IP_PRIVATE. Set to WORKER_IP_PRIVATE when a compute.vmExternalIpAccess org policy restricts VMs from obtaining external IPs. NOTE: WORKER_IP_PRIVATE requires enable_network = true or an explicitly configured ingestion_worker_subnetwork."
   type        = string
   default     = "WORKER_IP_UNSPECIFIED"
 }
 
-variable "ingestion_dataflow_subnetwork" {
-  description = "Subnetwork for Dataflow workers. Automatically populated from the network module when enable_network = true. If enable_network = false and WORKER_IP_PRIVATE is used, this variable must be explicitly provided. Format: regions/{region}/subnetworks/{subnetwork} or full self_link."
+variable "ingestion_worker_subnetwork" {
+  description = "Subnetwork for ingestion workers (Dataflow and Cloud Batch). Automatically populated from the network module when enable_network = true. If enable_network = false and WORKER_IP_PRIVATE is used, this variable must be explicitly provided. Format: regions/{region}/subnetworks/{subnetwork} or full self_link."
   type        = string
   default     = ""
 }
