@@ -42,8 +42,8 @@ class TerraformOutputs:
     # Conditional outputs (can evaluate to null in HCL when feature is disabled)
     spanner_instance_id: str | None = None
     spanner_database_id: str | None = None
-    # Never null in HCL, but optional so states without it (e.g. the emulated test
-    # state) still work for commands that don't use it. Only show-config reads it.
+    # Never null in HCL, but optional because only show-config reads it. A state
+    # without it shouldn't break the other commands.
     storage_artifacts_bucket_name: str | None = None
 
     @classmethod
