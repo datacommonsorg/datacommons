@@ -35,13 +35,12 @@ The release process follows three sequential stages:
 ### Phase 1: Stage & Verify a Release Candidate (RC) in TestPyPI
 
 #### Step 1: Submit Staging Build (`deploy/staging.yaml`)
-Submit `deploy/staging.yaml` with your target RC version and artifact source tags:
+Submit `deploy/staging.yaml` with your target RC version and artifact source tags. Pass `--no-source`: the build clones the target commit from GitHub, so it doesn't need your checkout, and uploading it can copy local files like tfvars backups into the `datcom-ci_cloudbuild` bucket.
 ```bash
-gcloud builds submit \
+gcloud builds submit --no-source \
   --config deploy/staging.yaml \
   --substitutions=_TARGET_VERSION="1.1.2rc1",_DEFAULT_SOURCE_TAG="1.1.1",_SERVICES_TAG="1574ed3-79627f8-e265a1d" \
-  --project="datcom-ci" \
-  .
+  --project="datcom-ci"
 ```
 
 **Substitutions Reference:**
@@ -102,7 +101,7 @@ gcloud builds submit \
 Once the RC is verified on staging:
 
 #### Step 1: Submit Version Bump PR Generator (`deploy/bump_version.yaml`)
-Pass `_NEW_VERSION` and the verified `_PROMOTED_CANDIDATE_TAG`:
+Pass `_NEW_VERSION` and the verified `_PROMOTED_CANDIDATE_TAG`. Unlike the staging build, this one uploads your checkout, because step 1 runs `tag_release_artifacts.py` from it. `.gcloudignore` keeps tfvars, their backups and testbed workspaces out of the upload.
 ```bash
 gcloud builds submit \
   --config deploy/bump_version.yaml \
@@ -180,11 +179,10 @@ Package managers like `uv` and `pip` treat release candidates safely: they will 
 ### What if a Release Candidate (RC) fails testing?
 Do **not** overwrite or edit tag `vX.Y.ZrcN`. Fix the bug on `main`, and submit a new staging build with the next increment (`X.Y.Zrc(N+1)`):
 ```bash
-gcloud builds submit \
+gcloud builds submit --no-source \
   --config deploy/staging.yaml \
   --substitutions=_TARGET_VERSION="X.Y.Zrc2" \
-  --project="datcom-ci" \
-  .
+  --project="datcom-ci"
 ```
 
 ### PyPI Version Immutability & Yanking
