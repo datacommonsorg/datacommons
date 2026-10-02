@@ -118,7 +118,11 @@ class SpannerClient:
             for name in configs:
                 if preferred in name:
                     return name
-        return configs[0] if configs else f"{self.client.project_name}/instanceConfigs/default"
+        return (
+            configs[0]
+            if configs
+            else f"{self.client.project_name}/instanceConfigs/default"
+        )
 
     def table_exists(self, table_name: str) -> bool:
         """Check if a table exists in the Cloud Spanner database.

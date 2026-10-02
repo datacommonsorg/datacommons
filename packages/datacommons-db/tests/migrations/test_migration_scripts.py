@@ -245,7 +245,9 @@ def test_cumulative_schema_matches_snapshot_file() -> None:
         uv run datacommons-devtools migrations update-snapshot
     and commit the resulting changes to 'packages/datacommons-db/tests/snapshots/schema_snapshot.sql'.
     """
-    snapshot_path = Path(__file__).resolve().parents[1] / "snapshots" / "schema_snapshot.sql"
+    snapshot_path = (
+        Path(__file__).resolve().parents[1] / "snapshots" / "schema_snapshot.sql"
+    )
 
     assert snapshot_path.exists(), (
         f"Missing schema_snapshot.sql file at '{snapshot_path}'. "
@@ -277,9 +279,7 @@ def test_cumulative_schema_matches_snapshot_file() -> None:
         pass
 
     # Static baseline schema verification fallback
-    for stmt in load_baseline_statements(
-        project_id="default", region="us-central1"
-    ):
+    for stmt in load_baseline_statements(project_id="default", region="us-central1"):
         tbl_match = re.search(r"CREATE\s+TABLE\s+([A-Za-z0-9_]+)", stmt)
         if tbl_match:
             assert f"CREATE TABLE {tbl_match.group(1)}" in expected_snapshot
