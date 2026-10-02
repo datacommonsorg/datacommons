@@ -162,18 +162,18 @@ def update_snapshot_command() -> None:
     """Recompile packages/datacommons-db/tests/snapshots/schema_snapshot.sql from all migration scripts."""
 
     def _on_progress(msg: str) -> None:
-        if msg.startswith(("✔", "  ✔")):
-            click.secho(msg, fg="green")
-        elif any(
-            msg.startswith(prefix) for prefix in ("🔍", "📦", "📜", "⚡", "🔬", "🧹")
-        ):
-            click.secho(msg, fg="cyan", bold=True)
-        elif msg.startswith("🚀"):
-            click.secho(msg, fg="yellow", bold=True)
-        elif msg.startswith("ℹ"):
-            click.secho(msg, fg="bright_black")
-        else:
-            click.echo(msg)
+        leading_char = msg.lstrip()[:1]
+        match leading_char:
+            case "✔":
+                click.secho(msg, fg="green")
+            case "🔍" | "📦" | "📜" | "⚡" | "🔬" | "🧹":
+                click.secho(msg, fg="cyan", bold=True)
+            case "🚀":
+                click.secho(msg, fg="yellow", bold=True)
+            case "ℹ":
+                click.secho(msg, fg="bright_black")
+            case _:
+                click.echo(msg)
 
     try:
         snapshot_file = utils.update_snapshot_schema(

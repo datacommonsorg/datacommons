@@ -36,18 +36,22 @@ def test_is_emulator_reachable_socket_error(monkeypatch: pytest.MonkeyPatch) -> 
 def test_is_emulator_reachable_success() -> None:
     """Verifies is_emulator_reachable returns True when connection succeeds."""
     mock_sock = MagicMock()
+    mock_sock.__enter__.return_value = mock_sock
     with patch("socket.create_connection", return_value=mock_sock):
         assert is_emulator_reachable("localhost:9010")
-        mock_sock.close.assert_called_once()
+        mock_sock.__enter__.assert_called_once()
+        mock_sock.__exit__.assert_called_once()
 
 
 def test_is_emulator_reachable_ipv6() -> None:
     """Verifies is_emulator_reachable properly parses IPv6 bracketed addresses."""
     mock_sock = MagicMock()
+    mock_sock.__enter__.return_value = mock_sock
     with patch("socket.create_connection", return_value=mock_sock) as mock_conn:
         assert is_emulator_reachable("[::1]:9010")
         mock_conn.assert_called_once_with(("::1", 9010), timeout=1)
-        mock_sock.close.assert_called_once()
+        mock_sock.__enter__.assert_called_once()
+        mock_sock.__exit__.assert_called_once()
 
 
 def test_ensure_emulator_running_uses_running() -> None:
