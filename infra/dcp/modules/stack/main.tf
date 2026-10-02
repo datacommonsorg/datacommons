@@ -315,7 +315,6 @@ module "datacommons_services" {
   mcp_instructions_path         = var.datacommons_services_config.instructions_path
   artifacts_bucket_name         = module.storage.artifacts_bucket_name
   vpc_access                    = module.network.vpc_access
-  use_spanner                   = var.spanner_config.enable
   spanner_config                = local.effective_spanner_config
   env_vars = concat(local.cloud_run_shared_env_variables, [
     {

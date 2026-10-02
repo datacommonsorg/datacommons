@@ -98,9 +98,6 @@ variable "vpc_access" {
   default     = null
 }
 
-variable "use_spanner" {
-  type = bool
-}
 
 variable "spanner_config" {
   type = object({

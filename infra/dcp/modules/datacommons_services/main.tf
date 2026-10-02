@@ -5,7 +5,7 @@ locals {
     [
       "roles/vpcaccess.user",
     ],
-    var.use_spanner && var.resolve_with_spanner_embeddings ? ["roles/aiplatform.user"] : []
+    var.spanner_config != null && var.resolve_with_spanner_embeddings ? ["roles/aiplatform.user"] : []
   ))
 }
 
@@ -32,7 +32,7 @@ resource "google_secret_manager_secret_iam_member" "serving_secret_accessor" {
 }
 
 resource "google_spanner_database_iam_member" "serving_spanner_reader" {
-  count    = var.use_spanner && var.spanner_config != null ? 1 : 0
+  count    = var.spanner_config != null ? 1 : 0
   project  = var.project_id
   instance = var.spanner_config.instance_id
   database = var.spanner_config.database_id
@@ -126,10 +126,6 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
       env {
         name  = "ENABLE_UNIQUE_HISTORY_RECORDS"
         value = "true"
-      }
-      env {
-        name  = "USE_SPANNER_KEY_VALUE_STORE"
-        value = var.use_spanner ? "true" : "false"
       }
       env {
         name  = "V2_RESOLVE_INDICATORS_TARGET"
