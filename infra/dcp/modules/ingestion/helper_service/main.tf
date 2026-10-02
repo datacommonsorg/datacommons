@@ -67,18 +67,18 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
       }
       env {
         name  = "REDIS_HOST"
-        value = var.redis_host
+        value = try(var.redis_config.host, "")
       }
       env {
         name  = "REDIS_PORT"
-        value = var.redis_port
+        value = try(var.redis_config.port, "6379")
       }
       env {
         name  = "REDIS_CA_CERT"
-        value = var.redis_ca_cert
+        value = try(var.redis_config.ca_cert, "")
       }
       dynamic "env" {
-        for_each = var.redis_auth_secret_id != null ? [var.redis_auth_secret_id] : []
+        for_each = try(var.redis_config.auth_secret_id, null) != null ? [var.redis_config.auth_secret_id] : []
         content {
           name = "REDIS_PASSWORD"
           value_source {
@@ -116,9 +116,9 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
 }
 
 resource "google_secret_manager_secret_iam_member" "helper_redis_auth_secret_accessor" {
-  count     = var.redis_auth_secret_id != null ? 1 : 0
+  count     = try(var.redis_config.auth_secret_id, null) != null ? 1 : 0
   project   = var.project_id
-  secret_id = var.redis_auth_secret_id
+  secret_id = var.redis_config.auth_secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.helper_sa.email}"
 }

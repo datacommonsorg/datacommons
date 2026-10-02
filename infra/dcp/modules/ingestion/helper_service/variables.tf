@@ -1,14 +1,17 @@
 
 variable "project_id" {
-  type = string
+  type        = string
+  description = "The GCP project ID where resources will be deployed"
 }
 
 variable "instance_name" {
-  type = string
+  type        = string
+  description = "Instance identifier used for resource naming prefix"
 }
 
 variable "region" {
-  type = string
+  type        = string
+  description = "The GCP region for the Cloud Run service"
 }
 
 variable "stateless_deletion_protection" {
@@ -25,7 +28,8 @@ variable "spanner_config" {
 }
 
 variable "ingestion_bucket_name" {
-  type = string
+  type        = string
+  description = "Name of the GCS bucket used for ingestion artifacts and records"
 }
 
 variable "image" {
@@ -33,8 +37,6 @@ variable "image" {
   nullable    = false
   description = "Docker image URL for the ingestion support service"
 }
-
-
 
 variable "enable_embeddings_generation" {
   type        = bool
@@ -51,28 +53,15 @@ variable "vpc_access" {
   default     = null
 }
 
-variable "redis_host" {
-  type        = string
-  description = "Redis host IP"
-  default     = ""
-}
-
-variable "redis_port" {
-  type        = string
-  description = "Redis port"
-  default     = "6379"
-}
-
-variable "redis_auth_secret_id" {
-  type        = string
-  description = "Optional Secret Manager secret ID holding the Redis AUTH password"
+variable "redis_config" {
+  type = object({
+    host           = string
+    port           = optional(string, "6379")
+    auth_secret_id = optional(string, null)
+    ca_cert        = optional(string, "")
+  })
+  description = "Optional Redis cache configuration for cache coordination and invalidation"
   default     = null
-}
-
-variable "redis_ca_cert" {
-  type        = string
-  description = "Optional PEM-encoded CA certificate(s) for Redis TLS (SERVER_AUTHENTICATION)"
-  default     = ""
 }
 
 variable "ingestion_artifacts_path" {

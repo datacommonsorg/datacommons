@@ -38,9 +38,7 @@ variables {
   enable_embeddings_generation  = true
   spanner_config                = null
   vpc_access                    = null
-  redis_auth_secret_id          = null
-  redis_host                    = "10.0.0.5"
-  redis_port                    = "6379"
+  redis_config                  = null
 }
 
 # =============================================================================
@@ -53,6 +51,11 @@ run "baseline_service_contract" {
   assert {
     condition     = output.image == "gcr.io/test/ingestion-helper:latest"
     error_message = "output.image must reflect the configured container image URI"
+  }
+
+  assert {
+    condition     = output.service_name == "dc-ingestion-helper"
+    error_message = "output.service_name must reflect the Cloud Run service name"
   }
 
   # 2. Internal Ingress & Timeout Security Contract
@@ -92,6 +95,27 @@ run "baseline_service_contract" {
   assert {
     condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "ENABLE_EMBEDDINGS"]) == "true"
     error_message = "ENABLE_EMBEDDINGS container env var must reflect var.enable_embeddings_generation"
+  }
+
+  # 6. Redis Disabled Fallbacks
+  assert {
+    condition     = length(google_secret_manager_secret_iam_member.helper_redis_auth_secret_accessor) == 0
+    error_message = "Secret accessor IAM binding must NOT be created when redis_config is null"
+  }
+
+  assert {
+    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "REDIS_HOST"]) == ""
+    error_message = "REDIS_HOST must default to empty string when redis_config is null"
+  }
+
+  assert {
+    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "REDIS_PORT"]) == "6379"
+    error_message = "REDIS_PORT must default to 6379 when redis_config is null"
+  }
+
+  assert {
+    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "REDIS_CA_CERT"]) == ""
+    error_message = "REDIS_CA_CERT must default to empty string when redis_config is null"
   }
 }
 
@@ -189,26 +213,46 @@ run "spanner_enabled" {
 # =============================================================================
 # SCENARIO 5: Redis - Secret Manager Access & Env Injection
 # =============================================================================
-run "redis_secret_injection" {
+run "redis_config_and_secret_injection" {
   command = plan
 
   variables {
-    redis_auth_secret_id = "custom-redis-secret"
+    redis_config = {
+      host           = "10.0.0.8"
+      port           = "6380"
+      auth_secret_id = "custom-redis-secret"
+      ca_cert        = "test-ca-cert-pem"
+    }
   }
 
   assert {
     condition     = length(google_secret_manager_secret_iam_member.helper_redis_auth_secret_accessor) == 1
-    error_message = "Secret accessor IAM binding must be created when redis_auth_secret_id is provided"
+    error_message = "Secret accessor IAM binding must be created when redis_config.auth_secret_id is provided"
   }
 
   assert {
     condition     = google_secret_manager_secret_iam_member.helper_redis_auth_secret_accessor[0].secret_id == "custom-redis-secret"
-    error_message = "Secret accessor IAM binding must target the configured redis_auth_secret_id"
+    error_message = "Secret accessor IAM binding must target the configured redis_config.auth_secret_id"
   }
 
   assert {
     condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.name if e.name == "REDIS_PASSWORD"]) == "REDIS_PASSWORD"
     error_message = "Container env list must include REDIS_PASSWORD when secret is configured"
+  }
+
+  assert {
+    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "REDIS_HOST"]) == "10.0.0.8"
+    error_message = "REDIS_HOST must match redis_config.host"
+  }
+
+  assert {
+    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "REDIS_PORT"]) == "6380"
+    error_message = "REDIS_PORT must match redis_config.port"
+  }
+
+  assert {
+    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "REDIS_CA_CERT"]) == "test-ca-cert-pem"
+    error_message = "REDIS_CA_CERT must match redis_config.ca_cert"
   }
 }
 

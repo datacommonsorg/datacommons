@@ -41,6 +41,11 @@ output "ingestion_service_url" {
   value       = one(module.ingestion_helper_service[*].ingestion_helper_url)
 }
 
+output "ingestion_service_name" {
+  description = "Name of the ingestion support Cloud Run service"
+  value       = one(module.ingestion_helper_service[*].service_name)
+}
+
 output "ingestion_workflow_service_account_email" {
   description = "Email of the service account used by the ingestion workflow"
   value       = module.ingestion_workflow.service_account_email

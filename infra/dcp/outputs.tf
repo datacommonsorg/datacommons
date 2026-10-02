@@ -40,6 +40,11 @@ output "ingestion_service_url" {
   value       = module.stack.ingestion_service_url
 }
 
+output "ingestion_service_name" {
+  description = "Name of the ingestion support Cloud Run service"
+  value       = module.stack.ingestion_service_name
+}
+
 output "ingestion_workflow_service_account_email" {
   description = "Email of the service account used by the ingestion workflow"
   value       = module.stack.ingestion_workflow_service_account_email
