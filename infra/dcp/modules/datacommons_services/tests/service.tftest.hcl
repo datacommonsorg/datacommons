@@ -43,8 +43,11 @@ variables {
   mcp_search_scope              = "custom_only"
   env_vars                      = []
   secret_env_vars               = []
-  spanner_config                = null
-  vpc_access                    = null
+  spanner_config = {
+    instance_id = "test-spanner-instance"
+    database_id = "test-spanner-db"
+  }
+  vpc_access = null
 }
 
 # =============================================================================
@@ -90,6 +93,27 @@ run "baseline_service_contract" {
     condition     = length(google_cloud_run_v2_service_iam_member.public_access) == 1
     error_message = "Default baseline with make_public = true must create the public invoker binding"
   }
+
+  # 4. Spanner Storage Contract & IAM
+  assert {
+    condition     = google_spanner_database_iam_member.serving_spanner_reader.instance == "test-spanner-instance" && google_spanner_database_iam_member.serving_spanner_reader.database == "test-spanner-db"
+    error_message = "Serving service account must have databaseReader role on configured Spanner instance and database"
+  }
+
+  assert {
+    condition     = contains(keys(google_project_iam_member.serving_sa_roles), "roles/aiplatform.user")
+    error_message = "roles/aiplatform.user must be granted for embeddings serving"
+  }
+
+  assert {
+    condition     = one([for e in google_cloud_run_v2_service.dc_web_service.template[0].containers[0].env : e.value if e.name == "GCP_SPANNER_INSTANCE_ID"]) == "test-spanner-instance"
+    error_message = "GCP_SPANNER_INSTANCE_ID must match spanner_config.instance_id"
+  }
+
+  assert {
+    condition     = one([for e in google_cloud_run_v2_service.dc_web_service.template[0].containers[0].env : e.value if e.name == "GCP_SPANNER_DATABASE_NAME"]) == "test-spanner-db"
+    error_message = "GCP_SPANNER_DATABASE_NAME must match spanner_config.database_id"
+  }
 }
 
 # =============================================================================
@@ -110,76 +134,6 @@ run "instance_name_prefixing" {
   assert {
     condition     = google_service_account.serving_sa.account_id == "prod-dc-srvs-sa"
     error_message = "Serving Service Account account_id must be prefixed with instance_name"
-  }
-}
-
-# =============================================================================
-# SCENARIO 3: Storage - Spanner Disabled (try() fallbacks & zero IAM)
-# =============================================================================
-run "spanner_disabled_fallback" {
-  command = plan
-
-  variables {
-    spanner_config = null
-  }
-
-  assert {
-    condition     = length(google_spanner_database_iam_member.serving_spanner_reader) == 0
-    error_message = "Database Reader IAM binding must NOT be created when spanner_config is null"
-  }
-
-  assert {
-    condition     = !contains(keys(google_project_iam_member.serving_sa_roles), "roles/aiplatform.user")
-    error_message = "roles/aiplatform.user must NOT be granted when spanner_config is null"
-  }
-
-  assert {
-    condition     = one([for e in google_cloud_run_v2_service.dc_web_service.template[0].containers[0].env : e.value if e.name == "GCP_SPANNER_INSTANCE_ID"]) == ""
-    error_message = "GCP_SPANNER_INSTANCE_ID must fall back to empty string via try() when spanner_config is null"
-  }
-
-  assert {
-    condition     = one([for e in google_cloud_run_v2_service.dc_web_service.template[0].containers[0].env : e.value if e.name == "GCP_SPANNER_DATABASE_NAME"]) == ""
-    error_message = "GCP_SPANNER_DATABASE_NAME must fall back to empty string via try() when spanner_config is null"
-  }
-}
-
-# =============================================================================
-# SCENARIO 4: Storage - Spanner Enabled (Reader IAM & Vertex AI role)
-# =============================================================================
-run "spanner_enabled_with_vertex_ai" {
-  command = plan
-
-  variables {
-    spanner_config = {
-      instance_id = "test-spanner-instance"
-      database_id = "test-spanner-db"
-    }
-  }
-
-  assert {
-    condition     = length(google_spanner_database_iam_member.serving_spanner_reader) == 1
-    error_message = "Database Reader IAM binding MUST be created when spanner_config is provided"
-  }
-
-  assert {
-    condition     = google_spanner_database_iam_member.serving_spanner_reader[0].instance == "test-spanner-instance" && google_spanner_database_iam_member.serving_spanner_reader[0].database == "test-spanner-db"
-    error_message = "Database Reader IAM binding must target configured instance and database"
-  }
-
-  assert {
-    condition     = contains(keys(google_project_iam_member.serving_sa_roles), "roles/aiplatform.user")
-    error_message = "roles/aiplatform.user MUST be granted when spanner_config is provided"
-  }
-
-  assert {
-    condition     = one([for e in google_cloud_run_v2_service.dc_web_service.template[0].containers[0].env : e.value if e.name == "GCP_SPANNER_INSTANCE_ID"]) == "test-spanner-instance"
-    error_message = "GCP_SPANNER_INSTANCE_ID must match spanner_config.instance_id"
-  }
-
-  assert {
-    condition     = one([for e in google_cloud_run_v2_service.dc_web_service.template[0].containers[0].env : e.value if e.name == "GCP_SPANNER_DATABASE_NAME"]) == "test-spanner-db"
-    error_message = "GCP_SPANNER_DATABASE_NAME must match spanner_config.database_id"
   }
 }
 
