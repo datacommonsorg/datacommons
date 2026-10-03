@@ -61,16 +61,21 @@ spanner_create_instance = true
 # spanner_instance_id     = "existing-spanner-instance"
 
 # =============================================================================
-# Datacommons Services Module
+# Serving & Public Ingress (Data Commons Services)
 # =============================================================================
 # Controls whether the Data Commons API and frontend services are publicly accessible.
 # Set to true to allow unauthenticated public internet traffic to access the service.
-# Set to false (default) to check for access permissions. For more information, see the 
-# Data Commons documentation.
+# Set to false (default) to require IAM authentication.
 datacommons_services_allow_unauthenticated_access = false
+
+# Provisions a Global External Application Load Balancer with an Anycast IP in front
+# of the serving service, restricting Cloud Run to only accept traffic via the load balancer.
+# Set to false (default) for prototypes to avoid load balancer infrastructure costs.
+# enable_load_balancer = false
 
 # Track traffic and user interactions with your site using Google Analytics.
 # datacommons_services_google_analytics_tag_id = "your-analytics-tag-id"
+
 
 # =============================================================================
 # Ingestion - Preprocessing Job

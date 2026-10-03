@@ -50,6 +50,12 @@ variable "make_public" {
   type = bool
 }
 
+variable "ingress_mode" {
+  type        = string
+  description = "Ingress traffic configuration for Cloud Run service (INGRESS_TRAFFIC_ALL or INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER)."
+  default     = "INGRESS_TRAFFIC_ALL"
+}
+
 variable "google_analytics_tag_id" {
   type    = string
   default = null

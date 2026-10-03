@@ -432,6 +432,16 @@ variable "datacommons_services_website_search_scope" {
 }
 
 # =============================================================================
+# Load Balancer Module
+# =============================================================================
+
+variable "enable_load_balancer" {
+  description = "Enable External Application Load Balancer in front of Data Commons Cloud Run serving service."
+  type        = bool
+  default     = false
+}
+
+# =============================================================================
 # Ingestion - Preprocessing Job
 # =============================================================================
 

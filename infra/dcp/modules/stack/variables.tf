@@ -144,3 +144,13 @@ variable "ingestion_config" {
     dataflow_worker_machine_type         = optional(string, "n2-standard-4")
   })
 }
+
+variable "load_balancer_config" {
+  type = object({
+    enable = bool
+  })
+  default = {
+    enable = false
+  }
+  description = "Configuration for the External Application Load Balancer in front of Cloud Run."
+}

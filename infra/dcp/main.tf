@@ -29,32 +29,53 @@ provider "google-beta" {
   billing_project       = var.billing_project_id != null ? var.billing_project_id : var.project_id
 }
 
-resource "google_project_service" "apis" {
-  for_each = toset(concat([
+locals {
+  # Base APIs always required by DCP core
+  base_apis = [
     "apikeys.googleapis.com",
     "maps-backend.googleapis.com",
     "places-backend.googleapis.com",
     "run.googleapis.com",
     "iam.googleapis.com",
     "cloudresourcemanager.googleapis.com",
-    "sqladmin.googleapis.com",
-    "redis.googleapis.com",
     "secretmanager.googleapis.com",
     "artifactregistry.googleapis.com",
-    "compute.googleapis.com"
-    ], var.enable_spanner ? ["spanner.googleapis.com"] : [],
-    var.enable_ingestion ? [
-      "workflows.googleapis.com",
-      "workflowexecutions.googleapis.com",
-      "dataflow.googleapis.com",
-      "batch.googleapis.com"
-    ] : [],
-    var.spanner_enable_bigquery_connection ? [
-      "bigqueryconnection.googleapis.com",
-      "bigquery.googleapis.com",
-      "bigqueryreservation.googleapis.com"
-    ] : [],
-  var.spanner_enable_embeddings_generation ? ["aiplatform.googleapis.com"] : []))
+  ]
+
+  # Conditional APIs based on enabled modules and features
+  compute_apis = (var.enable_network || var.enable_load_balancer || var.enable_redis) ? ["compute.googleapis.com"] : []
+  redis_apis   = var.enable_redis ? ["redis.googleapis.com"] : []
+  spanner_apis = var.enable_spanner ? ["spanner.googleapis.com"] : []
+
+  ingestion_apis = var.enable_ingestion ? [
+    "workflows.googleapis.com",
+    "workflowexecutions.googleapis.com",
+    "dataflow.googleapis.com",
+    "batch.googleapis.com",
+  ] : []
+
+  bigquery_apis = var.spanner_enable_bigquery_connection ? [
+    "bigqueryconnection.googleapis.com",
+    "bigquery.googleapis.com",
+    "bigqueryreservation.googleapis.com",
+  ] : []
+
+  aiplatform_apis = var.spanner_enable_embeddings_generation ? ["aiplatform.googleapis.com"] : []
+
+  # Combined unique set of APIs to enable
+  required_apis = toset(flatten([
+    local.base_apis,
+    local.compute_apis,
+    local.redis_apis,
+    local.spanner_apis,
+    local.ingestion_apis,
+    local.bigquery_apis,
+    local.aiplatform_apis,
+  ]))
+}
+
+resource "google_project_service" "apis" {
+  for_each = local.required_apis
 
   service            = each.key
   disable_on_destroy = false
@@ -177,6 +198,10 @@ locals {
     dataflow_num_workers                 = var.ingestion_dataflow_num_workers
     dataflow_worker_machine_type         = var.ingestion_dataflow_worker_machine_type
   }
+
+  load_balancer_config = {
+    enable = var.enable_load_balancer
+  }
 }
 
 module "stack" {
@@ -194,6 +219,7 @@ module "stack" {
   auth_config                                = local.auth_config
   redis_config                               = local.redis_config
   ingestion_config                           = local.ingestion_config
+  load_balancer_config                       = local.load_balancer_config
 
   depends_on = [google_project_service.apis]
 }
