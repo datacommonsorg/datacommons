@@ -436,11 +436,9 @@ resource "google_project_iam_member" "workflow_dataflow_developer" {
   member  = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
 
-# Required by the Cloud Workflows orchestrator (workflow_sa) during Phase 3 (jobs.run on
-# postprocessing job) and Phase 4 (services.patch on serving service). The Cloud Workflows
-# googleapis.run.v2 connector automatically polls Long-Running Operations at
-# projects/{project}/locations/{region}/operations/{op}, which requires run.operations.get
-# at the project level (job/service-scoped IAM bindings do not cover /operations/*).
+# The polling mechanism in Cloud Workflows uses "operations" (run.operations.get) to monitor
+# the Cloud Run postprocessing job and service restart. Because GCP does not scope operations
+# to individual jobs or services, this can only be permissioned by granting project-level roles/run.viewer.
 resource "google_project_iam_member" "workflow_run_viewer" {
   count   = var.ingestion_config.enable_ingestion ? 1 : 0
   project = var.global.project_id
