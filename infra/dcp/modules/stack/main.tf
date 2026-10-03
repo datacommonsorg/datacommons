@@ -24,9 +24,10 @@ locals {
   redis_ca_cert = var.redis_config.enable && var.redis_config.enable_tls && length(module.redis) > 0 ? module.redis[0].redis_ca_cert : ""
 
   effective_spanner_config = {
-    instance_id            = var.spanner_config.enable && length(module.spanner) > 0 ? module.spanner[0].spanner_instance_id : var.spanner_config.instance_id
-    database_id            = var.spanner_config.enable && length(module.spanner) > 0 ? module.spanner[0].spanner_database_id : var.spanner_config.database_id
-    bigquery_connection_id = var.spanner_config.enable && length(module.spanner) > 0 ? module.spanner[0].bigquery_connection_id : ""
+    instance_id                = var.spanner_config.enable && length(module.spanner) > 0 ? module.spanner[0].spanner_instance_id : var.spanner_config.instance_id
+    database_id                = var.spanner_config.enable && length(module.spanner) > 0 ? module.spanner[0].spanner_database_id : var.spanner_config.database_id
+    enable_bigquery_connection = var.spanner_config.enable && var.spanner_config.enable_bigquery_connection
+    bigquery_connection_id     = var.spanner_config.enable && length(module.spanner) > 0 ? module.spanner[0].bigquery_connection_id : ""
   }
 
   effective_vpc_network = (
@@ -240,8 +241,8 @@ module "ingestion_workflow" {
   artifacts_bucket_name                = module.storage.artifacts_bucket_name
   ingestion_artifacts_path             = var.ingestion_config.ingestion_artifacts_path
   ingestion_input_path                 = var.ingestion_config.input_path
-  spanner_instance_id                  = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
-  spanner_database_id                  = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
+  spanner_instance_id                  = local.effective_spanner_config.instance_id
+  spanner_database_id                  = local.effective_spanner_config.database_id
   vpc_network                          = local.effective_vpc_network
   worker_ip_configuration              = local.effective_worker_ip_configuration
   worker_subnetwork                    = local.effective_worker_subnetwork
@@ -432,6 +433,18 @@ resource "google_project_iam_member" "workflow_dataflow_developer" {
   count   = var.ingestion_config.enable_ingestion ? 1 : 0
   project = var.global.project_id
   role    = "roles/dataflow.developer"
+  member  = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
+# Required by the Cloud Workflows orchestrator (workflow_sa) during Phase 3 (jobs.run on
+# postprocessing job) and Phase 4 (services.patch on serving service). The Cloud Workflows
+# googleapis.run.v2 connector automatically polls Long-Running Operations at
+# projects/{project}/locations/{region}/operations/{op}, which requires run.operations.get
+# at the project level (job/service-scoped IAM bindings do not cover /operations/*).
+resource "google_project_iam_member" "workflow_run_viewer" {
+  count   = var.ingestion_config.enable_ingestion ? 1 : 0
+  project = var.global.project_id
+  role    = "roles/run.viewer"
   member  = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
 

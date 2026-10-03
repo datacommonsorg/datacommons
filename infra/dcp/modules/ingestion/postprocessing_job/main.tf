@@ -105,7 +105,7 @@ resource "google_spanner_database_iam_member" "postprocessing_spanner_user" {
 }
 
 resource "google_bigquery_connection_iam_member" "postprocessing_bq_connection_user" {
-  count         = var.enable_bigquery_postprocessing && var.spanner_config.bigquery_connection_id != null && var.spanner_config.bigquery_connection_id != "" ? 1 : 0
+  count         = var.enable_bigquery_postprocessing && var.spanner_config.enable_bigquery_connection ? 1 : 0
   project       = var.project_id
   location      = var.region
   connection_id = var.spanner_config.bigquery_connection_id

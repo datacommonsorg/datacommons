@@ -114,7 +114,10 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
     service_account = google_service_account.helper_sa[0].email
   }
 
-  depends_on = [google_secret_manager_secret_iam_member.helper_redis_auth_secret_accessor]
+  depends_on = [
+    google_secret_manager_secret_iam_member.helper_redis_auth_secret_accessor,
+    google_spanner_database_iam_member.helper_spanner_user
+  ]
 }
 
 resource "google_secret_manager_secret_iam_member" "helper_redis_auth_secret_accessor" {
