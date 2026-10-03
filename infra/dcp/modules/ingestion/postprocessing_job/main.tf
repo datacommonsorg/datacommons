@@ -104,6 +104,21 @@ resource "google_spanner_database_iam_member" "postprocessing_spanner_user" {
   member   = "serviceAccount:${google_service_account.postprocessing_sa.email}"
 }
 
+# When the postprocessing job runs BigQuery federated queries (EXTERNAL_QUERY) against Spanner
+# with parallel reads enabled, BigQuery accesses Spanner using the caller's identity (postprocessing_sa)
+# and checks metadata on the parent Spanner instance (spanner.instances.get). Because database-level
+# IAM bindings do not inherit upward to the instance, removing this binding causes BigQuery
+# postprocessing steps to fail with "Permission Denied" on projects/{project}/instances/{instance}.
+# Granting roles/spanner.viewer on the instance provides the required instance metadata access
+# without granting table read access to other databases on a shared Spanner instance.
+resource "google_spanner_instance_iam_member" "postprocessing_spanner_instance_viewer" {
+  count    = var.enable_bigquery_postprocessing && var.spanner_config.enable_bigquery_connection ? 1 : 0
+  project  = var.project_id
+  instance = var.spanner_config.instance_id
+  role     = "roles/spanner.viewer"
+  member   = "serviceAccount:${google_service_account.postprocessing_sa.email}"
+}
+
 resource "google_bigquery_connection_iam_member" "postprocessing_bq_connection_user" {
   count         = var.enable_bigquery_postprocessing && var.spanner_config.enable_bigquery_connection ? 1 : 0
   project       = var.project_id
@@ -112,4 +127,3 @@ resource "google_bigquery_connection_iam_member" "postprocessing_bq_connection_u
   role          = "roles/bigquery.connectionUser"
   member        = "serviceAccount:${google_service_account.postprocessing_sa.email}"
 }
-
