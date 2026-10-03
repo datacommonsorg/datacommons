@@ -40,35 +40,22 @@ def test_ingest_start_fails_without_imports_flag(runner: CliRunner) -> None:
 
 
 @pytest.mark.usefixtures("mock_terraform_ingest")
-def test_ingest_show_config_success(
-    mock_job_session,
-    runner: CliRunner,
-) -> None:
-    mock_job_session.get.return_value.json.return_value = {
-        "template": {
-            "template": {
-                "containers": [
-                    {
-                        "env": [
-                            {"name": "GCS_BUCKET", "value": "my-test-bucket"},
-                            {"name": "API_KEY", "valueSource": "secret-api-key"},
-                        ]
-                    }
-                ]
-            }
-        }
-    }
+def test_ingest_show_config_success(runner: CliRunner) -> None:
     result = runner.invoke(admin, ["ingest", "show-config"])
     assert result.exit_code == 0
-    assert "GCS_BUCKET: my-test-bucket" in result.output
-    assert "API_KEY: [SECRET: secret-api-key]" in result.output
+    assert "Current ingestion job configuration:" in result.output
+    assert "PROJECT_ID: mock-proj" in result.output
+    assert "REGION: us-central1" in result.output
+    assert "GCS_BUCKET: mock-bucket" in result.output
 
 
 @pytest.mark.usefixtures("mock_terraform_spanner")
-def test_ingest_show_config_no_prep_job(runner: CliRunner) -> None:
+def test_ingest_show_config_marks_missing_outputs_unset(runner: CliRunner) -> None:
     result = runner.invoke(admin, ["ingest", "show-config"])
     assert result.exit_code == 0
-    assert "No ingestion prep job configured in this deployment." in result.output
+    assert "GCP_SPANNER_INSTANCE_ID: mock-instance" in result.output
+    assert "GCP_SPANNER_DATABASE_NAME: mock-db" in result.output
+    assert "GCS_BUCKET: [UNSET]" in result.output
 
 
 @pytest.mark.usefixtures("mock_terraform_ingest")

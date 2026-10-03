@@ -89,7 +89,7 @@ infra/dcp/
     ├── datacommons_services/# Cloud Run serving container (Envoy + Mixer + Website)
     │
     └── ingestion/           # Ingestion pipeline submodules
-        ├── preprocessing_job# Cloud Run job executing datacommons-data (dcpbridge mode)
+        ├── preprocessing_job# Service account and IAM for Cloud Batch preprocessing (datacommons-data)
         ├── dataflow/        # Service accounts and IAM for Apache Beam Java Dataflow
         ├── postprocessing_job # Cloud Run job executing aggregation queries
         ├── helper_service/  # FastAPI Cloud Run service managing locks and embeddings

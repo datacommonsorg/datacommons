@@ -316,12 +316,12 @@ def test_cli_update_snapshot_command(
     mock_snapshot = tmp_path / "schema_snapshot.sql"
     monkeypatch.setattr(
         "datacommons_devtools.migrations.utils.update_snapshot_schema",
-        lambda: mock_snapshot,
+        lambda *args, **kwargs: mock_snapshot,
     )
 
     result = runner.invoke(cli, ["update-snapshot"])
     assert result.exit_code == 0
-    assert "Successfully updated schema snapshot:" in result.output
+    assert "Successfully updated schema snapshot" in result.output
     assert str(mock_snapshot) in result.output
 
 
@@ -332,12 +332,12 @@ def test_devtools_migrations_update_snapshot_invocation(
     mock_snapshot = tmp_path / "schema_snapshot.sql"
     monkeypatch.setattr(
         "datacommons_devtools.migrations.utils.update_snapshot_schema",
-        lambda: mock_snapshot,
+        lambda *args, **kwargs: mock_snapshot,
     )
 
     result = runner.invoke(devtools_cli, ["migrations", "update-snapshot"])
     assert result.exit_code == 0
-    assert "Successfully updated schema snapshot:" in result.output
+    assert "Successfully updated schema snapshot" in result.output
 
 
 def test_cli_update_snapshot_failure_raises(
@@ -345,7 +345,7 @@ def test_cli_update_snapshot_failure_raises(
 ) -> None:
     """Verifies update-snapshot command handles failure exceptions gracefully."""
 
-    def _fail():
+    def _fail(*args, **kwargs):
         raise RuntimeError("Spanner DDL parse failure")
 
     monkeypatch.setattr(
