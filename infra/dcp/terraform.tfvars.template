@@ -73,6 +73,14 @@ datacommons_services_allow_unauthenticated_access = false
 # Set to false (default) for prototypes to avoid load balancer infrastructure costs.
 # enable_load_balancer = false
 
+# Cloud Armor edge security policy settings (only apply when enable_load_balancer = true).
+# Protects the serving backend with per-IP adaptive rate limiting and OWASP Top 10 WAF rules.
+# load_balancer_enable_cloud_armor             = true
+# load_balancer_rate_limit_requests_per_minute = 120
+# load_balancer_rate_limit_ban_duration_sec    = 600
+# load_balancer_enable_owasp_waf_rules         = true
+# load_balancer_allowed_ip_ranges              = ["*"]
+
 # Track traffic and user interactions with your site using Google Analytics.
 # datacommons_services_google_analytics_tag_id = "your-analytics-tag-id"
 

@@ -200,7 +200,12 @@ locals {
   }
 
   load_balancer_config = {
-    enable = var.enable_load_balancer
+    enable                         = var.enable_load_balancer
+    enable_cloud_armor             = var.load_balancer_enable_cloud_armor
+    rate_limit_requests_per_minute = var.load_balancer_rate_limit_requests_per_minute
+    rate_limit_ban_duration_sec    = var.load_balancer_rate_limit_ban_duration_sec
+    enable_owasp_waf_rules         = var.load_balancer_enable_owasp_waf_rules
+    allowed_ip_ranges              = var.load_balancer_allowed_ip_ranges
   }
 }
 

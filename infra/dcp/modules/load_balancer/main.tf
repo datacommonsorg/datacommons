@@ -1,5 +1,6 @@
 locals {
-  name_prefix = var.instance_name != "" ? "${var.instance_name}-" : ""
+  name_prefix            = var.instance_name != "" ? "${var.instance_name}-" : ""
+  restrict_ip_allowlist  = length(var.allowed_ip_ranges) > 0 && !contains(var.allowed_ip_ranges, "*")
 }
 
 # =============================================================================
@@ -26,7 +27,74 @@ resource "google_compute_region_network_endpoint_group" "serverless_neg" {
 }
 
 # =============================================================================
-# 3. Global Backend Service
+# 3. Cloud Armor Security Policy (Rate Limiting, IP Allowlisting & OWASP WAF)
+# =============================================================================
+resource "google_compute_security_policy" "cloud_armor" {
+  count       = var.enable_cloud_armor ? 1 : 0
+  name        = "${local.name_prefix}dc-cloud-armor-policy"
+  project     = var.project_id
+  description = "Cloud Armor edge security policy for Data Commons Serving Load Balancer"
+
+  # Rules 1000-1003: Preconfigured OWASP Top 10 WAF Rules
+  dynamic "rule" {
+    for_each = var.enable_owasp_waf_rules ? {
+      1000 = { rule_set = "sqli-v33-stable", desc = "OWASP SQL Injection (SQLi) protection" }
+      1001 = { rule_set = "xss-v33-stable", desc = "OWASP Cross-Site Scripting (XSS) protection" }
+      1002 = { rule_set = "lfi-v33-stable", desc = "OWASP Local File Inclusion (LFI) protection" }
+      1003 = { rule_set = "rfi-v33-stable", desc = "OWASP Remote File Inclusion (RFI) protection" }
+    } : {}
+    content {
+      action      = "deny(403)"
+      priority    = tonumber(rule.key)
+      description = rule.value.desc
+      match {
+        expr {
+          expression = "evaluatePreconfiguredWaf('${rule.value.rule_set}')"
+        }
+      }
+    }
+  }
+
+  # Rule 2000: Adaptive Per-IP Rate Limiting (HTTP 429)
+  rule {
+    action      = "rate_based_ban"
+    priority    = 2000
+    description = "Rate-based throttling per client IP (${var.rate_limit_requests_per_minute} req/min)"
+    match {
+      versioned_expr = "SRC_IPS_V1"
+      config {
+        src_ip_ranges = var.allowed_ip_ranges
+      }
+    }
+    rate_limit_options {
+      conform_action   = "allow"
+      exceed_action    = "deny(429)"
+      enforce_on_key   = "IP"
+      ban_duration_sec = var.rate_limit_ban_duration_sec
+
+      rate_limit_threshold {
+        count        = var.rate_limit_requests_per_minute
+        interval_sec = 60
+      }
+    }
+  }
+
+  # Default Rule (Priority 2147483647): Deny(403) when IP allowlist is active, otherwise Allow
+  rule {
+    action      = local.restrict_ip_allowlist ? "deny(403)" : "allow"
+    priority    = 2147483647
+    description = local.restrict_ip_allowlist ? "Default rule: block unallowed IPs" : "Default rule: allow legitimate traffic"
+    match {
+      versioned_expr = "SRC_IPS_V1"
+      config {
+        src_ip_ranges = ["*"]
+      }
+    }
+  }
+}
+
+# =============================================================================
+# 4. Global Backend Service
 # =============================================================================
 resource "google_compute_backend_service" "backend" {
   name                  = "${local.name_prefix}dc-backend-service"
@@ -34,6 +102,7 @@ resource "google_compute_backend_service" "backend" {
   protocol              = "HTTP"
   enable_cdn            = false
   load_balancing_scheme = "EXTERNAL_MANAGED"
+  security_policy       = var.enable_cloud_armor ? google_compute_security_policy.cloud_armor[0].id : null
 
   backend {
     group = google_compute_region_network_endpoint_group.serverless_neg.id

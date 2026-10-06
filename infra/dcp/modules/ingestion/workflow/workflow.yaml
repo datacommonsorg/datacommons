@@ -519,7 +519,7 @@ launch_and_poll_dataflow:
           - wait_for_dataflow:
               call: sys.sleep
               args:
-                seconds: 60
+                seconds: 10
               next: poll_job
 
     - check_success:
@@ -620,7 +620,7 @@ poll_cloud_batch_job_execution:
           - wait_for_batch:
               call: sys.sleep
               args:
-                seconds: 15
+                seconds: 10
               next: poll_execution
 
     - check_success:
@@ -651,7 +651,7 @@ poll_cloud_run_job_execution:
           - wait_for_execution:
               call: sys.sleep
               args:
-                seconds: 30
+                seconds: 10
               next: poll_execution
 
     - check_exec_success:
