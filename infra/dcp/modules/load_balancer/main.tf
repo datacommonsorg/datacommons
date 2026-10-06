@@ -35,11 +35,10 @@ resource "google_compute_security_policy" "cloud_armor" {
   project     = var.project_id
   description = "Cloud Armor edge security policy for Data Commons Serving Load Balancer"
 
-  # Rules 1000-1003: Preconfigured OWASP Top 10 WAF Rules
-  # Note: For SQLi, rule id942200 is excluded because it flags '->' and '<-' which are standard Data Commons graph traversal syntax.
+  # Rules 1001-1003: Preconfigured OWASP Top 10 WAF Rules (XSS, LFI, RFI)
+  # Note: sqli-v33-stable is omitted because its id942200 rule flags '->' and '<-' which are core Data Commons graph syntax.
   dynamic "rule" {
     for_each = var.enable_owasp_waf_rules ? {
-      1000 = { expr = "evaluatePreconfiguredWaf('sqli-v33-stable', {'owasp-crs-v030301-id942200-sqli': {}})", desc = "OWASP SQL Injection (SQLi) protection" }
       1001 = { expr = "evaluatePreconfiguredWaf('xss-v33-stable')", desc = "OWASP Cross-Site Scripting (XSS) protection" }
       1002 = { expr = "evaluatePreconfiguredWaf('lfi-v33-stable')", desc = "OWASP Local File Inclusion (LFI) protection" }
       1003 = { expr = "evaluatePreconfiguredWaf('rfi-v33-stable')", desc = "OWASP Remote File Inclusion (RFI) protection" }
