@@ -142,5 +142,9 @@ variable "ingestion_config" {
     dataflow_max_workers                 = optional(number, 20)
     dataflow_num_workers                 = optional(number, 4)
     dataflow_worker_machine_type         = optional(string, "n2-standard-4")
+
+    # Ingestion Lock Approaching Retention Alerts
+    enable_lock_retention_alerts   = optional(bool, true)
+    lock_alert_notification_channels = optional(list(string), [])
   })
 }

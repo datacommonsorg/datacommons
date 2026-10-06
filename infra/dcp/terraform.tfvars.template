@@ -89,3 +89,13 @@ ingestion_input_path = "ingestion/input"
 # multiple environments (e.g. dev and prod) in the same project, set this to true for
 # one deployment, and false for all others. See Data Commons documentation for more details.
 spanner_create_bigquery_reservation = true
+
+# =============================================================================
+# Ingestion - Spanner Retention Alerts & Lock Protection
+# =============================================================================
+# Automatically alerts when the global ingestion lock is held longer than 50%
+# (warning) and 90% (critical) of the Spanner version retention period.
+# This prevents jobs from overrunning the point-in-time recovery (PITR) window.
+# ingestion_enable_lock_retention_alerts = true
+# ingestion_lock_alert_notification_channels = ["projects/my-project/notificationChannels/12345"]
+

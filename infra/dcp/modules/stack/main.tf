@@ -38,6 +38,16 @@ locals {
     local.effective_worker_subnetwork != "" ? local.raw_worker_ip_config : "WORKER_IP_UNSPECIFIED"
   )
 
+  # Spanner Version Retention Duration parsing and alert thresholds
+  spanner_retention_period_raw = var.spanner_config.version_retention_period
+  spanner_retention_seconds = (
+    endswith(local.spanner_retention_period_raw, "d") ? tonumber(trimsuffix(local.spanner_retention_period_raw, "d")) * 86400 :
+    endswith(local.spanner_retention_period_raw, "h") ? tonumber(trimsuffix(local.spanner_retention_period_raw, "h")) * 3600 :
+    tonumber(trimsuffix(local.spanner_retention_period_raw, "s"))
+  )
+  ingestion_lock_warn_threshold_sec = floor(local.spanner_retention_seconds * 0.50)
+  ingestion_lock_crit_threshold_sec = floor(local.spanner_retention_seconds * 0.90)
+
   cloud_run_shared_env_variables = [
     {
       name  = "USE_CLOUDSQL"
@@ -624,4 +634,92 @@ resource "terraform_data" "prune_cloud_run_revisions" {
     module.datacommons_services,
     module.ingestion_helper_service
   ]
+}
+
+# ==============================================================================
+# Ingestion Lock Duration Alerts (Spanner Retention Protection)
+# ==============================================================================
+
+resource "google_monitoring_alert_policy" "ingestion_lock_approaching_retention_warning" {
+  count        = var.ingestion_config.enable_ingestion && var.ingestion_config.enable_lock_retention_alerts ? 1 : 0
+  display_name = "${var.global.instance_name != "" ? "${var.global.instance_name} - " : ""}Ingestion Lock Held > 50% of Spanner Retention"
+  project      = var.global.project_id
+  combiner     = "OR"
+
+  conditions {
+    display_name = "Lock acquired in Ingestion Helper but not released within ${floor(local.ingestion_lock_warn_threshold_sec / 3600)} hours"
+    condition_matched_log {
+      filter = <<-EOT
+        resource.type="cloud_run_revision"
+        AND resource.labels.service_name="${module.ingestion_helper_service.service_name}"
+        AND (jsonPayload.event="INGESTION_LOCK_ACQUIRED" OR textPayload:"INGESTION_LOCK_ACQUIRED")
+      EOT
+    }
+  }
+
+  alert_strategy {
+    notification_rate_limit {
+      period = "3600s"
+    }
+    auto_close = "${local.spanner_retention_seconds}s"
+  }
+
+  documentation {
+    content = <<-EOT
+      ## ⚠️ Ingestion Lock Held > 50% of Spanner Version Retention
+      The global ingestion lock in Spanner database `${var.spanner_config.database_id}` has been held for over **${floor(local.ingestion_lock_warn_threshold_sec / 3600)} hours** (50% of the Spanner version retention period `${var.spanner_config.version_retention_period}`).
+      
+      ### Impact:
+      If this ingestion fails after the Spanner retention window closes, **Point-in-Time Recovery (PITR) rollback will fail** because Spanner will have purged the pre-ingestion snapshot timestamp `t_pre_timestamp`.
+      
+      ### Recommended Action:
+      1. Check the active workflow execution and Dataflow job progress.
+      2. If the Dataflow pipeline or postprocessing job is hung, consider cancelling it before the retention window expires so PITR rollback can still succeed.
+    EOT
+    mime_type = "text/markdown"
+  }
+
+  notification_channels = var.ingestion_config.lock_alert_notification_channels
+}
+
+resource "google_monitoring_alert_policy" "ingestion_lock_approaching_retention_critical" {
+  count        = var.ingestion_config.enable_ingestion && var.ingestion_config.enable_lock_retention_alerts ? 1 : 0
+  display_name = "${var.global.instance_name != "" ? "${var.global.instance_name} - " : ""}🚨 CRITICAL: Ingestion Lock Held > 90% of Spanner Retention"
+  project      = var.global.project_id
+  combiner     = "OR"
+
+  conditions {
+    display_name = "Critical: Lock held for ${floor(local.ingestion_lock_crit_threshold_sec / 3600)} hours (immediate PITR rollback risk)"
+    condition_matched_log {
+      filter = <<-EOT
+        resource.type="cloud_run_revision"
+        AND resource.labels.service_name="${module.ingestion_helper_service.service_name}"
+        AND (jsonPayload.event="INGESTION_LOCK_ACQUIRED" OR textPayload:"INGESTION_LOCK_ACQUIRED")
+      EOT
+    }
+  }
+
+  alert_strategy {
+    notification_rate_limit {
+      period = "1800s"
+    }
+    auto_close = "${local.spanner_retention_seconds}s"
+  }
+
+  documentation {
+    content = <<-EOT
+      ## 🚨 CRITICAL: Ingestion Lock Approaching 90% of Spanner Retention Limit
+      The ingestion lock in Spanner database `${var.spanner_config.database_id}` has been held for over **${floor(local.ingestion_lock_crit_threshold_sec / 3600)} hours** (90% of `${var.spanner_config.version_retention_period}`).
+      
+      ### Urgent Danger:
+      **PITR rollback window closes in ${floor((local.spanner_retention_seconds - local.ingestion_lock_crit_threshold_sec) / 3600)} hours!**
+      Once the retention period passes, Spanner garbage-collection permanently deletes past data versions. Any subsequent rollback attempt will throw an out-of-range timestamp error, leaving the database partially written and corrupt.
+      
+      ### Immediate Action Required:
+      Inspect the running ingestion immediately. If progress is stalled, abort the workflow to trigger automatic PITR rollback before the remaining window expires.
+    EOT
+    mime_type = "text/markdown"
+  }
+
+  notification_channels = var.ingestion_config.lock_alert_notification_channels
 }

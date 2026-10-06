@@ -176,6 +176,10 @@ locals {
     dataflow_max_workers                 = var.ingestion_dataflow_max_workers
     dataflow_num_workers                 = var.ingestion_dataflow_num_workers
     dataflow_worker_machine_type         = var.ingestion_dataflow_worker_machine_type
+
+    # Ingestion Lock Approaching Retention Alerts
+    enable_lock_retention_alerts     = var.ingestion_enable_lock_retention_alerts
+    lock_alert_notification_channels = var.ingestion_lock_alert_notification_channels
   }
 }
 
