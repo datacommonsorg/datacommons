@@ -444,6 +444,7 @@ resource "google_project_iam_member" "workflow_run_viewer" {
   role    = "roles/run.viewer"
   member  = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
+
 resource "google_cloud_run_v2_service_iam_member" "workflow_serving_developer" {
   count    = var.ingestion_config.enable_ingestion && var.datacommons_services_config.enable ? 1 : 0
   location = var.global.region

@@ -73,20 +73,23 @@ jobs:
         with:
           terraform_wrapper: false
 
-      - name: Check Terraform formatting
-        run: terraform fmt -check -recursive infra/ tests/integration/prober/deploy/terraform
+      - name: Install uv and set the Python version
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          python-version: "3.12"
+
+      - name: Check DCP Terraform formatting
+        run: uv run infra/dcp/scripts/check_terraform.py --fmt
 
       - name: Initialize and Validate DCP Terraform
-        run: |
-          terraform -chdir=infra/dcp init -backend=false
-          terraform -chdir=infra/dcp validate
+        run: uv run infra/dcp/scripts/check_terraform.py --validate
 
-      - name: Run datacommons_services Module Unit Tests
+      - name: Run DCP Terraform Unit Tests
+        run: uv run infra/dcp/scripts/check_terraform.py --test
+
+      - name: Check and Validate Prober Terraform
         run: |
-          terraform -chdir=infra/dcp/modules/datacommons_services init -backend=false
-          terraform -chdir=infra/dcp/modules/datacommons_services test
-      - name: Initialize and Validate Prober Terraform
-        run: |
+          terraform fmt -check -diff -recursive tests/integration/prober/deploy/terraform
           terraform -chdir=tests/integration/prober/deploy/terraform init -backend=false
           terraform -chdir=tests/integration/prober/deploy/terraform validate
 

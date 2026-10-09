@@ -127,4 +127,3 @@ resource "google_bigquery_connection_iam_member" "postprocessing_bq_connection_u
   role          = "roles/bigquery.connectionUser"
   member        = "serviceAccount:${google_service_account.postprocessing_sa.email}"
 }
-
