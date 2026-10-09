@@ -107,19 +107,26 @@ Proceed with bump? [y/N]: y
 4. Validates Python syntax using AST parsing.
 5. Renames the file on disk to match the new timestamp.
 
-### C. Updating the Golden Schema (`update-golden`)
+### C. Updating the Cumulative Schema Snapshot (`update-snapshot`)
 
-Whenever you create, modify, or remove a schema migration, the cumulative DDL output changes. The test suite enforces that the baseline schema plus all migrations match the committed golden schema file ([`packages/datacommons-db/tests/goldens/schema_golden.sql`](../packages/datacommons-db/tests/goldens/schema_golden.sql)).
+Whenever you create, modify, or remove a schema migration, the cumulative schema changes. The test suite enforces that the baseline schema plus all migrations match the committed snapshot schema file ([`packages/datacommons-db/tests/snapshots/schema_snapshot.sql`](../packages/datacommons-db/tests/snapshots/schema_snapshot.sql)).
 
-To recompile and update the golden schema file:
+To recompile and update the schema snapshot file:
 
 ```bash
-uv run datacommons-devtools migrations update-golden
+uv run datacommons-devtools migrations update-snapshot
 # (or using the short alias)
-uv run dc-devtools migrations update-golden
+uv run dc-devtools migrations update-snapshot
 ```
 
-Always commit the updated `schema_golden.sql` in the same pull request as your new migration script.
+#### How it works:
+1. **Automated Emulator Discovery & Auto-Boot**: The command automatically connects to an existing local Spanner emulator (at `localhost:9010` or `$SPANNER_EMULATOR_HOST`). If not running, it automatically verifies Docker daemon health and starts the emulator container via `docker compose -f tests/integration/emulated/docker-compose.yml up -d spanner`.
+2. **Ephemeral In-Memory Materialization**: Deploys `baseline_schema.sql` and applies all pending migrations in an isolated ephemeral database (`snap-<id>`).
+3. **Engine-Collapsed DDL Introspection**: Queries Spanner's `database_admin_api.get_database_ddl()` to capture the true, materialized, engine-collapsed schema rather than sequential statement dumps.
+4. **Production-Only Statements**: Migrations flagged with `emulator_supported = False` (e.g. remote Vertex AI model registrations) are cleanly separated under the `-- 🚀 Production-Only Schema Objects` banner at the bottom of the artifact.
+5. **Safe Cleanup**: Drops the ephemeral database automatically upon completion.
+
+Always commit the updated `schema_snapshot.sql` in the same pull request as your new or modified migration script.
 
 ---
 

@@ -24,9 +24,10 @@ variable "vpc_access" {
 }
 variable "spanner_config" {
   type = object({
-    instance_id            = string
-    database_id            = string
-    bigquery_connection_id = optional(string, "")
+    instance_id                = string
+    database_id                = string
+    enable_bigquery_connection = optional(bool, false)
+    bigquery_connection_id     = optional(string, "")
   })
   description = "Spanner database and BigQuery federation connection coordinates"
 }

@@ -19,11 +19,10 @@ from google.auth.transport.requests import AuthorizedSession
 
 
 class IngestionJobClient:
-    """Client for interacting with Cloud Workflows and Cloud Run Admin APIs to manage CDC data ingestion."""
+    """Client for interacting with the Cloud Workflows API to manage CDC data ingestion."""
 
     def __init__(
         self,
-        job_name: str | None = None,
         workflow_name: str | None = None,
         service_account_email: str | None = None,
         project_id: str | None = None,
@@ -34,9 +33,9 @@ class IngestionJobClient:
         self.location = location
         base_credentials, _ = google.auth.default()
 
-        need_project_and_location = (
-            workflow_name and not workflow_name.startswith("projects/")
-        ) or (job_name and not job_name.startswith("projects/"))
+        need_project_and_location = workflow_name and not workflow_name.startswith(
+            "projects/"
+        )
         if need_project_and_location:
             if not project_id:
                 raise click.ClickException(
@@ -54,13 +53,6 @@ class IngestionJobClient:
                 self.full_workflow_name = workflow_name
         else:
             self.full_workflow_name = None
-
-        if job_name and not job_name.startswith("projects/"):
-            self.full_job_name = (
-                f"projects/{project_id}/locations/{location}/jobs/{job_name}"
-            )
-        else:
-            self.full_job_name = job_name
 
         if service_account_email:
             from google.auth import impersonated_credentials
@@ -130,50 +122,3 @@ class IngestionJobClient:
             return response.json()
         except Exception:
             return {"status": "success", "message": response.text}
-
-    def get_config(self) -> list:
-        """Retrieves the environment variables configuration of the Cloud Run job."""
-        url = f"https://run.googleapis.com/v2/{self.full_job_name}"
-        try:
-            response = self.session.get(url, timeout=300)
-        except Exception as e:
-            msg = f"Network or authentication error connecting to Cloud Run Admin API at {url}: {e}"
-            if self.service_account_email:
-                msg += f"\nFailed to impersonate {self.service_account_email}. Please ensure your GCP user account has the 'Service Account Token Creator' (roles/iam.serviceAccountTokenCreator) IAM role."
-            raise click.ClickException(msg)
-
-        if response.status_code == 401:
-            raise click.ClickException(
-                f"HTTP 401 Unauthorized when calling Cloud Run Admin API at {url}.\n"
-                "Your GCP credentials were rejected. Please verify your authentication.\n"
-                "To re-authenticate, run:\n"
-                "  gcloud auth application-default login"
-            )
-
-        if not response.ok:
-            try:
-                error_data = response.json()
-                error_msg = (
-                    error_data.get("message")
-                    or error_data.get("error", {}).get("message")
-                    or response.text
-                )
-            except Exception:
-                error_msg = response.text
-
-            raise click.ClickException(
-                f"Cloud Run Admin API returned HTTP {response.status_code}: {error_msg}"
-            )
-
-        try:
-            job_data = response.json()
-        except Exception as e:
-            raise click.ClickException(f"Failed to parse Cloud Run job response: {e}")
-
-        containers = (
-            job_data.get("template", {}).get("template", {}).get("containers", [])
-        )
-        if not containers:
-            return []
-
-        return containers[0].get("env", [])

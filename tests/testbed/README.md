@@ -61,7 +61,9 @@ Run the connect script from the repository root, choosing where the Terraform mo
 2. **Sets Module Source:** Wires `main.tf` to pull from GitHub at your chosen tag, or symlinks to your local `infra/dcp/modules`.
 3. **Wires Remote State:** Points Terraform backend to `gs://tf-state-testbed-1-datcom-dcp`.
 4. **Initializes Workspace:** Runs `terraform init -upgrade` inside `tests/testbed/workspaces/testbed-1/`.
-5. **Configures IAM Impersonation:** Grants your user account `roles/iam.serviceAccountTokenCreator` on the testbed's Ingestion Workflow Service Account so you can run `datacommons` CLI commands seamlessly.
+5. **Configures IAM & Spanner Permissions:** Grants your user account:
+   - `roles/spanner.databaseAdmin` and `roles/spanner.databaseUser` on the Spanner instance to run `datacommons admin init-db` and `migrate-db` directly.
+   - `roles/iam.serviceAccountTokenCreator` on the Ingestion Workflow Service Account to trigger `datacommons admin ingest start`.
 
 ---
 
@@ -92,7 +94,7 @@ terraform apply
 
 ---
 
-### Step 3: Running CLI Commands (Service Account Impersonation)
+### Step 3: Running CLI Commands
 
 To execute CLI commands against this testbed, run them using `uv` or your virtual environment:
 
@@ -104,7 +106,8 @@ uv run datacommons <command> ...
 datacommons <command> ...
 ```
 
-The CLI automatically impersonates the testbed's ingestion workflow service account using the TokenCreator IAM role that `fetch_terraform_state.sh` configured in Step 1.
+* **Database Operations (`init-db`, `migrate-db`)**: Run directly against Cloud Spanner using your authenticated End-User Credentials (EUC).
+* **Ingestion Workflows (`ingest start`)**: Automatically impersonates the testbed's ingestion workflow service account via `TokenCreator`.
 
 ---
 
