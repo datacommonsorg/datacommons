@@ -61,6 +61,31 @@ jobs:
           # Enable parallel test execution
           uv run pytest
 
+  terraform:
+    name: Terraform Format and Validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_wrapper: false
+
+      - name: Check Terraform formatting
+        run: terraform fmt -check -recursive infra/ tests/integration/prober/deploy/terraform
+
+      - name: Initialize and Validate DCP Terraform
+        run: |
+          terraform -chdir=infra/dcp init -backend=false
+          terraform -chdir=infra/dcp validate
+
+      - name: Initialize and Validate Prober Terraform
+        run: |
+          terraform -chdir=tests/integration/prober/deploy/terraform init -backend=false
+          terraform -chdir=tests/integration/prober/deploy/terraform validate
+
   hermetic-integration-test:
     needs: fileset-diff
     if: github.event_name == 'push' || github.event_name == 'merge_group' || needs.fileset-diff.outputs.code_changes == 'true'
@@ -89,6 +114,23 @@ jobs:
       - name: Run hermetic integration test
         run: uv run python tests/integration/run_e2e_tests.py --instance=emulated --test-config=foobar_wages
 
+  ci-gate:
+    name: All CI Checks Passed
+    runs-on: ubuntu-latest
+    needs:
+      - test
+      - terraform
+      - hermetic-integration-test
+    if: always()
+    steps:
+      - name: Verify all required jobs succeeded
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        env:
+          JOB_RESULTS: ${{ toJson(needs) }}
+        run: |
+          echo "⛔ One or more upstream CI jobs failed or were cancelled."
+          echo "Job results: $JOB_RESULTS"
+          exit 1
 
-
-
+      - name: All checks passed
+        run: echo "✅ All CI checks completed successfully!"
