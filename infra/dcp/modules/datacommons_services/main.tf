@@ -43,6 +43,7 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
   name                = "${local.name_prefix}dc-datacommons-service"
   location            = var.region
   deletion_protection = var.stateless_deletion_protection
+  ingress             = var.ingress_mode
 
   template {
     timeout = "300s"

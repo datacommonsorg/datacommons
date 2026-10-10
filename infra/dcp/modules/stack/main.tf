@@ -310,6 +310,7 @@ module "datacommons_services" {
   min_instances                 = var.datacommons_services_config.min_instances
   max_instances                 = var.datacommons_services_config.max_instances
   make_public                   = var.datacommons_services_config.allow_unauthenticated_access
+  ingress_mode                  = var.load_balancer_config.enable ? "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER" : "INGRESS_TRAFFIC_ALL"
   google_analytics_tag_id       = var.datacommons_services_config.google_analytics_tag
   mcp_search_scope              = var.datacommons_services_config.search_scope
   enable_mcp                    = var.datacommons_services_config.enable_mcp
@@ -328,6 +329,23 @@ module "datacommons_services" {
   website_search_scope            = var.datacommons_services_config.website_search_scope
 
   depends_on = [module.ingestion_preprocessing_job]
+}
+
+module "load_balancer" {
+  source = "../load_balancer"
+  count  = var.datacommons_services_config.enable && var.load_balancer_config.enable ? 1 : 0
+
+  project_id                     = var.global.project_id
+  region                         = var.global.region
+  instance_name                  = var.global.instance_name
+  cloud_run_service_name         = try(one(module.datacommons_services[*].service_name), "")
+  enable_cloud_armor             = var.load_balancer_config.enable_cloud_armor
+  rate_limit_requests_per_minute = var.load_balancer_config.rate_limit_requests_per_minute
+  rate_limit_ban_duration_sec    = var.load_balancer_config.rate_limit_ban_duration_sec
+  enable_owasp_waf_rules         = var.load_balancer_config.enable_owasp_waf_rules
+  allowed_ip_ranges              = var.load_balancer_config.allowed_ip_ranges
+
+  depends_on = [module.datacommons_services]
 }
 
 check "spanner_instance_id_provided" {

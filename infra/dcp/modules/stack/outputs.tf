@@ -9,7 +9,11 @@ output "spanner_database_id" {
 }
 
 output "datacommons_service_url" {
-  value = length(module.datacommons_services) > 0 ? module.datacommons_services[0].service_url : null
+  description = "The serving URL for Data Commons services (Load Balancer URL if enabled, else Cloud Run URL)"
+  value = (
+    length(module.load_balancer) > 0 ? module.load_balancer[0].load_balancer_url :
+    (length(module.datacommons_services) > 0 ? module.datacommons_services[0].service_url : null)
+  )
 }
 
 output "datacommons_service_name" {
@@ -89,4 +93,14 @@ output "subnet_id" {
 output "subnet_url" {
   description = "URL / self_link of the private subnetwork"
   value       = module.network.subnet_url
+}
+
+output "load_balancer_ip" {
+  description = "The external IP address of the External Application Load Balancer."
+  value       = length(module.load_balancer) > 0 ? module.load_balancer[0].load_balancer_ip : null
+}
+
+output "load_balancer_url" {
+  description = "The HTTP URL of the External Application Load Balancer."
+  value       = length(module.load_balancer) > 0 ? module.load_balancer[0].load_balancer_url : null
 }
