@@ -612,6 +612,18 @@ variable "skip_container_restarts" {
   default     = false
 }
 
+variable "ingestion_enable_lock_retention_alerts" {
+  description = "Enable Cloud Monitoring alert policies when the ingestion lock duration approaches the Spanner version retention period (50% warning, 90% critical)."
+  type        = bool
+  default     = true
+}
+
+variable "ingestion_lock_alert_notification_channels" {
+  description = "List of Cloud Monitoring notification channel IDs to notify when ingestion lock duration alerts trigger."
+  type        = list(string)
+  default     = []
+}
+
 check "ingestion_dataflow_workers_limits" {
   assert {
     condition     = var.ingestion_dataflow_max_workers >= var.ingestion_dataflow_num_workers
