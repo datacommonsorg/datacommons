@@ -127,6 +127,10 @@ extend-ignore = [
     "S603",   # Subprocess call check in automation scripts
     "S607",   # Partial executable path in automation scripts
 ]
+"infra/dcp/scripts/**/*.py" = [
+    "S603",   # Subprocess call check in automation scripts
+    "S607",   # Partial executable path in automation scripts
+]
 "packages/*/datacommons_*/migrations/migration_scripts/*.py" = [
     "N999",   # Allow timestamp prefixes (e.g. 20260817000000_*.py) for migration scripts
 ]
@@ -180,8 +184,8 @@ packages = []
 version = {file = "VERSION"}
 
 [tool.pytest.ini_options]
-pythonpath = [".", "deploy/scripts"]
-testpaths = ["packages", "deploy/scripts/tests"]
+pythonpath = [".", "deploy/scripts", "infra/dcp/scripts"]
+testpaths = ["packages", "deploy/scripts/tests", "infra/dcp/scripts/tests"]
 markers = [
     "cloud_only: mark test or class to run only against live GCP cloud targets.",
 ]

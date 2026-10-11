@@ -25,7 +25,6 @@ Examples:
 from __future__ import annotations
 
 import argparse
-import contextlib
 import os
 import re
 import subprocess
@@ -60,11 +59,17 @@ def _run_cmd(
     )
 
 
-def _display_cmd(cmd: list[str]) -> str:
+def _display_cmd(cmd: list[str], tf_dir: Path) -> str:
     """Renders a command with paths relative to REPO_ROOT for clean readability."""
     prefix = f"{REPO_ROOT}/"
-    root_str = str(REPO_ROOT)
-    return " ".join(arg.replace(prefix, "").replace(root_str, "") for arg in cmd)
+    tf_prefix = f"{tf_dir.parent}/"
+    rendered: list[str] = []
+    for arg in cmd:
+        clean = (
+            arg.replace(prefix, "").replace(tf_prefix, "").replace(str(REPO_ROOT), "")
+        )
+        rendered.append(clean)
+    return " ".join(rendered)
 
 
 # ==============================================================================
@@ -83,14 +88,21 @@ def _extract_failing_files(output: str) -> list[str]:
     return sorted(set(matches))
 
 
-def _extract_unformatted_files(stdout: str) -> list[str]:
-    """Parses terraform fmt stdout into relative paths from TF_DIR."""
+def _extract_unformatted_files(stdout: str, tf_dir: Path) -> list[str]:
+    """Parses terraform fmt stdout into relative paths from tf_dir."""
     unformatted: list[str] = []
+    resolved_tf = tf_dir.resolve()
+    resolved_repo = REPO_ROOT.resolve()
     for raw_line in stdout.strip().splitlines():
-        rel_path = Path(raw_line.strip())
-        with contextlib.suppress(ValueError):
-            rel_path = rel_path.relative_to(TF_DIR)
-        unformatted.append(str(rel_path))
+        path = Path(raw_line.strip()).resolve()
+        try:
+            rel = path.relative_to(resolved_tf)
+        except ValueError:
+            try:
+                rel = path.relative_to(resolved_repo)
+            except ValueError:
+                rel = path
+        unformatted.append(str(rel))
     return unformatted
 
 
@@ -100,12 +112,12 @@ def _extract_pass_count(test_output: str) -> str:
     return match.group(1) if match else "passed"
 
 
-def _format_target_label(target_dir: Path) -> str:
+def _format_target_label(target_dir: Path, tf_dir: Path) -> str:
     """Formats a human-readable relative label for a target directory."""
-    if target_dir == TF_DIR:
-        return "root (infra/dcp)"
+    if target_dir == tf_dir:
+        return f"root ({tf_dir.name})"
     try:
-        return str(target_dir.relative_to(TF_DIR))
+        return str(target_dir.relative_to(tf_dir))
     except ValueError:
         return str(target_dir)
 
@@ -139,7 +151,11 @@ def _discover_test_suites(tf_dir: Path) -> list[tuple[Path, list[Path]]]:
     """Discovers all 'tests/' directories containing *.tftest.hcl files."""
     suites: list[tuple[Path, list[Path]]] = []
     test_dirs = sorted(
-        p for p in tf_dir.rglob("tests") if p.is_dir() and ".terraform" not in p.parts
+        p
+        for p in tf_dir.rglob("tests")
+        if p.is_dir()
+        and ".terraform" not in p.parts
+        and (tf_dir != TF_DIR or "scripts" not in p.parts)
     )
     for test_dir in test_dirs:
         test_files = sorted(test_dir.glob("*.tftest.hcl"))
@@ -225,10 +241,10 @@ def _print_final_summary(summary: CheckSummary) -> None:
 # ==============================================================================
 
 
-def run_fmt(summary: CheckSummary) -> None:
-    """Checks Terraform formatting across TF_DIR."""
+def run_fmt(summary: CheckSummary, tf_dir: Path = TF_DIR) -> None:
+    """Checks Terraform formatting across tf_dir."""
     print("==> Checking formatting...")
-    cmd = ["terraform", "fmt", "-check", "-recursive", str(TF_DIR)]
+    cmd = ["terraform", "fmt", "-check", "-recursive", str(tf_dir)]
     result = _run_cmd(cmd)
 
     if result.returncode == 0:
@@ -236,8 +252,8 @@ def run_fmt(summary: CheckSummary) -> None:
         return
 
     print("status: FAILED")
-    print(f"cmd: {_display_cmd(cmd)}\n")
-    unformatted = _extract_unformatted_files(result.stdout)
+    print(f"cmd: {_display_cmd(cmd, tf_dir)}\n")
+    unformatted = _extract_unformatted_files(result.stdout, tf_dir)
     summary.add_fmt_failure(unformatted)
     print("Failing file(s):")
     for f in unformatted:
@@ -245,65 +261,65 @@ def run_fmt(summary: CheckSummary) -> None:
     print("")
 
 
-def run_fix() -> bool:
-    """Formats all Terraform files in TF_DIR in-place."""
+def run_fix(tf_dir: Path = TF_DIR) -> bool:
+    """Formats all Terraform files in tf_dir in-place."""
     print("==> Formatting files in place...")
-    cmd = ["terraform", "fmt", "-recursive", str(TF_DIR)]
+    cmd = ["terraform", "fmt", "-recursive", str(tf_dir)]
     result = _run_cmd(cmd)
     if result.returncode == 0:
         print("status: OK")
         return True
 
     print("status: FAILED")
-    print(f"cmd: {_display_cmd(cmd)}")
+    print(f"cmd: {_display_cmd(cmd, tf_dir)}")
     print(f"ERROR: Formatting failed:\n{result.stderr or result.stdout}")
     return False
 
 
-def run_validate(summary: CheckSummary) -> None:
-    """Initializes and validates Terraform configuration in TF_DIR."""
+def run_validate(summary: CheckSummary, tf_dir: Path = TF_DIR) -> None:
+    """Initializes and validates Terraform configuration in tf_dir."""
     print("==> Validating Terraform...")
 
     # 1. Initialize modules and providers quietly
-    init_cmd = ["terraform", f"-chdir={TF_DIR}", "init", "-backend=false"]
+    init_cmd = ["terraform", f"-chdir={tf_dir}", "init", "-backend=false"]
     init_result = _run_cmd(init_cmd)
     if init_result.returncode != 0:
         print("status: FAILED")
-        print(f"cmd: {_display_cmd(init_cmd)}")
-        raw_output = (init_result.stderr or init_result.stdout).strip()
+        print(f"cmd: {_display_cmd(init_cmd, tf_dir)}")
+        raw_output = f"{init_result.stdout}\n{init_result.stderr}".strip()
         print(_format_terraform_log(raw_output))
         print("")
         failing_files = _extract_failing_files(raw_output)
-        summary.add_validation_failure(failing_files or ["infra/dcp"])
+        summary.add_validation_failure(failing_files or [str(tf_dir)])
         return
 
     # 2. Validate configuration
-    val_cmd = ["terraform", f"-chdir={TF_DIR}", "validate"]
+    val_cmd = ["terraform", f"-chdir={tf_dir}", "validate"]
     val_result = _run_cmd(val_cmd)
     if val_result.returncode == 0:
         print("status: OK\n")
         return
 
     print("status: FAILED")
-    print(f"cmd: {_display_cmd(val_cmd)}")
-    raw_output = (val_result.stderr or val_result.stdout).strip()
+    print(f"cmd: {_display_cmd(val_cmd, tf_dir)}")
+    raw_output = f"{val_result.stdout}\n{val_result.stderr}".strip()
     print(_format_terraform_log(raw_output))
     print("")
     failing_files = _extract_failing_files(raw_output)
-    summary.add_validation_failure(failing_files or ["infra/dcp"])
+    summary.add_validation_failure(failing_files or [str(tf_dir)])
 
 
-def run_tests(summary: CheckSummary) -> None:
-    """Discovers and executes all Terraform unit test suites across TF_DIR."""
+def run_tests(summary: CheckSummary, tf_dir: Path = TF_DIR) -> None:
+    """Discovers and executes all Terraform unit test suites across tf_dir."""
     print("==> Running unit tests...")
-    suites = _discover_test_suites(TF_DIR)
+    suites = _discover_test_suites(tf_dir)
 
     if not suites:
         print("status: OK (No tests found)")
         return
 
     for target_dir, test_files in suites:
-        rel_target = _format_target_label(target_dir)
+        rel_target = _format_target_label(target_dir, tf_dir)
         _ci_group_start(f"[terraform test] {rel_target}")
 
         init_cmd = ["terraform", f"-chdir={target_dir}", "init", "-backend=false"]
@@ -311,7 +327,7 @@ def run_tests(summary: CheckSummary) -> None:
         if init_result.returncode != 0:
             summary.add_test_failure(rel_target)
             print("status: FAILED")
-            print(f"cmd: {_display_cmd(init_cmd)}")
+            print(f"cmd: {_display_cmd(init_cmd, tf_dir)}")
             raw_output = (init_result.stderr or init_result.stdout).strip()
             print(_format_terraform_log(raw_output))
             _ci_group_end()
@@ -331,7 +347,7 @@ def run_tests(summary: CheckSummary) -> None:
             summary.add_test_failure(rel_target)
             _ci_error("Terraform Test Failure", f"Tests failed in {rel_target}")
             print("status: FAILED")
-            print(f"cmd: {_display_cmd(test_cmd)}")
+            print(f"cmd: {_display_cmd(test_cmd, tf_dir)}")
             print(_format_terraform_log(output))
 
         _ci_group_end()
@@ -342,7 +358,7 @@ def run_tests(summary: CheckSummary) -> None:
 # ==============================================================================
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parses command-line arguments."""
     parser = argparse.ArgumentParser(
         description="Lint, validate, and test DCP Terraform configurations.",
@@ -368,29 +384,36 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Discover and execute all *.tftest.hcl unit test suites (read-only).",
     )
-    return parser.parse_args()
+    parser.add_argument(
+        "--tf-dir",
+        type=Path,
+        default=None,
+        help=argparse.SUPPRESS,  # Hidden internal parameter for unit testing
+    )
+    return parser.parse_args(argv)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None, tf_dir: Path | None = None) -> int:
     """Main CLI dispatch entrypoint."""
-    args = parse_args()
+    args = parse_args(argv)
+    target_tf_dir = tf_dir or args.tf_dir or TF_DIR
 
     if args.fix:
-        return 0 if run_fix() else 1
+        return 0 if run_fix(target_tf_dir) else 1
 
     summary = CheckSummary()
 
     if args.fmt:
-        run_fmt(summary)
+        run_fmt(summary, target_tf_dir)
     elif args.validate:
-        run_validate(summary)
+        run_validate(summary, target_tf_dir)
     elif args.test:
-        run_tests(summary)
+        run_tests(summary, target_tf_dir)
     else:
         # Default: execute all three verification checks sequentially
-        run_fmt(summary)
-        run_validate(summary)
-        run_tests(summary)
+        run_fmt(summary, target_tf_dir)
+        run_validate(summary, target_tf_dir)
+        run_tests(summary, target_tf_dir)
 
     _print_final_summary(summary)
     return 1 if summary.has_failure else 0
