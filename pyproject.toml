@@ -185,7 +185,7 @@ version = {file = "VERSION"}
 
 [tool.pytest.ini_options]
 pythonpath = [".", "deploy/scripts", "infra/dcp/scripts"]
-testpaths = ["packages", "deploy/scripts/tests", "infra/dcp/scripts/tests"]
+testpaths = ["packages", "deploy/scripts/tests"]
 markers = [
     "cloud_only: mark test or class to run only against live GCP cloud targets.",
 ]

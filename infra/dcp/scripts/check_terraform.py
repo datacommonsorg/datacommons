@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import os
 import re
+import shutil
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -68,6 +69,18 @@ def _status_failed() -> str:
 # ==============================================================================
 # Low-Level Subprocess & Command Execution Helpers
 # ==============================================================================
+
+
+def _check_terraform_installed() -> bool:
+    """Checks that the terraform binary is available on PATH."""
+    if shutil.which("terraform") is None:
+        print(
+            f"{_status_failed()} Error: 'terraform' binary not found on PATH.\n"
+            "  Please install Terraform (>= 1.7.0 required for mock_provider support):\n"
+            "  https://developer.hashicorp.com/terraform/install"
+        )
+        return False
+    return True
 
 
 def _run_cmd(
@@ -432,6 +445,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None, tf_dir: Path | None = None) -> int:
     """Main CLI dispatch entrypoint."""
     args = parse_args(argv)
+    if not _check_terraform_installed():
+        return 2
     target_tf_dir = tf_dir or args.tf_dir or TF_DIR
 
     if args.fix:

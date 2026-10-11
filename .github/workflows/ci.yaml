@@ -79,15 +79,23 @@ jobs:
           python-version: "3.12"
 
       - name: Check DCP Terraform formatting
+        if: ${{ !cancelled() }}
         run: uv run infra/dcp/scripts/check_terraform.py --fmt
 
       - name: Initialize and Validate DCP Terraform
+        if: ${{ !cancelled() }}
         run: uv run infra/dcp/scripts/check_terraform.py --validate
 
       - name: Run DCP Terraform Unit Tests
+        if: ${{ !cancelled() }}
         run: uv run infra/dcp/scripts/check_terraform.py --test
 
+      - name: Test terraform infra scripts
+        if: ${{ !cancelled() }}
+        run: uv run pytest infra/dcp/scripts/tests
+
       - name: Check and Validate Prober Terraform
+        if: ${{ !cancelled() }}
         run: |
           terraform fmt -check -diff -recursive tests/integration/prober/deploy/terraform
           terraform -chdir=tests/integration/prober/deploy/terraform init -backend=false
