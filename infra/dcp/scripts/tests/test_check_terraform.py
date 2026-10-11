@@ -31,6 +31,11 @@ message = "hello-${var.status}"
 }
 """
 
+INVALID_INIT_HCL = """terraform {
+  required_version = "= 0.0.1"
+}
+"""
+
 INVALID_VALIDATION_HCL = """terraform {
   required_version = ">= 1.5.0"
 }
@@ -104,8 +109,30 @@ def test_format_failure(tf_env: Path, capsys: pytest.CaptureFixture[str]) -> Non
     assert "SUMMARY: CHECKS FAILED" in out
 
 
-def test_validation_failure(tf_env: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """Scenario 3: Validation failure -> exit 1, frames raw error log, lists files."""
+def test_validation_init_failure(
+    tf_env: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Scenario 3a: terraform init failure -> logs init command, skips unit tests."""
+    (tf_env / "main.tf").write_text(INVALID_INIT_HCL)
+
+    exit_code, out = _run_and_capture(capsys, [], tf_env)
+
+    assert exit_code == 1
+    assert "==> Validating Terraform..." in out
+    assert "status: FAILED" in out
+    assert "cmd: terraform -chdir=tf_project init -backend=false" in out
+    assert "--- Terraform Output ---" in out
+    assert "Unsupported Terraform Core version" in out
+    assert "==> Skipping unit tests because validation failed." in out
+    assert "[FAILED] Terraform Validation:" in out
+    assert "[SKIPPED] Unit Tests:" in out
+    assert "SUMMARY: CHECKS FAILED" in out
+
+
+def test_validation_command_failure(
+    tf_env: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Scenario 3b: terraform validate failure -> logs validate command, skips unit tests."""
     (tf_env / "main.tf").write_text(INVALID_VALIDATION_HCL)
 
     exit_code, out = _run_and_capture(capsys, [], tf_env)
@@ -113,25 +140,31 @@ def test_validation_failure(tf_env: Path, capsys: pytest.CaptureFixture[str]) ->
     assert exit_code == 1
     assert "==> Validating Terraform..." in out
     assert "status: FAILED" in out
+    assert "cmd: terraform -chdir=tf_project validate" in out
     assert "--- Terraform Output ---" in out
-    assert "------------------------" in out
+    assert "Invalid operand" in out
     assert "main.tf" in out
+    assert "==> Skipping unit tests because validation failed." in out
     assert "[FAILED] Terraform Validation:" in out
+    assert "[SKIPPED] Unit Tests:" in out
     assert "SUMMARY: CHECKS FAILED" in out
 
 
 def test_unit_test_failure(tf_env: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """Scenario 4: Test assertion failure -> exit 1, frames test failure, lists target."""
+    """Scenario 4: Test assertion failure -> validation passes, ONLY unit tests fail."""
     (tf_env / "tests" / "unit.tftest.hcl").write_text(FAILING_TEST_HCL)
 
     exit_code, out = _run_and_capture(capsys, [], tf_env)
 
     assert exit_code == 1
+    assert "==> Validating Terraform..." in out
+    assert "status: OK" in out  # Validation passes!
     assert "==> Running unit tests..." in out
     assert "status: FAILED" in out
+    assert "cmd: terraform -chdir=tf_project test" in out
     assert "--- Terraform Output ---" in out
-    assert "------------------------" in out
     assert "[FAILED] Unit Tests (1 suite failed):" in out
+    assert "[FAILED] Terraform Validation" not in out
     assert (
         "Action: Inspect failure logs above or run 'uv run infra/dcp/scripts/check_terraform.py --test'"
         in out
@@ -142,7 +175,7 @@ def test_unit_test_failure(tf_env: Path, capsys: pytest.CaptureFixture[str]) -> 
 def test_format_and_validation_failure(
     tf_env: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Scenario 5: Format and validate both fail -> exit 1, both in summary."""
+    """Scenario 5: Format and validate both fail -> unit tests skipped, both in summary."""
     bad_fmt_and_val = """terraform {
 required_version = ">= 1.5.0"
 }
@@ -158,27 +191,23 @@ message = 1 + "invalid"
     assert exit_code == 1
     assert "[FAILED] Formatting (1 file needs formatting):" in out
     assert "[FAILED] Terraform Validation:" in out
+    assert "==> Skipping unit tests because validation failed." in out
+    assert "[SKIPPED] Unit Tests:" in out
     assert "SUMMARY: CHECKS FAILED" in out
 
 
-def test_all_three_failure(tf_env: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """Scenario 6: Format, validate, and tests all fail -> exit 1, all 3 in summary."""
-    bad_fmt_and_val = """terraform {
-required_version = ">= 1.5.0"
-}
-
-locals {
-message = 1 + "invalid"
-}
-"""
-    (tf_env / "main.tf").write_text(bad_fmt_and_val)
+def test_format_and_unit_test_failure(
+    tf_env: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Scenario 6: Format and unit test fail, but validation passes."""
+    (tf_env / "main.tf").write_text(BAD_FORMAT_HCL)
     (tf_env / "tests" / "unit.tftest.hcl").write_text(FAILING_TEST_HCL)
 
     exit_code, out = _run_and_capture(capsys, [], tf_env)
 
     assert exit_code == 1
     assert "[FAILED] Formatting (1 file needs formatting):" in out
-    assert "[FAILED] Terraform Validation:" in out
+    assert "[FAILED] Terraform Validation" not in out  # Validation passed
     assert "[FAILED] Unit Tests (1 suite failed):" in out
     assert "SUMMARY: CHECKS FAILED" in out
 

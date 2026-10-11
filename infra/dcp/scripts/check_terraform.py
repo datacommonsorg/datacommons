@@ -176,6 +176,7 @@ class CheckSummary:
     unformatted_files: list[str] = field(default_factory=list)
     validation_failures: list[str] = field(default_factory=list)
     failed_test_targets: list[str] = field(default_factory=list)
+    tests_skipped: bool = False
     has_failure: bool = False
 
     def add_fmt_failure(self, files: list[str]) -> None:
@@ -232,6 +233,10 @@ def _print_final_summary(summary: CheckSummary) -> None:
         print(
             "    Action: Inspect failure logs above or run 'uv run infra/dcp/scripts/check_terraform.py --test' to reproduce."
         )
+
+    if summary.tests_skipped:
+        print("\n  [SKIPPED] Unit Tests:")
+        print("    Unit tests skipped due to validation failure.")
 
     print(f"\n{divider}\n")
 
@@ -413,7 +418,11 @@ def main(argv: list[str] | None = None, tf_dir: Path | None = None) -> int:
         # Default: execute all three verification checks sequentially
         run_fmt(summary, target_tf_dir)
         run_validate(summary, target_tf_dir)
-        run_tests(summary, target_tf_dir)
+        if summary.validation_failures:
+            summary.tests_skipped = True
+            print("==> Skipping unit tests because validation failed.\n")
+        else:
+            run_tests(summary, target_tf_dir)
 
     _print_final_summary(summary)
     return 1 if summary.has_failure else 0
