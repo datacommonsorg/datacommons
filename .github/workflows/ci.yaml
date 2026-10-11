@@ -83,17 +83,9 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Check DCP Terraform formatting
+      - name: Check, Validate, and Test DCP Terraform
         if: ${{ !cancelled() }}
-        run: uv run infra/dcp/scripts/check_terraform.py --fmt
-
-      - name: Initialize and Validate DCP Terraform
-        if: ${{ !cancelled() }}
-        run: uv run infra/dcp/scripts/check_terraform.py --validate
-
-      - name: Run DCP Terraform Unit Tests
-        if: ${{ !cancelled() }}
-        run: uv run infra/dcp/scripts/check_terraform.py --test
+        run: uv run infra/dcp/scripts/check_terraform.py
 
       - name: Test terraform infra scripts
         if: ${{ !cancelled() }}

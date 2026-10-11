@@ -38,16 +38,15 @@ uv run ruff check
 ```
 
 ### Running Tests
-Run Python unit tests across all packages:
+Run Python and Terraform unit tests:
 ```bash
+# Python unit tests
 uv run pytest
-```
 
-If modifying Terraform configurations in `infra/dcp/`, run the Terraform verification suite (formatting, validation, and module unit tests):
-```bash
+# Terraform formatting, validation, and module unit tests (when modifying infra/dcp/)
 uv run infra/dcp/scripts/check_terraform.py
 ```
-For in-place formatting (`--fix`), individual check flags, and instructions on writing module unit tests, refer to the [Infrastructure Guide](infra/dcp/README.md#local-development-validation-and-testing).
+For `--fix`, individual flags, and module unit test authoring, refer to the [Infrastructure Guide](infra/dcp/README.md#local-development-validation-and-testing).
 
 For emulated end-to-end integration tests using Docker Compose, refer to the [Integration Tests Guide](tests/integration/README.md):
 ```bash

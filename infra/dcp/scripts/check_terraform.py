@@ -88,13 +88,11 @@ def _run_step(
 
 def _discover_test_suites(tf_dir: Path) -> list[Path]:
     """Returns module directories under tf_dir that contain tests/*.tftest.hcl."""
-    resolved_script_dir = SCRIPT_DIR.resolve()
     return [
         test_dir.parent
         for test_dir in sorted(tf_dir.rglob("tests"))
         if test_dir.is_dir()
         and ".terraform" not in test_dir.parts
-        and not test_dir.resolve().is_relative_to(resolved_script_dir)
         and any(test_dir.glob("*.tftest.hcl"))
     ]
 

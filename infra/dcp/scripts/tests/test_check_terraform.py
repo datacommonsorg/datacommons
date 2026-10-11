@@ -20,23 +20,32 @@ Developers can run any scenario with `uv run pytest -s -k <scenario>` to
 visually inspect the CLI output.
 """
 
-from __future__ import annotations
-
 import re
-import shutil
 import sys
 from pathlib import Path
 
 import pytest
 from check_terraform import _discover_test_suites, main
 
-FIXTURE_BASELINE_DIR = Path(__file__).resolve().parent / "fixtures" / "baseline"
-
 
 def strip_ansi(text: str) -> str:
     """Strips ANSI color codes from terminal output for assertions."""
     return re.sub(r"\033\[[0-9;]*m", "", text)
 
+
+VALID_HCL = """terraform {
+  required_version = ">= 1.5.0"
+}
+
+variable "status" {
+  type    = string
+  default = "active"
+}
+
+locals {
+  message = "hello-${var.status}"
+}
+"""
 
 BAD_FORMAT_HCL = """terraform {
 required_version = ">= 1.5.0"
@@ -79,9 +88,10 @@ locals {
 
 @pytest.fixture
 def tf_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Copies baseline fixture into a temporary test directory."""
+    """Creates a minimal valid Terraform project in a temporary directory."""
     env_dir = tmp_path / "tf_project"
-    shutil.copytree(FIXTURE_BASELINE_DIR, env_dir)
+    env_dir.mkdir()
+    (env_dir / "main.tf").write_text(VALID_HCL)
     monkeypatch.chdir(tmp_path)
     return env_dir
 

@@ -6,7 +6,7 @@ This directory contains tests for the Python tooling in `infra/dcp/scripts/`. **
 
 ## `check_terraform.py`
 
-The tests in [`test_check_terraform.py`](test_check_terraform.py) use a minimal, provider-free Terraform fixture (`fixtures/baseline/`) that runs offline without GCP credentials or provider downloads.
+The tests in [`test_check_terraform.py`](test_check_terraform.py) generate minimal, provider-free Terraform configurations in temporary directories that run offline without GCP credentials or provider downloads.
 
 The main purpose of this suite is to **preview what `check_terraform.py` output looks like across different pass and failure scenarios** without having to manually introduce broken HCL into `infra/dcp/`, while also verifying script behavior in CI.
 
@@ -31,7 +31,7 @@ The main purpose of this suite is to **preview what `check_terraform.py` output 
 
 ### How It Works & Adding a Script Test
 
-1. **Fixture Setup**: The `tf_env` fixture copies `fixtures/baseline/` into an isolated temporary directory (`tmp_path / "tf_project"`).
+1. **Fixture Setup**: The `tf_env` fixture creates an isolated temporary Terraform directory (`tmp_path / "tf_project"`) seeded with a valid `main.tf`.
 2. **Mutate or Add Modules**: Write test HCL to `(tf_env / "main.tf")` or call `_create_test_module(tf_env, "<module_name>", fails=...)` to generate a submodule with a `tests/unit.tftest.hcl` suite.
 3. **Execute & Capture**: Call `code, out = _run_and_capture(capsys, ["<flags>"], tf_env)` to run `main(["--tf-dir", str(tf_env), ...])`, echo the output for `pytest -s`, and capture stdout.
 4. **Assert Behavioral Invariants**: Assert on the exit `code`, file mutations on disk, and key culprit/diagnostic lines in `out` (avoid brittle assertions on decorative borders or exact spacing).
