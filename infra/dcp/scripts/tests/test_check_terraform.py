@@ -71,7 +71,7 @@ def _run_and_capture(
     """Executes main() and captures stdout, re-emitting so pytest -s prints output."""
     exit_code = main(argv, tf_dir=tf_dir)
     captured = capsys.readouterr()
-    sys.stdout.write(captured.out)
+    sys.stdout.write(f"\n{captured.out}")
     return exit_code, captured.out
 
 
