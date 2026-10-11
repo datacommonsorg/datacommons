@@ -73,7 +73,7 @@ When you run `./deploy_prober.sh`, the deployment executes two main phases:
 * Ensures the target project's Cloud Run Service Agent has `roles/artifactregistry.reader` on `datcom-ci`.
 
 ### Phase 2: Cloud Infrastructure Provisioning (Terraform)
-* Uses `terraform/` as a reusable blueprint to deploy the prober engine (see [Terraform Blueprint Guide](terraform/README.md) for local formatting and validation instructions).
+* Uses [`terraform/`](terraform/) as a reusable blueprint to deploy the prober engine.
 * Automatically creates the remote GCS state bucket (`gs://tf-state-<prober-name>-<project>`) if it does not exist.
 * Runs `terraform init -backend-config="bucket=..." -reconfigure` to dynamically bind to your project's state bucket without modifying code files on disk.
 * Runs `terraform apply`, injecting your CLI flags to provision:
@@ -86,8 +86,25 @@ When you run `./deploy_prober.sh`, the deployment executes two main phases:
 
 ---
 
+## 🧪 Formatting & Validating Terraform (`terraform/`)
+
+```bash
+# Format Terraform in-place
+terraform fmt -recursive tests/integration/prober/deploy/terraform
+
+# Check Terraform formatting
+terraform fmt -check -diff -recursive tests/integration/prober/deploy/terraform
+
+# Validate Terraform configuration
+terraform -chdir=tests/integration/prober/deploy/terraform init -backend=false
+terraform -chdir=tests/integration/prober/deploy/terraform validate
+```
+
+---
+
 ## 🔐 Cross-Project Permissions (Artifact Registry)
 
 `deploy_prober.sh` automatically grants `roles/artifactregistry.reader` on the `datcom-ci` repository to the target project's Cloud Run Service Agent (`service-${PROJECT_NUMBER}@serverless-robot-prod.iam.gserviceaccount.com`). 
 
 If deploying via a custom service account lacking IAM admin privileges, ensure an administrator grants this role on `datcom-ci` so Cloud Run can pull the container image.
+
