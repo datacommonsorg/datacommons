@@ -123,18 +123,11 @@ When modifying Terraform configurations in `infra/dcp/`:
     source = "./modules/stack"
   ```
   The `datacommons admin init` CLI command uses regular expression matching on `source = "./modules/stack"` to rewrite the module source to the remote GitHub release URL for downstream users. Modifying line breaks or whitespace within this string breaks CLI scaffolding.
-* **Local Validation and Pre-Flight Checks**: Validate and test Terraform changes by copying `infra/dcp/terraform.tfvars.template` to `infra/dcp/terraform.tfvars` and running:
+* **Local Validation and Pre-Flight Checks**: Run offline formatting, validation, and module unit tests (no `terraform.tfvars` or GCP credentials required):
   ```bash
-  # Run automated formatting check, validation, and all module unit tests:
-  # (Read-only; does not modify code)
   uv run infra/dcp/scripts/check_terraform.py
-
-  # Format files in-place if formatting checks fail:
-  uv run infra/dcp/scripts/check_terraform.py --fix
-
-  # Generate execution plan against your sandbox project:
-  terraform -chdir=infra/dcp plan
   ```
+  For `--fix`, individual flags, and unit test authoring guidelines, see the [Infrastructure Guide](../infra/dcp/README.md#local-development-validation-and-testing). To generate a live execution plan against a sandbox GCP project, copy `infra/dcp/terraform.tfvars.template` to `infra/dcp/terraform.tfvars` and run `terraform -chdir=infra/dcp plan`.
 * **Testing Local Module Changes in a Scaffolded Workspace**:
   When testing changes to `infra/dcp/modules/` inside a personal deployment directory created by `admin init` without having to push commits to a remote Git branch:
   * **Option A (Direct Local Path)**: In your deployment's `main.tf`, replace the remote Git reference with your local monorepo path:
@@ -432,11 +425,12 @@ curl -s -X POST "http://localhost:8080/api/explore/detect-and-fulfill?q=populati
 
 ## Testing Strategy and Execution
 
-DCP enforces a three-tier testing hierarchy with clear division of responsibilities:
+DCP organizes automated tests into two tiers:
 
-* **Python Unit Tests (Mandatory for code contributions)**: Fast, lightweight, in-memory tests running via `pytest`. All external network services, cloud APIs (Cloud Spanner, Cloud Workflows, Cloud Storage), and shell calls are mocked. Unit tests execute in seconds, run automatically in pre-submit CI, and are required for every bug fix, feature, and CLI subcommand.
-* **Terraform Module Unit Tests (Mandatory for infrastructure contributions)**: Fast, hermetic infrastructure unit tests (`*.tftest.hcl`) executed via `uv run infra/dcp/scripts/check_terraform.py --test`. Using `mock_provider "google"` and `command = plan`, these tests assert IAM bindings, variable fallbacks, and conditional resource creation in `<0.5s` without GCP credentials.
-* **Hermetic Integration Tests (End-to-End Validation)**: Local multi-service testing using Docker Compose to emulate Cloud Spanner, Cloud Storage, and serving containers. Integration tests validate end-to-end data ingestion, schema migrations, and live query resolution without incurring GCP cloud costs. They are heavier and slower than unit tests, primarily run before cutting releases or verifying cross-cutting data pipelines.
+* **Unit Tests (Python and Terraform)**: Fast, offline tests that run automatically in pre-submit CI without live GCP credentials:
+  * **Python Unit Tests**: In-memory tests running via `pytest` where external cloud APIs (Cloud Spanner, Cloud Workflows, Cloud Storage) and shell calls are mocked. Required for every bug fix, feature, and CLI subcommand.
+  * **Terraform Module Unit Tests**: Hermetic module tests (`*.tftest.hcl`) that run offline with mocked providers (`mock_provider "google"`) and `command = plan` via `uv run infra/dcp/scripts/check_terraform.py` (see [Infrastructure Guide](../infra/dcp/README.md#local-development-validation-and-testing)).
+* **Hermetic Integration Tests (End-to-End Validation)**: Local multi-service tests using Docker Compose to emulate Cloud Spanner, Cloud Storage, and serving containers offline without incurring GCP cloud costs. Integration tests validate end-to-end data ingestion, schema migrations, and query resolution before cutting releases or modifying cross-cutting data pipelines.
 
 ### Unit Tests
 Run unit tests across all monorepo packages using `pytest`:

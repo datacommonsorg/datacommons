@@ -1,4 +1,4 @@
-# Continuous Integration Prober — Terraform Blueprint (`deploy/terraform`)
+# Continuous Integration Prober: Terraform Blueprint (`deploy/terraform`)
 
 This directory contains the Terraform blueprint that provisions the automated 24/7 DCP Integration Prober on Google Cloud.
 
@@ -6,11 +6,10 @@ This directory contains the Terraform blueprint that provisions the automated 24
 
 ```
 tests/integration/prober/deploy/terraform/
-├── main.tf              # Cloud Run Job, Scheduler cron, GCS bucket, and Monitoring alert resources
-├── variables.tf         # Project ID, prober name, schedule, alert email, and location inputs
-├── outputs.tf           # Exported service account, bucket names, and job IDs
-├── backend.tf           # Dynamic GCS remote state configuration (populated during deploy)
-└── .terraform.lock.hcl  # HashiCorp Google provider dependency lockfile
+├── main.tf        # Cloud Run Job, Scheduler cron, GCS bucket, and Monitoring alert resources
+├── variables.tf   # Project ID, prober name, schedule, alert email, and location inputs
+├── outputs.tf     # Exported service account, bucket names, and job IDs
+└── backend.tf     # Dynamic GCS remote state configuration (populated during deploy)
 ```
 
 ## Validation & Formatting Commands

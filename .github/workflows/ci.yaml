@@ -64,6 +64,8 @@ jobs:
   terraform:
     name: Terraform Format and Validate
     runs-on: ubuntu-latest
+    env:
+      TF_PLUGIN_CACHE_DIR: ${{ runner.temp }}/terraform-plugin-cache
     steps:
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -72,6 +74,9 @@ jobs:
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           terraform_wrapper: false
+
+      - name: Create Terraform plugin cache directory
+        run: mkdir -p "$TF_PLUGIN_CACHE_DIR"
 
       - name: Install uv and set the Python version
         uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0

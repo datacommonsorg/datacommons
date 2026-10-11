@@ -39,52 +39,61 @@ terraform output
 
 ## Local Development, Validation, and Testing
 
-DCP provides a unified verification runner script (`scripts/check_terraform.py`) executed via `uv run` to validate configurations, enforce formatting, and run hermetic module unit tests before committing changes.
+`scripts/check_terraform.py` checks formatting, validates the root configuration, and runs hermetic module unit tests (offline tests using mocked providers, requiring no GCP credentials). Requires **Terraform v1.7+**.
 
 ### Running Checks via `uv`
 
-Running the script with no flags executes all verification checks in read-only mode:
+Running the script with no flags executes all checks in read-only mode without modifying files:
 
 ```bash
-# Run all verification checks (formatting check, validation, and all module unit tests)
-# NOTE: The default no-flag mode is strictly read-only and does NOT modify files.
 uv run infra/dcp/scripts/check_terraform.py
 ```
 
 ### Individual Check Flags
 
+Check flags (`--fmt`, `--validate`, `--test`) can be run individually or combined:
+
 ```bash
-# 1. Check formatting across all files in infra/dcp (read-only)
+# 1. Check formatting across all files in infra/dcp
 uv run infra/dcp/scripts/check_terraform.py --fmt
 
-# 2. Format all Terraform files in infra/dcp in-place (mutates files)
+# 2. Format all Terraform files in infra/dcp in-place (mutates files; cannot be combined with check flags)
 uv run infra/dcp/scripts/check_terraform.py --fix
 
-# 3. Initialize and validate the root Terraform configuration (read-only)
+# 3. Initialize and validate the root Terraform configuration
 uv run infra/dcp/scripts/check_terraform.py --validate
 
-# 4. Discover and execute all *.tftest.hcl module unit tests (read-only)
+# 4. Discover and execute all *.tftest.hcl module unit tests
 uv run infra/dcp/scripts/check_terraform.py --test
 ```
 
 ### Root Validation vs. Per-Module Unit Tests
 
-It is important to understand the execution scope of validation vs. unit tests:
-* **Root Validation (`--validate`)**: Terraform is initialized and validated strictly from the root (`infra/dcp`). This validates the root module and the full dependency graph of all child modules instantiated by `modules/stack`. **Note**: If you create a new module under `modules/` that is not yet referenced or connected to the root stack, `terraform validate` will not check it.
-* **Per-Module Unit Testing (`--test`)**: Unit tests execute on an independent, per-module basis. `check_terraform.py` discovers every `tests/` directory across all submodules containing `*.tftest.hcl` files and executes `terraform test` directly inside each module folder, regardless of whether that module is wired into the root configuration.
+* **Root Validation (`--validate`)**: Initializes and validates from the root (`infra/dcp`), checking the root module and all child modules wired into `modules/stack`. If you create a new module under `modules/` that is not yet connected to `modules/stack`, `terraform validate` will not check it.
+* **Per-Module Unit Testing (`--test`)**: Discovers every `tests/` directory containing `*.tftest.hcl` files across `infra/dcp/modules/` and runs `terraform test` directly inside each module directory, even if the module is not yet wired into the root stack.
 
-### Hermetic Module Unit Testing (`terraform test`)
-
-DCP infrastructure modules include fast, hermetic unit test suites (`tests/*.tftest.hcl`) that execute in `<0.5s` without Google Cloud credentials or live cloud resources:
-* **Mock Provider**: Tests declare `mock_provider "google"` to simulate GCP resources in memory.
-* **Plan-Only Validation**: Tests run `command = plan` to assert module contracts, IAM bindings, optional variable handling, and conditional resource creation.
-* **Test Discovery**: `check_terraform.py --test` automatically discovers every `tests/` directory containing `*.tftest.hcl` files across `infra/dcp/modules/` and reports test results.
-
-To execute tests directly within a specific module:
+To run `terraform test` directly inside a single module during iteration:
 ```bash
 terraform -chdir=infra/dcp/modules/datacommons_services init -backend=false
 terraform -chdir=infra/dcp/modules/datacommons_services test
 ```
+
+### Adding a Terraform Unit Test
+
+Place unit tests for a module in `infra/dcp/modules/<module_name>/tests/<name>.tftest.hcl`. Use [`modules/datacommons_services/tests/service.tftest.hcl`](modules/datacommons_services/tests/service.tftest.hcl) as a reference template:
+* Declare `mock_provider "google" {}` (requires Terraform `>= 1.7.0`) so Terraform simulates GCP API calls in memory without cloud credentials.
+* Define shared required inputs in a top-level `variables {}` block, and override specific inputs inside each `run "<name>" { command = plan ... }` block.
+
+#### What to Test
+Unit tests automate the manual workflow of setting a variable one way, running `terraform plan`, flipping the variable the other way, and checking the planned output:
+* **Assert on dynamic logic**: Test conditionals (`? :`), resource counts (`count`, `for_each`), `dynamic` blocks, `concat()` lists, and string interpolations.
+* **Skip static wiring**: Do not assert on hardcoded constants (such as fixed port numbers or role strings) or direct `1:1` variable pass-throughs (`foo = var.foo`). `terraform validate` already verifies variable types and attribute names.
+
+#### Structuring Test Runs
+Keep `.tftest.hcl` files fast and readable by grouping assertions into a minimal set of `run` blocks:
+1. **`default_configuration`**: Supplies only required inputs (with optional toggles off or empty) and verifies default resource naming, baseline IAM bindings, and the omission of optional resources or blocks.
+2. **`custom_configuration`**: Enables independent optional features and overrides together in a single `plan` (for example, `instance_name` prefixing, public ingress, VPC egress, Secret Manager env vars, and custom paths) rather than adding separate single-assertion `run` blocks for each ternary.
+3. **Targeted interaction runs (when warranted)**: Add 1–2 extra `run` blocks only when specific combinations of inputs interact in complex or mutually exclusive ways (for example, attaching to an existing Shared VPC vs. provisioning a new VPC, or testing `expect_failures` on input validation rules).
 
 ---
 

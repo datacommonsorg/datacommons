@@ -17,7 +17,7 @@ The Data Commons Platform (DCP) welcomes contributions from developers, research
 To build, test, and contribute, install the following tools:
 * **Python (v3.11+)**: Required for core packages.
 * **[uv](https://docs.astral.sh/uv/)**: Python project and package manager.
-* **[Terraform](https://developer.hashicorp.com/terraform/install) (v1.5+)**: Required when modifying configurations in `infra/dcp/`.
+* **[Terraform](https://developer.hashicorp.com/terraform/install) (v1.7+)**: Required when modifying or testing configurations in `infra/dcp/`.
 * **[gcloud CLI](https://cloud.google.com/sdk/docs/install-sdk)**: Google Cloud SDK for project authentication.
 * **[Docker](https://docs.docker.com/get-docker/)**: Required for running local hermetic integration tests with Docker Compose.
 
@@ -37,30 +37,17 @@ uv run ruff format
 uv run ruff check
 ```
 
-If contributing changes to `infra/dcp/`, check formatting across Terraform files:
-```bash
-# Check formatting across infra/dcp (read-only)
-uv run infra/dcp/scripts/check_terraform.py --fmt
-
-# Format Terraform files in-place
-uv run infra/dcp/scripts/check_terraform.py --fix
-```
-
 ### Running Tests
 Run Python unit tests across all packages:
 ```bash
 uv run pytest
 ```
 
-Run Terraform module unit tests:
-```bash
-uv run infra/dcp/scripts/check_terraform.py --test
-```
-
-Run the complete Terraform verification suite (formatting check, validation, unit tests):
+If modifying Terraform configurations in `infra/dcp/`, run the Terraform verification suite (formatting, validation, and module unit tests):
 ```bash
 uv run infra/dcp/scripts/check_terraform.py
 ```
+For in-place formatting (`--fix`), individual check flags, and instructions on writing module unit tests, refer to the [Infrastructure Guide](infra/dcp/README.md#local-development-validation-and-testing).
 
 For emulated end-to-end integration tests using Docker Compose, refer to the [Integration Tests Guide](tests/integration/README.md):
 ```bash
