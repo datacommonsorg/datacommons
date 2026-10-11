@@ -90,14 +90,10 @@ When you run `./deploy_prober.sh`, the deployment executes two main phases:
 
 ```bash
 # Format Terraform in-place
-terraform fmt -recursive tests/integration/prober/deploy/terraform
+uv run infra/dcp/scripts/check_terraform.py --tf-dir tests/integration/prober/deploy/terraform --fix
 
-# Check Terraform formatting
-terraform fmt -check -diff -recursive tests/integration/prober/deploy/terraform
-
-# Validate Terraform configuration
-terraform -chdir=tests/integration/prober/deploy/terraform init -backend=false
-terraform -chdir=tests/integration/prober/deploy/terraform validate
+# Check formatting and validate Terraform configuration
+uv run infra/dcp/scripts/check_terraform.py --tf-dir tests/integration/prober/deploy/terraform --fmt --validate
 ```
 
 ---

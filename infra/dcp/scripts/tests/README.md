@@ -31,7 +31,7 @@ The main purpose of this suite is to **preview what `check_terraform.py` output 
 
 ### How It Works & Adding a Script Test
 
-1. **Fixture Setup**: The `baseline_tf` fixture copies `fixtures/baseline/` into an isolated temporary directory (`tmp_path / "tf_project"`).
-2. **Mutate or Add Modules**: Write test HCL to `(tf_dir / "main.tf")` or call `_create_test_module(tf_dir, "<module_name>", pass_test=...)` to generate a submodule with a `tests/unit.tftest.hcl` suite.
-3. **Execute & Capture**: Call `code, out = _run_and_capture(capsys, ["<flags>"], tf_dir=tf_dir)` to run `main(args, tf_dir=tf_dir)`, echo the output for `pytest -s`, and capture stdout/stderr.
+1. **Fixture Setup**: The `tf_env` fixture copies `fixtures/baseline/` into an isolated temporary directory (`tmp_path / "tf_project"`).
+2. **Mutate or Add Modules**: Write test HCL to `(tf_env / "main.tf")` or call `_create_test_module(tf_env, "<module_name>", fails=...)` to generate a submodule with a `tests/unit.tftest.hcl` suite.
+3. **Execute & Capture**: Call `code, out = _run_and_capture(capsys, ["<flags>"], tf_env)` to run `main(["--tf-dir", str(tf_env), ...])`, echo the output for `pytest -s`, and capture stdout.
 4. **Assert Behavioral Invariants**: Assert on the exit `code`, file mutations on disk, and key culprit/diagnostic lines in `out` (avoid brittle assertions on decorative borders or exact spacing).

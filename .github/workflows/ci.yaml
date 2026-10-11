@@ -101,10 +101,7 @@ jobs:
 
       - name: Check and Validate Prober Terraform
         if: ${{ !cancelled() }}
-        run: |
-          terraform fmt -check -diff -recursive tests/integration/prober/deploy/terraform
-          terraform -chdir=tests/integration/prober/deploy/terraform init -backend=false
-          terraform -chdir=tests/integration/prober/deploy/terraform validate
+        run: uv run infra/dcp/scripts/check_terraform.py --tf-dir tests/integration/prober/deploy/terraform --fmt --validate
 
   hermetic-integration-test:
     needs: fileset-diff

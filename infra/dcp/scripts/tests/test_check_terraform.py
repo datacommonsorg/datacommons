@@ -78,10 +78,11 @@ locals {
 
 
 @pytest.fixture
-def tf_env(tmp_path: Path) -> Path:
+def tf_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Copies baseline fixture into a temporary test directory."""
     env_dir = tmp_path / "tf_project"
     shutil.copytree(FIXTURE_BASELINE_DIR, env_dir)
+    monkeypatch.chdir(tmp_path)
     return env_dir
 
 
@@ -91,7 +92,7 @@ def _run_and_capture(
     tf_dir: Path,
 ) -> tuple[int, str]:
     """Executes main() and captures stdout, re-emitting so pytest -s prints output."""
-    exit_code = main(argv, tf_dir=tf_dir)
+    exit_code = main(["--tf-dir", str(tf_dir), *argv])
     captured = capsys.readouterr()
     sys.stdout.write(f"\n{captured.out}")
     return exit_code, strip_ansi(captured.out)
@@ -156,8 +157,9 @@ def test_fix_reformats_files(tf_env: Path, capsys: pytest.CaptureFixture[str]) -
     """--fix reformats unformatted files in-place so subsequent --fmt passes."""
     (tf_env / "main.tf").write_text(BAD_FORMAT_HCL)
 
-    fix_code, _ = _run_and_capture(capsys, ["--fix"], tf_env)
+    fix_code, fix_out = _run_and_capture(capsys, ["--fix"], tf_env)
     assert fix_code == 0
+    assert "│ main.tf" in fix_out
 
     fmt_code, _ = _run_and_capture(capsys, ["--fmt"], tf_env)
     assert fmt_code == 0
@@ -235,7 +237,7 @@ def test_all_fail(tf_env: Path, capsys: pytest.CaptureFixture[str]) -> None:
     exit_code, out = _run_and_capture(capsys, [], tf_env)
 
     assert exit_code == 1
-    assert "main.tf" in out
+    assert "- main.tf" in out
     assert "module_a assertion failed" in out
     assert "module_b assertion failed" in out
     assert "- modules/module_a" in out
@@ -251,5 +253,4 @@ def test_discover_test_suites(tf_env: Path) -> None:
 
     suites = _discover_test_suites(tf_env)
 
-    assert len(suites) == 1
-    assert suites[0][0] == mod_a
+    assert suites == [mod_a]
