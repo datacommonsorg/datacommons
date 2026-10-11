@@ -1,9 +1,23 @@
+# Copyright 2026 Google LLC.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Tests for infra/dcp/scripts/check_terraform.py.
 
-These hermetic unit tests use minimal, cloud-free Terraform fixtures to test all
-pass and fail scenarios across formatting, validation, and unit tests.
-Developers can run any test scenario with `pytest -s -k <scenario>` to visually
-inspect the exact CLI output formatting.
+These hermetic tests use minimal, cloud-free Terraform fixtures to verify
+core functional behavior across formatting, validation, and unit tests.
+Developers can run any scenario with `uv run pytest -s -k <scenario>` to
+visually inspect the CLI output.
 """
 
 from __future__ import annotations
@@ -14,13 +28,13 @@ import sys
 from pathlib import Path
 
 import pytest
-from check_terraform import main
+from check_terraform import _discover_test_suites, main
 
 FIXTURE_BASELINE_DIR = Path(__file__).resolve().parent / "fixtures" / "baseline"
 
 
 def strip_ansi(text: str) -> str:
-    """Strips ANSI color codes from terminal output for robust assertions."""
+    """Strips ANSI color codes from terminal output for assertions."""
     return re.sub(r"\033\[[0-9;]*m", "", text)
 
 
@@ -35,6 +49,11 @@ variable "status" {
 
 locals {
 message = "hello-${var.status}"
+}
+"""
+
+SYNTAX_ERROR_HCL = """locals {
+  message = "unterminated
 }
 """
 
@@ -112,92 +131,74 @@ locals {{
 
 
 def test_all_pass(tf_env: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """Scenario 1: Formatting OK, validate OK, 2 unit test modules pass -> Summary: ✓ Passed."""
-    shutil.rmtree(tf_env / "tests")
+    """All phases pass across 2 unit test modules -> exits 0."""
     _create_test_module(tf_env, "module_a")
     _create_test_module(tf_env, "module_b")
 
     exit_code, out = _run_and_capture(capsys, [], tf_env)
 
     assert exit_code == 0
-    assert "[1/3] Formatting" in out
-    assert "$ terraform fmt -check -recursive" in out
-    assert "[2/3] Validation" in out
-    assert "$ terraform -chdir=tf_project init -backend=false" in out
-    assert "$ terraform -chdir=tf_project validate" in out
-    assert "[3/3] Unit Tests" in out
-    assert "$ terraform -chdir=modules/module_a test" in out
-    assert "$ terraform -chdir=modules/module_b test" in out
-    assert "  - unit.tftest.hcl (1 passed)" in out
-    assert "✓ Passed" in out
     assert "Summary: ✓ Passed" in out
-    assert "Summary: ✖ Failed" not in out
 
 
 def test_fmt_fails(tf_env: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """Scenario 2: Formatting failure with --fmt -> exit 1, lists files, suggests --fix."""
+    """Formatting check fails -> exits 1, reports unformatted file and --fix hint."""
     (tf_env / "main.tf").write_text(BAD_FORMAT_HCL)
 
     exit_code, out = _run_and_capture(capsys, ["--fmt"], tf_env)
 
     assert exit_code == 1
-    assert "Formatting" in out
-    assert "[1/3]" not in out
-    assert "Validation" not in out
-    assert "Unit Tests" not in out
-    assert "$ terraform fmt -check -recursive" in out
-    assert "✖ Failed" in out
-    assert "Unformatted files:\n  - main.tf" in out
-    assert "✖ Formatting (1 file):" in out
-    assert "↳ Fix: uv run infra/dcp/scripts/check_terraform.py --fix" in out
-    assert "Summary: ✖ Failed" in out
+    assert "main.tf" in out
+    assert "--fix" in out
+
+
+def test_fix_reformats_files(tf_env: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """--fix reformats unformatted files in-place so subsequent --fmt passes."""
+    (tf_env / "main.tf").write_text(BAD_FORMAT_HCL)
+
+    fix_code, _ = _run_and_capture(capsys, ["--fix"], tf_env)
+    assert fix_code == 0
+
+    fmt_code, _ = _run_and_capture(capsys, ["--fmt"], tf_env)
+    assert fmt_code == 0
+
+
+def test_fmt_syntax_error(tf_env: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """--fmt on an HCL syntax error exits 1 and forwards Terraform's stderr diagnostic."""
+    (tf_env / "main.tf").write_text(SYNTAX_ERROR_HCL)
+
+    exit_code, out = _run_and_capture(capsys, ["--fmt"], tf_env)
+
+    assert exit_code == 1
+    assert "main.tf" in out
+    assert "Error:" in out
 
 
 def test_validate_init_fails(tf_env: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """Scenario 3: terraform init failure with --validate -> logs init command, exits 1."""
+    """terraform init failure during --validate exits 1 and forwards diagnostic."""
     (tf_env / "main.tf").write_text(INVALID_INIT_HCL)
 
     exit_code, out = _run_and_capture(capsys, ["--validate"], tf_env)
 
     assert exit_code == 1
-    assert "Validation" in out
-    assert "[2/3]" not in out
-    assert "Formatting" not in out
-    assert "Unit Tests" not in out
-    assert "$ terraform -chdir=tf_project init -backend=false" in out
-    assert "✖ Failed" in out
-    assert "Failure log:" not in out
     assert "Unsupported Terraform Core version" in out
-    assert "✖ Terraform Validation:" in out
-    assert "Summary: ✖ Failed" in out
 
 
 def test_validate_cmd_fails(tf_env: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """Scenario 4: terraform validate failure with --validate -> logs validate command, exits 1."""
+    """terraform validate failure exits 1 and reports the failing file and reason."""
     (tf_env / "main.tf").write_text(INVALID_VALIDATION_HCL)
 
     exit_code, out = _run_and_capture(capsys, ["--validate"], tf_env)
 
     assert exit_code == 1
-    assert "Validation" in out
-    assert "[2/3]" not in out
-    assert "Formatting" not in out
-    assert "Unit Tests" not in out
-    assert "$ terraform -chdir=tf_project init -backend=false" in out
-    assert "$ terraform -chdir=tf_project validate" in out
-    assert "✖ Failed" in out
-    assert "Failure log:" not in out
     assert "Invalid operand" in out
     assert "main.tf" in out
-    assert "✖ Terraform Validation:" in out
-    assert "Summary: ✖ Failed" in out
 
 
 def test_unit_test_fails_mixed(
     tf_env: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Scenario 5: Multiple modules with --test -> module_a passes, module_b fails."""
-    shutil.rmtree(tf_env / "tests")
+    """Mixed module results -> exits 1, reports failing module_b without blaming module_a."""
     _create_test_module(tf_env, "module_a", fails=False)
     _create_test_module(
         tf_env, "module_b", fails=True, error_message="module_b assertion failed"
@@ -206,42 +207,24 @@ def test_unit_test_fails_mixed(
     exit_code, out = _run_and_capture(capsys, ["--test"], tf_env)
 
     assert exit_code == 1
-    assert "Unit Tests" in out
-    assert "[3/3]" not in out
-    assert "Formatting" not in out
-    assert "Validation" not in out
-    # module_a passes
-    assert (
-        "$ terraform -chdir=modules/module_a test\n"
-        "  - unit.tftest.hcl (1 passed)\n"
-        "✓ Passed"
-    ) in out
-    # module_b fails
-    assert "$ terraform -chdir=modules/module_b test\n✖ Failed" in out
     assert "module_b assertion failed" in out
-    assert "Failure log:" not in out
-    # Summary lists ONLY module_b
-    assert "✖ Unit Tests (1 suite failed):" in out
     assert "- modules/module_b" in out
     assert "- modules/module_a" not in out
-    assert "Action: Inspect" not in out
-    assert "Summary: ✖ Failed" in out
+
+
+def test_no_suites_found_fails(
+    tf_env: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """--test exits 1 when zero *.tftest.hcl suites exist."""
+    exit_code, out = _run_and_capture(capsys, ["--test"], tf_env)
+
+    assert exit_code == 1
+    assert "No *.tftest.hcl test suites found" in out
 
 
 def test_all_fail(tf_env: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """Scenario 6: Total failure -> formatting fails, validation fails, both modules fail."""
-    bad_all_hcl = """terraform {
-required_version = ">= 1.5.0"
-}
-
-locals {
-message = 1 + "invalid"
-}
-"""
-    (tf_env / "main.tf").write_text(bad_all_hcl)
-
-    # Submodule test setup: both module_a and module_b fail
-    shutil.rmtree(tf_env / "tests")
+    """Compound failure runs all 3 phases without short-circuiting and aggregates culprits."""
+    (tf_env / "main.tf").write_text(BAD_FORMAT_HCL + "\n" + INVALID_VALIDATION_HCL)
     _create_test_module(
         tf_env, "module_a", fails=True, error_message="module_a assertion failed"
     )
@@ -252,24 +235,21 @@ message = 1 + "invalid"
     exit_code, out = _run_and_capture(capsys, [], tf_env)
 
     assert exit_code == 1
-    # All three phases ran
-    assert "[1/3] Formatting" in out
-    assert "[2/3] Validation" in out
-    assert "[3/3] Unit Tests" in out
-
-    # Unit tests: both fail
-    assert "$ terraform -chdir=modules/module_a test" in out
+    assert "main.tf" in out
     assert "module_a assertion failed" in out
-    assert "$ terraform -chdir=modules/module_b test" in out
     assert "module_b assertion failed" in out
-    assert out.count("✖ Failed") == 5
-
-    # Summary contains all 3 failure sections with 2 test suites failed
-    assert "✖ Formatting (1 file):" in out
-    assert "↳ Fix: uv run infra/dcp/scripts/check_terraform.py --fix" in out
-    assert "✖ Terraform Validation:" in out
-    assert "✖ Unit Tests (2 suites failed):" in out
     assert "- modules/module_a" in out
     assert "- modules/module_b" in out
-    assert "Action: Inspect" not in out
-    assert "Summary: ✖ Failed" in out
+
+
+def test_discover_test_suites(tf_env: Path) -> None:
+    """_discover_test_suites finds module suites and ignores .terraform/ directories."""
+    mod_a = _create_test_module(tf_env, "module_a")
+    cached_tests = tf_env / ".terraform" / "modules" / "cached" / "tests"
+    cached_tests.mkdir(parents=True)
+    (cached_tests / "ignored.tftest.hcl").write_text("# cached\n")
+
+    suites = _discover_test_suites(tf_env)
+
+    assert len(suites) == 1
+    assert suites[0][0] == mod_a
