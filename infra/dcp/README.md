@@ -67,6 +67,12 @@ uv run infra/dcp/scripts/check_terraform.py --validate
 uv run infra/dcp/scripts/check_terraform.py --test
 ```
 
+### Root Validation vs. Per-Module Unit Tests
+
+It is important to understand the execution scope of validation vs. unit tests:
+* **Root Validation (`--validate`)**: Terraform is initialized and validated strictly from the root (`infra/dcp`). This validates the root module and the full dependency graph of all child modules instantiated by `modules/stack`. **Note**: If you create a new module under `modules/` that is not yet referenced or connected to the root stack, `terraform validate` will not check it.
+* **Per-Module Unit Testing (`--test`)**: Unit tests execute on an independent, per-module basis. `check_terraform.py` discovers every `tests/` directory across all submodules containing `*.tftest.hcl` files and executes `terraform test` directly inside each module folder, regardless of whether that module is wired into the root configuration.
+
 ### Hermetic Module Unit Testing (`terraform test`)
 
 DCP infrastructure modules include fast, hermetic unit test suites (`tests/*.tftest.hcl`) that execute in `<0.5s` without Google Cloud credentials or live cloud resources:

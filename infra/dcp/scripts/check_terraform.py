@@ -31,6 +31,10 @@ import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 # Directory Paths
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -39,6 +43,26 @@ REPO_ROOT = TF_DIR.parent.parent
 
 # Detect if running within a GitHub Actions CI environment
 IS_CI = sys.platform != "win32" and os.environ.get("GITHUB_ACTIONS") == "true"
+
+# ANSI Color Escape Codes
+COLOR_GREEN = "\033[32m"
+COLOR_RED = "\033[31m"
+COLOR_RESET = "\033[0m"
+
+
+def _colorize(text: str, color: str) -> str:
+    """Wraps text in ANSI escape sequence if coloring is enabled."""
+    if os.environ.get("NO_COLOR"):
+        return text
+    return f"{color}{text}{COLOR_RESET}"
+
+
+def _status_passed() -> str:
+    return _colorize("✓ Passed", COLOR_GREEN)
+
+
+def _status_failed() -> str:
+    return _colorize("✖ Failed", COLOR_RED)
 
 
 # ==============================================================================
@@ -62,24 +86,63 @@ def _run_cmd(
 def _display_cmd(cmd: list[str], tf_dir: Path) -> str:
     """Renders a command with paths relative to REPO_ROOT for clean readability."""
     prefix = f"{REPO_ROOT}/"
-    tf_prefix = f"{tf_dir.parent}/"
+    tf_prefix = f"{tf_dir}/"
+    tf_parent = f"{tf_dir.parent}/"
     rendered: list[str] = []
     for arg in cmd:
         clean = (
-            arg.replace(prefix, "").replace(tf_prefix, "").replace(str(REPO_ROOT), "")
+            arg.replace(f"-chdir={tf_prefix}", "-chdir=")
+            .replace(f"-chdir={prefix}", "-chdir=")
+            .replace(f"-chdir={tf_parent}", "-chdir=")
+            .replace(prefix, "")
+            .replace(tf_prefix, "")
+            .replace(tf_parent, "")
+            .replace(str(REPO_ROOT), "")
         )
         rendered.append(clean)
     return " ".join(rendered)
 
 
 # ==============================================================================
-# Log Formatting & Output Parsing Helpers
+# Header & UI Rendering Helpers
 # ==============================================================================
 
 
-def _format_terraform_log(log_content: str) -> str:
-    """Frames raw Terraform output inside clear visual delimiters."""
-    return f"--- Terraform Output ---\n{log_content.strip()}\n------------------------"
+def _print_phase_header(title: str, step: str = "") -> None:
+    """Prints a distinct double-line framed header banner for a check phase."""
+    divider = "─" * 70
+    label = f"[{step}] {title}" if step else title
+    print(f"{divider}\n {label}\n{divider}")
+
+
+def _run_step(
+    cmd: list[str],
+    tf_dir: Path,
+    chdir: Path | None = None,
+    custom_failure_renderer: Callable[[str], None] | None = None,
+    *,
+    quiet_on_success: bool = False,
+) -> tuple[bool, subprocess.CompletedProcess[str]]:
+    """Prints command, executes it, and prints failure status + log on error.
+
+    If quiet_on_success is True, the command is only displayed if it fails.
+    Returns (success, result).
+    """
+    if not quiet_on_success:
+        print(f"$ {_display_cmd(cmd, tf_dir)}")
+    result = _run_cmd(cmd, chdir=chdir)
+    if result.returncode != 0:
+        if quiet_on_success:
+            print(f"$ {_display_cmd(cmd, tf_dir)}")
+        print(f"{_status_failed()}\n")
+        if custom_failure_renderer:
+            custom_failure_renderer(result.stdout)
+        else:
+            raw_output = result.stderr.strip() or result.stdout.strip()
+            print(raw_output)
+            print("")
+        return False, result
+    return True, result
 
 
 def _extract_failing_files(output: str) -> list[str]:
@@ -176,7 +239,6 @@ class CheckSummary:
     unformatted_files: list[str] = field(default_factory=list)
     validation_failures: list[str] = field(default_factory=list)
     failed_test_targets: list[str] = field(default_factory=list)
-    tests_skipped: bool = False
     has_failure: bool = False
 
     def add_fmt_failure(self, files: list[str]) -> None:
@@ -194,49 +256,36 @@ class CheckSummary:
 
 def _print_final_summary(summary: CheckSummary) -> None:
     """Prints a consolidated summary block at the bottom of the output."""
-    divider = "=" * 70
-    print(f"\n{divider}")
+    divider = "─" * 70
+    top_divider = "=" * 70
 
     if not summary.has_failure:
-        print("SUMMARY: ALL PASSED")
-        print(f"{divider}\n")
+        print(f"{top_divider}\n Summary: {_status_passed()}\n{divider}\n")
         return
 
-    print("SUMMARY: CHECKS FAILED")
-    print(divider)
+    print(f"{top_divider}\n Summary: {_status_failed()}\n{divider}")
+
+    fail_icon = _colorize("✖", COLOR_RED)
 
     if summary.unformatted_files:
         count = len(summary.unformatted_files)
-        verb = "needs" if count == 1 else "need"
         file_plural = "file" if count == 1 else "files"
-        print(f"\n  [FAILED] Formatting ({count} {file_plural} {verb} formatting):")
+        print(f"\n  {fail_icon} Formatting ({count} {file_plural}):")
         for f in summary.unformatted_files:
             print(f"    - {f}")
-        print(
-            "    Action: Run 'uv run infra/dcp/scripts/check_terraform.py --fix' to format in-place."
-        )
+        print("    ↳ Fix: uv run infra/dcp/scripts/check_terraform.py --fix")
 
     if summary.validation_failures:
-        print("\n  [FAILED] Terraform Validation:")
+        print(f"\n  {fail_icon} Terraform Validation:")
         for f in summary.validation_failures:
             print(f"    - {f}")
-        print(
-            "    Action: Inspect the detailed Terraform error log above to resolve schema or syntax errors."
-        )
 
     if summary.failed_test_targets:
         count = len(summary.failed_test_targets)
         suite_plural = "suite" if count == 1 else "suites"
-        print(f"\n  [FAILED] Unit Tests ({count} {suite_plural} failed):")
+        print(f"\n  {fail_icon} Unit Tests ({count} {suite_plural} failed):")
         for t in summary.failed_test_targets:
             print(f"    - {t}")
-        print(
-            "    Action: Inspect failure logs above or run 'uv run infra/dcp/scripts/check_terraform.py --test' to reproduce."
-        )
-
-    if summary.tests_skipped:
-        print("\n  [SKIPPED] Unit Tests:")
-        print("    Unit tests skipped due to validation failure.")
 
     print(f"\n{divider}\n")
 
@@ -246,81 +295,73 @@ def _print_final_summary(summary: CheckSummary) -> None:
 # ==============================================================================
 
 
-def run_fmt(summary: CheckSummary, tf_dir: Path = TF_DIR) -> None:
+def run_fmt(summary: CheckSummary, tf_dir: Path = TF_DIR, step: str = "1/3") -> None:
     """Checks Terraform formatting across tf_dir."""
-    print("==> Checking formatting...")
+    _print_phase_header("Formatting", step)
     cmd = ["terraform", "fmt", "-check", "-recursive", str(tf_dir)]
-    result = _run_cmd(cmd)
 
-    if result.returncode == 0:
-        print("status: OK\n")
-        return
+    def _render_fmt_failure(stdout: str) -> None:
+        unformatted = _extract_unformatted_files(stdout, tf_dir)
+        summary.add_fmt_failure(unformatted)
+        print("Unformatted files:")
+        for f in unformatted:
+            print(f"  - {f}")
+        print("")
 
-    print("status: FAILED")
-    print(f"cmd: {_display_cmd(cmd, tf_dir)}\n")
-    unformatted = _extract_unformatted_files(result.stdout, tf_dir)
-    summary.add_fmt_failure(unformatted)
-    print("Failing file(s):")
-    for f in unformatted:
-        print(f"  - {f}")
-    print("")
+    ok, _ = _run_step(cmd, tf_dir, custom_failure_renderer=_render_fmt_failure)
+    if ok:
+        print(f"{_status_passed()}\n")
 
 
 def run_fix(tf_dir: Path = TF_DIR) -> bool:
     """Formats all Terraform files in tf_dir in-place."""
-    print("==> Formatting files in place...")
+    _print_phase_header("Formatting In-Place")
     cmd = ["terraform", "fmt", "-recursive", str(tf_dir)]
-    result = _run_cmd(cmd)
-    if result.returncode == 0:
-        print("status: OK")
-        return True
 
-    print("status: FAILED")
-    print(f"cmd: {_display_cmd(cmd, tf_dir)}")
-    print(f"ERROR: Formatting failed:\n{result.stderr or result.stdout}")
+    def _render_fix_failure(stdout: str) -> None:
+        print(f"ERROR: Formatting failed:\n{stdout}")
+
+    ok, _ = _run_step(cmd, tf_dir, custom_failure_renderer=_render_fix_failure)
+    if ok:
+        print(f"{_status_passed()}\n")
+        return True
     return False
 
 
-def run_validate(summary: CheckSummary, tf_dir: Path = TF_DIR) -> None:
+def run_validate(
+    summary: CheckSummary, tf_dir: Path = TF_DIR, step: str = "2/3"
+) -> None:
     """Initializes and validates Terraform configuration in tf_dir."""
-    print("==> Validating Terraform...")
+    _print_phase_header("Validation", step)
 
     # 1. Initialize modules and providers quietly
     init_cmd = ["terraform", f"-chdir={tf_dir}", "init", "-backend=false"]
-    init_result = _run_cmd(init_cmd)
-    if init_result.returncode != 0:
-        print("status: FAILED")
-        print(f"cmd: {_display_cmd(init_cmd, tf_dir)}")
-        raw_output = f"{init_result.stdout}\n{init_result.stderr}".strip()
-        print(_format_terraform_log(raw_output))
-        print("")
-        failing_files = _extract_failing_files(raw_output)
-        summary.add_validation_failure(failing_files or [str(tf_dir)])
+    ok, init_res = _run_step(init_cmd, tf_dir)
+    if not ok:
+        raw = init_res.stderr.strip() or init_res.stdout.strip()
+        failing = _extract_failing_files(raw)
+        summary.add_validation_failure(failing or [str(tf_dir)])
         return
 
     # 2. Validate configuration
     val_cmd = ["terraform", f"-chdir={tf_dir}", "validate"]
-    val_result = _run_cmd(val_cmd)
-    if val_result.returncode == 0:
-        print("status: OK\n")
+    ok, val_res = _run_step(val_cmd, tf_dir)
+    if not ok:
+        raw = val_res.stderr.strip() or val_res.stdout.strip()
+        failing = _extract_failing_files(raw)
+        summary.add_validation_failure(failing or [str(tf_dir)])
         return
 
-    print("status: FAILED")
-    print(f"cmd: {_display_cmd(val_cmd, tf_dir)}")
-    raw_output = f"{val_result.stdout}\n{val_result.stderr}".strip()
-    print(_format_terraform_log(raw_output))
-    print("")
-    failing_files = _extract_failing_files(raw_output)
-    summary.add_validation_failure(failing_files or [str(tf_dir)])
+    print(f"{_status_passed()}\n")
 
 
-def run_tests(summary: CheckSummary, tf_dir: Path = TF_DIR) -> None:
+def run_tests(summary: CheckSummary, tf_dir: Path = TF_DIR, step: str = "3/3") -> None:
     """Discovers and executes all Terraform unit test suites across tf_dir."""
-    print("==> Running unit tests...")
+    _print_phase_header("Unit Tests", step)
     suites = _discover_test_suites(tf_dir)
 
     if not suites:
-        print("status: OK (No tests found)")
+        print(f"{_status_passed()} (No tests found)\n")
         return
 
     for target_dir, test_files in suites:
@@ -328,32 +369,22 @@ def run_tests(summary: CheckSummary, tf_dir: Path = TF_DIR) -> None:
         _ci_group_start(f"[terraform test] {rel_target}")
 
         init_cmd = ["terraform", f"-chdir={target_dir}", "init", "-backend=false"]
-        init_result = _run_cmd(init_cmd)
-        if init_result.returncode != 0:
+        ok, _ = _run_step(init_cmd, tf_dir, quiet_on_success=True)
+        if not ok:
             summary.add_test_failure(rel_target)
-            print("status: FAILED")
-            print(f"cmd: {_display_cmd(init_cmd, tf_dir)}")
-            raw_output = (init_result.stderr or init_result.stdout).strip()
-            print(_format_terraform_log(raw_output))
             _ci_group_end()
             continue
 
         test_cmd = ["terraform", f"-chdir={target_dir}", "test"]
-        test_result = _run_cmd(test_cmd)
-        output = (test_result.stdout + "\n" + test_result.stderr).strip()
-
-        if test_result.returncode == 0:
-            pass_count = _extract_pass_count(output)
-            print("status: OK")
-            print(f"    {rel_target}:")
-            for tf_file in test_files:
-                print(f"      {tf_file.name} ({pass_count})")
-        else:
+        ok, test_res = _run_step(test_cmd, tf_dir)
+        if not ok:
             summary.add_test_failure(rel_target)
             _ci_error("Terraform Test Failure", f"Tests failed in {rel_target}")
-            print("status: FAILED")
-            print(f"cmd: {_display_cmd(test_cmd, tf_dir)}")
-            print(_format_terraform_log(output))
+        else:
+            pass_count = _extract_pass_count(test_res.stdout)
+            for tf_file in test_files:
+                print(f"  - {tf_file.name} ({pass_count})")
+            print(f"{_status_passed()}\n")
 
         _ci_group_end()
 
@@ -409,20 +440,16 @@ def main(argv: list[str] | None = None, tf_dir: Path | None = None) -> int:
     summary = CheckSummary()
 
     if args.fmt:
-        run_fmt(summary, target_tf_dir)
+        run_fmt(summary, target_tf_dir, step="")
     elif args.validate:
-        run_validate(summary, target_tf_dir)
+        run_validate(summary, target_tf_dir, step="")
     elif args.test:
-        run_tests(summary, target_tf_dir)
+        run_tests(summary, target_tf_dir, step="")
     else:
         # Default: execute all three verification checks sequentially
-        run_fmt(summary, target_tf_dir)
-        run_validate(summary, target_tf_dir)
-        if summary.validation_failures:
-            summary.tests_skipped = True
-            print("==> Skipping unit tests because validation failed.\n")
-        else:
-            run_tests(summary, target_tf_dir)
+        run_fmt(summary, target_tf_dir, step="1/3")
+        run_validate(summary, target_tf_dir, step="2/3")
+        run_tests(summary, target_tf_dir, step="3/3")
 
     _print_final_summary(summary)
     return 1 if summary.has_failure else 0
