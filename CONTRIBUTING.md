@@ -37,10 +37,29 @@ uv run ruff format
 uv run ruff check
 ```
 
+If contributing changes to `infra/dcp/`, check formatting across Terraform files:
+```bash
+# Check formatting across infra/dcp (read-only)
+uv run infra/dcp/scripts/check_terraform.py --fmt
+
+# Format Terraform files in-place
+uv run infra/dcp/scripts/check_terraform.py --fix
+```
+
 ### Running Tests
-Run unit tests across all packages:
+Run Python unit tests across all packages:
 ```bash
 uv run pytest
+```
+
+Run Terraform module unit tests:
+```bash
+uv run infra/dcp/scripts/check_terraform.py --test
+```
+
+Run the complete Terraform verification suite (formatting check, validation, unit tests):
+```bash
+uv run infra/dcp/scripts/check_terraform.py
 ```
 
 For emulated end-to-end integration tests using Docker Compose, refer to the [Integration Tests Guide](tests/integration/README.md):

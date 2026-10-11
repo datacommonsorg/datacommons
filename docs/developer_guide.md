@@ -28,6 +28,7 @@ datacommons/
 │       ├── main.tf                      # Root Terraform configuration
 │       ├── variables.tf                 # Root variable definitions
 │       ├── terraform.tfvars.template    # Configuration template for deployments
+│       ├── scripts/                     # Test scripts (check_terraform.py)
 │       └── modules/                     # Submodules (spanner, storage, auth, ingestion, etc.)
 │
 ├── docs/                                # Centralized platform documentation
@@ -124,19 +125,15 @@ When modifying Terraform configurations in `infra/dcp/`:
   The `datacommons admin init` CLI command uses regular expression matching on `source = "./modules/stack"` to rewrite the module source to the remote GitHub release URL for downstream users. Modifying line breaks or whitespace within this string breaks CLI scaffolding.
 * **Local Validation and Pre-Flight Checks**: Validate and test Terraform changes by copying `infra/dcp/terraform.tfvars.template` to `infra/dcp/terraform.tfvars` and running:
   ```bash
-  cd infra/dcp
+  # Run automated formatting check, validation, and all module unit tests:
+  # (Read-only; does not modify code)
+  uv run infra/dcp/scripts/check_terraform.py
 
-  # Check file formatting
-  terraform fmt -check
+  # Format files in-place if formatting checks fail:
+  uv run infra/dcp/scripts/check_terraform.py --fix
 
-  # Initialize providers and modules
-  terraform init
-
-  # Validate configuration syntax and internal consistency
-  terraform validate
-
-  # Generate execution plan against your project
-  terraform plan
+  # Generate execution plan against your sandbox project:
+  terraform -chdir=infra/dcp plan
   ```
 * **Testing Local Module Changes in a Scaffolded Workspace**:
   When testing changes to `infra/dcp/modules/` inside a personal deployment directory created by `admin init` without having to push commits to a remote Git branch:
@@ -435,9 +432,10 @@ curl -s -X POST "http://localhost:8080/api/explore/detect-and-fulfill?q=populati
 
 ## Testing Strategy and Execution
 
-DCP enforces a two-tier testing hierarchy with clear division of responsibilities:
+DCP enforces a three-tier testing hierarchy with clear division of responsibilities:
 
-* **Unit Tests (Mandatory for all contributions)**: Fast, lightweight, in-memory tests running via `pytest`. All external network services, cloud APIs (Cloud Spanner, Cloud Workflows, Cloud Storage), and shell calls are mocked. Unit tests execute in seconds, run automatically in pre-submit CI, and are required for every bug fix, feature, and CLI subcommand.
+* **Python Unit Tests (Mandatory for code contributions)**: Fast, lightweight, in-memory tests running via `pytest`. All external network services, cloud APIs (Cloud Spanner, Cloud Workflows, Cloud Storage), and shell calls are mocked. Unit tests execute in seconds, run automatically in pre-submit CI, and are required for every bug fix, feature, and CLI subcommand.
+* **Terraform Module Unit Tests (Mandatory for infrastructure contributions)**: Fast, hermetic infrastructure unit tests (`*.tftest.hcl`) executed via `uv run infra/dcp/scripts/check_terraform.py --test`. Using `mock_provider "google"` and `command = plan`, these tests assert IAM bindings, variable fallbacks, and conditional resource creation in `<0.5s` without GCP credentials.
 * **Hermetic Integration Tests (End-to-End Validation)**: Local multi-service testing using Docker Compose to emulate Cloud Spanner, Cloud Storage, and serving containers. Integration tests validate end-to-end data ingestion, schema migrations, and live query resolution without incurring GCP cloud costs. They are heavier and slower than unit tests, primarily run before cutting releases or verifying cross-cutting data pipelines.
 
 ### Unit Tests

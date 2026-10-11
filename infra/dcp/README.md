@@ -37,6 +37,51 @@ terraform output
 
 ---
 
+## Local Development, Validation, and Testing
+
+DCP provides a unified verification runner script (`scripts/check_terraform.py`) executed via `uv run` to validate configurations, enforce formatting, and run hermetic module unit tests before committing changes.
+
+### Running Checks via `uv`
+
+Running the script with no flags executes all verification checks in read-only mode:
+
+```bash
+# Run all verification checks (formatting check, validation, and all module unit tests)
+# NOTE: The default no-flag mode is strictly read-only and does NOT modify files.
+uv run infra/dcp/scripts/check_terraform.py
+```
+
+### Individual Check Flags
+
+```bash
+# 1. Check formatting across all files in infra/dcp (read-only)
+uv run infra/dcp/scripts/check_terraform.py --fmt
+
+# 2. Format all Terraform files in infra/dcp in-place (mutates files)
+uv run infra/dcp/scripts/check_terraform.py --fix
+
+# 3. Initialize and validate the root Terraform configuration (read-only)
+uv run infra/dcp/scripts/check_terraform.py --validate
+
+# 4. Discover and execute all *.tftest.hcl module unit tests (read-only)
+uv run infra/dcp/scripts/check_terraform.py --test
+```
+
+### Hermetic Module Unit Testing (`terraform test`)
+
+DCP infrastructure modules include fast, hermetic unit test suites (`tests/*.tftest.hcl`) that execute in `<0.5s` without Google Cloud credentials or live cloud resources:
+* **Mock Provider**: Tests declare `mock_provider "google"` to simulate GCP resources in memory.
+* **Plan-Only Validation**: Tests run `command = plan` to assert module contracts, IAM bindings, optional variable handling, and conditional resource creation.
+* **Test Discovery**: `check_terraform.py --test` automatically discovers every `tests/` directory containing `*.tftest.hcl` files across `infra/dcp/modules/` and reports test results.
+
+To execute tests directly within a specific module:
+```bash
+terraform -chdir=infra/dcp/modules/datacommons_services init -backend=false
+terraform -chdir=infra/dcp/modules/datacommons_services test
+```
+
+---
+
 ## Configuration Reference
 
 The authoritative source of truth for all configuration options, type constraints, descriptions, and active default values is [variables.tf](variables.tf). To inspect a starter configuration template, consult [terraform.tfvars.template](terraform.tfvars.template).
@@ -79,6 +124,8 @@ infra/dcp/
 ├── variables.tf             # Schema declarations for all root inputs
 ├── outputs.tf               # Exported deployment attributes
 ├── terraform.tfvars.template# Template populated by the CLI or local operator
+├── scripts/                 # Test scripts
+│   └── check_terraform.py   # Pre-commit runner (fmt, validate, unit tests)
 │
 └── modules/
     ├── stack/               # Central wiring hub (IAM, shared env vars, cross-module links)
@@ -88,12 +135,14 @@ infra/dcp/
     ├── redis/               # MemoryStore Redis and VPC Access connector
     ├── datacommons_services/# Cloud Run serving container (Envoy + Mixer + Website)
     │
-    └── ingestion/           # Ingestion pipeline submodules
-        ├── preprocessing_job# Service account and IAM for Cloud Batch preprocessing (datacommons-data)
-        ├── dataflow/        # Service accounts and IAM for Apache Beam Java Dataflow
-        ├── postprocessing_job # Cloud Run job executing aggregation queries
-        ├── helper_service/  # FastAPI Cloud Run service managing locks and embeddings
-        └── workflow/        # Google Cloud Workflows orchestration definition
+    ├── ingestion/           # Ingestion pipeline submodules
+    │   ├── preprocessing_job# Service account and IAM for Cloud Batch preprocessing (datacommons-data)
+    │   ├── dataflow/        # Service accounts and IAM for Apache Beam Java Dataflow
+    │   ├── postprocessing_job # Cloud Run job executing aggregation queries
+    │   ├── helper_service/  # FastAPI Cloud Run service managing locks and embeddings
+    │   └── workflow/        # Google Cloud Workflows orchestration definition
+    │
+    └── */tests/*.tftest.hcl # Hermetic unit tests per module (e.g. datacommons_services/tests/)
 ```
 
 ---
