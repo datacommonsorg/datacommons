@@ -866,7 +866,7 @@ ingestion_base /
     |- import_2_schema.mcf <--- References entities in shared_schema.mcf
 ```
 
-In this case, you should first run the shared import and wait till it completes, before running any dependent imports. This is because edges cannot be created until their associated nodes already exist; trying to run such imports in parallel can cause edges to be silently dropped, resulting in missing data. (When you run multiple imports concurrently, each import is actually processed sequentially, according to the order in which each preprocessing job finishes, not the order in which you specified the imports on the command line.) 
+In this case, you should first run the shared import and wait until it completes, before running any dependent imports. This is because edges cannot be created until their associated nodes already exist; trying to run such imports in parallel can cause edges to be silently dropped, resulting in missing data. (When you run multiple imports concurrently, each import is actually processed sequentially, according to the order in which each preprocessing job finishes, not the order in which you specified the imports on the command line.)
 
 Therefore, the safest way to run this type of workflow is to do it in 2 separate steps:
 1. Run `uvx datacommons-cli admin ingest start --imports shared_schema_import`.
