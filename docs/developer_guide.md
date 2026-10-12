@@ -28,6 +28,7 @@ datacommons/
 │       ├── main.tf                      # Root Terraform configuration
 │       ├── variables.tf                 # Root variable definitions
 │       ├── terraform.tfvars.template    # Configuration template for deployments
+│       ├── scripts/                     # Test scripts (check_terraform.py)
 │       └── modules/                     # Submodules (spanner, storage, auth, ingestion, etc.)
 │
 ├── docs/                                # Centralized platform documentation
@@ -114,52 +115,26 @@ uv run --package datacommons-cli datacommons admin ingest start --imports <datas
 
 ### Working on Infrastructure (`infra/dcp`)
 
-When modifying Terraform configurations in `infra/dcp/`:
-* **Module Hierarchy**: Inspect `infra/dcp/main.tf` for root variables and `infra/dcp/modules/stack/main.tf` for module wiring. Refer to [Terraform Stack Architecture](architecture/terraform_stack.md) for variable propagation details.
-* **Critical Scaffolding Contract**: The `module "stack"` declaration in `infra/dcp/main.tf` must maintain `source = "./modules/stack"` on a single line:
+* **Validation, Unit Testing, and Module Reference**: For `check_terraform.py` usage, `.tftest.hcl` unit test authoring, and root `variables.tf` / `outputs.tf` references, consult the [Infrastructure Guide](../infra/dcp/README.md).
+* **Stack Architecture**: For the dual entrypoint design, variable propagation pipeline, and cross-module IAM wiring, read [Terraform Stack Architecture](architecture/terraform_stack.md).
+
+#### Testing Local Module Changes in a Scaffolded Workspace
+When testing changes to `infra/dcp/modules/` inside a personal deployment directory created by `admin init` without pushing commits to a remote Git branch:
+* **Option A (Direct Local Path)**: In your deployment's `main.tf`, replace the remote Git reference with your local monorepo path:
+  ```hcl
+  module "stack" {
+    source = "/absolute/path/to/datacommons/infra/dcp/modules/stack"
+  ```
+* **Option B (Local Symlink)**: Create a symlink inside your deployment folder pointing to the local `modules` directory:
+  ```bash
+  ln -s /absolute/path/to/datacommons/infra/dcp/modules ./modules
+  ```
+  Then point `main.tf` to the local symlink:
   ```hcl
   module "stack" {
     source = "./modules/stack"
   ```
-  The `datacommons admin init` CLI command uses regular expression matching on `source = "./modules/stack"` to rewrite the module source to the remote GitHub release URL for downstream users. Modifying line breaks or whitespace within this string breaks CLI scaffolding.
-* **Local Validation and Pre-Flight Checks**: Validate and test Terraform changes by copying `infra/dcp/terraform.tfvars.template` to `infra/dcp/terraform.tfvars` and running:
-  ```bash
-  cd infra/dcp
-
-  # Check file formatting
-  terraform fmt -check
-
-  # Initialize providers and modules
-  terraform init
-
-  # Validate configuration syntax and internal consistency
-  terraform validate
-
-  # Generate execution plan against your project
-  terraform plan
-  ```
-* **Testing Local Module Changes in a Scaffolded Workspace**:
-  When testing changes to `infra/dcp/modules/` inside a personal deployment directory created by `admin init` without having to push commits to a remote Git branch:
-  * **Option A (Direct Local Path)**: In your deployment's `main.tf`, replace the remote Git reference with your local monorepo path:
-    ```hcl
-    module "stack" {
-      source = "/absolute/path/to/datacommons/infra/dcp/modules/stack"
-    ```
-  * **Option B (Local Symlink)**: Create a symlink inside your deployment folder pointing to the local `modules` directory:
-    ```bash
-    ln -s /absolute/path/to/datacommons/infra/dcp/modules ./modules
-    ```
-    Then point `main.tf` to the local symlink:
-    ```hcl
-    module "stack" {
-      source = "./modules/stack"
-    ```
-  * **Re-Initialize and Plan**:
-    ```bash
-    terraform init -upgrade
-    terraform plan
-    ```
-    Terraform switches from pulling remote Git objects to reading your live local workspace directly. Any edits made in `infra/dcp/modules/` immediately take effect on the next plan or apply.
+* **Re-Initialize and Plan**: Run `terraform init -upgrade && terraform plan` in your deployment directory so Terraform reads your local `infra/dcp/modules/` directly.
 
 ### Running the Stack on Latest (`main` and `latest` Builds)
 
@@ -435,22 +410,24 @@ curl -s -X POST "http://localhost:8080/api/explore/detect-and-fulfill?q=populati
 
 ## Testing Strategy and Execution
 
-DCP enforces a two-tier testing hierarchy with clear division of responsibilities:
+DCP organizes automated tests into two tiers:
 
-* **Unit Tests (Mandatory for all contributions)**: Fast, lightweight, in-memory tests running via `pytest`. All external network services, cloud APIs (Cloud Spanner, Cloud Workflows, Cloud Storage), and shell calls are mocked. Unit tests execute in seconds, run automatically in pre-submit CI, and are required for every bug fix, feature, and CLI subcommand.
-* **Hermetic Integration Tests (End-to-End Validation)**: Local multi-service testing using Docker Compose to emulate Cloud Spanner, Cloud Storage, and serving containers. Integration tests validate end-to-end data ingestion, schema migrations, and live query resolution without incurring GCP cloud costs. They are heavier and slower than unit tests, primarily run before cutting releases or verifying cross-cutting data pipelines.
+* **Unit Tests (Python and Terraform)**: Fast, offline tests that run automatically in pre-submit CI without live GCP credentials:
+  * **Python Unit Tests**: In-memory tests running via `pytest` where external cloud APIs (Cloud Spanner, Cloud Workflows, Cloud Storage) and shell calls are mocked. Required for every bug fix, feature, and CLI subcommand.
+  * **Terraform Module Unit Tests**: Hermetic module tests (`*.tftest.hcl`) that run `terraform plan` offline with mocked providers (`mock_provider "google"`).
+* **Hermetic Integration Tests (End-to-End Validation)**: Local multi-service tests using Docker Compose to emulate Cloud Spanner, Cloud Storage, and serving containers offline without incurring GCP cloud costs. Integration tests validate end-to-end data ingestion, schema migrations, and query resolution before cutting releases or modifying cross-cutting data pipelines.
 
 ### Unit Tests
-Run unit tests across all monorepo packages using `pytest`:
 
 ```bash
-# Run all unit tests in the repository
+# Run all Python unit tests (or scope to a package, e.g. packages/datacommons-admin/tests/)
 uv run pytest
 
-# Run tests scoped to a single package
-uv run pytest packages/datacommons-admin/tests/
-uv run pytest packages/datacommons-db/tests/
+# Run Terraform formatting, validation, and module unit tests
+uv run infra/dcp/scripts/check_terraform.py
 ```
+
+> **Single Source of Truth**: For `check_terraform.py` flags (`--fix`, `--fmt`, `--validate`, `--test`) and instructions on authoring `.tftest.hcl` unit tests, refer to the [Infrastructure Guide](../infra/dcp/README.md#local-development-validation-and-testing).
 
 ### Hermetic Integration Tests
 The repository includes a hermetic testbed that uses Docker Compose to emulate Cloud Spanner, Cloud Storage, Ingestion Helper, and serving containers locally without incurring GCP cloud costs:
