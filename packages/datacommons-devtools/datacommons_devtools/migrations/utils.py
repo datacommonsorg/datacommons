@@ -23,12 +23,13 @@ import contextlib
 import datetime
 import json
 import re
+import sys
+from collections.abc import Callable
 from importlib import resources
 from pathlib import Path
 
-from datacommons_db.migrations import (
-    generate_schema_snapshot_sql,
-    get_schema_snapshot_path,
+from datacommons_devtools.migrations.snapshot import (
+    write_compiled_schema,
 )
 
 FILENAME_PATTERN = re.compile(r"^(\d{14})_([a-z0-9_]+)\.py$")
@@ -65,13 +66,9 @@ def get_default_migrations_dir() -> Path:
                 return candidate
 
     # Fallback to imported package path if running in a non-standard environment
-    try:
-        import datacommons_db.migrations.migration_scripts as mig_pkg
-
-        if mig_pkg.__file__:
-            return Path(mig_pkg.__file__).resolve().parent
-    except (ImportError, AttributeError):
-        pass
+    pkg = sys.modules.get("datacommons_db.migrations.migration_scripts")
+    if pkg and getattr(pkg, "__file__", None):
+        return Path(pkg.__file__).resolve().parent
 
     # Every ancestor of this file and cwd was already checked above, so at
     # this point there is no valid migrations directory to return.
@@ -401,20 +398,23 @@ def update_migration_file(
     return file_path, new_path, new_iso
 
 
-def update_snapshot_schema() -> Path:
+def update_snapshot_schema(
+    *,
+    progress_callback: Callable[[str], None] | None = None,
+) -> Path:
     """Compiles and updates packages/datacommons-db/tests/snapshots/schema_snapshot.sql.
+
+    Requires a running or auto-bootable Spanner emulator to extract engine-collapsed DDL.
+
+    Args:
+        progress_callback: Optional callback for reporting real-time progress messages.
 
     Returns:
         Path to the updated schema_snapshot.sql file.
 
     Raises:
+        ConnectionError: If no emulator is reachable and auto-start fails.
         OSError: If reading migrations or writing the snapshot file fails.
         RuntimeError: If schema compilation fails.
     """
-    snapshot_file = get_schema_snapshot_path()
-    snapshot_file.parent.mkdir(parents=True, exist_ok=True)
-    snapshot_sql = generate_schema_snapshot_sql(
-        project_id="test-project", region="us-central1"
-    )
-    snapshot_file.write_text(snapshot_sql, encoding="utf-8")
-    return snapshot_file
+    return write_compiled_schema(progress_callback=progress_callback)

@@ -68,6 +68,6 @@ def get_schema_dir() -> Path:
     """Resolves the directory containing the baseline schema SQL files.
 
     Returns:
-        Path to the schema directory containing schema.sql.
+        Path to the schema directory containing baseline_schema.sql.
     """
     return Path(__file__).resolve().parent.parent / "schema"

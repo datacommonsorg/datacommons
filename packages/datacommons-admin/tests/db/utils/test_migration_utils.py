@@ -238,7 +238,8 @@ def test_initialize_database_success(
     result = runner.invoke(admin, ["init-db"])
     assert result.exit_code == 0
     assert "Initializing baseline schema for Spanner database" in result.output
-    assert "Applied baseline schema (schema.sql)" in result.output
+    assert "Applied baseline schema (baseline_schema.sql)" in result.output
+
     assert "Applying 2 schema migration(s)..." in result.output
     assert (
         "Applied migration 2026-08-17T00:00:00Z: Bootstrap migration" in result.output

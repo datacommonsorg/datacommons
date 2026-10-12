@@ -20,6 +20,7 @@ import json
 import sys
 from pathlib import Path
 
+import datacommons_db.migrations.migration_scripts as mig_pkg
 import pytest
 from datacommons_devtools.migrations import utils
 
@@ -100,8 +101,6 @@ def test_get_default_migrations_dir_falls_back_to_imported_package(
     nonexistent_file = tmp_path / "outside" / "utils.py"
     monkeypatch.setattr(utils, "__file__", str(nonexistent_file))
     monkeypatch.setattr(Path, "cwd", lambda: tmp_path / "outside")
-
-    import datacommons_db.migrations.migration_scripts as mig_pkg
 
     assert mig_pkg.__file__ is not None
     expected_path = Path(mig_pkg.__file__).resolve().parent

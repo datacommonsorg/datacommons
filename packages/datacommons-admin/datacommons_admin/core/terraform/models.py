@@ -42,7 +42,9 @@ class TerraformOutputs:
     # Conditional outputs (can evaluate to null in HCL when feature is disabled)
     spanner_instance_id: str | None = None
     spanner_database_id: str | None = None
-    ingestion_prep_job_name: str | None = None
+    # Never null in HCL, but optional because only show-config reads it. A state
+    # without it shouldn't break the other commands.
+    storage_artifacts_bucket_name: str | None = None
 
     @classmethod
     def from_state_outputs(cls, raw_outputs: dict[str, Any]) -> "TerraformOutputs":

@@ -147,7 +147,8 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
 
   depends_on = [
     google_project_iam_member.serving_sa_roles,
-    google_secret_manager_secret_iam_member.serving_secret_accessor
+    google_secret_manager_secret_iam_member.serving_secret_accessor,
+    google_spanner_database_iam_member.serving_spanner_reader
   ]
 }
 

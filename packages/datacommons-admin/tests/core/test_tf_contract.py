@@ -91,7 +91,7 @@ def test_terraform_outputs_from_state_outputs_edge_cases() -> None:
     assert parsed.project_id == "test-proj"
     assert parsed.spanner_instance_id is None
     assert parsed.spanner_database_id is None
-    assert parsed.ingestion_prep_job_name is None
+    assert parsed.storage_artifacts_bucket_name is None
 
     # Missing or whitespace-only required field raises ClickException
     invalid_missing = {**base_valid, "project_id": {"value": "   "}}

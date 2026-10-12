@@ -160,12 +160,33 @@ def bump_command(target: str | None = None, *, yes: bool = False) -> None:
 )
 def update_snapshot_command() -> None:
     """Recompile packages/datacommons-db/tests/snapshots/schema_snapshot.sql from all migration scripts."""
+
+    def _on_progress(msg: str) -> None:
+        leading_char = msg.lstrip()[:1]
+        match leading_char:
+            case "✔":
+                click.secho(msg, fg="green")
+            case "🔍" | "📦" | "📜" | "⚡" | "🔬" | "🧹":
+                click.secho(msg, fg="cyan", bold=True)
+            case "🚀":
+                click.secho(msg, fg="yellow", bold=True)
+            case "ℹ":
+                click.secho(msg, fg="bright_black")
+            case _:
+                click.echo(msg)
+
     try:
-        snapshot_file = utils.update_snapshot_schema()
-    except (OSError, RuntimeError, ValueError) as e:
+        snapshot_file = utils.update_snapshot_schema(
+            progress_callback=_on_progress,
+        )
+    except (OSError, RuntimeError, ValueError, ConnectionError) as e:
         raise click.ClickException(f"Failed to update schema snapshot: {e}") from e
 
-    click.secho("✔ Successfully updated schema snapshot:", fg="green", bold=True)
+    click.secho(
+        "\n✔ Successfully updated schema snapshot (engine-collapsed):",
+        fg="green",
+        bold=True,
+    )
     click.echo(f"  {snapshot_file}")
 
 

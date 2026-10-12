@@ -69,7 +69,6 @@ variable "mcp_instructions_path" {
   default     = null
 }
 
-
 variable "website_search_scope" {
   type        = string
   default     = ""

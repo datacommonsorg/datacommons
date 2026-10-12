@@ -92,7 +92,7 @@ def start(ctx: click.Context, imports: str) -> None:
 @ingest.command(name="show-config")
 @click.pass_context
 def show_config(ctx: click.Context) -> None:
-    """Print the current ingestion job configuration (environment variables)."""
+    """Print the ingestion job configuration from Terraform outputs."""
     click.secho("Datacommons Admin Ingest Show-Config", fg="cyan", bold=True)
     click.secho(
         "Fetching ingestion configuration from Terraform outputs...",
@@ -106,43 +106,16 @@ def show_config(ctx: click.Context) -> None:
         tf_state_location=state_params.get("tf_state_location"),
     )
 
-    if not tf.ingestion_prep_job_name:
-        click.secho(
-            "\nNo ingestion prep job configured in this deployment.", fg="yellow"
-        )
-        return
-
-    click.secho(f"Found data job: {tf.ingestion_prep_job_name}", fg="green")
-    click.secho(
-        f"Found workflow service account: {tf.ingestion_workflow_service_account_email}",
-        fg="green",
-    )
-    click.secho(f"Found GCP project ID: {tf.project_id}", fg="green")
-    click.secho(f"Found GCP region: {tf.region}", fg="green")
-    click.secho(
-        f"Fetching configuration for Cloud Run job '{tf.ingestion_prep_job_name}'...",
-        fg="bright_black",
-    )
-
-    client = IngestionJobClient(
-        job_name=tf.ingestion_prep_job_name,
-        service_account_email=tf.ingestion_workflow_service_account_email,
-        project_id=tf.project_id,
-        location=tf.region,
-    )
-    env_vars = client.get_config()
+    # Names match the env vars the workflow passes to the preprocessing job.
+    config = {
+        "PROJECT_ID": tf.project_id,
+        "REGION": tf.region,
+        "GCP_SPANNER_INSTANCE_ID": tf.spanner_instance_id,
+        "GCP_SPANNER_DATABASE_NAME": tf.spanner_database_id,
+        "GCS_BUCKET": tf.storage_artifacts_bucket_name,
+    }
 
     click.secho("\nCurrent ingestion job configuration:", fg="cyan", bold=True)
-    if not env_vars:
-        click.secho("No environment variables configured.", fg="yellow")
-    else:
-        for env in env_vars:
-            name = env.get("name", "UNKNOWN")
-            if "value" in env:
-                val = env["value"]
-            elif "valueSource" in env:
-                val = f"[SECRET: {env['valueSource']}]"
-            else:
-                val = "[UNSET]"
-            click.secho(f"  {name}: ", fg="bright_black", nl=False)
-            click.secho(str(val), fg="green")
+    for name, val in config.items():
+        click.secho(f"  {name}: ", fg="bright_black", nl=False)
+        click.secho(val or "[UNSET]", fg="green")

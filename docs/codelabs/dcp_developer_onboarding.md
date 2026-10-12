@@ -124,7 +124,7 @@ When deploying a personal DCP instance, Terraform provisions:
 4. **Google Cloud Run**: Serverless container execution:
    * Serving Service: `datacommons-services` running Envoy, Mixer, and Website.
    * Helper Service: `datacommons-ingestion-helper` managing locks, migration history, and embeddings.
-   * Batch Jobs: `datacommons-data` (preprocessor) and `datacommons-aggregation-helper` (postprocessor).
+   * Job: `datacommons-aggregation-helper` (postprocessor). The `datacommons-data` preprocessor runs on Cloud Batch instead. The workflow creates a new Batch job for each ingestion run.
 5. **Google Secret Manager**: Secure storage for your Data Commons API key.
 
 ---
@@ -321,7 +321,7 @@ https://console.cloud.google.com/?project=<PROJECT_ID>
 ### 3. Cloud Run (Services and Jobs)
 * In the search bar, type `Cloud Run` and view both tabs:
   * **Services**: Locate `<namespace>-dc-datacommons-service` (the Envoy, Mixer, and Website serving container) and `<namespace>-dc-ingestion-helper` (the coordination microservice). Click into `datacommons-service` to inspect CPU, memory, and logs.
-  * **Jobs**: Click the **Jobs** tab at the top. Locate `<namespace>-dc-prep-job` and `<namespace>-dc-post-job`. Cloud Run Jobs differ from Services: Services listen continuously for HTTP traffic, while Jobs run batch tasks to completion and terminate.
+  * **Jobs**: Click the **Jobs** tab at the top. Locate `<namespace>-dc-ingestion-postprocessing-job`. Cloud Run Jobs differ from Services: Services listen continuously for HTTP traffic, while Jobs run batch tasks to completion and terminate. Preprocessing doesn't appear here because it runs as a Cloud Batch job that the workflow creates during ingestion (Module 6).
 
 ### 4. Cloud Workflows
 * In the search bar, type `Workflows` and select **Workflows**.
@@ -414,13 +414,13 @@ Execution console link: https://console.cloud.google.com/workflows/workflow/us-c
 Click the console link printed in your terminal or open **Workflows > `<namespace>-dc-ingestion-workflow` > Executions**.
 Watch the workflow progress through its stages, and inspect the underlying compute jobs and logs in real time:
 
-1. **`run_preprocessing`**: Launches Cloud Run job `datacommons-data` to validate `config.json` and generate JSON-LD chunks.
-   * *Viewing Job Logs*: Open **Cloud Run > Jobs** in the console, click into `<namespace>-dc-prep-job`, click the active execution, and select the **Logs** tab to view schema validation and record sharding output.
+1. **`run_preprocessing`**: Creates a Cloud Batch job running `datacommons-data` to validate `config.json` and generate JSON-LD chunks.
+   * *Viewing Job Logs*: Open **Batch > Job list** in the console, click into the job named `<namespace>-prep-<timestamp>`, and select the **Logs** tab to view schema validation and record sharding output.
 2. **`try_acquire_lock`**: Contacts `datacommons-ingestion-helper` to acquire the database lock in Spanner.
 3. **`launch_dataflow`**: Launches the Apache Beam Dataflow job (`GraphIngestionPipeline`) to load nodes, edges, and observations into Spanner.
    * *Viewing Dataflow Graph and Logs*: Open **Dataflow > Jobs** in the console and click into the running job (named `graph-ingestion-pipeline-...`). You can view the live execution DAG (stages such as `ReadJSONLD`, `ExtractFacets`, and `WriteToSpanner`). Click the **Job Logs** tab for pipeline lifecycle events and the **Worker Logs** tab to stream real-time worker output.
 4. **`run_postprocessing_parallel`**: Runs BigQuery federated queries to materialize statistical variable groups and invokes Vertex AI text embeddings.
-   * *Viewing Postprocessing Logs*: Open **Cloud Run > Jobs**, click into `<namespace>-dc-post-job`, click the active execution, and select the **Logs** tab to observe BigQuery aggregation and vector embedding generation.
+   * *Viewing Postprocessing Logs*: Open **Cloud Run > Jobs**, click into `<namespace>-dc-ingestion-postprocessing-job`, click the active execution, and select the **Logs** tab to observe BigQuery aggregation and vector embedding generation.
 5. **`release_lock_step` & `restart_service`**: Releases the Spanner lock, clears the cache if Redis caching is enabled, and triggers a rolling container restart of `datacommons-services` if container restarts are enabled.
 
 Wait until the execution status displays a green checkmark (`Succeeded`).
