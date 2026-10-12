@@ -386,6 +386,15 @@ def pytest_runtest_logreport(report):
             duration=report.duration,
             error_message=str(report.longrepr) if hasattr(report, "longrepr") else None,
         )
+    elif report.when in ("setup", "teardown") and report.failed:
+        # Fixture errors never reach the call phase; count them as failures so
+        # the report status (and the CI job) reflects them.
+        _GLOBAL_REPORTER.add_result(
+            nodeid=f"{report.nodeid} [{report.when} error]",
+            outcome="failed",
+            duration=report.duration,
+            error_message=str(report.longrepr),
+        )
 
 
 def pytest_sessionfinish(session, exitstatus):

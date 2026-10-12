@@ -99,24 +99,26 @@ def run_e2e_tests(
 
     res = subprocess.run(pytest_cmd, env=env, check=False)
 
-    # Read and return structured report object if saved locally
+    # Read structured report object if saved locally
+    report: dict = {}
     if not dest.startswith("gs://"):
         local_path = Path(dest).resolve()
         if local_path.exists():
             try:
                 with open(local_path, encoding="utf-8") as f:
-                    return json.load(f)
-            except Exception:
-                pass
+                    report = json.load(f)
+            except Exception as e:
+                print(f"Warning: could not read report {local_path}: {e}")
 
+    # pytest's exit code is authoritative: errors, interruptions, and "no tests
+    # collected" must fail the run even if the JSON report says PASSED.
     if res.returncode != 0:
-        return {
-            "status": "FAILED",
-            "report_destination": dest,
-            "error": "pytest run failed",
-        }
+        report["status"] = "FAILED"
+        report.setdefault("report_destination", dest)
+        report.setdefault("error", f"pytest exited with code {res.returncode}")
+        return report
 
-    return {"status": "COMPLETED", "report_destination": dest}
+    return report or {"status": "COMPLETED", "report_destination": dest}
 
 
 def main():
