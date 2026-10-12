@@ -853,18 +853,17 @@ A common pattern (similar to [example 4](#example4) above) is to have an import 
 
 ```
 ingestion_base /
-  |– shared_schema_import/        
-    |– config.json   <--- Schema import
-    |– shared_schema.mcf
+  |- shared_schema_import/        
+    |- config.json   <--- Schema import
+    |- shared_schema.mcf
   |- data_import_1/        
-    |– config.json   
-    |– data1.csv
+    |- config.json   
+    |- data1.csv
     |- import_1_schema.mcf <--- References entities in shared_schema.mcf
   |- data_import_2/        
-    |– config.json   
-    |– data2.csv
+    |- config.json   
+    |- data2.csv
     |- import_2_schema.mcf <--- References entities in shared_schema.mcf
-```
 
 In this case, you should first run the shared import and wait until it completes, before running any dependent imports. This is because edges cannot be created until their associated nodes already exist; trying to run such imports in parallel can cause edges to be silently dropped, resulting in missing data. (When you run multiple imports concurrently, each import is actually processed sequentially, according to the order in which each preprocessing job finishes, not the order in which you specified the imports on the command line.)
 
