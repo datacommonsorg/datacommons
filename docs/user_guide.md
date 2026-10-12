@@ -354,7 +354,7 @@ ingestion_base /
     |– data2.csv
 ```
 
-#### Example 4: Single schema-only import, multiple data imports
+#### Example 4: Single schema-only import, multiple data imports {#example4}
 
 In this example, the MCF file is shared across multiple imports.
 
@@ -839,8 +839,6 @@ The *IMPORT_PATH* is the directory containing a `config.json` file, and is relat
 * To ingest multiple imports, specify comma-separated values for each `config.json` directory you would like to ingest now; for example `–-imports import1,import2.`
 * To ingest all data imports, specify `–-imports ALL_IMPORTS`.
 
-> **Note:** If you have structured your imports in a way that have dependencies between MCF files -- for example, you define nodes in a "shared" MCF import, which are referenced by nodes in other imports -- you should always first run the shared import and wait till it completes, before running any dependent imports. This is because edges cannot be created until their associated nodes already exist; trying to run such imports in parallel can result in "race conditions" and missing data. For more information about this, see ...
-
 Depending on the amount of data being processed, it can take anywhere from 10 minutes to over an hour to complete. You can verify the processing by clicking on any of the output links to see the workflow's progress at any time.
 
 To verify that the workflow has completed, click the `Workflow Console Link` in the output and look for the **Executions** > **State** heading. When the workflow is complete, it shows **return result** - **succeeded**. 
@@ -848,6 +846,32 @@ To verify that the workflow has completed, click the `Workflow Console Link` in 
 > **Note:** If you need to restart the workflow for any reason, never try to execute it from the Cloud Console, but be sure to use the `datacommons-cli` command. The CLI passes in parameters that are needed for the workflow, so if you try to run the workflow without the CLI, the workflow will fail.
 
 > **Important!:** Do not manually cancel a workflow anytime after the **run_preprocessing** stage, or your database will be corrupted. If you do need to cancel a workflow at this stage, you won't be able to restart it without clearing the database lock. See [Release database lock from ingestion workflow](#release) for the procedure.
+
+#### Imports with dependencies {#dependencies}
+
+A common pattern (similar to [example 4](#example4) above) is to have an import that defines a "shared" schema that is referenced by other imports, like this:
+
+```
+ingestion_base /
+  |– shared_schema_import/        
+    |– config.json   <--- Schema import
+    |– shared_schema.mcf
+  |- data_import_1/        
+    |– config.json   
+    |– data1.csv
+    |- import_1_schema.mcf <--- References entities in shared_schema.mcf
+  |- data_import_2/        
+    |– config.json   
+    |– data2.csv
+    |- import_2_schema.mcf <--- References entities in shared_schema.mcf
+```
+
+In this case, you should first run the shared import and wait till it completes, before running any dependent imports. This is because edges cannot be created until their associated nodes already exist; trying to run such imports in parallel can cause edges to be silently dropped, resulting in missing data. (When you run multiple imports concurrently, each import is actually processed sequentially, according to the order in which each preprocessing job finishes, not the order in which you specified the imports on the command line.) 
+
+Therefore, the safest way to run this type of workflow is to do it in 2 separate steps:
+1. Run `uvx datacommons-cli admin ingest start --imports shared_schema_import`.
+1. Wait until the workflow completes and verify that all the required nodes from `shared_schema_import` are present in the database (see next step).
+1. Run `uvx datacommons-cli admin ingest start --imports data_import_1,data_import_2`.
 
 ### Step 3: Verify data
 
@@ -1079,16 +1103,16 @@ dataflow,DC:DF_OBS(1.0.0),I,who:Ratio_CigaretteSmoking_Adults_ByGender,country/A
 
 ## Update your instance {#update-your-instance}
 
-### Update imported data or add new imports
+### Update imported data or add new imports {#update-imports}
 
 To update data you've already imported:
 
-1. If necessary, make changes to your schema MCF file(s).
+1. If necessary, make changes to your schema MCF file(s). If you make changes to MCF files contained in an import that are referenced by other imports, see the note below.
 2. If necessary, make changes to your [`config.json` file(s)](#config) (e.g. to add new CSV files, new directories, etc.).
 3. [Upload the new/updated files to Cloud Storage](#upload).
 4. [Run the ingestion workflow](#workflow) as usual. 
 
-> **Note:** If your import depends on "shared" MCF files in a separate import, you do not need to reingest those files _unless they have changed_. Conversely, if you do make changes to the shared files, you will need to reingest all imports that depend on them. Note that it is important to correctly sequence these imports: run the shared import to successful completion _before_ running the dependent imports. The reason for this is that when you run multiple imports in parallel, they are not sequenced according to your submission order, but according to the order in which the preprocessing jobs complete. This means that an import that depends on a shared import may fail to correctly create edges because the associated nodes don't exist yet.
+> **Note:** If your import depends on "shared" MCF files in a separate import, you do not need to reingest the shared files unless they have changed. Conversely, if you do make changes to the shared files, you will also need to reingest all imports that depend on them. Note that it is important to correctly sequence these imports: run the shared import to successful completion _before_ running any dependent imports. See [Imports with dependencies](#dependencies) for details.
 
 ### Delete data
 
