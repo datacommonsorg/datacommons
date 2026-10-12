@@ -15,8 +15,13 @@
 
 import pytest
 
-from tests.integration.core.config_schema import NodeQuerySpec, TestManifest
+from tests.integration.core.config_schema import (
+    ExpectedTargetSpec,
+    NodeQuerySpec,
+    TestManifest,
+)
 from tests.integration.core.dataset_introspection import declared_mcf_dcids
+from tests.integration.core.target import DCPTarget
 
 
 class TestV2Node:
@@ -26,6 +31,7 @@ class TestV2Node:
         self,
         seeded_testbed,
         dc_client,
+        dcp_target: DCPTarget,
         test_manifest: TestManifest,
         node_query_spec: NodeQuerySpec | None,
     ):
@@ -53,7 +59,15 @@ class TestV2Node:
 
         if node_query_spec.expected_targets:
             declared = declared_mcf_dcids(test_manifest.ingestion.dataset_dirs)
-            _assert_expected_targets(res, node_query_spec, declared)
+            targets = node_query_spec.expected_targets
+            if dcp_target.instance_name == "emulated":
+                # The emulated stack has no Base DC, so remote targets can't be hydrated.
+                targets = [t for t in targets if t.locality != "remote"]
+                if not targets:
+                    pytest.skip(
+                        "Remote targets need Base DC, which the emulated stack lacks."
+                    )
+            _assert_expected_targets(res, node_query_spec, targets, declared)
 
 
 # Type Mixer assigns to arc targets that have no row in local Spanner and were
@@ -71,11 +85,14 @@ def _arc_property(expression: str) -> str:
 
 
 def _assert_expected_targets(
-    res, spec: NodeQuerySpec, declared_dcids: set[str]
+    res,
+    spec: NodeQuerySpec,
+    expected_targets: list[ExpectedTargetSpec],
+    declared_dcids: set[str],
 ) -> None:
     prop = _arc_property(spec.expression)
     targets = {n.dcid: n for n in res.extract_connected_nodes(spec.node_dcid, prop)}
-    for expected in spec.expected_targets:
+    for expected in expected_targets:
         label = f"'{spec.node_dcid} {spec.expression}' target '{expected.dcid}' ({expected.locality})"
 
         # Guard the spec itself: a "remote" target declared in the dataset would

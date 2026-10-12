@@ -46,6 +46,8 @@ services:
       - SPANNER_EMULATOR_HOST=spanner:15000
       - STORAGE_EMULATOR_HOST=http://gcs:9099
       - DC_API_KEY=${DC_API_KEY:-dummy-key}
+      # Matches the Cloud Batch preprocessor (infra/dcp/modules/ingestion/workflow/workflow.yaml).
+      - IMPORT_PROXY_ENTITIES=false
       - INPUT_DIR=gs://test-bucket/ingestion/input
       - OUTPUT_DIR=gs://test-bucket/output
     working_dir: /workspace/import/simple
