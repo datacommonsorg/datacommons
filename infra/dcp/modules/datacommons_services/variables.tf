@@ -69,10 +69,6 @@ variable "mcp_instructions_path" {
   default     = null
 }
 
-variable "resolve_with_spanner_embeddings" {
-  type = bool
-}
-
 variable "website_search_scope" {
   type        = string
   default     = ""
