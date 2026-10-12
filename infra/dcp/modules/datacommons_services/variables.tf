@@ -98,8 +98,13 @@ variable "vpc_access" {
   default     = null
 }
 
-variable "use_spanner" {
-  type = bool
+
+variable "spanner_config" {
+  type = object({
+    instance_id = string
+    database_id = string
+  })
+  description = "Spanner database coordinates for query serving"
 }
 
 # =============================================================================

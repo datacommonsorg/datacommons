@@ -2,6 +2,9 @@ locals {
   name_prefix           = var.instance_name != "" ? "${var.instance_name}-" : ""
   effective_instance_id = var.create_instance ? (var.instance_id != "" ? "${local.name_prefix}${var.instance_id}" : "${local.name_prefix}dc-instance") : var.instance_id
   effective_database_id = var.create_database ? (var.database_id != "" ? "${local.name_prefix}${var.database_id}" : "${local.name_prefix}dc-db") : var.database_id
+
+  resolved_instance_id = var.create_instance ? google_spanner_instance.main[0].name : local.effective_instance_id
+  resolved_database_id = var.create_database ? google_spanner_database.database[0].name : local.effective_database_id
 }
 
 resource "google_spanner_instance" "main" {
@@ -16,7 +19,7 @@ resource "google_spanner_instance" "main" {
 
 resource "google_spanner_database" "database" {
   count    = var.create_database ? 1 : 0
-  instance = var.create_instance ? google_spanner_instance.main[0].name : local.effective_instance_id
+  instance = local.resolved_instance_id
   name     = local.effective_database_id
 
   deletion_protection      = var.stateful_deletion_protection
@@ -37,7 +40,7 @@ resource "google_bigquery_connection" "spanner_connection" {
   description   = "Federated connection to Spanner for custom DC"
 
   cloud_spanner {
-    database        = "projects/${var.project_id}/instances/${var.create_instance ? google_spanner_instance.main[0].name : local.effective_instance_id}/databases/${var.create_database ? google_spanner_database.database[0].name : local.effective_database_id}"
+    database        = "projects/${var.project_id}/instances/${local.resolved_instance_id}/databases/${local.resolved_database_id}"
     use_parallelism = true
   }
 }
@@ -45,8 +48,8 @@ resource "google_bigquery_connection" "spanner_connection" {
 # Grant the connection's service account access to Spanner
 resource "google_spanner_database_iam_member" "spanner_reader" {
   count    = var.enable_bigquery_connection ? 1 : 0
-  instance = var.create_instance ? google_spanner_instance.main[0].name : local.effective_instance_id
-  database = var.create_database ? google_spanner_database.database[0].name : local.effective_database_id
+  instance = local.resolved_instance_id
+  database = local.resolved_database_id
   role     = "roles/spanner.databaseUser"
   member   = "serviceAccount:${data.google_bigquery_default_service_account.bq_sa.email}"
 }
