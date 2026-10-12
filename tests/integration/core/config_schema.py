@@ -89,18 +89,13 @@ class PostprocessingManifestConfig:
 
 @dataclass
 class ExpectedTargetSpec:
-    """Expected node at the far end of an arc returned by a node query.
-
-    locality:
-      "local":  the target is declared in the dataset and served from Spanner.
-      "remote": the target is not stored locally; Mixer must hydrate it from
-                Base DC (non-empty name, types other than ["Thing"]).
-    """
+    """Expected node at the far end of a single-hop arc returned by a node query."""
 
     dcid: str
-    locality: str = "local"
     name: str | None = None
     types: list[str] = field(default_factory=list)
+    # The target lives in Base DC and must be hydrated by Mixer federation.
+    requires_base_dc: bool = False
 
 
 @dataclass

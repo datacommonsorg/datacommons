@@ -249,7 +249,8 @@ def test_expected_targets_parsed_from_manifest():
     targets = {
         t.dcid: t for spec in manifest.serving_api.nodes for t in spec.expected_targets
     }
-    assert targets["Person"].locality == "remote"
-    assert targets["FooBarGroup"].locality == "local"
+    assert targets["Person"].requires_base_dc is True
+    assert targets["Person"].types == ["Class"]
+    assert targets["FooBarGroup"].requires_base_dc is False
     assert targets["FooBarGroup"].types == ["StatVarGroup"]
     assert isinstance(targets["FooBarGroup"], ExpectedTargetSpec)

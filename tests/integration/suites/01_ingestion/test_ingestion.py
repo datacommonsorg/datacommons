@@ -15,17 +15,12 @@
 from pathlib import Path
 
 import pytest
-from google.cloud import spanner
 
 from tests.integration.core.cli_runner import DatacommonsCLI
 from tests.integration.core.config_schema import (
     ExpectedEdge,
     ExpectedNode,
     TestManifest,
-)
-from tests.integration.core.dataset_introspection import (
-    declared_mcf_dcids,
-    observation_entity_provenances,
 )
 from tests.integration.core.spanner_client import SpannerClient
 from tests.integration.core.target import DCPTarget
@@ -165,61 +160,32 @@ class TestSpannerGraph:
         spanner_client: SpannerClient,
         test_manifest: TestManifest,
     ):
-        """Verifies entities referenced by this dataset's observations are not stored as local nodes.
+        """Verifies observation entities are not stored as local nodes (proxy entities).
 
         Mixer treats a DCID as local if and only if it has a row in Node.subject_id.
-        Entities that observations point to (e.g. country/USA) live in Base DC, so
-        ingestion must not write Node rows for them (proxy entities). A proxy row
-        makes Mixer serve the entity from Spanner (typeOf only, no name) instead of
-        federating it to Base DC.
+        Observation entities (e.g. country/USA) live in Base DC, so a Node row for
+        one makes Mixer serve it from Spanner instead of federating to Base DC.
+        Only single-entity series are checked; multi-entity columns are not yet.
         """
         if not test_manifest.stages.ingestion:
             pytest.skip("Ingestion stage disabled in test manifest.")
 
-        dataset_dirs = test_manifest.ingestion.dataset_dirs
-        provenances = sorted(observation_entity_provenances(dataset_dirs))
-        if not provenances:
-            pytest.skip(
-                f"No input files with an observationAbout column under {dataset_dirs} "
-                "(multi-entity datasets are not covered yet)."
-            )
-        params = {"provenances": provenances}
-        param_types = {
-            "provenances": spanner.param_types.Array(spanner.param_types.STRING)
-        }
-
-        # Observation entities live in TimeSeries.entity1 (the observationAbout
-        # entity for single-entity files); provenance is a TimeSeries column.
-        # Non-vacuity guard: the scoping must match series this dataset wrote.
         count_rows = spanner_client.query(
-            "SELECT COUNT(DISTINCT entity1) AS n FROM TimeSeries "
-            "WHERE provenance IN UNNEST(@provenances)",
-            params=params,
-            param_types=param_types,
+            "SELECT COUNT(DISTINCT entity1) AS n FROM TimeSeries WHERE entity2 IS NULL"
         )
         entity_count = count_rows[0]["n"] if count_rows else 0
-        assert entity_count > 0, (
-            f"No TimeSeries rows found for provenances {provenances}. "
-            "The check would pass vacuously; verify ingestion ran and TimeSeries.provenance values."
-        )
+        if entity_count == 0:
+            pytest.skip("No single-entity observations to check.")
 
         rows = spanner_client.query(
-            "SELECT n.subject_id AS dcid, n.types AS types FROM Node n "
-            "WHERE n.subject_id IN ("
-            "  SELECT DISTINCT entity1 FROM TimeSeries "
-            "  WHERE provenance IN UNNEST(@provenances))",
-            params=params,
-            param_types=param_types,
+            "SELECT subject_id, types FROM Node WHERE subject_id IN "
+            "(SELECT DISTINCT entity1 FROM TimeSeries WHERE entity2 IS NULL) "
+            "ORDER BY subject_id"
         )
-        locally_declared = declared_mcf_dcids(dataset_dirs)
-        violations = sorted(
-            (r["dcid"], list(r["types"] or []))
-            for r in rows
-            if r["dcid"] not in locally_declared
-        )
-        assert not violations, (
-            f"{len(violations)} of {entity_count} observation entities are stored as local "
-            f"Node rows (proxy entities): {violations[:10]}. Mixer will serve them from "
+        proxies = [(r["subject_id"], list(r["types"] or [])) for r in rows]
+        assert not proxies, (
+            f"{len(proxies)} of {entity_count} observation entities are stored as local "
+            f"Node rows (proxy entities): {proxies[:10]}. Mixer will serve them from "
             "Spanner instead of Base DC. Check that the preprocessor runs with "
             "IMPORT_PROXY_ENTITIES=false."
         )

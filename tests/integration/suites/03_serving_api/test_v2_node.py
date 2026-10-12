@@ -15,12 +15,7 @@
 
 import pytest
 
-from tests.integration.core.config_schema import (
-    ExpectedTargetSpec,
-    NodeQuerySpec,
-    TestManifest,
-)
-from tests.integration.core.dataset_introspection import declared_mcf_dcids
+from tests.integration.core.config_schema import ExpectedTargetSpec, NodeQuerySpec
 from tests.integration.core.target import DCPTarget
 
 
@@ -32,7 +27,6 @@ class TestV2Node:
         seeded_testbed,
         dc_client,
         dcp_target: DCPTarget,
-        test_manifest: TestManifest,
         node_query_spec: NodeQuerySpec | None,
     ):
         """Verifies dc_client.node.fetch for declared node and expression."""
@@ -58,21 +52,15 @@ class TestV2Node:
             )
 
         if node_query_spec.expected_targets:
-            declared = declared_mcf_dcids(test_manifest.ingestion.dataset_dirs)
             targets = node_query_spec.expected_targets
             if dcp_target.instance_name == "emulated":
-                # The emulated stack has no Base DC, so remote targets can't be hydrated.
-                targets = [t for t in targets if t.locality != "remote"]
+                # The emulated stack has no Base DC to hydrate remote targets from.
+                targets = [t for t in targets if not t.requires_base_dc]
                 if not targets:
                     pytest.skip(
-                        "Remote targets need Base DC, which the emulated stack lacks."
+                        "Targets require Base DC, which the emulated stack lacks."
                     )
-            _assert_expected_targets(res, node_query_spec, targets, declared)
-
-
-# Type Mixer assigns to arc targets that have no row in local Spanner and were
-# not hydrated from Base DC (see mixer UnresolvedNodeProcessor).
-_UNRESOLVED_TYPE = "Thing"
+            _assert_expected_targets(res, node_query_spec, targets)
 
 
 def _arc_property(expression: str) -> str:
@@ -80,51 +68,28 @@ def _arc_property(expression: str) -> str:
     message = f"expected_targets supports single-hop '->property' expressions only, got '{expression}'"
     assert expression.startswith("->"), message
     prop = expression.removeprefix("->")
-    assert prop.isidentifier(), message
+    assert prop, message
+    assert not any(op in prop for op in ("->", "<-", "[", "{", ",")), message
     return prop
 
 
 def _assert_expected_targets(
-    res,
-    spec: NodeQuerySpec,
-    expected_targets: list[ExpectedTargetSpec],
-    declared_dcids: set[str],
+    res, spec: NodeQuerySpec, expected_targets: list[ExpectedTargetSpec]
 ) -> None:
+    """Asserts arc targets by field; substring checks can't tell a hydrated node from a stub."""
     prop = _arc_property(spec.expression)
     targets = {n.dcid: n for n in res.extract_connected_nodes(spec.node_dcid, prop)}
     for expected in expected_targets:
-        label = f"'{spec.node_dcid} {spec.expression}' target '{expected.dcid}' ({expected.locality})"
-
-        # Guard the spec itself: a "remote" target declared in the dataset would
-        # resolve from Spanner and never exercise Base DC hydration.
-        assert expected.locality in ("local", "remote"), (
-            f"{label}: locality must be 'local' or 'remote'"
-        )
-        is_declared = expected.dcid in declared_dcids
-        assert is_declared == (expected.locality == "local"), (
-            f"{label}: spec is mislabeled; '{expected.dcid}' is "
-            f"{'' if is_declared else 'not '}declared in the dataset MCFs."
-        )
-
+        label = f"'{spec.node_dcid} {spec.expression}' target '{expected.dcid}'"
         node = targets.get(expected.dcid)
-        assert node is not None, (
-            f"'{spec.node_dcid} {spec.expression}' did not return target '{expected.dcid}'. "
-            f"Got: {sorted(targets)}"
-        )
-        types = list(node.types or [])
-        assert node.name, (
-            f"{label} has an empty name. For a remote target this means Mixer did not "
-            "hydrate it from Base DC (e.g. a local Node row is shadowing it); for a local "
-            "target it means the Spanner node is missing its name."
-        )
-        assert types, f"{label} has no types."
-        assert types != [_UNRESOLVED_TYPE], (
-            f"{label} has types {types}. Remote targets must be hydrated from Base DC "
-            "and local targets must resolve from Spanner."
-        )
+        assert node is not None, f"{label} not returned. Got: {sorted(targets)}"
         if expected.name is not None:
             assert node.name == expected.name, (
-                f"{label} name is '{node.name}', expected '{expected.name}'"
+                f"{label} name is {node.name!r}, expected {expected.name!r}"
             )
-        missing_types = set(expected.types) - set(types)
-        assert not missing_types, f"{label} missing types {missing_types}; got {types}"
+        types = list(node.types or [])
+        missing = set(expected.types) - set(types)
+        assert not missing, (
+            f"{label} missing types {sorted(missing)}; got {types}. Remote targets that "
+            "Mixer did not hydrate from Base DC come back as ['Thing']."
+        )

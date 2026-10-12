@@ -53,12 +53,12 @@ serving_api:
       expression: "->populationType"
       expected_targets:
         - dcid: "Person"
-          locality: "remote"
+          types: ["Class"]
+          requires_base_dc: true
     - node_dcid: "foobar/SchoolCompletionRate"
       expression: "->memberOf"
       expected_targets:
         - dcid: "FooBarCustomGroup"
-          locality: "local"
           name: "FooBar Education"
           types: ["StatVarGroup"]
 

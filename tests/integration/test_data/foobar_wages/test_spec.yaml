@@ -68,26 +68,25 @@ serving_api:
     - node_dcid: "FooBarWages"
       expression: "->source"
       expected_values: ["dc/s/FooBarOrganization", "FooBar Statistics Organization"]
-    # Local vs. remote arc targets. "remote" targets are referenced but not declared
-    # in this dataset, so Mixer must hydrate them from Base DC; "local" targets
-    # resolve from Spanner. The test verifies each label against the dataset MCFs.
+    # Arc targets. Person is referenced but not declared in this dataset, so Mixer
+    # must hydrate it from Base DC (an unhydrated target comes back as ["Thing"]).
+    # FooBarGroup and wagesAnnual are declared in the MCF and resolve from Spanner.
     - node_dcid: "average_annual_wage"
       expression: "->populationType"
       expected_targets:
         - dcid: "Person"
-          locality: "remote"
+          types: ["Class"]
+          requires_base_dc: true
     - node_dcid: "average_annual_wage"
       expression: "->memberOf"
       expected_targets:
         - dcid: "FooBarGroup"
-          locality: "local"
           name: "FooBar"
           types: ["StatVarGroup"]
     - node_dcid: "gender_wage_gap"
       expression: "->measuredProperty"
       expected_targets:
         - dcid: "wagesAnnual"
-          locality: "local"
           name: "wagesAnnual"
           types: ["Property"]
 
