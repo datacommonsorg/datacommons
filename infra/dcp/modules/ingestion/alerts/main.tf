@@ -9,9 +9,9 @@ locals {
   warn_90pct_threshold_sec  = floor(local.retention_seconds * 0.90)
   crit_100pct_threshold_sec = local.retention_seconds
 
-  warn_50pct_display = local.warn_50pct_threshold_sec >= 3600 ? "${floor(local.warn_50pct_threshold_sec / 3600)} hours" : "${floor(local.warn_50pct_threshold_sec / 60)} minutes"
-  warn_90pct_display = local.warn_90pct_threshold_sec >= 3600 ? "${floor(local.warn_90pct_threshold_sec / 3600)} hours" : "${floor(local.warn_90pct_threshold_sec / 60)} minutes"
-  crit_100pct_display = local.crit_100pct_threshold_sec >= 3600 ? "${floor(local.crit_100pct_threshold_sec / 3600)} hours" : "${floor(local.crit_100pct_threshold_sec / 60)} minutes"
+  warn_50pct_display      = local.warn_50pct_threshold_sec >= 3600 ? "${floor(local.warn_50pct_threshold_sec / 3600)} hours" : "${floor(local.warn_50pct_threshold_sec / 60)} minutes"
+  warn_90pct_display      = local.warn_90pct_threshold_sec >= 3600 ? "${floor(local.warn_90pct_threshold_sec / 3600)} hours" : "${floor(local.warn_90pct_threshold_sec / 60)} minutes"
+  crit_100pct_display     = local.crit_100pct_threshold_sec >= 3600 ? "${floor(local.crit_100pct_threshold_sec / 3600)} hours" : "${floor(local.crit_100pct_threshold_sec / 60)} minutes"
   remaining_10pct_display = (local.retention_seconds - local.warn_90pct_threshold_sec) >= 3600 ? "${floor((local.retention_seconds - local.warn_90pct_threshold_sec) / 3600)} hours" : "${floor((local.retention_seconds - local.warn_90pct_threshold_sec) / 60)} minutes"
 
   instance_prefix   = var.instance_name != "" ? "${var.instance_name} - " : ""
