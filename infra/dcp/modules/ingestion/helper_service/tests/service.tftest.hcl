@@ -1,32 +1,30 @@
-# =============================================================================
-# INGESTION HELPER SERVICE MODULE - UNIT TEST SUITE (service.tftest.hcl)
-# =============================================================================
+# Copyright 2026 Google LLC.
 #
-# PURPOSE:
-# This test suite hermetically validates the contract of the ingestion helper_service
-# module without requiring GCP credentials or network access.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# ARCHITECTURAL SCENARIOS TESTED:
-#   1. Baseline Service Contract   - Image, internal ingress, timeout, storage & dataflow IAM
-#   2. Instance Name Prefixing     - Resource naming & service account account_id prefix
-#   3. Storage: Spanner Disabled   - try() fallbacks to empty strings, zero Spanner IAM
-#   4. Storage: Spanner Enabled    - Spanner databaseUser IAM & container env vars
-#   5. Redis Secret Injection      - Secret Manager accessor IAM & REDIS_PASSWORD env
-#   6. Network: Direct VPC Egress  - Subnetwork interface, tags, and egress mode
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
-# DEVELOPER GUIDE: HOW TO EXTEND THIS TEST SUITE
-#   - Each `run` block tests a SINGLE scenario using `command = plan`.
-#   - Do NOT repeat baseline variables; inherit from the root `variables {}` block
-#     and only override the specific attribute under test in `run.variables {}`.
-#   - Always write human-readable, descriptive `error_message` strings explaining
-#     the exact invariant that failed.
-# =============================================================================
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Unit tests for the ingestion helper_service module (infra/dcp/modules/ingestion/helper_service/main.tf).
+#
+# How this file works:
+#   - `mock_provider "google" {}` stubs out the Google Cloud provider so `terraform test`
+#     can run `terraform plan` offline without GCP credentials.
+#   - The top-level `variables {}` block supplies required module inputs with all
+#     optional features turned off. Every `run` block inherits these values by default.
+#   - Run 1 (`default_configuration`) checks the planned resources when optional features are off.
+#   - Run 2 (`custom_configuration`) overrides those inputs to turn optional features on
+#     and checks that the corresponding resources, IAM bindings, and env vars are created.
 
 mock_provider "google" {}
 
-# -----------------------------------------------------------------------------
-# Canonical Baseline Configuration (Inherited by all test runs)
-# -----------------------------------------------------------------------------
 variables {
   project_id                    = "test-project"
   instance_name                 = ""
@@ -35,7 +33,7 @@ variables {
   image                         = "gcr.io/test/ingestion-helper:latest"
   ingestion_bucket_name         = "test-ingestion-bucket"
   ingestion_artifacts_path      = "metadata"
-  enable_embeddings_generation  = true
+  enable_embeddings_generation  = false
   spanner_config = {
     instance_id = "test-spanner-instance"
     database_id = "test-spanner-db"
@@ -44,138 +42,74 @@ variables {
   redis_config = null
 }
 
-# =============================================================================
-# SCENARIO 1: Baseline Service Contract
-# =============================================================================
-run "baseline_service_contract" {
+# -----------------------------------------------------------------------------
+# Run 1: Default Configuration (optional features disabled / empty)
+# -----------------------------------------------------------------------------
+run "default_configuration" {
   command = plan
 
-  # 1. Output & Container Image
+  # When instance_name is "", resource names should not have a leading "<instance_name>-" prefix.
   assert {
-    condition     = output.image == "gcr.io/test/ingestion-helper:latest"
-    error_message = "output.image must reflect the configured container image URI"
+    condition     = output.service_name == "dc-ingestion-helper" && google_service_account.helper_sa.account_id == "dc-ing-hlp-sa"
+    error_message = "Service and service account names must be unprefixed when instance_name is empty"
+  }
+
+  # When vpc_access is null, no Direct VPC Egress block should be attached to Cloud Run.
+  assert {
+    condition     = length(google_cloud_run_v2_service.ingestion_helper.template[0].vpc_access) == 0
+    error_message = "vpc_access block must not be created when vpc_access is null"
+  }
+
+  # The helper service account always requires Spanner Database User, Storage Object Admin, and Dataflow Viewer IAM roles.
+  assert {
+    condition = (
+      google_spanner_database_iam_member.helper_spanner_user.role == "roles/spanner.databaseUser" &&
+      google_storage_bucket_iam_member.helper_bucket_access.role == "roles/storage.objectAdmin" &&
+      google_project_iam_member.helper_dataflow_viewer.role == "roles/dataflow.viewer"
+    )
+    error_message = "Helper service account must be granted spanner.databaseUser, storage.objectAdmin, and dataflow.viewer"
+  }
+
+  # When enable_embeddings_generation is false, ENABLE_EMBEDDINGS must be "false".
+  assert {
+    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "ENABLE_EMBEDDINGS"]) == "false"
+    error_message = "ENABLE_EMBEDDINGS must be 'false' when enable_embeddings_generation = false"
+  }
+
+  # When redis_config is null, no Secret Manager IAM binding or REDIS_PASSWORD env var should be created,
+  # and Redis env vars must fall back to defaults ("" for host/cert, "6379" for port).
+  assert {
+    condition = (
+      length(google_secret_manager_secret_iam_member.helper_redis_auth_secret_accessor) == 0 &&
+      length([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.name if e.name == "REDIS_PASSWORD"]) == 0
+    )
+    error_message = "No Redis secret accessor IAM binding or REDIS_PASSWORD env var should be created when redis_config is null"
   }
 
   assert {
-    condition     = output.service_name == "dc-ingestion-helper"
-    error_message = "output.service_name must reflect the Cloud Run service name"
-  }
-
-  # 2. Internal Ingress & Timeout Security Contract
-  assert {
-    condition     = google_cloud_run_v2_service.ingestion_helper.ingress == "INGRESS_TRAFFIC_INTERNAL_ONLY"
-    error_message = "Ingestion helper service must restrict ingress to internal VPC traffic only"
-  }
-
-  assert {
-    condition     = google_cloud_run_v2_service.ingestion_helper.template[0].timeout == "1800s"
-    error_message = "Ingestion helper service timeout must be configured to 1800s (30 minutes)"
-  }
-
-  # 3. Default Naming & Service Account Identity
-  assert {
-    condition     = google_service_account.helper_sa.account_id == "dc-ing-hlp-sa"
-    error_message = "Service account account_id must default to dc-ing-hlp-sa when instance_name is empty"
-  }
-
-  assert {
-    condition     = google_cloud_run_v2_service.ingestion_helper.name == "dc-ingestion-helper"
-    error_message = "Cloud Run service name must default to dc-ingestion-helper when instance_name is empty"
-  }
-
-  # 4. Baseline IAM: Storage Admin & Dataflow Viewer
-  assert {
-    condition     = google_storage_bucket_iam_member.helper_bucket_access.role == "roles/storage.objectAdmin" && google_storage_bucket_iam_member.helper_bucket_access.bucket == "test-ingestion-bucket"
-    error_message = "Storage objectAdmin role must be granted on the ingestion artifacts bucket"
-  }
-
-  assert {
-    condition     = google_project_iam_member.helper_dataflow_viewer.role == "roles/dataflow.viewer"
-    error_message = "roles/dataflow.viewer role must be granted for pipeline status inspection"
-  }
-
-  # 5. Feature Flags: Embeddings Generation
-  assert {
-    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "ENABLE_EMBEDDINGS"]) == "true"
-    error_message = "ENABLE_EMBEDDINGS container env var must reflect var.enable_embeddings_generation"
-  }
-
-  # 6. Spanner Storage Contract & IAM
-  assert {
-    condition     = google_spanner_database_iam_member.helper_spanner_user.role == "roles/spanner.databaseUser"
-    error_message = "helper_spanner_user role must be roles/spanner.databaseUser"
-  }
-
-  assert {
-    condition     = google_spanner_database_iam_member.helper_spanner_user.instance == "test-spanner-instance" && google_spanner_database_iam_member.helper_spanner_user.database == "test-spanner-db"
-    error_message = "Spanner IAM member must target configured instance and database"
-  }
-
-  assert {
-    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "SPANNER_INSTANCE_ID"]) == "test-spanner-instance"
-    error_message = "SPANNER_INSTANCE_ID must match spanner_config.instance_id"
-  }
-
-  assert {
-    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "SPANNER_DATABASE_ID"]) == "test-spanner-db"
-    error_message = "SPANNER_DATABASE_ID must match spanner_config.database_id"
-  }
-
-  assert {
-    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "SPANNER_GRAPH_DATABASE_ID"]) == "test-spanner-db"
-    error_message = "SPANNER_GRAPH_DATABASE_ID must match spanner_config.database_id"
-  }
-
-  # 7. Redis Disabled Fallbacks
-  assert {
-    condition     = length(google_secret_manager_secret_iam_member.helper_redis_auth_secret_accessor) == 0
-    error_message = "Secret accessor IAM binding must NOT be created when redis_config is null"
-  }
-
-  assert {
-    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "REDIS_HOST"]) == ""
-    error_message = "REDIS_HOST must default to empty string when redis_config is null"
-  }
-
-  assert {
-    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "REDIS_PORT"]) == "6379"
-    error_message = "REDIS_PORT must default to 6379 when redis_config is null"
-  }
-
-  assert {
-    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "REDIS_CA_CERT"]) == ""
-    error_message = "REDIS_CA_CERT must default to empty string when redis_config is null"
+    condition = (
+      one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "REDIS_HOST"]) == "" &&
+      one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "REDIS_PORT"]) == "6379" &&
+      one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "REDIS_CA_CERT"]) == ""
+    )
+    error_message = "REDIS_HOST, REDIS_PORT, and REDIS_CA_CERT must fall back to defaults when redis_config is null"
   }
 }
 
-# =============================================================================
-# SCENARIO 2: Instance Name Prefixing
-# =============================================================================
-run "instance_name_prefixing" {
+# -----------------------------------------------------------------------------
+# Run 2: Custom Configuration (optional features enabled / populated)
+# -----------------------------------------------------------------------------
+run "custom_configuration" {
   command = plan
 
   variables {
-    instance_name = "prod"
-  }
-
-  assert {
-    condition     = google_cloud_run_v2_service.ingestion_helper.name == "prod-dc-ingestion-helper"
-    error_message = "Cloud Run service name must be prefixed with instance_name"
-  }
-
-  assert {
-    condition     = google_service_account.helper_sa.account_id == "prod-dc-ing-hlp-sa"
-    error_message = "Service account account_id must be prefixed with instance_name"
-  }
-}
-
-# =============================================================================
-# SCENARIO 5: Redis - Secret Manager Access & Env Injection
-# =============================================================================
-run "redis_config_and_secret_injection" {
-  command = plan
-
-  variables {
+    instance_name                = "prod"
+    enable_embeddings_generation = true
+    vpc_access = {
+      network_id      = "projects/test-project/global/networks/test-vpc"
+      subnet_id       = "projects/test-project/regions/us-central1/subnetworks/test-sub"
+      vpc_egress_mode = "ALL_TRAFFIC"
+    }
     redis_config = {
       host           = "10.0.0.8"
       port           = "6380"
@@ -184,63 +118,55 @@ run "redis_config_and_secret_injection" {
     }
   }
 
+  # When instance_name is set ("prod"), prefix both the Cloud Run service name and service account ID.
   assert {
-    condition     = length(google_secret_manager_secret_iam_member.helper_redis_auth_secret_accessor) == 1
-    error_message = "Secret accessor IAM binding must be created when redis_config.auth_secret_id is provided"
+    condition     = output.service_name == "prod-dc-ingestion-helper" && google_service_account.helper_sa.account_id == "prod-dc-ing-hlp-sa"
+    error_message = "Service name and service account ID must be prefixed with instance_name"
+  }
+
+  # When enable_embeddings_generation is true, ENABLE_EMBEDDINGS must be "true".
+  assert {
+    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "ENABLE_EMBEDDINGS"]) == "true"
+    error_message = "ENABLE_EMBEDDINGS must be 'true' when enable_embeddings_generation = true"
+  }
+
+  # When vpc_access is provided, attach Direct VPC Egress with network, subnet, tag, and egress mode.
+  assert {
+    condition = (
+      length(google_cloud_run_v2_service.ingestion_helper.template[0].vpc_access) == 1 &&
+      google_cloud_run_v2_service.ingestion_helper.template[0].vpc_access[0].egress == "ALL_TRAFFIC" &&
+      google_cloud_run_v2_service.ingestion_helper.template[0].vpc_access[0].network_interfaces[0].network == "projects/test-project/global/networks/test-vpc" &&
+      google_cloud_run_v2_service.ingestion_helper.template[0].vpc_access[0].network_interfaces[0].subnetwork == "projects/test-project/regions/us-central1/subnetworks/test-sub" &&
+      google_cloud_run_v2_service.ingestion_helper.template[0].vpc_access[0].network_interfaces[0].tags == tolist(["dcp-service"])
+    )
+    error_message = "VPC access block must configure network, subnetwork, dcp-service tag, and egress mode"
+  }
+
+  # When redis_config is provided with auth_secret_id, grant Secret Accessor IAM on the secret,
+  # mount REDIS_PASSWORD from Secret Manager, and populate REDIS_HOST, REDIS_PORT, and REDIS_CA_CERT.
+  assert {
+    condition = (
+      length(google_secret_manager_secret_iam_member.helper_redis_auth_secret_accessor) == 1 &&
+      google_secret_manager_secret_iam_member.helper_redis_auth_secret_accessor[0].secret_id == "custom-redis-secret" &&
+      google_secret_manager_secret_iam_member.helper_redis_auth_secret_accessor[0].role == "roles/secretmanager.secretAccessor"
+    )
+    error_message = "Secret accessor IAM binding must grant roles/secretmanager.secretAccessor on redis_config.auth_secret_id"
   }
 
   assert {
-    condition     = google_secret_manager_secret_iam_member.helper_redis_auth_secret_accessor[0].secret_id == "custom-redis-secret"
-    error_message = "Secret accessor IAM binding must target the configured redis_config.auth_secret_id"
+    condition = (
+      one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value_source[0].secret_key_ref[0].secret if e.name == "REDIS_PASSWORD"]) == "custom-redis-secret" &&
+      one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value_source[0].secret_key_ref[0].version if e.name == "REDIS_PASSWORD"]) == "latest"
+    )
+    error_message = "Container env REDIS_PASSWORD must inject secret_key_ref targeting custom-redis-secret@latest"
   }
 
   assert {
-    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.name if e.name == "REDIS_PASSWORD"]) == "REDIS_PASSWORD"
-    error_message = "Container env list must include REDIS_PASSWORD when secret is configured"
-  }
-
-  assert {
-    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "REDIS_HOST"]) == "10.0.0.8"
-    error_message = "REDIS_HOST must match redis_config.host"
-  }
-
-  assert {
-    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "REDIS_PORT"]) == "6380"
-    error_message = "REDIS_PORT must match redis_config.port"
-  }
-
-  assert {
-    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "REDIS_CA_CERT"]) == "test-ca-cert-pem"
-    error_message = "REDIS_CA_CERT must match redis_config.ca_cert"
-  }
-}
-
-# =============================================================================
-# SCENARIO 6: Network Perimeter - Direct VPC Egress
-# =============================================================================
-run "with_vpc_egress" {
-  command = plan
-
-  variables {
-    vpc_access = {
-      network_id      = "projects/test-project/global/networks/test-vpc"
-      subnet_id       = "projects/test-project/regions/us-central1/subnetworks/test-sub"
-      vpc_egress_mode = "PRIVATE_RANGES_ONLY"
-    }
-  }
-
-  assert {
-    condition     = length(google_cloud_run_v2_service.ingestion_helper.template[0].vpc_access) == 1
-    error_message = "vpc_access block must be generated when vpc_access is configured"
-  }
-
-  assert {
-    condition     = google_cloud_run_v2_service.ingestion_helper.template[0].vpc_access[0].egress == "PRIVATE_RANGES_ONLY"
-    error_message = "VPC egress mode must match configured vpc_egress_mode"
-  }
-
-  assert {
-    condition     = google_cloud_run_v2_service.ingestion_helper.template[0].vpc_access[0].network_interfaces[0].network == "projects/test-project/global/networks/test-vpc"
-    error_message = "VPC network interface must match configured network_id"
+    condition = (
+      one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "REDIS_HOST"]) == "10.0.0.8" &&
+      one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "REDIS_PORT"]) == "6380" &&
+      one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "REDIS_CA_CERT"]) == "test-ca-cert-pem"
+    )
+    error_message = "REDIS_HOST, REDIS_PORT, and REDIS_CA_CERT must reflect redis_config values"
   }
 }

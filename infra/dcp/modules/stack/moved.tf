@@ -31,7 +31,7 @@ moved {
 
 moved {
   from = module.ingestion_helper_service.google_spanner_database_iam_member.helper_spanner_user[0]
-  to   = module.ingestion_helper_service[0].google_spanner_database_iam_member.helper_spanner_user[0]
+  to   = module.ingestion_helper_service[0].google_spanner_database_iam_member.helper_spanner_user
 }
 
 moved {
