@@ -870,10 +870,10 @@ In this case, you should first run the shared import and wait till it completes,
 
 Therefore, the safest way to run this type of workflow is to do it in 2 separate steps:
 1. Run `uvx datacommons-cli admin ingest start --imports shared_schema_import`.
-1. Wait until the workflow completes and verify that all the required nodes from `shared_schema_import` are present in the database (see next step).
+1. Wait until the workflow completes and [verify](#verify) that all the required nodes from `shared_schema_import` are present in the database.
 1. Run `uvx datacommons-cli admin ingest start --imports data_import_1,data_import_2`.
 
-### Step 3: Verify data
+### Step 3: Verify data {#verify}
 
 To verify that the data has been imported correctly:
 
@@ -1103,7 +1103,7 @@ dataflow,DC:DF_OBS(1.0.0),I,who:Ratio_CigaretteSmoking_Adults_ByGender,country/A
 
 ## Update your instance {#update-your-instance}
 
-### Update imported data or add new imports {#update-imports}
+### Update imported data or add new imports
 
 To update data you've already imported:
 
