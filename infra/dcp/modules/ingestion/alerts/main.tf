@@ -81,12 +81,7 @@ resource "google_monitoring_alert_policy" "ingestion_lock_approaching_retention_
       ## ⚠️ WARNING: Ingestion Lock Held > 50% of Spanner Version Retention
       The global ingestion lock in Spanner database `${var.database_id}` has been held for over **${local.warn_50pct_display}** (50% of the Spanner version retention period `${var.version_retention_period}`).
       
-      ### Impact:
-      If this ingestion fails after the Spanner retention window closes, **Point-in-Time Recovery (PITR) rollback will fail** because Spanner will have purged the pre-ingestion snapshot timestamp `t_pre_timestamp`.
-      
-      ### Recommended Action:
-      1. Check the active workflow execution and Dataflow job progress.
-      2. If the Dataflow pipeline or postprocessing job is hung, consider cancelling it before the retention window expires so PITR rollback can still succeed.
+      The running ingestion is approaching the Spanner retention window.
     EOT
     mime_type = "text/markdown"
   }
@@ -124,12 +119,7 @@ resource "google_monitoring_alert_policy" "ingestion_lock_approaching_retention_
       ## ⚠️ WARNING: Ingestion Lock Approaching 90% of Spanner Retention Limit
       The ingestion lock in Spanner database `${var.database_id}` has been held for over **${local.warn_90pct_display}** (90% of `${var.version_retention_period}`).
       
-      ### Imminent Danger:
-      **PITR rollback window closes in ${local.remaining_10pct_display}!**
-      Once the retention period passes, Spanner garbage-collection permanently deletes past data versions. Any subsequent rollback attempt will throw an out-of-range timestamp error, leaving the database partially written and corrupt.
-      
-      ### Recommended Action:
-      Inspect the running ingestion immediately. If progress is stalled, abort the workflow to trigger automatic PITR rollback before the remaining 10% window expires.
+      The ingestion is dangerously close to exceeding the configured retention window (${local.remaining_10pct_display} remaining).
     EOT
     mime_type = "text/markdown"
   }
@@ -139,7 +129,7 @@ resource "google_monitoring_alert_policy" "ingestion_lock_approaching_retention_
 
 resource "google_monitoring_alert_policy" "ingestion_lock_breached_retention_critical" {
   count        = var.enable_alert_100pct ? 1 : 0
-  display_name = "${local.instance_prefix}🚨 CRITICAL: Ingestion Lock Exceeded 100% of Spanner Retention (PITR Invalidated)"
+  display_name = "${local.instance_prefix}🚨 CRITICAL: Ingestion Lock Exceeded 100% of Spanner Retention"
   project      = var.project_id
   combiner     = "OR"
   severity     = "CRITICAL"
@@ -164,18 +154,10 @@ resource "google_monitoring_alert_policy" "ingestion_lock_breached_retention_cri
 
   documentation {
     content   = <<-EOT
-      ## 🚨 CRITICAL PROD ERROR: Spanner Version Retention Horizon Breached!
-      The ingestion lock in Spanner database `${var.database_id}` has been held for over **${local.crit_100pct_display}**, completely exceeding the configured Spanner version retention period (`${var.version_retention_period}`).
+      ## 🚨 CRITICAL: Spanner Version Retention Horizon Exceeded!
+      The ingestion lock in Spanner database `${var.database_id}` has been held for over **${local.crit_100pct_display}**, exceeding the configured Spanner version retention period (`${var.version_retention_period}`).
       
-      ### Outage & Data Corruption Risk:
-      - **Point-in-Time Recovery (PITR) is now BROKEN**: The pre-ingestion snapshot timestamp `t_pre_timestamp` has been permanently purged by Spanner's compaction garbage collector.
-      - **Automatic rollback will FAIL**: If the Dataflow pipeline fails or is cancelled now, the rollback job will fail with `SpannerException: Out of range timestamp: Earliest possible read timestamp is...`.
-      - **Database is in an unrecoverable in-flight state**: The database cannot be automatically restored via PITR.
-      
-      ### Immediate Action Required:
-      1. Contact database on-call immediately.
-      2. Do NOT blindly cancel the Dataflow job if it is still writing healthy data, as cancellation rollback will fail.
-      3. If the pipeline has failed or corrupted data, prepare to restore from an external Spanner backup.
+      Queries will serve data at the latest timestamp, which may introduce data integrity issues while this uncommitted or in-flight ingestion remains unresolved.
     EOT
     mime_type = "text/markdown"
   }
