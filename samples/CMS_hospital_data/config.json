@@ -1,0 +1,28 @@
+{
+  "inputFiles": [
+    {
+      "pattern": "Alaska_hospital_entities.csv",
+      "importType": "entities",
+      "rowEntityType": "Hospital",
+      "idColumn": "facility_id",
+      "entityColumns": [
+        "City",
+        "zip"
+      ],
+      "provenance": "dcid:UnplannedHospitalVisits"
+    },
+    {
+      "pattern": "{unplanned_hospital_visits.csv,schema.mcf}",
+      "importType": "observations",
+      "entityType": "Hospital",
+      "provenance": "dcid:UnplannedHospitalVisits",
+      "columnMappings": {
+        "dcid:observationAbout": "entity",
+        "dcid:variableMeasured": "variable",
+        "dcid:observationDate": "date",
+        "dcid:value": "value",
+        "dcid:observationPeriod": "observationPeriod"
+      }
+    }
+  ]
+}
