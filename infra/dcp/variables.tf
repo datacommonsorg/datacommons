@@ -613,7 +613,25 @@ variable "skip_container_restarts" {
 }
 
 variable "ingestion_enable_lock_retention_alerts" {
-  description = "Enable Cloud Monitoring alert policies when the ingestion lock duration approaches the Spanner version retention period (50% warning, 90% critical)."
+  description = "Toggle to enable/disable all Ingestion Lock retention alerts (50% warning, 90% warning, 100% critical). Default: true."
+  type        = bool
+  default     = true
+}
+
+variable "ingestion_enable_lock_retention_alert_50pct" {
+  description = "Enable the 50% retention window warning alert. Default: true."
+  type        = bool
+  default     = true
+}
+
+variable "ingestion_enable_lock_retention_alert_90pct" {
+  description = "Enable the 90% retention window warning alert. Default: true."
+  type        = bool
+  default     = true
+}
+
+variable "ingestion_enable_lock_retention_alert_100pct" {
+  description = "Enable the 100% retention horizon breach critical alert. Default: true."
   type        = bool
   default     = true
 }
