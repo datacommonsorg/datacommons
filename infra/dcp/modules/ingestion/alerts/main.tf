@@ -1,12 +1,9 @@
 locals {
-  # Parse Spanner version retention period into seconds
+  # Parse Spanner version retention period into seconds (valid Spanner values: [1h, 7d])
   retention_raw = var.version_retention_period
   retention_seconds = (
     endswith(local.retention_raw, "d") ? tonumber(trimsuffix(local.retention_raw, "d")) * 86400 :
-    endswith(local.retention_raw, "h") ? tonumber(trimsuffix(local.retention_raw, "h")) * 3600 :
-    endswith(local.retention_raw, "m") ? tonumber(trimsuffix(local.retention_raw, "m")) * 60 :
-    endswith(local.retention_raw, "s") ? tonumber(trimsuffix(local.retention_raw, "s")) :
-    tonumber(local.retention_raw)
+    tonumber(trimsuffix(local.retention_raw, "h")) * 3600
   )
   warn_50pct_threshold_sec  = floor(local.retention_seconds * 0.50)
   warn_90pct_threshold_sec  = floor(local.retention_seconds * 0.90)
@@ -19,6 +16,10 @@ locals {
 
   instance_prefix   = var.instance_name != "" ? "${var.instance_name} - " : ""
   clean_name_prefix = var.instance_name != "" ? "${replace(lower(var.instance_name), "_", "-")}-" : ""
+
+  # Cloud Monitoring requires autoClose to be between 30 minutes (1800s) and 168 hours (604800s)
+  auto_close_seconds      = max(local.retention_seconds, 1800)
+  auto_close_crit_seconds = max(local.retention_seconds * 2, 1800)
 }
 
 # ==============================================================================
@@ -70,7 +71,7 @@ resource "google_monitoring_alert_policy" "ingestion_lock_approaching_retention_
     notification_rate_limit {
       period = "3600s"
     }
-    auto_close = "${local.retention_seconds}s"
+    auto_close = "${local.auto_close_seconds}s"
   }
 
   documentation {
@@ -113,7 +114,7 @@ resource "google_monitoring_alert_policy" "ingestion_lock_approaching_retention_
     notification_rate_limit {
       period = "1800s"
     }
-    auto_close = "${local.retention_seconds}s"
+    auto_close = "${local.auto_close_seconds}s"
   }
 
   documentation {
@@ -156,7 +157,7 @@ resource "google_monitoring_alert_policy" "ingestion_lock_breached_retention_cri
     notification_rate_limit {
       period = "900s"
     }
-    auto_close = "${local.retention_seconds * 2}s"
+    auto_close = "${local.auto_close_crit_seconds}s"
   }
 
   documentation {
