@@ -96,12 +96,14 @@ class TestCLIIngestion:
         )
         assert completed, f"Cloud Workflow execution '{exec_id}' failed or timed out."
 
-        # 4. Verify Spanner IngestionHistory record if table exists
+        # 4. Verify Spanner IngestionHistory record
         history = spanner_client.get_ingestion_history(exec_id)
-        if history is not None:
-            assert history.get("Status") == "SUCCESS", (
-                f"IngestionHistory status is '{history.get('Status')}', expected 'SUCCESS' for workflow '{exec_id}'"
-            )
+        assert history is not None, (
+            f"No IngestionHistory record for workflow '{exec_id}'"
+        )
+        assert history.get("Status") == "SUCCESS", (
+            f"IngestionHistory status is '{history.get('Status')}', expected 'SUCCESS' for workflow '{exec_id}'"
+        )
 
 
 class TestSpannerGraph:

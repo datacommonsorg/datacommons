@@ -548,7 +548,7 @@ def auth_headers(dcp_target: DCPTarget) -> dict:
 def dc_client(dcp_target: DCPTarget, auth_headers: dict):
     """Provides official datacommons-client Client connected to target testbed."""
     if not dcp_target.serving_url:
-        pytest.skip("Serving URL not configured for target instance.")
+        pytest.fail("Serving URL not configured for target instance.")
 
     if dcp_target.instance_name == "emulated":
         from tests.integration.emulated.environment import EmulatedEnvironment
@@ -580,7 +580,9 @@ def dc_client(dcp_target: DCPTarget, auth_headers: dict):
         url = f"{dcp_target.serving_url}/core/api/v2"
         yield DataCommonsClient(url=url)
     except Exception as e:
-        pytest.skip(f"datacommons-client not initialized: {e}")
+        # An unreachable or unauthorized serving endpoint is an environment
+        # failure, not a reason to skip every serving test.
+        pytest.fail(f"datacommons-client not initialized: {e}")
     finally:
         requests.Session.request = orig_session_request
         requests.get = orig_requests_get
@@ -590,7 +592,7 @@ def dc_client(dcp_target: DCPTarget, auth_headers: dict):
 def mcp_client(dcp_target: DCPTarget, auth_headers: dict) -> MCPClient:
     """Provides client for executing MCP tools against {serving_url}/mcp."""
     if not dcp_target.serving_url:
-        pytest.skip("Serving URL not configured for target instance.")
+        pytest.fail("Serving URL not configured for target instance.")
 
     if dcp_target.instance_name == "emulated":
         from tests.integration.emulated.environment import EmulatedEnvironment
