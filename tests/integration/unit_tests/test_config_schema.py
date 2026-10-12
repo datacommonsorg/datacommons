@@ -250,7 +250,20 @@ def test_expected_targets_parsed_from_manifest():
         t.dcid: t for spec in manifest.serving_api.nodes for t in spec.expected_targets
     }
     assert targets["Person"].requires_base_dc is True
+    assert targets["Person"].name == "Person"
     assert targets["Person"].types == ["Class"]
     assert targets["FooBarGroup"].requires_base_dc is False
     assert targets["FooBarGroup"].types == ["StatVarGroup"]
     assert isinstance(targets["FooBarGroup"], ExpectedTargetSpec)
+
+
+def test_check_observation_entities_not_local_parsed_and_merged():
+    """The flag parses from manifests and is enabled in a merge if any input enables it."""
+    assert load_test_manifest(
+        "foobar_wages"
+    ).ingestion.spanner_expectations.check_observation_entities_not_local
+    assert not load_test_manifest(
+        "financial_trade"
+    ).ingestion.spanner_expectations.check_observation_entities_not_local
+    merged = load_test_manifest(["financial_trade", "foobar_wages"])
+    assert merged.ingestion.spanner_expectations.check_observation_entities_not_local

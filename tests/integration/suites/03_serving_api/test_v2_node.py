@@ -83,10 +83,9 @@ def _assert_expected_targets(
         label = f"'{spec.node_dcid} {spec.expression}' target '{expected.dcid}'"
         node = targets.get(expected.dcid)
         assert node is not None, f"{label} not returned. Got: {sorted(targets)}"
-        if expected.name is not None:
-            assert node.name == expected.name, (
-                f"{label} name is {node.name!r}, expected {expected.name!r}"
-            )
+        assert node.name == expected.name, (
+            f"{label} name is {node.name!r}, expected {expected.name!r}"
+        )
         types = list(node.types or [])
         missing = set(expected.types) - set(types)
         assert not missing, (

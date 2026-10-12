@@ -14,6 +14,7 @@ ingestion:
     - "tests/integration/test_data/foobar_education"
   spanner_expectations:
     exact_observation_count: 6
+    check_observation_entities_not_local: true
     expected_nodes:
       - subject_id: "FooBarCustomEducation"
         expected_types: ["Provenance"]
@@ -53,6 +54,7 @@ serving_api:
       expression: "->populationType"
       expected_targets:
         - dcid: "Person"
+          name: "Person"
           types: ["Class"]
           requires_base_dc: true
     - node_dcid: "foobar/SchoolCompletionRate"

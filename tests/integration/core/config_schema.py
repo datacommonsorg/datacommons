@@ -50,6 +50,9 @@ class SpannerExpectations:
     min_observation_count: int | None = None
     expected_nodes: list[ExpectedNode] = field(default_factory=list)
     expected_edges: list[ExpectedEdge] = field(default_factory=list)
+    # Assert that single-entity observation entities (e.g. country/USA) have no
+    # local Node rows, so Mixer serves them from Base DC.
+    check_observation_entities_not_local: bool = False
 
 
 @dataclass
@@ -92,7 +95,7 @@ class ExpectedTargetSpec:
     """Expected node at the far end of a single-hop arc returned by a node query."""
 
     dcid: str
-    name: str | None = None
+    name: str
     types: list[str] = field(default_factory=list)
     # The target lives in Base DC and must be hydrated by Mixer federation.
     requires_base_dc: bool = False
@@ -275,6 +278,10 @@ def merge_manifests(manifests: Sequence[TestManifest]) -> TestManifest:
         min_observation_count=total_min,
         expected_nodes=expected_nodes,
         expected_edges=expected_edges,
+        check_observation_entities_not_local=any(
+            m.ingestion.spanner_expectations.check_observation_entities_not_local
+            for m in manifests
+        ),
     )
     ingestion = IngestionManifestConfig(
         dataset_dirs=dataset_dirs, spanner_expectations=spanner_exp

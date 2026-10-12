@@ -167,15 +167,18 @@ class TestSpannerGraph:
         one makes Mixer serve it from Spanner instead of federating to Base DC.
         Only single-entity series are checked; multi-entity columns are not yet.
         """
-        if not test_manifest.stages.ingestion:
-            pytest.skip("Ingestion stage disabled in test manifest.")
+        expectations = test_manifest.ingestion.spanner_expectations
+        if (
+            not test_manifest.stages.ingestion
+            or not expectations.check_observation_entities_not_local
+        ):
+            pytest.skip("Observation entity check not enabled in test manifest.")
 
         count_rows = spanner_client.query(
             "SELECT COUNT(DISTINCT entity1) AS n FROM TimeSeries WHERE entity2 IS NULL"
         )
         entity_count = count_rows[0]["n"] if count_rows else 0
-        if entity_count == 0:
-            pytest.skip("No single-entity observations to check.")
+        assert entity_count > 0, "No single-entity observations found in TimeSeries."
 
         rows = spanner_client.query(
             "SELECT subject_id, types FROM Node WHERE subject_id IN "
