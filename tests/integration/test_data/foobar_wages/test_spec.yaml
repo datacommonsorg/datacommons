@@ -25,11 +25,6 @@ ingestion:
         expected_types: ["StatisticalVariable"]
       - subject_id: "FooBarGroup"
         expected_types: ["StatVarGroup"]
-    unexpected_node_subject_ids:
-      # Remote Base DC entities must NOT exist in the Spanner Node table as proxy entities.
-      - "country/USA"
-      - "country/CAN"
-      - "country/FRA"
     expected_edges:
       # Testing that we return edges tied to provenance source.
       - subject_id: "FooBarWages"
@@ -73,11 +68,28 @@ serving_api:
     - node_dcid: "FooBarWages"
       expression: "->source"
       expected_values: ["dc/s/FooBarOrganization", "FooBar Statistics Organization"]
-    # Verifies Base DC federation for remote entity name hydration.
-    # If proxy entities exist in Spanner, Mixer will not treat country/USA as unresolved and name will be missing.
-    - node_dcid: "country/USA"
-      expression: "->name"
-      expected_values: ["United States"]
+    # Local vs. remote arc targets. "remote" targets are referenced but not declared
+    # in this dataset, so Mixer must hydrate them from Base DC; "local" targets
+    # resolve from Spanner. The test verifies each label against the dataset MCFs.
+    - node_dcid: "average_annual_wage"
+      expression: "->populationType"
+      expected_targets:
+        - dcid: "Person"
+          locality: "remote"
+    - node_dcid: "average_annual_wage"
+      expression: "->memberOf"
+      expected_targets:
+        - dcid: "FooBarGroup"
+          locality: "local"
+          name: "FooBar"
+          types: ["StatVarGroup"]
+    - node_dcid: "gender_wage_gap"
+      expression: "->measuredProperty"
+      expected_targets:
+        - dcid: "wagesAnnual"
+          locality: "local"
+          name: "wagesAnnual"
+          types: ["Property"]
 
   point_observations:
     - observation_about: ["country/USA", "country/CAN"]

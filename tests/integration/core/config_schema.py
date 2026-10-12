@@ -49,7 +49,6 @@ class SpannerExpectations:
     exact_observation_count: int | None = None
     min_observation_count: int | None = None
     expected_nodes: list[ExpectedNode] = field(default_factory=list)
-    unexpected_node_subject_ids: list[str] = field(default_factory=list)
     expected_edges: list[ExpectedEdge] = field(default_factory=list)
 
 
@@ -89,10 +88,27 @@ class PostprocessingManifestConfig:
 
 
 @dataclass
+class ExpectedTargetSpec:
+    """Expected node at the far end of an arc returned by a node query.
+
+    locality:
+      "local":  the target is declared in the dataset and served from Spanner.
+      "remote": the target is not stored locally; Mixer must hydrate it from
+                Base DC (non-empty name, types other than ["Thing"]).
+    """
+
+    dcid: str
+    locality: str = "local"
+    name: str | None = None
+    types: list[str] = field(default_factory=list)
+
+
+@dataclass
 class NodeQuerySpec:
     node_dcid: str
     expression: str = "->name"
     expected_values: list[str] = field(default_factory=list)
+    expected_targets: list[ExpectedTargetSpec] = field(default_factory=list)
 
 
 @dataclass
@@ -259,20 +275,10 @@ def merge_manifests(manifests: Sequence[TestManifest]) -> TestManifest:
                 seen_edges.add(edge_key)
                 expected_edges.append(e)
 
-    # Deduplicate unexpected nodes by subject_id
-    seen_unexpected_nodes = set()
-    unexpected_nodes: list[str] = []
-    for m in manifests:
-        for uid in m.ingestion.spanner_expectations.unexpected_node_subject_ids:
-            if uid not in seen_unexpected_nodes:
-                seen_unexpected_nodes.add(uid)
-                unexpected_nodes.append(uid)
-
     spanner_exp = SpannerExpectations(
         exact_observation_count=total_exact,
         min_observation_count=total_min,
         expected_nodes=expected_nodes,
-        unexpected_node_subject_ids=unexpected_nodes,
         expected_edges=expected_edges,
     )
     ingestion = IngestionManifestConfig(

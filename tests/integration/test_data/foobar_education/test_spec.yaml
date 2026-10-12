@@ -49,6 +49,18 @@ serving_api:
     - node_dcid: "foobar/SchoolCompletionRate"
       expression: "->name"
       expected_values: ["FooBar School Completion Rate"]
+    - node_dcid: "foobar/SchoolCompletionRate"
+      expression: "->populationType"
+      expected_targets:
+        - dcid: "Person"
+          locality: "remote"
+    - node_dcid: "foobar/SchoolCompletionRate"
+      expression: "->memberOf"
+      expected_targets:
+        - dcid: "FooBarCustomGroup"
+          locality: "local"
+          name: "FooBar Education"
+          types: ["StatVarGroup"]
 
   point_observations:
     - observation_about: ["country/USA"]

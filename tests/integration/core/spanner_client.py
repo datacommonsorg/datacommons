@@ -40,12 +40,15 @@ class SpannerClient:
         return self._database
 
     def query(
-        self, sql: str, params: dict[str, Any] | None = None
+        self,
+        sql: str,
+        params: dict[str, Any] | None = None,
+        param_types: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         """Executes a SQL read query on the Spanner database."""
         db = self._get_db()
         with db.snapshot() as snapshot:
-            results = snapshot.execute_sql(sql, params=params)
+            results = snapshot.execute_sql(sql, params=params, param_types=param_types)
             rows = []
             for row in results:
                 # Map column names to values

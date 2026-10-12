@@ -15,12 +15,17 @@
 from pathlib import Path
 
 import pytest
+from google.cloud import spanner
 
 from tests.integration.core.cli_runner import DatacommonsCLI
 from tests.integration.core.config_schema import (
     ExpectedEdge,
     ExpectedNode,
     TestManifest,
+)
+from tests.integration.core.dataset_introspection import (
+    declared_mcf_dcids,
+    observation_entity_provenances,
 )
 from tests.integration.core.spanner_client import SpannerClient
 from tests.integration.core.target import DCPTarget
@@ -154,19 +159,65 @@ class TestSpannerGraph:
             "not found in Spanner Edge table"
         )
 
-    def test_05_spanner_unexpected_nodes_absent(
+    def test_05_observation_entities_not_local_nodes(
         self,
         seeded_testbed,
         spanner_client: SpannerClient,
-        unexpected_node_id: str | None,
+        test_manifest: TestManifest,
     ):
-        """Verifies that declared unexpected nodes (e.g. remote Base DC proxy entities) do NOT exist in the Spanner Node table."""
-        if not unexpected_node_id:
-            pytest.skip("No unexpected node IDs declared or ingestion stage disabled.")
+        """Verifies entities referenced by this dataset's observations are not stored as local nodes.
 
-        node = spanner_client.get_node(unexpected_node_id)
-        assert node is None, (
-            f"Forbidden proxy node '{unexpected_node_id}' found in Spanner Node table: {node}. "
-            "Remote Base DC entities must not be imported as proxy nodes in local Spanner "
-            "so that Mixer can properly identify them as remote and federate to Base DC."
+        Mixer treats a DCID as local if and only if it has a row in Node.subject_id.
+        Entities that observations point to (e.g. country/USA) live in Base DC, so
+        ingestion must not write Node rows for them (proxy entities). A proxy row
+        makes Mixer serve the entity from Spanner (typeOf only, no name) instead of
+        federating it to Base DC.
+        """
+        if not test_manifest.stages.ingestion:
+            pytest.skip("Ingestion stage disabled in test manifest.")
+
+        dataset_dirs = test_manifest.ingestion.dataset_dirs
+        provenances = sorted(observation_entity_provenances(dataset_dirs))
+        if not provenances:
+            pytest.skip(
+                f"No input files with an observationAbout column under {dataset_dirs} "
+                "(multi-entity datasets are not covered yet)."
+            )
+        params = {"provenances": provenances}
+        param_types = {
+            "provenances": spanner.param_types.Array(spanner.param_types.STRING)
+        }
+
+        # Non-vacuity guard: the scoping must match observations this dataset wrote.
+        count_rows = spanner_client.query(
+            "SELECT COUNT(DISTINCT observation_about) AS n FROM Observation "
+            "WHERE provenance IN UNNEST(@provenances)",
+            params=params,
+            param_types=param_types,
+        )
+        entity_count = count_rows[0]["n"] if count_rows else 0
+        assert entity_count > 0, (
+            f"No observations found for provenances {provenances}. "
+            "The check would pass vacuously; verify ingestion ran and Observation.provenance values."
+        )
+
+        rows = spanner_client.query(
+            "SELECT n.subject_id AS dcid, n.types AS types FROM Node n "
+            "WHERE n.subject_id IN ("
+            "  SELECT DISTINCT observation_about FROM Observation "
+            "  WHERE provenance IN UNNEST(@provenances))",
+            params=params,
+            param_types=param_types,
+        )
+        locally_declared = declared_mcf_dcids(dataset_dirs)
+        violations = sorted(
+            (r["dcid"], list(r["types"] or []))
+            for r in rows
+            if r["dcid"] not in locally_declared
+        )
+        assert not violations, (
+            f"{len(violations)} of {entity_count} observation entities are stored as local "
+            f"Node rows (proxy entities): {violations[:10]}. Mixer will serve them from "
+            "Spanner instead of Base DC. Check that the preprocessor runs with "
+            "IMPORT_PROXY_ENTITIES=false."
         )

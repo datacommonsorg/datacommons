@@ -19,6 +19,7 @@ import pytest
 from tests.integration.core.config_schema import (
     ExpectedEdge,
     ExpectedNode,
+    ExpectedTargetSpec,
     IndicatorResolutionSpec,
     IngestionManifestConfig,
     MCPAgentManifestConfig,
@@ -242,31 +243,13 @@ def test_load_multi_entity_manifest():
     assert query.constraints.get("destinationCountry") == "country/USA"
 
 
-def test_unexpected_node_subject_ids_merge_and_load():
-    """Verifies parsing and deduplication of unexpected_node_subject_ids."""
-    m1 = TestManifest(
-        name="m1",
-        ingestion=IngestionManifestConfig(
-            spanner_expectations=SpannerExpectations(
-                unexpected_node_subject_ids=["country/USA", "country/CAN"]
-            )
-        ),
-    )
-    m2 = TestManifest(
-        name="m2",
-        ingestion=IngestionManifestConfig(
-            spanner_expectations=SpannerExpectations(
-                unexpected_node_subject_ids=["country/CAN", "country/FRA"]
-            )
-        ),
-    )
-    merged = merge_manifests([m1, m2])
-    assert merged.ingestion.spanner_expectations.unexpected_node_subject_ids == [
-        "country/USA",
-        "country/CAN",
-        "country/FRA",
-    ]
-
-    # Verify loaded foobar_wages manifest has unexpected_node_subject_ids
-    wages_manifest = load_test_manifest("foobar_wages")
-    assert "country/USA" in wages_manifest.ingestion.spanner_expectations.unexpected_node_subject_ids
+def test_expected_targets_parsed_from_manifest():
+    """Verifies expected_targets on node queries parse into ExpectedTargetSpec."""
+    manifest = load_test_manifest("foobar_wages")
+    targets = {
+        t.dcid: t for spec in manifest.serving_api.nodes for t in spec.expected_targets
+    }
+    assert targets["Person"].locality == "remote"
+    assert targets["FooBarGroup"].locality == "local"
+    assert targets["FooBarGroup"].types == ["StatVarGroup"]
+    assert isinstance(targets["FooBarGroup"], ExpectedTargetSpec)
