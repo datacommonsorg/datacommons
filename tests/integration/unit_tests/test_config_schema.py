@@ -240,3 +240,33 @@ def test_load_multi_entity_manifest():
     assert query.constraints.get("variableMeasured") == "FinancialTrade"
     assert query.constraints.get("sourceCountry") == "country/FRA"
     assert query.constraints.get("destinationCountry") == "country/USA"
+
+
+def test_unexpected_node_subject_ids_merge_and_load():
+    """Verifies parsing and deduplication of unexpected_node_subject_ids."""
+    m1 = TestManifest(
+        name="m1",
+        ingestion=IngestionManifestConfig(
+            spanner_expectations=SpannerExpectations(
+                unexpected_node_subject_ids=["country/USA", "country/CAN"]
+            )
+        ),
+    )
+    m2 = TestManifest(
+        name="m2",
+        ingestion=IngestionManifestConfig(
+            spanner_expectations=SpannerExpectations(
+                unexpected_node_subject_ids=["country/CAN", "country/FRA"]
+            )
+        ),
+    )
+    merged = merge_manifests([m1, m2])
+    assert merged.ingestion.spanner_expectations.unexpected_node_subject_ids == [
+        "country/USA",
+        "country/CAN",
+        "country/FRA",
+    ]
+
+    # Verify loaded foobar_wages manifest has unexpected_node_subject_ids
+    wages_manifest = load_test_manifest("foobar_wages")
+    assert "country/USA" in wages_manifest.ingestion.spanner_expectations.unexpected_node_subject_ids

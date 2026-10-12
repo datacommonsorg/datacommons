@@ -25,6 +25,11 @@ ingestion:
         expected_types: ["StatisticalVariable"]
       - subject_id: "FooBarGroup"
         expected_types: ["StatVarGroup"]
+    unexpected_node_subject_ids:
+      # Remote Base DC entities must NOT exist in the Spanner Node table as proxy entities.
+      - "country/USA"
+      - "country/CAN"
+      - "country/FRA"
     expected_edges:
       # Testing that we return edges tied to provenance source.
       - subject_id: "FooBarWages"
@@ -68,6 +73,11 @@ serving_api:
     - node_dcid: "FooBarWages"
       expression: "->source"
       expected_values: ["dc/s/FooBarOrganization", "FooBar Statistics Organization"]
+    # Verifies Base DC federation for remote entity name hydration.
+    # If proxy entities exist in Spanner, Mixer will not treat country/USA as unresolved and name will be missing.
+    - node_dcid: "country/USA"
+      expression: "->name"
+      expected_values: ["United States"]
 
   point_observations:
     - observation_about: ["country/USA", "country/CAN"]

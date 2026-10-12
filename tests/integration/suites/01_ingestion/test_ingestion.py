@@ -153,3 +153,20 @@ class TestSpannerGraph:
             f"Expected edge ({expected_edge_spec.subject_id} -> {expected_edge_spec.predicate} -> {expected_edge_spec.object_id}) "
             "not found in Spanner Edge table"
         )
+
+    def test_05_spanner_unexpected_nodes_absent(
+        self,
+        seeded_testbed,
+        spanner_client: SpannerClient,
+        unexpected_node_id: str | None,
+    ):
+        """Verifies that declared unexpected nodes (e.g. remote Base DC proxy entities) do NOT exist in the Spanner Node table."""
+        if not unexpected_node_id:
+            pytest.skip("No unexpected node IDs declared or ingestion stage disabled.")
+
+        node = spanner_client.get_node(unexpected_node_id)
+        assert node is None, (
+            f"Forbidden proxy node '{unexpected_node_id}' found in Spanner Node table: {node}. "
+            "Remote Base DC entities must not be imported as proxy nodes in local Spanner "
+            "so that Mixer can properly identify them as remote and federate to Base DC."
+        )

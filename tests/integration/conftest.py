@@ -176,6 +176,7 @@ def pytest_configure(config):
 
 INTEGRATION_FIXTURES = {
     "expected_node_spec",
+    "unexpected_node_id",
     "expected_edge_spec",
     "specialization_edge_spec",
     "indicator_spec",
@@ -220,6 +221,20 @@ def pytest_generate_tests(metafunc):
             )
         else:
             metafunc.parametrize("expected_node_spec", [None], ids=["disabled"])
+
+    # Spanner Unexpected Nodes (Asserting forbidden proxy nodes do not exist)
+    if "unexpected_node_id" in metafunc.fixturenames:
+        unexpected = (
+            manifest.ingestion.spanner_expectations.unexpected_node_subject_ids
+            if manifest.stages.ingestion
+            else []
+        )
+        if unexpected:
+            metafunc.parametrize(
+                "unexpected_node_id", unexpected, ids=unexpected
+            )
+        else:
+            metafunc.parametrize("unexpected_node_id", [None], ids=["disabled"])
 
     # 2. Spanner Edges
     if "expected_edge_spec" in metafunc.fixturenames:
