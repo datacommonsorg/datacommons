@@ -839,7 +839,9 @@ The *IMPORT_PATH* is the directory containing a `config.json` file, and is relat
 * To ingest multiple imports, specify comma-separated values for each `config.json` directory you would like to ingest now; for example `–-imports import1,import2.`
 * To ingest all data imports, specify `–-imports ALL_IMPORTS`.
 
-Depending on the amount of data being processed, it can take anywhere from 10 minutes to over an hour to complete. You can verify the processing by clicking on any of the output links to see the workflow's progress at any time. 
+> **Note:** If you have structured your imports in a way that have dependencies between MCF files -- for example, you define nodes in a "shared" MCF import, which are referenced by nodes in other imports -- you should always first run the shared import and wait till it completes, before running any dependent imports. This is because edges cannot be created until their associated nodes already exist; trying to run such imports in parallel can result in "race conditions" and missing data. For more information about this, see ...
+
+Depending on the amount of data being processed, it can take anywhere from 10 minutes to over an hour to complete. You can verify the processing by clicking on any of the output links to see the workflow's progress at any time.
 
 To verify that the workflow has completed, click the `Workflow Console Link` in the output and look for the **Executions** > **State** heading. When the workflow is complete, it shows **return result** - **succeeded**. 
 
@@ -1077,7 +1079,7 @@ dataflow,DC:DF_OBS(1.0.0),I,who:Ratio_CigaretteSmoking_Adults_ByGender,country/A
 
 ## Update your instance {#update-your-instance}
 
-### Update imported data
+### Update imported data or add new imports
 
 To update data you've already imported:
 
@@ -1086,7 +1088,7 @@ To update data you've already imported:
 3. [Upload the new/updated files to Cloud Storage](#upload).
 4. [Run the ingestion workflow](#workflow) as usual. 
 
-> **Note:** If your import depends on "shared" MCF files (which are assigned to a different provenance), you do not need to reingest those files unless they have changed. Conversely, if you do make changes to the shared files, you will need to reingest all imports that depend on them.
+> **Note:** If your import depends on "shared" MCF files in a separate import, you do not need to reingest those files _unless they have changed_. Conversely, if you do make changes to the shared files, you will need to reingest all imports that depend on them. Note that it is important to correctly sequence these imports: run the shared import to successful completion _before_ running the dependent imports. The reason for this is that when you run multiple imports in parallel, they are not sequenced according to your submission order, but according to the order in which the preprocessing jobs complete. This means that an import that depends on a shared import may fail to correctly create edges because the associated nodes don't exist yet.
 
 ### Delete data
 
@@ -1239,7 +1241,6 @@ To make deployment changes:
 If you have only made changes affecting the web service (such as updating the image container tag) and want to skip running the full ingestion workflow, simply rerun `terraform apply`.
 
 To deploy several Data Commons Platform instances, in multiple environments (e.g. dev, staging, pre-prod etc.), you should use Terraform Workspaces. See [Manage multiple Terraform deployments](https://docs.datacommons.org/custom_dc/deploy_cloud.html#multiple) for details. (Substitute the Terraform modules directory with your Terraform directory.)
-
 
 ### Handle resource creation variables {#handle}
 
