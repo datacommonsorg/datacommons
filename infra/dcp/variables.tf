@@ -52,7 +52,7 @@ variable "billing_project_id" {
 variable "dcp_version" {
   description = "The version of the Data Commons Platform to deploy. This controls the default tag for Docker images and template paths if specific overrides are not provided."
   type        = string
-  default     = "1.1.5"
+  default     = "1.1.6"
 }
 
 # =============================================================================
@@ -77,6 +77,12 @@ variable "auth_create_google_maps_api_key" {
   default     = true
 }
 
+variable "auth_google_maps_allowed_referrers" {
+  description = "A list of HTTP referrers allowed to use the Google Maps API key (e.g. ['https://example.com/*', 'http://localhost:*']). If empty, no browser referrer restrictions are enforced."
+  type        = list(string)
+  default     = []
+}
+
 # =============================================================================
 # Storage Module
 # =============================================================================
@@ -93,12 +99,109 @@ variable "storage_artifacts_bucket_name" {
   default     = ""
 }
 
+variable "storage_artifacts_bucket_enable_versioning" {
+  description = "Enable object versioning on the artifacts GCS bucket. Keeps historical versions of objects when overwritten or deleted."
+  type        = bool
+  default     = true
+}
+
+# =============================================================================
+# Network Module
+# =============================================================================
+# NOTE ON DISABLING / DECOMMISSIONING VPC:
+# If you wish to disable or destroy an existing VPC network (enable_network = false),
+# Google Cloud requires a two-stage apply to prevent "Subnetwork is in use" errors:
+#
+#   Stage 1: Detach workloads and prune inactive Cloud Run revisions
+#     Set enable_workload_vpc = false (and enable_redis = false if enabled),
+#     and set network_prune_cloud_run_revisions = true, keeping enable_network = true.
+#     Run `terraform apply`.
+#     This detaches Cloud Run and Dataflow, and prunes older 0-traffic revisions
+#     that hold Direct VPC Egress (/28) IP reservations.
+#
+#   Stage 2: Tear down the network infrastructure
+#     Set enable_network = false. Run `terraform apply`.
+#     The VPC, subnet, router, and NAT will now delete smoothly with no errors.
+# =============================================================================
+
+variable "enable_network" {
+  description = "Enable VPC networking infrastructure for DCP services and ingestion jobs. NOTE: To decommission, follow the two-stage process: set enable_workload_vpc = false first, apply, then set enable_network = false."
+  type        = bool
+  default     = false
+}
+
+variable "enable_workload_vpc" {
+  description = "Whether compute workloads (Cloud Run services, jobs, Dataflow) attach to the VPC. Defaults to true so workloads automatically use the VPC when enable_network = true. Set to false in Stage 1 of VPC decommissioning to cleanly detach workloads before destroying network infrastructure in Stage 2."
+  type        = bool
+  default     = true
+}
+
+variable "network_prune_cloud_run_revisions" {
+  description = "Prune inactive (0-traffic) Cloud Run revisions for DCP services (dc-datacommons-service and dc-ingestion-helper). Required when detaching workloads or destroying VPC to release Direct VPC Egress subnet IP reservations."
+  type        = bool
+  default     = false
+}
+
+variable "network_create_vpc" {
+  description = "Whether to provision a new custom VPC and subnet. Set to false to attach to an existing/Shared VPC."
+  type        = bool
+  default     = true
+}
+
+variable "network_name" {
+  description = "Name of the VPC network (used if network_create_vpc = true or for existing network lookup)."
+  type        = string
+  default     = "dc-vpc"
+}
+
+variable "network_subnet_cidr" {
+  description = "CIDR range for the private subnet."
+  type        = string
+  default     = "10.0.0.0/24"
+}
+
+variable "network_enable_cloud_nat" {
+  description = "Whether to provision a Cloud Router and Cloud NAT for secure outbound internet egress from private workers."
+  type        = bool
+  default     = false
+}
+
+variable "network_existing_network_id" {
+  description = "Network ID or self_link when attaching to an existing/Shared VPC."
+  type        = string
+  default     = null
+}
+
+variable "network_existing_subnet_id" {
+  description = "Subnet ID or self_link when attaching to an existing/Shared VPC."
+  type        = string
+  default     = null
+}
+
+variable "network_enable_flow_logs" {
+  description = "Enable VPC Flow Logs on the private subnet for network visibility and security forensics."
+  type        = bool
+  default     = true
+}
+
+variable "network_flow_sampling" {
+  description = "Sampling rate for VPC Flow Logs between 0.0 and 1.0 (default 1.0 = 100% of packets sampled, CIS GCP Benchmark standard)."
+  type        = number
+  default     = 1.0
+}
+
+variable "network_vpc_egress_mode" {
+  description = "VPC egress mode for Cloud Run services and jobs (PRIVATE_RANGES_ONLY or ALL_TRAFFIC). Set to ALL_TRAFFIC to route outbound internet traffic through Cloud NAT."
+  type        = string
+  default     = "PRIVATE_RANGES_ONLY"
+}
+
 # =============================================================================
 # Redis Module
 # =============================================================================
 
 variable "enable_redis" {
-  description = "Enable a Memorystore Redis instance for caching"
+  description = "Enable a Memorystore Redis instance for caching. NOTE: Cloud Memorystore instances only have private IP addresses and require VPC networking (enable_network = true) to be accessible from Cloud Run services."
   type        = bool
   default     = false
 }
@@ -139,16 +242,16 @@ variable "redis_replica_count" {
   default     = 1
 }
 
-variable "redis_vpc_network_name" {
-  description = "VPC network name"
-  type        = string
-  default     = "default"
+variable "redis_enable_auth" {
+  description = "Enable Redis AUTH (password authentication) on the Memorystore instance. When true, the auto-generated AUTH password is stored in Secret Manager and mounted as REDIS_PASSWORD on DCP services."
+  type        = bool
+  default     = true
 }
 
-variable "redis_vpc_connector_cidr" {
-  description = "CIDR range for the VPC Access Connector"
-  type        = string
-  default     = "10.13.0.0/28"
+variable "redis_enable_tls" {
+  description = "Enable in-transit TLS encryption (SERVER_AUTHENTICATION) on the Memorystore instance. When true, the auto-generated CA certificate is passed as REDIS_CA_CERT on DCP services."
+  type        = bool
+  default     = true
 }
 
 # =============================================================================
@@ -339,15 +442,25 @@ variable "ingestion_preprocessing_job_image" {
 }
 
 variable "ingestion_preprocessing_job_cpu" {
-  description = "CPU limit for the pre-processing job container"
+  description = "CPU limit in milliCPUs for the pre-processing Cloud Batch container (e.g. '8000' for 8 vCPUs)"
   type        = string
-  default     = "8"
+  default     = "8000"
+
+  validation {
+    condition     = can(regex("^[0-9]+$", var.ingestion_preprocessing_job_cpu)) && tonumber(var.ingestion_preprocessing_job_cpu) >= 1000
+    error_message = "The ingestion_preprocessing_job_cpu must be an integer representing at least 1000 milliCPUs (1 vCPU, e.g. '8000')."
+  }
 }
 
 variable "ingestion_preprocessing_job_memory" {
-  description = "Memory limit for the pre-processing job container"
+  description = "Memory limit in MiB for the pre-processing Cloud Batch container (e.g. '32768' for 32GiB)"
   type        = string
-  default     = "32G"
+  default     = "32768"
+
+  validation {
+    condition     = can(regex("^[0-9]+$", var.ingestion_preprocessing_job_memory)) && tonumber(var.ingestion_preprocessing_job_memory) >= 1024
+    error_message = "The ingestion_preprocessing_job_memory must be an integer representing at least 1024 MiB (1 GiB, e.g. '32768')."
+  }
 }
 
 variable "ingestion_preprocessing_job_timeout" {
@@ -429,17 +542,17 @@ variable "ingestion_helper_service_image" {
 }
 
 # =============================================================================
-# Ingestion - Dataflow Network Configuration
+# Ingestion - Worker Network Configuration (Dataflow & Cloud Batch)
 # =============================================================================
 
-variable "ingestion_dataflow_ip_configuration" {
-  description = "IP configuration for Dataflow workers (WORKER_IP_UNSPECIFIED, WORKER_IP_PUBLIC, WORKER_IP_PRIVATE). Set to WORKER_IP_PRIVATE when a compute.vmExternalIpAccess org policy restricts VMs from obtaining external IPs."
+variable "ingestion_worker_ip_configuration" {
+  description = "IP configuration for ingestion workers (Dataflow and Cloud Batch): WORKER_IP_UNSPECIFIED, WORKER_IP_PUBLIC, WORKER_IP_PRIVATE. Set to WORKER_IP_PRIVATE when a compute.vmExternalIpAccess org policy restricts VMs from obtaining external IPs. NOTE: WORKER_IP_PRIVATE requires enable_network = true or an explicitly configured ingestion_worker_subnetwork."
   type        = string
   default     = "WORKER_IP_UNSPECIFIED"
 }
 
-variable "ingestion_dataflow_subnetwork" {
-  description = "Subnetwork for Dataflow workers. Required when ingestion_dataflow_ip_configuration is WORKER_IP_PRIVATE. Format: regions/{region}/subnetworks/{subnetwork}."
+variable "ingestion_worker_subnetwork" {
+  description = "Subnetwork for ingestion workers (Dataflow and Cloud Batch). Automatically populated from the network module when enable_network = true. If enable_network = false and WORKER_IP_PRIVATE is used, this variable must be explicitly provided. Format: regions/{region}/subnetworks/{subnetwork} or full self_link."
   type        = string
   default     = ""
 }
@@ -449,7 +562,13 @@ variable "ingestion_dataflow_subnetwork" {
 # =============================================================================
 
 variable "ingestion_dataflow_template_gcs_path" {
-  description = "GCS path to the Dataflow Flex Template container spec. If not provided (null), defaults to the stable template defined in the workflow module (modules/ingestion/workflow/variables.tf)."
+  description = "GCS path to the ingestion Dataflow Flex Template container spec. If not provided (null), defaults to the stable ingestion template pinned to dcp_version."
+  type        = string
+  default     = null
+}
+
+variable "ingestion_rollback_dataflow_template_gcs_path" {
+  description = "GCS path to the rollback Dataflow Flex Template container spec. If not provided (null), defaults to the stable rollback template pinned to dcp_version."
   type        = string
   default     = null
 }

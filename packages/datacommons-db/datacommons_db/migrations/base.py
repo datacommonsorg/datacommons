@@ -20,6 +20,10 @@ from datacommons_db.clients.spanner_client import SpannerClient
 class SchemaMigration(ABC):
     """Base class for defining Spanner schema migration scripts."""
 
+    # Spanner emulators don't support the complete set of operations, such as Model registrations.
+    # If your migration script breaks emulator setup, make sure to override this attribute.
+    emulator_supported: bool = True
+
     @property
     @abstractmethod
     def description(self) -> str:

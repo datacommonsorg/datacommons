@@ -4,10 +4,12 @@ main:
     - init:
         assign:
           - project_id: '${project_id}'
+          - region: '${region}'
+          - bucket_name: '${artifacts_bucket_name}'
+          - temp_path_prefix: '${ingestion_artifacts_path}/temp'
+          - temp_gcs_uri: '$${"gs://" + bucket_name + "/" + temp_path_prefix}'
           - workflow_id: '$${sys.get_env("GOOGLE_CLOUD_WORKFLOW_EXECUTION_ID")}'
           - version: '$${"version-" + string(int(sys.now()))}'
-          - bucket_name: '$${text.split(input.tempLocation, "/")[2]}'
-          - temp_path_prefix: '$${text.replace_all(input.tempLocation, "gs://" + bucket_name + "/", "")}'
           - execution_error: null
           - postprocessing_result: null
           - embedding_result: null
@@ -22,19 +24,20 @@ main:
           - decoded_imports: []
           - num_imports: 0
           - combined_import_name: ""
-          - prep_job_name: '${preprocessing_job_name}'
           - postproc_job_name: '${postprocessing_job_name}'
           - comma_separated_imports: ""
           - provenances_list: []
           - imports_history_list: []
           - imports_history_str: ""
+          - t_pre_timestamp: null
+          - rollback_failed: false
           - launch_params:
               projectId: '$${project_id}'
-              spannerInstanceId: '$${default(map.get(input, "spannerInstanceId"), "")}'
-              spannerDatabaseId: '$${default(map.get(input, "spannerDatabaseId"), "")}'
+              spannerInstanceId: '${spanner_instance_id}'
+              spannerDatabaseId: '${spanner_database_id}'
               importList: '$${default(map.get(input, "importList"), "")}'
-              tempLocation: '$${input.tempLocation}'
-              stagingLocation: '$${input.tempLocation}'
+              tempLocation: '$${temp_gcs_uri}'
+              stagingLocation: '$${temp_gcs_uri}'
               forceCombineNodes: 'true'
               isBaseDc: 'false'
     - normalize_imports:
@@ -87,15 +90,14 @@ main:
           - substring_end: '$${if(import_name_len < 35, import_name_len, 35)}'
           - sanitized_short_import: '$${text.substring(combined_import_name, 0, substring_end)}'
           - dataflow_job_name: '$${"${clean_instance_name_prefix}" + sanitized_short_import + "-" + string(int(sys.now()))}'
-    
+
     - run_preprocessing:
         call: launch_and_poll_preprocessing_job
         args:
-          job_name: '$${prep_job_name}'
           workflow_id: '$${workflow_id}'
-          temp_location: '$${input.tempLocation}'
+          temp_gcs_uri: '$${temp_gcs_uri}'
           imports_arg: '$${comma_separated_imports}'
-          region: '$${input.region}'
+          region: '$${region}'
           project_id: '${project_id}'
         result: prep_res
 
@@ -144,6 +146,8 @@ main:
             - unhandled_error:
                 raise: $${e}
     - lock_acquired_success:
+        assign:
+          - t_pre_timestamp: '$${time.format(sys.now())}'
         next: update_history_pending
     - increment_retries_and_wait:
         assign:
@@ -171,11 +175,13 @@ main:
                 args:
                   job_name: '$${dataflow_job_name}'
                   launch_params: '$${launch_params}'
-                  temp_location: '$${input.tempLocation}'
-                  region: '$${input.region}'
+                  temp_gcs_uri: '$${temp_gcs_uri}'
+                  region: '$${region}'
                   workflow_id: '$${workflow_id}'
+                  template_path: '${ingestion_dataflow_template_gcs_path}'
+                  stage: 'dataflow'
                 result: dataflow_res
-            
+
             - assign_job_id:
                 assign:
                   - job_id: '$${dataflow_res.job_id}'
@@ -206,7 +212,7 @@ main:
                                 run_flag: '$${run_postproc}'
                                 import_list: '$${provenances_list}'
                                 job_name: '$${postproc_job_name}'
-                                region: '$${input.region}'
+                                region: '$${region}'
                                 project_id: '$${project_id}'
                                 workflow_id: '$${workflow_id}'
                                 generate_stat_var_groups: '$${generate_stat_var_groups}'
@@ -239,13 +245,63 @@ main:
         except:
           as: e
           steps:
-            - update_history_failure:
+            - extract_error_job_id:
+                try:
+                  assign:
+                    - job_id: '$${default(map.get(e, "job_id"), job_id)}'
+                except:
+                  as: _map_err
+                  assign:
+                    - job_id: '$${job_id}'
+            - check_should_rollback:
+                switch:
+                  - condition: '$${job_id != null}'
+                    next: update_history_rollback_starting
+                next: update_history_no_rollback
+            - update_history_no_rollback:
                 call: update_history
                 args:
                   workflow_id: '$${workflow_id}'
                   status: 'FAILURE'
                   stage: '$${current_stage}'
+                  job_id: null
+                  import_list: '$${imports_history_list}'
+                next: update_ingestion_status_failure
+            - update_history_rollback_starting:
+                call: update_history
+                args:
+                  workflow_id: '$${workflow_id}'
+                  status: 'RUNNING'
+                  stage: 'rollback'
                   job_id: '$${job_id}'
+                  import_list: '$${imports_history_list}'
+            - execute_pitr_rollback:
+                try:
+                  call: rollback_subworkflow
+                  args:
+                    workflow_id: '$${workflow_id}'
+                    rollback_timestamp: '$${t_pre_timestamp}'
+                    temp_gcs_uri: '$${temp_gcs_uri}'
+                    region: '$${region}'
+                    launch_params: '$${launch_params}'
+                except:
+                  as: rollback_err
+                  steps:
+                    - log_rollback_failure:
+                        call: sys.log
+                        args:
+                          severity: "ERROR"
+                          text: '$${"PITR rollback failed; holding ingestion lock: " + json.encode_to_string(rollback_err)}'
+                    - mark_rollback_failed:
+                        assign:
+                          - rollback_failed: true
+            - update_history_rollback_final:
+                call: update_history
+                args:
+                  workflow_id: '$${workflow_id}'
+                  status: '$${if(rollback_failed, "FAILURE", "SUCCESS")}'
+                  stage: 'rollback'
+                  job_id: null
                   import_list: '$${imports_history_list}'
             - update_ingestion_status_failure:
                 call: update_ingestion_status
@@ -257,7 +313,12 @@ main:
             - capture_error:
                 assign:
                   - execution_error: '$${e}'
-    
+
+    - check_lock_release:
+        switch:
+          - condition: '$${rollback_failed}'
+            next: fail_workflow
+        next: release_lock_step
     - release_lock_step:
         call: http.post
         args:
@@ -392,28 +453,28 @@ run_embeddings_job:
         return: $${res}
 
 launch_and_poll_dataflow:
-  params: [job_name, launch_params, temp_location, region, workflow_id]
+  params: [job_name, launch_params, temp_gcs_uri, region, workflow_id, template_path, stage]
   steps:
     - build_environment:
         assign:
           - env_map:
               serviceAccountEmail: '${dataflow_service_account_email}'
-              tempLocation: $${temp_location}
-              stagingLocation: $${temp_location}
+              tempLocation: $${temp_gcs_uri}
+              stagingLocation: $${temp_gcs_uri}
               maxWorkers: ${dataflow_max_workers}
               numWorkers: ${dataflow_num_workers}
               machineType: '${dataflow_worker_machine_type}'
-%{ if dataflow_ip_configuration != "WORKER_IP_UNSPECIFIED" }
+%{ if worker_ip_configuration != "WORKER_IP_UNSPECIFIED" }
     - inject_ip:
         assign:
-          - env_map.ipConfiguration: '${dataflow_ip_configuration}'
+          - env_map.ipConfiguration: '${worker_ip_configuration}'
 %{ endif }
-%{ if dataflow_subnetwork != "" }
+%{ if worker_subnetwork != "" }
     - inject_subnetwork:
         assign:
-          - env_map.subnetwork: '${dataflow_subnetwork}'
+          - env_map.subnetwork: '${worker_subnetwork}'
 %{ endif }
-    
+
     - run_flex_template:
         call: googleapis.dataflow.v1b3.projects.locations.flexTemplates.launch
         args:
@@ -422,24 +483,24 @@ launch_and_poll_dataflow:
           body:
             launchParameter:
               jobName: $${job_name}
-              containerSpecGcsPath: '${dataflow_template_gcs_path}'
+              containerSpecGcsPath: $${template_path}
               parameters: $${launch_params}
               environment: $${env_map}
         result: launch_result
-    
+
     - get_job_id:
         assign:
           - job_id: $${launch_result.job.id}
-    
+
     - update_history_running:
         call: update_history
         args:
           workflow_id: $${workflow_id}
           status: 'RUNNING'
-          stage: 'dataflow'
+          stage: $${stage}
           job_id: $${job_id}
           import_list: null
-          
+
     - poll_job:
         steps:
           - get_status:
@@ -460,63 +521,119 @@ launch_and_poll_dataflow:
               args:
                 seconds: 60
               next: poll_job
-    
+
     - check_success:
         switch:
           - condition: '$${job_status.currentState == "JOB_STATE_DONE"}'
             next: return_success
-    
+
     - fail_on_job_status:
-        raise: '$${ "Dataflow job failed with state: " + job_status.currentState }'
-        
+        raise:
+          message: '$${ "Dataflow job failed with state: " + job_status.currentState }'
+          job_id: $${job_id}
+          code: 500
     - return_success:
         return:
           job_id: $${job_id}
           launch_result: $${launch_result}
 
 launch_and_poll_preprocessing_job:
-  params: [job_name, workflow_id, temp_location, imports_arg, region, project_id]
+  params: [workflow_id, temp_gcs_uri, imports_arg, region, project_id]
   steps:
     - init_args:
         assign:
-          - container_args: []
-    - set_args:
-        switch:
-          - condition: '$${imports_arg != ""}'
-            assign:
-              - container_args: ['$${"--imports=" + imports_arg}']
-    - run_cloud_run_job:
-        call: googleapis.run.v2.projects.locations.jobs.run
+          - container_commands: '$${["bash", "./run.sh", "--mode=dcpbridge", "--imports=" + imports_arg]}'
+          - batch_job_id: '$${"${clean_instance_name_prefix}prep-" + string(int(sys.now()))}'
+    - create_batch_job:
+        call: googleapis.batch.v1.projects.locations.jobs.create
         args:
-          name: '$${"projects/" + project_id + "/locations/" + region + "/jobs/" + job_name}'
+          parent: '$${"projects/" + project_id + "/locations/" + region}'
+          jobId: '$${batch_job_id}'
           body:
-            overrides:
-              containerOverrides:
-                - env:
-                    - name: 'WORKFLOW_EXECUTION_ID'
-                      value: '$${workflow_id}'
-                    - name: 'TEMP_LOCATION'
-                      value: '$${temp_location}'
-                    - name: 'DATA_RUN_MODE'
-                      value: 'dcpbridge'
-                  args: '$${container_args}'
-          connector_params:
-            timeout: 7200
-        result: run_res
+            taskGroups:
+              - taskCount: 1
+                taskSpec:
+                  computeResource:
+                    cpuMilli: ${preprocessing_cpu}
+                    memoryMib: ${preprocessing_memory}
+                  maxRunDuration: '${preprocessing_timeout}'
+                  runnables:
+                    - container:
+                        imageUri: '${preprocessing_job_image}'
+                        commands: '$${container_commands}'
+                      environment:
+                        variables:
+                          WORKFLOW_EXECUTION_ID: '$${workflow_id}'
+                          TEMP_LOCATION: '$${temp_gcs_uri}'
+                          INPUT_DIR: 'gs://${artifacts_bucket_name}/${ingestion_input_path}'
+                          OUTPUT_DIR: 'gs://${artifacts_bucket_name}/${ingestion_artifacts_path}'
+                          GCS_BUCKET: '${artifacts_bucket_name}'
+                          ENABLE_SPANNER_EMBEDDINGS: 'true'
+                          USE_SPANNER_GRAPH: 'true'
+                          GCP_SPANNER_INSTANCE_ID: '${spanner_instance_id}'
+                          GCP_SPANNER_DATABASE_NAME: '${spanner_database_id}'
+                          PYTHONUNBUFFERED: '1'
+                          PROJECT_ID: '${project_id}'
+                          REGION: '$${region}'
+                          IMPORT_PROXY_ENTITIES: 'false'
+                        secretVariables:
+                          DC_API_KEY: '${dc_api_key_secret_version}'
+            allocationPolicy:
+              serviceAccount:
+                email: '${preprocessing_service_account_email}'
+%{ if worker_subnetwork != "" || vpc_network != "" || worker_ip_configuration == "WORKER_IP_PRIVATE" }
+              network:
+                networkInterfaces:
+                  - network: '${vpc_network != "" ? vpc_network : "global/networks/default"}'
+%{ if worker_subnetwork != "" }
+                    subnetwork: '${worker_subnetwork}'
+%{ endif }
+                    noExternalIpAddress: ${worker_ip_configuration == "WORKER_IP_PRIVATE"}
+%{ endif }
+            logsPolicy:
+              destination: CLOUD_LOGGING
+        result: batch_res
 
-    - assign_execution_name:
-        assign:
-          - execution_name: '$${run_res.metadata.name}'
-          
     - call_poll_preprocessing:
-        call: poll_cloud_run_job_execution
+        call: poll_cloud_batch_job_execution
         args:
-          execution_name: '$${execution_name}'
-          error_prefix: "Preprocessing Cloud Run job failed or was cancelled"
+          job_name: '$${batch_res.name}'
+          error_prefix: "Preprocessing Cloud Batch job failed or was cancelled"
         result: exec_status
 
     - return_preprocessing_result:
         return: '$${exec_status}'
+
+poll_cloud_batch_job_execution:
+  params: [job_name, error_prefix]
+  steps:
+    - poll_execution:
+        steps:
+          - get_job:
+              call: googleapis.batch.v1.projects.locations.jobs.get
+              args:
+                name: '$${job_name}'
+              result: job_status
+          - check_terminal:
+              switch:
+                - condition: '$${job_status.status.state in ["SUCCEEDED", "FAILED", "UNEXECUTED"]}'                  
+                  next: check_success
+          - wait_for_batch:
+              call: sys.sleep
+              args:
+                seconds: 15
+              next: poll_execution
+
+    - check_success:
+        switch:
+          - condition: '$${job_status.status.state == "SUCCEEDED"}'            
+            next: return_success
+
+    - fail_on_batch_status:
+        raise: '$${error_prefix + ": " + job_status.name + " (" + job_status.status.state + ")"}'
+
+    - return_success:
+        return: '$${job_status}'
 
 poll_cloud_run_job_execution:
   params: [execution_name, error_prefix]
@@ -537,14 +654,50 @@ poll_cloud_run_job_execution:
               args:
                 seconds: 30
               next: poll_execution
-              
+
     - check_exec_success:
         switch:
           - condition: '$${default(map.get(exec_status, "succeededCount"), 0) > 0}'
             next: return_success
-            
+
     - fail_on_exec_status:
         raise: '$${error_prefix + ": " + exec_status.name}'
-        
+
     - return_success:
         return: '$${exec_status}'
+
+rollback_subworkflow:
+  params: [workflow_id, rollback_timestamp, temp_gcs_uri, region, launch_params]
+  steps:
+    - init_rollback_params:
+        assign:
+          - rollback_job_name: '$${"${clean_instance_name_prefix}rollback-" + string(int(sys.now()))}'
+          # RollbackPipelineOptions strictly validates its parameters: only the
+          # options below are accepted. Ingestion-only flags (forceCombineNodes,
+          # skipDelete, isRollback) are rejected, and tempLocation/stagingLocation
+          # are supplied via the Dataflow `environment` block instead.
+          - rollback_params:
+              projectId: '$${launch_params.projectId}'
+              spannerInstanceId: '$${launch_params.spannerInstanceId}'
+              spannerDatabaseId: '$${launch_params.spannerDatabaseId}'
+              importList: '$${launch_params.importList}'
+              rollbackTimestamp: '$${rollback_timestamp}'
+              isBaseDc: '$${launch_params.isBaseDc}'
+
+    - launch_rollback_dataflow:
+        call: launch_and_poll_dataflow
+        args:
+          job_name: '$${rollback_job_name}'
+          launch_params: '$${rollback_params}'
+          temp_gcs_uri: '$${temp_gcs_uri}'
+          region: '$${region}'
+          workflow_id: '$${workflow_id}'
+          template_path: '${rollback_dataflow_template_gcs_path}'
+          stage: 'rollback'
+        result: rollback_job_res
+
+    - return_rollback_result:
+        return:
+          status: "ROLLBACK_SUCCESS"
+          rollbackJobId: '$${rollback_job_res.job_id}'
+          rollbackTimestamp: '$${rollback_timestamp}'

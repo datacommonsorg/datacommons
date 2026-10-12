@@ -40,6 +40,8 @@ def mock_tf_output_spanner() -> str:
         '"ingestion_workflow_service_account_email": {"value": "mock-orch-sa@mock.com"}, '
         '"spanner_instance_id": {"value": "mock-instance"}, '
         '"spanner_database_id": {"value": "mock-db"}, '
+        '"ingestion_workflow_name": {"value": "mock-workflow"}, '
+        '"region": {"value": "us-central1"}, '
         '"project_id": {"value": "mock-proj"}}'
     )
 
@@ -48,8 +50,9 @@ def mock_tf_output_spanner() -> str:
 def mock_tf_output_ingest() -> str:
     """Returns a mock JSON string representing Terraform outputs for Ingest commands."""
     return (
-        '{"ingestion_prep_job_name": {"value": "projects/mock-proj/locations/us-central1/jobs/mock-job"}, '
+        '{"storage_artifacts_bucket_name": {"value": "mock-bucket"}, '
         '"ingestion_workflow_service_account_email": {"value": "mock-orch-sa@mock.com"}, '
+        '"ingestion_service_url": {"value": "https://mock-helper"}, '
         '"project_id": {"value": "mock-proj"}, '
         '"region": {"value": "us-central1"}, '
         '"ingestion_workflow_name": {"value": "mock-workflow"}}'
@@ -77,10 +80,10 @@ def mock_terraform_spanner(mock_tf_output_spanner: str):
     """Mocks Terraform CLI check and terraform output for DB commands."""
     with (
         patch(
-            "datacommons_admin.core.utils.tf_utils.shutil.which",
+            "datacommons_admin.core.terraform.state.shutil.which",
             return_value="terraform",
         ),
-        patch("datacommons_admin.core.utils.tf_utils.subprocess.run") as mock_run,
+        patch("datacommons_admin.core.terraform.state.subprocess.run") as mock_run,
     ):
         mock_proc = MagicMock()
         mock_proc.stdout = mock_tf_output_spanner
@@ -93,10 +96,10 @@ def mock_terraform_ingest(mock_tf_output_ingest: str):
     """Mocks Terraform CLI check and terraform output for Ingest commands."""
     with (
         patch(
-            "datacommons_admin.core.utils.tf_utils.shutil.which",
+            "datacommons_admin.core.terraform.state.shutil.which",
             return_value="terraform",
         ),
-        patch("datacommons_admin.core.utils.tf_utils.subprocess.run") as mock_run,
+        patch("datacommons_admin.core.terraform.state.subprocess.run") as mock_run,
     ):
         mock_proc = MagicMock()
         mock_proc.stdout = mock_tf_output_ingest
@@ -146,35 +149,6 @@ def mock_job_session():
 
         mock_session_inst = MagicMock()
 
-        mock_get_resp = MagicMock()
-        mock_get_resp.ok = True
-        mock_get_resp.json.return_value = {
-            "template": {
-                "template": {
-                    "containers": [
-                        {
-                            "env": [
-                                {
-                                    "name": "TEMP_LOCATION",
-                                    "value": "gs://mock-bucket/temp",
-                                },
-                                {
-                                    "name": "GCP_SPANNER_INSTANCE_ID",
-                                    "value": "mock-instance",
-                                },
-                                {
-                                    "name": "GCP_SPANNER_DATABASE_NAME",
-                                    "value": "mock-db",
-                                },
-                                {"name": "REGION", "value": "us-central1"},
-                            ]
-                        }
-                    ]
-                }
-            }
-        }
-        mock_session_inst.get.return_value = mock_get_resp
-
         mock_resp = MagicMock()
         mock_resp.ok = True
         mock_resp.json.return_value = {
@@ -189,4 +163,11 @@ def mock_job_session():
 def mock_run_migrations():
     """Mocks _run_migrations for db commands."""
     with patch("datacommons_admin.db.db_cli._run_migrations") as mock_fn:
+        yield mock_fn
+
+
+@pytest.fixture
+def mock_initialize_database():
+    """Mocks _initialize_database for db commands."""
+    with patch("datacommons_admin.db.db_cli._initialize_database") as mock_fn:
         yield mock_fn

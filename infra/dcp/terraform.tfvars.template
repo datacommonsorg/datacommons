@@ -27,6 +27,11 @@ stateless_deletion_protection = false
 # Get a free DC API Key at https://apikeys.datacommons.org (required)
 auth_google_datacommons_api_key = "$$DC_API_KEY$$"
 
+# List of HTTP referrers allowed to use the Google Maps API key (e.g., ["https://datacommons.example.com/*", "http://localhost:*"]).
+# Strongly recommended in production to prevent unauthorized third parties from using your key.
+# If omitted or left empty ([]), no browser referrer restrictions are enforced.
+# auth_google_maps_allowed_referrers = ["https://your-custom-domain.org/*"]
+
 # =============================================================================
 # Storage Module
 # =============================================================================
@@ -34,6 +39,11 @@ auth_google_datacommons_api_key = "$$DC_API_KEY$$"
 # and provide the name.
 storage_create_artifacts_bucket = true
 # storage_artifacts_bucket_name   = "existing-artifacts-bucket-name"
+
+# Enable object versioning on the artifacts bucket. Keeps historical versions of objects
+# when overwritten or deleted. Recommended for production to prevent accidental data loss.
+# Set to false to reduce storage costs in development or testbeds.
+# storage_artifacts_bucket_enable_versioning = true
 
 # =============================================================================
 # Redis Module

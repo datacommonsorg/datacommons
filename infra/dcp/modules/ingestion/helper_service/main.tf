@@ -14,6 +14,9 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
   location            = var.region
   deletion_protection = var.stateless_deletion_protection
 
+  # Ingress is restricted to internal VPC traffic only.
+  ingress = "INGRESS_TRAFFIC_INTERNAL_ONLY"
+
   template {
     timeout = "1800s"
     containers {
@@ -33,15 +36,15 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
       }
       env {
         name  = "SPANNER_INSTANCE_ID"
-        value = var.spanner_instance_id
+        value = var.spanner_config.instance_id
       }
       env {
         name  = "SPANNER_DATABASE_ID"
-        value = var.spanner_database_id
+        value = var.spanner_config.database_id
       }
       env {
         name  = "SPANNER_GRAPH_DATABASE_ID"
-        value = var.spanner_database_id
+        value = var.spanner_config.database_id
       }
 
       env {
@@ -73,31 +76,66 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
         value = var.redis_port
       }
       env {
+        name  = "REDIS_CA_CERT"
+        value = var.redis_ca_cert
+      }
+      dynamic "env" {
+        for_each = var.redis_auth_secret_id != null ? [var.redis_auth_secret_id] : []
+        content {
+          name = "REDIS_PASSWORD"
+          value_source {
+            secret_key_ref {
+              secret  = env.value
+              version = "latest"
+            }
+          }
+        }
+      }
+      env {
         name  = "ENABLE_UNIQUE_INGESTION_RUNS"
         value = "true"
         # Temporary variable to control changes to the ingestion history table. To be deleted after migration complete.
       }
     }
 
+    # Direct VPC Egress
     dynamic "vpc_access" {
-      for_each = var.vpc_connector_id != null && var.vpc_connector_id != "" ? [1] : []
+      for_each = var.vpc_access != null ? [var.vpc_access] : []
       content {
-        connector = var.vpc_connector_id
-        egress    = "PRIVATE_RANGES_ONLY"
+        network_interfaces {
+          network    = vpc_access.value.network_id
+          subnetwork = vpc_access.value.subnet_id
+          tags       = ["dcp-service"]
+        }
+        egress = vpc_access.value.vpc_egress_mode
       }
     }
 
     service_account = google_service_account.helper_sa[0].email
   }
+
+  depends_on = [
+    google_secret_manager_secret_iam_member.helper_redis_auth_secret_accessor,
+    google_spanner_database_iam_member.helper_spanner_user
+  ]
 }
 
-resource "google_project_iam_member" "helper_spanner_user" {
-  count   = var.deploy && var.use_spanner ? 1 : 0
-  project = var.project_id
-  role    = "roles/spanner.databaseUser"
-  member  = "serviceAccount:${google_service_account.helper_sa[0].email}"
+resource "google_secret_manager_secret_iam_member" "helper_redis_auth_secret_accessor" {
+  count     = var.deploy && var.redis_auth_secret_id != null ? 1 : 0
+  project   = var.project_id
+  secret_id = var.redis_auth_secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.helper_sa[0].email}"
 }
 
+resource "google_spanner_database_iam_member" "helper_spanner_user" {
+  count    = var.deploy ? 1 : 0
+  project  = var.project_id
+  instance = var.spanner_config.instance_id
+  database = var.spanner_config.database_id
+  role     = "roles/spanner.databaseUser"
+  member   = "serviceAccount:${google_service_account.helper_sa[0].email}"
+}
 
 resource "google_storage_bucket_iam_member" "helper_bucket_access" {
   count  = var.deploy ? 1 : 0

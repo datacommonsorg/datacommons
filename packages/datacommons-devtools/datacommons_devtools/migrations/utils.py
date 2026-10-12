@@ -23,8 +23,14 @@ import contextlib
 import datetime
 import json
 import re
+import sys
+from collections.abc import Callable
 from importlib import resources
 from pathlib import Path
+
+from datacommons_devtools.migrations.snapshot import (
+    write_compiled_schema,
+)
 
 FILENAME_PATTERN = re.compile(r"^(\d{14})_([a-z0-9_]+)\.py$")
 ISO_8601_UTC_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
@@ -60,13 +66,9 @@ def get_default_migrations_dir() -> Path:
                 return candidate
 
     # Fallback to imported package path if running in a non-standard environment
-    try:
-        import datacommons_db.migrations.migration_scripts as mig_pkg
-
-        if mig_pkg.__file__:
-            return Path(mig_pkg.__file__).resolve().parent
-    except (ImportError, AttributeError):
-        pass
+    pkg = sys.modules.get("datacommons_db.migrations.migration_scripts")
+    if pkg and getattr(pkg, "__file__", None):
+        return Path(pkg.__file__).resolve().parent
 
     # Every ancestor of this file and cwd was already checked above, so at
     # this point there is no valid migrations directory to return.
@@ -394,3 +396,25 @@ def update_migration_file(
         file_path.unlink()
 
     return file_path, new_path, new_iso
+
+
+def update_snapshot_schema(
+    *,
+    progress_callback: Callable[[str], None] | None = None,
+) -> Path:
+    """Compiles and updates packages/datacommons-db/tests/snapshots/schema_snapshot.sql.
+
+    Requires a running or auto-bootable Spanner emulator to extract engine-collapsed DDL.
+
+    Args:
+        progress_callback: Optional callback for reporting real-time progress messages.
+
+    Returns:
+        Path to the updated schema_snapshot.sql file.
+
+    Raises:
+        ConnectionError: If no emulator is reachable and auto-start fails.
+        OSError: If reading migrations or writing the snapshot file fails.
+        RuntimeError: If schema compilation fails.
+    """
+    return write_compiled_schema(progress_callback=progress_callback)

@@ -1,11 +1,49 @@
-data "google_compute_network" "default" {
-  name = var.redis_config.vpc_network_name
+module "network" {
+  source = "../network"
+
+  enable              = var.network_config.enable
+  enable_workload_vpc = var.network_config.enable_workload_vpc
+  create_vpc          = var.network_config.create_vpc
+  project_id          = var.global.project_id
+  region              = var.global.region
+  instance_name       = var.global.instance_name
+  network_name        = var.network_config.network_name
+  subnet_cidr         = var.network_config.subnet_cidr
+  enable_cloud_nat    = var.network_config.enable_cloud_nat
+  enable_flow_logs    = var.network_config.enable_flow_logs
+  flow_sampling       = var.network_config.flow_sampling
+  existing_network_id = var.network_config.existing_network_id
+  existing_subnet_id  = var.network_config.existing_subnet_id
+  vpc_egress_mode     = var.network_config.vpc_egress_mode != null ? var.network_config.vpc_egress_mode : "PRIVATE_RANGES_ONLY"
 }
 
 locals {
 
-  redis_host = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
-  redis_port = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
+  redis_host    = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
+  redis_port    = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
+  redis_ca_cert = var.redis_config.enable && var.redis_config.enable_tls && length(module.redis) > 0 ? module.redis[0].redis_ca_cert : ""
+
+  effective_spanner_config = {
+    instance_id                = var.spanner_config.enable && length(module.spanner) > 0 ? module.spanner[0].spanner_instance_id : var.spanner_config.instance_id
+    database_id                = var.spanner_config.enable && length(module.spanner) > 0 ? module.spanner[0].spanner_database_id : var.spanner_config.database_id
+    enable_bigquery_connection = var.spanner_config.enable && var.spanner_config.enable_bigquery_connection
+    bigquery_connection_id     = var.spanner_config.enable && length(module.spanner) > 0 ? module.spanner[0].bigquery_connection_id : ""
+  }
+
+  effective_vpc_network = (
+    var.network_config.enable && var.network_config.enable_workload_vpc && module.network.network_id != null ? module.network.network_id : ""
+  )
+
+  raw_worker_subnetwork = var.ingestion_config.worker_subnetwork != null ? var.ingestion_config.worker_subnetwork : ""
+  raw_worker_ip_config  = var.ingestion_config.worker_ip_configuration != null ? var.ingestion_config.worker_ip_configuration : "WORKER_IP_UNSPECIFIED"
+
+  effective_worker_subnetwork = (
+    local.raw_worker_subnetwork != "" ? local.raw_worker_subnetwork :
+    (var.network_config.enable && var.network_config.enable_workload_vpc && module.network.subnet_url != null ? module.network.subnet_url : "")
+  )
+  effective_worker_ip_configuration = (
+    local.effective_worker_subnetwork != "" ? local.raw_worker_ip_config : "WORKER_IP_UNSPECIFIED"
+  )
 
   cloud_run_shared_env_variables = [
     {
@@ -29,18 +67,13 @@ locals {
       value = local.redis_port
     },
     {
-      name = "GCP_SPANNER_INSTANCE_ID"
-      # Use index [0] because module.spanner is now conditional (count). Fallback to empty string if disabled.
-      value = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
+      name  = "REDIS_CA_CERT"
+      value = local.redis_ca_cert
     },
     {
-      name = "GCP_SPANNER_DATABASE_NAME"
-      # Use index [0] because module.spanner is now conditional (count). Fallback to empty string if disabled.
-      value = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
-    },
-    {
+      # TODO: Remove once datacommons-cli no longer checks for TEMP_LOCATION on the preprocessing job (PR #266).
       name  = "TEMP_LOCATION"
-      value = "gs://${module.storage.artifacts_bucket_name}/${var.ingestion_config.ingestion_artifacts_path}/temp"
+      value = "DEPRECATED_UNUSED"
     },
     {
       name  = "PROJECT_ID"
@@ -53,26 +86,32 @@ locals {
     {
       name  = "REGION"
       value = var.global.region
-    },
-    {
-      name  = "USE_SPANNER_GRAPH"
-      value = "true"
     }
   ]
 
-  datacommons_services_secrets = var.datacommons_services_config.enable ? concat([
-    {
-      name    = "DC_API_KEY"
-      secret  = module.auth.dc_api_key_secret_id
-      version = "latest"
-    }
-    ], !var.datacommons_services_config.website_disable_google_maps_api ? [
-    {
-      name    = "MAPS_API_KEY"
-      secret  = module.auth.maps_api_key_secret_id
-      version = "latest"
-    }
-  ] : []) : []
+  datacommons_services_secrets = var.datacommons_services_config.enable ? concat(
+    [
+      {
+        name    = "DC_API_KEY"
+        secret  = module.auth.dc_api_key_secret_id
+        version = "latest"
+      }
+    ],
+    !var.datacommons_services_config.website_disable_google_maps_api && (var.auth_config.google_maps_api_key != null || var.auth_config.create_google_maps_key) ? [
+      {
+        name    = "MAPS_API_KEY"
+        secret  = module.auth.maps_api_key_secret_id
+        version = "latest"
+      }
+    ] : [],
+    var.redis_config.enable && var.redis_config.enable_auth && length(module.redis) > 0 ? [
+      {
+        name    = "REDIS_PASSWORD"
+        secret  = module.redis[0].redis_auth_secret_id
+        version = "latest"
+      }
+    ] : []
+  ) : []
 }
 
 module "spanner" {
@@ -102,6 +141,7 @@ module "storage" {
   # Ingestion Workflow Bucket Vars
   create_artifacts_bucket      = var.storage_create_artifacts_bucket
   artifacts_bucket_name        = var.storage_artifacts_bucket_name
+  enable_versioning            = var.storage_artifacts_bucket_enable_versioning
   region                       = var.global.region
   stateful_deletion_protection = var.global.stateful_deletion_protection
 
@@ -114,22 +154,8 @@ module "ingestion_preprocessing_job" {
   source = "../ingestion/preprocessing_job"
   count  = var.ingestion_config.enable_ingestion ? 1 : 0
 
-  project_id                    = var.global.project_id
-  instance_name                 = var.global.instance_name
-  region                        = var.global.region
-  stateless_deletion_protection = var.global.stateless_deletion_protection
-  image                         = var.ingestion_config.preprocessing_job_image
-  cpu                           = var.ingestion_config.preprocessing_job_cpu
-  memory                        = var.ingestion_config.preprocessing_job_memory
-  timeout                       = var.ingestion_config.preprocessing_job_timeout
-  vpc_connector_id              = var.redis_config.enable ? module.redis[0].connector_id : null
-  bucket_name                   = module.storage.artifacts_bucket_name
-  input_path                    = var.ingestion_config.input_path
-  ingestion_artifacts_path      = var.ingestion_config.ingestion_artifacts_path
-  run_database_init             = false
-  use_spanner                   = true
-  enable_spanner_embeddings     = var.datacommons_services_config.resolve_with_spanner_embeddings
-  env_vars                      = local.cloud_run_shared_env_variables
+  project_id    = var.global.project_id
+  instance_name = var.global.instance_name
   env_secrets = {
     DC_API_KEY = {
       secret_id = module.auth.dc_api_key_secret_id
@@ -156,14 +182,10 @@ module "ingestion_postprocessing_job" {
   cpu                            = var.ingestion_config.postprocessing_job_cpu
   memory                         = var.ingestion_config.postprocessing_job_memory
   timeout                        = var.ingestion_config.postprocessing_job_timeout
-  vpc_connector_id               = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].connector_id : null
-  spanner_instance_id            = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
-  spanner_database_id            = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
-  bigquery_connection_id         = var.spanner_config.enable ? module.spanner[0].bigquery_connection_id : ""
-  use_spanner                    = var.spanner_config.enable
+  vpc_access                     = module.network.vpc_access
+  spanner_config                 = local.effective_spanner_config
   enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
   enable_spanner_embeddings      = var.spanner_config.enable_embeddings_generation
-  enable_bigquery_connection     = var.spanner_config.enable && var.spanner_config.enable_bigquery_connection
   env_vars                       = local.cloud_run_shared_env_variables
 }
 
@@ -174,7 +196,7 @@ module "ingestion_dataflow" {
   project_id            = var.global.project_id
   instance_name         = var.global.instance_name
   ingestion_bucket_name = module.storage.artifacts_bucket_name
-  use_spanner           = var.spanner_config.enable
+  spanner_config        = local.effective_spanner_config
 }
 
 module "ingestion_helper_service" {
@@ -185,18 +207,17 @@ module "ingestion_helper_service" {
   instance_name                 = var.global.instance_name
   region                        = var.global.region
   stateless_deletion_protection = var.global.stateless_deletion_protection
-  # Use index [0] because module.spanner is conditional. Fallback to empty string if disabled.
-  spanner_instance_id          = var.spanner_config.enable ? module.spanner[0].spanner_instance_id : ""
-  spanner_database_id          = var.spanner_config.enable ? module.spanner[0].spanner_database_id : ""
-  ingestion_bucket_name        = module.storage.artifacts_bucket_name
-  image                        = var.ingestion_config.helper_service_image
-  use_spanner                  = var.spanner_config.enable
-  enable_embeddings_generation = var.spanner_config.enable_embeddings_generation
+  spanner_config                = local.effective_spanner_config
+  ingestion_bucket_name         = module.storage.artifacts_bucket_name
+  image                         = var.ingestion_config.helper_service_image
+  enable_embeddings_generation  = var.spanner_config.enable_embeddings_generation
 
-  # Redis configuration for cache clearing
-  vpc_connector_id         = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].connector_id : null
+  # Direct VPC Egress from network module
+  vpc_access               = module.network.vpc_access
   redis_host               = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
   redis_port               = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
+  redis_auth_secret_id     = var.redis_config.enable && var.redis_config.enable_auth && length(module.redis) > 0 ? module.redis[0].redis_auth_secret_id : null
+  redis_ca_cert            = local.redis_ca_cert
   ingestion_artifacts_path = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
   skip_container_restarts  = var.global.skip_container_restarts
 }
@@ -205,26 +226,39 @@ module "ingestion_helper_service" {
 module "ingestion_workflow" {
   source = "../ingestion/workflow"
 
-  deploy                              = var.ingestion_config.enable_ingestion
-  instance_name                       = var.global.instance_name
-  region                              = var.global.region
-  stateless_deletion_protection       = var.global.stateless_deletion_protection
-  project_id                          = var.global.project_id
-  lock_acquisition_timeout            = var.ingestion_config.workflow_lock_acquisition_timeout
-  ingestion_helper_url                = module.ingestion_helper_service.ingestion_helper_url
-  dataflow_service_account_email      = module.ingestion_dataflow.service_account_email
-  enable_bigquery_postprocessing      = var.ingestion_config.workflow_enable_bigquery_postprocessing
-  enable_embeddings_generation        = var.spanner_config.enable_embeddings_generation
-  ingestion_helper_service_name       = "${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-ingestion-helper"
-  enable_redis_cache_clearing         = var.redis_config.enable
-  ingestion_artifacts_path            = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
-  dataflow_ip_configuration           = var.ingestion_config.dataflow_ip_configuration
-  dataflow_subnetwork                 = var.ingestion_config.dataflow_subnetwork
-  dataflow_template_gcs_path          = var.ingestion_config.dataflow_template_gcs_path
-  dataflow_max_workers                = var.ingestion_config.dataflow_max_workers
-  dataflow_num_workers                = var.ingestion_config.dataflow_num_workers
-  dataflow_worker_machine_type        = var.ingestion_config.dataflow_worker_machine_type
-  preprocessing_job_name              = var.ingestion_config.enable_ingestion ? module.ingestion_preprocessing_job[0].job_name : ""
+  deploy                               = var.ingestion_config.enable_ingestion
+  instance_name                        = var.global.instance_name
+  region                               = var.global.region
+  stateless_deletion_protection        = var.global.stateless_deletion_protection
+  project_id                           = var.global.project_id
+  lock_acquisition_timeout             = var.ingestion_config.workflow_lock_acquisition_timeout
+  ingestion_helper_url                 = module.ingestion_helper_service.ingestion_helper_url
+  dataflow_service_account_email       = module.ingestion_dataflow.service_account_email
+  enable_bigquery_postprocessing       = var.ingestion_config.workflow_enable_bigquery_postprocessing
+  enable_embeddings_generation         = var.spanner_config.enable_embeddings_generation
+  ingestion_helper_service_name        = "${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-ingestion-helper"
+  enable_redis_cache_clearing          = var.redis_config.enable
+  artifacts_bucket_name                = module.storage.artifacts_bucket_name
+  ingestion_artifacts_path             = var.ingestion_config.ingestion_artifacts_path
+  ingestion_input_path                 = var.ingestion_config.input_path
+  spanner_instance_id                  = local.effective_spanner_config.instance_id
+  spanner_database_id                  = local.effective_spanner_config.database_id
+  vpc_network                          = local.effective_vpc_network
+  worker_ip_configuration              = local.effective_worker_ip_configuration
+  worker_subnetwork                    = local.effective_worker_subnetwork
+  ingestion_dataflow_template_gcs_path = var.ingestion_config.ingestion_dataflow_template_gcs_path
+  rollback_dataflow_template_gcs_path  = var.ingestion_config.rollback_dataflow_template_gcs_path
+  dataflow_max_workers                 = var.ingestion_config.dataflow_max_workers
+  dataflow_num_workers                 = var.ingestion_config.dataflow_num_workers
+  dataflow_worker_machine_type         = var.ingestion_config.dataflow_worker_machine_type
+  preprocessing_config = {
+    image                     = var.ingestion_config.preprocessing_job_image
+    cpu                       = var.ingestion_config.preprocessing_job_cpu
+    memory                    = var.ingestion_config.preprocessing_job_memory
+    timeout                   = var.ingestion_config.preprocessing_job_timeout
+    service_account_email     = length(module.ingestion_preprocessing_job) > 0 ? module.ingestion_preprocessing_job[0].service_account_email : ""
+    dc_api_key_secret_version = module.auth.dc_api_key_secret_id != "" ? "${module.auth.dc_api_key_secret_id}/versions/latest" : ""
+  }
   postprocessing_job_name             = var.ingestion_config.enable_ingestion ? module.ingestion_postprocessing_job[0].job_name : ""
   enable_datacommons_services_restart = var.datacommons_services_config.enable
   datacommons_services_name           = "${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-datacommons-service"
@@ -244,19 +278,22 @@ module "redis" {
   location_id             = var.redis_config.location_id
   alternative_location_id = var.redis_config.alternative_location_id
   replica_count           = var.redis_config.replica_count
-  vpc_network_id          = data.google_compute_network.default.id
-  vpc_connector_cidr      = var.redis_config.vpc_connector_cidr
-  enable_connector        = true
+  enable_auth             = var.redis_config.enable_auth
+  enable_tls              = var.redis_config.enable_tls
+  vpc_network_id          = module.network.network_id
+
+  depends_on = [module.network, terraform_data.redis_network_validation]
 }
 
 module "auth" {
   source = "../auth"
 
-  project_id             = var.global.project_id
-  instance_name          = var.global.instance_name
-  dc_api_key             = var.auth_config.google_datacommons_api_key
-  google_maps_api_key    = var.auth_config.google_maps_api_key
-  create_google_maps_key = var.auth_config.create_google_maps_key
+  project_id                    = var.global.project_id
+  instance_name                 = var.global.instance_name
+  dc_api_key                    = var.auth_config.google_datacommons_api_key
+  google_maps_api_key           = var.auth_config.google_maps_api_key
+  create_google_maps_key        = var.auth_config.create_google_maps_key
+  google_maps_allowed_referrers = var.auth_config.google_maps_allowed_referrers
 }
 
 module "datacommons_services" {
@@ -278,8 +315,8 @@ module "datacommons_services" {
   enable_mcp                    = var.datacommons_services_config.enable_mcp
   mcp_instructions_path         = var.datacommons_services_config.instructions_path
   artifacts_bucket_name         = module.storage.artifacts_bucket_name
-  vpc_connector_id              = var.redis_config.enable ? module.redis[0].connector_id : null
-  use_spanner                   = var.spanner_config.enable
+  vpc_access                    = module.network.vpc_access
+  spanner_config                = local.effective_spanner_config
   env_vars = concat(local.cloud_run_shared_env_variables, [
     {
       name  = "INGESTION_WORKFLOW_NAME"
@@ -333,6 +370,13 @@ resource "google_storage_bucket_iam_member" "preprocessing_bucket_access" {
   member = "serviceAccount:${module.ingestion_preprocessing_job[0].service_account_email}"
 }
 
+resource "google_storage_bucket_iam_member" "serving_bucket_access" {
+  count  = var.datacommons_services_config.enable ? 1 : 0
+  bucket = module.storage.artifacts_bucket_name
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${module.datacommons_services[0].service_account_email}"
+}
+
 resource "google_project_iam_member" "workflow_invoker" {
   count   = var.ingestion_config.enable_ingestion ? 1 : 0
   project = var.global.project_id
@@ -340,28 +384,11 @@ resource "google_project_iam_member" "workflow_invoker" {
   member  = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
 
-resource "google_cloud_run_v2_job_iam_member" "workflow_pre_viewer" {
-  count    = var.ingestion_config.enable_ingestion ? 1 : 0
-  location = var.global.region
-  name     = module.ingestion_preprocessing_job[0].job_name
-  role     = "roles/run.viewer"
-  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
-}
-
-resource "google_cloud_run_v2_job_iam_member" "workflow_pre_invoker" {
-  count    = var.ingestion_config.enable_ingestion ? 1 : 0
-  location = var.global.region
-  name     = module.ingestion_preprocessing_job[0].job_name
-  role     = "roles/run.invoker"
-  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
-}
-
-resource "google_cloud_run_v2_job_iam_member" "workflow_pre_developer" {
-  count    = var.ingestion_config.enable_ingestion ? 1 : 0
-  location = var.global.region
-  name     = module.ingestion_preprocessing_job[0].job_name
-  role     = "roles/run.developer"
-  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+resource "google_project_iam_member" "workflow_batch_editor" {
+  count   = var.ingestion_config.enable_ingestion ? 1 : 0
+  project = var.global.project_id
+  role    = "roles/batch.jobsEditor"
+  member  = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
 
 resource "google_service_account_iam_member" "workflow_pre_sa_user" {
@@ -409,6 +436,9 @@ resource "google_project_iam_member" "workflow_dataflow_developer" {
   member  = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
 
+# The polling mechanism in Cloud Workflows uses "operations" (run.operations.get) to monitor
+# the Cloud Run postprocessing job and service restart. Because GCP does not scope operations
+# to individual jobs or services, this can only be permissioned by granting project-level roles/run.viewer.
 resource "google_project_iam_member" "workflow_run_viewer" {
   count   = var.ingestion_config.enable_ingestion ? 1 : 0
   project = var.global.project_id
@@ -429,4 +459,162 @@ resource "google_service_account_iam_member" "ingestion_workflow_act_as_serving_
   service_account_id = "projects/${var.global.project_id}/serviceAccounts/${module.datacommons_services[0].service_account_email}"
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
+# =============================================================================
+# Architecture & Dependency Validations
+# =============================================================================
+resource "terraform_data" "redis_network_validation" {
+  lifecycle {
+    precondition {
+      condition     = !var.redis_config.enable || (var.network_config.enable && var.network_config.enable_workload_vpc)
+      error_message = "enable_redis is set to true, but enable_network or enable_workload_vpc is false. Cloud Memorystore for Redis instances only have private IP addresses and require VPC networking to be accessible from Cloud Run services."
+    }
+  }
+}
+
+resource "terraform_data" "worker_subnet_validation" {
+  lifecycle {
+    precondition {
+      condition = (
+        local.raw_worker_ip_config != "WORKER_IP_PRIVATE" ||
+        (local.raw_worker_subnetwork != null && local.raw_worker_subnetwork != "") ||
+        (var.network_config.enable && var.network_config.enable_workload_vpc && module.network.subnet_url != null && module.network.subnet_url != "")
+      )
+      error_message = "worker_ip_configuration is set to 'WORKER_IP_PRIVATE', which requires a valid subnetwork. Ensure enable_network and enable_workload_vpc are true and a subnet is available, or provide ingestion_worker_subnetwork."
+    }
+  }
+}
+
+# =============================================================================
+# Cloud Run Serverless VPC Cleanup Hook & Validation
+# =============================================================================
+check "warn_cloud_run_vpc_pruning_needed" {
+  assert {
+    condition = (
+      var.network_config.enable_workload_vpc ||
+      !var.network_config.enable ||
+      var.network_config.prune_cloud_run_revisions
+    )
+    error_message = "WARNING: You have set enable_workload_vpc = false without network_prune_cloud_run_revisions = true. Cloud Run retains inactive past revisions (0% traffic) that lock subnet IP reservations, which causes \"Subnetwork is in use\" (Error 400) when you set enable_network = false in Stage 2. Please set network_prune_cloud_run_revisions = true during Stage 1."
+  }
+}
+
+check "warn_pruning_accidentally_left_on" {
+  assert {
+    condition = !(
+      var.network_config.prune_cloud_run_revisions &&
+      var.network_config.enable_workload_vpc
+    )
+    error_message = "WARNING: network_prune_cloud_run_revisions is set to true while enable_workload_vpc is true. Pruning has been disabled to protect your Cloud Run rollback history. Please set network_prune_cloud_run_revisions = false during normal operation."
+  }
+}
+
+check "warn_pruning_revisions_confirmation" {
+  assert {
+    condition = !(
+      var.network_config.enable &&
+      var.network_config.prune_cloud_run_revisions &&
+      !var.network_config.enable_workload_vpc
+    )
+    error_message = "CAUTION: network_prune_cloud_run_revisions is enabled. Proceeding with this apply will PERMANENTLY DELETE all inactive (0-traffic) Cloud Run revisions for dc-datacommons-service and dc-ingestion-helper. This is required when decommissioning the VPC network to allow Google Cloud to release lingering subnet IP reservations. You will not be able to roll back to older revisions after this operation completes."
+  }
+}
+
+resource "terraform_data" "prune_cloud_run_revisions" {
+  count = var.network_config.enable && var.network_config.prune_cloud_run_revisions && !var.network_config.enable_workload_vpc ? 1 : 0
+
+  triggers_replace = [
+    var.network_config.prune_cloud_run_revisions,
+    var.network_config.enable_workload_vpc,
+    var.network_config.enable
+  ]
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      if ! command -v gcloud >/dev/null 2>&1; then
+        echo "[VPC Cleanup WARNING] 'gcloud' CLI was not found in PATH. Skipping Cloud Run revision pruning."
+        exit 0
+      fi
+
+      PROJECT_ID="${var.global.project_id}"
+      REGION="${var.global.region}"
+      SERVICES=(
+        "${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-datacommons-service"
+        "${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-ingestion-helper"
+      )
+
+      echo "[VPC Cleanup] Checking for inactive Cloud Run revisions holding VPC IP reservations..."
+      for svc in "$${SERVICES[@]}"; do
+        if ! gcloud run services describe "$svc" --project="$PROJECT_ID" --region="$REGION" >/dev/null 2>&1; then
+          echo "[VPC Cleanup] Service '$svc' does not exist in $REGION. Skipping."
+          continue
+        fi
+
+        echo "[VPC Cleanup] Inspecting service: $svc..."
+        ACTIVE_REVS=$(gcloud run services describe "$svc" \
+          --project="$PROJECT_ID" \
+          --region="$REGION" \
+          --format="value(status.traffic.revisionName)" 2>/dev/null || true)
+
+        ALL_REVS=$(gcloud run revisions list \
+          --service="$svc" \
+          --project="$PROJECT_ID" \
+          --region="$REGION" \
+          --format="value(metadata.name)" 2>/dev/null || true)
+
+        PRUNED_COUNT=0
+        for rev in $ALL_REVS; do
+          IS_ACTIVE=false
+          for active in $ACTIVE_REVS; do
+            if [ "$rev" = "$active" ]; then
+              IS_ACTIVE=true
+              break
+            fi
+          done
+
+          if [ "$IS_ACTIVE" = "false" ]; then
+            echo "[VPC Cleanup] Deleting inactive revision: $rev..."
+            gcloud run revisions delete "$rev" \
+              --project="$PROJECT_ID" \
+              --region="$REGION" \
+              --quiet 2>/dev/null || true
+            PRUNED_COUNT=$((PRUNED_COUNT + 1))
+          fi
+        done
+
+        if [ "$PRUNED_COUNT" -eq 0 ]; then
+          echo "[VPC Cleanup] No inactive revisions found for $svc."
+        else
+          echo "[VPC Cleanup] Pruned $PRUNED_COUNT inactive revisions for $svc."
+        fi
+      done
+      echo "[VPC Cleanup] Finished pruning inactive revisions."
+
+      # Step 2: Check for lingering Serverless IP reservations bound to our subnet
+      SUBNET_NAME="${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-subnet"
+      echo "[VPC Cleanup] Checking for lingering Serverless IP reservations on $SUBNET_NAME..."
+      ORPHANED_ADDRS=$(gcloud compute addresses list \
+        --project="$PROJECT_ID" \
+        --filter="subnetwork:$SUBNET_NAME AND purpose=SERVERLESS" \
+        --format="value(name)" 2>/dev/null || true)
+
+      if [ -z "$ORPHANED_ADDRS" ]; then
+        echo "[VPC Cleanup] No serverless IP reservations found on $SUBNET_NAME."
+      else
+        for addr in $ORPHANED_ADDRS; do
+          echo "[VPC Cleanup] Found serverless IP reservation: $addr"
+          echo "[VPC Cleanup] Note: Per Google Cloud documentation, serverless IP reservations are managed by serverless.googleapis.com."
+          echo "[VPC Cleanup] Google Cloud automatically releases and cleans up this reservation within 1-2 hours after workloads are detached."
+          echo "[VPC Cleanup] Once released, setting enable_network = false in Stage 2 will cleanly destroy the subnet and VPC."
+        done
+      fi
+      echo "[VPC Cleanup] Completed revision pruning. Ready for Stage 2 once Google releases IP reservations."
+    EOT
+  }
+
+  depends_on = [
+    module.datacommons_services,
+    module.ingestion_helper_service
+  ]
 }

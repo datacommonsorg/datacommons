@@ -46,7 +46,7 @@ DCP uses a hierarchical module architecture. Submodules never reference or depen
 * **`modules/storage`**: Creates the central artifacts GCS bucket (`gs://[<instance_name>-]dc-artifacts-<project_id>`) for raw input data, intermediate shards, and pipeline handshakes.
 * **`modules/redis`**: Provisions a Google Cloud MemoryStore Redis instance and Serverless VPC Access connector for low-latency query caching.
 * **`modules/ingestion/`**: Contains submodules for each ingestion stage:
-  * `preprocessing_job`: Cloud Run job executing `datacommons-data` in `dcpbridge` mode (sourced from `datcom-website`).
+  * `preprocessing_job`: Service account, IAM, and secret access for preprocessing. The workflow creates a Cloud Batch job per execution that runs `datacommons-data` in `dcpbridge` mode (sourced from `datcom-website`).
   * `dataflow`: Service accounts, bucket permissions, and IAM policies for Apache Beam Dataflow execution (sourced from `datcom-import`).
   * `postprocessing_job`: Cloud Run job executing `datacommons-aggregation-helper` via BigQuery federated queries (sourced from `datcom-import`).
   * `helper_service`: FastAPI Cloud Run service executing `datacommons-ingestion-helper` to manage Spanner database locks, version promotion, and Vertex AI embeddings (sourced from `datcom-import`).
@@ -76,7 +76,7 @@ Consult [infra/dcp/modules/stack/main.tf](../../infra/dcp/modules/stack/main.tf)
 ### Cross-Module IAM Wiring
 Decoupling submodules requires that all cross-service permissions reside centrally in [infra/dcp/modules/stack/main.tf](../../infra/dcp/modules/stack/main.tf):
 1. **GCS Storage Access**: Grants `roles/storage.objectAdmin` on the artifacts bucket to the Dataflow, Workflow, and Preprocessing service accounts.
-2. **Workflow Job Invocation**: Grants the Cloud Workflows service account `roles/run.invoker`, `roles/run.viewer`, and `roles/run.developer` on both Preprocessing and Postprocessing Cloud Run jobs, and `roles/iam.serviceAccountUser` over their runtime service accounts.
+2. **Workflow Job Invocation**: Grants the Cloud Workflows service account `roles/batch.jobsEditor` to create the preprocessing Cloud Batch job, and `roles/run.invoker`, `roles/run.viewer`, and `roles/run.developer` on the postprocessing Cloud Run job. It also grants `roles/iam.serviceAccountUser` over both jobs' runtime service accounts.
 3. **Workflow Execution & Dataflow Control**: Grants `roles/workflows.invoker`, `roles/dataflow.developer`, and `roles/run.viewer` to the Cloud Workflows service account.
 4. **Service Rolling Restarts**: Grants `roles/run.developer` and `roles/iam.serviceAccountUser` over `datacommons-services` to the Cloud Workflows service account, allowing the workflow to patch serving labels and trigger rolling container restarts upon successful ingestion.
 
@@ -136,8 +136,8 @@ DCP separates deletion protection into two independent variables in `infra/dcp/v
 * **`stateless_deletion_protection`**: Controls deletion protection on compute resources like Cloud Run services, Cloud Run jobs, and Cloud Workflows. Defaults are declared in [infra/dcp/variables.tf](../../infra/dcp/variables.tf). Disabling protection allows quick teardown and redeployment of compute targets.
 
 ### Service Account Token Creator Requirement
-* Cloud Workflows, Cloud Run jobs, and the `datacommons admin init-db` CLI command run under dedicated service account identities.
-* To execute the workflow or trigger database schema initialization, the deploying developer or CI runner requires permission to impersonate the workflow orchestrator service account.
+* Cloud Workflows and Cloud Run jobs run under dedicated service account identities.
+* To execute the workflow using the `datacommons admin ingest start` CLI command, the deploying developer or CI runner requires permission to impersonate the workflow orchestrator service account.
 * If missing, the developer must grant `roles/iam.serviceAccountTokenCreator` on the workflow service account to their identity:
   ```bash
   gcloud iam service-accounts add-iam-policy-binding <workflow-sa-email> \

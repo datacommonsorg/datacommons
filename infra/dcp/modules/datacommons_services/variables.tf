@@ -88,12 +88,23 @@ variable "artifacts_bucket_name" {
   default     = ""
 }
 
-variable "vpc_connector_id" {
-  type = string
+variable "vpc_access" {
+  type = object({
+    network_id      = string
+    subnet_id       = string
+    vpc_egress_mode = optional(string, "PRIVATE_RANGES_ONLY")
+  })
+  description = "Direct VPC Egress configuration for Cloud Run. If null, service runs without VPC egress."
+  default     = null
 }
 
-variable "use_spanner" {
-  type = bool
+
+variable "spanner_config" {
+  type = object({
+    instance_id = string
+    database_id = string
+  })
+  description = "Spanner database coordinates for query serving"
 }
 
 # =============================================================================

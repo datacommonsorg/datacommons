@@ -12,17 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import click
 import re
 
+import click
+
 from datacommons_admin.core.clients import IngestionJobClient
-from datacommons_admin.core.utils.tf_utils import (
-    get_ingestion_prep_job_name,
-    get_ingestion_workflow_service_account_email,
-    get_project_id,
-    get_region,
-    get_ingestion_workflow_name,
-)
+from datacommons_admin.core.terraform.state import get_terraform_outputs
 
 
 @click.group(name="ingest")
@@ -37,35 +32,39 @@ def ingest() -> None:
     required=True,
     help="The names of the imports to run (comma-separated).",
 )
-def start(imports: str) -> None:
+@click.pass_context
+def start(ctx: click.Context, imports: str) -> None:
     """Start a data ingestion job execution."""
     click.secho("Datacommons Admin Ingest Start", fg="cyan", bold=True)
     click.secho(
-        "Fetching data job name and workflow service account from Terraform outputs...",
+        "Fetching ingestion configuration from Terraform outputs...",
         fg="bright_black",
     )
 
-    job_name = get_ingestion_prep_job_name()
-    sa_email = get_ingestion_workflow_service_account_email()
-    project_id = get_project_id()
-    region = get_region()
-    workflow_name = get_ingestion_workflow_name()
+    state_params = ctx.obj or {}
+    tf = get_terraform_outputs(
+        project_id=state_params.get("project_id"),
+        instance_name=state_params.get("instance_name"),
+        tf_state_location=state_params.get("tf_state_location"),
+    )
 
-    click.secho(f"Found workflow: {workflow_name}", fg="green")
-    click.secho(f"Found workflow service account: {sa_email}", fg="green")
-    click.secho(f"Found GCP project ID: {project_id}", fg="green")
-    click.secho(f"Found GCP region: {region}", fg="green")
+    click.secho(f"Found workflow: {tf.ingestion_workflow_name}", fg="green")
     click.secho(
-        f"Starting Cloud Workflow '{workflow_name}' via Executions API (this may take a few moments)...",
+        f"Found workflow service account: {tf.ingestion_workflow_service_account_email}",
+        fg="green",
+    )
+    click.secho(f"Found GCP project ID: {tf.project_id}", fg="green")
+    click.secho(f"Found GCP region: {tf.region}", fg="green")
+    click.secho(
+        f"Starting Cloud Workflow '{tf.ingestion_workflow_name}' via Executions API (this may take a few moments)...",
         fg="bright_black",
     )
 
     client = IngestionJobClient(
-        workflow_name=workflow_name,
-        job_name=job_name,
-        service_account_email=sa_email,
-        project_id=project_id,
-        location=region,
+        workflow_name=tf.ingestion_workflow_name,
+        service_account_email=tf.ingestion_workflow_service_account_email,
+        project_id=tf.project_id,
+        location=tf.region,
     )
     result = client.start_workflow(imports=imports)
 
@@ -80,7 +79,7 @@ def start(imports: str) -> None:
 
         if exec_match:
             _, location, wf_name, exec_id = exec_match.groups()
-            execution_url = f"https://console.cloud.google.com/workflows/workflow/{location}/{wf_name}/execution/{exec_id}/summary?project={project_id}"
+            execution_url = f"https://console.cloud.google.com/workflows/workflow/{location}/{wf_name}/execution/{exec_id}/summary?project={tf.project_id}"
 
             click.secho("Execution ID: ", fg="cyan", bold=True, nl=False)
             click.secho(exec_id, fg="green")
@@ -91,47 +90,32 @@ def start(imports: str) -> None:
 
 
 @ingest.command(name="show-config")
-def show_config() -> None:
-    """Print the current ingestion job configuration (environment variables)."""
+@click.pass_context
+def show_config(ctx: click.Context) -> None:
+    """Print the ingestion job configuration from Terraform outputs."""
     click.secho("Datacommons Admin Ingest Show-Config", fg="cyan", bold=True)
     click.secho(
-        "Fetching data job name and workflow service account from Terraform outputs...",
+        "Fetching ingestion configuration from Terraform outputs...",
         fg="bright_black",
     )
 
-    job_name = get_ingestion_prep_job_name()
-    sa_email = get_ingestion_workflow_service_account_email()
-    project_id = get_project_id()
-    region = get_region()
-
-    click.secho(f"Found data job: {job_name}", fg="green")
-    click.secho(f"Found workflow service account: {sa_email}", fg="green")
-    click.secho(f"Found GCP project ID: {project_id}", fg="green")
-    click.secho(f"Found GCP region: {region}", fg="green")
-    click.secho(
-        f"Fetching configuration for Cloud Run job '{job_name}'...",
-        fg="bright_black",
+    state_params = ctx.obj or {}
+    tf = get_terraform_outputs(
+        project_id=state_params.get("project_id"),
+        instance_name=state_params.get("instance_name"),
+        tf_state_location=state_params.get("tf_state_location"),
     )
 
-    client = IngestionJobClient(
-        job_name,
-        service_account_email=sa_email,
-        project_id=project_id,
-        location=region,
-    )
-    env_vars = client.get_config()
+    # Names match the env vars the workflow passes to the preprocessing job.
+    config = {
+        "PROJECT_ID": tf.project_id,
+        "REGION": tf.region,
+        "GCP_SPANNER_INSTANCE_ID": tf.spanner_instance_id,
+        "GCP_SPANNER_DATABASE_NAME": tf.spanner_database_id,
+        "GCS_BUCKET": tf.storage_artifacts_bucket_name,
+    }
 
     click.secho("\nCurrent ingestion job configuration:", fg="cyan", bold=True)
-    if not env_vars:
-        click.secho("No environment variables configured.", fg="yellow")
-    else:
-        for env in env_vars:
-            name = env.get("name", "UNKNOWN")
-            if "value" in env:
-                val = env["value"]
-            elif "valueSource" in env:
-                val = f"[SECRET: {env['valueSource']}]"
-            else:
-                val = "[UNSET]"
-            click.secho(f"  {name}: ", fg="bright_black", nl=False)
-            click.secho(str(val), fg="green")
+    for name, val in config.items():
+        click.secho(f"  {name}: ", fg="bright_black", nl=False)
+        click.secho(val or "[UNSET]", fg="green")

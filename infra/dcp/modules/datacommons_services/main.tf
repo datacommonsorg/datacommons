@@ -3,17 +3,9 @@ locals {
 
   datacommons_services_roles = toset(concat(
     [
-      "roles/compute.networkViewer",
-      "roles/redis.editor",
-      "roles/storage.objectViewer",
       "roles/vpcaccess.user",
-      # TODO: Review this overly broad permission.
-      "roles/iam.serviceAccountUser",
-      "roles/secretmanager.secretAccessor",
-      "roles/workflows.invoker"
     ],
-    var.use_spanner ? ["roles/spanner.databaseUser"] : [],
-    var.use_spanner && var.resolve_with_spanner_embeddings ? ["roles/aiplatform.user"] : []
+    var.resolve_with_spanner_embeddings ? ["roles/aiplatform.user"] : []
   ))
 }
 
@@ -28,6 +20,23 @@ resource "google_project_iam_member" "serving_sa_roles" {
   project = var.project_id
   member  = "serviceAccount:${google_service_account.serving_sa.email}"
   role    = each.value
+}
+
+resource "google_secret_manager_secret_iam_member" "serving_secret_accessor" {
+  for_each = { for s in var.secret_env_vars : s.name => s.secret }
+
+  project   = var.project_id
+  secret_id = each.value
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.serving_sa.email}"
+}
+
+resource "google_spanner_database_iam_member" "serving_spanner_reader" {
+  project  = var.project_id
+  instance = var.spanner_config.instance_id
+  database = var.spanner_config.database_id
+  role     = "roles/spanner.databaseReader"
+  member   = "serviceAccount:${google_service_account.serving_sa.email}"
 }
 
 resource "google_cloud_run_v2_service" "dc_web_service" {
@@ -71,6 +80,14 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
         name  = "GCP_PROJECT_ID"
         value = var.project_id
       }
+      env {
+        name  = "GCP_SPANNER_INSTANCE_ID"
+        value = var.spanner_config.instance_id
+      }
+      env {
+        name  = "GCP_SPANNER_DATABASE_NAME"
+        value = var.spanner_config.database_id
+      }
 
       dynamic "env" {
         for_each = var.secret_env_vars
@@ -110,20 +127,21 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
         value = "true"
       }
       env {
-        name  = "USE_SPANNER_KEY_VALUE_STORE"
-        value = var.use_spanner ? "true" : "false"
-      }
-      env {
         name  = "V2_RESOLVE_INDICATORS_TARGET"
         value = var.website_search_scope
       }
     }
 
+    # Direct VPC Egress
     dynamic "vpc_access" {
-      for_each = var.vpc_connector_id != null && var.vpc_connector_id != "" ? [1] : []
+      for_each = var.vpc_access != null ? [var.vpc_access] : []
       content {
-        connector = var.vpc_connector_id
-        egress    = "PRIVATE_RANGES_ONLY"
+        network_interfaces {
+          network    = vpc_access.value.network_id
+          subnetwork = vpc_access.value.subnet_id
+          tags       = ["dcp-service"]
+        }
+        egress = vpc_access.value.vpc_egress_mode
       }
     }
 
@@ -137,7 +155,11 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
 
   }
 
-  depends_on = [google_project_iam_member.serving_sa_roles]
+  depends_on = [
+    google_project_iam_member.serving_sa_roles,
+    google_secret_manager_secret_iam_member.serving_secret_accessor,
+    google_spanner_database_iam_member.serving_spanner_reader
+  ]
 }
 
 resource "google_cloud_run_v2_service_iam_member" "public_access" {
