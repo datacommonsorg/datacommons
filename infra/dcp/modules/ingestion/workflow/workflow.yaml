@@ -575,7 +575,6 @@ launch_and_poll_preprocessing_job:
                           PYTHONUNBUFFERED: '1'
                           PROJECT_ID: '${project_id}'
                           REGION: '$${region}'
-                          IMPORT_PROXY_ENTITIES: 'false'
                         secretVariables:
                           DC_API_KEY: '${dc_api_key_secret_version}'
             allocationPolicy:
