@@ -224,13 +224,14 @@ module "ingestion_helper_service" {
   enable_embeddings_generation = var.spanner_config.enable_embeddings_generation
 
   # Direct VPC Egress from network module
-  vpc_access               = module.network.vpc_access
-  redis_host               = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
-  redis_port               = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
-  redis_auth_secret_id     = var.redis_config.enable && var.redis_config.enable_auth && length(module.redis) > 0 ? module.redis[0].redis_auth_secret_id : null
-  redis_ca_cert            = local.redis_ca_cert
-  ingestion_artifacts_path = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
-  skip_container_restarts  = var.global.skip_container_restarts
+  vpc_access                       = module.network.vpc_access
+  redis_host                       = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
+  redis_port                       = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
+  redis_auth_secret_id             = var.redis_config.enable && var.redis_config.enable_auth && length(module.redis) > 0 ? module.redis[0].redis_auth_secret_id : null
+  redis_ca_cert                    = local.redis_ca_cert
+  ingestion_artifacts_path         = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
+  skip_container_restarts          = var.global.skip_container_restarts
+  spanner_version_retention_period = var.spanner_config.version_retention_period
 }
 
 
@@ -631,14 +632,19 @@ module "ingestion_alerts" {
   count  = var.ingestion_config.enable_ingestion && var.ingestion_config.enable_lock_retention_alerts ? 1 : 0
   source = "../ingestion/alerts"
 
-  project_id               = var.global.project_id
-  instance_name            = var.global.instance_name
-  database_id              = var.spanner_config.database_id
-  version_retention_period = var.spanner_config.version_retention_period
-  service_name             = module.ingestion_helper_service.service_name
-  notification_channels    = var.ingestion_config.lock_alert_notification_channels
-  enable_alert_50pct       = var.ingestion_config.enable_lock_retention_alert_50pct
-  enable_alert_90pct       = var.ingestion_config.enable_lock_retention_alert_90pct
-  enable_alert_100pct      = var.ingestion_config.enable_lock_retention_alert_100pct
+  project_id                      = var.global.project_id
+  instance_name                   = var.global.instance_name
+  database_id                     = var.spanner_config.database_id
+  version_retention_period        = var.spanner_config.version_retention_period
+  service_name                    = module.ingestion_helper_service.service_name
+  notification_channels           = var.ingestion_config.lock_alert_notification_channels
+  enable_alert_50pct              = var.ingestion_config.enable_lock_retention_alert_50pct
+  enable_alert_90pct              = var.ingestion_config.enable_lock_retention_alert_90pct
+  enable_alert_100pct             = var.ingestion_config.enable_lock_retention_alert_100pct
+  region                          = var.global.region
+  helper_url                      = module.ingestion_helper_service.ingestion_helper_url
+  scheduler_service_account_email = module.ingestion_workflow.service_account_email
+  enable_lock_status_scheduler    = var.ingestion_config.enable_lock_status_scheduler
+  lock_status_ping_schedule       = var.ingestion_config.lock_status_ping_schedule
 }
 

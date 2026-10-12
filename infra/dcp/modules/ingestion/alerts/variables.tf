@@ -47,3 +47,33 @@ variable "enable_alert_100pct" {
   type        = bool
   default     = true
 }
+
+variable "region" {
+  description = "GCP region for regional resources such as Cloud Scheduler."
+  type        = string
+  default     = ""
+}
+
+variable "helper_url" {
+  description = "Base URL of the Ingestion Helper Cloud Run service."
+  type        = string
+  default     = ""
+}
+
+variable "scheduler_service_account_email" {
+  description = "Service account email used by Cloud Scheduler with roles/run.invoker to ping Ingestion Helper."
+  type        = string
+  default     = ""
+}
+
+variable "enable_lock_status_scheduler" {
+  description = "Enable Cloud Scheduler job to periodically ping /database/lock/status. Default: false."
+  type        = bool
+  default     = false
+}
+
+variable "lock_status_ping_schedule" {
+  description = "Cron schedule expression for the lock status probe job (e.g., '*/10 * * * *')."
+  type        = string
+  default     = "*/10 * * * *"
+}

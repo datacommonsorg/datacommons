@@ -177,12 +177,14 @@ locals {
     dataflow_num_workers                 = var.ingestion_dataflow_num_workers
     dataflow_worker_machine_type         = var.ingestion_dataflow_worker_machine_type
 
-    # Ingestion Lock Approaching Retention Alerts
+    # Ingestion Lock Approaching Retention Alerts & Scheduler Prober
     enable_lock_retention_alerts       = var.ingestion_enable_lock_retention_alerts
     enable_lock_retention_alert_50pct  = var.ingestion_enable_lock_retention_alert_50pct
     enable_lock_retention_alert_90pct  = var.ingestion_enable_lock_retention_alert_90pct
     enable_lock_retention_alert_100pct = var.ingestion_enable_lock_retention_alert_100pct
     lock_alert_notification_channels   = var.ingestion_lock_alert_notification_channels
+    enable_lock_status_scheduler       = var.ingestion_enable_lock_status_scheduler
+    lock_status_ping_schedule          = var.ingestion_lock_status_ping_schedule
   }
 }
 

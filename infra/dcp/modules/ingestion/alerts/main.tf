@@ -10,7 +10,31 @@ locals {
   warn_90pct_threshold_sec  = floor(local.retention_seconds * 0.90)
   crit_100pct_threshold_sec = local.retention_seconds
 
-  instance_prefix = var.instance_name != "" ? "${var.instance_name} - " : ""
+  instance_prefix   = var.instance_name != "" ? "${var.instance_name} - " : ""
+  clean_name_prefix = var.instance_name != "" ? "${replace(lower(var.instance_name), "_", "-")}-" : ""
+}
+
+# ==============================================================================
+# Periodic Lock Status Prober (Cloud Scheduler)
+# ==============================================================================
+
+resource "google_cloud_scheduler_job" "lock_status_prober" {
+  count       = var.enable_lock_status_scheduler ? 1 : 0
+  name        = "${local.clean_name_prefix}dc-lock-status-probe"
+  project     = var.project_id
+  region      = var.region
+  description = "Periodically pings Ingestion Helper /database/lock/status to verify Spanner retention SLA"
+  schedule    = var.lock_status_ping_schedule
+  time_zone   = "UTC"
+
+  http_target {
+    http_method = "GET"
+    uri         = "${var.helper_url}/database/lock/status"
+
+    oidc_token {
+      service_account_email = var.scheduler_service_account_email
+    }
+  }
 }
 
 # ==============================================================================
@@ -25,12 +49,12 @@ resource "google_monitoring_alert_policy" "ingestion_lock_approaching_retention_
   severity     = "WARNING"
 
   conditions {
-    display_name = "Lock acquired in Ingestion Helper but not released within ${floor(local.warn_50pct_threshold_sec / 3600)} hours"
+    display_name = "Ingestion lock held >= 50% of retention horizon (${floor(local.warn_50pct_threshold_sec / 3600)} hours)"
     condition_matched_log {
       filter = <<-EOT
         resource.type="cloud_run_revision"
         AND resource.labels.service_name="${var.service_name}"
-        AND (jsonPayload.event="INGESTION_LOCK_ACQUIRED" OR textPayload:"INGESTION_LOCK_ACQUIRED")
+        AND (jsonPayload.event="INGESTION_LOCK_HELD_50PCT_WARNING" OR textPayload:"INGESTION_LOCK_HELD_50PCT_WARNING")
       EOT
     }
   }
@@ -43,7 +67,7 @@ resource "google_monitoring_alert_policy" "ingestion_lock_approaching_retention_
   }
 
   documentation {
-    content = <<-EOT
+    content   = <<-EOT
       ## ⚠️ WARNING: Ingestion Lock Held > 50% of Spanner Version Retention
       The global ingestion lock in Spanner database `${var.database_id}` has been held for over **${floor(local.warn_50pct_threshold_sec / 3600)} hours** (50% of the Spanner version retention period `${var.version_retention_period}`).
       
@@ -68,12 +92,12 @@ resource "google_monitoring_alert_policy" "ingestion_lock_approaching_retention_
   severity     = "WARNING"
 
   conditions {
-    display_name = "Warning: Lock held for ${floor(local.warn_90pct_threshold_sec / 3600)} hours (approaching retention expiration)"
+    display_name = "Ingestion lock held >= 90% of retention horizon (${floor(local.warn_90pct_threshold_sec / 3600)} hours)"
     condition_matched_log {
       filter = <<-EOT
         resource.type="cloud_run_revision"
         AND resource.labels.service_name="${var.service_name}"
-        AND (jsonPayload.event="INGESTION_LOCK_ACQUIRED" OR textPayload:"INGESTION_LOCK_ACQUIRED")
+        AND (jsonPayload.event="INGESTION_LOCK_HELD_90PCT_WARNING" OR textPayload:"INGESTION_LOCK_HELD_90PCT_WARNING")
       EOT
     }
   }
@@ -86,7 +110,7 @@ resource "google_monitoring_alert_policy" "ingestion_lock_approaching_retention_
   }
 
   documentation {
-    content = <<-EOT
+    content   = <<-EOT
       ## ⚠️ WARNING: Ingestion Lock Approaching 90% of Spanner Retention Limit
       The ingestion lock in Spanner database `${var.database_id}` has been held for over **${floor(local.warn_90pct_threshold_sec / 3600)} hours** (90% of `${var.version_retention_period}`).
       
@@ -111,12 +135,12 @@ resource "google_monitoring_alert_policy" "ingestion_lock_breached_retention_cri
   severity     = "CRITICAL"
 
   conditions {
-    display_name = "Critical: Lock held for >= ${floor(local.crit_100pct_threshold_sec / 3600)} hours (Spanner retention horizon breached)"
+    display_name = "Ingestion lock held >= 100% of retention horizon (${floor(local.crit_100pct_threshold_sec / 3600)} hours)"
     condition_matched_log {
       filter = <<-EOT
         resource.type="cloud_run_revision"
         AND resource.labels.service_name="${var.service_name}"
-        AND (jsonPayload.event="INGESTION_LOCK_ACQUIRED" OR textPayload:"INGESTION_LOCK_ACQUIRED")
+        AND (jsonPayload.event="INGESTION_LOCK_HELD_100PCT_CRITICAL" OR textPayload:"INGESTION_LOCK_HELD_100PCT_CRITICAL")
       EOT
     }
   }
@@ -129,7 +153,7 @@ resource "google_monitoring_alert_policy" "ingestion_lock_breached_retention_cri
   }
 
   documentation {
-    content = <<-EOT
+    content   = <<-EOT
       ## 🚨 CRITICAL PROD ERROR: Spanner Version Retention Horizon Breached!
       The ingestion lock in Spanner database `${var.database_id}` has been held for over **${floor(local.crit_100pct_threshold_sec / 3600)} hours**, completely exceeding the configured Spanner version retention period (`${var.version_retention_period}`).
       
