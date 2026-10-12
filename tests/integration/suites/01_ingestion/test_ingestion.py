@@ -188,23 +188,25 @@ class TestSpannerGraph:
             "provenances": spanner.param_types.Array(spanner.param_types.STRING)
         }
 
-        # Non-vacuity guard: the scoping must match observations this dataset wrote.
+        # Observation entities live in TimeSeries.entity1 (the observationAbout
+        # entity for single-entity files); provenance is a TimeSeries column.
+        # Non-vacuity guard: the scoping must match series this dataset wrote.
         count_rows = spanner_client.query(
-            "SELECT COUNT(DISTINCT observation_about) AS n FROM Observation "
+            "SELECT COUNT(DISTINCT entity1) AS n FROM TimeSeries "
             "WHERE provenance IN UNNEST(@provenances)",
             params=params,
             param_types=param_types,
         )
         entity_count = count_rows[0]["n"] if count_rows else 0
         assert entity_count > 0, (
-            f"No observations found for provenances {provenances}. "
-            "The check would pass vacuously; verify ingestion ran and Observation.provenance values."
+            f"No TimeSeries rows found for provenances {provenances}. "
+            "The check would pass vacuously; verify ingestion ran and TimeSeries.provenance values."
         )
 
         rows = spanner_client.query(
             "SELECT n.subject_id AS dcid, n.types AS types FROM Node n "
             "WHERE n.subject_id IN ("
-            "  SELECT DISTINCT observation_about FROM Observation "
+            "  SELECT DISTINCT entity1 FROM TimeSeries "
             "  WHERE provenance IN UNNEST(@provenances))",
             params=params,
             param_types=param_types,

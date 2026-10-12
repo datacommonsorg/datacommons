@@ -60,7 +60,7 @@ def observation_entity_provenances(dataset_dirs: Iterable[str | Path]) -> set[st
     These are the files for which the importer can generate proxy entity nodes.
     Supports both `inputFiles` shapes accepted by the simple importer: a list of
     per-file configs and a dict keyed by file pattern. IDs are returned without
-    namespace prefixes, matching Observation.provenance.
+    namespace prefixes, matching TimeSeries.provenance.
     """
     provenances: set[str] = set()
     for dataset_dir in dataset_dirs:
@@ -86,7 +86,7 @@ def declared_mcf_dcids(dataset_dirs: Iterable[str | Path]) -> set[str]:
     """Returns every DCID declared as a node in the datasets' *.mcf files."""
     dcids: set[str] = set()
     for dataset_dir in dataset_dirs:
-        for mcf_path in sorted(_resolve_dir(dataset_dir).glob("*.mcf")):
+        for mcf_path in sorted(_resolve_dir(dataset_dir).rglob("*.mcf")):
             with open(mcf_path, encoding="utf-8") as f:
                 for line in f:
                     match = _MCF_DCID_LINE.match(line)
