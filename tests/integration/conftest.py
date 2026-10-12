@@ -14,6 +14,7 @@
 
 import contextlib
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -386,6 +387,15 @@ def pytest_runtest_logreport(report):
             duration=report.duration,
             error_message=str(report.longrepr) if hasattr(report, "longrepr") else None,
         )
+    elif report.when in ("setup", "teardown") and report.failed:
+        # Fixture errors never reach the call phase; count them as failures so
+        # the report status (and the CI job) reflects them.
+        _GLOBAL_REPORTER.add_result(
+            nodeid=f"{report.nodeid} [{report.when} error]",
+            outcome="failed",
+            duration=report.duration,
+            error_message=str(report.longrepr),
+        )
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -515,23 +525,31 @@ def spanner_client(dcp_target: DCPTarget) -> SpannerClient:
 def auth_headers(dcp_target: DCPTarget) -> dict:
     """Provides default HTTP headers with GCP Cloud Run identity token if authenticated."""
     headers = {"X-Use-Multi-Entity-Schema": "true"}
-    try:
-        cmd = ["gcloud", "auth", "print-identity-token"]
-        if dcp_target and dcp_target.serving_url:
-            cmd.append(f"--audiences={dcp_target.serving_url}")
-        token = (
-            subprocess.check_output(
-                cmd,
-                stderr=subprocess.DEVNULL,
-                timeout=15,
+    base_cmd = ["gcloud", "auth", "print-identity-token"]
+    # Service accounts can mint audience-scoped tokens; user accounts reject
+    # --audiences, so fall back to a plain identity token.
+    candidates = [base_cmd]
+    if dcp_target and dcp_target.serving_url:
+        candidates.insert(0, [*base_cmd, f"--audiences={dcp_target.serving_url}"])
+    for cmd in candidates:
+        try:
+            token = (
+                subprocess.check_output(
+                    cmd,
+                    stderr=subprocess.DEVNULL,
+                    timeout=15,
+                )
+                .decode()
+                .strip()
             )
-            .decode()
-            .strip()
-        )
+        except Exception as e:
+            logging.getLogger(__name__).debug(
+                "Identity token command %s failed: %s", cmd, e
+            )
+            continue
         if token:
             headers["Authorization"] = f"Bearer {token}"
-    except Exception:
-        pass
+            break
     return headers
 
 
@@ -539,7 +557,7 @@ def auth_headers(dcp_target: DCPTarget) -> dict:
 def dc_client(dcp_target: DCPTarget, auth_headers: dict):
     """Provides official datacommons-client Client connected to target testbed."""
     if not dcp_target.serving_url:
-        pytest.skip("Serving URL not configured for target instance.")
+        pytest.fail("Serving URL not configured for target instance.")
 
     if dcp_target.instance_name == "emulated":
         from tests.integration.emulated.environment import EmulatedEnvironment
@@ -571,7 +589,9 @@ def dc_client(dcp_target: DCPTarget, auth_headers: dict):
         url = f"{dcp_target.serving_url}/core/api/v2"
         yield DataCommonsClient(url=url)
     except Exception as e:
-        pytest.skip(f"datacommons-client not initialized: {e}")
+        # An unreachable or unauthorized serving endpoint is an environment
+        # failure, not a reason to skip every serving test.
+        pytest.fail(f"datacommons-client not initialized: {e}")
     finally:
         requests.Session.request = orig_session_request
         requests.get = orig_requests_get
@@ -581,7 +601,7 @@ def dc_client(dcp_target: DCPTarget, auth_headers: dict):
 def mcp_client(dcp_target: DCPTarget, auth_headers: dict) -> MCPClient:
     """Provides client for executing MCP tools against {serving_url}/mcp."""
     if not dcp_target.serving_url:
-        pytest.skip("Serving URL not configured for target instance.")
+        pytest.fail("Serving URL not configured for target instance.")
 
     if dcp_target.instance_name == "emulated":
         from tests.integration.emulated.environment import EmulatedEnvironment
