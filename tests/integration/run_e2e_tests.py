@@ -106,7 +106,11 @@ def run_e2e_tests(
         if local_path.exists():
             try:
                 with open(local_path, encoding="utf-8") as f:
-                    report = json.load(f)
+                    data = json.load(f)
+                if isinstance(data, dict):
+                    report = data
+                else:
+                    print(f"Warning: report {local_path} is not a JSON object")
             except Exception as e:
                 print(f"Warning: could not read report {local_path}: {e}")
 
