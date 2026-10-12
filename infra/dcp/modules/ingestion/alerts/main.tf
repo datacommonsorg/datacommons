@@ -3,7 +3,9 @@ locals {
   retention_raw = var.version_retention_period
   retention_seconds = (
     endswith(local.retention_raw, "d") ? tonumber(trimsuffix(local.retention_raw, "d")) * 86400 :
-    tonumber(trimsuffix(local.retention_raw, "h")) * 3600
+    endswith(local.retention_raw, "h") ? tonumber(trimsuffix(local.retention_raw, "h")) * 3600 :
+    endswith(local.retention_raw, "m") ? tonumber(trimsuffix(local.retention_raw, "m")) * 60 :
+    tonumber(trimsuffix(local.retention_raw, "s"))
   )
   warn_50pct_threshold_sec  = floor(local.retention_seconds * 0.50)
   warn_90pct_threshold_sec  = floor(local.retention_seconds * 0.90)
@@ -18,8 +20,8 @@ locals {
   clean_name_prefix = var.instance_name != "" ? "${replace(lower(var.instance_name), "_", "-")}-" : ""
 
   # Cloud Monitoring requires autoClose to be between 30 minutes (1800s) and 168 hours (604800s)
-  auto_close_seconds      = max(local.retention_seconds, 1800)
-  auto_close_crit_seconds = max(local.retention_seconds * 2, 1800)
+  auto_close_seconds      = min(max(local.retention_seconds, 1800), 604800)
+  auto_close_crit_seconds = min(max(local.retention_seconds * 2, 1800), 604800)
 }
 
 # ==============================================================================

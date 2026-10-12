@@ -17,6 +17,11 @@ variable "database_id" {
 variable "version_retention_period" {
   description = "The Spanner version retention period (e.g. '24h', '7d')."
   type        = string
+
+  validation {
+    condition     = can(regex("^[0-9]+[dhms]$", var.version_retention_period))
+    error_message = "The version_retention_period must be a number followed by 'd', 'h', 'm', or 's' (e.g. '7d', '24h')."
+  }
 }
 
 variable "service_name" {
