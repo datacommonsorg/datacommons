@@ -512,11 +512,14 @@ def spanner_client(dcp_target: DCPTarget) -> SpannerClient:
 
 
 def _fetch_cloud_run_identity_token(serving_url: str | None) -> str | None:
-    """Fetches an identity token when targeting a direct Cloud Run endpoint."""
-    if not serving_url or "run.app" not in serving_url:
-        return None
+    """Fetches an identity token when targeting a direct Cloud Run endpoint or when an explicit audience is provided."""
+    audience = os.getenv("DCP_AUTH_AUDIENCE")
+    if not audience:
+        if not serving_url or "run.app" not in serving_url:
+            return None
+        audience = serving_url
     try:
-        cmd = ["gcloud", "auth", "print-identity-token", f"--audiences={serving_url}"]
+        cmd = ["gcloud", "auth", "print-identity-token", f"--audiences={audience}"]
         return (
             subprocess.check_output(cmd, stderr=subprocess.DEVNULL, timeout=15)
             .decode()

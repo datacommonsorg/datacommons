@@ -32,5 +32,6 @@ ingestion_worker_subnetwork            = "regions/us-central1/subnetworks/defaul
 ingestion_dataflow_num_workers         = 1
 ingestion_dataflow_max_workers         = 1
 ingestion_dataflow_worker_machine_type = "e2-standard-4"
-enable_load_balancer                  = true
+enable_load_balancer                              = true
+datacommons_services_allow_unauthenticated_access = true
 

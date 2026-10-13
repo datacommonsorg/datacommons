@@ -43,7 +43,7 @@ locals {
   ]
 
   # Conditional APIs based on enabled modules and features
-  compute_apis = (var.enable_network || var.enable_load_balancer || var.enable_redis) ? ["compute.googleapis.com"] : []
+  compute_apis = (var.enable_network || var.enable_load_balancer || var.enable_redis || var.enable_ingestion) ? ["compute.googleapis.com"] : []
   redis_apis   = var.enable_redis ? ["redis.googleapis.com"] : []
   spanner_apis = var.enable_spanner ? ["spanner.googleapis.com"] : []
 
