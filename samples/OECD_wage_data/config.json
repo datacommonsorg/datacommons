@@ -2,7 +2,7 @@
   "inputFiles": [
     {
       "pattern": "gender_wage_gap.*",
-      "provenance": "oecd:OECDGenderWageGap",
+      "provenance": "dcid:OECDGenderWageGap",
       "columnMappings": {
         "dcid:observationAbout": "entity",
         "dcid:variableMeasured": "variable",
@@ -13,7 +13,7 @@
     },
     {
       "pattern": "average_annual_wage.*",
-      "provenance": "oecd:OECDWages",
+      "provenance": "dcid:OECDWages",
       "columnMappings": {
         "dcid:observationAbout": "entity",
         "dcid:variableMeasured": "variable",
