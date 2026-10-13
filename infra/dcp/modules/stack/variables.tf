@@ -152,3 +152,13 @@ variable "ingestion_config" {
     lock_status_ping_schedule          = optional(string, "*/10 * * * *")
   })
 }
+
+variable "load_balancer_config" {
+  type = object({
+    enable = bool
+  })
+  default = {
+    enable = false
+  }
+  description = "Configuration for the External Application Load Balancer in front of Cloud Run."
+}

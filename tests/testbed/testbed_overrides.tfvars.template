@@ -50,6 +50,14 @@
 # once will fail.
 enable_network = false
 
+# --- Option D: Load Balancer ---
+# Provision an External Application Load Balancer in front of Cloud Run.
+# When enabling the load balancer, set
+# datacommons_services_allow_unauthenticated_access = true for public access,
+# or set DCP_AUTH_AUDIENCE with the Cloud Run service URL to authenticate.
+# enable_load_balancer = false
+# datacommons_services_allow_unauthenticated_access = false
+
 # =============================================================================
 # Ingestion - Dataflow Network Configuration
 # =============================================================================

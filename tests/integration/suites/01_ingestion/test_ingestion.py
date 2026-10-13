@@ -96,12 +96,14 @@ class TestCLIIngestion:
         )
         assert completed, f"Cloud Workflow execution '{exec_id}' failed or timed out."
 
-        # 4. Verify Spanner IngestionHistory record if table exists
+        # 4. Verify Spanner IngestionHistory record
         history = spanner_client.get_ingestion_history(exec_id)
-        if history is not None:
-            assert history.get("Status") == "SUCCESS", (
-                f"IngestionHistory status is '{history.get('Status')}', expected 'SUCCESS' for workflow '{exec_id}'"
-            )
+        assert history is not None, (
+            f"No IngestionHistory record for workflow '{exec_id}'"
+        )
+        assert history.get("Status") == "SUCCESS", (
+            f"IngestionHistory status is '{history.get('Status')}', expected 'SUCCESS' for workflow '{exec_id}'"
+        )
 
 
 class TestSpannerGraph:
@@ -152,4 +154,43 @@ class TestSpannerGraph:
         assert len(rows) > 0, (
             f"Expected edge ({expected_edge_spec.subject_id} -> {expected_edge_spec.predicate} -> {expected_edge_spec.object_id}) "
             "not found in Spanner Edge table"
+        )
+
+    def test_05_observation_entities_not_local_nodes(
+        self,
+        seeded_testbed,
+        spanner_client: SpannerClient,
+        test_manifest: TestManifest,
+    ):
+        """Verifies observation entities are not stored as local nodes (proxy entities).
+
+        Mixer treats a DCID as local if and only if it has a row in Node.subject_id.
+        Observation entities (e.g. country/USA) live in Base DC, so a Node row for
+        one makes Mixer serve it from Spanner instead of federating to Base DC.
+        Only single-entity series are checked; multi-entity columns are not yet.
+        """
+        expectations = test_manifest.ingestion.spanner_expectations
+        if (
+            not test_manifest.stages.ingestion
+            or not expectations.check_observation_entities_not_local
+        ):
+            pytest.skip("Observation entity check not enabled in test manifest.")
+
+        count_rows = spanner_client.query(
+            "SELECT COUNT(DISTINCT entity1) AS n FROM TimeSeries WHERE entity2 IS NULL"
+        )
+        entity_count = count_rows[0]["n"] if count_rows else 0
+        assert entity_count > 0, "No single-entity observations found in TimeSeries."
+
+        rows = spanner_client.query(
+            "SELECT subject_id, types FROM Node WHERE subject_id IN "
+            "(SELECT DISTINCT entity1 FROM TimeSeries WHERE entity2 IS NULL) "
+            "ORDER BY subject_id"
+        )
+        proxies = [(r["subject_id"], list(r["types"] or [])) for r in rows]
+        assert not proxies, (
+            f"{len(proxies)} of {entity_count} observation entities are stored as local "
+            f"Node rows (proxy entities): {proxies[:10]}. Mixer will serve them from "
+            "Spanner instead of Base DC. Check that the preprocessor runs with "
+            "IMPORT_PROXY_ENTITIES=false."
         )
