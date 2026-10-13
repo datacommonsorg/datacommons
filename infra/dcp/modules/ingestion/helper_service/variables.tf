@@ -19,12 +19,12 @@ variable "stateless_deletion_protection" {
   description = "Enable deletion protection for stateless resources (Cloud Run) to prevent accidental deletion."
 }
 
-variable "spanner_instance_id" {
-  type = string
-}
-
-variable "spanner_database_id" {
-  type = string
+variable "spanner_config" {
+  type = object({
+    instance_id = string
+    database_id = string
+  })
+  description = "Spanner database coordinates"
 }
 
 variable "ingestion_bucket_name" {
@@ -37,10 +37,6 @@ variable "image" {
   description = "Docker image URL for the ingestion support service"
 }
 
-variable "use_spanner" {
-  type    = bool
-  default = true
-}
 
 
 variable "enable_embeddings_generation" {

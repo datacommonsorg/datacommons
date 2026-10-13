@@ -22,17 +22,18 @@ variable "vpc_access" {
   description = "Direct VPC Egress configuration. If null, job runs without VPC egress."
   default     = null
 }
-variable "spanner_instance_id" { type = string }
-variable "spanner_database_id" { type = string }
-variable "bigquery_connection_id" { type = string }
-variable "use_spanner" { type = bool }
+variable "spanner_config" {
+  type = object({
+    instance_id                = string
+    database_id                = string
+    enable_bigquery_connection = optional(bool, false)
+    bigquery_connection_id     = optional(string, "")
+  })
+  description = "Spanner database and BigQuery federation connection coordinates"
+}
 variable "enable_bigquery_postprocessing" { type = bool }
 variable "enable_spanner_embeddings" { type = bool }
-variable "enable_bigquery_connection" {
-  description = "Enable BigQuery connection for post-processing. Requires Spanner module to be enabled with BigQuery connection support (spanner_config.enable = true and spanner_config.enable_bigquery_connection = true)."
-  type        = bool
-  default     = false
-}
+
 
 
 variable "env_vars" {

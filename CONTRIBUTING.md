@@ -17,7 +17,7 @@ The Data Commons Platform (DCP) welcomes contributions from developers, research
 To build, test, and contribute, install the following tools:
 * **Python (v3.11+)**: Required for core packages.
 * **[uv](https://docs.astral.sh/uv/)**: Python project and package manager.
-* **[Terraform](https://developer.hashicorp.com/terraform/install) (v1.5+)**: Required when modifying configurations in `infra/dcp/`.
+* **[Terraform](https://developer.hashicorp.com/terraform/install) (v1.7+)**: Required when modifying or testing configurations in `infra/dcp/`.
 * **[gcloud CLI](https://cloud.google.com/sdk/docs/install-sdk)**: Google Cloud SDK for project authentication.
 * **[Docker](https://docs.docker.com/get-docker/)**: Required for running local hermetic integration tests with Docker Compose.
 
@@ -38,10 +38,15 @@ uv run ruff check
 ```
 
 ### Running Tests
-Run unit tests across all packages:
+Run Python and Terraform unit tests:
 ```bash
+# Python unit tests
 uv run pytest
+
+# Terraform formatting, validation, and module unit tests (when modifying infra/dcp/)
+uv run infra/dcp/scripts/check_terraform.py
 ```
+For `--fix`, individual flags, and module unit test authoring, refer to the [Infrastructure Guide](infra/dcp/README.md#local-development-validation-and-testing).
 
 For emulated end-to-end integration tests using Docker Compose, refer to the [Integration Tests Guide](tests/integration/README.md):
 ```bash

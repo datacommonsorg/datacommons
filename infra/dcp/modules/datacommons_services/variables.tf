@@ -75,10 +75,6 @@ variable "mcp_instructions_path" {
   default     = null
 }
 
-variable "resolve_with_spanner_embeddings" {
-  type = bool
-}
-
 variable "website_search_scope" {
   type        = string
   default     = ""
@@ -104,8 +100,13 @@ variable "vpc_access" {
   default     = null
 }
 
-variable "use_spanner" {
-  type = bool
+
+variable "spanner_config" {
+  type = object({
+    instance_id = string
+    database_id = string
+  })
+  description = "Spanner database coordinates for query serving"
 }
 
 # =============================================================================

@@ -14,6 +14,7 @@ ingestion:
     - "tests/integration/test_data/foobar_wages"
   spanner_expectations:
     exact_observation_count: 1242
+    check_observation_entities_not_local: true
     expected_nodes:
       - subject_id: "dc/s/FooBarOrganization"
         expected_types: ["Source"]
@@ -68,6 +69,28 @@ serving_api:
     - node_dcid: "FooBarWages"
       expression: "->source"
       expected_values: ["dc/s/FooBarOrganization", "FooBar Statistics Organization"]
+    # Arc targets. Person is referenced but not declared in this dataset, so Mixer
+    # must hydrate it from Base DC (an unhydrated target comes back as ["Thing"]).
+    # FooBarGroup and wagesAnnual are declared in the MCF and resolve from Spanner.
+    - node_dcid: "average_annual_wage"
+      expression: "->populationType"
+      expected_targets:
+        - dcid: "Person"
+          name: "Person"
+          types: ["Class"]
+          requires_base_dc: true
+    - node_dcid: "average_annual_wage"
+      expression: "->memberOf"
+      expected_targets:
+        - dcid: "FooBarGroup"
+          name: "FooBar"
+          types: ["StatVarGroup"]
+    - node_dcid: "gender_wage_gap"
+      expression: "->measuredProperty"
+      expected_targets:
+        - dcid: "wagesAnnual"
+          name: "wagesAnnual"
+          types: ["Property"]
 
   point_observations:
     - observation_about: ["country/USA", "country/CAN"]
