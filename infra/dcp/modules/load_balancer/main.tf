@@ -1,6 +1,6 @@
 locals {
-  name_prefix            = var.instance_name != "" ? "${var.instance_name}-" : ""
-  restrict_ip_allowlist  = length(var.allowed_ip_ranges) > 0 && !contains(var.allowed_ip_ranges, "*")
+  name_prefix           = var.instance_name != "" ? "${var.instance_name}-" : ""
+  restrict_ip_allowlist = length(var.allowed_ip_ranges) > 0 && !contains(var.allowed_ip_ranges, "*")
 }
 
 # =============================================================================

@@ -1,4 +1,4 @@
-# Data Commons Platform (DCP) — Prober Deployment Runbook
+# Data Commons Platform (DCP): Prober Deployment Runbook
 
 This directory contains the automation and Terraform blueprint to deploy and update the **24/7 Continuous DCP Integration Prober** on Google Cloud.
 
@@ -86,8 +86,21 @@ When you run `./deploy_prober.sh`, the deployment executes two main phases:
 
 ---
 
+## 🧪 Formatting & Validating Terraform (`terraform/`)
+
+```bash
+# Format Terraform in-place
+uv run infra/dcp/scripts/check_terraform.py --tf-dir tests/integration/prober/deploy/terraform --fix
+
+# Check formatting and validate Terraform configuration
+uv run infra/dcp/scripts/check_terraform.py --tf-dir tests/integration/prober/deploy/terraform --fmt --validate
+```
+
+---
+
 ## 🔐 Cross-Project Permissions (Artifact Registry)
 
 `deploy_prober.sh` automatically grants `roles/artifactregistry.reader` on the `datcom-ci` repository to the target project's Cloud Run Service Agent (`service-${PROJECT_NUMBER}@serverless-robot-prod.iam.gserviceaccount.com`). 
 
 If deploying via a custom service account lacking IAM admin privileges, ensure an administrator grants this role on `datcom-ci` so Cloud Run can pull the container image.
+

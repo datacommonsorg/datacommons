@@ -354,7 +354,7 @@ ingestion_base /
     |– data2.csv
 ```
 
-#### Example 4: Single schema-only import, multiple data imports
+#### Example 4: Single schema-only import, multiple data imports {#example4}
 
 In this example, the MCF file is shared across multiple imports.
 
@@ -839,7 +839,7 @@ The *IMPORT_PATH* is the directory containing a `config.json` file, and is relat
 * To ingest multiple imports, specify comma-separated values for each `config.json` directory you would like to ingest now; for example `–-imports import1,import2.`
 * To ingest all data imports, specify `–-imports ALL_IMPORTS`.
 
-Depending on the amount of data being processed, it can take anywhere from 10 minutes to over an hour to complete. You can verify the processing by clicking on any of the output links to see the workflow's progress at any time. 
+Depending on the amount of data being processed, it can take anywhere from 10 minutes to over an hour to complete. You can verify the processing by clicking on any of the output links to see the workflow's progress at any time.
 
 To verify that the workflow has completed, click the `Workflow Console Link` in the output and look for the **Executions** > **State** heading. When the workflow is complete, it shows **return result** - **succeeded**. 
 
@@ -847,7 +847,40 @@ To verify that the workflow has completed, click the `Workflow Console Link` in 
 
 > **Important!:** Do not manually cancel a workflow anytime after the **run_preprocessing** stage, or your database will be corrupted. If you do need to cancel a workflow at this stage, you won't be able to restart it without clearing the database lock. See [Release database lock from ingestion workflow](#release) for the procedure.
 
-### Step 3: Verify data
+#### Imports with dependencies {#dependencies}
+
+A common pattern (similar to [example 4](#example4) above) is to have an import that defines a "shared" schema that is referenced by other imports, like this:
+
+```
+ingestion_base /
+  |- shared_schema_import/        
+    |- config.json   <--- Schema import
+    |- shared_schema.mcf
+  |- data_import_1/        
+    |- config.json   
+    |- data1.csv
+    |- import_1_schema.mcf <--- References entities in shared_schema.mcf
+  |- data_import_2/        
+    |- config.json   
+    |- data2.csv
+    |- import_2_schema.mcf <--- References entities in shared_schema.mcf
+
+To ensure that the entities in the shared schema are created before dependent imports are processed, import the shared import and dependent imports together, i.e.:
+
+```
+uvx datacommons-cli admin ingest start --imports shared_schema_import,data_import_1,data_import_2
+```
+
+This ensures that all imports are handled as a single workflow, and any dependencies are resolved during the preprocessing step.
+
+Alternatively, if you use separate commands to run each import, ensure that the shared import ingested completes successfully _before_ ingesting the dependent imports, i.e.:
+1. Run `uvx datacommons-cli admin ingest start --imports shared_schema_import`.
+1. Wait until the workflow completes and [verify](#verify) that all the required nodes from `shared_schema_import` are present in the database.
+1. Run the remaining imports.
+
+If you try to do steps 1 and 3 concurrently, the order of processing does not necessarily follow the command order, and you risk incurring data corruption.
+
+### Step 3: Verify data {#verify}
 
 To verify that the data has been imported correctly:
 
@@ -1077,16 +1110,16 @@ dataflow,DC:DF_OBS(1.0.0),I,who:Ratio_CigaretteSmoking_Adults_ByGender,country/A
 
 ## Update your instance {#update-your-instance}
 
-### Update imported data
+### Update imported data or add new imports
 
 To update data you've already imported:
 
-1. If necessary, make changes to your schema MCF file(s).
+1. If necessary, make changes to your schema MCF file(s). If you make changes to MCF files contained in an import that are referenced by other imports, see the note below.
 2. If necessary, make changes to your [`config.json` file(s)](#config) (e.g. to add new CSV files, new directories, etc.).
 3. [Upload the new/updated files to Cloud Storage](#upload).
 4. [Run the ingestion workflow](#workflow) as usual. 
 
-> **Note:** If your import depends on "shared" MCF files (which are assigned to a different provenance), you do not need to reingest those files unless they have changed. Conversely, if you do make changes to the shared files, you will need to reingest all imports that depend on them.
+> **Note:** If your import depends on "shared" MCF files in a different import, you do not need to reingest the shared files unless they have changed. Conversely, if you do make changes to the shared files, you will also need to reingest all imports that depend on them. Be sure to run the ingestion command(s) correctly; see [Imports with dependencies](#dependencies) for details.
 
 ### Delete data
 
@@ -1239,7 +1272,6 @@ To make deployment changes:
 If you have only made changes affecting the web service (such as updating the image container tag) and want to skip running the full ingestion workflow, simply rerun `terraform apply`.
 
 To deploy several Data Commons Platform instances, in multiple environments (e.g. dev, staging, pre-prod etc.), you should use Terraform Workspaces. See [Manage multiple Terraform deployments](https://docs.datacommons.org/custom_dc/deploy_cloud.html#multiple) for details. (Substitute the Terraform modules directory with your Terraform directory.)
-
 
 ### Handle resource creation variables {#handle}
 

@@ -43,7 +43,7 @@ locals {
   ]
 
   # Conditional APIs based on enabled modules and features
-  compute_apis = (var.enable_network || var.enable_load_balancer || var.enable_redis) ? ["compute.googleapis.com"] : []
+  compute_apis = (var.enable_network || var.enable_load_balancer || var.enable_redis || var.enable_ingestion) ? ["compute.googleapis.com"] : []
   redis_apis   = var.enable_redis ? ["redis.googleapis.com"] : []
   spanner_apis = var.enable_spanner ? ["spanner.googleapis.com"] : []
 
@@ -52,6 +52,8 @@ locals {
     "workflowexecutions.googleapis.com",
     "dataflow.googleapis.com",
     "batch.googleapis.com",
+    "monitoring.googleapis.com",
+    "cloudscheduler.googleapis.com",
   ] : []
 
   bigquery_apis = var.spanner_enable_bigquery_connection ? [
@@ -124,7 +126,6 @@ locals {
     instructions_path               = var.datacommons_services_mcp_instructions_path != null ? trimsuffix(var.datacommons_services_mcp_instructions_path, "/") : null
     allow_unauthenticated_access    = var.datacommons_services_allow_unauthenticated_access
     website_disable_google_maps_api = var.datacommons_services_website_disable_google_maps_api
-    resolve_with_spanner_embeddings = var.datacommons_services_resolve_with_spanner_embeddings
     website_search_scope            = var.datacommons_services_website_search_scope
   }
 
@@ -197,6 +198,15 @@ locals {
     dataflow_max_workers                 = var.ingestion_dataflow_max_workers
     dataflow_num_workers                 = var.ingestion_dataflow_num_workers
     dataflow_worker_machine_type         = var.ingestion_dataflow_worker_machine_type
+
+    # Ingestion Lock Approaching Retention Alerts & Scheduler Prober
+    enable_lock_retention_alerts       = var.ingestion_enable_lock_retention_alerts
+    enable_lock_retention_alert_50pct  = var.ingestion_enable_lock_retention_alert_50pct
+    enable_lock_retention_alert_90pct  = var.ingestion_enable_lock_retention_alert_90pct
+    enable_lock_retention_alert_100pct = var.ingestion_enable_lock_retention_alert_100pct
+    lock_alert_notification_channels   = var.ingestion_lock_alert_notification_channels
+    enable_lock_status_scheduler       = var.ingestion_enable_lock_status_scheduler
+    lock_status_ping_schedule          = var.ingestion_lock_status_ping_schedule
   }
 
   load_balancer_config = {

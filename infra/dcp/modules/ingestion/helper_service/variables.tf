@@ -19,12 +19,17 @@ variable "stateless_deletion_protection" {
   description = "Enable deletion protection for stateless resources (Cloud Run) to prevent accidental deletion."
 }
 
-variable "spanner_instance_id" {
-  type = string
+variable "spanner_config" {
+  type = object({
+    instance_id = string
+    database_id = string
+  })
+  description = "Spanner database coordinates"
 }
 
-variable "spanner_database_id" {
-  type = string
+variable "spanner_version_retention_period" {
+  type        = string
+  description = "Spanner version retention period (e.g., '24h', '7d') used to monitor lock duration against PITR window"
 }
 
 variable "ingestion_bucket_name" {
@@ -37,10 +42,6 @@ variable "image" {
   description = "Docker image URL for the ingestion support service"
 }
 
-variable "use_spanner" {
-  type    = bool
-  default = true
-}
 
 
 variable "enable_embeddings_generation" {

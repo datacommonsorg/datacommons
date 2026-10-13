@@ -418,13 +418,6 @@ variable "datacommons_services_mcp_instructions_path" {
   default     = null
 }
 
-# TODO(shixiao): Remove this variable to only resolve on spanner embeddings
-variable "datacommons_services_resolve_with_spanner_embeddings" {
-  description = "Enable resolving search queries with Spanner embeddings. Requires Spanner to be enabled (enable_spanner = true)."
-  type        = bool
-  default     = true
-}
-
 variable "datacommons_services_website_search_scope" {
   description = "Controls the scope for indicator resolution on the website Explore page (e.g., restricting queries to custom variables). Valid values are 'base_only', 'custom_only', 'base_and_custom'."
   type        = string
@@ -667,6 +660,48 @@ variable "skip_container_restarts" {
   description = "Set to true to skip updating container restart timestamps, speeding up terraform apply when container images have not changed."
   type        = bool
   default     = false
+}
+
+variable "ingestion_enable_lock_retention_alerts" {
+  description = "Toggle to enable/disable all Ingestion Lock retention alerts (50% warning, 90% warning, 100% critical). Default: false."
+  type        = bool
+  default     = false
+}
+
+variable "ingestion_enable_lock_retention_alert_50pct" {
+  description = "Enable the 50% retention window warning alert. Default: true."
+  type        = bool
+  default     = true
+}
+
+variable "ingestion_enable_lock_retention_alert_90pct" {
+  description = "Enable the 90% retention window warning alert. Default: true."
+  type        = bool
+  default     = true
+}
+
+variable "ingestion_enable_lock_retention_alert_100pct" {
+  description = "Enable the 100% retention horizon breach critical alert. Default: true."
+  type        = bool
+  default     = true
+}
+
+variable "ingestion_lock_alert_notification_channels" {
+  description = "List of Cloud Monitoring notification channel IDs to notify when ingestion lock duration alerts trigger."
+  type        = list(string)
+  default     = []
+}
+
+variable "ingestion_enable_lock_status_scheduler" {
+  description = "Enable Cloud Scheduler job to periodically ping /database/lock/status for retention SLA monitoring. Default: false."
+  type        = bool
+  default     = false
+}
+
+variable "ingestion_lock_status_ping_schedule" {
+  description = "Cron schedule expression for the lock status probe job (e.g., '*/10 * * * *')."
+  type        = string
+  default     = "*/10 * * * *"
 }
 
 check "ingestion_dataflow_workers_limits" {
