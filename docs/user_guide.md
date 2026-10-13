@@ -865,12 +865,20 @@ ingestion_base /
     |- data2.csv
     |- import_2_schema.mcf <--- References entities in shared_schema.mcf
 
-In this case, you should first run the shared import and wait until it completes, before running any dependent imports. This is because edges cannot be created until their associated nodes already exist; trying to run such imports in parallel can cause edges to be silently dropped, resulting in missing data. (When you run multiple imports concurrently, each import is actually processed sequentially, according to the order in which each preprocessing job finishes, not the order in which you specified the imports on the command line.)
+To ensure that the entities in the shared schema are created before dependent imports are processed, import the shared import and dependent imports together, i.e.:
 
-Therefore, the safest way to run this type of workflow is to do it in 2 separate steps:
+```
+uvx datacommons-cli admin ingest start --imports shared_schema_import,data_import_1,data_import_2
+```
+
+This ensures that all imports are handled as a single workflow, and any dependencies are resolved during the preprocessing step.
+
+Alternatively, if you use separate commands to run each import, ensure that the shared import ingested completes successfully _before_ ingesting the dependent imports, i.e.:
 1. Run `uvx datacommons-cli admin ingest start --imports shared_schema_import`.
 1. Wait until the workflow completes and [verify](#verify) that all the required nodes from `shared_schema_import` are present in the database.
-1. Run `uvx datacommons-cli admin ingest start --imports data_import_1,data_import_2`.
+1. Run the remaining imports.
+
+If you try to do steps 1 and 3 concurrently, the order of processing does not necessarily follow the command order, and you risk incurring data corruption.
 
 ### Step 3: Verify data {#verify}
 
@@ -1111,7 +1119,7 @@ To update data you've already imported:
 3. [Upload the new/updated files to Cloud Storage](#upload).
 4. [Run the ingestion workflow](#workflow) as usual. 
 
-> **Note:** If your import depends on "shared" MCF files in a separate import, you do not need to reingest the shared files unless they have changed. Conversely, if you do make changes to the shared files, you will also need to reingest all imports that depend on them. Note that it is important to correctly sequence these imports: run the shared import to successful completion _before_ running any dependent imports. See [Imports with dependencies](#dependencies) for details.
+> **Note:** If your import depends on "shared" MCF files in a different import, you do not need to reingest the shared files unless they have changed. Conversely, if you do make changes to the shared files, you will also need to reingest all imports that depend on them. Be sure to run the ingestion command(s) correctly; see [Imports with dependencies](#dependencies) for details.
 
 ### Delete data
 
