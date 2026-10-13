@@ -212,7 +212,86 @@ def provision_infra(
         initial_delay=15.0,
     )
 
+    # Step 4: Configure Cloud Run IAM Invoker Permissions & OIDC Audience
+    _configure_cloud_run_access(instance_dir, project_id)
+
     return instance_dir
+
+
+def _configure_cloud_run_access(instance_dir: Path, project_id: str) -> None:
+    """Configures Cloud Run invoker IAM permissions and resolves OIDC token audience."""
+    print(
+        "\n==> [Phase 1.4] Configuring Cloud Run IAM invoker permissions & OIDC audience..."
+    )
+    try:
+        proc = subprocess.run(
+            ["terraform", "output", "-json"],
+            cwd=instance_dir,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        outputs = json.loads(proc.stdout)
+    except Exception as e:
+        print(f"  ⚠️ Failed to read Terraform outputs: {e}")
+        return
+
+    service_name = outputs.get("datacommons_service_name", {}).get("value")
+    region = outputs.get("region", {}).get("value") or "us-central1"
+    if not service_name:
+        print("  ⚠️ 'datacommons_service_name' not found in Terraform outputs. Skipping.")
+        return
+
+    # 1. Fetch Cloud Run service URL to use as OIDC token audience
+    try:
+        url_cmd = [
+            "gcloud",
+            "run",
+            "services",
+            "describe",
+            service_name,
+            f"--project={project_id}",
+            f"--region={region}",
+            "--format=value(status.url)",
+        ]
+        res = subprocess.run(url_cmd, capture_output=True, text=True, check=True)
+        cloud_run_url = res.stdout.strip()
+        if cloud_run_url:
+            os.environ["DCP_AUTH_AUDIENCE"] = cloud_run_url
+            print(f"  ✔ Resolved Cloud Run OIDC audience: {cloud_run_url}")
+    except Exception as e:
+        print(f"  ⚠️ Failed to resolve Cloud Run service URL: {e}")
+
+    # 2. Grant roles/run.invoker to the active gcloud identity
+    try:
+        acc_proc = subprocess.run(
+            ["gcloud", "config", "get-value", "account"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        account = acc_proc.stdout.strip()
+        if account:
+            member_type = (
+                "serviceAccount" if "gserviceaccount.com" in account else "user"
+            )
+            member_spec = f"{member_type}:{account}"
+            grant_cmd = [
+                "gcloud",
+                "run",
+                "services",
+                "add-iam-policy-binding",
+                service_name,
+                f"--project={project_id}",
+                f"--region={region}",
+                f"--member={member_spec}",
+                "--role=roles/run.invoker",
+                "--quiet",
+            ]
+            print(f"  ✔ Granting roles/run.invoker to {member_spec} on {service_name}...")
+            run_cmd_with_retry(grant_cmd, max_attempts=3)
+    except Exception as e:
+        print(f"  ⚠️ Failed to grant roles/run.invoker: {e}")
 
 
 def run_tests(
