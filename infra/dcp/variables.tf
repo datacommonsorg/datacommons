@@ -457,8 +457,8 @@ variable "load_balancer_rate_limit_ban_duration_sec" {
   default     = 600
 
   validation {
-    condition     = var.load_balancer_rate_limit_ban_duration_sec > 0
-    error_message = "The load_balancer_rate_limit_ban_duration_sec must be a positive integer."
+    condition     = var.load_balancer_rate_limit_ban_duration_sec >= 60 && var.load_balancer_rate_limit_ban_duration_sec <= 3600
+    error_message = "The load_balancer_rate_limit_ban_duration_sec must be between 60 and 3600 seconds."
   }
 }
 

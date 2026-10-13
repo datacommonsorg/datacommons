@@ -17,6 +17,7 @@ variable "instance_name" {
 variable "cloud_run_service_name" {
   description = "Name of the Cloud Run service to attach as a backend."
   type        = string
+  default     = null
 }
 
 variable "enable_cloud_armor" {
