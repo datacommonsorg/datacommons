@@ -289,9 +289,11 @@ def _configure_cloud_run_access(instance_dir: Path, project_id: str) -> None:
                 "--quiet",
             ]
             print(f"  ✔ Granting roles/run.invoker to {member_spec} on {service_name}...")
-            run_cmd_with_retry(grant_cmd, max_attempts=3)
+            grant_res = run_cmd_with_retry(grant_cmd, max_attempts=2, check=False)
+            if grant_res.returncode != 0:
+                print("  ℹ️ Could not add IAM binding directly (caller may already have project-level invoker access).")
     except Exception as e:
-        print(f"  ⚠️ Failed to grant roles/run.invoker: {e}")
+        print(f"  ⚠️ Error configuring Cloud Run IAM permissions: {e}")
 
 
 def run_tests(
