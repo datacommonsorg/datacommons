@@ -46,6 +46,10 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
         name  = "SPANNER_GRAPH_DATABASE_ID"
         value = var.spanner_config.database_id
       }
+      env {
+        name  = "SPANNER_VERSION_RETENTION_PERIOD"
+        value = var.spanner_version_retention_period
+      }
 
       env {
         name  = "LOCATION"

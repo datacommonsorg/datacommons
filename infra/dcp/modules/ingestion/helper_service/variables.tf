@@ -27,6 +27,11 @@ variable "spanner_config" {
   description = "Spanner database coordinates"
 }
 
+variable "spanner_version_retention_period" {
+  type        = string
+  description = "Spanner version retention period (e.g., '24h', '7d') used to monitor lock duration against PITR window"
+}
+
 variable "ingestion_bucket_name" {
   type = string
 }
