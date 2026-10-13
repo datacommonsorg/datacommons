@@ -29,32 +29,55 @@ provider "google-beta" {
   billing_project       = var.billing_project_id != null ? var.billing_project_id : var.project_id
 }
 
-resource "google_project_service" "apis" {
-  for_each = toset(concat([
+locals {
+  # Base APIs always required by DCP core
+  base_apis = [
     "apikeys.googleapis.com",
     "maps-backend.googleapis.com",
     "places-backend.googleapis.com",
     "run.googleapis.com",
     "iam.googleapis.com",
     "cloudresourcemanager.googleapis.com",
-    "sqladmin.googleapis.com",
-    "redis.googleapis.com",
     "secretmanager.googleapis.com",
     "artifactregistry.googleapis.com",
-    "compute.googleapis.com"
-    ], var.enable_spanner ? ["spanner.googleapis.com"] : [],
-    var.enable_ingestion ? [
-      "workflows.googleapis.com",
-      "workflowexecutions.googleapis.com",
-      "dataflow.googleapis.com",
-      "batch.googleapis.com"
-    ] : [],
-    var.spanner_enable_bigquery_connection ? [
-      "bigqueryconnection.googleapis.com",
-      "bigquery.googleapis.com",
-      "bigqueryreservation.googleapis.com"
-    ] : [],
-  var.spanner_enable_embeddings_generation ? ["aiplatform.googleapis.com"] : []))
+  ]
+
+  # Conditional APIs based on enabled modules and features
+  compute_apis = (var.enable_network || var.enable_load_balancer || var.enable_redis || var.enable_ingestion) ? ["compute.googleapis.com"] : []
+  redis_apis   = var.enable_redis ? ["redis.googleapis.com"] : []
+  spanner_apis = var.enable_spanner ? ["spanner.googleapis.com"] : []
+
+  ingestion_apis = var.enable_ingestion ? [
+    "workflows.googleapis.com",
+    "workflowexecutions.googleapis.com",
+    "dataflow.googleapis.com",
+    "batch.googleapis.com",
+    "monitoring.googleapis.com",
+    "cloudscheduler.googleapis.com",
+  ] : []
+
+  bigquery_apis = var.spanner_enable_bigquery_connection ? [
+    "bigqueryconnection.googleapis.com",
+    "bigquery.googleapis.com",
+    "bigqueryreservation.googleapis.com",
+  ] : []
+
+  aiplatform_apis = var.spanner_enable_embeddings_generation ? ["aiplatform.googleapis.com"] : []
+
+  # Combined unique set of APIs to enable
+  required_apis = toset(flatten([
+    local.base_apis,
+    local.compute_apis,
+    local.redis_apis,
+    local.spanner_apis,
+    local.ingestion_apis,
+    local.bigquery_apis,
+    local.aiplatform_apis,
+  ]))
+}
+
+resource "google_project_service" "apis" {
+  for_each = local.required_apis
 
   service            = each.key
   disable_on_destroy = false
@@ -103,7 +126,6 @@ locals {
     instructions_path               = var.datacommons_services_mcp_instructions_path != null ? trimsuffix(var.datacommons_services_mcp_instructions_path, "/") : null
     allow_unauthenticated_access    = var.datacommons_services_allow_unauthenticated_access
     website_disable_google_maps_api = var.datacommons_services_website_disable_google_maps_api
-    resolve_with_spanner_embeddings = var.datacommons_services_resolve_with_spanner_embeddings
     website_search_scope            = var.datacommons_services_website_search_scope
   }
 
@@ -176,6 +198,19 @@ locals {
     dataflow_max_workers                 = var.ingestion_dataflow_max_workers
     dataflow_num_workers                 = var.ingestion_dataflow_num_workers
     dataflow_worker_machine_type         = var.ingestion_dataflow_worker_machine_type
+
+    # Ingestion Lock Approaching Retention Alerts & Scheduler Prober
+    enable_lock_retention_alerts       = var.ingestion_enable_lock_retention_alerts
+    enable_lock_retention_alert_50pct  = var.ingestion_enable_lock_retention_alert_50pct
+    enable_lock_retention_alert_90pct  = var.ingestion_enable_lock_retention_alert_90pct
+    enable_lock_retention_alert_100pct = var.ingestion_enable_lock_retention_alert_100pct
+    lock_alert_notification_channels   = var.ingestion_lock_alert_notification_channels
+    enable_lock_status_scheduler       = var.ingestion_enable_lock_status_scheduler
+    lock_status_ping_schedule          = var.ingestion_lock_status_ping_schedule
+  }
+
+  load_balancer_config = {
+    enable = var.enable_load_balancer
   }
 }
 
@@ -194,6 +229,7 @@ module "stack" {
   auth_config                                = local.auth_config
   redis_config                               = local.redis_config
   ingestion_config                           = local.ingestion_config
+  load_balancer_config                       = local.load_balancer_config
 
   depends_on = [google_project_service.apis]
 }

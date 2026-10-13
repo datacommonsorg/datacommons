@@ -50,6 +50,12 @@ variable "make_public" {
   type = bool
 }
 
+variable "ingress_mode" {
+  type        = string
+  description = "Ingress traffic configuration for Cloud Run service (INGRESS_TRAFFIC_ALL or INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER)."
+  default     = "INGRESS_TRAFFIC_ALL"
+}
+
 variable "google_analytics_tag_id" {
   type    = string
   default = null
@@ -67,10 +73,6 @@ variable "mcp_instructions_path" {
   type        = string
   description = "Path within the unified storage bucket for customized instructions for server tools and agents"
   default     = null
-}
-
-variable "resolve_with_spanner_embeddings" {
-  type = bool
 }
 
 variable "website_search_scope" {

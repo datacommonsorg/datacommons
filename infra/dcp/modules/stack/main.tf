@@ -45,6 +45,7 @@ locals {
     local.effective_worker_subnetwork != "" ? local.raw_worker_ip_config : "WORKER_IP_UNSPECIFIED"
   )
 
+
   cloud_run_shared_env_variables = [
     {
       name  = "USE_CLOUDSQL"
@@ -213,13 +214,14 @@ module "ingestion_helper_service" {
   enable_embeddings_generation  = var.spanner_config.enable_embeddings_generation
 
   # Direct VPC Egress from network module
-  vpc_access               = module.network.vpc_access
-  redis_host               = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
-  redis_port               = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
-  redis_auth_secret_id     = var.redis_config.enable && var.redis_config.enable_auth && length(module.redis) > 0 ? module.redis[0].redis_auth_secret_id : null
-  redis_ca_cert            = local.redis_ca_cert
-  ingestion_artifacts_path = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
-  skip_container_restarts  = var.global.skip_container_restarts
+  vpc_access                       = module.network.vpc_access
+  redis_host                       = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
+  redis_port                       = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
+  redis_auth_secret_id             = var.redis_config.enable && var.redis_config.enable_auth && length(module.redis) > 0 ? module.redis[0].redis_auth_secret_id : null
+  redis_ca_cert                    = local.redis_ca_cert
+  ingestion_artifacts_path         = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
+  skip_container_restarts          = var.global.skip_container_restarts
+  spanner_version_retention_period = var.spanner_config.version_retention_period
 }
 
 
@@ -310,6 +312,7 @@ module "datacommons_services" {
   min_instances                 = var.datacommons_services_config.min_instances
   max_instances                 = var.datacommons_services_config.max_instances
   make_public                   = var.datacommons_services_config.allow_unauthenticated_access
+  ingress_mode                  = var.load_balancer_config.enable ? "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER" : "INGRESS_TRAFFIC_ALL"
   google_analytics_tag_id       = var.datacommons_services_config.google_analytics_tag
   mcp_search_scope              = var.datacommons_services_config.search_scope
   enable_mcp                    = var.datacommons_services_config.enable_mcp
@@ -323,11 +326,22 @@ module "datacommons_services" {
       value = module.ingestion_workflow.workflow_name != null ? module.ingestion_workflow.workflow_name : ""
     }
   ])
-  secret_env_vars                 = local.datacommons_services_secrets
-  resolve_with_spanner_embeddings = var.datacommons_services_config.resolve_with_spanner_embeddings
-  website_search_scope            = var.datacommons_services_config.website_search_scope
+  secret_env_vars      = local.datacommons_services_secrets
+  website_search_scope = var.datacommons_services_config.website_search_scope
 
   depends_on = [module.ingestion_preprocessing_job]
+}
+
+module "load_balancer" {
+  source = "../load_balancer"
+  count  = var.datacommons_services_config.enable && var.load_balancer_config.enable ? 1 : 0
+
+  project_id             = var.global.project_id
+  region                 = var.global.region
+  instance_name          = var.global.instance_name
+  cloud_run_service_name = try(one(module.datacommons_services[*].service_name), "")
+
+  depends_on = [module.datacommons_services]
 }
 
 check "spanner_instance_id_provided" {
@@ -618,3 +632,24 @@ resource "terraform_data" "prune_cloud_run_revisions" {
     module.ingestion_helper_service
   ]
 }
+
+module "ingestion_alerts" {
+  count  = var.ingestion_config.enable_ingestion && var.ingestion_config.enable_lock_retention_alerts && var.spanner_config.enable ? 1 : 0
+  source = "../ingestion/alerts"
+
+  project_id                      = var.global.project_id
+  instance_name                   = var.global.instance_name
+  database_id                     = local.effective_spanner_config.database_id
+  version_retention_period        = var.spanner_config.version_retention_period
+  service_name                    = module.ingestion_helper_service.service_name
+  notification_channels           = var.ingestion_config.lock_alert_notification_channels
+  enable_alert_50pct              = var.ingestion_config.enable_lock_retention_alert_50pct
+  enable_alert_90pct              = var.ingestion_config.enable_lock_retention_alert_90pct
+  enable_alert_100pct             = var.ingestion_config.enable_lock_retention_alert_100pct
+  region                          = var.global.region
+  helper_url                      = module.ingestion_helper_service.ingestion_helper_url
+  scheduler_service_account_email = module.ingestion_workflow.service_account_email
+  enable_lock_status_scheduler    = var.ingestion_config.enable_lock_status_scheduler
+  lock_status_ping_schedule       = var.ingestion_config.lock_status_ping_schedule
+}
+

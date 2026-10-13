@@ -253,6 +253,34 @@ def resolve_dcp_target(
     if not serving_url.startswith("http"):
         serving_url = f"https://{serving_url}"
 
+    # If targeting a non-run.app endpoint (such as Load Balancer Anycast IP),
+    # resolve the underlying Cloud Run service URL as the OIDC token audience.
+    if "run.app" not in serving_url and "DCP_AUTH_AUDIENCE" not in os.environ:
+        service_name = tf_outputs.get("datacommons_service_name", "")
+        region = tf_outputs.get("region", "us-central1")
+        if service_name:
+            try:
+                res = subprocess.run(
+                    [
+                        "gcloud",
+                        "run",
+                        "services",
+                        "describe",
+                        service_name,
+                        f"--project={project}",
+                        f"--region={region}",
+                        "--format=value(status.url)",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                    check=False,
+                )
+                if res.returncode == 0 and res.stdout.strip():
+                    os.environ["DCP_AUTH_AUDIENCE"] = res.stdout.strip()
+            except Exception:
+                pass
+
     helper_url = tf_outputs.get("ingestion_service_url", "")
     if helper_url and not helper_url.startswith("http"):
         helper_url = f"https://{helper_url}"
