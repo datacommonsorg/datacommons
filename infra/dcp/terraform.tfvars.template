@@ -89,5 +89,3 @@ ingestion_input_path = "ingestion/input"
 # multiple environments (e.g. dev and prod) in the same project, set this to true for
 # one deployment, and false for all others. See Data Commons documentation for more details.
 spanner_create_bigquery_reservation = true
-
-

@@ -606,9 +606,9 @@ variable "skip_container_restarts" {
 }
 
 variable "ingestion_enable_lock_retention_alerts" {
-  description = "Toggle to enable/disable all Ingestion Lock retention alerts (50% warning, 90% warning, 100% critical). Default: true."
+  description = "Toggle to enable/disable all Ingestion Lock retention alerts (50% warning, 90% warning, 100% critical). Default: false."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "ingestion_enable_lock_retention_alert_50pct" {

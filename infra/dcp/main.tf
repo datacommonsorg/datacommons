@@ -47,7 +47,9 @@ resource "google_project_service" "apis" {
       "workflows.googleapis.com",
       "workflowexecutions.googleapis.com",
       "dataflow.googleapis.com",
-      "batch.googleapis.com"
+      "batch.googleapis.com",
+      "monitoring.googleapis.com",
+      "cloudscheduler.googleapis.com"
     ] : [],
     var.spanner_enable_bigquery_connection ? [
       "bigqueryconnection.googleapis.com",

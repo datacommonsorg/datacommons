@@ -621,12 +621,12 @@ resource "terraform_data" "prune_cloud_run_revisions" {
 }
 
 module "ingestion_alerts" {
-  count  = var.ingestion_config.enable_ingestion && var.ingestion_config.enable_lock_retention_alerts ? 1 : 0
+  count  = var.ingestion_config.enable_ingestion && var.ingestion_config.enable_lock_retention_alerts && var.spanner_config.enable ? 1 : 0
   source = "../ingestion/alerts"
 
   project_id                      = var.global.project_id
   instance_name                   = var.global.instance_name
-  database_id                     = var.spanner_config.database_id
+  database_id                     = local.effective_spanner_config.database_id
   version_retention_period        = var.spanner_config.version_retention_period
   service_name                    = module.ingestion_helper_service.service_name
   notification_channels           = var.ingestion_config.lock_alert_notification_channels

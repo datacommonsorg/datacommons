@@ -143,7 +143,7 @@ variable "ingestion_config" {
     dataflow_worker_machine_type         = optional(string, "n2-standard-4")
 
     # Ingestion Lock Approaching Retention Alerts & Scheduler Prober
-    enable_lock_retention_alerts       = optional(bool, true)
+    enable_lock_retention_alerts       = optional(bool, false)
     enable_lock_retention_alert_50pct  = optional(bool, true)
     enable_lock_retention_alert_90pct  = optional(bool, true)
     enable_lock_retention_alert_100pct = optional(bool, true)
