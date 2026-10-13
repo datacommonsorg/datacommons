@@ -19,12 +19,17 @@ variable "stateless_deletion_protection" {
   description = "Enable deletion protection for stateless resources (Cloud Run) to prevent accidental deletion."
 }
 
-variable "spanner_instance_id" {
-  type = string
+variable "spanner_config" {
+  type = object({
+    instance_id = string
+    database_id = string
+  })
+  description = "Spanner database coordinates"
 }
 
-variable "spanner_database_id" {
-  type = string
+variable "spanner_version_retention_period" {
+  type        = string
+  description = "Spanner version retention period (e.g., '24h', '7d') used to monitor lock duration against PITR window"
 }
 
 variable "ingestion_bucket_name" {
@@ -37,10 +42,6 @@ variable "image" {
   description = "Docker image URL for the ingestion support service"
 }
 
-variable "use_spanner" {
-  type    = bool
-  default = true
-}
 
 
 variable "enable_embeddings_generation" {
@@ -48,10 +49,14 @@ variable "enable_embeddings_generation" {
   description = "Flag to enable embedding generation"
 }
 
-variable "vpc_connector_id" {
-  type        = string
-  description = "VPC access connector ID for Cloud Run"
-  default     = ""
+variable "vpc_access" {
+  type = object({
+    network_id      = string
+    subnet_id       = string
+    vpc_egress_mode = optional(string, "PRIVATE_RANGES_ONLY")
+  })
+  description = "Direct VPC Egress configuration. If null, service runs without VPC egress."
+  default     = null
 }
 
 variable "redis_host" {
@@ -64,6 +69,18 @@ variable "redis_port" {
   type        = string
   description = "Redis port"
   default     = "6379"
+}
+
+variable "redis_auth_secret_id" {
+  type        = string
+  description = "Optional Secret Manager secret ID holding the Redis AUTH password"
+  default     = null
+}
+
+variable "redis_ca_cert" {
+  type        = string
+  description = "Optional PEM-encoded CA certificate(s) for Redis TLS (SERVER_AUTHENTICATION)"
+  default     = ""
 }
 
 variable "ingestion_artifacts_path" {

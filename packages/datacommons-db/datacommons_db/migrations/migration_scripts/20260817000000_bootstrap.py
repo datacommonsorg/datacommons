@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datacommons_db.clients.spanner_client import ExecutionStatus, SpannerClient
+from datacommons_db.clients import ExecutionStatus, SpannerClient
 from datacommons_db.migrations.base import SchemaMigration
 
 _CREATE_SCHEMA_MIGRATIONS_TABLE_DDL = """
@@ -36,13 +36,11 @@ class Migration(SchemaMigration):
             spanner_client: SpannerClient instance to execute DDL / DML.
 
         Raises:
-            RuntimeError: If SchemaMigrations table already exists or DDL operation fails.
+            RuntimeError: If DDL operations fail.
         """
-        if spanner_client.table_exists("SchemaMigrations"):
-            raise RuntimeError("Table 'SchemaMigrations' already exists.")
-
-        result = spanner_client.execute_ddl([_CREATE_SCHEMA_MIGRATIONS_TABLE_DDL])
-        if result.status != ExecutionStatus.SUCCESS:
-            raise RuntimeError(
-                f"Failed to create SchemaMigrations table: {result.error_message}"
-            )
+        if not spanner_client.table_exists("SchemaMigrations"):
+            result = spanner_client.execute_ddl([_CREATE_SCHEMA_MIGRATIONS_TABLE_DDL])
+            if result.status != ExecutionStatus.SUCCESS:
+                raise RuntimeError(
+                    f"Failed to create SchemaMigrations table: {result.error_message}"
+                )

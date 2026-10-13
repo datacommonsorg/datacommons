@@ -1,4 +1,4 @@
-# Data Commons Platform (DCP) — Prober Deployment Runbook
+# Data Commons Platform (DCP): Prober Deployment Runbook
 
 This directory contains the automation and Terraform blueprint to deploy and update the **24/7 Continuous DCP Integration Prober** on Google Cloud.
 
@@ -23,7 +23,7 @@ Run the deployer script from your terminal:
 ./deploy_prober.sh \
   --project datcom-dcp \
   --prober-name dcp-prober \
-  --schedule "0 */3 * * *" \
+  --schedule "17 */3 * * *" \
   --alert-email datacommons-alerts+dcp-prober@google.com \
   --test-config foobar_wages
 ```
@@ -41,7 +41,7 @@ If you only modified Terraform configurations, alert recipients, cron schedules,
   --project datcom-dcp \
   --prober-name dcp-prober \
   --alert-email datacommons-alerts+dcp-prober@google.com \
-  --schedule "0 */3 * * *"
+  --schedule "17 */3 * * *"
 ```
 
 ---
@@ -52,11 +52,12 @@ If you only modified Terraform configurations, alert recipients, cron schedules,
 | :--- | :--- | :--- |
 | `--project <id>` | Active `gcloud` project | Target GCP Project ID for the prober |
 | `--prober-name <name>` | `dcp-prober` | Resource name prefix for Cloud Run Job, Scheduler, and Bucket |
-| `--schedule <cron>` | `0 */3 * * *` | Cron schedule for recurring prober execution |
+| `--schedule <cron>` | `17 */3 * * *` | Cron schedule for recurring prober execution |
 | `--test-config <name>` | `foobar_wages` | Test dataset manifest to run on each execution |
 | `--alert-email <email>` | *(none)* | Email address for Cloud Monitoring failure notifications |
-| `--dc-api-key <key>` | *(none)* | Optional Data Commons API key |
+| `--dc-api-key <key>` | Active Secret Manager version | Data Commons API key (required on initial deploy; auto-reused from Secret Manager afterward) |
 | `--location <region>` | `us-central1` | GCP Region for Cloud Run Job and Scheduler |
+| `--image-tag <tag>` | `latest` | Container image tag in Artifact Registry |
 | `--skip-build` | `false` | Skip Cloud Build container packaging |
 | `--non-interactive` | `false` | Run with flags/defaults without interactive prompts |
 
@@ -85,8 +86,21 @@ When you run `./deploy_prober.sh`, the deployment executes two main phases:
 
 ---
 
+## 🧪 Formatting & Validating Terraform (`terraform/`)
+
+```bash
+# Format Terraform in-place
+uv run infra/dcp/scripts/check_terraform.py --tf-dir tests/integration/prober/deploy/terraform --fix
+
+# Check formatting and validate Terraform configuration
+uv run infra/dcp/scripts/check_terraform.py --tf-dir tests/integration/prober/deploy/terraform --fmt --validate
+```
+
+---
+
 ## 🔐 Cross-Project Permissions (Artifact Registry)
 
 `deploy_prober.sh` automatically grants `roles/artifactregistry.reader` on the `datcom-ci` repository to the target project's Cloud Run Service Agent (`service-${PROJECT_NUMBER}@serverless-robot-prod.iam.gserviceaccount.com`). 
 
 If deploying via a custom service account lacking IAM admin privileges, ensure an administrator grants this role on `datcom-ci` so Cloud Run can pull the container image.
+

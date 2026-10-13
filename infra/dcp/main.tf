@@ -29,32 +29,55 @@ provider "google-beta" {
   billing_project       = var.billing_project_id != null ? var.billing_project_id : var.project_id
 }
 
-resource "google_project_service" "apis" {
-  for_each = toset(concat([
+locals {
+  # Base APIs always required by DCP core
+  base_apis = [
     "apikeys.googleapis.com",
     "maps-backend.googleapis.com",
     "places-backend.googleapis.com",
     "run.googleapis.com",
     "iam.googleapis.com",
     "cloudresourcemanager.googleapis.com",
-    "sqladmin.googleapis.com",
-    "redis.googleapis.com",
     "secretmanager.googleapis.com",
-    "vpcaccess.googleapis.com",
     "artifactregistry.googleapis.com",
-    "compute.googleapis.com"
-    ], var.enable_spanner ? ["spanner.googleapis.com"] : [],
-    var.enable_ingestion ? [
-      "workflows.googleapis.com",
-      "workflowexecutions.googleapis.com",
-      "dataflow.googleapis.com"
-    ] : [],
-    var.spanner_enable_bigquery_connection ? [
-      "bigqueryconnection.googleapis.com",
-      "bigquery.googleapis.com",
-      "bigqueryreservation.googleapis.com"
-    ] : [],
-  var.spanner_enable_embeddings_generation ? ["aiplatform.googleapis.com"] : []))
+  ]
+
+  # Conditional APIs based on enabled modules and features
+  compute_apis = (var.enable_network || var.enable_load_balancer || var.enable_redis || var.enable_ingestion) ? ["compute.googleapis.com"] : []
+  redis_apis   = var.enable_redis ? ["redis.googleapis.com"] : []
+  spanner_apis = var.enable_spanner ? ["spanner.googleapis.com"] : []
+
+  ingestion_apis = var.enable_ingestion ? [
+    "workflows.googleapis.com",
+    "workflowexecutions.googleapis.com",
+    "dataflow.googleapis.com",
+    "batch.googleapis.com",
+    "monitoring.googleapis.com",
+    "cloudscheduler.googleapis.com",
+  ] : []
+
+  bigquery_apis = var.spanner_enable_bigquery_connection ? [
+    "bigqueryconnection.googleapis.com",
+    "bigquery.googleapis.com",
+    "bigqueryreservation.googleapis.com",
+  ] : []
+
+  aiplatform_apis = var.spanner_enable_embeddings_generation ? ["aiplatform.googleapis.com"] : []
+
+  # Combined unique set of APIs to enable
+  required_apis = toset(flatten([
+    local.base_apis,
+    local.compute_apis,
+    local.redis_apis,
+    local.spanner_apis,
+    local.ingestion_apis,
+    local.bigquery_apis,
+    local.aiplatform_apis,
+  ]))
+}
+
+resource "google_project_service" "apis" {
+  for_each = local.required_apis
 
   service            = each.key
   disable_on_destroy = false
@@ -103,14 +126,29 @@ locals {
     instructions_path               = var.datacommons_services_mcp_instructions_path != null ? trimsuffix(var.datacommons_services_mcp_instructions_path, "/") : null
     allow_unauthenticated_access    = var.datacommons_services_allow_unauthenticated_access
     website_disable_google_maps_api = var.datacommons_services_website_disable_google_maps_api
-    resolve_with_spanner_embeddings = var.datacommons_services_resolve_with_spanner_embeddings
     website_search_scope            = var.datacommons_services_website_search_scope
   }
 
+  network_config = {
+    enable                    = var.enable_network
+    enable_workload_vpc       = var.enable_workload_vpc
+    prune_cloud_run_revisions = var.network_prune_cloud_run_revisions
+    create_vpc                = var.network_create_vpc
+    network_name              = var.network_name != "" ? var.network_name : "dc-vpc"
+    subnet_cidr               = var.network_subnet_cidr
+    enable_cloud_nat          = var.network_enable_cloud_nat
+    enable_flow_logs          = var.network_enable_flow_logs
+    flow_sampling             = var.network_flow_sampling
+    existing_network_id       = var.network_existing_network_id
+    existing_subnet_id        = var.network_existing_subnet_id
+    vpc_egress_mode           = var.network_vpc_egress_mode
+  }
+
   auth_config = {
-    google_datacommons_api_key = var.auth_google_datacommons_api_key
-    google_maps_api_key        = var.auth_google_maps_api_key
-    create_google_maps_key     = var.auth_create_google_maps_api_key
+    google_datacommons_api_key    = var.auth_google_datacommons_api_key
+    google_maps_api_key           = var.auth_google_maps_api_key
+    create_google_maps_key        = var.auth_create_google_maps_api_key
+    google_maps_allowed_referrers = var.auth_google_maps_allowed_referrers
   }
 
   redis_config = {
@@ -121,8 +159,8 @@ locals {
     location_id             = var.redis_location_id
     alternative_location_id = var.redis_alternative_location_id
     replica_count           = var.redis_replica_count
-    vpc_network_name        = var.redis_vpc_network_name
-    vpc_connector_cidr      = var.redis_vpc_connector_cidr
+    enable_auth             = var.redis_enable_auth
+    enable_tls              = var.redis_enable_tls
   }
 
   ingestion_config = {
@@ -150,13 +188,29 @@ locals {
     workflow_lock_acquisition_timeout = var.ingestion_workflow_lock_acquisition_timeout
     helper_service_image              = coalesce(var.ingestion_helper_service_image, "gcr.io/datcom-ci/datacommons-ingestion-helper:${var.dcp_version}")
 
-    # Dataflow Network & Scaling Configuration
-    dataflow_ip_configuration    = var.ingestion_dataflow_ip_configuration
-    dataflow_subnetwork          = var.ingestion_dataflow_subnetwork
-    dataflow_template_gcs_path   = coalesce(var.ingestion_dataflow_template_gcs_path, "gs://datcom-templates/templates/flex/ingestion-${local.df_template_version}.json")
-    dataflow_max_workers         = var.ingestion_dataflow_max_workers
-    dataflow_num_workers         = var.ingestion_dataflow_num_workers
-    dataflow_worker_machine_type = var.ingestion_dataflow_worker_machine_type
+    # Worker Network Configuration (Dataflow & Cloud Batch)
+    worker_ip_configuration = var.ingestion_worker_ip_configuration
+    worker_subnetwork       = var.ingestion_worker_subnetwork
+
+    # Ingestion Dataflow Template & Worker Configuration
+    ingestion_dataflow_template_gcs_path = coalesce(var.ingestion_dataflow_template_gcs_path, "gs://datcom-templates/templates/flex/ingestion-${local.df_template_version}.json")
+    rollback_dataflow_template_gcs_path  = coalesce(var.ingestion_rollback_dataflow_template_gcs_path, "gs://datcom-templates/templates/flex/rollback/rollback-${local.df_template_version}.json")
+    dataflow_max_workers                 = var.ingestion_dataflow_max_workers
+    dataflow_num_workers                 = var.ingestion_dataflow_num_workers
+    dataflow_worker_machine_type         = var.ingestion_dataflow_worker_machine_type
+
+    # Ingestion Lock Approaching Retention Alerts & Scheduler Prober
+    enable_lock_retention_alerts       = var.ingestion_enable_lock_retention_alerts
+    enable_lock_retention_alert_50pct  = var.ingestion_enable_lock_retention_alert_50pct
+    enable_lock_retention_alert_90pct  = var.ingestion_enable_lock_retention_alert_90pct
+    enable_lock_retention_alert_100pct = var.ingestion_enable_lock_retention_alert_100pct
+    lock_alert_notification_channels   = var.ingestion_lock_alert_notification_channels
+    enable_lock_status_scheduler       = var.ingestion_enable_lock_status_scheduler
+    lock_status_ping_schedule          = var.ingestion_lock_status_ping_schedule
+  }
+
+  load_balancer_config = {
+    enable = var.enable_load_balancer
   }
 }
 
@@ -165,14 +219,17 @@ module "stack" {
   # The Data Commons CLI relies on matching 'source = "./modules/stack"' to generate user scaffolding.
   source = "./modules/stack"
 
-  global                          = local.global_config
-  spanner_config                  = local.spanner_config
-  storage_create_artifacts_bucket = var.storage_create_artifacts_bucket
-  storage_artifacts_bucket_name   = var.storage_artifacts_bucket_name
-  datacommons_services_config     = local.datacommons_services_config
-  auth_config                     = local.auth_config
-  redis_config                    = local.redis_config
-  ingestion_config                = local.ingestion_config
+  global                                     = local.global_config
+  network_config                             = local.network_config
+  spanner_config                             = local.spanner_config
+  storage_create_artifacts_bucket            = var.storage_create_artifacts_bucket
+  storage_artifacts_bucket_name              = var.storage_artifacts_bucket_name
+  storage_artifacts_bucket_enable_versioning = var.storage_artifacts_bucket_enable_versioning
+  datacommons_services_config                = local.datacommons_services_config
+  auth_config                                = local.auth_config
+  redis_config                               = local.redis_config
+  ingestion_config                           = local.ingestion_config
+  load_balancer_config                       = local.load_balancer_config
 
   depends_on = [google_project_service.apis]
 }

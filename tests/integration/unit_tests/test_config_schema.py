@@ -19,6 +19,7 @@ import pytest
 from tests.integration.core.config_schema import (
     ExpectedEdge,
     ExpectedNode,
+    ExpectedTargetSpec,
     IndicatorResolutionSpec,
     IngestionManifestConfig,
     MCPAgentManifestConfig,
@@ -225,3 +226,44 @@ def test_load_test_manifest_multi_sources():
     merged_str = load_test_manifest("foobar_wages,foobar_education")
     assert merged_str.name == "foobar_wages+foobar_education"
     assert merged_str.ingestion.spanner_expectations.exact_observation_count == 1248
+
+
+def test_load_multi_entity_manifest():
+    """Verifies loading multi-entity dataset manifest (financial_trade)."""
+    manifest = load_test_manifest("financial_trade")
+    assert manifest.name == "financial_trade"
+    assert manifest.stages.sdmx is True
+    assert manifest.ingestion.spanner_expectations.exact_observation_count == 3
+    assert len(manifest.ingestion.spanner_expectations.expected_nodes) == 4
+    assert len(manifest.ingestion.spanner_expectations.expected_edges) == 3
+    assert len(manifest.serving_api.sdmx_3_0.data_queries) == 1
+    query = manifest.serving_api.sdmx_3_0.data_queries[0]
+    assert query.constraints.get("variableMeasured") == "FinancialTrade"
+    assert query.constraints.get("sourceCountry") == "country/FRA"
+    assert query.constraints.get("destinationCountry") == "country/USA"
+
+
+def test_expected_targets_parsed_from_manifest():
+    """Verifies expected_targets on node queries parse into ExpectedTargetSpec."""
+    manifest = load_test_manifest("foobar_wages")
+    targets = {
+        t.dcid: t for spec in manifest.serving_api.nodes for t in spec.expected_targets
+    }
+    assert targets["Person"].requires_base_dc is True
+    assert targets["Person"].name == "Person"
+    assert targets["Person"].types == ["Class"]
+    assert targets["FooBarGroup"].requires_base_dc is False
+    assert targets["FooBarGroup"].types == ["StatVarGroup"]
+    assert isinstance(targets["FooBarGroup"], ExpectedTargetSpec)
+
+
+def test_check_observation_entities_not_local_parsed_and_merged():
+    """The flag parses from manifests and is enabled in a merge if any input enables it."""
+    assert load_test_manifest(
+        "foobar_wages"
+    ).ingestion.spanner_expectations.check_observation_entities_not_local
+    assert not load_test_manifest(
+        "financial_trade"
+    ).ingestion.spanner_expectations.check_observation_entities_not_local
+    merged = load_test_manifest(["financial_trade", "foobar_wages"])
+    assert merged.ingestion.spanner_expectations.check_observation_entities_not_local

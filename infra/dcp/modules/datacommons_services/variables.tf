@@ -50,6 +50,12 @@ variable "make_public" {
   type = bool
 }
 
+variable "ingress_mode" {
+  type        = string
+  description = "Ingress traffic configuration for Cloud Run service (INGRESS_TRAFFIC_ALL or INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER)."
+  default     = "INGRESS_TRAFFIC_ALL"
+}
+
 variable "google_analytics_tag_id" {
   type    = string
   default = null
@@ -69,10 +75,6 @@ variable "mcp_instructions_path" {
   default     = null
 }
 
-variable "resolve_with_spanner_embeddings" {
-  type = bool
-}
-
 variable "website_search_scope" {
   type        = string
   default     = ""
@@ -88,12 +90,23 @@ variable "artifacts_bucket_name" {
   default     = ""
 }
 
-variable "vpc_connector_id" {
-  type = string
+variable "vpc_access" {
+  type = object({
+    network_id      = string
+    subnet_id       = string
+    vpc_egress_mode = optional(string, "PRIVATE_RANGES_ONLY")
+  })
+  description = "Direct VPC Egress configuration for Cloud Run. If null, service runs without VPC egress."
+  default     = null
 }
 
-variable "use_spanner" {
-  type = bool
+
+variable "spanner_config" {
+  type = object({
+    instance_id = string
+    database_id = string
+  })
+  description = "Spanner database coordinates for query serving"
 }
 
 # =============================================================================

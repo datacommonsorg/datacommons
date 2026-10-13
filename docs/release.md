@@ -2,6 +2,8 @@
 
 This guide details the release procedure for the Data Commons Platform (DCP). All platform packages (`datacommons-cli`, `datacommons-admin`, etc.), Terraform modules, and container images share unified lockstep versioning anchored by the root [`VERSION`](../VERSION) file and the centralized versioning script [`deploy/scripts/apply_version_bump.py`](../deploy/scripts/apply_version_bump.py).
 
+* **Looking for the operational cheatsheet?** Refer to [deploy/README.md](../deploy/README.md) for quick `gcloud builds submit` commands and script references.
+
 ---
 
 ## 1. High-Level Release Overview
@@ -80,6 +82,18 @@ gcloud builds submit \
     --instance-name test-rc-stack
   ```
   Run `cd test-rc-stack && terraform init && terraform plan` and verify that the plan output resolves container images tagged with `:X.Y.ZrcN`.
+- [ ] **Testbed Upgrade & Integration Test:** Upgrade `testbed-staging` to the RC using the [testbed workflow](../tests/testbed/README.md): connect with `--instance testbed-staging --terraform-modules-source vX.Y.ZrcN`, set `dcp_version = "X.Y.ZrcN"`, and apply. A `Value for undeclared variable` warning in the plan usually means a variable was renamed, so fix the tfvars before applying. Then run the full suite with the candidate CLI. Every test must pass:
+  ```bash
+  uv run python tests/integration/run_e2e_tests.py \
+    --instance testbed-staging \
+    --test-config foobar_wages \
+    --cli-source testpypi \
+    --cli-version X.Y.ZrcN \
+    --dcp-version X.Y.ZrcN
+
+  # --cli-source testpypi rewrites uv.lock; discard that change afterwards.
+  git checkout -- uv.lock
+  ```
 
 ---
 

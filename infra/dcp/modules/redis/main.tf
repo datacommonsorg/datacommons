@@ -1,8 +1,6 @@
 locals {
   name_prefix         = var.instance_name != "" ? "${var.instance_name}-" : ""
   display_name_prefix = var.instance_name != "" ? "(${var.instance_name}) " : ""
-  # Trimmed because the connector name is capped to 25 chars.
-  vpc_name_prefix = var.instance_name != "" ? "${trimsuffix(substr(var.instance_name, 0, 13), "-")}-" : ""
 }
 
 resource "google_redis_instance" "redis_instance" {
@@ -11,22 +9,28 @@ resource "google_redis_instance" "redis_instance" {
   tier                    = var.tier
   region                  = var.region
   location_id             = var.location_id
-  alternative_location_id = var.alternative_location_id
+  alternative_location_id = var.tier == "BASIC" ? null : var.alternative_location_id
   redis_version           = "REDIS_6_X"
   display_name            = "${local.display_name_prefix}Data Commons Redis Instance"
   reserved_ip_range       = null
-  replica_count           = var.replica_count
+  replica_count           = var.tier == "BASIC" ? 0 : var.replica_count
   authorized_network      = var.vpc_network_id
   connect_mode            = "DIRECT_PEERING"
+  auth_enabled            = var.enable_auth
+  transit_encryption_mode = var.enable_tls ? "SERVER_AUTHENTICATION" : "DISABLED"
 }
 
-resource "google_vpc_access_connector" "connector" {
-  count = var.enable_connector ? 1 : 0
-  name  = "${local.vpc_name_prefix}dc-vpc-conn"
+resource "google_secret_manager_secret" "redis_auth" {
+  count     = var.enable_auth ? 1 : 0
+  secret_id = "${local.name_prefix}dc-redis-auth"
 
-  region        = var.region
-  network       = var.vpc_network_id
-  ip_cidr_range = var.vpc_connector_cidr
-  min_instances = 2
-  max_instances = 10
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "redis_auth_version" {
+  count       = var.enable_auth ? 1 : 0
+  secret      = google_secret_manager_secret.redis_auth[0].id
+  secret_data = google_redis_instance.redis_instance.auth_string
 }

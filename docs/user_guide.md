@@ -139,7 +139,7 @@ If you're happy with the settings as they are, you can skip ahead to step 4. Mor
 
 The `terraform.tfvars` file you generated in the previous step provides optional but frequently configured variables, with overrides of default values set in `variables.tf`. Commented-out variables are the same as the defaults; to change them, uncomment the line you want and set the variable accordingly.
 
-In addition, all of the deployment options you can configure are listed in `variables.tf`. To customize any of these options, _do not_ edit in place in `variables.tf`. Instead, add the variable(s) you want to override to the `terraform.tfvars` file and set it to the desired value. For example, if you wanted to disable the MCP server from running as part of the web services, you would add this line to `terraform.tfvars`:
+In addition, all of the deployment options you can configure are listed in `variables.tf`. To customize any of these options, _do not_ edit in place in `variables.tf`. Instead, add the variable(s) you want to override to the `terraform.tfvars` file and set it to the desired value. For example, if you wanted to disable the MCP service from running as part of the web services, you would add this line to `terraform.tfvars`:
 
 ```
 datacommons_services_enable_mcp = false
@@ -201,13 +201,35 @@ To retrieve the full state of all resources and output variables, use the follow
 terraform show
 ```
 
-### Step 5: Grant IAM permissions to impersonate service account
+### Step 5: Grant IAM permissions to run database setup and workflows
 
-To set up the Spanner tables and run the data ingestion workflow, Terraform creates a project-wide [service account](https://docs.cloud.google.com/iam/docs/service-account-overview) with a restricted set of resource access permissions.
+To initialize Spanner tables, execute schema migrations, and run data ingestion workflows, your user account and project service accounts require appropriate IAM roles.
 
-The service account name is <code><var>INSTANCE_NAME</var>-dc-ing-wf-sa@datcom-website-dev.iam.gserviceaccount.com</code>.
+#### 1. Permissions for Database Initialization and Schema Migrations (`init-db`, `migrate-db`)
 
-To run the datacommons CLI commands that execute these processes, you need to impersonate the service account using your own credentials. To do so, you create a one-time IAM binding that gives your account permission to act as the service account.
+The `init-db` and `migrate-db` CLI commands connect directly to Cloud Spanner from your workstation (using your End-User Credentials via `gcloud auth application-default login`).
+
+Ensure your user account has been granted the following Spanner IAM roles on the project (or directly on the Spanner instance/database):
+* **[roles/spanner.databaseAdmin](https://docs.cloud.google.com/iam/docs/roles-permissions/spanner#spanner.databaseAdmin)**: Required to execute DDL statements (creating and altering tables, indexes, and embedding models).
+* **[roles/spanner.databaseUser](https://docs.cloud.google.com/iam/docs/roles-permissions/spanner#spanner.databaseUser)**: Required to read and write database rows (tracking migrations in `SchemaMigrations` and managing distributed locks in `IngestionLock`).
+
+You can grant these roles using the following command:
+<pre>
+gcloud projects add-iam-policy-binding "<var>PROJECT_ID</var>" \
+  --member="user:<var>YOUR_USER_ACCOUNT</var>" \
+  --role="roles/spanner.databaseAdmin"
+
+gcloud projects add-iam-policy-binding "<var>PROJECT_ID</var>" \
+  --member="user:<var>YOUR_USER_ACCOUNT</var>" \
+  --role="roles/spanner.databaseUser"
+</pre>
+
+#### 2. Permissions for Workflow Execution (`ingest start`)
+
+Terraform creates a project-wide [service account](https://docs.cloud.google.com/iam/docs/service-account-overview) to run the data ingestion workflow:
+<code><var>INSTANCE_NAME</var>-dc-ing-wf-sa@<var>PROJECT_ID</var>.iam.gserviceaccount.com</code>.
+
+To run the `datacommons admin ingest start` command, you need to impersonate this service account using your own credentials. To do so, create an IAM binding giving your account the Token Creator role:
 
 1. Ensure you have authenticated as in [step 1](#step1).
 1. Optionally, from your Terraform directory, run the following to get the name of the service account:
@@ -220,7 +242,6 @@ To run the datacommons CLI commands that execute these processes, you need to im
     --member="user:<var>YOUR_USER_ACCOUNT</var>" \
     --role="roles/iam.serviceAccountTokenCreator" \
     --project="<var>PROJECT_ID</var>"</pre>
-    Your user account is whatever email address you are using as a member of your GCP project.
 
 To verify that your account has been added as a principal to the service account, you can look up the details as follows:
 
@@ -234,6 +255,8 @@ From the directory where your Terraform configuration is stored, run the followi
 ```
 uvx datacommons-cli admin init-db
 ```
+
+This command connects directly to Cloud Spanner using your authenticated credentials to execute the bundled DDL schema and apply pending migrations.
 
 When it completes, verify that the tables are created correctly:
 
@@ -331,7 +354,7 @@ ingestion_base /
     |– data2.csv
 ```
 
-#### Example 4: Single schema-only import, multiple data imports
+#### Example 4: Single schema-only import, multiple data imports {#example4}
 
 In this example, the MCF file is shared across multiple imports.
 
@@ -751,7 +774,14 @@ The `config.json `file would look like this:
 
 In this step, you upload your CSV, MCF and `config.json` files to a new or existing Google Cloud Storage bucket.
 
-> **Note:** To perform this procedure, you must have a minimum of [Storage Object Admin](https://docs.cloud.google.com/iam/docs/roles-permissions/storage) or Storage Object User roles.
+> **Note:** The artifacts bucket enforces Public Access Prevention and Uniform Bucket-Level Access. To upload data files or inspect artifacts, individual users or operators must be granted either the **Storage Object User** (`roles/storage.objectUser`) or **Storage Object Admin** (`roles/storage.objectAdmin`) role directly on the bucket (or project).
+>
+> If you need to grant this permission to a user:
+> ```bash
+> gcloud storage buckets add-iam-policy-binding gs://<var>GCS_BUCKET</var> \
+>   --member="user:<var>USER_EMAIL</var>" \
+>   --role="roles/storage.objectUser"
+> ```
 
 If you created a new bucket:
 
@@ -809,7 +839,7 @@ The *IMPORT_PATH* is the directory containing a `config.json` file, and is relat
 * To ingest multiple imports, specify comma-separated values for each `config.json` directory you would like to ingest now; for example `–-imports import1,import2.`
 * To ingest all data imports, specify `–-imports ALL_IMPORTS`.
 
-Depending on the amount of data being processed, it can take anywhere from 10 minutes to over an hour to complete. You can verify the processing by clicking on any of the output links to see the workflow's progress at any time. 
+Depending on the amount of data being processed, it can take anywhere from 10 minutes to over an hour to complete. You can verify the processing by clicking on any of the output links to see the workflow's progress at any time.
 
 To verify that the workflow has completed, click the `Workflow Console Link` in the output and look for the **Executions** > **State** heading. When the workflow is complete, it shows **return result** - **succeeded**. 
 
@@ -817,7 +847,40 @@ To verify that the workflow has completed, click the `Workflow Console Link` in 
 
 > **Important!:** Do not manually cancel a workflow anytime after the **run_preprocessing** stage, or your database will be corrupted. If you do need to cancel a workflow at this stage, you won't be able to restart it without clearing the database lock. See [Release database lock from ingestion workflow](#release) for the procedure.
 
-### Step 3: Verify data
+#### Imports with dependencies {#dependencies}
+
+A common pattern (similar to [example 4](#example4) above) is to have an import that defines a "shared" schema that is referenced by other imports, like this:
+
+```
+ingestion_base /
+  |- shared_schema_import/        
+    |- config.json   <--- Schema import
+    |- shared_schema.mcf
+  |- data_import_1/        
+    |- config.json   
+    |- data1.csv
+    |- import_1_schema.mcf <--- References entities in shared_schema.mcf
+  |- data_import_2/        
+    |- config.json   
+    |- data2.csv
+    |- import_2_schema.mcf <--- References entities in shared_schema.mcf
+
+To ensure that the entities in the shared schema are created before dependent imports are processed, import the shared import and dependent imports together, i.e.:
+
+```
+uvx datacommons-cli admin ingest start --imports shared_schema_import,data_import_1,data_import_2
+```
+
+This ensures that all imports are handled as a single workflow, and any dependencies are resolved during the preprocessing step.
+
+Alternatively, if you use separate commands to run each import, ensure that the shared import ingested completes successfully _before_ ingesting the dependent imports, i.e.:
+1. Run `uvx datacommons-cli admin ingest start --imports shared_schema_import`.
+1. Wait until the workflow completes and [verify](#verify) that all the required nodes from `shared_schema_import` are present in the database.
+1. Run the remaining imports.
+
+If you try to do steps 1 and 3 concurrently, the order of processing does not necessarily follow the command order, and you risk incurring data corruption.
+
+### Step 3: Verify data {#verify}
 
 To verify that the data has been imported correctly:
 
@@ -1047,16 +1110,16 @@ dataflow,DC:DF_OBS(1.0.0),I,who:Ratio_CigaretteSmoking_Adults_ByGender,country/A
 
 ## Update your instance {#update-your-instance}
 
-### Update imported data
+### Update imported data or add new imports
 
 To update data you've already imported:
 
-1. If necessary, make changes to your schema MCF file(s).
+1. If necessary, make changes to your schema MCF file(s). If you make changes to MCF files contained in an import that are referenced by other imports, see the note below.
 2. If necessary, make changes to your [`config.json` file(s)](#config) (e.g. to add new CSV files, new directories, etc.).
 3. [Upload the new/updated files to Cloud Storage](#upload).
 4. [Run the ingestion workflow](#workflow) as usual. 
 
-> **Note:** If your import depends on "shared" MCF files (which are assigned to a different provenance), you do not need to reingest those files unless they have changed. Conversely, if you do make changes to the shared files, you will need to reingest all imports that depend on them.
+> **Note:** If your import depends on "shared" MCF files in a different import, you do not need to reingest the shared files unless they have changed. Conversely, if you do make changes to the shared files, you will also need to reingest all imports that depend on them. Be sure to run the ingestion command(s) correctly; see [Imports with dependencies](#dependencies) for details.
 
 ### Delete data
 
@@ -1210,7 +1273,6 @@ If you have only made changes affecting the web service (such as updating the im
 
 To deploy several Data Commons Platform instances, in multiple environments (e.g. dev, staging, pre-prod etc.), you should use Terraform Workspaces. See [Manage multiple Terraform deployments](https://docs.datacommons.org/custom_dc/deploy_cloud.html#multiple) for details. (Substitute the Terraform modules directory with your Terraform directory.)
 
-
 ### Handle resource creation variables {#handle}
 
 Terraform maintains state across the lifecycle of a deployment. For stateful and shared resources, you need to take care in making changes, because Terraform's update behavior may be unintuitive. In particular:
@@ -1333,8 +1395,8 @@ In general, to troubleshoot any GCP problems, you should go to the Cloud Console
 ### Ingestion workflow fails
 
 1. Go to the link for the workflow output by the  `datacommons ingest start` command.
-2. Under **State**, find the stage that has failed. If it fails on **run_preprocessing**, go to the Cloud Console Cloud Run job page for your preprocessing job. The job is called <code><var>INSTANCE_NAME</var>-dc-ingestion-preprocessing-job</code>.
-3. Select **Observability** > **Logs** and check for any errors. Expand the error entries to get more details. See below for solutions to common Data Commons data job errors.
+2. Under **State**, find the stage that has failed. If it fails on **run_preprocessing**, go to the Cloud Console Batch **Job list** page and click your preprocessing job. Each workflow run creates a new job named <code><var>INSTANCE_NAME</var>-prep-<var>TIMESTAMP</var></code>.
+3. Select the **Logs** tab and check for any errors. Expand the error entries to get more details. See below for solutions to common Data Commons data job errors.
 
 
 #### 401: Unauthorized

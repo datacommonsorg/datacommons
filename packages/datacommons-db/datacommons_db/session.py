@@ -14,7 +14,7 @@
 
 import logging
 
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from datacommons_db.models.base import Base
@@ -71,8 +71,6 @@ def create_property_graph(engine: Engine):
     Args:
       engine: SQLAlchemy engine connected to the database
     """
-    from sqlalchemy import text
-
     with engine.begin() as connection:
         connection.execute(text(DDL_PROPERTY_GRAPH))
 

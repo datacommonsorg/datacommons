@@ -16,6 +16,7 @@ htmlcov/
 .terraform/
 *.tfstate
 *.tfstate.*
+!tests/integration/emulated/terraform.tfstate
 crash.log
 crash.log.*
 *.tfvars

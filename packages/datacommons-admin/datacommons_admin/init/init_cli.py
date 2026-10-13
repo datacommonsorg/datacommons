@@ -15,10 +15,10 @@
 import click
 
 from datacommons_admin import __version__
+from datacommons_admin.core.terraform.state import get_default_state_prefix
 from datacommons_admin.init.utils.gcs_utils import (
     DEFAULT_BUCKET_LOCATION,
     _configure_remote_state,
-    _get_default_state_prefix,
 )
 from datacommons_admin.init.utils.scaffold_utils import (
     _check_existing_files,
@@ -111,7 +111,7 @@ def init(
         else ""
     )
 
-    resolved_tf_state_prefix = tf_state_prefix.strip() or _get_default_state_prefix(
+    resolved_tf_state_prefix = tf_state_prefix.strip() or get_default_state_prefix(
         resolved_instance_name
     )
 

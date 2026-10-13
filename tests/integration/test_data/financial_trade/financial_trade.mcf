@@ -1,0 +1,28 @@
+Node: dcid:dc/s/CustomFooBarTradeSource
+typeOf: dcid:Source
+name: "FooBar Global Trade Analytics"
+url: "https://foobar-trade.example.org"
+
+Node: dcid:FooBarTrade
+typeOf: dcid:Provenance
+name: "FooBar Trade"
+source: dcid:dc/s/CustomFooBarTradeSource
+url: "https://foobar-trade.example.org"
+
+Node: dcid:sourceCountry
+typeOf: dcid:Property
+name: "Source country"
+domainIncludes: dcid:StatVarObservation
+rangeIncludes: dcid:Place
+
+Node: dcid:destinationCountry
+typeOf: dcid:Property
+name: "Destination country"
+domainIncludes: dcid:StatVarObservation
+rangeIncludes: dcid:Place
+
+Node: dcid:FinancialTrade
+typeOf: dcid:StatisticalVariable
+name: "Financial Trade"
+observationProperties: dcid:sourceCountry, dcid:destinationCountry
+measuredProperty: dcid:value
