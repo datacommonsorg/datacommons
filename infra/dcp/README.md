@@ -150,6 +150,22 @@ Keep `.tftest.hcl` files fast and readable by grouping assertions into a minimal
 2. **`custom_configuration`**: Enables independent optional features and overrides together in a single `plan` (for example, `instance_name` prefixing, public ingress, VPC egress, Secret Manager env vars, and custom paths) rather than adding separate single-assertion `run` blocks for each ternary.
 3. **Targeted interaction runs (when warranted)**: Add 1–2 extra `run` blocks only when specific combinations of inputs interact in complex or mutually exclusive ways (for example, attaching to an existing Shared VPC vs. provisioning a new VPC, or testing `expect_failures` on input validation rules).
 
+### Preventing Breaking State Changes (`moved` Blocks)
+
+> [!WARNING]
+> **Renaming or moving Terraform resources destroys and recreates live cloud resources unless you add a `moved` block.**
+>
+> Terraform tracks every deployed GCP resource in its state file by its exact code address (for example, `module.ingestion_helper_service.google_service_account.helper_sa[0]`). If you rename a resource, move it between modules, or change whether a module/resource uses `count` or `for_each`, Terraform treats the old address as deleted and the new address as brand new—meaning the next `terraform apply` will **destroy the existing resource and recreate it**.
+>
+> Whenever a refactor changes a resource's address, add a `moved` block in [`modules/stack/moved.tf`](modules/stack/moved.tf) mapping `from` the old address `to` the new address:
+> ```hcl
+> moved {
+>   from = module.ingestion_helper_service.google_service_account.helper_sa[0]
+>   to   = module.ingestion_helper_service[0].google_service_account.helper_sa
+> }
+> ```
+> This tells Terraform to update the state address in-place (`0 to destroy`) without touching the underlying GCP resource.
+
 ---
 
 ## Next Steps

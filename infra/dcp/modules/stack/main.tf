@@ -23,6 +23,13 @@ locals {
   redis_port    = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
   redis_ca_cert = var.redis_config.enable && var.redis_config.enable_tls && length(module.redis) > 0 ? module.redis[0].redis_ca_cert : ""
 
+  effective_redis_config = var.redis_config.enable && length(module.redis) > 0 ? {
+    host           = module.redis[0].redis_host
+    port           = tostring(module.redis[0].redis_port)
+    auth_secret_id = var.redis_config.enable_auth ? module.redis[0].redis_auth_secret_id : null
+    ca_cert        = local.redis_ca_cert
+  } : null
+
   effective_spanner_config = {
     instance_id                = var.spanner_config.enable && length(module.spanner) > 0 ? module.spanner[0].spanner_instance_id : var.spanner_config.instance_id
     database_id                = var.spanner_config.enable && length(module.spanner) > 0 ? module.spanner[0].spanner_database_id : var.spanner_config.database_id
@@ -201,8 +208,8 @@ module "ingestion_dataflow" {
 
 module "ingestion_helper_service" {
   source = "../ingestion/helper_service"
+  count  = var.ingestion_config.enable_ingestion ? 1 : 0
 
-  deploy                        = var.ingestion_config.enable_ingestion
   project_id                    = var.global.project_id
   instance_name                 = var.global.instance_name
   region                        = var.global.region
@@ -214,10 +221,7 @@ module "ingestion_helper_service" {
 
   # Direct VPC Egress from network module
   vpc_access               = module.network.vpc_access
-  redis_host               = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
-  redis_port               = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
-  redis_auth_secret_id     = var.redis_config.enable && var.redis_config.enable_auth && length(module.redis) > 0 ? module.redis[0].redis_auth_secret_id : null
-  redis_ca_cert            = local.redis_ca_cert
+  redis_config             = local.effective_redis_config
   ingestion_artifacts_path = "${var.ingestion_config.ingestion_artifacts_path}/metadata"
   skip_container_restarts  = var.global.skip_container_restarts
 }
@@ -232,11 +236,11 @@ module "ingestion_workflow" {
   stateless_deletion_protection        = var.global.stateless_deletion_protection
   project_id                           = var.global.project_id
   lock_acquisition_timeout             = var.ingestion_config.workflow_lock_acquisition_timeout
-  ingestion_helper_url                 = module.ingestion_helper_service.ingestion_helper_url
+  ingestion_helper_url                 = one(module.ingestion_helper_service[*].ingestion_helper_url)
   dataflow_service_account_email       = module.ingestion_dataflow.service_account_email
   enable_bigquery_postprocessing       = var.ingestion_config.workflow_enable_bigquery_postprocessing
   enable_embeddings_generation         = var.spanner_config.enable_embeddings_generation
-  ingestion_helper_service_name        = "${var.global.instance_name != "" ? "${var.global.instance_name}-" : ""}dc-ingestion-helper"
+  ingestion_helper_service_name        = try(one(module.ingestion_helper_service[*].service_name), "")
   enable_redis_cache_clearing          = var.redis_config.enable
   artifacts_bucket_name                = module.storage.artifacts_bucket_name
   ingestion_artifacts_path             = var.ingestion_config.ingestion_artifacts_path
