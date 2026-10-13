@@ -38,6 +38,8 @@ import time
 import uuid
 from pathlib import Path
 
+import requests
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -212,7 +214,181 @@ def provision_infra(
         initial_delay=15.0,
     )
 
+    # Step 4: Configure Cloud Run IAM Invoker Permissions & OIDC Audience
+    _configure_cloud_run_access(instance_dir, project_id)
+
+    # Step 5: Wait for the Load Balancer (if enabled) to begin serving traffic
+    _wait_for_load_balancer(instance_dir)
+
     return instance_dir
+
+
+def _fetch_identity_token(audience: str | None) -> str | None:
+    """Fetches a gcloud identity token, preferring an audience-scoped token.
+
+    Service accounts can mint audience-scoped tokens; user accounts reject
+    --audiences, so fall back to a plain identity token.
+    """
+    base_cmd = ["gcloud", "auth", "print-identity-token"]
+    candidates = [base_cmd]
+    if audience:
+        candidates.insert(0, [*base_cmd, f"--audiences={audience}"])
+    for cmd in candidates:
+        try:
+            token = (
+                subprocess.check_output(cmd, stderr=subprocess.DEVNULL, timeout=15)
+                .decode()
+                .strip()
+            )
+        except Exception as e:
+            print(f"  ℹ️ Identity token command {' '.join(cmd)} failed: {e}")
+            continue
+        if token:
+            return token
+    return None
+
+
+def _wait_for_load_balancer(
+    instance_dir: Path,
+    timeout_sec: float = 600.0,
+    interval_sec: float = 15.0,
+) -> None:
+    """Polls the Load Balancer /healthz endpoint until it returns HTTP 200.
+
+    A freshly provisioned Global External Application Load Balancer with a
+    Serverless NEG typically takes several minutes to propagate, returning
+    404/502 in the meantime. Waiting here avoids flaky serving test failures.
+    """
+    try:
+        proc = subprocess.run(
+            ["terraform", "output", "-raw", "load_balancer_url"],
+            cwd=instance_dir,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        lb_url = proc.stdout.strip() if proc.returncode == 0 else ""
+    except Exception:
+        lb_url = ""
+
+    if not lb_url or not lb_url.startswith("http"):
+        print("\n==> [Phase 1.5] Load Balancer not enabled. Skipping readiness wait.")
+        return
+
+    health_url = f"{lb_url.rstrip('/')}/healthz"
+    print(
+        f"\n==> [Phase 1.5] Waiting up to {int(timeout_sec)}s for Load Balancer readiness: {health_url}"
+    )
+
+    token = _fetch_identity_token(os.environ.get("DCP_AUTH_AUDIENCE"))
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+
+    deadline = time.time() + timeout_sec
+    attempt = 1
+    last_status = "no response"
+    while time.time() < deadline:
+        try:
+            resp = requests.get(health_url, headers=headers, timeout=10)
+            if resp.status_code == 200:
+                print(f"  ✔ Load Balancer is serving traffic (attempt {attempt}).")
+                return
+            last_status = f"HTTP {resp.status_code}"
+        except requests.RequestException as e:
+            last_status = type(e).__name__
+        print(
+            f"  ⏳ Attempt {attempt}: {last_status}. Retrying in {int(interval_sec)}s..."
+        )
+        time.sleep(interval_sec)
+        attempt += 1
+
+    print(
+        f"  ⚠️ Load Balancer did not become ready within {int(timeout_sec)}s "
+        f"(last status: {last_status}). Proceeding with tests anyway."
+    )
+
+
+def _configure_cloud_run_access(instance_dir: Path, project_id: str) -> None:
+    """Configures Cloud Run invoker IAM permissions and resolves OIDC token audience."""
+    print(
+        "\n==> [Phase 1.4] Configuring Cloud Run IAM invoker permissions & OIDC audience..."
+    )
+    try:
+        proc = subprocess.run(
+            ["terraform", "output", "-json"],
+            cwd=instance_dir,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        outputs = json.loads(proc.stdout)
+    except Exception as e:
+        print(f"  ⚠️ Failed to read Terraform outputs: {e}")
+        return
+
+    service_name = outputs.get("datacommons_service_name", {}).get("value")
+    region = outputs.get("region", {}).get("value") or "us-central1"
+    if not service_name:
+        print(
+            "  ⚠️ 'datacommons_service_name' not found in Terraform outputs. Skipping."
+        )
+        return
+
+    # 1. Fetch Cloud Run service URL to use as OIDC token audience
+    try:
+        url_cmd = [
+            "gcloud",
+            "run",
+            "services",
+            "describe",
+            service_name,
+            f"--project={project_id}",
+            f"--region={region}",
+            "--format=value(status.url)",
+        ]
+        res = subprocess.run(url_cmd, capture_output=True, text=True, check=True)
+        cloud_run_url = res.stdout.strip()
+        if cloud_run_url:
+            os.environ["DCP_AUTH_AUDIENCE"] = cloud_run_url
+            print(f"  ✔ Resolved Cloud Run OIDC audience: {cloud_run_url}")
+    except Exception as e:
+        print(f"  ⚠️ Failed to resolve Cloud Run service URL: {e}")
+
+    # 2. Grant roles/run.invoker to the active gcloud identity
+    try:
+        acc_proc = subprocess.run(
+            ["gcloud", "config", "get-value", "account"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        account = acc_proc.stdout.strip()
+        if account:
+            member_type = (
+                "serviceAccount" if "gserviceaccount.com" in account else "user"
+            )
+            member_spec = f"{member_type}:{account}"
+            grant_cmd = [
+                "gcloud",
+                "run",
+                "services",
+                "add-iam-policy-binding",
+                service_name,
+                f"--project={project_id}",
+                f"--region={region}",
+                f"--member={member_spec}",
+                "--role=roles/run.invoker",
+                "--quiet",
+            ]
+            print(
+                f"  ✔ Granting roles/run.invoker to {member_spec} on {service_name}..."
+            )
+            grant_res = run_cmd_with_retry(grant_cmd, max_attempts=2, check=False)
+            if grant_res.returncode != 0:
+                print(
+                    "  ℹ️ Could not add IAM binding directly (caller may already have project-level invoker access)."
+                )
+    except Exception as e:
+        print(f"  ⚠️ Error configuring Cloud Run IAM permissions: {e}")
 
 
 def run_tests(

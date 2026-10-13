@@ -521,24 +521,34 @@ def spanner_client(dcp_target: DCPTarget) -> SpannerClient:
     )
 
 
-@pytest.fixture(scope="session")
-def auth_headers(dcp_target: DCPTarget) -> dict:
-    """Provides default HTTP headers with GCP Cloud Run identity token if authenticated."""
-    headers = {"X-Use-Multi-Entity-Schema": "true"}
+def _resolve_token_audience(serving_url: str | None) -> str | None:
+    """Resolves the OIDC audience for Cloud Run identity tokens.
+
+    Uses DCP_AUTH_AUDIENCE when set (e.g. the underlying .run.app URL when
+    serving behind a Load Balancer), otherwise the serving URL if it is a
+    direct Cloud Run endpoint.
+    """
+    audience = os.getenv("DCP_AUTH_AUDIENCE")
+    if audience:
+        return audience
+    if serving_url and "run.app" in serving_url:
+        return serving_url
+    return None
+
+
+def _fetch_cloud_run_identity_token(serving_url: str | None) -> str | None:
+    """Fetches an identity token for authenticating to Cloud Run."""
     base_cmd = ["gcloud", "auth", "print-identity-token"]
     # Service accounts can mint audience-scoped tokens; user accounts reject
     # --audiences, so fall back to a plain identity token.
     candidates = [base_cmd]
-    if dcp_target and dcp_target.serving_url:
-        candidates.insert(0, [*base_cmd, f"--audiences={dcp_target.serving_url}"])
+    audience = _resolve_token_audience(serving_url)
+    if audience:
+        candidates.insert(0, [*base_cmd, f"--audiences={audience}"])
     for cmd in candidates:
         try:
             token = (
-                subprocess.check_output(
-                    cmd,
-                    stderr=subprocess.DEVNULL,
-                    timeout=15,
-                )
+                subprocess.check_output(cmd, stderr=subprocess.DEVNULL, timeout=15)
                 .decode()
                 .strip()
             )
@@ -548,8 +558,19 @@ def auth_headers(dcp_target: DCPTarget) -> dict:
             )
             continue
         if token:
-            headers["Authorization"] = f"Bearer {token}"
-            break
+            return token
+    return None
+
+
+@pytest.fixture(scope="session")
+def auth_headers(dcp_target: DCPTarget) -> dict[str, str]:
+    """Provides default HTTP headers, injecting Cloud Run identity token when authenticated."""
+    headers = {"X-Use-Multi-Entity-Schema": "true"}
+    token = _fetch_cloud_run_identity_token(
+        dcp_target.serving_url if dcp_target else None
+    )
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
     return headers
 
 
