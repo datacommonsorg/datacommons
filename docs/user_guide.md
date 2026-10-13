@@ -31,6 +31,7 @@ The following section describes how the Platform differs from Custom Data Common
 * Data can be rebuilt on a per-import basis, instead of rebuilding all data. 
 * There is no NL Server.
 * There is no web server or `website` repo.
+* MCP functionality has been moved into the Mixer and the MCP server is removed. 
 
 ### Workflow
 
@@ -50,7 +51,7 @@ The following section describes how the Platform differs from Custom Data Common
 ### APIs
 
 * Basic [SDMX](https://sdmx.org/) read APIs are available: Availability and Data
-* REST and Python V2 APIs support filtering and chaining on any property and arc direction, and resolution on any entity type
+* REST and Python V2 APIs support filtering and chaining on any property and arc direction, and resolution on any entity type.
 
 ### MCP
 
