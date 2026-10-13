@@ -108,3 +108,13 @@ output "subnet_url" {
   description = "URL / self_link of the private subnetwork"
   value       = module.stack.subnet_url
 }
+
+output "load_balancer_ip" {
+  description = "The external IP address of the External Application Load Balancer."
+  value       = module.stack.load_balancer_ip
+}
+
+output "load_balancer_url" {
+  description = "The HTTP URL of the External Application Load Balancer."
+  value       = module.stack.load_balancer_url
+}
