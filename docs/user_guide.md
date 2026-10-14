@@ -140,10 +140,10 @@ If you're happy with the settings as they are, you can skip ahead to step 4. Mor
 
 The `terraform.tfvars` file you generated in the previous step provides optional but frequently configured variables, with overrides of default values set in `variables.tf`. Commented-out variables are the same as the defaults; to change them, uncomment the line you want and set the variable accordingly.
 
-In addition, all of the deployment options you can configure are listed in `variables.tf`. To customize any of these options, _do not_ edit in place in `variables.tf`. Instead, add the variable(s) you want to override to the `terraform.tfvars` file and set it to the desired value. For example, if you wanted to disable the MCP service from running as part of the web services, you would add this line to `terraform.tfvars`:
+In addition, all of the deployment options you can configure are listed in `variables.tf`. To customize any of these options, _do not_ edit in place in `variables.tf`. Instead, add the variable(s) you want to override to the `terraform.tfvars` file and set it to the desired value. For example, to enable Redis, you would add this to the file:
 
 ```
-datacommons_services_enable_mcp = false
+enable_redis = true
 ```
 
 Here are some variables you may wish to modify:
