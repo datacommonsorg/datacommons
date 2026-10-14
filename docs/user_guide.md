@@ -212,7 +212,7 @@ The `init-db` and `migrate-db` CLI commands connect directly to Cloud Spanner fr
 
 To run these commands, your user account must have the following Spanner IAM roles on the project (or directly on the Spanner instance/database):
 * [roles/spanner.databaseAdmin](https://docs.cloud.google.com/iam/docs/roles-permissions/spanner#spanner.databaseAdmin): Required to execute DDL statements (creating and altering tables, indexes, and embedding models).
-* [roles/spanner.databaseUser](https://docs.cloud.google.com/iam/docs/roles-permissions/spanner#spanner.databaseUser)**: Required to read and write database rows.
+* [roles/spanner.databaseUser](https://docs.cloud.google.com/iam/docs/roles-permissions/spanner#spanner.databaseUser): Required to read and write database rows.
 
 You can grant these roles as follows:
 
@@ -227,6 +227,7 @@ You can grant these roles as follows:
   --member="user:<var>YOUR_USER_ACCOUNT</var>" \
   --role="roles/spanner.databaseUser"
   </pre>
+
 
 #### 2. Permissions for workflow execution
 
@@ -1314,7 +1315,7 @@ To migrate your system to the latest version of the platform, follow this proced
    ```
 1. Re-generate the Terraform files for the target version:
     <pre>
-    uvx datacommons-cli@<var>VERSION_NUMBER</var>admin init \
+    uvx datacommons-cli@<var>VERSION_NUMBER</var> admin init \
     --project-id "<var>PROJECT_ID</var>" \
     --instance-name "<var>INSTANCE_NAME></var>" \
     --force </pre>
