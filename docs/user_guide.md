@@ -778,7 +778,7 @@ The `config.json `file would look like this:
 
 In this step, you upload your CSV, MCF and `config.json` files to a new or existing Google Cloud Storage bucket.
 
-> **Note:** The artifacts bucket enforces Public Access Prevention and Uniform Bucket-Level Access. To upload data files or inspect artifacts, individual users or operators must be granted either the **Storage Object User** (`roles/storage.objectUser`) or **Storage Object Admin** (`roles/storage.objectAdmin`) role directly on the bucket (or project).
+> **Note:** The artifacts bucket enforces public access prevention and uniform bucket-level access. To upload data files or inspect artifacts, individual users or operators must be granted either the Storage Object User (`roles/storage.objectUser`) or Storage Object Admin (`roles/storage.objectAdmin`) role directly on the bucket (or project).
 >
 > If you need to grant this permission to a user:
 > ```bash
@@ -868,6 +868,7 @@ ingestion_base /
     |- config.json   
     |- data2.csv
     |- import_2_schema.mcf <--- References entities in shared_schema.mcf
+```
 
 To ensure that the entities in the shared schema are created before dependent imports are processed, import the shared import and dependent imports together, i.e.:
 
