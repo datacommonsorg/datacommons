@@ -843,6 +843,8 @@ The *IMPORT_PATH* is the directory containing a `config.json` file, and is relat
 * To ingest multiple imports, specify comma-separated values for each `config.json` directory you would like to ingest now; for example `–-imports import1,import2.`
 * To ingest all data imports, specify `–-imports ALL_IMPORTS`.
 
+> **Note:** If you have imports with dependencies on each other, follow the procedure in [Imports with dependencies](#dependencies) below.
+
 Depending on the amount of data being processed, it can take anywhere from 10 minutes to over an hour to complete. You can verify the processing by clicking on any of the output links to see the workflow's progress at any time.
 
 To verify that the workflow has completed, click the `Workflow Console Link` in the output and look for the **Executions** > **State** heading. When the workflow is complete, it shows **return result** - **succeeded**. 
@@ -870,20 +872,13 @@ ingestion_base /
     |- import_2_schema.mcf <--- References entities in shared_schema.mcf
 ```
 
-To ensure that the entities in the shared schema are created before dependent imports are processed, import the shared import and dependent imports together, i.e.:
+However, if you try to ingest multiple imports concurrently, there is no guarantee of the order in which they will be processed. This means that nodes in one import that have associated edges in another import may not be created in the correct order, and this can lead to data corruption.
 
-```
-uvx datacommons-cli admin ingest start --imports shared_schema_import,data_import_1,data_import_2
-```
-
-This ensures that all imports are handled as a single workflow, and any dependencies are resolved during the preprocessing step.
-
-Alternatively, if you use separate commands to run each import, ensure that the shared import ingested completes successfully _before_ ingesting the dependent imports, i.e.:
+To ensure that the entities in the shared schema are created _before_ dependent imports are processed, use the following procedure.
 1. Run `uvx datacommons-cli admin ingest start --imports shared_schema_import`.
-1. Wait until the workflow completes and [verify](#verify) that all the required nodes from `shared_schema_import` are present in the database.
-1. Run the remaining imports.
-
-If you try to do steps 1 and 3 concurrently, the order of processing does not necessarily follow the command order, and you risk incurring data corruption.
+1. Wait until the workflow completes successfully: click the `Workflow Console Link` in the output and look for the **Executions** > **State** heading in the Cloud Console. When the workflow is complete, it shows **return result** - **succeeded**. 
+1. [Verify](#verify) that all the required nodes from `shared_schema_import` are present in the database.
+1. Run the remaining imports: `uvx datacommons-cli admin ingest start --imports data_import_1,data_import_2`
 
 ### Step 3: Verify data {#verify}
 
