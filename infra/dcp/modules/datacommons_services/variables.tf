@@ -52,7 +52,7 @@ variable "make_public" {
 
 variable "ingress_mode" {
   type        = string
-  description = "Ingress traffic configuration for Cloud Run service (INGRESS_TRAFFIC_ALL or INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER)."
+  description = "Ingress traffic configuration for Cloud Run service (INGRESS_TRAFFIC_ALL or INGRESS_TRAFFIC_INTERNAL_ONLY)."
   default     = "INGRESS_TRAFFIC_ALL"
 }
 
