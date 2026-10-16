@@ -28,11 +28,11 @@
 # 2. Ingestion Helper API Service
 # ingestion_helper_service_image = "gcr.io/datcom-ci/datacommons-ingestion-helper:your-test-tag"
 
-# 3. Ingestion Preprocessing Cloud Run Job
-# ingestion_preprocessing_job_image = "gcr.io/datcom-ci/datacommons-preprocessing:your-test-tag"
+# 3. Ingestion Preprocessing Cloud Batch Job
+# ingestion_preprocessing_job_image = "gcr.io/datcom-ci/datacommons-data:your-test-tag"
 
 # 4. Ingestion Postprocessing Cloud Run Job
-# ingestion_postprocessing_job_image = "gcr.io/datcom-ci/datacommons-postprocessing:your-test-tag"
+# ingestion_postprocessing_job_image = "gcr.io/datcom-ci/datacommons-aggregation-helper:your-test-tag"
 
 # 5. Dataflow Ingestion Flex Template Container Spec (GCS Path)
 # ingestion_dataflow_template_gcs_path = "gs://datcom-templates/templates/flex/ingestion-your-test-tag.json"

@@ -207,7 +207,7 @@ DCP microservices and batch pipelines run in serverless Google Cloud Run contain
 | Component Name | Role | Source Repo & Dockerfile | Destination Registry (Dev) | `terraform.tfvars` Override |
 | :--- | :--- | :--- | :--- | :--- |
 | **`datacommons-services`** | Envoy, Mixer API, Website serving | `datcom-website`<br>`scripts/push_cdc_services_image.sh` | `gcr.io/<project_id>/datacommons-services:<tag>` | `datacommons_services_image` |
-| **`datacommons-data`** | Preprocessor batch job | `datcom-website`<br>`build/cdc_data/Dockerfile` | `us-docker.pkg.dev/<project_id>/<repository>/datacommons-data:<tag>` | `ingestion_preprocessing_job_image` |
+| **`datacommons-data`** | Preprocessor batch job | `datcom-website`<br>`scripts/push_cdc_data_image.sh` | `gcr.io/<project_id>/datacommons-data:<tag>` | `ingestion_preprocessing_job_image` |
 | **`datacommons-aggregation-helper`** | Postprocessor aggregation job | `datcom-import`<br>`pipeline/workflow/aggregation-helper/Dockerfile` | `gcr.io/<project_id>/datacommons-aggregation-helper:<tag>` | `ingestion_postprocessing_job_image` |
 | **`datacommons-ingestion-helper`** | Lock coordination & migrations | `datcom-import`<br>`pipeline/workflow/ingestion-helper/Dockerfile` | `us-docker.pkg.dev/<project_id>/<repository>/datacommons-ingestion-helper:<tag>` | `ingestion_helper_service_image` |
 | **`ingestion-flex`** | Apache Beam Dataflow pipeline | `datcom-import`<br>`pipeline/ingestion/cloudbuild.yaml` | `us-docker.pkg.dev/<project_id>/<repository>/dataflow-templates/ingestion:<tag>`<br>`gs://<storage_artifacts_bucket_name>/templates/flex/ingestion-<tag>.json` | `ingestion_dataflow_template_gcs_path` |
@@ -253,15 +253,17 @@ cd import && git checkout <import_feature_branch> && cd ..
 # Option B: Sync import submodule with upstream master:
 git submodule update --remote --merge import
 
-# Build and push custom preprocessor image to Artifact Registry:
+# Build and push custom datacommons-data image to development project:
 export PROJECT_ID="datcom-website-dev"
 export PREPROCESSOR_TAG="<username>-<feature>-$(date +%s)"
-export PREPROCESSOR_IMAGE="us-docker.pkg.dev/$PROJECT_ID/datacommons-artifacts/datacommons-data:$PREPROCESSOR_TAG"
-gcloud builds submit --project="$PROJECT_ID" --tag "$PREPROCESSOR_IMAGE" -f build/cdc_data/Dockerfile .
+./scripts/push_cdc_data_image.sh "$PREPROCESSOR_TAG" "$PROJECT_ID"
 
 # Resulting Image URI:
-# us-docker.pkg.dev/$PROJECT_ID/datacommons-artifacts/datacommons-data:<PREPROCESSOR_TAG>
+# gcr.io/$PROJECT_ID/datacommons-data:<PREPROCESSOR_TAG>
 ```
+
+> [!NOTE]
+> `scripts/push_cdc_data_image.sh` invokes `build/ci/cloudbuild.push_cdc_data_image.yaml` to build `build/cdc_data/Dockerfile` using `gcr.io/datcom-ci/datacommons-data:latest` as the layer cache. The second argument specifies the destination GCP project (`$PROJECT_ID`); if omitted, it defaults to `datcom-ci` (`gcr.io/datcom-ci/datacommons-data:<PREPROCESSOR_TAG>`).
 
 ##### Postprocessor (`datacommons-aggregation-helper`)
 ```bash
@@ -324,7 +326,7 @@ To test custom container images or Dataflow templates on your deployed DCP insta
 ```hcl
 # Custom container image and Dataflow template overrides
 datacommons_services_image           = "gcr.io/<project_id>/datacommons-services:<custom_tag>"
-ingestion_preprocessing_job_image    = "us-docker.pkg.dev/<project_id>/<repository>/datacommons-data:<custom_tag>"
+ingestion_preprocessing_job_image    = "gcr.io/<project_id>/datacommons-data:<custom_tag>"
 ingestion_postprocessing_job_image   = "gcr.io/<project_id>/datacommons-aggregation-helper:<custom_tag>"
 ingestion_helper_service_image       = "us-docker.pkg.dev/<project_id>/<repository>/ingestion-helper:<custom_tag>"
 ingestion_dataflow_template_gcs_path = "gs://<storage_artifacts_bucket_name>/templates/flex/ingestion-<custom_tag>.json"
