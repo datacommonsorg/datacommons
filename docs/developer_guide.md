@@ -204,13 +204,13 @@ DCP microservices and batch pipelines run in serverless Google Cloud Run contain
 
 #### Platform Container and Template Inventory
 
-| Component Name | Role | Source Repo & Dockerfile | Destination Registry (Dev) | `terraform.tfvars` Override |
+| Component Name | Role | Dockerfile & Build Script | Destination Registry (Dev) | `terraform.tfvars` Override |
 | :--- | :--- | :--- | :--- | :--- |
-| **`datacommons-services`** | Envoy, Mixer API, Website serving | `datcom-website`<br>`scripts/push_cdc_services_image.sh` | `gcr.io/<project_id>/datacommons-services:<tag>` | `datacommons_services_image` |
-| **`datacommons-data`** | Preprocessor batch job | `datcom-website`<br>`scripts/push_cdc_data_image.sh` | `gcr.io/<project_id>/datacommons-data:<tag>` | `ingestion_preprocessing_job_image` |
-| **`datacommons-aggregation-helper`** | Postprocessor aggregation job | `datcom-import`<br>`pipeline/workflow/aggregation-helper/Dockerfile` | `gcr.io/<project_id>/datacommons-aggregation-helper:<tag>` | `ingestion_postprocessing_job_image` |
-| **`datacommons-ingestion-helper`** | Lock coordination & migrations | `datcom-import`<br>`pipeline/workflow/ingestion-helper/Dockerfile` | `us-docker.pkg.dev/<project_id>/<repository>/datacommons-ingestion-helper:<tag>` | `ingestion_helper_service_image` |
-| **`ingestion-flex`** | Apache Beam Dataflow pipeline | `datcom-import`<br>`pipeline/ingestion/cloudbuild.yaml` | `us-docker.pkg.dev/<project_id>/<repository>/dataflow-templates/ingestion:<tag>`<br>`gs://<storage_artifacts_bucket_name>/templates/flex/ingestion-<tag>.json` | `ingestion_dataflow_template_gcs_path` |
+| **`datacommons-services`** | Envoy, Mixer API, Website serving | `website:build/cdc_services/Dockerfile`<br>`website:scripts/push_cdc_services_image.sh` | `gcr.io/<project_id>/datacommons-services:<tag>` | `datacommons_services_image` |
+| **`datacommons-data`** | Preprocessor batch job | `website:build/cdc_data/Dockerfile`<br>`website:scripts/push_cdc_data_image.sh` | `gcr.io/<project_id>/datacommons-data:<tag>` | `ingestion_preprocessing_job_image` |
+| **`datacommons-aggregation-helper`** | Postprocessor aggregation job | `import:pipeline/workflow/aggregation-helper/Dockerfile` | `gcr.io/<project_id>/datacommons-aggregation-helper:<tag>` | `ingestion_postprocessing_job_image` |
+| **`datacommons-ingestion-helper`** | Lock coordination & migrations | `import:pipeline/workflow/ingestion-helper/Dockerfile` | `us-docker.pkg.dev/<project_id>/<repository>/datacommons-ingestion-helper:<tag>` | `ingestion_helper_service_image` |
+| **`ingestion-flex`** | Apache Beam Dataflow pipeline | `import:pipeline/ingestion/cloudbuild.yaml` | `us-docker.pkg.dev/<project_id>/<repository>/dataflow-templates/ingestion:<tag>`<br>`gs://<storage_artifacts_bucket_name>/templates/flex/ingestion-<tag>.json` | `ingestion_dataflow_template_gcs_path` |
 
 #### Building Images via Google Cloud Build
 
