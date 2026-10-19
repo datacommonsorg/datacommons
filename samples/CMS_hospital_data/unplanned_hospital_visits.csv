@@ -176,9 +176,9 @@ CCN21309,2023-06-30,Count_Patients_HeartFailure,,P2Y
 CCN21309,2023-06-30,Count_ReturnPatients_HeartFailure,,P2Y
 CCN21309,2023-06-30,Count_Patients_Pneumonia,,P2Y
 CCN21309,2023-06-30,Count_ReturnPatients_Pneumonia,,P2Y
-CCN21314,2023-06-30,Total_Duration_UnplannedHospitalStay_ReturnPatients_HeartAttack,,P2Y
-CCN21314,2023-06-30,Total_Duration_UnplannedHospitalStay_ReturnPatients_HeartFailure,28,P2Y
-CCN21314,2023-06-30,Total_Duration_UnplannedHospitalStay_ReturnPatients_Pneumonia,48,P2Y
+CCN21309,2023-06-30,Total_Duration_UnplannedHospitalStay_ReturnPatients_HeartAttack,,P2Y
+CCN21309,2023-06-30,Total_Duration_UnplannedHospitalStay_ReturnPatients_HeartFailure,,P2Y
+CCN21309,2023-06-30,Total_Duration_UnplannedHospitalStay_ReturnPatients_Pneumonia,,P2Y
 CCN21310,2023-06-30,Count_Patients_HeartAttack,,P2Y
 CCN21310,2023-06-30,Count_ReturnPatients_HeartAttack,,P2Y
 CCN21310,2023-06-30,Count_Patients_HeartFailure,,P2Y

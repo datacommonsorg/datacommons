@@ -45,12 +45,12 @@ name: "Heart attack"
 Node: dcid:HospitalStay
 typeOf: schema:Class
 name: "Hospital stay"
-subclassOf: schema: Event
+subclassOf: schema:Event
 
 Node: dcid:UnplannedHospitalStay
 typeOf: schema:Class
 name: "Unplanned hospital stay in acute care by return patients"
-subclassOf: dcid:StatisticalAggregationMethodEnum
+subclassOf: dcid:HospitalStay
 
 Node: dcid:sum
 typeOf: schema:Property
