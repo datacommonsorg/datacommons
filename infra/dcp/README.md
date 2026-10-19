@@ -155,13 +155,17 @@ Keep `.tftest.hcl` files fast and readable by grouping assertions into a minimal
 > [!WARNING]
 > **Renaming or moving Terraform resources destroys and recreates live cloud resources unless you add a `moved` block.**
 >
-> Terraform tracks every deployed GCP resource in its state file by its exact code address (for example, `module.ingestion_helper_service.google_service_account.helper_sa[0]`). If you rename a resource, move it between modules, or change whether a module/resource uses `count` or `for_each`, Terraform treats the old address as deleted and the new address as brand new—meaning the next `terraform apply` will **destroy the existing resource and recreate it**.
+> Terraform tracks every deployed GCP resource in its state file by its exact code address (for example, `module.spanner[0].google_spanner_database.database`). If you rename a resource, move it between modules, or change whether a module/resource uses `count` or `for_each`, Terraform treats the old address as deleted and the new address as brand new—meaning the next `terraform apply` will **destroy the existing resource and recreate it**.
 >
-> Whenever a refactor changes a resource's address, add a `moved` block in [`modules/stack/moved.tf`](modules/stack/moved.tf) mapping `from` the old address `to` the new address:
+> To avoid accumulating state-migration clutter over time, apply this rule when refactoring resource addresses:
+> * **Use `moved` blocks** for **stateful, user-facing, or foundational resources** where a teardown and recreate causes data loss, end-user downtime, or long provisioning delays (such as Cloud Spanner instances/databases, GCS buckets, VPC networking, Redis, or `datacommons-services`).
+> * **Skip `moved` blocks** for **stateless internal resources** that can be torn down and recreated during `terraform apply` without data loss or user impact (such as ingestion Cloud Run jobs/helpers, Cloud Workflows, or monitoring alerts).
+>
+> When migrating a stateful or user-facing resource, declare a `moved` block in `modules/stack/` mapping `from` the old address `to` the new address:
 > ```hcl
 > moved {
->   from = module.ingestion_helper_service.google_service_account.helper_sa[0]
->   to   = module.ingestion_helper_service[0].google_service_account.helper_sa
+>   from = module.spanner.google_spanner_database.database[0]
+>   to   = module.spanner[0].google_spanner_database.database
 > }
 > ```
 > This tells Terraform to update the state address in-place (`0 to destroy`) without touching the underlying GCP resource.

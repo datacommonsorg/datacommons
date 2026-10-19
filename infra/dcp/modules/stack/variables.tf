@@ -141,5 +141,24 @@ variable "ingestion_config" {
     dataflow_max_workers                 = optional(number, 20)
     dataflow_num_workers                 = optional(number, 4)
     dataflow_worker_machine_type         = optional(string, "n2-standard-4")
+
+    # Ingestion Lock Approaching Retention Alerts & Scheduler Prober
+    enable_lock_retention_alerts       = optional(bool, false)
+    enable_lock_retention_alert_50pct  = optional(bool, true)
+    enable_lock_retention_alert_90pct  = optional(bool, true)
+    enable_lock_retention_alert_100pct = optional(bool, true)
+    lock_alert_notification_channels   = optional(list(string), [])
+    enable_lock_status_scheduler       = optional(bool, false)
+    lock_status_ping_schedule          = optional(string, "*/10 * * * *")
   })
+}
+
+variable "load_balancer_config" {
+  type = object({
+    enable = bool
+  })
+  default = {
+    enable = false
+  }
+  description = "Configuration for the External Application Load Balancer in front of Cloud Run."
 }

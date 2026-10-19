@@ -38,8 +38,9 @@ variables {
     instance_id = "test-spanner-instance"
     database_id = "test-spanner-db"
   }
-  vpc_access   = null
-  redis_config = null
+  spanner_version_retention_period = "24h"
+  vpc_access                       = null
+  redis_config                     = null
 }
 
 # -----------------------------------------------------------------------------
@@ -77,7 +78,7 @@ run "default_configuration" {
   }
 
   # When redis_config is null, no Secret Manager IAM binding or REDIS_PASSWORD env var should be created,
-  # and Redis env vars must fall back to defaults ("" for host/cert, "6379" for port).
+  # and Redis env vars must fall back to empty strings.
   assert {
     condition = (
       length(google_secret_manager_secret_iam_member.helper_redis_auth_secret_accessor) == 0 &&
@@ -89,10 +90,10 @@ run "default_configuration" {
   assert {
     condition = (
       one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "REDIS_HOST"]) == "" &&
-      one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "REDIS_PORT"]) == "6379" &&
+      one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "REDIS_PORT"]) == "" &&
       one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "REDIS_CA_CERT"]) == ""
     )
-    error_message = "REDIS_HOST, REDIS_PORT, and REDIS_CA_CERT must fall back to defaults when redis_config is null"
+    error_message = "REDIS_HOST, REDIS_PORT, and REDIS_CA_CERT must be empty when redis_config is null"
   }
 }
 

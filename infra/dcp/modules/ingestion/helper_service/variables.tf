@@ -27,6 +27,11 @@ variable "spanner_config" {
   description = "Spanner database coordinates"
 }
 
+variable "spanner_version_retention_period" {
+  type        = string
+  description = "Spanner version retention period (e.g., '24h', '7d') used to monitor lock duration against PITR window"
+}
+
 variable "ingestion_bucket_name" {
   type        = string
   description = "Name of the GCS bucket used for ingestion artifacts and records"
@@ -56,7 +61,7 @@ variable "vpc_access" {
 variable "redis_config" {
   type = object({
     host           = string
-    port           = optional(string, "6379")
+    port           = optional(string, "")
     auth_secret_id = optional(string, null)
     ca_cert        = optional(string, "")
   })
