@@ -32,6 +32,7 @@ The following section describes how the Platform differs from Custom Data Common
 * There is no NL Server.
 * There is no web server or `website` repo.
 * MCP functionality has been moved into the Mixer and the MCP server is removed. 
+* MCP functionality has been moved into the Mixer and the MCP server is removed. 
 
 ### Workflow
 
@@ -212,7 +213,7 @@ The `init-db` and `migrate-db` CLI commands connect directly to Cloud Spanner fr
 
 To run these commands, your user account must have the following Spanner IAM roles on the project (or directly on the Spanner instance/database):
 * [roles/spanner.databaseAdmin](https://docs.cloud.google.com/iam/docs/roles-permissions/spanner#spanner.databaseAdmin): Required to execute DDL statements (creating and altering tables, indexes, and embedding models).
-* [roles/spanner.databaseUser](https://docs.cloud.google.com/iam/docs/roles-permissions/spanner#spanner.databaseUser): Required to read and write database rows.
+* [roles/spanner.databaseUser](https://docs.cloud.google.com/iam/docs/roles-permissions/spanner#spanner.databaseUser)**: Required to read and write database rows.
 
 You can grant these roles as follows:
 
@@ -226,6 +227,7 @@ You can grant these roles as follows:
   gcloud projects add-iam-policy-binding "<var>PROJECT_ID</var>" \
   --member="user:<var>YOUR_USER_ACCOUNT</var>" \
   --role="roles/spanner.databaseUser"
+  </pre>
   </pre>
 
 
