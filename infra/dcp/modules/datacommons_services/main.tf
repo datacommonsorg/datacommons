@@ -110,10 +110,6 @@ resource "google_cloud_run_v2_service" "dc_web_service" {
         value = var.mcp_search_scope
       }
       env {
-        name  = "ENABLE_MCP"
-        value = var.enable_mcp ? "true" : "false"
-      }
-      env {
         name  = "DC_INSTRUCTIONS_DIR"
         value = var.mcp_instructions_path != null ? "gs://${var.artifacts_bucket_name}/${var.mcp_instructions_path}" : ""
       }

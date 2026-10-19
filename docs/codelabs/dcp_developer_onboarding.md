@@ -211,7 +211,6 @@ ingestion_dataflow_max_workers                     = 50
 ingestion_dataflow_worker_machine_type             = "n2-standard-4"
 
 # Model Context Protocol (MCP) Serving Integration
-datacommons_services_enable_mcp                    = true
 datacommons_services_mcp_search_scope              = "base_and_custom"
 ```
 
