@@ -18,7 +18,7 @@ Node: dcid:wagesAnnual
 typeOf: dcid:Property
 name: "wagesAnnual"
 
-Node: dcid:Annual_Average_Wage
+Node: dcid:average_annual_wage
 typeOf: dcid:StatisticalVariable
 name: "Average annual wage"
 populationType: dcid:Person

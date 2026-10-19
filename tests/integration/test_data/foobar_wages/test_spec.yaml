@@ -20,9 +20,9 @@ ingestion:
         expected_types: ["Source"]
       - subject_id: "FooBarWages"
         expected_types: ["Provenance"]
-      - subject_id: "Annual_Average_Wage"
+      - subject_id: "average_annual_wage"
         expected_types: ["StatisticalVariable"]
-      - subject_id: "Difference_Average_Wages_To_Male_Average_Wages"
+      - subject_id: "gender_wage_gap"
         expected_types: ["StatisticalVariable"]
       - subject_id: "FooBarGroup"
         expected_types: ["StatVarGroup"]
@@ -34,14 +34,14 @@ ingestion:
       - subject_id: "FooBarGroup"
         predicate: "specializationOf"
         object_id: "dc/g/Root"
-      - subject_id: "Annual_Average_Wage"
+      - subject_id: "average_annual_wage"
         predicate: "memberOf"
         object_id: "FooBarGroup"
-      - subject_id: "Difference_Average_Wages_To_Male_Average_Wages"
+      - subject_id: "gender_wage_gap"
         predicate: "memberOf"
         object_id: "FooBarGroup"
       # Testing that we return edges tied to properties in Base DC. measuredProperty is not in the custom graph.
-      - subject_id: "Annual_Average_Wage"
+      - subject_id: "average_annual_wage"
         predicate: "measuredProperty"
         object_id: "wagesAnnual"
 
@@ -53,17 +53,17 @@ postprocessing:
   indicator_resolutions:
     - query: "wages"
       target: "custom_only"
-      expected_candidate_dcids: ["Annual_Average_Wage", "Difference_Average_Wages_To_Male_Average_Wages"]
+      expected_candidate_dcids: ["average_annual_wage", "gender_wage_gap"]
 
 serving_api:
   nodes:
-    - node_dcid: "Annual_Average_Wage"
+    - node_dcid: "average_annual_wage"
       expression: "->name"
       expected_values: ["Average annual wage"]
-    - node_dcid: "Annual_Average_Wage"
+    - node_dcid: "average_annual_wage"
       expression: "->measuredProperty"
       expected_values: ["wagesAnnual"]
-    - node_dcid: "Difference_Average_Wages_To_Male_Average_Wages"
+    - node_dcid: "gender_wage_gap"
       expression: "->name"
       expected_values: ["Gender wage gap"]
     - node_dcid: "FooBarWages"
@@ -94,28 +94,28 @@ serving_api:
 
   point_observations:
     - observation_about: ["country/USA", "country/CAN"]
-      variables: ["Annual_Average_Wage"]
+      variables: ["average_annual_wage"]
       date: "LATEST"
       expected_places_with_data: ["country/USA", "country/CAN"]
 
   series_observations:
     - observation_about: ["country/USA", "country/CAN", "country/FRA"]
-      variables: ["Difference_Average_Wages_To_Male_Average_Wages"]
+      variables: ["gender_wage_gap"]
       min_series_length: 5
 
   sdmx_3_0:
     data_queries:
       - dataflow: "DC/DF_OBS/1.0.0/*"
         constraints:
-          variableMeasured: "Annual_Average_Wage"
+          variableMeasured: "average_annual_wage"
           observationAbout: "country/USA"
           TIME_PERIOD: "LATEST"
         format: "csv"
-        expected_csv_contains: ["variableMeasured", "Annual_Average_Wage", "country/USA"]
+        expected_csv_contains: ["variableMeasured", "average_annual_wage", "country/USA"]
     availability_queries:
       - dataflow: "DC/DF_OBS/1.0.0/*/provenance"
         constraints:
-          variableMeasured: "Annual_Average_Wage"
+          variableMeasured: "average_annual_wage"
         expected_provenance: "FooBarWages"
 
 mcp_agent:
@@ -123,4 +123,4 @@ mcp_agent:
     - tool_name: "search_indicators"
       arguments:
         query: "wages"
-      expected_match_dcids: ["Annual_Average_Wage"]
+      expected_match_dcids: ["average_annual_wage"]
