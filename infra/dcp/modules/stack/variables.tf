@@ -51,7 +51,6 @@ variable "datacommons_services_config" {
     cpu                             = string
     memory                          = string
     google_analytics_tag            = string
-    enable_mcp                      = bool
     search_scope                    = string
     instructions_path               = string
     allow_unauthenticated_access    = bool
