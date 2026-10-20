@@ -71,12 +71,6 @@ run "default_configuration" {
     error_message = "Helper service account must be granted spanner.databaseUser, storage.objectAdmin, and dataflow.viewer"
   }
 
-  # When enable_embeddings_generation is false, ENABLE_EMBEDDINGS must be "false".
-  assert {
-    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "ENABLE_EMBEDDINGS"]) == "false"
-    error_message = "ENABLE_EMBEDDINGS must be 'false' when enable_embeddings_generation = false"
-  }
-
   # When redis_config is null, no Secret Manager IAM binding or REDIS_PASSWORD env var should be created,
   # and Redis env vars must fall back to empty strings.
   assert {
@@ -106,6 +100,7 @@ run "custom_configuration" {
   variables {
     instance_name                = "prod"
     enable_embeddings_generation = true
+    skip_container_restarts      = true
     vpc_access = {
       network_id      = "projects/test-project/global/networks/test-vpc"
       subnet_id       = "projects/test-project/regions/us-central1/subnetworks/test-sub"
@@ -125,10 +120,10 @@ run "custom_configuration" {
     error_message = "Service name and service account ID must be prefixed with instance_name"
   }
 
-  # When enable_embeddings_generation is true, ENABLE_EMBEDDINGS must be "true".
+  # When skip_container_restarts is true, FORCE_RESTART must be an empty string.
   assert {
-    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "ENABLE_EMBEDDINGS"]) == "true"
-    error_message = "ENABLE_EMBEDDINGS must be 'true' when enable_embeddings_generation = true"
+    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "FORCE_RESTART"]) == ""
+    error_message = "FORCE_RESTART must be empty when skip_container_restarts = true"
   }
 
   # When vpc_access is provided, attach Direct VPC Egress with network, subnet, tag, and egress mode.

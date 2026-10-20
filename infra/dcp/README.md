@@ -142,7 +142,7 @@ Place unit tests for a module in `infra/dcp/modules/<module_name>/tests/<name>.t
 #### What to Test
 Unit tests automate the manual workflow of setting a variable one way, running `terraform plan`, flipping the variable the other way, and checking the planned output:
 * **Assert on dynamic logic**: Test conditionals (`? :`), resource counts (`count`, `for_each`), `dynamic` blocks, `concat()` lists, and string interpolations.
-* **Skip static wiring**: Do not assert on hardcoded constants (such as fixed port numbers or role strings) or direct `1:1` variable pass-throughs (`foo = var.foo`). `terraform validate` already verifies variable types and attribute names.
+* **Skip static wiring**: Do not assert on hardcoded constants (such as fixed port numbers or timeout values) or direct `1:1` variable pass-throughs (`foo = var.foo`). `terraform validate` already verifies variable types and attribute names.
 
 #### Structuring Test Runs
 Keep `.tftest.hcl` files fast and readable by grouping assertions into a minimal set of `run` blocks:

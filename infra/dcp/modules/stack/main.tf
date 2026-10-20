@@ -24,8 +24,8 @@ locals {
   redis_ca_cert = var.redis_config.enable && var.redis_config.enable_tls && length(module.redis) > 0 ? module.redis[0].redis_ca_cert : ""
 
   effective_redis_config = var.redis_config.enable && length(module.redis) > 0 ? {
-    host           = module.redis[0].redis_host
-    port           = tostring(module.redis[0].redis_port)
+    host           = local.redis_host
+    port           = local.redis_port
     auth_secret_id = var.redis_config.enable_auth ? module.redis[0].redis_auth_secret_id : null
     ca_cert        = local.redis_ca_cert
   } : null
@@ -242,7 +242,7 @@ module "ingestion_workflow" {
   dataflow_service_account_email       = module.ingestion_dataflow.service_account_email
   enable_bigquery_postprocessing       = var.ingestion_config.workflow_enable_bigquery_postprocessing
   enable_embeddings_generation         = var.spanner_config.enable_embeddings_generation
-  ingestion_helper_service_name        = try(one(module.ingestion_helper_service[*].service_name), "")
+  ingestion_helper_service_name        = var.ingestion_config.enable_ingestion ? module.ingestion_helper_service[0].service_name : ""
   enable_redis_cache_clearing          = var.redis_config.enable
   artifacts_bucket_name                = module.storage.artifacts_bucket_name
   ingestion_artifacts_path             = var.ingestion_config.ingestion_artifacts_path
