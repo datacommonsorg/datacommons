@@ -142,11 +142,12 @@ Place unit tests for a module in `infra/dcp/modules/<module_name>/tests/<name>.t
 #### What to Test
 Unit tests automate the manual workflow of setting a variable one way, running `terraform plan`, flipping the variable the other way, and checking the planned output:
 * **Assert on dynamic logic**: Test conditionals (`? :`), resource counts (`count`, `for_each`), `dynamic` blocks, `concat()` lists, and string interpolations.
-* **Skip static wiring**: Do not assert on hardcoded constants (such as fixed port numbers or timeout values) or direct `1:1` variable pass-throughs (`foo = var.foo`). `terraform validate` already verifies variable types and attribute names.
+* **Guard the baseline environment and IAM contract**: Use a single map assertion (`{ for e in ... : e.name => e.value if ... } == { ... }`) in `default_configuration` to verify required container environment variables, DCP constants (such as `IS_BASE_DC`), and baseline IAM roles in one check so they are never accidentally dropped during refactors.
+* **Skip static infrastructure settings**: Do not write separate assertions for static resource settings (such as fixed port numbers or timeout values) that `terraform validate` already verifies.
 
 #### Structuring Test Runs
 Keep `.tftest.hcl` files fast and readable by grouping assertions into a minimal set of `run` blocks:
-1. **`default_configuration`**: Supplies only required inputs (with optional toggles off or empty) and verifies default resource naming, baseline IAM bindings, and the omission of optional resources or blocks.
+1. **`default_configuration`**: Supplies only required inputs (with optional toggles off or empty) and verifies default resource naming, baseline IAM bindings, the baseline container environment map, and the omission of optional resources or blocks.
 2. **`custom_configuration`**: Enables independent optional features and overrides together in a single `plan` (for example, `instance_name` prefixing, public ingress, VPC egress, Secret Manager env vars, and custom paths) rather than adding separate single-assertion `run` blocks for each ternary.
 3. **Targeted interaction runs (when warranted)**: Add 1–2 extra `run` blocks only when specific combinations of inputs interact in complex or mutually exclusive ways (for example, attaching to an existing Shared VPC vs. provisioning a new VPC, or testing `expect_failures` on input validation rules).
 

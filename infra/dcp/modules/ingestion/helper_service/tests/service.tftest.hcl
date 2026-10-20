@@ -71,6 +71,42 @@ run "default_configuration" {
     error_message = "Helper service account must be granted spanner.databaseUser, storage.objectAdmin, and dataflow.viewer"
   }
 
+  # Baseline environment contract: ensures required DCP constants and core wiring are never dropped.
+  assert {
+    condition = {
+      for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env :
+      e.name => e.value
+      if contains([
+        "PROJECT_ID",
+        "SPANNER_PROJECT_ID",
+        "SPANNER_INSTANCE_ID",
+        "SPANNER_DATABASE_ID",
+        "SPANNER_GRAPH_DATABASE_ID",
+        "SPANNER_VERSION_RETENTION_PERIOD",
+        "LOCATION",
+        "GCS_BUCKET_ID",
+        "GCS_OUTPUT_PREFIX",
+        "IS_BASE_DC",
+        "ENABLE_EMBEDDINGS",
+        "ENABLE_UNIQUE_INGESTION_RUNS",
+      ], e.name)
+      } == {
+      PROJECT_ID                       = "test-project"
+      SPANNER_PROJECT_ID               = "test-project"
+      SPANNER_INSTANCE_ID              = "test-spanner-instance"
+      SPANNER_DATABASE_ID              = "test-spanner-db"
+      SPANNER_GRAPH_DATABASE_ID        = "test-spanner-db"
+      SPANNER_VERSION_RETENTION_PERIOD = "24h"
+      LOCATION                         = "us-central1"
+      GCS_BUCKET_ID                    = "test-ingestion-bucket"
+      GCS_OUTPUT_PREFIX                = "metadata"
+      IS_BASE_DC                       = "false"
+      ENABLE_EMBEDDINGS                = "false"
+      ENABLE_UNIQUE_INGESTION_RUNS     = "true"
+    }
+    error_message = "Baseline container environment variables and DCP constants must match the expected contract"
+  }
+
   # When redis_config is null, no Secret Manager IAM binding or REDIS_PASSWORD env var should be created,
   # and Redis env vars must fall back to empty strings.
   assert {
@@ -120,10 +156,13 @@ run "custom_configuration" {
     error_message = "Service name and service account ID must be prefixed with instance_name"
   }
 
-  # When skip_container_restarts is true, FORCE_RESTART must be an empty string.
+  # When enable_embeddings_generation and skip_container_restarts are enabled, update their env vars accordingly.
   assert {
-    condition     = one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "FORCE_RESTART"]) == ""
-    error_message = "FORCE_RESTART must be empty when skip_container_restarts = true"
+    condition = (
+      one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "ENABLE_EMBEDDINGS"]) == "true" &&
+      one([for e in google_cloud_run_v2_service.ingestion_helper.template[0].containers[0].env : e.value if e.name == "FORCE_RESTART"]) == ""
+    )
+    error_message = "ENABLE_EMBEDDINGS must be 'true' and FORCE_RESTART must be '' when both toggles are enabled"
   }
 
   # When vpc_access is provided, attach Direct VPC Egress with network, subnet, tag, and egress mode.
