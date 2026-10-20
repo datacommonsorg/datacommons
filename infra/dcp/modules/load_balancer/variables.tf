@@ -33,15 +33,20 @@ variable "rate_limit_requests_per_minute" {
 }
 
 variable "rate_limit_ban_duration_sec" {
-  description = "Duration in seconds to ban a client IP that exceeds the rate limit threshold."
+  description = "Duration in seconds a client IP that exceeded the rate limit stays banned (HTTP 429) after its request rate falls back below the threshold."
   type        = number
   default     = 60
+
+  validation {
+    condition     = var.rate_limit_ban_duration_sec >= 60 && var.rate_limit_ban_duration_sec <= 3600
+    error_message = "The rate_limit_ban_duration_sec must be between 60 and 3600 seconds."
+  }
 }
 
 variable "enable_owasp_waf_rules" {
   description = "Enable preconfigured OWASP Top 10 WAF protection rules (XSS, LFI) in Cloud Armor."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "allowed_ip_ranges" {
@@ -52,6 +57,16 @@ variable "allowed_ip_ranges" {
   validation {
     condition     = length(var.allowed_ip_ranges) > 0 && length(var.allowed_ip_ranges) <= 10
     error_message = "The allowed_ip_ranges list must contain between 1 and 10 CIDR ranges (or ['*'])."
+  }
+
+  validation {
+    condition     = alltrue([for r in var.allowed_ip_ranges : r == "*" || can(cidrhost(r, 0))])
+    error_message = "Each entry in allowed_ip_ranges must be a valid CIDR range (e.g. '203.0.113.4/32') or '*'."
+  }
+
+  validation {
+    condition     = !contains(var.allowed_ip_ranges, "*") || length(var.allowed_ip_ranges) == 1
+    error_message = "When '*' is used in allowed_ip_ranges it must be the only entry."
   }
 }
 
