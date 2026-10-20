@@ -15,6 +15,7 @@ Data Commons Platform consists of the following Google Cloud Platform services:
 * [Workflows](https://cloud.google.com/workflows) – workflow orchestration system that manages the data ingestion process from Cloud Storage and Cloud Spanner end to end
 * [Dataflow](https://cloud.google.com/products/dataflow) – data processing pipeline that transforms the input data into output data
 * [Cloud Run](https://cloud.google.com/run) – application hosting for additional Data Commons transformation logic and web serving components
+* [Cloud Batch](https://cloud.google.com/batch) -- execution of ingestion preprocessing logic 
 * (Optional) [Memorystore for Redis](https://docs.cloud.google.com/memorystore/docs/redis) – data caching engine to boost query performance
 
 ## What's new in Data Commons Platform
@@ -25,13 +26,12 @@ The following section describes how the Platform differs from Custom Data Common
 
 * All data and embeddings are stored in Cloud Spanner. 
 * All data is stored in tables, with a graph view for nodes and edges, that is queryable with GQL.
-* Data transformation from input files is performed by Cloud Dataflow and several custom components in a Cloud Run Service, all orchestrated by Cloud Workflow. 
+* Data transformation from input files is performed by Cloud Dataflow and several custom components in a Cloud Batch job and Cloud Run Service, all orchestrated by Cloud Workflow. 
 * The Mixer now defaults to "stale reads" (the previous version of data) when it first starts up, so there is no downtime during Mixer restarts. 
 * Input data files can be configured as separate imports. 
 * Data can be rebuilt on a per-import basis, instead of rebuilding all data. 
 * There is no NL Server.
 * There is no web server or `website` repo.
-* MCP functionality has been moved into the Mixer and the MCP server is removed. 
 * MCP functionality has been moved into the Mixer and the MCP server is removed. 
 
 ### Workflow
@@ -213,7 +213,7 @@ The `init-db` and `migrate-db` CLI commands connect directly to Cloud Spanner fr
 
 To run these commands, your user account must have the following Spanner IAM roles on the project (or directly on the Spanner instance/database):
 * [roles/spanner.databaseAdmin](https://docs.cloud.google.com/iam/docs/roles-permissions/spanner#spanner.databaseAdmin): Required to execute DDL statements (creating and altering tables, indexes, and embedding models).
-* [roles/spanner.databaseUser](https://docs.cloud.google.com/iam/docs/roles-permissions/spanner#spanner.databaseUser)**: Required to read and write database rows.
+* [roles/spanner.databaseUser](https://docs.cloud.google.com/iam/docs/roles-permissions/spanner#spanner.databaseUser): Required to read and write database rows.
 
 You can grant these roles as follows:
 
@@ -228,8 +228,6 @@ You can grant these roles as follows:
   --member="user:<var>YOUR_USER_ACCOUNT</var>" \
   --role="roles/spanner.databaseUser"
   </pre>
-  </pre>
-
 
 #### 2. Permissions for workflow execution
 
@@ -856,6 +854,8 @@ To verify that the workflow has completed, click the `Workflow Console Link` in 
 
 > **Important!:** Do not manually cancel a workflow anytime after the **run_preprocessing** stage, or your database will be corrupted. If you do need to cancel a workflow at this stage, you won't be able to restart it without clearing the database lock. See [Release database lock from ingestion workflow](#release) for the procedure.
 
+If you encounter workflow failures, see the [Troubleshoot problems](#troubleshoot-problems) section for tips on debugging configuration or data issues.
+
 #### Imports with dependencies {#dependencies}
 
 A common pattern (similar to [example 4](#example4) above) is to have an import that defines a "shared" schema that is referenced by other imports, like this:
@@ -1139,7 +1139,6 @@ The general procedure for deleting data at the file level is as follows:
 3. [Upload the new/updated files to Cloud Storage](#upload).
 4. [Run the ingestion workflow](#workflow) as usual.
 
-
 #### Examples
 
 ##### Example 1: Delete all data from an import with a single MCF file
@@ -1398,9 +1397,8 @@ In general, to troubleshoot any GCP problems, you should go to the Cloud Console
 ### Ingestion workflow fails
 
 1. Go to the link for the workflow output by the  `datacommons ingest start` command.
-2. Under **State**, find the stage that has failed. If it fails on **run_preprocessing**, go to the Cloud Console Batch **Job list** page and click your preprocessing job. Each workflow run creates a new job named <code><var>INSTANCE_NAME</var>-prep-<var>TIMESTAMP</var></code>.
+2. Under **State**, find the stage that has failed. If it fails on **run_preprocessing**, go to the [Cloud Console Batch ](https://console.cloud.google.com/) page for your project, and under **Job list**, look up the processing job. Each workflow run creates a new job named <code><var>INSTANCE_NAME</var>-prep-<var>TIMESTAMP</var></code>.
 3. Select the **Logs** tab and check for any errors. Expand the error entries to get more details. See below for solutions to common Data Commons data job errors.
-
 
 #### 401: Unauthorized
 
