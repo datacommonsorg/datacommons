@@ -104,3 +104,8 @@ output "load_balancer_url" {
   description = "The HTTP URL of the External Application Load Balancer."
   value       = length(module.load_balancer) > 0 ? module.load_balancer[0].load_balancer_url : null
 }
+
+output "load_balancer_ssl_certificate_name" {
+  description = "Name of the Google-managed SSL certificate on the Load Balancer (null when HTTPS is disabled)."
+  value       = length(module.load_balancer) > 0 ? module.load_balancer[0].ssl_certificate_name : null
+}

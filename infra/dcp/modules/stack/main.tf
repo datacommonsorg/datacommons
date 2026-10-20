@@ -348,6 +348,8 @@ module "load_balancer" {
   rate_limit_ban_duration_sec    = var.load_balancer_config.rate_limit_ban_duration_sec
   enable_owasp_waf_rules         = var.load_balancer_config.enable_owasp_waf_rules
   allowed_ip_ranges              = var.load_balancer_config.allowed_ip_ranges
+  domains                        = var.load_balancer_config.domains
+  https_redirect                 = var.load_balancer_config.https_redirect
 
   depends_on = [module.datacommons_services]
 }

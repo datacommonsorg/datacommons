@@ -483,6 +483,18 @@ variable "load_balancer_allowed_ip_ranges" {
   }
 }
 
+variable "load_balancer_domains" {
+  description = "Domains to serve over HTTPS on the load balancer with a Google-managed certificate (e.g. [\"data.example.org\"]). Requires a DNS A record per domain pointing at the load_balancer_ip output. Empty = HTTP only; note the website (Flask) redirects HTTP to HTTPS, so website routes only work behind the load balancer when this is set."
+  type        = list(string)
+  default     = []
+}
+
+variable "load_balancer_https_redirect" {
+  description = "When load_balancer_domains is set, redirect HTTP (port 80) to HTTPS at the load balancer."
+  type        = bool
+  default     = true
+}
+
 
 
 # =============================================================================

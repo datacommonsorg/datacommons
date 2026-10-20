@@ -83,6 +83,12 @@ datacommons_services_allow_unauthenticated_access = false
 # load_balancer_enable_owasp_waf_rules         = true
 # load_balancer_allowed_ip_ranges              = ["*"]
 
+# Serve the load balancer over HTTPS with a Google-managed certificate (required for the
+# website, incl. /api/explore/*, to work behind the load balancer). After apply, create a
+# DNS A record for each domain pointing at the load_balancer_ip output; the certificate
+# provisions automatically (typically 15-60 min).
+# load_balancer_domains = ["data.example.org"]
+
 # Track traffic and user interactions with your site using Google Analytics.
 # datacommons_services_google_analytics_tag_id = "your-analytics-tag-id"
 

@@ -215,6 +215,8 @@ locals {
     rate_limit_ban_duration_sec    = var.load_balancer_rate_limit_ban_duration_sec
     enable_owasp_waf_rules         = var.load_balancer_enable_owasp_waf_rules
     allowed_ip_ranges              = var.load_balancer_allowed_ip_ranges
+    domains                        = var.load_balancer_domains
+    https_redirect                 = var.load_balancer_https_redirect
   }
 }
 
