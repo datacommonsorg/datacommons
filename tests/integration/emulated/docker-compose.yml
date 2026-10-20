@@ -114,7 +114,6 @@ services:
       - GCP_SPANNER_INSTANCE_ID=default
       - GCP_SPANNER_DATABASE_NAME=test-db
       - USE_CLOUDSQL=false
-      - ENABLE_MCP=true
       - DC_SEARCH_SCOPE=custom_only
       - DC_API_KEY=dummy-key
       - MAPS_API_KEY=dummy-maps-key
