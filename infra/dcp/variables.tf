@@ -400,12 +400,6 @@ variable "datacommons_services_website_disable_google_maps_api" {
   default     = false
 }
 
-variable "datacommons_services_enable_mcp" {
-  description = "Enable Model Context Protocol (MCP) support"
-  type        = bool
-  default     = true
-}
-
 variable "datacommons_services_mcp_search_scope" {
   description = "Controls the datasets (base and/or custom) that are searched in response to AI queries"
   type        = string

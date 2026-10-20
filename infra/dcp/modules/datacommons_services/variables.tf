@@ -61,10 +61,6 @@ variable "google_analytics_tag_id" {
   default = null
 }
 
-variable "enable_mcp" {
-  type = bool
-}
-
 variable "mcp_search_scope" {
   type = string
 }

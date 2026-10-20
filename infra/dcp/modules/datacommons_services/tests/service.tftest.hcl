@@ -36,7 +36,6 @@ variables {
   min_instances                 = 1
   max_instances                 = 3
   make_public                   = false
-  enable_mcp                    = false
   mcp_search_scope              = "custom_only"
   env_vars                      = []
   secret_env_vars               = []
@@ -87,13 +86,7 @@ run "default_configuration" {
     error_message = "Serving service account must be granted vpcaccess.user, aiplatform.user, and spanner.databaseReader"
   }
 
-  # Cloud Run env vars only accept strings, so enable_mcp = false must become "false"
-  # and unset optional variables (google_analytics_tag_id, mcp_instructions_path) must become "".
-  assert {
-    condition     = one([for e in google_cloud_run_v2_service.dc_web_service.template[0].containers[0].env : e.value if e.name == "ENABLE_MCP"]) == "false"
-    error_message = "ENABLE_MCP must be 'false' when enable_mcp = false"
-  }
-
+  # Unset optional variables (google_analytics_tag_id, mcp_instructions_path) must become "".
   assert {
     condition     = one([for e in google_cloud_run_v2_service.dc_web_service.template[0].containers[0].env : e.value if e.name == "GOOGLE_ANALYTICS_TAG_ID"]) == ""
     error_message = "GOOGLE_ANALYTICS_TAG_ID must default to an empty string when google_analytics_tag_id is null"
@@ -114,7 +107,6 @@ run "custom_configuration" {
   variables {
     instance_name           = "prod"
     make_public             = true
-    enable_mcp              = true
     google_analytics_tag_id = "G-TEST1234"
     artifacts_bucket_name   = "test-artifacts-bucket"
     mcp_instructions_path   = "mcp/custom-instructions"
@@ -191,12 +183,7 @@ run "custom_configuration" {
     error_message = "Container env CUSTOM_SECRET_KEY must inject secret_key_ref targeting my-secret-id@latest"
   }
 
-  # When enable_mcp is true and optional strings are set, populate their container env vars.
-  assert {
-    condition     = one([for e in google_cloud_run_v2_service.dc_web_service.template[0].containers[0].env : e.value if e.name == "ENABLE_MCP"]) == "true"
-    error_message = "ENABLE_MCP must be 'true' when enable_mcp = true"
-  }
-
+  # When optional strings are set, populate their container env vars.
   assert {
     condition     = one([for e in google_cloud_run_v2_service.dc_web_service.template[0].containers[0].env : e.value if e.name == "GOOGLE_ANALYTICS_TAG_ID"]) == "G-TEST1234"
     error_message = "GOOGLE_ANALYTICS_TAG_ID must reflect google_analytics_tag_id when provided"

@@ -315,7 +315,6 @@ module "datacommons_services" {
   ingress_mode                  = var.load_balancer_config.enable ? "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER" : "INGRESS_TRAFFIC_ALL"
   google_analytics_tag_id       = var.datacommons_services_config.google_analytics_tag
   mcp_search_scope              = var.datacommons_services_config.search_scope
-  enable_mcp                    = var.datacommons_services_config.enable_mcp
   mcp_instructions_path         = var.datacommons_services_config.instructions_path
   artifacts_bucket_name         = module.storage.artifacts_bucket_name
   vpc_access                    = module.network.vpc_access

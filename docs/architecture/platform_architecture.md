@@ -121,11 +121,10 @@ Inside the `datacommons-services` Cloud Run container, traffic is multiplexed ac
 
 | Service Component | Port | Interface | Responsibility |
 | :--- | :--- | :--- | :--- |
-| **Nginx Ingress** | `8080` | HTTP (Public) | Container front door. Routes `/*` to Website, `/core/api/*` to Envoy, and `/mcp/*` to MCP server. |
+| **Nginx Ingress** | `8080` | HTTP (Public) | Container front door. Routes `/*` to Website and `/core/api/*` and `/mcp` to Envoy. |
 | **Website Service** | `7070` | HTTP (Internal) | Python Flask and Gunicorn application serving web pages and UI assets. |
-| **Envoy ESP Sidecar** | `8081` | HTTP (Internal) | REST-to-gRPC transcoder. Translates HTTP/JSON requests into binary gRPC calls for Mixer. |
-| **Mixer Backend** | `12345` | gRPC (Internal) | Core Go data serving engine executing queries against Spanner, Redis, and Base Data Commons. |
-| **MCP Server** | `8082` | HTTP / SSE | Model Context Protocol server. Polls `http://localhost:8081/version` and starts once Mixer is healthy. |
+| **Envoy ESP Sidecar** | `8081` | HTTP (Internal) | API proxy and REST-to-gRPC transcoder. Translates HTTP/JSON requests into binary gRPC calls for Mixer (`12345`) and forwards `/mcp` HTTP requests to Mixer's MCP server (`12346`). |
+| **Mixer Backend** | `12345`, `12346` | gRPC, HTTP (Internal) | Core Go data serving engine (`12345`) and built-in Model Context Protocol (MCP) server (`12346`) executing queries against Spanner, Redis, and Base Data Commons. |
 
 ### Serving Request Lifecycle
 
@@ -134,8 +133,8 @@ Inside the `datacommons-services` Cloud Run container, traffic is multiplexed ac
 * **Nginx Reverse Proxy** inspects the URL path:
   * Static UI routes and explore pages route to Website on port `7070`.
   * `/core/api/*` routes to Envoy ESP on port `8081` with CORS headers and WebSocket upgrade support.
-  * `/mcp/*` routes to the `datacommons-mcp` daemon on port `8082` with streaming buffering disabled.
-* Envoy matches the request against Google API HTTP annotations (`mixer-grpc.pb`), transcodes JSON payloads into binary Protobuf messages, and forwards them to Mixer on port `12345`.
+  * `/mcp` routes to Envoy ESP on port `8081` with proxy buffering disabled.
+* Envoy matches `/core/api/*` requests against Google API HTTP annotations (`mixer-grpc.pb`), transcodes JSON payloads into binary Protobuf messages, and forwards them to Mixer on port `12345`, while forwarding `/mcp` HTTP requests directly to Mixer's MCP server on port `12346`.
 
 #### 2. Mixer Dispatcher and Scatter-Gather Facade
 * Mixer's dispatcher receives incoming gRPC requests.
