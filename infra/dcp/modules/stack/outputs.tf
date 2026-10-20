@@ -107,5 +107,5 @@ output "load_balancer_url" {
 
 output "load_balancer_ssl_certificate_name" {
   description = "Name of the Google-managed SSL certificate on the Load Balancer (null when HTTPS is disabled)."
-  value       = length(module.load_balancer) > 0 ? module.load_balancer[0].ssl_certificate_name : null
+  value       = one(module.load_balancer[*].ssl_certificate_name)
 }

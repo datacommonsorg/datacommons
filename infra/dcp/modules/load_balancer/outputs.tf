@@ -21,5 +21,5 @@ output "cloud_armor_policy_id" {
 
 output "ssl_certificate_name" {
   description = "Name of the Google-managed SSL certificate (null when HTTPS is disabled)."
-  value       = try(google_compute_managed_ssl_certificate.cert[0].name, null)
+  value       = one(google_compute_managed_ssl_certificate.cert[*].name)
 }

@@ -129,7 +129,7 @@ resource "google_compute_target_http_proxy" "http_proxy" {
   name    = "${local.name_prefix}dc-http-proxy"
   project = var.project_id
   # When HTTPS is enabled (and redirect is on), port 80 only serves a redirect to HTTPS.
-  url_map = local.redirect_http ? google_compute_url_map.https_redirect[0].id : google_compute_url_map.url_map.id
+  url_map = local.redirect_http ? one(google_compute_url_map.https_redirect[*].id) : google_compute_url_map.url_map.id
 }
 
 # =============================================================================
@@ -169,7 +169,7 @@ resource "google_compute_target_https_proxy" "https_proxy" {
   name             = "${local.name_prefix}dc-https-proxy"
   project          = var.project_id
   url_map          = google_compute_url_map.url_map.id
-  ssl_certificates = [google_compute_managed_ssl_certificate.cert[0].id]
+  ssl_certificates = google_compute_managed_ssl_certificate.cert[*].id
 }
 
 resource "google_compute_global_forwarding_rule" "https_forwarding_rule" {
@@ -178,7 +178,7 @@ resource "google_compute_global_forwarding_rule" "https_forwarding_rule" {
   project               = var.project_id
   ip_protocol           = "TCP"
   port_range            = "443"
-  target                = google_compute_target_https_proxy.https_proxy[0].id
+  target                = one(google_compute_target_https_proxy.https_proxy[*].id)
   ip_address            = google_compute_global_address.lb_ip.id
   load_balancing_scheme = "EXTERNAL_MANAGED"
 }
