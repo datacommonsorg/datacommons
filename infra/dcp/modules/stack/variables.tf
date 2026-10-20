@@ -157,17 +157,17 @@ variable "load_balancer_config" {
   type = object({
     enable                         = bool
     enable_cloud_armor             = optional(bool, true)
-    rate_limit_requests_per_minute = optional(number, 120)
-    rate_limit_ban_duration_sec    = optional(number, 600)
-    enable_owasp_waf_rules         = optional(bool, true)
+    rate_limit_requests_per_minute = optional(number, 600)
+    rate_limit_ban_duration_sec    = optional(number, 60)
+    enable_owasp_waf_rules         = optional(bool, false)
     allowed_ip_ranges              = optional(list(string), ["*"])
   })
   default = {
     enable                         = false
     enable_cloud_armor             = true
-    rate_limit_requests_per_minute = 120
-    rate_limit_ban_duration_sec    = 600
-    enable_owasp_waf_rules         = true
+    rate_limit_requests_per_minute = 600
+    rate_limit_ban_duration_sec    = 60
+    enable_owasp_waf_rules         = false
     allowed_ip_ranges              = ["*"]
   }
   description = "Configuration for the External Application Load Balancer and Cloud Armor policy in front of Cloud Run."

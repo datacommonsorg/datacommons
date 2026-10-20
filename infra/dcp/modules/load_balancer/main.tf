@@ -35,13 +35,13 @@ resource "google_compute_security_policy" "cloud_armor" {
   project     = var.project_id
   description = "Cloud Armor edge security policy for Data Commons Serving Load Balancer"
 
-  # Rules 1001-1003: Preconfigured OWASP Top 10 WAF Rules (XSS, LFI, RFI)
+  # Rules 1001-1002: Preconfigured OWASP Top 10 WAF Rules (XSS, LFI)
   # Note: sqli-v33-stable is omitted because its id942200 rule flags '->' and '<-' which are core Data Commons graph syntax.
+  # rfi-v33-stable is omitted because RFI does not apply to Go/Python backends and blocks requests containing 'http://' or 'https://' in parameters or payloads (e.g., provenance URLs or /mcp payloads).
   dynamic "rule" {
     for_each = var.enable_owasp_waf_rules ? {
       1001 = { expr = "evaluatePreconfiguredWaf('xss-v33-stable')", desc = "OWASP Cross-Site Scripting (XSS) protection" }
       1002 = { expr = "evaluatePreconfiguredWaf('lfi-v33-stable')", desc = "OWASP Local File Inclusion (LFI) protection" }
-      1003 = { expr = "evaluatePreconfiguredWaf('rfi-v33-stable')", desc = "OWASP Remote File Inclusion (RFI) protection" }
     } : {}
     content {
       action      = "deny(403)"

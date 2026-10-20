@@ -443,7 +443,7 @@ variable "load_balancer_enable_cloud_armor" {
 variable "load_balancer_rate_limit_requests_per_minute" {
   description = "Maximum requests per minute allowed per client IP before rate limiting (HTTP 429) is enforced by Cloud Armor."
   type        = number
-  default     = 120
+  default     = 600
 
   validation {
     condition     = var.load_balancer_rate_limit_requests_per_minute > 0
@@ -454,7 +454,7 @@ variable "load_balancer_rate_limit_requests_per_minute" {
 variable "load_balancer_rate_limit_ban_duration_sec" {
   description = "Duration in seconds to ban a client IP that exceeds the Cloud Armor rate limit threshold."
   type        = number
-  default     = 600
+  default     = 60
 
   validation {
     condition     = var.load_balancer_rate_limit_ban_duration_sec >= 60 && var.load_balancer_rate_limit_ban_duration_sec <= 3600
@@ -463,9 +463,9 @@ variable "load_balancer_rate_limit_ban_duration_sec" {
 }
 
 variable "load_balancer_enable_owasp_waf_rules" {
-  description = "Enable preconfigured OWASP Top 10 WAF protection rules (SQLi, XSS, LFI, RFI) in Cloud Armor."
+  description = "Enable preconfigured OWASP Top 10 WAF protection rules (XSS, LFI) in Cloud Armor."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "load_balancer_allowed_ip_ranges" {
@@ -474,8 +474,8 @@ variable "load_balancer_allowed_ip_ranges" {
   default     = ["*"]
 
   validation {
-    condition     = length(var.load_balancer_allowed_ip_ranges) > 0
-    error_message = "The load_balancer_allowed_ip_ranges list must contain at least one CIDR range or '*'."
+    condition     = length(var.load_balancer_allowed_ip_ranges) > 0 && length(var.load_balancer_allowed_ip_ranges) <= 10
+    error_message = "The load_balancer_allowed_ip_ranges list must contain between 1 and 10 CIDR ranges (or ['*'])."
   }
 }
 
