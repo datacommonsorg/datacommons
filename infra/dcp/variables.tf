@@ -388,6 +388,12 @@ variable "datacommons_services_allow_unauthenticated_access" {
   default     = false
 }
 
+variable "datacommons_services_restrict_ingress_to_load_balancer" {
+  description = "Restrict the Data Commons serving Cloud Run service to accept traffic only from Google Cloud Load Balancers (and internal VPC traffic), disabling direct access via the run.app URL. Set to true when fronting the service with your own load balancer. Automatically enforced when enable_load_balancer = true."
+  type        = bool
+  default     = false
+}
+
 variable "datacommons_services_google_analytics_tag_id" {
   description = "Google Analytics tag ID for frontend usage tracking (only relevant if the website is deployed)"
   type        = string

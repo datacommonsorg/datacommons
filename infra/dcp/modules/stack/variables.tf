@@ -43,19 +43,20 @@ variable "spanner_config" {
 
 variable "datacommons_services_config" {
   type = object({
-    enable                          = bool
-    image                           = optional(string)
-    name                            = string
-    min_instances                   = number
-    max_instances                   = number
-    cpu                             = string
-    memory                          = string
-    google_analytics_tag            = string
-    search_scope                    = string
-    instructions_path               = string
-    allow_unauthenticated_access    = bool
-    website_disable_google_maps_api = bool
-    website_search_scope            = optional(string, "")
+    enable                            = bool
+    image                             = optional(string)
+    name                              = string
+    min_instances                     = number
+    max_instances                     = number
+    cpu                               = string
+    memory                            = string
+    google_analytics_tag              = string
+    search_scope                      = string
+    instructions_path                 = string
+    allow_unauthenticated_access      = bool
+    restrict_ingress_to_load_balancer = optional(bool, false)
+    website_disable_google_maps_api   = bool
+    website_search_scope              = optional(string, "")
   })
 }
 
