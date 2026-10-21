@@ -19,6 +19,11 @@ module "network" {
 
 locals {
 
+  # Serving ingress is restricted to Google Cloud Load Balancers (+ internal traffic) when either the
+  # DCP-managed load balancer is enabled or the customer fronts the service with their own LB.
+  # This prevents bypassing the LB (and its Cloud Armor policy) via the run.app URL.
+  restrict_serving_ingress = var.load_balancer_config.enable || var.datacommons_services_config.restrict_ingress_to_load_balancer
+
   redis_host    = var.redis_config.enable && length(module.redis) > 0 ? module.redis[0].redis_host : ""
   redis_port    = var.redis_config.enable && length(module.redis) > 0 ? tostring(module.redis[0].redis_port) : ""
   redis_ca_cert = var.redis_config.enable && var.redis_config.enable_tls && length(module.redis) > 0 ? module.redis[0].redis_ca_cert : ""
@@ -316,7 +321,7 @@ module "datacommons_services" {
   min_instances                 = var.datacommons_services_config.min_instances
   max_instances                 = var.datacommons_services_config.max_instances
   make_public                   = var.datacommons_services_config.allow_unauthenticated_access
-  ingress_mode                  = var.load_balancer_config.enable ? "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER" : "INGRESS_TRAFFIC_ALL"
+  ingress_mode                  = local.restrict_serving_ingress ? "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER" : "INGRESS_TRAFFIC_ALL"
   google_analytics_tag_id       = var.datacommons_services_config.google_analytics_tag
   mcp_search_scope              = var.datacommons_services_config.search_scope
   mcp_instructions_path         = var.datacommons_services_config.instructions_path

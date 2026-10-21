@@ -68,6 +68,10 @@ spanner_create_instance = true
 # Set to false (default) to require IAM authentication.
 datacommons_services_allow_unauthenticated_access = false
 
+# Fronting the service with your own load balancer? Set to true so the run.app URL
+# can't be used to bypass it. (Enforced automatically when enable_load_balancer = true.)
+# datacommons_services_restrict_ingress_to_load_balancer = false
+
 # Provisions a Global External Application Load Balancer with an Anycast IP in front
 # of the serving service, restricting Cloud Run to only accept traffic via the load balancer.
 # Set to false (default) for prototypes to avoid load balancer infrastructure costs.
