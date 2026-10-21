@@ -434,6 +434,80 @@ variable "enable_load_balancer" {
   default     = false
 }
 
+variable "load_balancer_enable_cloud_armor" {
+  description = "Enable Cloud Armor security policy with IP rate limiting and WAF rules on the load balancer backend (only applies when enable_load_balancer = true)."
+  type        = bool
+  default     = true
+}
+
+variable "load_balancer_rate_limit_requests_per_minute" {
+  description = "Maximum requests per minute allowed per client IP before rate limiting (HTTP 429) is enforced by Cloud Armor."
+  type        = number
+  default     = 600
+
+  validation {
+    condition     = var.load_balancer_rate_limit_requests_per_minute > 0
+    error_message = "The load_balancer_rate_limit_requests_per_minute must be a positive integer."
+  }
+}
+
+variable "load_balancer_rate_limit_ban_duration_sec" {
+  description = "Duration in seconds a client IP that exceeded the Cloud Armor rate limit stays banned (HTTP 429) after its request rate falls back below the threshold. Total lockout can therefore approach the 60s counting interval plus this value."
+  type        = number
+  default     = 60
+
+  validation {
+    condition     = var.load_balancer_rate_limit_ban_duration_sec >= 60 && var.load_balancer_rate_limit_ban_duration_sec <= 3600
+    error_message = "The load_balancer_rate_limit_ban_duration_sec must be between 60 and 3600 seconds."
+  }
+}
+
+variable "load_balancer_enable_owasp_waf_rules" {
+  description = "Enable preconfigured OWASP Top 10 WAF protection rules (XSS, LFI) in Cloud Armor."
+  type        = bool
+  default     = true
+}
+
+variable "load_balancer_allowed_ip_ranges" {
+  description = "List of CIDR IP ranges allowed to access the Load Balancer. Defaults to ['*'] (all public IPs)."
+  type        = list(string)
+  default     = ["*"]
+
+  validation {
+    condition     = length(var.load_balancer_allowed_ip_ranges) > 0 && length(var.load_balancer_allowed_ip_ranges) <= 10
+    error_message = "The load_balancer_allowed_ip_ranges list must contain between 1 and 10 CIDR ranges (or ['*'])."
+  }
+
+  validation {
+    condition     = alltrue([for r in var.load_balancer_allowed_ip_ranges : r == "*" || can(cidrhost(r, 0))])
+    error_message = "Each entry in load_balancer_allowed_ip_ranges must be a valid CIDR range (e.g. '203.0.113.4/32') or '*'."
+  }
+
+  validation {
+    condition     = !contains(var.load_balancer_allowed_ip_ranges, "*") || length(var.load_balancer_allowed_ip_ranges) == 1
+    error_message = "When '*' is used in load_balancer_allowed_ip_ranges it must be the only entry."
+  }
+}
+
+variable "load_balancer_domains" {
+  description = "Domains to serve the Data Commons APIs (/core/api/*) and MCP endpoint (/mcp) over HTTPS on the load balancer, using a Google-managed certificate (e.g. [\"data.example.org\"]). Requires a DNS A record per domain pointing at the load_balancer_ip output. Empty = HTTP only. Website routes, if deployed, also require HTTPS behind the load balancer."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = length(var.load_balancer_domains) <= 100 && alltrue([for d in var.load_balancer_domains : can(regex("^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$", d))])
+    error_message = "load_balancer_domains must contain at most 100 lowercase fully-qualified hostnames (e.g. 'data.example.org'); wildcards and IP addresses are not supported."
+  }
+}
+
+variable "load_balancer_https_redirect" {
+  description = "When load_balancer_domains is set, redirect HTTP (port 80) to HTTPS at the load balancer. Defaults to false so HTTP keeps working while the certificate provisions; set to true once the certificate is ACTIVE."
+  type        = bool
+  default     = false
+}
+
+
+
 # =============================================================================
 # Ingestion - Preprocessing Job
 # =============================================================================
