@@ -115,6 +115,11 @@ output "load_balancer_ip" {
 }
 
 output "load_balancer_url" {
-  description = "The HTTP URL of the External Application Load Balancer."
+  description = "The entrypoint URL for the Load Balancer (https://<first domain> when HTTPS is enabled, else http://<ip>)."
   value       = module.stack.load_balancer_url
+}
+
+output "load_balancer_ssl_certificate_name" {
+  description = "Name of the Google-managed SSL certificate on the Load Balancer (null when HTTPS is disabled). Check provisioning with: gcloud compute ssl-certificates describe <name> --global"
+  value       = module.stack.load_balancer_ssl_certificate_name
 }

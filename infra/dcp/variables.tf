@@ -483,6 +483,23 @@ variable "load_balancer_allowed_ip_ranges" {
   }
 }
 
+variable "load_balancer_domains" {
+  description = "Domains to serve the Data Commons APIs (/core/api/*) and MCP endpoint (/mcp) over HTTPS on the load balancer, using a Google-managed certificate (e.g. [\"data.example.org\"]). Requires a DNS A record per domain pointing at the load_balancer_ip output. Empty = HTTP only. Website routes, if deployed, also require HTTPS behind the load balancer."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = length(var.load_balancer_domains) <= 100 && alltrue([for d in var.load_balancer_domains : can(regex("^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$", d))])
+    error_message = "load_balancer_domains must contain at most 100 lowercase fully-qualified hostnames (e.g. 'data.example.org'); wildcards and IP addresses are not supported."
+  }
+}
+
+variable "load_balancer_https_redirect" {
+  description = "When load_balancer_domains is set, redirect HTTP (port 80) to HTTPS at the load balancer. Defaults to false so HTTP keeps working while the certificate provisions; set to true once the certificate is ACTIVE."
+  type        = bool
+  default     = false
+}
+
 
 
 # =============================================================================

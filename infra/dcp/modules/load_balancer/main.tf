@@ -1,6 +1,8 @@
 locals {
   name_prefix           = var.instance_name != "" ? "${var.instance_name}-" : ""
   restrict_ip_allowlist = length(var.allowed_ip_ranges) > 0 && !contains(var.allowed_ip_ranges, "*")
+  enable_https          = length(var.domains) > 0
+  redirect_http         = local.enable_https && var.https_redirect
 }
 
 # =============================================================================
@@ -126,7 +128,8 @@ resource "google_compute_url_map" "url_map" {
 resource "google_compute_target_http_proxy" "http_proxy" {
   name    = "${local.name_prefix}dc-http-proxy"
   project = var.project_id
-  url_map = google_compute_url_map.url_map.id
+  # When HTTPS is enabled (and redirect is on), port 80 only serves a redirect to HTTPS.
+  url_map = local.redirect_http ? one(google_compute_url_map.https_redirect[*].id) : google_compute_url_map.url_map.id
 }
 
 # =============================================================================
@@ -140,4 +143,55 @@ resource "google_compute_global_forwarding_rule" "forwarding_rule" {
   target                = google_compute_target_http_proxy.http_proxy.id
   ip_address            = google_compute_global_address.lb_ip.id
   load_balancing_scheme = "EXTERNAL_MANAGED"
+}
+
+# =============================================================================
+# 6. HTTPS (optional): Google-managed certificate + HTTPS proxy + port 443
+# =============================================================================
+resource "google_compute_managed_ssl_certificate" "cert" {
+  count   = local.enable_https ? 1 : 0
+  project = var.project_id
+  # Hash of the domain list in the name so changing domains creates a new cert
+  # before the old one is destroyed (certs are immutable).
+  name = "${local.name_prefix}dc-cert-${substr(md5(join(",", sort(var.domains))), 0, 8)}"
+
+  managed {
+    domains = var.domains
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "google_compute_target_https_proxy" "https_proxy" {
+  count            = local.enable_https ? 1 : 0
+  name             = "${local.name_prefix}dc-https-proxy"
+  project          = var.project_id
+  url_map          = google_compute_url_map.url_map.id
+  ssl_certificates = google_compute_managed_ssl_certificate.cert[*].id
+}
+
+resource "google_compute_global_forwarding_rule" "https_forwarding_rule" {
+  count                 = local.enable_https ? 1 : 0
+  name                  = "${local.name_prefix}dc-https-forwarding-rule"
+  project               = var.project_id
+  ip_protocol           = "TCP"
+  port_range            = "443"
+  target                = one(google_compute_target_https_proxy.https_proxy[*].id)
+  ip_address            = google_compute_global_address.lb_ip.id
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+}
+
+# HTTP -> HTTPS redirect at the edge (no backend, so port 80 never reaches Cloud Run).
+resource "google_compute_url_map" "https_redirect" {
+  count   = local.redirect_http ? 1 : 0
+  name    = "${local.name_prefix}dc-https-redirect"
+  project = var.project_id
+
+  default_url_redirect {
+    https_redirect         = true
+    redirect_response_code = "MOVED_PERMANENTLY_DEFAULT"
+    strip_query            = false
+  }
 }

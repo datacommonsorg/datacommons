@@ -70,3 +70,20 @@ variable "allowed_ip_ranges" {
   }
 }
 
+
+variable "domains" {
+  description = "Domains for the Google-managed SSL certificate. When non-empty, an HTTPS listener (port 443) is created. DNS A records for each domain must point at the load balancer IP for the certificate to provision."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = length(var.domains) <= 100 && alltrue([for d in var.domains : can(regex("^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$", d))])
+    error_message = "domains must be at most 100 lowercase fully-qualified hostnames (e.g. 'data.example.org'); wildcards and IPs are not supported."
+  }
+}
+
+variable "https_redirect" {
+  description = "When HTTPS is enabled, redirect all HTTP (port 80) requests to HTTPS at the load balancer. Defaults to false so HTTP keeps working while the managed certificate provisions; enable once the certificate is ACTIVE."
+  type        = bool
+  default     = false
+}
