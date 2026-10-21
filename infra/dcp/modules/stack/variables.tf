@@ -154,10 +154,21 @@ variable "ingestion_config" {
 
 variable "load_balancer_config" {
   type = object({
-    enable = bool
+    enable                         = bool
+    enable_cloud_armor             = optional(bool, true)
+    rate_limit_requests_per_minute = optional(number, 600)
+    rate_limit_ban_duration_sec    = optional(number, 60)
+    enable_owasp_waf_rules         = optional(bool, true)
+    allowed_ip_ranges              = optional(list(string), ["*"])
   })
   default = {
-    enable = false
+    enable                         = false
+    enable_cloud_armor             = true
+    rate_limit_requests_per_minute = 600
+    rate_limit_ban_duration_sec    = 60
+    enable_owasp_waf_rules         = true
+    allowed_ip_ranges              = ["*"]
   }
-  description = "Configuration for the External Application Load Balancer in front of Cloud Run."
+  description = "Configuration for the External Application Load Balancer and Cloud Armor policy in front of Cloud Run."
 }
+

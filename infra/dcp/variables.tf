@@ -428,6 +428,63 @@ variable "enable_load_balancer" {
   default     = false
 }
 
+variable "load_balancer_enable_cloud_armor" {
+  description = "Enable Cloud Armor security policy with IP rate limiting and WAF rules on the load balancer backend (only applies when enable_load_balancer = true)."
+  type        = bool
+  default     = true
+}
+
+variable "load_balancer_rate_limit_requests_per_minute" {
+  description = "Maximum requests per minute allowed per client IP before rate limiting (HTTP 429) is enforced by Cloud Armor."
+  type        = number
+  default     = 600
+
+  validation {
+    condition     = var.load_balancer_rate_limit_requests_per_minute > 0
+    error_message = "The load_balancer_rate_limit_requests_per_minute must be a positive integer."
+  }
+}
+
+variable "load_balancer_rate_limit_ban_duration_sec" {
+  description = "Duration in seconds a client IP that exceeded the Cloud Armor rate limit stays banned (HTTP 429) after its request rate falls back below the threshold. Total lockout can therefore approach the 60s counting interval plus this value."
+  type        = number
+  default     = 60
+
+  validation {
+    condition     = var.load_balancer_rate_limit_ban_duration_sec >= 60 && var.load_balancer_rate_limit_ban_duration_sec <= 3600
+    error_message = "The load_balancer_rate_limit_ban_duration_sec must be between 60 and 3600 seconds."
+  }
+}
+
+variable "load_balancer_enable_owasp_waf_rules" {
+  description = "Enable preconfigured OWASP Top 10 WAF protection rules (XSS, LFI) in Cloud Armor."
+  type        = bool
+  default     = true
+}
+
+variable "load_balancer_allowed_ip_ranges" {
+  description = "List of CIDR IP ranges allowed to access the Load Balancer. Defaults to ['*'] (all public IPs)."
+  type        = list(string)
+  default     = ["*"]
+
+  validation {
+    condition     = length(var.load_balancer_allowed_ip_ranges) > 0 && length(var.load_balancer_allowed_ip_ranges) <= 10
+    error_message = "The load_balancer_allowed_ip_ranges list must contain between 1 and 10 CIDR ranges (or ['*'])."
+  }
+
+  validation {
+    condition     = alltrue([for r in var.load_balancer_allowed_ip_ranges : r == "*" || can(cidrhost(r, 0))])
+    error_message = "Each entry in load_balancer_allowed_ip_ranges must be a valid CIDR range (e.g. '203.0.113.4/32') or '*'."
+  }
+
+  validation {
+    condition     = !contains(var.load_balancer_allowed_ip_ranges, "*") || length(var.load_balancer_allowed_ip_ranges) == 1
+    error_message = "When '*' is used in load_balancer_allowed_ip_ranges it must be the only entry."
+  }
+}
+
+
+
 # =============================================================================
 # Ingestion - Preprocessing Job
 # =============================================================================
