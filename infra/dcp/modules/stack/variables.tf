@@ -161,7 +161,7 @@ variable "load_balancer_config" {
     enable_owasp_waf_rules         = optional(bool, true)
     allowed_ip_ranges              = optional(list(string), ["*"])
     domains                        = optional(list(string), [])
-    https_redirect                 = optional(bool, true)
+    https_redirect                 = optional(bool, false)
   })
   default = {
     enable                         = false
@@ -171,7 +171,7 @@ variable "load_balancer_config" {
     enable_owasp_waf_rules         = true
     allowed_ip_ranges              = ["*"]
     domains                        = []
-    https_redirect                 = true
+    https_redirect                 = false
   }
   description = "Configuration for the External Application Load Balancer and Cloud Armor policy in front of Cloud Run."
 }

@@ -83,11 +83,14 @@ datacommons_services_allow_unauthenticated_access = false
 # load_balancer_enable_owasp_waf_rules         = true
 # load_balancer_allowed_ip_ranges              = ["*"]
 
-# Serve the load balancer over HTTPS with a Google-managed certificate (required for the
-# website, incl. /api/explore/*, to work behind the load balancer). After apply, create a
-# DNS A record for each domain pointing at the load_balancer_ip output; the certificate
-# provisions automatically (typically 15-60 min).
-# load_balancer_domains = ["data.example.org"]
+# Serve the APIs (/core/api/*) and MCP endpoint (/mcp) over HTTPS with a Google-managed certificate:
+#   1. Set load_balancer_domains and apply (HTTP keeps working while the certificate provisions).
+#   2. Create a DNS A record for each domain pointing at the load_balancer_ip output, then wait
+#      for the certificate to become ACTIVE (typically 15-60 min).
+#   3. Optionally set load_balancer_https_redirect = true to redirect HTTP to HTTPS.
+# Website routes, if deployed, also require HTTPS behind the load balancer.
+# load_balancer_domains        = ["data.example.org"]
+# load_balancer_https_redirect = false
 
 # Track traffic and user interactions with your site using Google Analytics.
 # datacommons_services_google_analytics_tag_id = "your-analytics-tag-id"

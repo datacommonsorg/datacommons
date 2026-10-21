@@ -115,7 +115,8 @@ run "domains_enable_https_with_redirect" {
   command = plan
 
   variables {
-    domains = ["data.example.org"]
+    domains        = ["data.example.org"]
+    https_redirect = true
   }
 
   assert {
@@ -139,17 +140,16 @@ run "domains_enable_https_with_redirect" {
   }
 }
 
-run "domains_without_redirect" {
+run "domains_default_no_redirect" {
   command = plan
 
   variables {
-    domains        = ["data.example.org"]
-    https_redirect = false
+    domains = ["data.example.org"]
   }
 
   assert {
     condition     = length(google_compute_url_map.https_redirect) == 0 && length(google_compute_target_https_proxy.https_proxy) == 1
-    error_message = "HTTPS should be enabled without the HTTP redirect"
+    error_message = "By default, HTTPS should be enabled without the HTTP redirect (HTTP keeps serving during cert provisioning)"
   }
 }
 

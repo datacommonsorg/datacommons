@@ -83,7 +83,7 @@ variable "domains" {
 }
 
 variable "https_redirect" {
-  description = "When HTTPS is enabled, redirect all HTTP (port 80) requests to HTTPS at the load balancer."
+  description = "When HTTPS is enabled, redirect all HTTP (port 80) requests to HTTPS at the load balancer. Defaults to false so HTTP keeps working while the managed certificate provisions; enable once the certificate is ACTIVE."
   type        = bool
-  default     = true
+  default     = false
 }

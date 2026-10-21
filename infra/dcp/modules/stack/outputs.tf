@@ -101,7 +101,7 @@ output "load_balancer_ip" {
 }
 
 output "load_balancer_url" {
-  description = "The HTTP URL of the External Application Load Balancer."
+  description = "The entrypoint URL for the Load Balancer (https://<first domain> when HTTPS is enabled, else http://<ip>)."
   value       = length(module.load_balancer) > 0 ? module.load_balancer[0].load_balancer_url : null
 }
 
