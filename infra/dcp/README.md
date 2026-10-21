@@ -142,13 +142,34 @@ Place unit tests for a module in `infra/dcp/modules/<module_name>/tests/<name>.t
 #### What to Test
 Unit tests automate the manual workflow of setting a variable one way, running `terraform plan`, flipping the variable the other way, and checking the planned output:
 * **Assert on dynamic logic**: Test conditionals (`? :`), resource counts (`count`, `for_each`), `dynamic` blocks, `concat()` lists, and string interpolations.
-* **Skip static wiring**: Do not assert on hardcoded constants (such as fixed port numbers or role strings) or direct `1:1` variable pass-throughs (`foo = var.foo`). `terraform validate` already verifies variable types and attribute names.
+* **Guard the baseline environment and IAM contract**: Use a single map assertion (`{ for e in ... : e.name => e.value if ... } == { ... }`) in `default_configuration` to verify required container environment variables, DCP constants (such as `IS_BASE_DC`), and baseline IAM roles in one check so they are never accidentally dropped during refactors.
+* **Skip static infrastructure settings**: Do not write separate assertions for static resource settings (such as fixed port numbers or timeout values) that `terraform validate` already verifies.
 
 #### Structuring Test Runs
 Keep `.tftest.hcl` files fast and readable by grouping assertions into a minimal set of `run` blocks:
-1. **`default_configuration`**: Supplies only required inputs (with optional toggles off or empty) and verifies default resource naming, baseline IAM bindings, and the omission of optional resources or blocks.
+1. **`default_configuration`**: Supplies only required inputs (with optional toggles off or empty) and verifies default resource naming, baseline IAM bindings, the baseline container environment map, and the omission of optional resources or blocks.
 2. **`custom_configuration`**: Enables independent optional features and overrides together in a single `plan` (for example, `instance_name` prefixing, public ingress, VPC egress, Secret Manager env vars, and custom paths) rather than adding separate single-assertion `run` blocks for each ternary.
 3. **Targeted interaction runs (when warranted)**: Add 1–2 extra `run` blocks only when specific combinations of inputs interact in complex or mutually exclusive ways (for example, attaching to an existing Shared VPC vs. provisioning a new VPC, or testing `expect_failures` on input validation rules).
+
+### Preventing Breaking State Changes (`moved` Blocks)
+
+> [!WARNING]
+> **Renaming or moving Terraform resources destroys and recreates live cloud resources unless you add a `moved` block.**
+>
+> Terraform tracks every deployed GCP resource in its state file by its exact code address (for example, `module.spanner[0].google_spanner_database.database`). If you rename a resource, move it between modules, or change whether a module/resource uses `count` or `for_each`, Terraform treats the old address as deleted and the new address as brand new—meaning the next `terraform apply` will **destroy the existing resource and recreate it**.
+>
+> To avoid accumulating state-migration clutter over time, apply this rule when refactoring resource addresses:
+> * **Use `moved` blocks** for **stateful, user-facing, or foundational resources** where a teardown and recreate causes data loss, end-user downtime, or long provisioning delays (such as Cloud Spanner instances/databases, GCS buckets, VPC networking, Redis, or `datacommons-services`).
+> * **Skip `moved` blocks** for **stateless internal resources** that can be torn down and recreated during `terraform apply` without data loss or user impact (such as ingestion Cloud Run jobs/helpers, Cloud Workflows, or monitoring alerts).
+>
+> When migrating a stateful or user-facing resource, declare a `moved` block in `modules/stack/` mapping `from` the old address `to` the new address:
+> ```hcl
+> moved {
+>   from = module.spanner.google_spanner_database.database[0]
+>   to   = module.spanner[0].google_spanner_database.database
+> }
+> ```
+> This tells Terraform to update the state address in-place (`0 to destroy`) without touching the underlying GCP resource.
 
 ---
 
