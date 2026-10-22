@@ -418,8 +418,8 @@ Watch the workflow progress through its stages, and inspect the underlying compu
 2. **`try_acquire_lock`**: Contacts `datacommons-ingestion-helper` to acquire the database lock in Spanner.
 3. **`launch_dataflow`**: Launches the Apache Beam Dataflow job (`GraphIngestionPipeline`) to load nodes, edges, and observations into Spanner.
    * *Viewing Dataflow Graph and Logs*: Open **Dataflow > Jobs** in the console and click into the running job (named `graph-ingestion-pipeline-...`). You can view the live execution DAG (stages such as `ReadJSONLD`, `ExtractFacets`, and `WriteToSpanner`). Click the **Job Logs** tab for pipeline lifecycle events and the **Worker Logs** tab to stream real-time worker output.
-4. **`run_postprocessing_parallel`**: Runs BigQuery federated queries to materialize statistical variable groups and invokes Vertex AI text embeddings.
-   * *Viewing Postprocessing Logs*: Open **Cloud Run > Jobs**, click into `<namespace>-dc-ingestion-postprocessing-job`, click the active execution, and select the **Logs** tab to observe BigQuery aggregation and vector embedding generation.
+4. **`run_postprocessing_parallel`**: Runs BigQuery federated queries to materialize statistical variable groups and invokes `datacommons-ingestion-helper` to generate Vertex AI text embeddings.
+   * *Viewing Postprocessing Logs*: Open **Cloud Run > Jobs**, click into `<namespace>-dc-ingestion-postprocessing-job`, click the active execution, and select the **Logs** tab to observe BigQuery aggregation queries. To observe vector embedding generation, open **Cloud Run > Services**, click into `<namespace>-dc-ingestion-helper`, and view the **Logs** tab.
 5. **`release_lock_step` & `restart_service`**: Releases the Spanner lock, clears the cache if Redis caching is enabled, and triggers a rolling container restart of `datacommons-services` if container restarts are enabled.
 
 Wait until the execution status displays a green checkmark (`Succeeded`).
