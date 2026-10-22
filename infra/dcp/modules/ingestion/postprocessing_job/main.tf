@@ -40,10 +40,6 @@ resource "google_cloud_run_v2_job" "dc_postprocessing_job" {
           value = var.spanner_config.database_id
         }
         env {
-          name  = "SPANNER_GRAPH_DATABASE_ID"
-          value = var.spanner_config.database_id
-        }
-        env {
           name  = "BQ_SPANNER_CONN_ID"
           value = var.spanner_config.bigquery_connection_id != null ? var.spanner_config.bigquery_connection_id : ""
         }

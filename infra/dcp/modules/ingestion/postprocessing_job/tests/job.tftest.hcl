@@ -69,14 +69,13 @@ run "default_configuration" {
       for e in google_cloud_run_v2_job.dc_postprocessing_job.template[0].template[0].containers[0].env :
       e.name => e.value
       } == {
-      PROJECT_ID                = "test-project"
-      SPANNER_PROJECT_ID        = "test-project"
-      SPANNER_INSTANCE_ID       = "test-spanner-instance"
-      SPANNER_DATABASE_ID       = "test-spanner-db"
-      SPANNER_GRAPH_DATABASE_ID = "test-spanner-db"
-      BQ_SPANNER_CONN_ID        = ""
-      LOCATION                  = "us-central1"
-      ENABLE_EMBEDDINGS         = "false"
+      PROJECT_ID          = "test-project"
+      SPANNER_PROJECT_ID  = "test-project"
+      SPANNER_INSTANCE_ID = "test-spanner-instance"
+      SPANNER_DATABASE_ID = "test-spanner-db"
+      BQ_SPANNER_CONN_ID  = ""
+      LOCATION            = "us-central1"
+      ENABLE_EMBEDDINGS   = "false"
     }
     error_message = "Baseline container environment variables must match the expected contract"
   }
