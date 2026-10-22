@@ -198,8 +198,7 @@ module "ingestion_postprocessing_job" {
   vpc_access                     = module.network.vpc_access
   spanner_config                 = local.effective_spanner_config
   enable_bigquery_postprocessing = var.ingestion_config.workflow_enable_bigquery_postprocessing
-  enable_spanner_embeddings      = var.spanner_config.enable_embeddings_generation
-  env_vars                       = local.cloud_run_shared_env_variables
+  enable_embeddings_generation   = var.spanner_config.enable_embeddings_generation
 }
 
 module "ingestion_dataflow" {
