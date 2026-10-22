@@ -85,7 +85,6 @@ run "default_configuration" {
   assert {
     condition = (
       google_spanner_database_iam_member.postprocessing_spanner_user.role == "roles/spanner.databaseUser" &&
-      length(google_project_iam_member.postprocessing_bq_data_editor) == 0 &&
       length(google_project_iam_member.postprocessing_bq_job_user) == 0 &&
       length(google_spanner_instance_iam_member.postprocessing_spanner_instance_viewer) == 0 &&
       length(google_bigquery_connection_iam_member.postprocessing_bq_connection_user) == 0
@@ -145,11 +144,9 @@ run "custom_configuration" {
   }
 
   # When both enable_bigquery_postprocessing and spanner_config.enable_bigquery_connection are true,
-  # grant BigQuery dataEditor, jobUser, Spanner instance viewer, and BigQuery connectionUser IAM roles.
+  # grant BigQuery jobUser, Spanner instance viewer, and BigQuery connectionUser IAM roles.
   assert {
     condition = (
-      length(google_project_iam_member.postprocessing_bq_data_editor) == 1 &&
-      google_project_iam_member.postprocessing_bq_data_editor[0].role == "roles/bigquery.dataEditor" &&
       length(google_project_iam_member.postprocessing_bq_job_user) == 1 &&
       google_project_iam_member.postprocessing_bq_job_user[0].role == "roles/bigquery.jobUser" &&
       length(google_spanner_instance_iam_member.postprocessing_spanner_instance_viewer) == 1 &&

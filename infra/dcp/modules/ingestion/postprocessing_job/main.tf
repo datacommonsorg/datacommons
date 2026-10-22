@@ -73,20 +73,11 @@ resource "google_cloud_run_v2_job" "dc_postprocessing_job" {
   }
 
   depends_on = [
-    google_project_iam_member.postprocessing_bq_data_editor,
     google_project_iam_member.postprocessing_bq_job_user,
     google_spanner_database_iam_member.postprocessing_spanner_user,
     google_spanner_instance_iam_member.postprocessing_spanner_instance_viewer,
     google_bigquery_connection_iam_member.postprocessing_bq_connection_user,
   ]
-}
-
-
-resource "google_project_iam_member" "postprocessing_bq_data_editor" {
-  count   = var.enable_bigquery_postprocessing ? 1 : 0
-  project = var.project_id
-  role    = "roles/bigquery.dataEditor"
-  member  = "serviceAccount:${google_service_account.postprocessing_sa.email}"
 }
 
 resource "google_project_iam_member" "postprocessing_bq_job_user" {
