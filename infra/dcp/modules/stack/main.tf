@@ -426,6 +426,22 @@ resource "google_service_account_iam_member" "workflow_pre_sa_user" {
   member             = "serviceAccount:${module.ingestion_workflow.service_account_email}"
 }
 
+resource "google_cloud_run_v2_job_iam_member" "workflow_post_viewer" {
+  count    = var.ingestion_config.enable_ingestion ? 1 : 0
+  location = var.global.region
+  name     = module.ingestion_postprocessing_job[0].job_name
+  role     = "roles/run.viewer"
+  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
+resource "google_cloud_run_v2_job_iam_member" "workflow_post_invoker" {
+  count    = var.ingestion_config.enable_ingestion ? 1 : 0
+  location = var.global.region
+  name     = module.ingestion_postprocessing_job[0].job_name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${module.ingestion_workflow.service_account_email}"
+}
+
 resource "google_cloud_run_v2_job_iam_member" "workflow_post_developer" {
   count    = var.ingestion_config.enable_ingestion ? 1 : 0
   location = var.global.region
