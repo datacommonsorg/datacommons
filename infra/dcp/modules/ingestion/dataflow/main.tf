@@ -24,23 +24,3 @@ resource "google_project_iam_member" "dataflow_worker" {
   role    = "roles/dataflow.worker"
   member  = "serviceAccount:${google_service_account.dataflow_sa[0].email}"
 }
-
-data "google_project" "project" {
-  project_id = var.project_id
-}
-
-resource "google_service_account_iam_member" "workflows_token_creator" {
-  count              = var.deploy ? 1 : 0
-  service_account_id = google_service_account.dataflow_sa[0].name
-  role               = "roles/iam.serviceAccountTokenCreator"
-  member             = "serviceAccount:service-${data.google_project.project.number}@gcp-sa-workflows.iam.gserviceaccount.com"
-
-  # `member` is fixed for a given project. Ignoring it avoids a forced
-  # replacement (and a plan-time dependency cycle) when changes to
-  # `google_project_service.apis` defer the `google_project` read to apply time.
-  lifecycle {
-    ignore_changes = [member]
-  }
-}
-
-
