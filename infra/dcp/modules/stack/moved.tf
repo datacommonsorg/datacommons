@@ -11,7 +11,6 @@
 #
 # Module "ingestion_helper_service" moved count to the caller module, changing
 # child resource addresses from unindexed to indexed (`module.ingestion_helper_service[0]`).
-# -----------------------------------------------------------------------------
 
 moved {
   from = module.ingestion_helper_service.google_service_account.helper_sa[0]
@@ -42,3 +41,4 @@ moved {
   from = module.ingestion_helper_service.google_secret_manager_secret_iam_member.helper_redis_auth_secret_accessor[0]
   to   = module.ingestion_helper_service[0].google_secret_manager_secret_iam_member.helper_redis_auth_secret_accessor[0]
 }
+# -----------------------------------------------------------------------------
