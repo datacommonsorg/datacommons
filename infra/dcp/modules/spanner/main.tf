@@ -45,13 +45,24 @@ resource "google_bigquery_connection" "spanner_connection" {
   }
 }
 
-# Grant the connection's service account access to Spanner
+# Grant the connection's service account access to Spanner.
+#
+# `member` is ignored after creation on both resources below. It is derived from
+# the project number, so it never changes for a given project. Without this,
+# any change to `google_project_service.apis` (which `module.stack` depends on)
+# defers the data source read to apply time, which makes `member` unknown and
+# forces a replacement. That replacement creates a dependency cycle with the API
+# changes and the plan fails.
 resource "google_spanner_database_iam_member" "spanner_reader" {
   count    = var.enable_bigquery_connection ? 1 : 0
   instance = local.resolved_instance_id
   database = local.resolved_database_id
   role     = "roles/spanner.databaseUser"
   member   = "serviceAccount:${data.google_bigquery_default_service_account.bq_sa.email}"
+
+  lifecycle {
+    ignore_changes = [member]
+  }
 }
 
 resource "google_project_iam_member" "bq_sa_spanner_viewer" {
@@ -59,6 +70,10 @@ resource "google_project_iam_member" "bq_sa_spanner_viewer" {
   project = var.project_id
   role    = "roles/spanner.viewer"
   member  = "serviceAccount:${data.google_bigquery_default_service_account.bq_sa.email}"
+
+  lifecycle {
+    ignore_changes = [member]
+  }
 }
 
 

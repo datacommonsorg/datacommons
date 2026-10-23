@@ -233,6 +233,36 @@ module "ingestion_helper_service" {
   spanner_version_retention_period = var.spanner_config.version_retention_period
 }
 
+# Before 1.1.7, `count` was set on each resource inside the helper module.
+# It now lives on the module call. Without these blocks, upgrading destroys and
+# recreates the helper service account, which can race with project IAM updates
+# in the same apply. `helper_spanner_user` is omitted on purpose: it changed
+# from a project-level to a database-level IAM member and cannot be moved.
+moved {
+  from = module.ingestion_helper_service.google_service_account.helper_sa[0]
+  to   = module.ingestion_helper_service[0].google_service_account.helper_sa
+}
+
+moved {
+  from = module.ingestion_helper_service.google_cloud_run_v2_service.ingestion_helper[0]
+  to   = module.ingestion_helper_service[0].google_cloud_run_v2_service.ingestion_helper
+}
+
+moved {
+  from = module.ingestion_helper_service.google_storage_bucket_iam_member.helper_bucket_access[0]
+  to   = module.ingestion_helper_service[0].google_storage_bucket_iam_member.helper_bucket_access
+}
+
+moved {
+  from = module.ingestion_helper_service.google_project_iam_member.helper_dataflow_viewer[0]
+  to   = module.ingestion_helper_service[0].google_project_iam_member.helper_dataflow_viewer
+}
+
+moved {
+  from = module.ingestion_helper_service.google_secret_manager_secret_iam_member.helper_redis_auth_secret_accessor[0]
+  to   = module.ingestion_helper_service[0].google_secret_manager_secret_iam_member.helper_redis_auth_secret_accessor[0]
+}
+
 
 module "ingestion_workflow" {
   source = "../ingestion/workflow"
