@@ -3,16 +3,17 @@ locals {
 }
 
 resource "google_service_account" "helper_sa" {
-  count        = var.deploy ? 1 : 0
   account_id   = "${local.name_prefix}dc-ing-hlp-sa"
   display_name = "Data Commons Ingestion Helper SA"
 }
 
 resource "google_cloud_run_v2_service" "ingestion_helper" {
-  count               = var.deploy ? 1 : 0
   name                = "${local.name_prefix}dc-ingestion-helper"
   location            = var.region
   deletion_protection = var.stateless_deletion_protection
+
+  # Ingress is restricted to internal VPC traffic only.
+  ingress = "INGRESS_TRAFFIC_INTERNAL_ONLY"
 
   template {
     timeout = "1800s"
@@ -33,15 +34,19 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
       }
       env {
         name  = "SPANNER_INSTANCE_ID"
-        value = var.spanner_instance_id
+        value = var.spanner_config.instance_id
       }
       env {
         name  = "SPANNER_DATABASE_ID"
-        value = var.spanner_database_id
+        value = var.spanner_config.database_id
       }
       env {
         name  = "SPANNER_GRAPH_DATABASE_ID"
-        value = var.spanner_database_id
+        value = var.spanner_config.database_id
+      }
+      env {
+        name  = "SPANNER_VERSION_RETENTION_PERIOD"
+        value = var.spanner_version_retention_period
       }
 
       env {
@@ -66,11 +71,27 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
       }
       env {
         name  = "REDIS_HOST"
-        value = var.redis_host
+        value = try(var.redis_config.host, "")
       }
       env {
         name  = "REDIS_PORT"
-        value = var.redis_port
+        value = try(var.redis_config.port, "")
+      }
+      env {
+        name  = "REDIS_CA_CERT"
+        value = try(var.redis_config.ca_cert, "")
+      }
+      dynamic "env" {
+        for_each = try(var.redis_config.auth_secret_id, null) != null ? [var.redis_config.auth_secret_id] : []
+        content {
+          name = "REDIS_PASSWORD"
+          value_source {
+            secret_key_ref {
+              secret  = env.value
+              version = "latest"
+            }
+          }
+        }
       }
       env {
         name  = "ENABLE_UNIQUE_INGESTION_RUNS"
@@ -79,41 +100,52 @@ resource "google_cloud_run_v2_service" "ingestion_helper" {
       }
     }
 
+    # Direct VPC Egress
     dynamic "vpc_access" {
-      for_each = var.vpc_connector_id != null && var.vpc_connector_id != "" ? [1] : []
+      for_each = var.vpc_access != null ? [var.vpc_access] : []
       content {
-        connector = var.vpc_connector_id
-        egress    = "PRIVATE_RANGES_ONLY"
+        network_interfaces {
+          network    = vpc_access.value.network_id
+          subnetwork = vpc_access.value.subnet_id
+          tags       = ["dcp-service"]
+        }
+        egress = vpc_access.value.vpc_egress_mode
       }
     }
 
-    service_account = google_service_account.helper_sa[0].email
+    service_account = google_service_account.helper_sa.email
   }
+
+  depends_on = [
+    google_secret_manager_secret_iam_member.helper_redis_auth_secret_accessor,
+    google_spanner_database_iam_member.helper_spanner_user
+  ]
 }
 
-resource "google_project_iam_member" "helper_spanner_user" {
-  count   = var.deploy && var.use_spanner ? 1 : 0
-  project = var.project_id
-  role    = "roles/spanner.databaseUser"
-  member  = "serviceAccount:${google_service_account.helper_sa[0].email}"
+resource "google_secret_manager_secret_iam_member" "helper_redis_auth_secret_accessor" {
+  count     = try(var.redis_config.auth_secret_id, null) != null ? 1 : 0
+  project   = var.project_id
+  secret_id = var.redis_config.auth_secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.helper_sa.email}"
 }
 
+resource "google_spanner_database_iam_member" "helper_spanner_user" {
+  project  = var.project_id
+  instance = var.spanner_config.instance_id
+  database = var.spanner_config.database_id
+  role     = "roles/spanner.databaseUser"
+  member   = "serviceAccount:${google_service_account.helper_sa.email}"
+}
 
 resource "google_storage_bucket_iam_member" "helper_bucket_access" {
-  count  = var.deploy ? 1 : 0
   bucket = var.ingestion_bucket_name
   role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.helper_sa[0].email}"
+  member = "serviceAccount:${google_service_account.helper_sa.email}"
 }
 
 resource "google_project_iam_member" "helper_dataflow_viewer" {
-  count   = var.deploy ? 1 : 0
   project = var.project_id
   role    = "roles/dataflow.viewer"
-  member  = "serviceAccount:${google_service_account.helper_sa[0].email}"
+  member  = "serviceAccount:${google_service_account.helper_sa.email}"
 }
-
-
-
-
-

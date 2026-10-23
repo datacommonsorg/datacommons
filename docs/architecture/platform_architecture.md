@@ -77,7 +77,7 @@ DCP packages services into container images hosted on Google Cloud Artifact Regi
 | Image Name | Source Repository | Compute Target | Role in Platform |
 | :--- | :--- | :--- | :--- |
 | **`datacommons-services`** | `website` (submodules `mixer`) | Cloud Run Service (`dc-datacommons-service`) | Unified serving container. Hosts Nginx ingress, Website Flask/React frontend, Envoy gRPC-JSON transcoder, and Go Mixer backend. |
-| **`datacommons-data`** | `website` + `import/simple` | Cloud Run Job (`dc-ingestion-preprocessing-job`) | Data preprocessor. Runs `stats.main --mode=dcpbridge` to parse CSV and MCF files into JSON-LD chunks. |
+| **`datacommons-data`** | `website` + `import/simple` | Cloud Batch Job (`prep-<timestamp>`, one per workflow run) | Data preprocessor. Runs `stats.main --mode=dcpbridge` to parse CSV and MCF files into JSON-LD chunks. |
 | **`ingestion-flex`** | `import/pipeline/ingestion` | Cloud Dataflow | Apache Beam Java Flex Template (`GraphIngestionPipeline`). Ingests graph nodes and observations into Cloud Spanner. |
 | **`datacommons-aggregation-helper`** | `import/pipeline/workflow` | Cloud Run Job (`dc-ingestion-postprocessing-job`) | Postprocessing engine. Uses BigQuery federated queries over Spanner to generate `STAT_VAR_GROUPS`, `LINKED_EDGES`, and `ProvenanceSummary`. |
 | **`datacommons-ingestion-helper`** | `import/pipeline/workflow` | Cloud Run Service (`dc-ingestion-helper`) | Operational coordinator. Provides REST endpoints for Spanner table locks, metadata history, and Vertex AI embeddings. |
@@ -88,7 +88,7 @@ DCP packages services into container images hosted on Google Cloud Artifact Regi
 
 Batch ingestion loads raw data from Cloud Storage into Cloud Spanner across a 5-stage pipeline orchestrated by Google Cloud Workflows ([workflow.yaml](../../infra/dcp/modules/ingestion/workflow/workflow.yaml)):
 
-1. **Preprocessing**: Cloud Workflows launches the Cloud Run preprocessing job (`dc-ingestion-preprocessing-job`, running image `datacommons-data`), executing `stats.main --mode=dcpbridge` against input datasets. The job validates CSV headers against `config.json`, outputs partitioned JSON-LD shards, and writes a handshake file to `<tempLocation>/datacommons/ingestion_records/<workflow_id>.json`. The workflow reads this handshake blob to extract the sanitized `importList` and `generateStatVarGroups` flag before launching subsequent stages.
+1. **Preprocessing**: Cloud Workflows creates a Cloud Batch preprocessing job (`prep-<timestamp>`, running image `datacommons-data`), executing `stats.main --mode=dcpbridge` against input datasets. The job validates CSV headers against `config.json`, outputs partitioned JSON-LD shards, and writes a handshake file to `<tempLocation>/datacommons/ingestion_records/<workflow_id>.json`. The workflow reads this handshake blob to extract the sanitized `importList` and `generateStatVarGroups` flag before launching subsequent stages.
 2. **Distributed Locking Protocol**: The workflow calls `POST /database/lock/acquire` on `dc-ingestion-helper`:
    * **Atomic Spanner Transaction**: The helper service executes a read-write transaction on the Spanner `IngestionLock` table (`LockID = 'global_ingestion_lock'`). It acquires the lock if unowned or if the existing lock timestamp exceeds the stale timeout threshold (configured via `timeout` parameter).
    * **Contention and Backoff Retry Loop**: If another active run holds the lock, the endpoint returns HTTP 503. The workflow enters a retry loop (`increment_retries_and_wait`), sleeping between attempts until acquired or reaching `max_lock_retries`. The retry duration and timeout limits are governed by `lock_acquisition_timeout` (defined in [workflow.yaml](../../infra/dcp/modules/ingestion/workflow/workflow.yaml) and [variables.tf](../../infra/dcp/modules/ingestion/workflow/variables.tf)), allowing sequential ingestion runs to queue safely behind active jobs.
@@ -121,11 +121,10 @@ Inside the `datacommons-services` Cloud Run container, traffic is multiplexed ac
 
 | Service Component | Port | Interface | Responsibility |
 | :--- | :--- | :--- | :--- |
-| **Nginx Ingress** | `8080` | HTTP (Public) | Container front door. Routes `/*` to Website, `/core/api/*` to Envoy, and `/mcp/*` to MCP server. |
+| **Nginx Ingress** | `8080` | HTTP (Public) | Container front door. Routes `/*` to Website and `/core/api/*` and `/mcp` to Envoy. |
 | **Website Service** | `7070` | HTTP (Internal) | Python Flask and Gunicorn application serving web pages and UI assets. |
-| **Envoy ESP Sidecar** | `8081` | HTTP (Internal) | REST-to-gRPC transcoder. Translates HTTP/JSON requests into binary gRPC calls for Mixer. |
-| **Mixer Backend** | `12345` | gRPC (Internal) | Core Go data serving engine executing queries against Spanner, Redis, and Base Data Commons. |
-| **MCP Server** | `8082` | HTTP / SSE | Model Context Protocol server. Polls `http://localhost:8081/version` and starts once Mixer is healthy. |
+| **Envoy ESP Sidecar** | `8081` | HTTP (Internal) | API proxy and REST-to-gRPC transcoder. Translates HTTP/JSON requests into binary gRPC calls for Mixer (`12345`) and forwards `/mcp` HTTP requests to Mixer's MCP server (`12346`). |
+| **Mixer Backend** | `12345`, `12346` | gRPC, HTTP (Internal) | Core Go data serving engine (`12345`) and built-in Model Context Protocol (MCP) server (`12346`) executing queries against Spanner, Redis, and Base Data Commons. |
 
 ### Serving Request Lifecycle
 
@@ -134,8 +133,8 @@ Inside the `datacommons-services` Cloud Run container, traffic is multiplexed ac
 * **Nginx Reverse Proxy** inspects the URL path:
   * Static UI routes and explore pages route to Website on port `7070`.
   * `/core/api/*` routes to Envoy ESP on port `8081` with CORS headers and WebSocket upgrade support.
-  * `/mcp/*` routes to the `datacommons-mcp` daemon on port `8082` with streaming buffering disabled.
-* Envoy matches the request against Google API HTTP annotations (`mixer-grpc.pb`), transcodes JSON payloads into binary Protobuf messages, and forwards them to Mixer on port `12345`.
+  * `/mcp` routes to Envoy ESP on port `8081` with proxy buffering disabled.
+* Envoy matches `/core/api/*` requests against Google API HTTP annotations (`mixer-grpc.pb`), transcodes JSON payloads into binary Protobuf messages, and forwards them to Mixer on port `12345`, while forwarding `/mcp` HTTP requests directly to Mixer's MCP server on port `12346`.
 
 #### 2. Mixer Dispatcher and Scatter-Gather Facade
 * Mixer's dispatcher receives incoming gRPC requests.

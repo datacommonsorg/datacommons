@@ -12,12 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datacommons_db.clients.spanner_client import (
+from datacommons_db.clients.models import (
     DdlResult,
     DmlResult,
     ExecutionStatus,
     QueryResult,
+)
+from datacommons_db.clients.spanner_client import (
     SpannerClient,
+    resolve_instance_config,
 )
 
 __all__ = [
@@ -26,4 +29,5 @@ __all__ = [
     "ExecutionStatus",
     "QueryResult",
     "SpannerClient",
+    "resolve_instance_config",
 ]

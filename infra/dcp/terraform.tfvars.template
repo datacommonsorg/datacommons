@@ -27,6 +27,11 @@ stateless_deletion_protection = false
 # Get a free DC API Key at https://apikeys.datacommons.org (required)
 auth_google_datacommons_api_key = "$$DC_API_KEY$$"
 
+# List of HTTP referrers allowed to use the Google Maps API key (e.g., ["https://datacommons.example.com/*", "http://localhost:*"]).
+# Strongly recommended in production to prevent unauthorized third parties from using your key.
+# If omitted or left empty ([]), no browser referrer restrictions are enforced.
+# auth_google_maps_allowed_referrers = ["https://your-custom-domain.org/*"]
+
 # =============================================================================
 # Storage Module
 # =============================================================================
@@ -34,6 +39,11 @@ auth_google_datacommons_api_key = "$$DC_API_KEY$$"
 # and provide the name.
 storage_create_artifacts_bucket = true
 # storage_artifacts_bucket_name   = "existing-artifacts-bucket-name"
+
+# Enable object versioning on the artifacts bucket. Keeps historical versions of objects
+# when overwritten or deleted. Recommended for production to prevent accidental data loss.
+# Set to false to reduce storage costs in development or testbeds.
+# storage_artifacts_bucket_enable_versioning = true
 
 # =============================================================================
 # Redis Module
@@ -51,16 +61,44 @@ spanner_create_instance = true
 # spanner_instance_id     = "existing-spanner-instance"
 
 # =============================================================================
-# Datacommons Services Module
+# Serving & Public Ingress (Data Commons Services)
 # =============================================================================
 # Controls whether the Data Commons API and frontend services are publicly accessible.
 # Set to true to allow unauthenticated public internet traffic to access the service.
-# Set to false (default) to check for access permissions. For more information, see the 
-# Data Commons documentation.
+# Set to false (default) to require IAM authentication.
 datacommons_services_allow_unauthenticated_access = false
+
+# Fronting the service with your own load balancer? Set to true so the run.app URL
+# can't be used to bypass it. (Enforced automatically when enable_load_balancer = true.)
+# datacommons_services_restrict_ingress_to_load_balancer = false
+
+# Provisions a Global External Application Load Balancer with an Anycast IP in front
+# of the serving service, restricting Cloud Run to only accept traffic via the load balancer.
+# Set to false (default) for prototypes to avoid load balancer infrastructure costs.
+# NOTE: The load balancer does not bypass IAM. To serve anonymous public traffic through
+# the load balancer, also set datacommons_services_allow_unauthenticated_access = true.
+# enable_load_balancer = false
+
+# Cloud Armor edge security policy settings (only apply when enable_load_balancer = true).
+# Protects the serving backend with per-IP rate limiting and OWASP Top 10 WAF rules (XSS, LFI).
+# load_balancer_enable_cloud_armor             = true
+# load_balancer_rate_limit_requests_per_minute = 600
+# load_balancer_rate_limit_ban_duration_sec    = 60
+# load_balancer_enable_owasp_waf_rules         = true
+# load_balancer_allowed_ip_ranges              = ["*"]
+
+# Serve the APIs (/core/api/*) and MCP endpoint (/mcp) over HTTPS with a Google-managed certificate:
+#   1. Set load_balancer_domains and apply (HTTP keeps working while the certificate provisions).
+#   2. Create a DNS A record for each domain pointing at the load_balancer_ip output, then wait
+#      for the certificate to become ACTIVE (typically 15-60 min).
+#   3. Optionally set load_balancer_https_redirect = true to redirect HTTP to HTTPS.
+# Website routes, if deployed, also require HTTPS behind the load balancer.
+# load_balancer_domains        = ["data.example.org"]
+# load_balancer_https_redirect = false
 
 # Track traffic and user interactions with your site using Google Analytics.
 # datacommons_services_google_analytics_tag_id = "your-analytics-tag-id"
+
 
 # =============================================================================
 # Ingestion - Preprocessing Job

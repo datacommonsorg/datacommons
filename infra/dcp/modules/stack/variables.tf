@@ -18,6 +18,11 @@ variable "storage_artifacts_bucket_name" {
   type = string
 }
 
+variable "storage_artifacts_bucket_enable_versioning" {
+  type    = bool
+  default = true
+}
+
 variable "spanner_config" {
   type = object({
     enable                             = bool
@@ -38,34 +43,53 @@ variable "spanner_config" {
 
 variable "datacommons_services_config" {
   type = object({
-    enable                          = bool
-    image                           = optional(string)
-    name                            = string
-    min_instances                   = number
-    max_instances                   = number
-    cpu                             = string
-    memory                          = string
-    google_analytics_tag            = string
-    enable_mcp                      = bool
-    search_scope                    = string
-    instructions_path               = string
-    allow_unauthenticated_access    = bool
-    website_disable_google_maps_api = bool
-    resolve_with_spanner_embeddings = bool
-    website_search_scope            = optional(string, "")
+    enable                            = bool
+    image                             = optional(string)
+    name                              = string
+    min_instances                     = number
+    max_instances                     = number
+    cpu                               = string
+    memory                            = string
+    google_analytics_tag              = string
+    search_scope                      = string
+    instructions_path                 = string
+    allow_unauthenticated_access      = bool
+    restrict_ingress_to_load_balancer = optional(bool, false)
+    website_disable_google_maps_api   = bool
+    website_search_scope              = optional(string, "")
   })
 }
 
 variable "auth_config" {
   type = object({
-    google_datacommons_api_key = string
-    google_maps_api_key        = string
-    create_google_maps_key     = bool
+    google_datacommons_api_key    = string
+    google_maps_api_key           = string
+    create_google_maps_key        = bool
+    google_maps_allowed_referrers = optional(list(string), [])
   })
 }
 
 
 
+
+variable "network_config" {
+  description = "Network configuration for DCP compute workloads"
+  type = object({
+    enable                    = optional(bool, false)
+    enable_workload_vpc       = optional(bool, true)
+    prune_cloud_run_revisions = optional(bool, false)
+    create_vpc                = optional(bool, true)
+    network_name              = optional(string, "dc-vpc")
+    subnet_cidr               = optional(string, "10.0.0.0/24")
+    enable_cloud_nat          = optional(bool, false)
+    enable_flow_logs          = optional(bool, true)
+    flow_sampling             = optional(number, 1.0)
+    existing_network_id       = optional(string, null)
+    existing_subnet_id        = optional(string, null)
+    vpc_egress_mode           = optional(string, null)
+  })
+  default = {}
+}
 
 variable "redis_config" {
   type = object({
@@ -76,8 +100,8 @@ variable "redis_config" {
     location_id             = string
     alternative_location_id = string
     replica_count           = number
-    vpc_network_name        = string
-    vpc_connector_cidr      = string
+    enable_auth             = optional(bool, true)
+    enable_tls              = optional(bool, true)
   })
 }
 
@@ -107,14 +131,49 @@ variable "ingestion_config" {
     workflow_lock_acquisition_timeout = number
     helper_service_image              = optional(string)
 
-    # Dataflow network configuration
-    # Use WORKER_IP_PRIVATE when a compute.vmExternalIpAccess org policy
-    # blocks Dataflow workers from obtaining external IPs.
-    dataflow_ip_configuration    = optional(string, "WORKER_IP_UNSPECIFIED")
-    dataflow_subnetwork          = optional(string, "")
-    dataflow_template_gcs_path   = optional(string)
-    dataflow_max_workers         = optional(number, 20)
-    dataflow_num_workers         = optional(number, 4)
-    dataflow_worker_machine_type = optional(string, "n2-standard-4")
+    # Worker Network Configuration (Dataflow & Cloud Batch)
+    worker_ip_configuration = optional(string, "WORKER_IP_UNSPECIFIED")
+    worker_subnetwork       = optional(string, "")
+
+    # Ingestion Dataflow Template & Worker Configuration
+    ingestion_dataflow_template_gcs_path = optional(string)
+    rollback_dataflow_template_gcs_path  = optional(string)
+    dataflow_max_workers                 = optional(number, 20)
+    dataflow_num_workers                 = optional(number, 4)
+    dataflow_worker_machine_type         = optional(string, "n2-standard-4")
+
+    # Ingestion Lock Approaching Retention Alerts & Scheduler Prober
+    enable_lock_retention_alerts       = optional(bool, false)
+    enable_lock_retention_alert_50pct  = optional(bool, true)
+    enable_lock_retention_alert_90pct  = optional(bool, true)
+    enable_lock_retention_alert_100pct = optional(bool, true)
+    lock_alert_notification_channels   = optional(list(string), [])
+    enable_lock_status_scheduler       = optional(bool, false)
+    lock_status_ping_schedule          = optional(string, "*/10 * * * *")
   })
 }
+
+variable "load_balancer_config" {
+  type = object({
+    enable                         = bool
+    enable_cloud_armor             = optional(bool, true)
+    rate_limit_requests_per_minute = optional(number, 600)
+    rate_limit_ban_duration_sec    = optional(number, 60)
+    enable_owasp_waf_rules         = optional(bool, true)
+    allowed_ip_ranges              = optional(list(string), ["*"])
+    domains                        = optional(list(string), [])
+    https_redirect                 = optional(bool, false)
+  })
+  default = {
+    enable                         = false
+    enable_cloud_armor             = true
+    rate_limit_requests_per_minute = 600
+    rate_limit_ban_duration_sec    = 60
+    enable_owasp_waf_rules         = true
+    allowed_ip_ranges              = ["*"]
+    domains                        = []
+    https_redirect                 = false
+  }
+  description = "Configuration for the External Application Load Balancer and Cloud Armor policy in front of Cloud Run."
+}
+

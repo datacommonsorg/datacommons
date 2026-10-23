@@ -124,7 +124,7 @@ When deploying a personal DCP instance, Terraform provisions:
 4. **Google Cloud Run**: Serverless container execution:
    * Serving Service: `datacommons-services` running Envoy, Mixer, and Website.
    * Helper Service: `datacommons-ingestion-helper` managing locks, migration history, and embeddings.
-   * Batch Jobs: `datacommons-data` (preprocessor) and `datacommons-aggregation-helper` (postprocessor).
+   * Job: `datacommons-aggregation-helper` (postprocessor). The `datacommons-data` preprocessor runs on Cloud Batch instead. The workflow creates a new Batch job for each ingestion run.
 5. **Google Secret Manager**: Secure storage for your Data Commons API key.
 
 ---
@@ -211,7 +211,6 @@ ingestion_dataflow_max_workers                     = 50
 ingestion_dataflow_worker_machine_type             = "n2-standard-4"
 
 # Model Context Protocol (MCP) Serving Integration
-datacommons_services_enable_mcp                    = true
 datacommons_services_mcp_search_scope              = "base_and_custom"
 ```
 
@@ -270,15 +269,29 @@ echo "Serving URL: $SERVICE_URL"
 echo "Region:      $REGION"
 ```
 
-### 4. Grant Service Account Token Impersonation
-Grant your user identity permission to impersonate the Cloud Workflows orchestrator service account. This allows you to trigger database seeding and ingestion workflows via the CLI:
+### 4. Grant IAM Permissions for Database Setup and Workflow Execution
+Configure your user identity with permissions for direct Spanner administration and workflow execution:
 
-```bash
-gcloud iam service-accounts add-iam-policy-binding "$ORCHESTRATOR_SA" \
-    --member="user:$(gcloud config get-value account)" \
-    --role="roles/iam.serviceAccountTokenCreator" \
-    --project="$PROJECT_ID"
-```
+1. **Spanner Permissions (for `init-db`, `migrate-db`)**:
+   These commands connect directly to Cloud Spanner from your CLI. Grant `roles/spanner.databaseAdmin` and `roles/spanner.databaseUser` on your project:
+   ```bash
+   gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+       --member="user:$(gcloud config get-value account)" \
+       --role="roles/spanner.databaseAdmin"
+
+   gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+       --member="user:$(gcloud config get-value account)" \
+       --role="roles/spanner.databaseUser"
+   ```
+
+2. **Workflow Token Impersonation (for `ingest start`)**:
+   Grant your user identity permission to impersonate the Cloud Workflows orchestrator service account:
+   ```bash
+   gcloud iam service-accounts add-iam-policy-binding "$ORCHESTRATOR_SA" \
+       --member="user:$(gcloud config get-value account)" \
+       --role="roles/iam.serviceAccountTokenCreator" \
+       --project="$PROJECT_ID"
+   ```
 
 ---
 
@@ -307,7 +320,7 @@ https://console.cloud.google.com/?project=<PROJECT_ID>
 ### 3. Cloud Run (Services and Jobs)
 * In the search bar, type `Cloud Run` and view both tabs:
   * **Services**: Locate `<namespace>-dc-datacommons-service` (the Envoy, Mixer, and Website serving container) and `<namespace>-dc-ingestion-helper` (the coordination microservice). Click into `datacommons-service` to inspect CPU, memory, and logs.
-  * **Jobs**: Click the **Jobs** tab at the top. Locate `<namespace>-dc-prep-job` and `<namespace>-dc-post-job`. Cloud Run Jobs differ from Services: Services listen continuously for HTTP traffic, while Jobs run batch tasks to completion and terminate.
+  * **Jobs**: Click the **Jobs** tab at the top. Locate `<namespace>-dc-ingestion-postprocessing-job`. Cloud Run Jobs differ from Services: Services listen continuously for HTTP traffic, while Jobs run batch tasks to completion and terminate. Preprocessing doesn't appear here because it runs as a Cloud Batch job that the workflow creates during ingestion (Module 6).
 
 ### 4. Cloud Workflows
 * In the search bar, type `Workflows` and select **Workflows**.
@@ -334,11 +347,10 @@ datacommons admin init-db
 ```
 
 The CLI executes the following sequence:
-1. Reads Spanner outputs and the ingestion helper URL from your local Terraform state.
-2. Authenticates against the ingestion helper service using OIDC token impersonation.
-3. Applies base DDL scripts to create Spanner tables (`Node`, `Edge`, `Observation`, `TimeSeries`, `ImportStatus`, `IngestionHistory`).
+1. Reads Spanner instance, database, and region directly from your local Terraform state.
+2. Connects directly to Cloud Spanner using your authenticated credentials.
+3. Applies base DDL scripts to create Spanner tables (`Node`, `Edge`, `Observation`, `TimeSeries`, `ImportStatus`, `IngestionHistory`, `IngestionLock`, etc.).
 4. Runs pending [schema migration scripts](../schema_migrations_developer_guide.md).
-5. Seeds base metadata nodes (statistical variables, units, and sources).
 
 ### 2. Verify Tables in Spanner Studio
 Return to the Google Cloud Console, navigate to **Spanner > `<spanner_instance_id>` (e.g. `dcp-testing`) > `<namespace>-dc-db` > Spanner Studio**, and run the following queries:
@@ -401,13 +413,13 @@ Execution console link: https://console.cloud.google.com/workflows/workflow/us-c
 Click the console link printed in your terminal or open **Workflows > `<namespace>-dc-ingestion-workflow` > Executions**.
 Watch the workflow progress through its stages, and inspect the underlying compute jobs and logs in real time:
 
-1. **`run_preprocessing`**: Launches Cloud Run job `datacommons-data` to validate `config.json` and generate JSON-LD chunks.
-   * *Viewing Job Logs*: Open **Cloud Run > Jobs** in the console, click into `<namespace>-dc-prep-job`, click the active execution, and select the **Logs** tab to view schema validation and record sharding output.
+1. **`run_preprocessing`**: Creates a Cloud Batch job running `datacommons-data` to validate `config.json` and generate JSON-LD chunks.
+   * *Viewing Job Logs*: Open **Batch > Job list** in the console, click into the job named `<namespace>-prep-<timestamp>`, and select the **Logs** tab to view schema validation and record sharding output.
 2. **`try_acquire_lock`**: Contacts `datacommons-ingestion-helper` to acquire the database lock in Spanner.
 3. **`launch_dataflow`**: Launches the Apache Beam Dataflow job (`GraphIngestionPipeline`) to load nodes, edges, and observations into Spanner.
    * *Viewing Dataflow Graph and Logs*: Open **Dataflow > Jobs** in the console and click into the running job (named `graph-ingestion-pipeline-...`). You can view the live execution DAG (stages such as `ReadJSONLD`, `ExtractFacets`, and `WriteToSpanner`). Click the **Job Logs** tab for pipeline lifecycle events and the **Worker Logs** tab to stream real-time worker output.
 4. **`run_postprocessing_parallel`**: Runs BigQuery federated queries to materialize statistical variable groups and invokes Vertex AI text embeddings.
-   * *Viewing Postprocessing Logs*: Open **Cloud Run > Jobs**, click into `<namespace>-dc-post-job`, click the active execution, and select the **Logs** tab to observe BigQuery aggregation and vector embedding generation.
+   * *Viewing Postprocessing Logs*: Open **Cloud Run > Jobs**, click into `<namespace>-dc-ingestion-postprocessing-job`, click the active execution, and select the **Logs** tab to observe BigQuery aggregation and vector embedding generation.
 5. **`release_lock_step` & `restart_service`**: Releases the Spanner lock, clears the cache if Redis caching is enabled, and triggers a rolling container restart of `datacommons-services` if container restarts are enabled.
 
 Wait until the execution status displays a green checkmark (`Succeeded`).
@@ -553,7 +565,7 @@ Return to **Cloud Run > Services > `<namespace>-dc-datacommons-service`** in the
 2. Verify that the **Container image URL** displays `gcr.io/datcom-ci/datacommons-services:1.1.3`.
 3. Notice that Cloud Run automatically routed 100% of traffic to this new revision.
 
-> **Building Your Own Custom Images**: To learn how to build your own custom container images from `datcom-website` or `datcom-import` and push them to Artifact Registry using `gcloud builds submit`, refer to [Building and Overriding Container Images in the Developer Guide](../developer_guide.md#working-with-container-images-building-and-overriding).
+> **Building Your Own Custom Images**: To learn how to build your own custom container images from `website` or `import` and push them to Artifact Registry or Container Registry, refer to [Building and Overriding Container Images in the Developer Guide](../developer_guide.md#working-with-container-images-building-and-overriding).
 
 ---
 

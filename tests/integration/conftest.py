@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import contextlib
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -42,6 +44,7 @@ from tests.integration.core.target import ArtifactConfig, DCPTarget
 
 _GLOBAL_REPORTER: TestReporter | None = None
 _SESSION_START_TIME: float = 0.0
+_EMULATED_ENV: Any = None
 
 
 def pytest_runtest_setup(item):
@@ -384,6 +387,15 @@ def pytest_runtest_logreport(report):
             duration=report.duration,
             error_message=str(report.longrepr) if hasattr(report, "longrepr") else None,
         )
+    elif report.when in ("setup", "teardown") and report.failed:
+        # Fixture errors never reach the call phase; count them as failures so
+        # the report status (and the CI job) reflects them.
+        _GLOBAL_REPORTER.add_result(
+            nodeid=f"{report.nodeid} [{report.when} error]",
+            outcome="failed",
+            duration=report.duration,
+            error_message=str(report.longrepr),
+        )
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -467,15 +479,16 @@ def dcp_target(request, test_manifest) -> DCPTarget:
             returncode=1,
         )
 
-    env = None
+    global _EMULATED_ENV
     if instance_opt == "emulated":
         from tests.integration.emulated.environment import EmulatedEnvironment
 
         os.environ["SPANNER_EMULATOR_HOST"] = "localhost:9010"
         os.environ["STORAGE_EMULATOR_HOST"] = "http://localhost:9099"
-        env = EmulatedEnvironment()
+        if _EMULATED_ENV is None:
+            _EMULATED_ENV = EmulatedEnvironment()
         reuse_data_opt = request.config.getoption("--reuse-data", default=False)
-        env.start(manifest=test_manifest, reuse_data=reuse_data_opt)
+        _EMULATED_ENV.start(manifest=test_manifest, reuse_data=reuse_data_opt)
 
     if _GLOBAL_REPORTER is not None:
         _GLOBAL_REPORTER.set_artifacts(asdict(target.artifacts))
@@ -484,8 +497,9 @@ def dcp_target(request, test_manifest) -> DCPTarget:
 
     yield target
 
-    if env is not None and not request.config.getoption("--reuse-data"):
-        env.stop()
+    if _EMULATED_ENV is not None and not request.config.getoption("--reuse-data"):
+        _EMULATED_ENV.stop()
+        _EMULATED_ENV = None
 
 
 @pytest.fixture(scope="session")
@@ -507,24 +521,56 @@ def spanner_client(dcp_target: DCPTarget) -> SpannerClient:
     )
 
 
-@pytest.fixture(scope="session")
-def auth_headers() -> dict:
-    """Provides default HTTP headers with GCP Cloud Run identity token if authenticated."""
-    headers = {"X-Use-Multi-Entity-Schema": "true"}
-    try:
-        token = (
-            subprocess.check_output(
-                ["gcloud", "auth", "print-identity-token"],
-                stderr=subprocess.DEVNULL,
-                timeout=15,
+def _resolve_token_audience(serving_url: str | None) -> str | None:
+    """Resolves the OIDC audience for Cloud Run identity tokens.
+
+    Uses DCP_AUTH_AUDIENCE when set (e.g. the underlying .run.app URL when
+    serving behind a Load Balancer), otherwise the serving URL if it is a
+    direct Cloud Run endpoint.
+    """
+    audience = os.getenv("DCP_AUTH_AUDIENCE")
+    if audience:
+        return audience
+    if serving_url and "run.app" in serving_url:
+        return serving_url
+    return None
+
+
+def _fetch_cloud_run_identity_token(serving_url: str | None) -> str | None:
+    """Fetches an identity token for authenticating to Cloud Run."""
+    base_cmd = ["gcloud", "auth", "print-identity-token"]
+    # Service accounts can mint audience-scoped tokens; user accounts reject
+    # --audiences, so fall back to a plain identity token.
+    candidates = [base_cmd]
+    audience = _resolve_token_audience(serving_url)
+    if audience:
+        candidates.insert(0, [*base_cmd, f"--audiences={audience}"])
+    for cmd in candidates:
+        try:
+            token = (
+                subprocess.check_output(cmd, stderr=subprocess.DEVNULL, timeout=15)
+                .decode()
+                .strip()
             )
-            .decode()
-            .strip()
-        )
+        except Exception as e:
+            logging.getLogger(__name__).debug(
+                "Identity token command %s failed: %s", cmd, e
+            )
+            continue
         if token:
-            headers["Authorization"] = f"Bearer {token}"
-    except Exception:
-        pass
+            return token
+    return None
+
+
+@pytest.fixture(scope="session")
+def auth_headers(dcp_target: DCPTarget) -> dict[str, str]:
+    """Provides default HTTP headers, injecting Cloud Run identity token when authenticated."""
+    headers = {"X-Use-Multi-Entity-Schema": "true"}
+    token = _fetch_cloud_run_identity_token(
+        dcp_target.serving_url if dcp_target else None
+    )
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
     return headers
 
 
@@ -532,7 +578,13 @@ def auth_headers() -> dict:
 def dc_client(dcp_target: DCPTarget, auth_headers: dict):
     """Provides official datacommons-client Client connected to target testbed."""
     if not dcp_target.serving_url:
-        pytest.skip("Serving URL not configured for target instance.")
+        pytest.fail("Serving URL not configured for target instance.")
+
+    if dcp_target.instance_name == "emulated":
+        from tests.integration.emulated.environment import EmulatedEnvironment
+
+        env = _EMULATED_ENV or EmulatedEnvironment()
+        env.start_serving()
 
     orig_session_request = requests.Session.request
     orig_requests_get = requests.get
@@ -558,7 +610,9 @@ def dc_client(dcp_target: DCPTarget, auth_headers: dict):
         url = f"{dcp_target.serving_url}/core/api/v2"
         yield DataCommonsClient(url=url)
     except Exception as e:
-        pytest.skip(f"datacommons-client not initialized: {e}")
+        # An unreachable or unauthorized serving endpoint is an environment
+        # failure, not a reason to skip every serving test.
+        pytest.fail(f"datacommons-client not initialized: {e}")
     finally:
         requests.Session.request = orig_session_request
         requests.get = orig_requests_get
@@ -568,7 +622,14 @@ def dc_client(dcp_target: DCPTarget, auth_headers: dict):
 def mcp_client(dcp_target: DCPTarget, auth_headers: dict) -> MCPClient:
     """Provides client for executing MCP tools against {serving_url}/mcp."""
     if not dcp_target.serving_url:
-        pytest.skip("Serving URL not configured for target instance.")
+        pytest.fail("Serving URL not configured for target instance.")
+
+    if dcp_target.instance_name == "emulated":
+        from tests.integration.emulated.environment import EmulatedEnvironment
+
+        env = _EMULATED_ENV or EmulatedEnvironment()
+        env.start_serving()
+
     mcp_url = f"{dcp_target.serving_url}/mcp"
     return MCPClient(mcp_url=mcp_url, auth_headers=auth_headers)
 
@@ -622,6 +683,10 @@ def seeded_testbed(dcp_target, dcp_cli, spanner_client, test_manifest, request):
             project=dcp_target.project_id, credentials=creds
         )
         bucket = storage_client.bucket(bucket_clean)
+        if os.getenv("STORAGE_EMULATOR_HOST") or dcp_target.instance_name == "emulated":
+            with contextlib.suppress(Exception):
+                if not bucket.exists():
+                    bucket.create()
 
         for d in dataset_dirs:
             import_dir = repo_root / d if not Path(d).is_absolute() else Path(d)
@@ -643,5 +708,11 @@ def seeded_testbed(dcp_target, dcp_cli, spanner_client, test_manifest, request):
                     print(f"    ✔ Uploaded {file_path.name}")
     except Exception as e:
         raise RuntimeError(f"Failed to upload datasets to GCS: {e}") from e
+
+    if dcp_target.instance_name == "emulated":
+        from tests.integration.emulated.environment import EmulatedEnvironment
+
+        env = _EMULATED_ENV or EmulatedEnvironment()
+        env.start_serving(manifest=test_manifest)
 
     return dcp_target

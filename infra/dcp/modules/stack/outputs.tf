@@ -9,7 +9,11 @@ output "spanner_database_id" {
 }
 
 output "datacommons_service_url" {
-  value = length(module.datacommons_services) > 0 ? module.datacommons_services[0].service_url : null
+  description = "The serving URL for Data Commons services (Load Balancer URL if enabled, else Cloud Run URL)"
+  value = (
+    length(module.load_balancer) > 0 ? module.load_balancer[0].load_balancer_url :
+    (length(module.datacommons_services) > 0 ? module.datacommons_services[0].service_url : null)
+  )
 }
 
 output "datacommons_service_name" {
@@ -38,12 +42,7 @@ output "ingestion_workflow_name" {
 
 output "ingestion_service_url" {
   description = "URL of the ingestion support Cloud Run service"
-  value       = module.ingestion_helper_service.ingestion_helper_url
-}
-
-output "ingestion_prep_job_name" {
-  description = "Name of the data ingestion pre-processing job"
-  value       = length(module.ingestion_preprocessing_job) > 0 ? module.ingestion_preprocessing_job[0].job_name : null
+  value       = one(module.ingestion_helper_service[*].ingestion_helper_url)
 }
 
 output "ingestion_workflow_service_account_email" {
@@ -54,4 +53,59 @@ output "ingestion_workflow_service_account_email" {
 output "storage_artifacts_bucket_name" {
   description = "Name of the unified GCS bucket for artifacts"
   value       = module.storage.artifacts_bucket_name
+}
+
+output "datacommons_services_image" {
+  description = "Container image URI used by the Data Commons serving service"
+  value       = length(module.datacommons_services) > 0 ? module.datacommons_services[0].image : null
+}
+
+output "ingestion_helper_image" {
+  description = "Container image URI used by the ingestion helper service"
+  value       = one(module.ingestion_helper_service[*].image)
+}
+
+output "ingestion_preprocessing_image" {
+  description = "Container image URI used by the Cloud Batch preprocessing job"
+  value       = var.ingestion_config.enable_ingestion ? module.ingestion_workflow.preprocessing_job_image : null
+}
+
+output "ingestion_postprocessing_image" {
+  description = "Container image URI used by the Cloud Run postprocessing job"
+  value       = var.ingestion_config.enable_ingestion ? module.ingestion_postprocessing_job[0].image : null
+}
+
+output "ingestion_dataflow_template_gcs_path" {
+  description = "GCS path to the Dataflow flex template specification"
+  value       = var.ingestion_config.enable_ingestion ? module.ingestion_workflow.ingestion_dataflow_template_gcs_path : null
+}
+
+output "network_id" {
+  description = "ID of the VPC network"
+  value       = module.network.network_id
+}
+
+output "subnet_id" {
+  description = "ID of the private subnetwork"
+  value       = module.network.subnet_id
+}
+
+output "subnet_url" {
+  description = "URL / self_link of the private subnetwork"
+  value       = module.network.subnet_url
+}
+
+output "load_balancer_ip" {
+  description = "The external IP address of the External Application Load Balancer."
+  value       = length(module.load_balancer) > 0 ? module.load_balancer[0].load_balancer_ip : null
+}
+
+output "load_balancer_url" {
+  description = "The entrypoint URL for the Load Balancer (https://<first domain> when HTTPS is enabled, else http://<ip>)."
+  value       = length(module.load_balancer) > 0 ? module.load_balancer[0].load_balancer_url : null
+}
+
+output "load_balancer_ssl_certificate_name" {
+  description = "Name of the Google-managed SSL certificate on the Load Balancer (null when HTTPS is disabled)."
+  value       = one(module.load_balancer[*].ssl_certificate_name)
 }
