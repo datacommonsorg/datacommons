@@ -27,11 +27,9 @@ resource "google_spanner_database" "database" {
 }
 
 # Create BigQuery Connection to Spanner.
-#
-# BigQuery federated queries and EXPORT DATA to Spanner run as the caller's
-# identity (the postprocessing job service account), which is granted Spanner
-# access in the postprocessing_job module. No Google-managed service agent needs
-# Spanner access here.
+# Queries through this connection run as the calling identity, so Spanner
+# access is granted to the caller (the postprocessing job SA), not to the
+# connection.
 resource "google_bigquery_connection" "spanner_connection" {
   count         = var.enable_bigquery_connection ? 1 : 0
   location      = var.region
@@ -43,8 +41,6 @@ resource "google_bigquery_connection" "spanner_connection" {
     use_parallelism = true
   }
 }
-
-
 
 # Create the BigQuery Reservation for Federation queries
 resource "google_bigquery_reservation" "default" {
