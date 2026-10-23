@@ -83,6 +83,16 @@ CREATE INDEX KeyValueStoreByProvenance ON KeyValueStore(provenance) OPTIONS (
   columnar_policy = 'enabled'
 );
 
+CREATE TABLE LinkedEdge (
+  predicate STRING(1024) NOT NULL,
+  ancestor STRING(1024) NOT NULL,
+  child_type STRING(1024) NOT NULL,
+  child STRING(1024) NOT NULL,
+  provenance STRING(1024) NOT NULL,
+) PRIMARY KEY(predicate, ancestor, child_type, child, provenance), OPTIONS (
+  columnar_policy = 'enabled'
+);
+
 CREATE TABLE Node (
   subject_id STRING(1024) NOT NULL,
   value STRING(MAX),
