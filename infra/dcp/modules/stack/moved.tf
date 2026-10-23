@@ -1,11 +1,17 @@
 # State migrations for resources within modules/stack.
 #
-# PR #303 moved `count = var.deploy ? 1 : 0` from individual resources inside
-# `modules/ingestion/helper_service` up to the caller `module "ingestion_helper_service"`
-# block in `modules/stack/main.tf`.
+# Guideline for contributors:
+# When refactoring changes a resource's Terraform state address (renaming,
+# moving between modules, or shifting count/for_each to callers), add a moved
+# block below under a version header to preserve live state across upgrades.
+# Group blocks by the target release version where the address changed.
+
+# -----------------------------------------------------------------------------
+# Upgrades from <= 1.1.6 (introduced in 1.1.7)
 #
-# These moved blocks preserve the existing Terraform state addresses across upgrades
-# from DCP 1.1.6 to prevent destroy-and-recreate cycles on live resources.
+# Module "ingestion_helper_service" moved count to the caller module, changing
+# child resource addresses from unindexed to indexed (`module.ingestion_helper_service[0]`).
+# -----------------------------------------------------------------------------
 
 moved {
   from = module.ingestion_helper_service.google_service_account.helper_sa[0]

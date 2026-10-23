@@ -173,6 +173,8 @@ Keep `.tftest.hcl` files fast and readable by grouping assertions into a minimal
 > }
 > ```
 > Terraform updates the state address in place (`0 to destroy`) without touching the live GCP resource.
+>
+> When adding moved blocks to `infra/dcp/modules/stack/moved.tf`, group them under a visual banner indicating the release version where the address changed (for example, `# Upgrades from <= 1.1.6 (introduced in 1.1.7)`).
 
 ---
 
