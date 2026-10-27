@@ -98,7 +98,10 @@ jobs:
   hermetic-integration-test:
     needs: fileset-diff
     if: github.event_name == 'push' || github.event_name == 'merge_group' || needs.fileset-diff.outputs.code_changes == 'true'
-    runs-on: ubuntu-latest
+    # Pinned to 24.04: on the ubuntu-26.04 image (ubuntu-latest since Oct 2026)
+    # the fake-gcs-server emulator is unreachable on localhost:9099 and every
+    # ingestion-dependent test fails. Move back to ubuntu-latest once fixed.
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
