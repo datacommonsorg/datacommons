@@ -48,7 +48,7 @@ gcloud builds submit \
 * `_TARGET_VERSION`: The target candidate version tag (e.g. `1.1.2rc1`) [Required].
 * `_DEFAULT_SOURCE_TAG`: Baseline source tag inherited by all container images and the Dataflow template unless overridden.
 * `_SERVICES_TAG`: Source tag or commit SHA for `datacommons-services`.
-* `_PREPROCESSOR_TAG`: Source tag for `datacommons-data` (preprocessor).
+* `_PREPROCESSOR_TAG`: Source tag for `datacommons-data` (preprocessor). Automated builds tag it with the 7-character `import` commit SHA.
 * `_POSTPROCESSOR_TAG`: Source tag for `datacommons-aggregation-helper` (postprocessor).
 * `_INGESTION_HELPER_TAG`: Source tag for `datacommons-ingestion-helper`.
 * `_DATAFLOW_TEMPLATE_TAG`: Source tag for Dataflow Flex Template spec in GCS (redirects `latest` to `stable`).
