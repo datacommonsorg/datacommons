@@ -12,7 +12,7 @@ variable "env_secrets" {
     Map of secrets to grant access to and mount in the job, where the key is the environment variable name.
     Example:
     {
-      "MAPS_API_KEY" = {
+      "DC_API_KEY" = {
         secret_id = "projects/my-project/secrets/my-secret"
         enabled   = true
         version   = "latest" # Optional, defaults to "latest"
