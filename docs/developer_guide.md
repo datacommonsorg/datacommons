@@ -207,7 +207,7 @@ DCP microservices and batch pipelines run in serverless Google Cloud Run contain
 | Component Name | Role | Dockerfile & Build Script | Destination Registry (Dev) | `terraform.tfvars` Override |
 | :--- | :--- | :--- | :--- | :--- |
 | **`datacommons-services`** | Envoy, Mixer API, Website serving | `website:build/cdc_services/Dockerfile`<br>`website:scripts/push_cdc_services_image.sh` | `gcr.io/<project_id>/datacommons-services:<tag>` | `datacommons_services_image` |
-| **`datacommons-data`** | Preprocessor batch job | `website:build/cdc_data/Dockerfile`<br>`website:scripts/push_cdc_data_image.sh` | `gcr.io/<project_id>/datacommons-data:<tag>` | `ingestion_preprocessing_job_image` |
+| **`datacommons-data`** | Preprocessor batch job | `import:simple/Dockerfile`<br>`import:simple/scripts/push_image.sh` | `gcr.io/<project_id>/datacommons-data:<tag>` | `ingestion_preprocessing_job_image` |
 | **`datacommons-aggregation-helper`** | Postprocessor aggregation job | `import:pipeline/workflow/aggregation-helper/Dockerfile` | `gcr.io/<project_id>/datacommons-aggregation-helper:<tag>` | `ingestion_postprocessing_job_image` |
 | **`datacommons-ingestion-helper`** | Lock coordination & migrations | `import:pipeline/workflow/ingestion-helper/Dockerfile` | `us-docker.pkg.dev/<project_id>/<repository>/datacommons-ingestion-helper:<tag>` | `ingestion_helper_service_image` |
 | **`ingestion-flex`** | Apache Beam Dataflow pipeline | `import:pipeline/ingestion/cloudbuild.yaml` | `us-docker.pkg.dev/<project_id>/<repository>/dataflow-templates/ingestion:<tag>`<br>`gs://<storage_artifacts_bucket_name>/templates/flex/ingestion-<tag>.json` | `ingestion_dataflow_template_gcs_path` |
@@ -217,7 +217,7 @@ DCP microservices and batch pipelines run in serverless Google Cloud Run contain
 Build custom container images and push them to Google Container Registry (GCR) or Artifact Registry:
 
 ##### Serving Services (`datacommons-services`)
-The `website` repository incorporates `mixer` and `import` as Git submodules. If your changes involve code inside Mixer or Import, align the submodules before triggering the build:
+The `website` repository incorporates `mixer` as a Git submodule. If your changes involve code inside Mixer, align the submodule before triggering the build:
 
 ```bash
 cd /path/fork/of/datacommonsorg/website
@@ -225,10 +225,9 @@ cd /path/fork/of/datacommonsorg/website
 # (Optional) Align submodules:
 # Option A: Checkout specific feature branches:
 cd mixer && git checkout <mixer_feature_branch> && cd ..
-cd import && git checkout <import_feature_branch> && cd ..
 
 # Option B: Sync submodules with upstream master:
-git submodule update --remote --merge
+git submodule update --remote --merge mixer
 
 # Build and push custom datacommons-services image to development project:
 export PROJECT_ID="datcom-website-dev"
@@ -244,26 +243,20 @@ export SERVICES_TAG="<username>-<feature>-$(date +%s)"
 
 ##### Preprocessor (`datacommons-data`)
 ```bash
-cd /path/fork/of/datacommonsorg/website
-
-# (Optional) Align import submodule:
-# Option A: Checkout a specific feature branch:
-cd import && git checkout <import_feature_branch> && cd ..
-
-# Option B: Sync import submodule with upstream master:
-git submodule update --remote --merge import
+cd /path/fork/of/datacommonsorg/import
+git checkout <feature_branch>
 
 # Build and push custom datacommons-data image to development project:
 export PROJECT_ID="datcom-website-dev"
 export PREPROCESSOR_TAG="<username>-<feature>-$(date +%s)"
-./scripts/push_cdc_data_image.sh "$PREPROCESSOR_TAG" "$PROJECT_ID"
+./simple/scripts/push_image.sh "$PREPROCESSOR_TAG" "$PROJECT_ID"
 
 # Resulting Image URI:
 # gcr.io/$PROJECT_ID/datacommons-data:<PREPROCESSOR_TAG>
 ```
 
 > [!NOTE]
-> `scripts/push_cdc_data_image.sh` invokes `build/ci/cloudbuild.push_cdc_data_image.yaml` to build `build/cdc_data/Dockerfile` using `gcr.io/datcom-ci/datacommons-data:latest` as the layer cache. The second argument specifies the destination GCP project (`$PROJECT_ID`); if omitted, it defaults to `datcom-ci` (`gcr.io/datcom-ci/datacommons-data:<PREPROCESSOR_TAG>`).
+> `simple/scripts/push_image.sh` uploads only the `simple/` directory from your working tree (including uncommitted changes) and builds it with `simple/cloudbuild.yaml`, using `gcr.io/datcom-ci/datacommons-data:latest` as the layer cache. The second argument specifies the destination GCP project (`$PROJECT_ID`); if omitted, it defaults to `datcom-ci`. To build and run the image locally instead, see [Local Docker Build & Run](https://github.com/datacommonsorg/import/tree/master/simple#local-docker-build--run).
 
 ##### Postprocessor (`datacommons-aggregation-helper`)
 ```bash
