@@ -86,8 +86,7 @@ variable "preprocessing_config" {
     timeout = optional(string)
 
     # Identity
-    service_account_email     = string
-    dc_api_key_secret_version = optional(string, "")
+    service_account_email = string
   })
 }
 

@@ -170,10 +170,6 @@ module "ingestion_preprocessing_job" {
   project_id    = var.global.project_id
   instance_name = var.global.instance_name
   env_secrets = {
-    DC_API_KEY = {
-      secret_id = module.auth.dc_api_key_secret_id
-      enabled   = true
-    }
     MAPS_API_KEY = {
       secret_id = module.auth.maps_api_key_secret_id
       enabled   = var.auth_config.google_maps_api_key != null || var.auth_config.create_google_maps_key
@@ -263,12 +259,11 @@ module "ingestion_workflow" {
   dataflow_num_workers                 = var.ingestion_config.dataflow_num_workers
   dataflow_worker_machine_type         = var.ingestion_config.dataflow_worker_machine_type
   preprocessing_config = {
-    image                     = var.ingestion_config.preprocessing_job_image
-    cpu                       = var.ingestion_config.preprocessing_job_cpu
-    memory                    = var.ingestion_config.preprocessing_job_memory
-    timeout                   = var.ingestion_config.preprocessing_job_timeout
-    service_account_email     = length(module.ingestion_preprocessing_job) > 0 ? module.ingestion_preprocessing_job[0].service_account_email : ""
-    dc_api_key_secret_version = module.auth.dc_api_key_secret_id != "" ? "${module.auth.dc_api_key_secret_id}/versions/latest" : ""
+    image                 = var.ingestion_config.preprocessing_job_image
+    cpu                   = var.ingestion_config.preprocessing_job_cpu
+    memory                = var.ingestion_config.preprocessing_job_memory
+    timeout               = var.ingestion_config.preprocessing_job_timeout
+    service_account_email = length(module.ingestion_preprocessing_job) > 0 ? module.ingestion_preprocessing_job[0].service_account_email : ""
   }
   postprocessing_job_name             = var.ingestion_config.enable_ingestion ? module.ingestion_postprocessing_job[0].job_name : ""
   enable_datacommons_services_restart = var.datacommons_services_config.enable
