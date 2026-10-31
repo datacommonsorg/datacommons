@@ -46,6 +46,42 @@ If you only modified Terraform configurations, alert recipients, cron schedules,
 
 ---
 
+## Testing a Branch Image on the Prober
+
+To check that a prober change passes before you merge it, run the `dcp-prober` job once on an image built from your branch. The image contains the test harness, test data and `prober_runner.py`. The CLI and Terraform still come from `main` at runtime, so this doesn't test changes to them.
+
+This points the production job at your image. Scheduled runs use it until the next merge under `tests/integration/**`, when CI moves the job back to an image built from `main`.
+
+1. From the repository root on your branch, build and push the image with a dev tag such as `alice-pr123`. The script leaves `:latest` and the job unchanged.
+
+   ```bash
+   ./tests/integration/prober/deploy/push_image.sh <dev-tag>
+   ```
+
+2. Point the job at your image:
+
+   ```bash
+   gcloud run jobs update dcp-prober --image=us-docker.pkg.dev/datcom-ci/datcom-tools/datacommons-platform-prober:<dev-tag> \
+     --region=us-central1 --project=datcom-dcp
+   ```
+
+3. Run the prober and wait for it to finish, which takes about 10 minutes:
+
+   ```bash
+   gcloud run jobs execute dcp-prober --region=us-central1 --project=datcom-dcp --wait
+   ```
+
+   If the run fails, the `PROBER EXECUTION SUMMARY` line at the end of the execution's logs shows which stage failed.
+
+4. If your image fails and you aren't fixing it right away, switch the job back to the latest image from `main`:
+
+   ```bash
+   gcloud run jobs update dcp-prober --image=us-docker.pkg.dev/datcom-ci/datcom-tools/datacommons-platform-prober:latest \
+     --region=us-central1 --project=datcom-dcp
+   ```
+
+---
+
 ## ⚙️ Available CLI Options
 
 | Flag | Default | Description |
@@ -69,7 +105,7 @@ When you run `./deploy_prober.sh`, the deployment executes two main phases:
 
 ### Phase 1: Container Build (Cloud Build)
 * Packages Terraform 1.10, `uv`, `gcloud-cli`, Python dependencies, and `prober_runner.py` using [`Dockerfile`](Dockerfile) and [`cloudbuild.yaml`](cloudbuild.yaml).
-* Pushes the image to Artifact Registry at `us-docker.pkg.dev/datcom-ci/datcom-tools/datacommons-platform-prober:latest`.
+* Pushes the image to Artifact Registry at `us-docker.pkg.dev/datcom-ci/datcom-tools/datacommons-platform-prober`, tagged `:<image-tag>` (default `latest`) and `:<short-commit-sha>`.
 * Ensures the target project's Cloud Run Service Agent has `roles/artifactregistry.reader` on `datcom-ci`.
 
 ### Phase 2: Cloud Infrastructure Provisioning (Terraform)
