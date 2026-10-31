@@ -48,22 +48,25 @@ If you only modified Terraform configurations, alert recipients, cron schedules,
 
 ## Testing a Branch Image on the Prober
 
-To check that a branch passes the prober before merging, build a prober image from the branch and run the `dcp-prober` job once with it.
+To check that a branch passes the prober before merging, build a prober image from the branch and run the `dcp-prober` job once with it. The image contains the test harness, test data and `prober_runner.py`. The prober installs the `datacommons` CLI and Terraform from `main` at runtime, so this only tests changes to the files built into the image.
 
-1. Save the current `:latest` digest so you can roll back:
+Every image is tagged with a moving `_TAG` (default `latest`) and a permanent `_VERSION` (the commit's short SHA in CI). The build points the `dcp-prober` job at the `_VERSION` tag.
+
+1. Note the job's current image so you can roll back:
 
    ```bash
    REG=us-docker.pkg.dev/datcom-ci/datcom-tools/datacommons-platform-prober
-   gcloud artifacts docker images describe $REG:latest --format='value(image_summary.digest)'
+   gcloud run jobs describe dcp-prober --region=us-central1 --project=datcom-dcp \
+     --format='value(spec.template.spec.template.spec.containers[0].image)'
    ```
 
-2. From the repository root on your branch, build the image. `_TAG` sets the image's dev tag. The build also tags `:latest` and points the `dcp-prober` job at the dev tag. It runs as the same service account as the CI trigger, which has permission to update the job.
+2. From the repository root on your branch, build the image with your dev tag as `_VERSION`. The build pushes `:<dev-tag>` and `:latest` and then points the `dcp-prober` job at `:<dev-tag>`. It runs as the same service account as the CI trigger, which has permission to update the job.
 
    ```bash
    gcloud builds submit --project=datcom-ci \
      --service-account=projects/datcom-ci/serviceAccounts/datcom-dcp-prober-deployer-sa@datcom-ci.iam.gserviceaccount.com \
      --config=tests/integration/prober/deploy/cloudbuild.yaml \
-     --substitutions=_TAG=<dev-tag>,_COMMIT_SHA=$(git rev-parse HEAD) .
+     --substitutions=_VERSION=<dev-tag>,_COMMIT_SHA=$(git rev-parse HEAD) .
    ```
 
    If you can't run builds as that service account, add `_UPDATE_JOB=false` to the substitutions and update the job yourself after the build finishes:
@@ -80,11 +83,10 @@ To check that a branch passes the prober before merging, build a prober image fr
 
 4. Check the result. A passing run ends with a `PROBER EXECUTION SUMMARY` log line showing `"integration_tests": "PASSED"`.
 
-This changes the production prober. Scheduled runs keep using your image until the next merge under `tests/integration/**`, which rebuilds `:latest` from `main` and points the job back to it. To roll back sooner, retag the saved digest and update the job:
+This changes the production prober. Scheduled runs keep using your image until the next merge under `tests/integration/**`, which pushes a new `:latest` and points the job at that commit's SHA tag. To roll back sooner, point the job at the image from step 1. If that image is `:latest`, also retag `:latest` to the digest it had before your build (`gcloud artifacts docker tags add $REG@<digest> $REG:latest`).
 
 ```bash
-gcloud artifacts docker tags add $REG@<saved-digest> $REG:latest
-gcloud run jobs update dcp-prober --image=$REG:latest --region=us-central1 --project=datcom-dcp
+gcloud run jobs update dcp-prober --image=<image-from-step-1> --region=us-central1 --project=datcom-dcp
 ```
 
 ---
@@ -112,7 +114,7 @@ When you run `./deploy_prober.sh`, the deployment executes two main phases:
 
 ### Phase 1: Container Build (Cloud Build)
 * Packages Terraform 1.10, `uv`, `gcloud-cli`, Python dependencies, and `prober_runner.py` using [`Dockerfile`](Dockerfile) and [`cloudbuild.yaml`](cloudbuild.yaml).
-* Pushes the image to Artifact Registry at `us-docker.pkg.dev/datcom-ci/datcom-tools/datacommons-platform-prober:latest`.
+* Pushes the image to Artifact Registry at `us-docker.pkg.dev/datcom-ci/datcom-tools/datacommons-platform-prober`, tagged `:<image-tag>` (default `latest`) and `:<short-commit-sha>`.
 * Ensures the target project's Cloud Run Service Agent has `roles/artifactregistry.reader` on `datcom-ci`.
 
 ### Phase 2: Cloud Infrastructure Provisioning (Terraform)
