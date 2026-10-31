@@ -46,6 +46,42 @@ If you only modified Terraform configurations, alert recipients, cron schedules,
 
 ---
 
+## Testing a Branch Image on the Prober
+
+To check that a branch passes the prober before merging, build a prober image from the branch and run the `dcp-prober` job once with it.
+
+1. Save the current `:latest` digest so you can roll back:
+
+   ```bash
+   REG=us-docker.pkg.dev/datcom-ci/datcom-tools/datacommons-platform-prober
+   gcloud artifacts docker images describe $REG:latest --format='value(image_summary.digest)'
+   ```
+
+2. From the repository root on your branch, build the image. `_TAG` sets the image's dev tag. The build also tags `:latest` and points the `dcp-prober` job at the dev tag.
+
+   ```bash
+   gcloud builds submit --project=datcom-ci \
+     --config=tests/integration/prober/deploy/cloudbuild.yaml \
+     --substitutions=_TAG=<dev-tag>,_COMMIT_SHA=$(git rev-parse HEAD) .
+   ```
+
+3. Run the prober once and wait for it to finish (about 10 minutes):
+
+   ```bash
+   gcloud run jobs execute dcp-prober --region=us-central1 --project=datcom-dcp --wait
+   ```
+
+4. Check the result. A passing run ends with a `PROBER EXECUTION SUMMARY` log line showing `"integration_tests": "PASSED"`.
+
+This changes the production prober. Scheduled runs keep using your image until the next merge under `tests/integration/**`, which rebuilds `:latest` from `main` and points the job back to it. To roll back sooner, retag the saved digest and update the job:
+
+```bash
+gcloud artifacts docker tags add $REG@<saved-digest> $REG:latest
+gcloud run jobs update dcp-prober --image=$REG:latest --region=us-central1 --project=datcom-dcp
+```
+
+---
+
 ## ⚙️ Available CLI Options
 
 | Flag | Default | Description |
