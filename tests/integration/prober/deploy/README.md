@@ -57,12 +57,19 @@ To check that a branch passes the prober before merging, build a prober image fr
    gcloud artifacts docker images describe $REG:latest --format='value(image_summary.digest)'
    ```
 
-2. From the repository root on your branch, build the image. `_TAG` sets the image's dev tag. The build also tags `:latest` and points the `dcp-prober` job at the dev tag.
+2. From the repository root on your branch, build the image. `_TAG` sets the image's dev tag. The build also tags `:latest` and points the `dcp-prober` job at the dev tag. It runs as the same service account as the CI trigger, which has permission to update the job.
 
    ```bash
    gcloud builds submit --project=datcom-ci \
+     --service-account=projects/datcom-ci/serviceAccounts/datcom-dcp-prober-deployer-sa@datcom-ci.iam.gserviceaccount.com \
      --config=tests/integration/prober/deploy/cloudbuild.yaml \
      --substitutions=_TAG=<dev-tag>,_COMMIT_SHA=$(git rev-parse HEAD) .
+   ```
+
+   If you can't run builds as that service account, add `_UPDATE_JOB=false` to the substitutions and update the job yourself after the build finishes:
+
+   ```bash
+   gcloud run jobs update dcp-prober --image=$REG:<dev-tag> --region=us-central1 --project=datcom-dcp
    ```
 
 3. Run the prober once and wait for it to finish (about 10 minutes):
