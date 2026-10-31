@@ -191,6 +191,5 @@ class TestSpannerGraph:
         assert not proxies, (
             f"{len(proxies)} of {entity_count} observation entities are stored as local "
             f"Node rows (proxy entities): {proxies[:10]}. Mixer will serve them from "
-            "Spanner instead of Base DC. Check that the preprocessor runs with "
-            "IMPORT_PROXY_ENTITIES=false."
+            "Spanner instead of Base DC."
         )
