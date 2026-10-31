@@ -52,23 +52,20 @@ To check that a prober change passes before you merge it, run the `dcp-prober` j
 
 This points the production job at your image. Scheduled runs use it until the next merge under `tests/integration/**`, when CI moves the job back to an image built from `main`.
 
-1. From the repository root on your branch, build and push the image with a dev tag such as `alice-pr123`. The build points the job at that tag and leaves `:latest` unchanged.
+1. From the repository root on your branch, build and push the image with a dev tag such as `alice-pr123`. The script leaves `:latest` and the job unchanged.
 
    ```bash
-   gcloud builds submit --project=datcom-ci \
-     --service-account=projects/datcom-ci/serviceAccounts/datcom-dcp-prober-deployer-sa@datcom-ci.iam.gserviceaccount.com \
-     --config=tests/integration/prober/deploy/cloudbuild.yaml \
-     --substitutions=_TAG=<dev-tag>,_VERSION=<dev-tag>,_COMMIT_SHA=$(git rev-parse HEAD) .
+   ./tests/integration/prober/deploy/push_image.sh <dev-tag>
    ```
 
-   The build runs as the CI trigger's service account, because the default Cloud Build account can't update the job. If you can't run builds as that account, add `_UPDATE_JOB=false` and point the job at your image yourself:
+2. Point the job at your image:
 
    ```bash
    gcloud run jobs update dcp-prober --image=us-docker.pkg.dev/datcom-ci/datcom-tools/datacommons-platform-prober:<dev-tag> \
      --region=us-central1 --project=datcom-dcp
    ```
 
-2. Run the prober and wait for it to finish, which takes about 10 minutes:
+3. Run the prober and wait for it to finish, which takes about 10 minutes:
 
    ```bash
    gcloud run jobs execute dcp-prober --region=us-central1 --project=datcom-dcp --wait
@@ -76,7 +73,7 @@ This points the production job at your image. Scheduled runs use it until the ne
 
    If the run fails, the `PROBER EXECUTION SUMMARY` line at the end of the execution's logs shows which stage failed.
 
-3. If your image fails and you aren't fixing it right away, switch the job back to the latest image from `main`:
+4. If your image fails and you aren't fixing it right away, switch the job back to the latest image from `main`:
 
    ```bash
    gcloud run jobs update dcp-prober --image=us-docker.pkg.dev/datcom-ci/datcom-tools/datacommons-platform-prober:latest \
