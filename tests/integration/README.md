@@ -149,7 +149,6 @@ uv run python tests/integration/run_e2e_tests.py \
 tests/integration/
 ├── README.md                      # This documentation
 ├── run_e2e_tests.py               # Master CLI & programmatic runner
-├── conftest.py                    # Pytest lifecycle hooks & dynamic parameterization
 │
 ├── emulated/                      # Hermetic Local Docker Compose Stack & Cloud Build CI
 │   ├── README.md                  # Local emulated architecture & usage guide
@@ -180,6 +179,7 @@ tests/integration/
 │   └── foobar_education/          # FooBar Education CSV, MCF, config.json, test_spec.yaml
 │
 ├── suites/                        # Generic, dataset-agnostic test suites
+│   ├── conftest.py                # Pytest lifecycle hooks & dynamic parameterization
 │   ├── 00_setup/                  # Database schema baseline & migration initialization
 │   ├── 01_ingestion/              # CLI Ingestion & Cloud Spanner graph verification
 │   ├── 02_postprocessing/         # SVG hierarchy trees & vector embeddings
