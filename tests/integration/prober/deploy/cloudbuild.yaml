@@ -13,21 +13,32 @@
 # limitations under the License.
 
 steps:
-  # 1. Build and push container image (tagged with both :${_TAG} and :latest)
+  # 1. Build and push container image tagged with the moving :${_TAG} and the
+  #    permanent :${_VERSION}. Images are pushed here, not via `images:`, so they
+  #    exist in the registry before step 2 points the job at them.
   - name: 'gcr.io/cloud-builders/docker'
     id: 'build-prober-image'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
+        set -e
+        if [ -z "${_VERSION}" ]; then
+          echo "ERROR: _VERSION is empty. Pass --substitutions=_VERSION=<tag> for manual builds." >&2
+          exit 1
+        fi
         docker pull ${_REGISTRY_BASE}/${_IMAGE_NAME}:latest || true
         docker build \
           --build-arg COMMIT_SHA=${_COMMIT_SHA} \
           --cache-from ${_REGISTRY_BASE}/${_IMAGE_NAME}:latest \
           -t ${_REGISTRY_BASE}/${_IMAGE_NAME}:${_TAG} \
-          -t ${_REGISTRY_BASE}/${_IMAGE_NAME}:latest \
+          -t ${_REGISTRY_BASE}/${_IMAGE_NAME}:${_VERSION} \
           -f tests/integration/prober/deploy/Dockerfile \
           .
+        docker push ${_REGISTRY_BASE}/${_IMAGE_NAME}:${_TAG}
+        if [ "${_VERSION}" != "${_TAG}" ]; then
+          docker push ${_REGISTRY_BASE}/${_IMAGE_NAME}:${_VERSION}
+        fi
 
   # 2. Update Cloud Run Job (only on automated CI/CD trigger; skipped during Terraform local deploy)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
@@ -37,9 +48,9 @@ steps:
       - '-c'
       - |
         if [ "${_UPDATE_JOB}" = "true" ]; then
-          echo "Updating Cloud Run Job '${_PROBER_NAME}' with new image ${_REGISTRY_BASE}/${_IMAGE_NAME}:${_TAG}..."
+          echo "Updating Cloud Run Job '${_PROBER_NAME}' with new image ${_REGISTRY_BASE}/${_IMAGE_NAME}:${_VERSION}..."
           gcloud run jobs update ${_PROBER_NAME} \
-            --image="${_REGISTRY_BASE}/${_IMAGE_NAME}:${_TAG}" \
+            --image="${_REGISTRY_BASE}/${_IMAGE_NAME}:${_VERSION}" \
             --region="${_REGION}" \
             --project="${_PROJECT_ID}"
         else
@@ -48,19 +59,17 @@ steps:
 
 substitutions:
   _UPDATE_JOB: 'true'
-  _COMMIT_SHA: 'latest'
+  _COMMIT_SHA: '${COMMIT_SHA}'
   _TAG: 'latest'
+  _VERSION: '${SHORT_SHA}'
   _PROJECT_ID: 'datcom-dcp'
   _PROBER_NAME: 'dcp-prober'
   _REGION: 'us-central1'
   _IMAGE_NAME: 'datacommons-platform-prober'
   _REGISTRY_BASE: 'us-docker.pkg.dev/datcom-ci/datcom-tools'
 
-images:
-  - '${_REGISTRY_BASE}/${_IMAGE_NAME}:${_TAG}'
-  - '${_REGISTRY_BASE}/${_IMAGE_NAME}:latest'
-
 options:
   machineType: 'E2_HIGHCPU_8'
   logging: CLOUD_LOGGING_ONLY
+  dynamic_substitutions: true
 
