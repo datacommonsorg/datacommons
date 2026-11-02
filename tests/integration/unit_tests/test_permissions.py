@@ -121,6 +121,16 @@ def test_classify_http_response(status_code: int, expected: ProbeOutcome) -> Non
             ProbeOutcome.RETRY,
         ),
         (auth_exceptions.RefreshError("Reauthentication required"), ProbeOutcome.FAIL),
+        # OAuth2 token endpoint bodies use a string "error" (expired user ADC).
+        (
+            auth_exceptions.RefreshError("invalid_grant", {"error": "invalid_grant"}),
+            ProbeOutcome.FAIL,
+        ),
+        (
+            auth_exceptions.RefreshError("invalid_grant", '{"error": "invalid_grant"}'),
+            ProbeOutcome.FAIL,
+        ),
+        (auth_exceptions.RefreshError("x", "not json"), ProbeOutcome.FAIL),
         (api_exceptions.Forbidden("denied"), ProbeOutcome.RETRY),
         (api_exceptions.PermissionDenied("denied"), ProbeOutcome.RETRY),
         (api_exceptions.TooManyRequests("slow down"), ProbeOutcome.RETRY),
@@ -154,7 +164,7 @@ def test_run_check_passes_immediately() -> None:
         time.monotonic() + 60,
     )
     assert result.passed
-    assert result.elapsed_sec >= 0
+    assert "Verified after" in result.details
 
 
 def test_run_check_polls_until_propagated() -> None:
@@ -179,9 +189,12 @@ def test_run_check_times_out_with_last_error_and_hint() -> None:
     # Situation: The probe always returns RETRY and the deadline has passed.
     # Expectation: The check fails with the last error and the missing-role hint.
     result = _checker()._run_check(
-        PermissionCheck(name="c", probe=_sequence(RETRY)),
+        PermissionCheck(
+            name="c",
+            probe=_sequence(RETRY),
+            required_role="roles/workflows.invoker",
+        ),
         time.monotonic() - 1,
-        missing_grant_hint="roles/workflows.invoker",
     )
     assert not result.passed
     assert "HTTP 403: denied" in result.details
@@ -278,6 +291,7 @@ def _stub_verify_all(
 ) -> None:
     """Stubs ADC and the caller GCS/Spanner probes so verify_all runs offline."""
     monkeypatch.setattr(permissions.google.auth, "default", lambda **_: (object(), "p"))
+    monkeypatch.setattr(checker, "_probe_adc_refresh", lambda: OK)
     monkeypatch.setattr(checker, "_resolve_caller_email", lambda: "me@example.com")
     monkeypatch.setattr(checker, "_probe_gcs_write", lambda: OK)
     monkeypatch.setattr(checker, "_probe_spanner", lambda: OK)
@@ -299,7 +313,7 @@ def test_sa_check_skipped_when_impersonation_fails(
         email_output="out",
         capability="do things",
         role="roles/x",
-        probe=lambda: sa_probe_calls.append(1) or OK,
+        probe=lambda _creds: sa_probe_calls.append(1) or OK,
     )
     monkeypatch.setattr(checker, "_stack_service_accounts", lambda: [sa])
 
@@ -322,7 +336,7 @@ def test_verify_all_shares_one_deadline(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setattr(checker, "_probe_spanner", _sequence(RETRY, OK))
     monkeypatch.setattr(checker, "_stack_service_accounts", list)
 
-    gcs_result, spanner_result = checker.verify_all()
+    _adc_result, gcs_result, spanner_result = checker.verify_all()
 
     assert not gcs_result.passed
     assert not spanner_result.passed
@@ -353,3 +367,159 @@ def test_verify_all_skips_emulated() -> None:
     results = PreflightPermissionChecker(target).verify_all()
     assert len(results) == 1
     assert results[0].passed
+
+
+def test_accepted_fix_gets_a_fresh_propagation_window(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Test: A fix applied after the shared budget is spent.
+    # Situation: The deadline has already passed; the developer accepts a fix.
+    # Expectation: The new grant gets its own window, so RETRY then OK passes.
+    monkeypatch.setattr("builtins.input", lambda _: "y")
+
+    class _Done:
+        returncode = 0
+
+    monkeypatch.setattr(permissions.subprocess, "run", lambda *_, **__: _Done())
+    result = _checker(interactive=True)._run_check(
+        PermissionCheck(name="c", probe=_sequence(RETRY, RETRY, OK), fix_command="g"),
+        time.monotonic() - 1,
+    )
+    assert result.passed
+
+
+@pytest.mark.parametrize("failure", ["nonzero", "eof"])
+def test_fix_that_cannot_be_applied_fails_immediately(
+    monkeypatch: pytest.MonkeyPatch,
+    failure: str,
+) -> None:
+    # Test: The fix command fails, or stdin closes at the prompt.
+    # Situation: A fixable check returns RETRY in an interactive run.
+    # Expectation: The check fails right away and reports the fix command.
+    class _Failed:
+        returncode = 1
+
+    def _eof(_: str) -> str:
+        raise EOFError
+
+    monkeypatch.setattr("builtins.input", _eof if failure == "eof" else lambda _: "y")
+    monkeypatch.setattr(permissions.subprocess, "run", lambda *_, **__: _Failed())
+    result = _checker(interactive=True)._run_check(
+        PermissionCheck(name="c", probe=_sequence(RETRY, OK), fix_command="grant"),
+        time.monotonic() + 60,
+    )
+    assert not result.passed
+    assert result.fix_command == "grant"
+
+
+def test_verify_all_stops_when_adc_cannot_refresh(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Test: Expired or revoked developer ADC.
+    # Situation: ADC loads, but refreshing it raises an OAuth2 invalid_grant error.
+    # Expectation: One clear failure with the login hint; no other checks run.
+    class _BrokenCreds:
+        def refresh(self, _request: object) -> None:
+            raise auth_exceptions.RefreshError(
+                "invalid_grant",
+                {"error": "invalid_grant"},
+            )
+
+    monkeypatch.setattr(
+        permissions.google.auth,
+        "default",
+        lambda **_: (_BrokenCreds(), "p"),
+    )
+    checker = _checker()
+    monkeypatch.setattr(checker, "_probe_gcs_write", lambda: pytest.fail("ran"))
+    results = checker.verify_all()
+    assert len(results) == 1
+    assert not results[0].passed
+    assert "application-default login" in results[0].details
+
+
+@pytest.mark.parametrize(
+    ("email", "member"),
+    [
+        (
+            "prober@p.iam.gserviceaccount.com",
+            "serviceAccount:prober@p.iam.gserviceaccount.com",
+        ),
+        ("dev@example.com", "user:dev@example.com"),
+        ("", None),
+    ],
+)
+def test_member_spec_and_fix_availability(email: str, member: str | None) -> None:
+    # Test: Fix commands are built for the resolved ADC identity.
+    # Situation: The caller email is a service account, a user, or unknown.
+    # Expectation: The member type matches, and no fix is offered when unknown.
+    checker = _checker()
+    checker.caller_email = email
+    assert checker._member_spec() == member
+    fix = checker._gcs_check().fix_command
+    if member:
+        assert f"--member='{member}'" in fix
+    else:
+        assert fix is None
+
+
+class _FakeCreds:
+    token = "fake-access-token"
+
+    def __init__(self, email: str) -> None:
+        self.service_account_email = email
+
+
+def test_resolve_caller_email_from_service_account() -> None:
+    # Test: Service account / Compute (refreshed) ADC.
+    # Situation: Credentials expose service_account_email.
+    # Expectation: That email is returned without calling tokeninfo.
+    checker = _checker()
+    checker._credentials = _FakeCreds("sa@p.iam.gserviceaccount.com")
+    assert checker._resolve_caller_email() == "sa@p.iam.gserviceaccount.com"
+
+
+@pytest.mark.parametrize(
+    ("status_code", "body", "expected"),
+    [
+        (200, '{"email": "dev@example.com"}', "dev@example.com"),
+        (400, '{"error": "invalid_token"}', ""),
+    ],
+)
+def test_resolve_caller_email_from_tokeninfo(
+    monkeypatch: pytest.MonkeyPatch,
+    status_code: int,
+    body: str,
+    expected: str,
+) -> None:
+    # Test: User ADC (or Compute still reporting "default").
+    # Situation: tokeninfo returns the email, or rejects the token.
+    # Expectation: The email is returned, or "" so no fix is offered.
+    checker = _checker()
+    checker._credentials = _FakeCreds("default")
+    monkeypatch.setattr(
+        permissions.requests,
+        "post",
+        lambda *_, **__: _response(status_code, body),
+    )
+    assert checker._resolve_caller_email() == expected
+
+
+def test_gcs_probe_maps_forbidden_to_retry(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Test: The GCS probe wrapper classifies real client-library errors.
+    # Situation: The upload raises api_core Forbidden (a 403 on the bucket).
+    # Expectation: The probe returns RETRY so preflight waits for propagation.
+    class _Blob:
+        def upload_from_string(self, *_: object, **__: object) -> None:
+            raise api_exceptions.Forbidden("denied")
+
+    class _Bucket:
+        def blob(self, _: str) -> _Blob:
+            return _Blob()
+
+    class _Client:
+        def bucket(self, _: str) -> _Bucket:
+            return _Bucket()
+
+    monkeypatch.setattr(permissions.storage, "Client", lambda **_: _Client())
+    assert _checker()._probe_gcs_write().outcome is ProbeOutcome.RETRY
