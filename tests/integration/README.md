@@ -191,13 +191,14 @@ tests/integration/
 │   ├── resolver.py                # Discovers live endpoints & deployed images from Terraform
 │   ├── cli_runner.py              # Subprocess DatacommonsCLI runner (local/testpypi/pypi)
 │   ├── spanner_client.py          # Direct Cloud Spanner query client
-│   ├── permissions.py             # Preflight IAM TokenCreator, GCS & Spanner verification
+│   ├── permissions.py             # Preflight: caller & stack SA access checks, waits for IAM propagation
 │   ├── mcp_client.py              # JSON-RPC 2.0 MCP client
 │   ├── config_schema.py           # Typed manifest schemas, loader, and multi-spec merger
 │   └── reporter.py                # Structured JSON reporter & timestamped GCS uploader
 │
 ├── unit_tests/                    # Fast local unit tests (no GCP/network required)
-│   └── test_config_schema.py      # Schema parsing, loader, and multi-manifest merge tests
+│   ├── test_config_schema.py      # Schema parsing, loader, and multi-manifest merge tests
+│   └── test_permissions.py        # Preflight probe classification and run-loop tests
 │
 └── tools/                         # Developer utilities
     └── synthesizer.py             # Auto-generates test_spec.yaml from raw dataset folders
