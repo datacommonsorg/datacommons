@@ -59,11 +59,10 @@ The web application and serving entrypoint.
 * **`server/`**: Python Flask controllers routing web requests, managing natural language explore endpoints (`/api/explore/detect-and-fulfill`), and proxying API traffic.
 * **`static/`**: React and TypeScript browser interface containing data visualizers, map renderers, and statistical charting components.
 * **`build/cdc_services/`**: Container packaging files (`Dockerfile`, `run.sh`, `nginx.conf`) combining Envoy, Mixer, and Website into a unified serving artifact (`datacommons-services`).
-* **`build/cdc_data/`**: Container build files packaging the data preprocessor into `datacommons-data`.
 
 ### [datacommonsorg/import](https://github.com/datacommonsorg/import)
 The data transformation and batch ingestion engine.
-* **`simple/`**: Python data preprocessor (`import/simple`), packaged into `datacommons-data` and executed with `--mode=dcpbridge`.
+* **`simple/`**: Python data preprocessor, packaged into `datacommons-data` by `simple/Dockerfile` and executed with `--mode=dcpbridge`.
 * **`pipeline/ingestion/`**: Apache Beam Java Dataflow pipeline (`GraphIngestionPipeline`) that validates graph entities, computes FarmHash facet IDs, and commits mutations to Cloud Spanner.
 * **`pipeline/workflow/aggregation-helper/`**: Postprocessing Cloud Run job executing BigQuery federated SQL queries to aggregate statistical hierarchies and edge relationships.
 * **`pipeline/workflow/ingestion-helper/`**: FastAPI Cloud Run microservice managing database concurrency locks, ingestion status updates, and Vertex AI text embeddings.
@@ -77,7 +76,7 @@ DCP packages services into container images hosted on Google Cloud Artifact Regi
 | Image Name | Source Repository | Compute Target | Role in Platform |
 | :--- | :--- | :--- | :--- |
 | **`datacommons-services`** | `website` (submodules `mixer`) | Cloud Run Service (`dc-datacommons-service`) | Unified serving container. Hosts Nginx ingress, Website Flask/React frontend, Envoy gRPC-JSON transcoder, and Go Mixer backend. |
-| **`datacommons-data`** | `website` + `import/simple` | Cloud Batch Job (`prep-<timestamp>`, one per workflow run) | Data preprocessor. Runs `stats.main --mode=dcpbridge` to parse CSV and MCF files into JSON-LD chunks. |
+| **`datacommons-data`** | `import/simple` | Cloud Batch Job (`prep-<timestamp>`, one per workflow run) | Data preprocessor. Runs `stats.main --mode=dcpbridge` to parse CSV and MCF files into JSON-LD chunks. |
 | **`ingestion-flex`** | `import/pipeline/ingestion` | Cloud Dataflow | Apache Beam Java Flex Template (`GraphIngestionPipeline`). Ingests graph nodes and observations into Cloud Spanner. |
 | **`datacommons-aggregation-helper`** | `import/pipeline/workflow` | Cloud Run Job (`dc-ingestion-postprocessing-job`) | Postprocessing engine. Uses BigQuery federated queries over Spanner to generate `STAT_VAR_GROUPS`, `LINKED_EDGES`, and `ProvenanceSummary`. |
 | **`datacommons-ingestion-helper`** | `import/pipeline/workflow` | Cloud Run Service (`dc-ingestion-helper`) | Operational coordinator. Provides REST endpoints for Spanner table locks, metadata history, and Vertex AI embeddings. |

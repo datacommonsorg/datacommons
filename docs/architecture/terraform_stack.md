@@ -46,7 +46,7 @@ DCP uses a hierarchical module architecture. Submodules never reference or depen
 * **`modules/storage`**: Creates the central artifacts GCS bucket (`gs://[<instance_name>-]dc-artifacts-<project_id>`) for raw input data, intermediate shards, and pipeline handshakes.
 * **`modules/redis`**: Provisions a Google Cloud MemoryStore Redis instance and Serverless VPC Access connector for low-latency query caching.
 * **`modules/ingestion/`**: Contains submodules for each ingestion stage:
-  * `preprocessing_job`: Service account, IAM, and secret access for preprocessing. The workflow creates a Cloud Batch job per execution that runs `datacommons-data` in `dcpbridge` mode (sourced from `website`).
+  * `preprocessing_job`: Service account, IAM, and secret access for preprocessing. The workflow creates a Cloud Batch job per execution that runs `datacommons-data` in `dcpbridge` mode (sourced from `import`).
   * `dataflow`: Service accounts, bucket permissions, and IAM policies for Apache Beam Dataflow execution (sourced from `import`).
   * `postprocessing_job`: Cloud Run job executing `datacommons-aggregation-helper` via BigQuery federated queries (sourced from `import`).
   * `helper_service`: FastAPI Cloud Run service executing `datacommons-ingestion-helper` to manage Spanner database locks, version promotion, and Vertex AI embeddings (sourced from `import`).
