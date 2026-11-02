@@ -36,7 +36,8 @@ from tests.integration.core.permissions import (
 from tests.integration.core.target import DCPTarget
 
 OK = ProbeResult(ProbeOutcome.OK)
-RETRY = ProbeResult(ProbeOutcome.RETRY, "HTTP 403: denied")
+RETRY = ProbeResult(ProbeOutcome.RETRY, "HTTP 403: denied", denied=True)
+TRANSIENT = ProbeResult(ProbeOutcome.RETRY, "HTTP 503: unavailable")
 FAIL = ProbeResult(ProbeOutcome.FAIL, "HTTP 404: not found")
 
 
@@ -523,3 +524,203 @@ def test_gcs_probe_maps_forbidden_to_retry(monkeypatch: pytest.MonkeyPatch) -> N
 
     monkeypatch.setattr(permissions.storage, "Client", lambda **_: _Client())
     assert _checker()._probe_gcs_write().outcome is ProbeOutcome.RETRY
+
+
+def _refresh_error_from_transport() -> auth_exceptions.RefreshError:
+    """Builds the RefreshError Compute ADC raises on a metadata-server timeout."""
+    try:
+        try:
+            raise auth_exceptions.TransportError("metadata timeout")
+        except auth_exceptions.TransportError as cause:
+            raise auth_exceptions.RefreshError(cause) from cause
+    except auth_exceptions.RefreshError as e:
+        return e
+
+
+@pytest.mark.parametrize(
+    ("error", "expected", "denied"),
+    [
+        (_refresh_error_from_transport(), ProbeOutcome.RETRY, False),
+        (
+            auth_exceptions.RefreshError(
+                "internal_failure",
+                {"error": "internal_failure"},
+                retryable=True,
+            ),
+            ProbeOutcome.RETRY,
+            False,
+        ),
+        (
+            auth_exceptions.RefreshError(
+                "Unable to acquire impersonated credentials",
+                '{"error": {"code": 403, "status": "PERMISSION_DENIED"}}',
+            ),
+            ProbeOutcome.RETRY,
+            True,
+        ),
+        (api_exceptions.PermissionDenied("denied"), ProbeOutcome.RETRY, True),
+        (api_exceptions.ServiceUnavailable("unavailable"), ProbeOutcome.RETRY, False),
+    ],
+)
+def test_classify_exception_retryable_and_denied(
+    error: Exception,
+    expected: ProbeOutcome,
+    denied: bool,  # noqa: FBT001 - pytest parameter
+) -> None:
+    # Test: Transient token failures retry, and only permission denials are "denied".
+    # Situation: Refresh/transport/api_core errors from real google-auth code paths.
+    # Expectation: Outcome is RETRY; denied is True only for 403/permission denied.
+    result = classify_exception(error)
+    assert result.outcome is expected
+    assert result.denied is denied
+
+
+def test_classify_http_response_marks_only_403_denied() -> None:
+    # Test: Only HTTP 403 is treated as a permission denial.
+    # Situation: Probes receive 403 and 503 responses.
+    # Expectation: Both RETRY, but only the 403 is denied.
+    assert classify_http_response(_response(403)).denied
+    assert not classify_http_response(_response(503)).denied
+
+
+def test_fix_not_offered_for_transient_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Test: A transient error is not a permission problem.
+    # Situation: An interactive, fixable check gets a 503, then succeeds.
+    # Expectation: No prompt is shown; the check just polls and passes.
+    monkeypatch.setattr("builtins.input", lambda _: pytest.fail("prompted"))
+    result = _checker(interactive=True)._run_check(
+        PermissionCheck(name="c", probe=_sequence(TRANSIENT, OK), fix_command="g"),
+        time.monotonic() + 60,
+    )
+    assert result.passed
+
+
+class _FakeSession:
+    """Records AuthorizedSession.get calls and returns a canned response."""
+
+    calls: list[tuple[str, dict]] = []
+
+    def __init__(self, _creds: object) -> None:
+        pass
+
+    def get(self, url: str, **kwargs: object) -> requests.Response:
+        _FakeSession.calls.append((url, kwargs))
+        return _response(200, "{}")
+
+
+def test_workflow_probe_lists_executions(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Test: The workflow SA probe calls the Workflow Executions API correctly.
+    # Situation: A workflow_id from Terraform outputs and a fake session.
+    # Expectation: GET .../{workflow_id}/executions with pageSize=1 and a timeout.
+    _FakeSession.calls = []
+    monkeypatch.setattr(permissions, "AuthorizedSession", _FakeSession)
+    checker = _checker()
+    checker.target.workflow_id = "projects/p/locations/us-central1/workflows/wf"
+
+    result = checker._probe_workflow_invoker(object())
+
+    assert result.outcome is ProbeOutcome.OK
+    url, kwargs = _FakeSession.calls[0]
+    assert url == (
+        "https://workflowexecutions.googleapis.com/v1/"
+        "projects/p/locations/us-central1/workflows/wf/executions"
+    )
+    assert kwargs["params"] == {"pageSize": 1}
+    assert kwargs["timeout"] == permissions.REQUEST_TIMEOUT_SEC
+
+
+def test_workflow_probe_fails_without_workflow_id() -> None:
+    # Test: Missing Terraform output.
+    # Situation: workflow_id is empty.
+    # Expectation: FAIL naming the missing output, without any API call.
+    result = _checker()._probe_workflow_invoker(object())
+    assert result.outcome is ProbeOutcome.FAIL
+    assert "ingestion_workflow_id" in result.detail
+
+
+def _sa(email: str) -> StackServiceAccount:
+    return StackServiceAccount(
+        label="Test SA",
+        email=email,
+        email_output="sa_output",
+        capability="do things",
+        role="roles/x",
+        probe=lambda _creds: OK,
+    )
+
+
+def test_impersonation_probe_fails_without_email() -> None:
+    # Test: Missing SA email output.
+    # Situation: The stack SA email is empty.
+    # Expectation: FAIL naming the missing Terraform output.
+    result = _checker()._probe_impersonation(_sa(""))
+    assert result.outcome is ProbeOutcome.FAIL
+    assert "sa_output" in result.detail
+
+
+def test_impersonation_probe_classifies_refresh_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Test: The impersonation probe wrapper classifies token errors.
+    # Situation: Minting the impersonated token returns IAM 403 PERMISSION_DENIED.
+    # Expectation: RETRY marked as denied, so a fix can be offered interactively.
+    class _Creds:
+        def refresh(self, _request: object) -> None:
+            raise auth_exceptions.RefreshError(
+                "Unable to acquire impersonated credentials",
+                '{"error": {"code": 403, "status": "PERMISSION_DENIED"}}',
+            )
+
+    checker = _checker()
+    monkeypatch.setattr(checker, "_impersonated", lambda _email: _Creds())
+    result = checker._probe_impersonation(_sa("sa@p.iam.gserviceaccount.com"))
+    assert result.outcome is ProbeOutcome.RETRY
+    assert result.denied
+
+
+def test_spanner_probe_disables_client_retries(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Test: Spanner calls are bounded so the run loop owns retrying.
+    # Situation: Fake Spanner client records call kwargs.
+    # Expectation: Both calls pass retry=None and the request timeout.
+    calls: dict[str, dict] = {}
+
+    class _Snapshot:
+        def __enter__(self) -> "_Snapshot":
+            return self
+
+        def __exit__(self, *_: object) -> None:
+            return None
+
+        def execute_sql(self, _sql: str, **kwargs: object) -> list:
+            calls["execute_sql"] = kwargs
+            return []
+
+    class _Db:
+        name = "projects/p/instances/i/databases/d"
+
+        def snapshot(self) -> _Snapshot:
+            return _Snapshot()
+
+    class _Admin:
+        def get_database_ddl(self, **kwargs: object) -> None:
+            calls["get_database_ddl"] = kwargs
+
+    class _Instance:
+        def database(self, _name: str) -> _Db:
+            return _Db()
+
+    class _Client:
+        database_admin_api = _Admin()
+
+        def instance(self, _name: str) -> _Instance:
+            return _Instance()
+
+    monkeypatch.setattr(permissions.spanner, "Client", lambda **_: _Client())
+    checker = _checker()
+    checker.target.spanner_instance = "i"
+    checker.target.spanner_database = "d"
+
+    assert checker._probe_spanner().outcome is ProbeOutcome.OK
+    for name in ("execute_sql", "get_database_ddl"):
+        assert calls[name]["retry"] is None
+        assert calls[name]["timeout"] == permissions.REQUEST_TIMEOUT_SEC

@@ -44,6 +44,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
+from typing import TYPE_CHECKING
 
 import google.auth
 import requests
@@ -55,6 +56,9 @@ from google.auth.transport.requests import AuthorizedSession, Request
 from google.cloud import spanner, storage
 
 from tests.integration.core.target import DCPTarget
+
+if TYPE_CHECKING:
+    from google.cloud.spanner_v1.database import Database
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +88,8 @@ class ProbeOutcome(Enum):
 class ProbeResult:
     outcome: ProbeOutcome
     detail: str = ""
+    # True only for permission denials, the one RETRY cause a fix can address.
+    denied: bool = False
 
 
 @dataclass
@@ -153,7 +159,11 @@ def classify_http_response(response: requests.Response) -> ProbeResult:
         return ProbeResult(ProbeOutcome.OK)
     detail = f"HTTP {response.status_code}: {_truncate(response.text)}"
     if response.status_code in _RETRYABLE_HTTP_STATUSES:
-        return ProbeResult(ProbeOutcome.RETRY, detail)
+        return ProbeResult(
+            ProbeOutcome.RETRY,
+            detail,
+            denied=response.status_code == 403,
+        )
     return ProbeResult(ProbeOutcome.FAIL, detail)
 
 
@@ -162,15 +172,24 @@ def classify_exception(error: Exception) -> ProbeResult:
     detail = f"{type(error).__name__}: {_truncate(str(error))}"
     if isinstance(error, auth_exceptions.RefreshError):
         status = _refresh_error_status(error)
-        retryable = status in _RETRYABLE_HTTP_STATUSES
+        # google-auth marks transient token-endpoint failures retryable, and
+        # metadata-server timeouts surface as a RefreshError caused by a
+        # TransportError.
+        retryable = (
+            error.retryable
+            or isinstance(error.__cause__, auth_exceptions.TransportError)
+            or status in _RETRYABLE_HTTP_STATUSES
+        )
         return ProbeResult(
             ProbeOutcome.RETRY if retryable else ProbeOutcome.FAIL,
             detail,
+            denied=status == 403,
         )
-    # Forbidden covers PermissionDenied, TooManyRequests covers
-    # ResourceExhausted, and ServerError covers every 5xx/DeadlineExceeded.
+    if isinstance(error, api_exceptions.Forbidden):
+        return ProbeResult(ProbeOutcome.RETRY, detail, denied=True)
+    # TooManyRequests covers ResourceExhausted, and ServerError covers every
+    # 5xx/DeadlineExceeded.
     retryable_types = (
-        api_exceptions.Forbidden,
         api_exceptions.TooManyRequests,
         api_exceptions.ServerError,
         auth_exceptions.TransportError,
@@ -201,6 +220,7 @@ class PreflightPermissionChecker:
         self._sa_credentials: dict[str, Credentials] = {}
         self._storage_client: storage.Client | None = None
         self._spanner_client: spanner.Client | None = None
+        self._spanner_db: Database | None = None
 
     # =========================================================================
     # Phase orchestration
@@ -261,16 +281,11 @@ class PreflightPermissionChecker:
         for sa in stack_sas:
             print(f"[Preflight] {sa.label}: {sa.email or 'unresolved'}")
             check = self._capability_check(sa)
-            if not can_impersonate[sa.label]:
+            if can_impersonate[sa.label]:
+                results.append(self._run_check(check, deadline))
+            else:
                 detail = f"skipped because the caller cannot impersonate {sa.label}"
-                print(f"  ✘ {check.name}: {detail}")
-                results.append(
-                    PermissionCheckResult(
-                        passed=False, name=check.name, details=detail
-                    ),
-                )
-                continue
-            results.append(self._run_check(check, deadline))
+                results.append(self._fail(check, detail))
 
         return results
 
@@ -281,11 +296,7 @@ class PreflightPermissionChecker:
         start = time.monotonic()
         result = check.probe()
 
-        if (
-            result.outcome is ProbeOutcome.RETRY
-            and check.fix_command
-            and self.interactive
-        ):
+        if result.denied and check.fix_command and self.interactive:
             if not self._offer_fix(check, result):
                 return self._fail(check, result.detail)
             # The fix is a brand-new grant, so give it a full propagation window.
@@ -480,16 +491,18 @@ class PreflightPermissionChecker:
                 "Missing Terraform output 'spanner_instance_id' or 'spanner_database_id'",
             )
         try:
-            if self._spanner_client is None:
+            if self._spanner_db is None:
                 self._spanner_client = spanner.Client(
                     project=self.target.project_id,
                     credentials=self._credentials,
                 )
-            db = self._spanner_client.instance(self.target.spanner_instance).database(
-                self.target.spanner_database,
-            )
-            # The run loop is the only retry mechanism. Client-level retries
-            # default to up to an hour and would blow through the shared budget.
+                self._spanner_db = self._spanner_client.instance(
+                    self.target.spanner_instance,
+                ).database(self.target.spanner_database)
+            db = self._spanner_db
+            # Turn off per-call client retries (which default to up to an hour)
+            # so the run loop owns retrying and each probe is normally bounded
+            # by the request timeout.
             with db.snapshot() as snapshot:
                 list(
                     snapshot.execute_sql(
