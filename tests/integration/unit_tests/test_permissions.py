@@ -526,6 +526,29 @@ def test_gcs_probe_maps_forbidden_to_retry(monkeypatch: pytest.MonkeyPatch) -> N
     assert _checker()._probe_gcs_write().outcome is ProbeOutcome.RETRY
 
 
+def test_gcs_probe_ignores_cleanup_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Test: Cleanup errors do not affect the write verdict.
+    # Situation: The upload succeeds, then deleting the probe blob times out.
+    # Expectation: The probe returns OK because write access was proven.
+    class _Blob:
+        def upload_from_string(self, *_: object, **__: object) -> None:
+            return None
+
+        def delete(self, **_: object) -> None:
+            raise requests.exceptions.Timeout("delete timed out")
+
+    class _Bucket:
+        def blob(self, _: str) -> _Blob:
+            return _Blob()
+
+    class _Client:
+        def bucket(self, _: str) -> _Bucket:
+            return _Bucket()
+
+    monkeypatch.setattr(permissions.storage, "Client", lambda **_: _Client())
+    assert _checker()._probe_gcs_write().outcome is ProbeOutcome.OK
+
+
 def _refresh_error_from_transport() -> auth_exceptions.RefreshError:
     """Builds the RefreshError Compute ADC raises on a metadata-server timeout."""
     try:

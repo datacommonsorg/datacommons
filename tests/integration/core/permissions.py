@@ -455,10 +455,11 @@ class PreflightPermissionChecker:
             bucket = self._storage_client.bucket(self._bucket_name())
             blob = bucket.blob(".test_permission_probe")
             blob.upload_from_string("probe", timeout=REQUEST_TIMEOUT_SEC)
-            with contextlib.suppress(api_exceptions.GoogleAPIError):
-                blob.delete(timeout=REQUEST_TIMEOUT_SEC)
         except Exception as e:  # noqa: BLE001 - classified into RETRY/FAIL
             return classify_exception(e)
+        # Cleanup is best effort and must not change the write verdict.
+        with contextlib.suppress(Exception):
+            blob.delete(timeout=REQUEST_TIMEOUT_SEC)
         return ProbeResult(ProbeOutcome.OK)
 
     def _spanner_check(self) -> PermissionCheck:
