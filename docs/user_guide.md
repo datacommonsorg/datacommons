@@ -115,7 +115,7 @@ This step does the following:
     uvx datacommons-cli admin init \ 
     --project-id "<var>YOUR_GOOGLE_CLOUD_PROJECT_ID</var>" \
     --instance-name "<var>INSTANCE_NAME</var>" \
-    --dc-api-key "<var>YOUR_DATA_COMMONS_API_KEY</var>" \
+    [--dc-api-key-secret-id "<var>SECRET_MANAGER_SECRET_ID</var>"] \
     [--no-tf-remote-state] | [--tf-state-bucket "<var>BUCKET_NAME</var>"] \
     [--tf-state-bucket-location "<var>REGION</var>" ]
     </pre>
@@ -1416,7 +1416,7 @@ This normally indicates a missing, invalid, or expired API key. To check if the 
     {"message": "UNAUTHENTICATED: Method doesn't allow unregistered callers (callers without established identity). Please use API Key or other form of API consumer identity to call this API. Visit apikeys.datacommons.org to create or manage API keys.", "code": 401}
     ```
 2. To look up your key, go to [apikeys.datacommons.org](http://apikeys.datacommons.org), sign in, select your app, and check the status of the key. If it has expired, refresh it. 
-3. Copy the key to the `auth-dc-api-key` variable in your `terraform.tfvars` file and rerun `terraform apply`.
+3. Add a new version of the key to your Secret Manager secret (`<instance_name>-dc-api-key`, or the secret referenced by `auth_dc_api_key_secret_id` in `terraform.tfvars`) and rerun `terraform apply`.
 4. Rerun `datacommons ingest start`.
 
 

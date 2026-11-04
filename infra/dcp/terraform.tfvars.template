@@ -24,8 +24,8 @@ stateless_deletion_protection = false
 # =============================================================================
 # Auth Module
 # =============================================================================
-# Get a free DC API Key at https://apikeys.datacommons.org (required)
-auth_google_datacommons_api_key = "$$DC_API_KEY$$"
+# Secret Manager secret ID containing your Data Commons API Key (from https://apikeys.datacommons.org)
+auth_dc_api_key_secret_id = "$$DC_API_KEY_SECRET_ID$$"
 
 # List of HTTP referrers allowed to use the Google Maps API key (e.g., ["https://datacommons.example.com/*", "http://localhost:*"]).
 # Strongly recommended in production to prevent unauthorized third parties from using your key.

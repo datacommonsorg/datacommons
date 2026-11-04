@@ -25,6 +25,9 @@ from datacommons_admin.init.utils.scaffold_utils import (
     _resolve_project_config,
     _setup_dcp_config_dir,
 )
+from datacommons_admin.init.utils.secret_utils import (
+    _configure_dc_api_key_secret,
+)
 
 
 @click.command()
@@ -39,7 +42,17 @@ from datacommons_admin.init.utils.scaffold_utils import (
     default="",
     help="Instance name that serves as prefix for provisioned resources. (Deprecated alias: --namespace)",
 )
-@click.option("--dc-api-key", default="", help="Data Commons API key.")
+@click.option(
+    "--dc-api-key-secret-id",
+    default="",
+    help="Secret Manager secret ID or full resource name (projects/<project>/secrets/<secret>) containing the Data Commons API key.",
+)
+@click.option(
+    "--dc-api-key",
+    default="",
+    envvar="DC_API_KEY",
+    help="Deprecated as a CLI flag: Data Commons API key. Prefer setting the DC_API_KEY environment variable, using the interactive hidden prompt, or passing --dc-api-key-secret-id.",
+)
 @click.option(
     "--tf-git-ref",
     default=f"v{__version__}",
@@ -70,9 +83,12 @@ from datacommons_admin.init.utils.scaffold_utils import (
     default="",
     help="Google Cloud Storage object prefix for Terraform state file (default: terraform/state/{instance_name}).",
 )
+@click.pass_context
 def init(
+    ctx: click.Context,
     project_id: str,
     instance_name: str,
+    dc_api_key_secret_id: str,
     dc_api_key: str,
     tf_git_ref: str,
     force: bool,
@@ -83,6 +99,13 @@ def init(
 ) -> None:
     """Initialize Terraform scaffolding for Data Commons administration/infrastructure."""
     click.secho("Data Commons Admin Init", fg="cyan", bold=True)
+
+    if ctx.get_parameter_source("dc_api_key") == click.core.ParameterSource.COMMANDLINE:
+        click.secho(
+            "  [!] Warning: Passing --dc-api-key on the command line is deprecated as it exposes your key in shell history and process listings. "
+            "Set the DC_API_KEY environment variable, use the interactive prompt, or pass --dc-api-key-secret-id instead.",
+            fg="yellow",
+        )
 
     # 1. Project Configs
     click.secho("\n[Project configuration]", fg="cyan", bold=True)
@@ -115,8 +138,14 @@ def init(
         resolved_instance_name
     )
 
-    # 3. DCP config dir setup
+    # 3. Secret Manager Setup & DCP config dir setup
     click.secho("\n[DCP configuration]", fg="cyan", bold=True)
+    resolved_dc_api_key_secret_id = _configure_dc_api_key_secret(
+        resolved_project_id,
+        resolved_instance_name,
+        dc_api_key_secret_id,
+        dc_api_key,
+    )
     click.secho("Setting up configuration files...", fg="bright_black")
     _setup_dcp_config_dir(
         target_dir,
@@ -124,7 +153,7 @@ def init(
         resolved_instance_name,
         resolved_bucket_name,
         resolved_tf_state_prefix,
-        dc_api_key,
+        resolved_dc_api_key_secret_id,
         tf_git_ref,
         tf_remote_state,
     )

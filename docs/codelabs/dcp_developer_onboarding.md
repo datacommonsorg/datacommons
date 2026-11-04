@@ -151,8 +151,7 @@ cd ~/dcp-deployments
 
 datacommons admin init \
     --project-id "$PROJECT_ID" \
-    --instance-name "$NAMESPACE" \
-    --dc-api-key "$DC_API_KEY"
+    --instance-name "$NAMESPACE"
 ```
 
 > **Note**: `datacommons admin init` automatically defaults `--tf-git-ref` to the release tag matching your installed CLI package. You do not need to pass `--tf-git-ref` unless you specifically want to target an older release or release candidate.
@@ -180,7 +179,7 @@ Open `terraform.tfvars` in your editor. When developing in a shared GCP project 
 # REQUIRED USER PLACEHOLDERS (Replace these values first!)
 # ==============================================================================
 instance_name                                      = "dev-yourldap"       # Replace with your unique namespace (e.g. dev-<ldap>)
-auth_google_datacommons_api_key                    = "your-api-key-here"  # Replace with your key from apikeys.datacommons.org
+auth_dc_api_key_secret_id                          = "projects/datcom-website-dev/secrets/dev-yourldap-dc-api-key"
 project_id                                         = "datcom-website-dev" # Target Google Cloud project
 
 # ==============================================================================

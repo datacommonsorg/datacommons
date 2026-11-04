@@ -147,10 +147,12 @@ def provision_infra(
         f"--instance-name={instance_name}",
         f"--tf-state-bucket={bucket_name}",
         f"--tf-state-prefix=ephemeral/{instance_name}",
-        f"--dc-api-key={dc_api_key}",
         "--force",
     ]
+    if dc_api_key:
+        os.environ["DC_API_KEY"] = dc_api_key
     if not local:
+        admin_args.append(f"--dc-api-key={dc_api_key}")
         admin_args.append(f"--tf-git-ref={tf_git_ref}")
 
     init_cmd = (
@@ -433,6 +435,8 @@ def teardown_infra(
     instance_dir: Path | None,
     workspace_dir: Path,
     skip_destroy: bool,
+    project_id: str = "",
+    instance_name: str = "",
 ) -> bool:
     """Phase 3: Guaranteed teardown and workspace cleanup."""
     print("\n" + "=" * 80)
@@ -456,6 +460,24 @@ def teardown_infra(
         destroy_success = destroy_res.returncode == 0
         if not destroy_success:
             print("  ⚠️ Warning: Terraform destroy encountered errors during cleanup.")
+
+        if project_id and instance_name:
+            secret_name = f"{instance_name}-dc-api-key"
+            print(
+                f"==> [Phase 3.1b] Deleting ephemeral Secret Manager secret ({secret_name})..."
+            )
+            subprocess.run(
+                [
+                    "gcloud",
+                    "secrets",
+                    "delete",
+                    secret_name,
+                    f"--project={project_id}",
+                    "--quiet",
+                ],
+                capture_output=True,
+                check=False,
+            )
     elif skip_destroy:
         print(
             f"==> [Phase 3.1] Skipping 'terraform destroy' (--skip-destroy set). Workspace kept at: {instance_dir}"
@@ -590,6 +612,8 @@ def main():
             instance_dir=instance_dir,
             workspace_dir=workspace_dir,
             skip_destroy=args.skip_destroy,
+            project_id=args.project,
+            instance_name=instance_name,
         )
 
         overall_passed = deploy_success and (test_exit_code == 0) and destroy_success

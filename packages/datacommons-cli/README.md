@@ -148,7 +148,8 @@ datacommons admin init --project-id my-gcp-project --instance-name my-instance
 Key Options:
 - `--project-id TEXT`: GCP project ID for platform resources.
 - `--instance-name TEXT`: Instance name prefix for provisioned resources (also accepts `--namespace` for backward compatibility).
-- `--dc-api-key TEXT`: Data Commons API key.
+- `--dc-api-key-secret-id TEXT`: Secret Manager secret ID or full resource name (`projects/<project>/secrets/<secret>`) containing the Data Commons API key.
+- `--dc-api-key TEXT`: (Deprecated as a CLI flag; prefer `DC_API_KEY` env var, interactive hidden prompt, or `--dc-api-key-secret-id`) Data Commons API key.
 - `--tf-remote-state / --no-tf-remote-state`: Enable/disable remote state management in GCS (default: enabled).
 - `--tf-state-bucket TEXT`: Custom GCS bucket name for Terraform state (defaults to `<project_id>-<instance_name>-tfstate`).
 - `--force`: Overwrite existing files in the target directory if present.
