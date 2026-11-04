@@ -232,23 +232,28 @@ def test_run_check_stops_polling_on_fail() -> None:
     assert "HTTP 404" in result.details
 
 
-def test_fix_not_offered_when_not_interactive(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_grant_not_offered_when_not_interactive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # Test: Non-interactive runs (the scheduled prober) never change IAM.
-    # Situation: A fixable check returns RETRY in a non-interactive run.
+    # Situation: A check with a grant command returns RETRY in a non-interactive run.
     # Expectation: No prompt is shown; the check just polls.
     monkeypatch.setattr("builtins.input", lambda _: pytest.fail("prompted"))
     result = _checker(interactive=False)._run_check(
-        PermissionCheck(name="c", probe=_sequence(RETRY, OK), fix_command="grant"),
+        PermissionCheck(name="c", probe=_sequence(RETRY, OK), grant_command="grant"),
         time.monotonic() + 60,
     )
     assert result.passed
 
 
-def test_declined_fix_fails_immediately(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Test: Declining an interactive fix.
-    # Situation: A fixable check returns RETRY and the developer answers "n".
-    # Expectation: The check fails right away with the fix command, without polling.
-    monkeypatch.setattr("builtins.input", lambda _: "n")
+@pytest.mark.parametrize("answer", ["n", ""])
+def test_declined_grant_fails_immediately(
+    monkeypatch: pytest.MonkeyPatch, answer: str
+) -> None:
+    # Test: Declining an interactive grant (including pressing Enter at [y/N]).
+    # Situation: A check with a grant command returns RETRY and the user answers "n" or "".
+    # Expectation: The check fails right away with the grant command, without polling.
+    monkeypatch.setattr("builtins.input", lambda _: answer)
     probe_calls = []
 
     def probe() -> ProbeResult:
@@ -256,18 +261,18 @@ def test_declined_fix_fails_immediately(monkeypatch: pytest.MonkeyPatch) -> None
         return RETRY
 
     result = _checker(interactive=True)._run_check(
-        PermissionCheck(name="c", probe=probe, fix_command="grant"),
+        PermissionCheck(name="c", probe=probe, grant_command="grant"),
         time.monotonic() + 60,
     )
     assert not result.passed
-    assert result.fix_command == "grant"
+    assert result.grant_command == "grant"
     assert len(probe_calls) == 1
 
 
-def test_accepted_fix_then_polls(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Test: Accepting an interactive fix.
-    # Situation: A fixable check returns RETRY, the developer accepts, the grant succeeds.
-    # Expectation: The fix command runs and the check polls until OK.
+def test_accepted_grant_then_polls(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Test: Accepting an interactive grant.
+    # Situation: A check returns RETRY, the developer accepts, the grant succeeds.
+    # Expectation: The grant command runs and the check polls until OK.
     monkeypatch.setattr("builtins.input", lambda _: "y")
     ran = []
 
@@ -280,7 +285,7 @@ def test_accepted_fix_then_polls(monkeypatch: pytest.MonkeyPatch) -> None:
         lambda cmd, **_: ran.append(cmd) or _Done(),
     )
     result = _checker(interactive=True)._run_check(
-        PermissionCheck(name="c", probe=_sequence(RETRY, OK), fix_command="grant"),
+        PermissionCheck(name="c", probe=_sequence(RETRY, OK), grant_command="grant"),
         time.monotonic() + 60,
     )
     assert result.passed
@@ -370,11 +375,11 @@ def test_verify_all_skips_emulated() -> None:
     assert results[0].passed
 
 
-def test_accepted_fix_gets_a_fresh_propagation_window(
+def test_accepted_grant_gets_a_fresh_propagation_window(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # Test: A fix applied after the shared budget is spent.
-    # Situation: The deadline has already passed; the developer accepts a fix.
+    # Test: A grant applied after the shared budget is spent.
+    # Situation: The deadline has already passed; the developer accepts a grant.
     # Expectation: The new grant gets its own window, so RETRY then OK passes.
     monkeypatch.setattr("builtins.input", lambda _: "y")
 
@@ -383,20 +388,20 @@ def test_accepted_fix_gets_a_fresh_propagation_window(
 
     monkeypatch.setattr(permissions.subprocess, "run", lambda *_, **__: _Done())
     result = _checker(interactive=True)._run_check(
-        PermissionCheck(name="c", probe=_sequence(RETRY, RETRY, OK), fix_command="g"),
+        PermissionCheck(name="c", probe=_sequence(RETRY, RETRY, OK), grant_command="g"),
         time.monotonic() - 1,
     )
     assert result.passed
 
 
 @pytest.mark.parametrize("failure", ["nonzero", "eof"])
-def test_fix_that_cannot_be_applied_fails_immediately(
+def test_grant_that_cannot_be_applied_fails_immediately(
     monkeypatch: pytest.MonkeyPatch,
     failure: str,
 ) -> None:
-    # Test: The fix command fails, or stdin closes at the prompt.
-    # Situation: A fixable check returns RETRY in an interactive run.
-    # Expectation: The check fails right away and reports the fix command.
+    # Test: The grant command fails, or stdin closes at the prompt.
+    # Situation: A check with a grant command returns RETRY in an interactive run.
+    # Expectation: The check fails right away and reports the grant command.
     class _Failed:
         returncode = 1
 
@@ -406,11 +411,11 @@ def test_fix_that_cannot_be_applied_fails_immediately(
     monkeypatch.setattr("builtins.input", _eof if failure == "eof" else lambda _: "y")
     monkeypatch.setattr(permissions.subprocess, "run", lambda *_, **__: _Failed())
     result = _checker(interactive=True)._run_check(
-        PermissionCheck(name="c", probe=_sequence(RETRY, OK), fix_command="grant"),
+        PermissionCheck(name="c", probe=_sequence(RETRY, OK), grant_command="grant"),
         time.monotonic() + 60,
     )
     assert not result.passed
-    assert result.fix_command == "grant"
+    assert result.grant_command == "grant"
 
 
 def test_verify_all_stops_when_adc_cannot_refresh(
@@ -450,18 +455,18 @@ def test_verify_all_stops_when_adc_cannot_refresh(
         ("", None),
     ],
 )
-def test_member_spec_and_fix_availability(email: str, member: str | None) -> None:
-    # Test: Fix commands are built for the resolved ADC identity.
+def test_member_spec_and_grant_availability(email: str, member: str | None) -> None:
+    # Test: Grant commands are built for the resolved ADC identity.
     # Situation: The caller email is a service account, a user, or unknown.
-    # Expectation: The member type matches, and no fix is offered when unknown.
+    # Expectation: The member type matches, and no grant is offered when unknown.
     checker = _checker()
     checker.caller_email = email
     assert checker._member_spec() == member
-    fix = checker._gcs_check().fix_command
+    grant = checker._gcs_check().grant_command
     if member:
-        assert f"--member='{member}'" in fix
+        assert f"--member='{member}'" in grant
     else:
-        assert fix is None
+        assert grant is None
 
 
 class _FakeCreds:
@@ -495,7 +500,7 @@ def test_resolve_caller_email_from_tokeninfo(
 ) -> None:
     # Test: User ADC (or Compute still reporting "default").
     # Situation: tokeninfo returns the email, or rejects the token.
-    # Expectation: The email is returned, or "" so no fix is offered.
+    # Expectation: The email is returned, or "" so no grant is offered.
     checker = _checker()
     checker._credentials = _FakeCreds("default")
     monkeypatch.setattr(
@@ -606,13 +611,15 @@ def test_classify_http_response_marks_only_403_denied() -> None:
     assert not classify_http_response(_response(503)).denied
 
 
-def test_fix_not_offered_for_transient_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_grant_not_offered_for_transient_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # Test: A transient error is not a permission problem.
-    # Situation: An interactive, fixable check gets a 503, then succeeds.
+    # Situation: An interactive check with a grant command gets a 503, then succeeds.
     # Expectation: No prompt is shown; the check just polls and passes.
     monkeypatch.setattr("builtins.input", lambda _: pytest.fail("prompted"))
     result = _checker(interactive=True)._run_check(
-        PermissionCheck(name="c", probe=_sequence(TRANSIENT, OK), fix_command="g"),
+        PermissionCheck(name="c", probe=_sequence(TRANSIENT, OK), grant_command="g"),
         time.monotonic() + 60,
     )
     assert result.passed
@@ -686,7 +693,7 @@ def test_impersonation_probe_classifies_refresh_error(
 ) -> None:
     # Test: The impersonation probe wrapper classifies token errors.
     # Situation: Minting the impersonated token returns IAM 403 PERMISSION_DENIED.
-    # Expectation: RETRY marked as denied, so a fix can be offered interactively.
+    # Expectation: RETRY marked as denied, so a grant can be offered interactively.
     class _Creds:
         def refresh(self, _request: object) -> None:
             raise auth_exceptions.RefreshError(

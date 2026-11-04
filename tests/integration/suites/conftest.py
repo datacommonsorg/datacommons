@@ -474,8 +474,8 @@ def dcp_target(request, test_manifest) -> DCPTarget:
         print("\n❌ [Preflight] Permission Checks Failed:")
         for f in failed:
             print(f"  • {f.name}: {f.details}")
-            if f.fix_command:
-                print(f"    Fix: {f.fix_command}")
+            if f.grant_command:
+                print(f"    Grant access with: {f.grant_command}")
         pytest.exit(
             "Preflight GCP permission checks failed. See instructions above.",
             returncode=1,

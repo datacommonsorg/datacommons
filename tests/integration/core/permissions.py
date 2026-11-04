@@ -32,6 +32,12 @@ Coverage rule:
     absorbed IAM propagation.
   * Preflight must never require more access than the tests themselves need.
 
+Granting:
+  Preflight never changes IAM on its own. When the caller's own access is
+  denied and a person is at a terminal, it shows the grant command and asks
+  before running it. This matters most for local prober runs, where the
+  resources being granted on only exist for that run.
+
 All probes use ADC, the same identity the CLI uses.
 """
 
@@ -88,7 +94,7 @@ class ProbeOutcome(Enum):
 class ProbeResult:
     outcome: ProbeOutcome
     detail: str = ""
-    # True only for permission denials, the one RETRY cause a fix can address.
+    # True only for permission denials, the one RETRY cause a grant can address.
     denied: bool = False
 
 
@@ -98,9 +104,10 @@ class PermissionCheck:
 
     name: str
     probe: Callable[[], ProbeResult]
-    # Only caller checks carry a fix. A missing grant on a Terraform-created
-    # service account is a Terraform bug and must never be patched here.
-    fix_command: str | None = None
+    # Only caller checks carry a grant command. A missing grant on a
+    # Terraform-created service account is a Terraform bug and must never be
+    # patched here.
+    grant_command: str | None = None
     # Role that should grant this access, shown if the check never passes.
     required_role: str | None = None
 
@@ -110,7 +117,7 @@ class PermissionCheckResult:
     passed: bool
     name: str
     details: str
-    fix_command: str | None = None
+    grant_command: str | None = None
 
 
 @dataclass(frozen=True)
@@ -262,9 +269,10 @@ class PreflightPermissionChecker:
         if not adc_result.passed:
             return [adc_result]
         self.caller_email = self._resolve_caller_email()
-        print(
-            f"  Identity: {self.caller_email or 'unknown (no fixes will be offered)'}"
+        identity = (
+            self.caller_email or "unknown (preflight can't suggest grant commands)"
         )
+        print(f"  Identity: {identity}")
 
         results = [
             adc_result,
@@ -292,14 +300,14 @@ class PreflightPermissionChecker:
     def _run_check(
         self, check: PermissionCheck, deadline: float
     ) -> PermissionCheckResult:
-        """Probes once, offers a fix if allowed, then polls RETRY until deadline."""
+        """Probes once, offers a grant if allowed, then polls RETRY until deadline."""
         start = time.monotonic()
         result = check.probe()
 
-        if result.denied and check.fix_command and self.interactive:
-            if not self._offer_fix(check, result):
+        if self._should_offer_grant(check, result):
+            if not self._offer_grant(check, result):
                 return self._fail(check, result.detail)
-            # The fix is a brand-new grant, so give it a full propagation window.
+            # The new grant needs its own full propagation window.
             deadline = max(deadline, time.monotonic() + self.timeout_sec)
             result = check.probe()
 
@@ -342,25 +350,37 @@ class PreflightPermissionChecker:
             passed=False,
             name=check.name,
             details=detail,
-            fix_command=check.fix_command,
+            grant_command=check.grant_command,
         )
 
-    def _offer_fix(self, check: PermissionCheck, result: ProbeResult) -> bool:
-        """Prompts to run the fix. Returns True only if it was applied successfully."""
-        print(f"\n⚠️  Permission issue: {check.name}")
+    def _should_offer_grant(self, check: PermissionCheck, result: ProbeResult) -> bool:
+        """Returns True when preflight should ask to grant the caller's missing access.
+
+        It asks only when the caller's own access was denied (not a transient
+        error) and a person is at a terminal. It asks on the first denial instead
+        of waiting, because a local prober run creates resources, like the
+        workflow SA, that only exist for this run. Failing and rerunning would
+        create new resources with the same problem. The prober has no terminal,
+        so it never asks and never changes IAM.
+        """
+        return result.denied and check.grant_command is not None and self.interactive
+
+    def _offer_grant(self, check: PermissionCheck, result: ProbeResult) -> bool:
+        """Prompts to run the grant command. Returns True only if it succeeded."""
+        print(f"\n⚠️  Access denied: {check.name}")
         print(f"   {result.detail}")
-        print(f"   Recommended fix command:\n     {check.fix_command}")
+        print(f"   This command grants the missing access:\n     {check.grant_command}")
         try:
-            choice = input("\nApply this fix now? [Y/n]: ").strip().lower()
+            choice = input("\nRun this grant command now? [y/N]: ").strip().lower()
         except EOFError:
             return False
-        if choice not in ("", "y", "yes"):
+        if choice not in ("y", "yes"):
             return False
-        res = subprocess.run(check.fix_command, shell=True, text=True, check=False)
+        res = subprocess.run(check.grant_command, shell=True, text=True, check=False)
         if res.returncode != 0:
-            print("   ❌ Failed to apply the fix.")
+            print("   ❌ The grant command failed.")
             return False
-        print("   ✔ Fix applied. Waiting for IAM propagation...")
+        print("   ✔ Access granted. Waiting for IAM propagation...")
         return True
 
     # =========================================================================
@@ -431,7 +451,7 @@ class PreflightPermissionChecker:
     def _gcs_check(self) -> PermissionCheck:
         bucket_name = self._bucket_name()
         member = self._member_spec()
-        fix = (
+        grant = (
             f"gcloud storage buckets add-iam-policy-binding 'gs://{bucket_name}' "
             f"--member='{member}' --role='roles/storage.objectAdmin' "
             f"--project='{self.target.project_id}'"
@@ -441,7 +461,7 @@ class PreflightPermissionChecker:
         return PermissionCheck(
             name=f"Caller: can write to gs://{bucket_name}",
             probe=self._probe_gcs_write,
-            fix_command=fix,
+            grant_command=grant,
             required_role="roles/storage.objectAdmin",
         )
 
@@ -465,7 +485,7 @@ class PreflightPermissionChecker:
     def _spanner_check(self) -> PermissionCheck:
         instance = self.target.spanner_instance
         member = self._member_spec()
-        fix = (
+        grant = (
             f"gcloud spanner instances add-iam-policy-binding '{instance}' "
             f"--member='{member}' --role='roles/spanner.databaseAdmin' "
             f"--project='{self.target.project_id}' && "
@@ -481,7 +501,7 @@ class PreflightPermissionChecker:
                 f"{instance}/{self.target.spanner_database}"
             ),
             probe=self._probe_spanner,
-            fix_command=fix,
+            grant_command=grant,
             required_role="roles/spanner.databaseAdmin and roles/spanner.databaseUser",
         )
 
@@ -523,7 +543,7 @@ class PreflightPermissionChecker:
 
     def _impersonation_check(self, sa: StackServiceAccount) -> PermissionCheck:
         member = self._member_spec()
-        fix = (
+        grant = (
             f"gcloud iam service-accounts add-iam-policy-binding '{sa.email}' "
             f"--member='{member}' --role='roles/iam.serviceAccountTokenCreator' "
             f"--project='{self.target.project_id}'"
@@ -533,7 +553,7 @@ class PreflightPermissionChecker:
         return PermissionCheck(
             name=f"Caller: can impersonate {sa.label}",
             probe=lambda: self._probe_impersonation(sa),
-            fix_command=fix,
+            grant_command=grant,
             required_role="roles/iam.serviceAccountTokenCreator",
         )
 
