@@ -1,18 +1,29 @@
 locals {
   name_prefix               = var.instance_name != "" ? "${var.instance_name}-" : ""
   google_maps_api_key_value = var.google_maps_api_key != null ? var.google_maps_api_key : try(google_apikeys_key.maps_api_key[0].key_string, "")
+  normalized_dc_api_key_secret_id = (
+    var.dc_api_key_secret_id == "" ? "" :
+    startswith(var.dc_api_key_secret_id, "projects/") ? var.dc_api_key_secret_id :
+    "projects/${var.project_id}/secrets/${var.dc_api_key_secret_id}"
+  )
 }
 
 resource "google_secret_manager_secret" "dc_api_key" {
-  secret_id = "${local.name_prefix}dc-api-key"
+  count = var.dc_api_key_secret_id == "" ? 1 : 0
+
+  secret_id       = "${local.name_prefix}dc-api-key"
+  deletion_policy = "ABANDON"
   replication {
     auto {}
   }
 }
 
 resource "google_secret_manager_secret_version" "dc_api_key_version" {
-  secret      = google_secret_manager_secret.dc_api_key.id
-  secret_data = var.dc_api_key
+  count = var.dc_api_key_secret_id == "" ? 1 : 0
+
+  secret          = google_secret_manager_secret.dc_api_key[0].id
+  secret_data     = var.dc_api_key
+  deletion_policy = "ABANDON"
 }
 
 # Random ID suffix to avoid name conflicts when recreating keys in recovery state.

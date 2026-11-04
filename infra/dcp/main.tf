@@ -145,6 +145,7 @@ locals {
   }
 
   auth_config = {
+    dc_api_key_secret_id          = var.auth_dc_api_key_secret_id
     google_datacommons_api_key    = var.auth_google_datacommons_api_key
     google_maps_api_key           = var.auth_google_maps_api_key
     create_google_maps_key        = var.auth_create_google_maps_api_key

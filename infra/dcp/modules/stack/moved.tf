@@ -42,3 +42,22 @@ moved {
   to   = module.ingestion_helper_service[0].google_secret_manager_secret_iam_member.helper_redis_auth_secret_accessor[0]
 }
 # -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# Upgrades from <= 1.1.7 (introduced in 1.1.8)
+#
+# Module "auth" added conditional count to dc_api_key and dc_api_key_version so
+# they are skipped when auth_dc_api_key_secret_id is provided, changing legacy
+# resource addresses from unindexed to indexed (`[0]`).
+
+moved {
+  from = module.auth.google_secret_manager_secret.dc_api_key
+  to   = module.auth.google_secret_manager_secret.dc_api_key[0]
+}
+
+moved {
+  from = module.auth.google_secret_manager_secret_version.dc_api_key_version
+  to   = module.auth.google_secret_manager_secret_version.dc_api_key_version[0]
+}
+# -----------------------------------------------------------------------------
+

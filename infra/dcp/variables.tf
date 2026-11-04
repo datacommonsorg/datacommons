@@ -59,16 +59,24 @@ variable "dcp_version" {
 # Auth Module
 # =============================================================================
 
-variable "auth_google_datacommons_api_key" {
-  description = "API key used to authenticate and connect to the remote Base Data Commons instance"
+variable "auth_dc_api_key_secret_id" {
+  description = "Secret Manager secret ID or full resource name (projects/<project>/secrets/<secret>) containing the Data Commons API key used to authenticate and connect to the remote Base Data Commons instance."
   type        = string
   default     = ""
+}
+
+variable "auth_google_datacommons_api_key" {
+  description = "Deprecated: Plaintext API key used to authenticate and connect to the remote Base Data Commons instance. Prefer auth_dc_api_key_secret_id so the key is not stored in terraform.tfvars or Terraform state."
+  type        = string
+  default     = ""
+  sensitive   = true
 }
 
 variable "auth_google_maps_api_key" {
   description = "Optional Google Maps API key. If provided, it will be used and Terraform will NOT create a new key (and will destroy any auto-generated key it was previously managing)."
   type        = string
   default     = null
+  sensitive   = true
 }
 
 variable "auth_create_google_maps_api_key" {
