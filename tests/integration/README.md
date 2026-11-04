@@ -149,7 +149,6 @@ uv run python tests/integration/run_e2e_tests.py \
 tests/integration/
 ├── README.md                      # This documentation
 ├── run_e2e_tests.py               # Master CLI & programmatic runner
-├── conftest.py                    # Pytest lifecycle hooks & dynamic parameterization
 │
 ├── emulated/                      # Hermetic Local Docker Compose Stack & Cloud Build CI
 │   ├── README.md                  # Local emulated architecture & usage guide
@@ -180,6 +179,7 @@ tests/integration/
 │   └── foobar_education/          # FooBar Education CSV, MCF, config.json, test_spec.yaml
 │
 ├── suites/                        # Generic, dataset-agnostic test suites
+│   ├── conftest.py                # Pytest lifecycle hooks & dynamic parameterization
 │   ├── 00_setup/                  # Database schema baseline & migration initialization
 │   ├── 01_ingestion/              # CLI Ingestion & Cloud Spanner graph verification
 │   ├── 02_postprocessing/         # SVG hierarchy trees & vector embeddings
@@ -191,13 +191,14 @@ tests/integration/
 │   ├── resolver.py                # Discovers live endpoints & deployed images from Terraform
 │   ├── cli_runner.py              # Subprocess DatacommonsCLI runner (local/testpypi/pypi)
 │   ├── spanner_client.py          # Direct Cloud Spanner query client
-│   ├── permissions.py             # Preflight IAM TokenCreator, GCS & Spanner verification
+│   ├── permissions.py             # Preflight: caller & stack SA access checks, waits for IAM propagation
 │   ├── mcp_client.py              # JSON-RPC 2.0 MCP client
 │   ├── config_schema.py           # Typed manifest schemas, loader, and multi-spec merger
 │   └── reporter.py                # Structured JSON reporter & timestamped GCS uploader
 │
 ├── unit_tests/                    # Fast local unit tests (no GCP/network required)
-│   └── test_config_schema.py      # Schema parsing, loader, and multi-manifest merge tests
+│   ├── test_config_schema.py      # Schema parsing, loader, and multi-manifest merge tests
+│   └── test_permissions.py        # Preflight probe classification and run-loop tests
 │
 └── tools/                         # Developer utilities
     └── synthesizer.py             # Auto-generates test_spec.yaml from raw dataset folders
