@@ -204,20 +204,20 @@ DCP microservices and batch pipelines run in serverless Google Cloud Run contain
 
 #### Platform Container and Template Inventory
 
-| Component Name | Role | Source Repo & Dockerfile | Destination Registry (Dev) | `terraform.tfvars` Override |
+| Component Name | Role | Dockerfile & Build Script | Destination Registry (Dev) | `terraform.tfvars` Override |
 | :--- | :--- | :--- | :--- | :--- |
-| **`datacommons-services`** | Envoy, Mixer API, Website serving | `datcom-website`<br>`scripts/push_cdc_services_image.sh` | `gcr.io/<project_id>/datacommons-services:<tag>` | `datacommons_services_image` |
-| **`datacommons-data`** | Preprocessor batch job | `datcom-website`<br>`build/cdc_data/Dockerfile` | `us-docker.pkg.dev/<project_id>/<repository>/datacommons-data:<tag>` | `ingestion_preprocessing_job_image` |
-| **`datacommons-aggregation-helper`** | Postprocessor aggregation job | `datcom-import`<br>`pipeline/workflow/aggregation-helper/Dockerfile` | `gcr.io/<project_id>/datacommons-aggregation-helper:<tag>` | `ingestion_postprocessing_job_image` |
-| **`datacommons-ingestion-helper`** | Lock coordination & migrations | `datcom-import`<br>`pipeline/workflow/ingestion-helper/Dockerfile` | `us-docker.pkg.dev/<project_id>/<repository>/datacommons-ingestion-helper:<tag>` | `ingestion_helper_service_image` |
-| **`ingestion-flex`** | Apache Beam Dataflow pipeline | `datcom-import`<br>`pipeline/ingestion/cloudbuild.yaml` | `us-docker.pkg.dev/<project_id>/<repository>/dataflow-templates/ingestion:<tag>`<br>`gs://<storage_artifacts_bucket_name>/templates/flex/ingestion-<tag>.json` | `ingestion_dataflow_template_gcs_path` |
+| **`datacommons-services`** | Envoy, Mixer API, Website serving | `website:build/cdc_services/Dockerfile`<br>`website:scripts/push_cdc_services_image.sh` | `gcr.io/<project_id>/datacommons-services:<tag>` | `datacommons_services_image` |
+| **`datacommons-data`** | Preprocessor batch job | `import:simple/Dockerfile`<br>`import:simple/scripts/push_image.sh` | `gcr.io/<project_id>/datacommons-data:<tag>` | `ingestion_preprocessing_job_image` |
+| **`datacommons-aggregation-helper`** | Postprocessor aggregation job | `import:pipeline/workflow/aggregation-helper/Dockerfile` | `gcr.io/<project_id>/datacommons-aggregation-helper:<tag>` | `ingestion_postprocessing_job_image` |
+| **`datacommons-ingestion-helper`** | Lock coordination & migrations | `import:pipeline/workflow/ingestion-helper/Dockerfile` | `us-docker.pkg.dev/<project_id>/<repository>/datacommons-ingestion-helper:<tag>` | `ingestion_helper_service_image` |
+| **`ingestion-flex`** | Apache Beam Dataflow pipeline | `import:pipeline/ingestion/cloudbuild.yaml` | `us-docker.pkg.dev/<project_id>/<repository>/dataflow-templates/ingestion:<tag>`<br>`gs://<storage_artifacts_bucket_name>/templates/flex/ingestion-<tag>.json` | `ingestion_dataflow_template_gcs_path` |
 
 #### Building Images via Google Cloud Build
 
 Build custom container images and push them to Google Container Registry (GCR) or Artifact Registry:
 
 ##### Serving Services (`datacommons-services`)
-The `website` repository incorporates `mixer` and `import` as Git submodules. If your changes involve code inside Mixer or Import, align the submodules before triggering the build:
+The `website` repository incorporates `mixer` as a Git submodule. If your changes involve code inside Mixer, align the submodule before triggering the build:
 
 ```bash
 cd /path/fork/of/datacommonsorg/website
@@ -225,10 +225,9 @@ cd /path/fork/of/datacommonsorg/website
 # (Optional) Align submodules:
 # Option A: Checkout specific feature branches:
 cd mixer && git checkout <mixer_feature_branch> && cd ..
-cd import && git checkout <import_feature_branch> && cd ..
 
 # Option B: Sync submodules with upstream master:
-git submodule update --remote --merge
+git submodule update --remote --merge mixer
 
 # Build and push custom datacommons-services image to development project:
 export PROJECT_ID="datcom-website-dev"
@@ -244,24 +243,20 @@ export SERVICES_TAG="<username>-<feature>-$(date +%s)"
 
 ##### Preprocessor (`datacommons-data`)
 ```bash
-cd /path/fork/of/datacommonsorg/website
+cd /path/fork/of/datacommonsorg/import
+git checkout <feature_branch>
 
-# (Optional) Align import submodule:
-# Option A: Checkout a specific feature branch:
-cd import && git checkout <import_feature_branch> && cd ..
-
-# Option B: Sync import submodule with upstream master:
-git submodule update --remote --merge import
-
-# Build and push custom preprocessor image to Artifact Registry:
+# Build and push custom datacommons-data image to development project:
 export PROJECT_ID="datcom-website-dev"
 export PREPROCESSOR_TAG="<username>-<feature>-$(date +%s)"
-export PREPROCESSOR_IMAGE="us-docker.pkg.dev/$PROJECT_ID/datacommons-artifacts/datacommons-data:$PREPROCESSOR_TAG"
-gcloud builds submit --project="$PROJECT_ID" --tag "$PREPROCESSOR_IMAGE" -f build/cdc_data/Dockerfile .
+./simple/scripts/push_image.sh "$PREPROCESSOR_TAG" "$PROJECT_ID"
 
 # Resulting Image URI:
-# us-docker.pkg.dev/$PROJECT_ID/datacommons-artifacts/datacommons-data:<PREPROCESSOR_TAG>
+# gcr.io/$PROJECT_ID/datacommons-data:<PREPROCESSOR_TAG>
 ```
+
+> [!NOTE]
+> `simple/scripts/push_image.sh` uploads only the `simple/` directory from your working tree (including uncommitted changes) and builds it with `simple/cloudbuild.yaml`, using `gcr.io/datcom-ci/datacommons-data:latest` as the layer cache. The second argument specifies the destination GCP project (`$PROJECT_ID`); if omitted, it defaults to `datcom-ci`. To build and run the image locally instead, see [Local Docker Build & Run](https://github.com/datacommonsorg/import/tree/master/simple#local-docker-build--run).
 
 ##### Postprocessor (`datacommons-aggregation-helper`)
 ```bash
@@ -324,7 +319,7 @@ To test custom container images or Dataflow templates on your deployed DCP insta
 ```hcl
 # Custom container image and Dataflow template overrides
 datacommons_services_image           = "gcr.io/<project_id>/datacommons-services:<custom_tag>"
-ingestion_preprocessing_job_image    = "us-docker.pkg.dev/<project_id>/<repository>/datacommons-data:<custom_tag>"
+ingestion_preprocessing_job_image    = "gcr.io/<project_id>/datacommons-data:<custom_tag>"
 ingestion_postprocessing_job_image   = "gcr.io/<project_id>/datacommons-aggregation-helper:<custom_tag>"
 ingestion_helper_service_image       = "us-docker.pkg.dev/<project_id>/<repository>/ingestion-helper:<custom_tag>"
 ingestion_dataflow_template_gcs_path = "gs://<storage_artifacts_bucket_name>/templates/flex/ingestion-<custom_tag>.json"

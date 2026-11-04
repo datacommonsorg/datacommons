@@ -26,13 +26,10 @@ resource "google_spanner_database" "database" {
   version_retention_period = var.version_retention_period
 }
 
-
-
-data "google_bigquery_default_service_account" "bq_sa" {
-  project = var.project_id
-}
-
-# Create BigQuery Connection to Spanner
+# Create BigQuery Connection to Spanner.
+# Queries through this connection run as the calling identity, so Spanner
+# access is granted to the caller (the postprocessing job SA), not to the
+# connection.
 resource "google_bigquery_connection" "spanner_connection" {
   count         = var.enable_bigquery_connection ? 1 : 0
   location      = var.region
@@ -44,23 +41,6 @@ resource "google_bigquery_connection" "spanner_connection" {
     use_parallelism = true
   }
 }
-
-# Grant the connection's service account access to Spanner
-resource "google_spanner_database_iam_member" "spanner_reader" {
-  count    = var.enable_bigquery_connection ? 1 : 0
-  instance = local.resolved_instance_id
-  database = local.resolved_database_id
-  role     = "roles/spanner.databaseUser"
-  member   = "serviceAccount:${data.google_bigquery_default_service_account.bq_sa.email}"
-}
-
-resource "google_project_iam_member" "bq_sa_spanner_viewer" {
-  count   = var.enable_bigquery_connection ? 1 : 0
-  project = var.project_id
-  role    = "roles/spanner.viewer"
-  member  = "serviceAccount:${data.google_bigquery_default_service_account.bq_sa.email}"
-}
-
 
 # Create the BigQuery Reservation for Federation queries
 resource "google_bigquery_reservation" "default" {

@@ -42,7 +42,7 @@ output "ingestion_workflow_name" {
 
 output "ingestion_service_url" {
   description = "URL of the ingestion support Cloud Run service"
-  value       = module.ingestion_helper_service.ingestion_helper_url
+  value       = one(module.ingestion_helper_service[*].ingestion_helper_url)
 }
 
 output "ingestion_workflow_service_account_email" {
@@ -62,7 +62,7 @@ output "datacommons_services_image" {
 
 output "ingestion_helper_image" {
   description = "Container image URI used by the ingestion helper service"
-  value       = var.ingestion_config.enable_ingestion ? module.ingestion_helper_service.image : null
+  value       = one(module.ingestion_helper_service[*].image)
 }
 
 output "ingestion_preprocessing_image" {
@@ -101,6 +101,11 @@ output "load_balancer_ip" {
 }
 
 output "load_balancer_url" {
-  description = "The HTTP URL of the External Application Load Balancer."
+  description = "The entrypoint URL for the Load Balancer (https://<first domain> when HTTPS is enabled, else http://<ip>)."
   value       = length(module.load_balancer) > 0 ? module.load_balancer[0].load_balancer_url : null
+}
+
+output "load_balancer_ssl_certificate_name" {
+  description = "Name of the Google-managed SSL certificate on the Load Balancer (null when HTTPS is disabled)."
+  value       = one(module.load_balancer[*].ssl_certificate_name)
 }

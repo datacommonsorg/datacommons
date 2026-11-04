@@ -565,7 +565,7 @@ Return to **Cloud Run > Services > `<namespace>-dc-datacommons-service`** in the
 2. Verify that the **Container image URL** displays `gcr.io/datcom-ci/datacommons-services:1.1.3`.
 3. Notice that Cloud Run automatically routed 100% of traffic to this new revision.
 
-> **Building Your Own Custom Images**: To learn how to build your own custom container images from `datcom-website` or `datcom-import` and push them to Artifact Registry using `gcloud builds submit`, refer to [Building and Overriding Container Images in the Developer Guide](../developer_guide.md#working-with-container-images-building-and-overriding).
+> **Building Your Own Custom Images**: To learn how to build your own custom container images from `website` or `import` and push them to Artifact Registry or Container Registry, refer to [Building and Overriding Container Images in the Developer Guide](../developer_guide.md#working-with-container-images-building-and-overriding).
 
 ---
 
