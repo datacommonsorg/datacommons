@@ -60,7 +60,7 @@ variable "dcp_version" {
 # =============================================================================
 
 variable "auth_dc_api_key_secret_id" {
-  description = "Secret Manager secret ID or full resource name (projects/<project>/secrets/<secret>) containing the Data Commons API key used to authenticate and connect to the remote Base Data Commons instance. Defaults to \"<instance_name>-dc-api-key\" in project_id, which `datacommons-admin init` creates. The secret must exist before terraform plan."
+  description = "Name of the Secret Manager secret in project_id that holds the Data Commons API key used to connect to the remote Base Data Commons instance. Defaults to \"<instance_name>-dc-api-key\", which `datacommons-admin init` creates."
   type        = string
   default     = ""
 }

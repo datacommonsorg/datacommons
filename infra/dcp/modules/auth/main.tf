@@ -2,23 +2,18 @@ locals {
   name_prefix               = var.instance_name != "" ? "${var.instance_name}-" : ""
   google_maps_api_key_value = var.google_maps_api_key != null ? var.google_maps_api_key : try(google_apikeys_key.maps_api_key[0].key_string, "")
 
-  # The Data Commons API key lives in Secret Manager and is never managed by
-  # Terraform. `datacommons-admin init` creates "<instance_name>-dc-api-key" by
-  # default; operators can point at any other secret with dc_api_key_secret_id.
-  default_dc_api_key_secret_name = "${local.name_prefix}dc-api-key"
-  dc_api_key_secret_path = (
-    var.dc_api_key_secret_id == "" ? "projects/${var.project_id}/secrets/${local.default_dc_api_key_secret_name}" :
-    startswith(var.dc_api_key_secret_id, "projects/") ? var.dc_api_key_secret_id :
-    "projects/${var.project_id}/secrets/${var.dc_api_key_secret_id}"
-  )
-  dc_api_key_secret_parts = regex("^projects/(?P<project>[^/]+)/secrets/(?P<name>[^/]+)$", local.dc_api_key_secret_path)
+  # The Data Commons API key lives in Secret Manager in project_id and is never
+  # managed by Terraform. `datacommons-admin init` creates
+  # "<instance_name>-dc-api-key" by default; dc_api_key_secret_id overrides the
+  # secret name.
+  dc_api_key_secret_name = var.dc_api_key_secret_id != "" ? var.dc_api_key_secret_id : "${local.name_prefix}dc-api-key"
 }
 
-# Fails at plan time with a clear "not found" error if the secret is missing,
-# instead of failing later when Cloud Run or the ingestion jobs start.
+# Fails with a clear "not found" error if the secret is missing, before
+# Cloud Run or the ingestion jobs try to use it.
 data "google_secret_manager_secret" "dc_api_key" {
-  project   = local.dc_api_key_secret_parts.project
-  secret_id = local.dc_api_key_secret_parts.name
+  project   = var.project_id
+  secret_id = local.dc_api_key_secret_name
 }
 
 # Releases <= 1.1.7 created the Data Commons API key secret (and a version

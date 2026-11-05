@@ -59,28 +59,9 @@ run "default_secret_no_instance_name" {
 }
 
 # -----------------------------------------------------------------------------
-# Run 3: BYO secret, full resource path (may live in another project).
+# Run 3: Custom secret name -> resolved in project_id.
 # -----------------------------------------------------------------------------
-run "byo_secret_full_path" {
-  command = plan
-
-  variables {
-    dc_api_key_secret_id = "projects/shared-secrets/secrets/team-dc-api-key"
-  }
-
-  assert {
-    condition = (
-      data.google_secret_manager_secret.dc_api_key.project == "shared-secrets" &&
-      data.google_secret_manager_secret.dc_api_key.secret_id == "team-dc-api-key"
-    )
-    error_message = "A full resource path must be split into its project and secret name"
-  }
-}
-
-# -----------------------------------------------------------------------------
-# Run 4: BYO secret, short name -> resolved in project_id.
-# -----------------------------------------------------------------------------
-run "byo_secret_short_name" {
+run "custom_secret_name" {
   command = plan
 
   variables {
@@ -97,7 +78,7 @@ run "byo_secret_short_name" {
 }
 
 # -----------------------------------------------------------------------------
-# Run 5: The output is the looked-up secret's resource name.
+# Run 4: The output is the looked-up secret's resource name.
 # -----------------------------------------------------------------------------
 run "output_is_secret_resource_name" {
   command = plan
@@ -116,13 +97,13 @@ run "output_is_secret_resource_name" {
 }
 
 # -----------------------------------------------------------------------------
-# Run 6: Malformed secret IDs are rejected.
+# Run 5: Full resource paths (e.g. another project) are rejected.
 # -----------------------------------------------------------------------------
-run "invalid_secret_id_rejected" {
+run "full_resource_path_rejected" {
   command = plan
 
   variables {
-    dc_api_key_secret_id = "projects/test-project/secrets/a/versions/1"
+    dc_api_key_secret_id = "projects/other-project/secrets/team-dc-api-key"
   }
 
   expect_failures = [var.dc_api_key_secret_id]

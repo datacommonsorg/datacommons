@@ -7,13 +7,13 @@ variable "instance_name" {
 }
 
 variable "dc_api_key_secret_id" {
-  description = "Secret Manager secret ID or full resource name (projects/<project>/secrets/<secret>) containing the Data Commons API key. Defaults to \"<instance_name>-dc-api-key\" in project_id (created by `datacommons-admin init`)."
+  description = "Name of the Secret Manager secret in project_id that holds the Data Commons API key. Defaults to \"<instance_name>-dc-api-key\" (created by `datacommons-admin init`)."
   type        = string
   default     = ""
 
   validation {
-    condition     = var.dc_api_key_secret_id == "" || can(regex("^(projects/[^/]+/secrets/)?[A-Za-z0-9_-]+$", var.dc_api_key_secret_id))
-    error_message = "dc_api_key_secret_id must be a secret name (e.g. \"my-dc-api-key\") or a full resource name (\"projects/<project>/secrets/<name>\")."
+    condition     = var.dc_api_key_secret_id == "" || can(regex("^[A-Za-z0-9_-]+$", var.dc_api_key_secret_id))
+    error_message = "dc_api_key_secret_id must be a secret name in project_id (e.g. \"my-dc-api-key\"), not a full resource path."
   }
 }
 
