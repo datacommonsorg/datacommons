@@ -43,6 +43,13 @@ import requests
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
+def _redact(cmd: list[str]) -> str:
+    """Joins a command for logging, hiding the value of --dc-api-key."""
+    return " ".join(
+        "--dc-api-key=***" if arg.startswith("--dc-api-key=") else arg for arg in cmd
+    )
+
+
 def run_cmd_with_retry(
     cmd: list[str],
     cwd: Path | None = None,
@@ -51,14 +58,15 @@ def run_cmd_with_retry(
     backoff_factor: float = 2.0,
     max_delay: float | None = None,
     check: bool = True,
+    env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess:
     """Executes a subprocess command with retries and exponential backoff for resilience."""
     delay = initial_delay
     last_proc = None
 
     for attempt in range(1, max_attempts + 1):
-        print(f"==> [{attempt}/{max_attempts}] Executing: {' '.join(cmd)}")
-        proc = subprocess.run(cmd, cwd=str(cwd) if cwd else None, check=False)
+        print(f"==> [{attempt}/{max_attempts}] Executing: {_redact(cmd)}")
+        proc = subprocess.run(cmd, cwd=str(cwd) if cwd else None, check=False, env=env)
         last_proc = proc
 
         if proc.returncode == 0:
@@ -149,9 +157,11 @@ def provision_infra(
         f"--tf-state-prefix=ephemeral/{instance_name}",
         "--force",
     ]
-    if dc_api_key:
-        os.environ["DC_API_KEY"] = dc_api_key
+    # Pass the key via DC_API_KEY so it never appears on the command line.
+    init_env = {**os.environ, "DC_API_KEY": dc_api_key} if dc_api_key else None
     if not local:
+        # Released CLIs <= 1.1.7 only accept the key as a flag; newer ones read
+        # DC_API_KEY and just warn about the flag. The value is redacted in logs.
         admin_args.append(f"--dc-api-key={dc_api_key}")
         admin_args.append(f"--tf-git-ref={tf_git_ref}")
 
@@ -165,6 +175,7 @@ def provision_infra(
         init_cmd,
         cwd=workspace_dir,
         max_attempts=2,
+        env=init_env,
     )
 
     if not instance_dir.exists():

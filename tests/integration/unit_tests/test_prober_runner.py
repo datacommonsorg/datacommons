@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Unit tests for prober_runner.teardown_infra secret cleanup."""
+"""Unit tests for prober_runner helpers (teardown secret cleanup, log redaction)."""
 
 from pathlib import Path
 from unittest.mock import patch
@@ -60,3 +60,10 @@ def test_secret_kept_when_skip_destroy(tmp_path: Path) -> None:
             instance_name="prober-abc",
         )
     assert _secret_delete_calls(mock_run) == []
+
+
+def test_redact_hides_dc_api_key_value() -> None:
+    assert (
+        prober_runner._redact(["uvx", "admin", "init", "--dc-api-key=secret-value"])
+        == "uvx admin init --dc-api-key=***"
+    )
