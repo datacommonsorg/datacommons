@@ -290,7 +290,10 @@ def resolve_dcp_target(
     workflow_name = tf_outputs.get(
         "ingestion_workflow_name", f"{instance_name}-dc-ingestion-workflow"
     )
-    workflow_sa = tf_outputs.get("ingestion_workflow_service_account_email", "")
+    # Full "projects/{p}/locations/{r}/workflows/{name}" path. Terraform outputs
+    # are null when ingestion is disabled, so coerce to "" rather than None.
+    workflow_id = tf_outputs.get("ingestion_workflow_id") or ""
+    workflow_sa = tf_outputs.get("ingestion_workflow_service_account_email") or ""
     gcs_bucket = tf_outputs.get("storage_artifacts_bucket_name", "")
 
     # Resolve deployed container images and template artifacts
@@ -307,6 +310,7 @@ def resolve_dcp_target(
         spanner_instance=spanner_instance,
         spanner_database=spanner_database,
         workflow_name=workflow_name,
+        workflow_id=workflow_id,
         workflow_sa_email=workflow_sa,
         gcs_bucket=gcs_bucket,
         artifacts=resolved_artifacts,
