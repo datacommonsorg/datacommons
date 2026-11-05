@@ -21,6 +21,10 @@ crash.log
 crash.log.*
 *.tfvars
 *.tfvars.json
+# Copies of tfvars hold the same secrets (e.g. terraform.tfvars.bak from the
+# testbed connect script). Templates stay tracked.
+*.tfvars.*
+!*.tfvars.template
 override.tf
 override.tf.json
 _override.tf
@@ -30,6 +34,9 @@ terraform.rc
 tfplan
 infra/dcp/backend.tf
 .terraform.lock.hcl
+
+# Local testbed workspaces (see tests/testbed/README.md)
+tests/testbed/workspaces/
 
 # Configuration
 infra/dcp/.env

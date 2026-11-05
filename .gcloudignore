@@ -20,6 +20,12 @@ htmlcov
 *.tfstate.*
 *.tfvars
 *.tfvars.json
+# Copies of tfvars hold the same secrets (e.g. terraform.tfvars.bak from the
+# testbed connect script). Templates are safe to upload.
+*.tfvars.*
+!*.tfvars.template
+# Local testbed workspaces: tfvars, backups and downloaded root modules.
+tests/testbed/workspaces/
 .env*
 crash.log
 crash.log.*
