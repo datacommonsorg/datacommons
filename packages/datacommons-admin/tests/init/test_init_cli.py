@@ -28,9 +28,7 @@ def mock_secret_config():
     with patch(
         "datacommons_admin.init.init_cli._configure_dc_api_key_secret",
         side_effect=lambda project_id, instance_name, secret_id="", _key="": (
-            secret_id
-            if secret_id
-            else f"projects/{project_id}/secrets/{instance_name}-dc-api-key"
+            secret_id if secret_id else f"{instance_name}-dc-api-key"
         ),
     ) as mock_fn:
         yield mock_fn
@@ -49,7 +47,7 @@ def test_init_success_with_secret_id_option(
             "--instance-name",
             "test-instance",
             "--dc-api-key-secret-id",
-            "projects/test-project/secrets/custom-dc-key",
+            "custom-dc-key",
             "--no-tf-remote-state",
         ],
     )
@@ -59,7 +57,7 @@ def test_init_success_with_secret_id_option(
     mock_secret_config.assert_called_once_with(
         "test-project",
         "test-instance",
-        "projects/test-project/secrets/custom-dc-key",
+        "custom-dc-key",
         "",
     )
 
@@ -73,10 +71,7 @@ def test_init_success_with_secret_id_option(
     tfvars_content = (target_dir / "terraform.tfvars").read_text()
     assert 'project_id = "test-project"' in tfvars_content
     assert 'instance_name  = "test-instance"' in tfvars_content
-    assert (
-        'auth_dc_api_key_secret_id = "projects/test-project/secrets/custom-dc-key"'
-        in tfvars_content
-    )
+    assert 'auth_dc_api_key_secret_id = "custom-dc-key"' in tfvars_content
 
 
 @pytest.mark.usefixtures("mock_github_templates")
@@ -104,10 +99,7 @@ def test_init_success_with_env_var_no_deprecation_warning(
         "env-secret-key",
     )
     tfvars_content = (Path.cwd() / "test-instance" / "terraform.tfvars").read_text()
-    assert (
-        'auth_dc_api_key_secret_id = "projects/test-project/secrets/test-instance-dc-api-key"'
-        in tfvars_content
-    )
+    assert 'auth_dc_api_key_secret_id = "test-instance-dc-api-key"' in tfvars_content
     assert "env-secret-key" not in tfvars_content
 
 
@@ -137,10 +129,7 @@ def test_init_deprecated_dc_api_key_cli_flag_emits_warning(
         "test-key",
     )
     tfvars_content = (Path.cwd() / "test-instance" / "terraform.tfvars").read_text()
-    assert (
-        'auth_dc_api_key_secret_id = "projects/test-project/secrets/test-instance-dc-api-key"'
-        in tfvars_content
-    )
+    assert 'auth_dc_api_key_secret_id = "test-instance-dc-api-key"' in tfvars_content
     assert "test-key" not in tfvars_content
 
 
@@ -181,10 +170,7 @@ def test_init_success_with_prompts(isolated_runner: CliRunner) -> None:
     tfvars_content = (target_dir / "terraform.tfvars").read_text()
     assert 'project_id = "prompt-project"' in tfvars_content
     assert 'instance_name  = "prompt-instance"' in tfvars_content
-    assert (
-        'auth_dc_api_key_secret_id = "projects/prompt-project/secrets/prompt-instance-dc-api-key"'
-        in tfvars_content
-    )
+    assert 'auth_dc_api_key_secret_id = "prompt-instance-dc-api-key"' in tfvars_content
 
 
 @pytest.mark.usefixtures("mock_github_templates")

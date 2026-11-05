@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
 import sys
 
 import click
@@ -32,17 +33,33 @@ def get_default_dc_api_key_secret_name(instance_name: str) -> str:
     return f"{prefix}dc-api-key"
 
 
-def normalize_secret_id(project_id: str, secret_id_or_name: str) -> str:
-    """Normalizes a short secret name or full resource ID to projects/<project_id>/secrets/<name>."""
-    cleaned = secret_id_or_name.strip()
-    if cleaned.startswith("projects/"):
-        return cleaned
-    return f"projects/{project_id}/secrets/{cleaned}"
+_SECRET_NAME_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+def validate_secret_name(secret_name: str) -> str:
+    """Returns the stripped secret name, or raises if it is not a plain name.
+
+    The secret must live in the instance's project, so full resource paths
+    (projects/<project>/secrets/<name>) are rejected.
+    """
+    cleaned = secret_name.strip()
+    if not _SECRET_NAME_RE.match(cleaned):
+        raise click.ClickException(
+            f"Invalid --dc-api-key-secret-id '{cleaned}'. Pass the name of a "
+            "Secret Manager secret in --project-id (letters, digits, '-' and "
+            "'_'), e.g. 'my-dc-api-key', not a full resource path."
+        )
+    return cleaned
+
+
+def secret_resource_name(project_id: str, secret_name: str) -> str:
+    """Returns projects/<project_id>/secrets/<secret_name>."""
+    return f"projects/{project_id}/secrets/{secret_name}"
 
 
 def get_default_dc_api_key_secret_id(project_id: str, instance_name: str) -> str:
-    """Returns the default full Secret Manager resource ID for the Data Commons API key."""
-    return normalize_secret_id(
+    """Returns the default full Secret Manager resource name for the Data Commons API key."""
+    return secret_resource_name(
         project_id, get_default_dc_api_key_secret_name(instance_name)
     )
 
@@ -83,17 +100,20 @@ def _ensure_dc_api_key_secret(
     full_secret_id: str,
     dc_api_key: str,
 ) -> str:
-    """Checks if the default secret exists in Secret Manager, reusing or creating it."""
+    """Checks if the default secret exists in Secret Manager, reusing or creating it.
+
+    Returns the secret name (what terraform.tfvars stores).
+    """
     api_key = dc_api_key.strip()
     try:
         secret_client.get_secret(request={"name": full_secret_id})
         click.echo(f"  - {'Status'.ljust(12)}: Found")
         if api_key:
             _add_secret_version(secret_client, full_secret_id, api_key)
-            return full_secret_id
+            return secret_name
 
         if _confirm("Use existing secret in Secret Manager?", default=True):
-            return full_secret_id
+            return secret_name
 
         new_key = _prompt_dc_api_key()
         if new_key:
@@ -103,7 +123,7 @@ def _ensure_dc_api_key_secret(
                 "  Keeping existing secret version unchanged.",
                 fg="bright_black",
             )
-        return full_secret_id
+        return secret_name
 
     except exceptions.NotFound:
         click.echo(f"  - {'Status'.ljust(12)}: Not found")
@@ -116,7 +136,7 @@ def _ensure_dc_api_key_secret(
                 fg="yellow",
                 bold=True,
             )
-            return full_secret_id
+            return secret_name
 
         click.secho(
             f"  Creating secret {full_secret_id} in Secret Manager...",
@@ -130,7 +150,7 @@ def _ensure_dc_api_key_secret(
             }
         )
         _add_secret_version(secret_client, full_secret_id, api_key)
-        return full_secret_id
+        return secret_name
 
 
 SECRET_MANAGER_ENABLE_DOCS_URL = (
@@ -147,14 +167,6 @@ _SECRET_MANAGER_ERRORS = (
     exceptions.RetryError,
     google_auth_exceptions.GoogleAuthError,
 )
-
-
-def _secret_project(full_secret_id: str, default_project_id: str) -> str:
-    """Returns the project that owns a projects/<project>/secrets/<name> resource."""
-    parts = full_secret_id.split("/")
-    if len(parts) >= 2 and parts[0] == "projects" and parts[1]:
-        return parts[1]
-    return default_project_id
 
 
 def _is_service_disabled_error(error: exceptions.GoogleAPICallError) -> bool:
@@ -217,22 +229,22 @@ def _create_secret_manager_client(
         raise _secret_manager_error(e, project_id, full_secret_id) from e
 
 
-def _verify_existing_secret(project_id: str, full_secret_id: str) -> None:
-    """Checks that a user-provided (BYO) secret exists and is accessible."""
-    secret_project = _secret_project(full_secret_id, project_id)
-    secret_client = _create_secret_manager_client(secret_project, full_secret_id)
+def _verify_existing_secret(project_id: str, secret_name: str) -> None:
+    """Checks that a user-provided (BYO) secret exists in project_id."""
+    full_secret_id = secret_resource_name(project_id, secret_name)
+    secret_client = _create_secret_manager_client(project_id, full_secret_id)
     try:
         secret_client.get_secret(request={"name": full_secret_id})
     except exceptions.NotFound as e:
         raise click.ClickException(
             f"Secret '{full_secret_id}' was not found in Secret Manager.\n"
             "Create it and add the API key as a version, for example:\n"
-            f"  gcloud secrets create {full_secret_id.split('/')[-1]} --project={secret_project}\n"
-            f"  printf '%s' \"$DC_API_KEY\" | gcloud secrets versions add {full_secret_id.split('/')[-1]} --project={secret_project} --data-file=-\n"
+            f"  gcloud secrets create {secret_name} --project={project_id}\n"
+            f"  printf '%s' \"$DC_API_KEY\" | gcloud secrets versions add {secret_name} --project={project_id} --data-file=-\n"
             "Or omit --dc-api-key-secret-id and 'datacommons admin init' will create the secret for you."
         ) from e
     except _SECRET_MANAGER_ERRORS as e:
-        raise _secret_manager_error(e, secret_project, full_secret_id) from e
+        raise _secret_manager_error(e, project_id, full_secret_id) from e
     click.echo(f"  - {'Status'.ljust(12)}: Found")
 
 
@@ -244,16 +256,21 @@ def _configure_dc_api_key_secret(
 ) -> str:
     """Configures or provisions the Secret Manager secret for the Data Commons API key.
 
-    Exits with an actionable error (no traceback) if Secret Manager is not
+    Returns the secret name in project_id (written to terraform.tfvars as
+    auth_dc_api_key_secret_id). Exits with an actionable error (no traceback) if Secret Manager is not
     enabled, the caller lacks permissions, or credentials are missing. Call this
     before creating any other resources so init never stops half way.
     """
     if dc_api_key_secret_id.strip():
-        resolved_secret_id = normalize_secret_id(project_id, dc_api_key_secret_id)
+        secret_name = validate_secret_name(dc_api_key_secret_id)
         click.echo("Configuring Secret Manager secret for Data Commons API key:")
-        _log_resolved_value("Secret ID", resolved_secret_id, is_default=False)
-        _verify_existing_secret(project_id, resolved_secret_id)
-        return resolved_secret_id
+        _log_resolved_value(
+            "Secret ID",
+            secret_resource_name(project_id, secret_name),
+            is_default=False,
+        )
+        _verify_existing_secret(project_id, secret_name)
+        return secret_name
 
     secret_name = get_default_dc_api_key_secret_name(instance_name)
     full_secret_id = get_default_dc_api_key_secret_id(project_id, instance_name)

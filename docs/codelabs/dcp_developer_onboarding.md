@@ -179,7 +179,7 @@ Open `terraform.tfvars` in your editor. When developing in a shared GCP project 
 # REQUIRED USER PLACEHOLDERS (Replace these values first!)
 # ==============================================================================
 instance_name                                      = "dev-yourldap"       # Replace with your unique namespace (e.g. dev-<ldap>)
-auth_dc_api_key_secret_id                          = "projects/datcom-website-dev/secrets/dev-yourldap-dc-api-key"
+auth_dc_api_key_secret_id                          = "dev-yourldap-dc-api-key"
 project_id                                         = "datcom-website-dev" # Target Google Cloud project
 
 # ==============================================================================

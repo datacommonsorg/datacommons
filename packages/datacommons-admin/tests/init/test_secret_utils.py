@@ -20,13 +20,14 @@ from datacommons_admin.init.utils.secret_utils import (
     _configure_dc_api_key_secret,
     get_default_dc_api_key_secret_id,
     get_default_dc_api_key_secret_name,
-    normalize_secret_id,
+    secret_resource_name,
+    validate_secret_name,
 )
 from google.api_core import exceptions
 from google.rpc import error_details_pb2
 
 
-def test_secret_name_and_normalization_helpers() -> None:
+def test_secret_name_helpers() -> None:
     assert get_default_dc_api_key_secret_name("prod") == "prod-dc-api-key"
     assert get_default_dc_api_key_secret_name("") == "dc-api-key"
     assert (
@@ -34,13 +35,33 @@ def test_secret_name_and_normalization_helpers() -> None:
         == "projects/my-proj/secrets/prod-dc-api-key"
     )
     assert (
-        normalize_secret_id("my-proj", "custom-secret")
+        secret_resource_name("my-proj", "custom-secret")
         == "projects/my-proj/secrets/custom-secret"
     )
-    assert (
-        normalize_secret_id("my-proj", "projects/other-proj/secrets/shared-secret")
-        == "projects/other-proj/secrets/shared-secret"
-    )
+    assert validate_secret_name("  custom_secret-1 ") == "custom_secret-1"
+
+
+@pytest.mark.parametrize(
+    "bad",
+    ["projects/other-proj/secrets/shared", "a/b", "has space", "dc.api.key"],
+)
+def test_validate_secret_name_rejects_paths_and_bad_chars(bad: str) -> None:
+    with pytest.raises(click.ClickException) as exc_info:
+        validate_secret_name(bad)
+    assert "not a full resource path" in str(exc_info.value)
+
+
+def test_configure_secret_rejects_full_resource_path_without_calling_api() -> None:
+    with patch(
+        "datacommons_admin.init.utils.secret_utils.secretmanager.SecretManagerServiceClient"
+    ) as mock_client_cls:
+        with pytest.raises(click.ClickException):
+            _configure_dc_api_key_secret(
+                project_id="my-proj",
+                instance_name="dev",
+                dc_api_key_secret_id="projects/other-proj/secrets/shared",
+            )
+        mock_client_cls.assert_not_called()
 
 
 def test_configure_secret_with_explicit_secret_id_override_verifies_it_exists() -> None:
@@ -54,7 +75,7 @@ def test_configure_secret_with_explicit_secret_id_override_verifies_it_exists() 
             instance_name="dev",
             dc_api_key_secret_id="my-byo-secret",
         )
-        assert result == "projects/my-proj/secrets/my-byo-secret"
+        assert result == "my-byo-secret"
         mock_client.get_secret.assert_called_once_with(
             request={"name": "projects/my-proj/secrets/my-byo-secret"}
         )
@@ -74,11 +95,11 @@ def test_configure_secret_with_missing_byo_secret_explains_how_to_create_it() ->
             _configure_dc_api_key_secret(
                 project_id="my-proj",
                 instance_name="dev",
-                dc_api_key_secret_id="projects/other-proj/secrets/shared",
+                dc_api_key_secret_id="shared",
             )
         message = str(exc_info.value)
-        assert "projects/other-proj/secrets/shared" in message
-        assert "gcloud secrets create shared --project=other-proj" in message
+        assert "projects/my-proj/secrets/shared" in message
+        assert "gcloud secrets create shared --project=my-proj" in message
         mock_client.create_secret.assert_not_called()
 
 
@@ -99,7 +120,7 @@ def test_configure_secret_creates_new_secret_when_not_found() -> None:
             dc_api_key="my-secret-api-key",
         )
 
-        assert result == "projects/my-proj/secrets/dev-dc-api-key"
+        assert result == "dev-dc-api-key"
         mock_client.create_secret.assert_called_once_with(
             request={
                 "parent": "projects/my-proj",
@@ -137,7 +158,7 @@ def test_configure_secret_prompts_with_hidden_input_when_missing() -> None:
             instance_name="dev",
         )
 
-        assert result == "projects/my-proj/secrets/dev-dc-api-key"
+        assert result == "dev-dc-api-key"
         mock_prompt.assert_called_once()
         assert mock_prompt.call_args.kwargs.get("hide_input") is True
         mock_client.add_secret_version.assert_called_once_with(
@@ -166,7 +187,7 @@ def test_configure_secret_reuses_existing_secret_on_confirm() -> None:
             instance_name="dev",
         )
 
-        assert result == "projects/my-proj/secrets/dev-dc-api-key"
+        assert result == "dev-dc-api-key"
         mock_confirm.assert_called_once()
         mock_client.create_secret.assert_not_called()
         mock_client.add_secret_version.assert_not_called()
@@ -215,24 +236,6 @@ def test_configure_secret_service_disabled_detected_from_error_reason() -> None:
             "https://cloud.google.com/secret-manager/docs/configuring-secret-manager"
             in message
         )
-
-
-def test_configure_secret_service_disabled_for_byo_secret_uses_secret_project() -> None:
-    with patch(
-        "datacommons_admin.init.utils.secret_utils.secretmanager.SecretManagerServiceClient"
-    ) as mock_client_cls:
-        mock_client = MagicMock()
-        mock_client.get_secret.side_effect = exceptions.PermissionDenied(
-            "403 Secret Manager API has not been used in project other-proj before or it is disabled."
-        )
-        mock_client_cls.return_value = mock_client
-        with pytest.raises(click.ClickException) as exc_info:
-            _configure_dc_api_key_secret(
-                project_id="my-proj",
-                instance_name="dev",
-                dc_api_key_secret_id="projects/other-proj/secrets/shared",
-            )
-        assert "--project=other-proj" in str(exc_info.value)
 
 
 def test_configure_secret_permission_denied_names_role_and_docs() -> None:

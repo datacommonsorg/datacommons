@@ -83,7 +83,7 @@ The authoritative source of truth for all configuration options, type constraint
   * `project_id`: Target Google Cloud Project ID.
   * `instance_name`: Unique namespace prefix for provisioned GCP resources (such as `dev-alice`). Maximum 16 lowercase alphanumeric characters and hyphens.
   * `region`: Primary GCP compute and storage region.
-  * `auth_dc_api_key_secret_id`: Secret Manager secret ID or full resource name (`projects/<project_id>/secrets/<secret_name>`) containing the Data Commons API Key from [apikeys.datacommons.org](https://apikeys.datacommons.org) for base knowledge graph federation (`auth_google_datacommons_api_key` is retained as a deprecated fallback).
+  * `auth_dc_api_key_secret_id`: Name of the Secret Manager secret in `project_id` that holds the Data Commons API Key from [apikeys.datacommons.org](https://apikeys.datacommons.org), used for base knowledge graph federation. Defaults to `<instance_name>-dc-api-key`, which `datacommons admin init` creates. (`auth_google_datacommons_api_key` is deprecated and ignored.)
 * **Release and Image Management**:
   * `dcp_version`: Controls unified container image and template version resolution. Set to `"latest"` for bleeding-edge builds, or pin to a specific release tag (see [variables.tf](variables.tf) for current defaults and [Developer Guide](../../docs/developer_guide.md#running-the-stack-on-latest-main-and-latest-builds) for latest workflows).
   * `datacommons_services_image`, `ingestion_dataflow_template_gcs_path`: Individual container and template overrides when developing or testing custom builds.

@@ -45,7 +45,7 @@ from datacommons_admin.init.utils.secret_utils import (
 @click.option(
     "--dc-api-key-secret-id",
     default="",
-    help="Secret Manager secret ID or full resource name (projects/<project>/secrets/<secret>) containing the Data Commons API key.",
+    help="Name of an existing Secret Manager secret in --project-id that holds the Data Commons API key. Defaults to creating or reusing <instance-name>-dc-api-key.",
 )
 @click.option(
     "--dc-api-key",
