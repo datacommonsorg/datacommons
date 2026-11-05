@@ -143,7 +143,7 @@ def _setup_dcp_config_dir(
     instance_name: str,
     bucket_name: str,
     tf_state_prefix: str,
-    dc_api_key_secret_id: str,
+    dc_api_key_secret_name: str,
     ref: str,
     use_remote_state: bool,
 ):
@@ -175,21 +175,9 @@ def _setup_dcp_config_dir(
         tfvars_content = tfvars_content.replace(
             '"$$INSTANCE_NAME$$"', f'"{instance_name}"'
         )
-        secret_id_val = dc_api_key_secret_id.strip()
-        if secret_id_val:
-            if '"$$DC_API_KEY_SECRET_ID$$"' in tfvars_content:
-                tfvars_content = tfvars_content.replace(
-                    '"$$DC_API_KEY_SECRET_ID$$"', f'"{secret_id_val}"'
-                )
-            elif (
-                '"$$DC_API_KEY$$"' in tfvars_content
-                and "auth_dc_api_key_secret_id" in variables_content
-            ):
-                tfvars_content = re.sub(
-                    r'auth_google_datacommons_api_key\s*=\s*"\$\$DC_API_KEY\$\$"',
-                    f'auth_dc_api_key_secret_id = "{secret_id_val}"',
-                    tfvars_content,
-                )
+        tfvars_content = tfvars_content.replace(
+            '"$$DC_API_KEY_SECRET_ID$$"', f'"{dc_api_key_secret_name}"'
+        )
 
         (target_dir / "terraform.tfvars").write_text(tfvars_content, encoding="utf-8")
 

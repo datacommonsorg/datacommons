@@ -24,7 +24,8 @@ stateless_deletion_protection = false
 # =============================================================================
 # Auth Module
 # =============================================================================
-# Secret Manager secret ID containing your Data Commons API Key (from https://apikeys.datacommons.org)
+# Name of the Secret Manager secret (in project_id) holding your Data Commons API key
+# from https://apikeys.datacommons.org. Created by `datacommons admin init`.
 auth_dc_api_key_secret_id = "$$DC_API_KEY_SECRET_ID$$"
 
 # List of HTTP referrers allowed to use the Google Maps API key (e.g., ["https://datacommons.example.com/*", "http://localhost:*"]).

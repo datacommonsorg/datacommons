@@ -120,7 +120,7 @@ def init(
     # 2. Secret Manager setup. Runs before anything else is created so a
     # disabled API or missing permission stops init cleanly, not half way.
     click.secho("\n[Data Commons API key]", fg="cyan", bold=True)
-    resolved_dc_api_key_secret_id = _configure_dc_api_key_secret(
+    dc_api_key_secret_name = _configure_dc_api_key_secret(
         resolved_project_id,
         resolved_instance_name,
         dc_api_key_secret_id,
@@ -157,7 +157,7 @@ def init(
         resolved_instance_name,
         resolved_bucket_name,
         resolved_tf_state_prefix,
-        resolved_dc_api_key_secret_id,
+        dc_api_key_secret_name,
         tf_git_ref,
         tf_remote_state,
     )
