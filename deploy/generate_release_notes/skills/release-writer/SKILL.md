@@ -13,7 +13,7 @@ description: Instructions for authoring publication-ready, partner-facing Data C
 
 ### Input References
 1. **DCP Domain Context**: [`skills/dcp-context/SKILL.md`](../dcp-context/SKILL.md) — Section 2 (**User & Operator Touchpoints**).
-2. **Verified Image Deltas**: `deploy/generate_release_notes/output/IMAGE_DELTAS_<new_version>.txt`.
+2. **Verified Image Deltas**: `deploy/generate_release_notes/output/IMAGE_DELTAS_<new_version>.txt`, including section `0. RELEASE TRACKER ITEMS` when a release tracker was provided.
 
 ### Target Output Artifact
 - **Final Release Notes**: `deploy/generate_release_notes/output/RELEASE_NOTES_<new_version>.md`.
@@ -42,6 +42,16 @@ description: Instructions for authoring publication-ready, partner-facing Data C
 ### Step 1: Input & Verification Checkpoint
 1. Read `skills/dcp-context/SKILL.md` Section 2 to ground your writing in user touchpoint principles.
 2. Read `deploy/generate_release_notes/output/IMAGE_DELTAS_<new_version>.txt`. Verify all PR references contain valid GitHub URLs.
+
+### Step 1b: Apply Release Tracker Items
+When section `0. RELEASE TRACKER ITEMS` is present, it is the team's curated view of what matters in this release:
+1. **Highlights drive Key Feature Updates.** Use tracker `HIGHLIGHTS` and PRs marked `[tracker: Highlight]` as the features under `## Key Feature Updates`, in the order given, and reflect them in the Executive Summary. Add other salient features from the component deltas after them.
+2. **Mentions are always included.** Place PRs marked `[tracker: Mention]` in `## Improvements & Configuration Updates` or `## Bug Fixes`, whichever fits.
+3. **Terraform changes go in Improvements & Configuration Updates.** Every row in `USER-FACING TERRAFORM CHANGES` must appear, with the variable name, default and customer action.
+4. **Breaking changes get their own section.** If `BREAKING CHANGES & REQUIRED ACTIONS` has items, add a `## Breaking Changes & Required Actions` section before `## Improvements & Configuration Updates`, and say in the Executive Summary that the upgrade has required actions.
+5. **Required actions override the internal-terms rule.** If customers must run a schema or data migration, name the command or step they need to run. Still avoid internal table names in feature titles.
+6. **Tracker wording is a draft.** Rewrite it to follow the style rules in Section 1, but never drop a tracker item.
+7. **Do not publish `TRACKER ITEMS NOT FOUND IN RELEASE WINDOW`.** Leave those out of the notes and list them in your summary to the developer.
 
 ### Step 2: Mandated Scale Analysis & Banned-Word Audit (Thinking Phase)
 Open a `<thinking>` block to record your pre-writing analysis:
@@ -89,6 +99,14 @@ Write the final release notes to `deploy/generate_release_notes/output/RELEASE_N
 
 **Specific Capabilities**:
 - [Actionable Use Case / Input Capability 1] ([repo_short#PR](URL))
+
+---
+
+## Breaking Changes & Required Actions
+
+[Include only when the release tracker lists breaking changes or required actions.]
+
+- **[Change]**: [What changed and exactly what customers must do when upgrading] ([repo_short#PR](URL))
 
 ---
 
