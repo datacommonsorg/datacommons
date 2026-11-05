@@ -49,6 +49,7 @@ If `IMAGE_DELTAS_<new_version>.txt` has a `0. RELEASE TRACKER ITEMS` section, en
 - Terraform changes go in `## Improvements & Configuration Updates`.
 - Breaking changes and required actions go in a `## Breaking Changes & Required Actions` section, placed before Improvements. Name any migration steps customers must run.
 - Reword tracker text to match the style rules above.
+- Leave out items marked "not found in release window" (for example, PRs that haven't merged yet) and list them in your summary to the developer.
 
 ### Step 2: Mandated Scale Analysis & Banned-Word Audit (Thinking Phase)
 Open a `<thinking>` block to record your pre-writing analysis:
