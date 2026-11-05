@@ -59,10 +59,17 @@ variable "dcp_version" {
 # Auth Module
 # =============================================================================
 
-variable "auth_google_datacommons_api_key" {
-  description = "API key used to authenticate and connect to the remote Base Data Commons instance"
+variable "auth_dc_api_key_secret_id" {
+  description = "Name of the Secret Manager secret in project_id that holds the Data Commons API key used to connect to the remote Base Data Commons instance. Defaults to \"<instance_name>-dc-api-key\", which `datacommons-admin init` creates."
   type        = string
   default     = ""
+}
+
+variable "auth_google_datacommons_api_key" {
+  description = "Deprecated and ignored: Terraform reads the Data Commons API key from Secret Manager (see auth_dc_api_key_secret_id). Kept only so existing terraform.tfvars files keep working; remove it from terraform.tfvars."
+  type        = string
+  default     = ""
+  sensitive   = true
 }
 
 variable "auth_google_maps_api_key" {
