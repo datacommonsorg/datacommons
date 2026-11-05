@@ -16,6 +16,7 @@ import sys
 
 import click
 from google.api_core import exceptions
+from google.auth import exceptions as google_auth_exceptions
 from google.cloud import secretmanager
 
 from datacommons_admin.core.utils.ui_utils import (
@@ -132,17 +133,126 @@ def _ensure_dc_api_key_secret(
         return full_secret_id
 
 
+SECRET_MANAGER_ENABLE_DOCS_URL = (
+    "https://cloud.google.com/secret-manager/docs/configuring-secret-manager"
+)
+SECRET_MANAGER_ACCESS_DOCS_URL = (
+    "https://cloud.google.com/secret-manager/docs/access-control"
+)
+
+
+# Errors from Secret Manager calls that are turned into clean CLI errors.
+_SECRET_MANAGER_ERRORS = (
+    exceptions.GoogleAPICallError,
+    exceptions.RetryError,
+    google_auth_exceptions.GoogleAuthError,
+)
+
+
+def _secret_project(full_secret_id: str, default_project_id: str) -> str:
+    """Returns the project that owns a projects/<project>/secrets/<name> resource."""
+    parts = full_secret_id.split("/")
+    if len(parts) >= 2 and parts[0] == "projects" and parts[1]:
+        return parts[1]
+    return default_project_id
+
+
+def _is_service_disabled_error(error: exceptions.GoogleAPICallError) -> bool:
+    """Returns True if the error says the Secret Manager API is not enabled."""
+    if getattr(error, "reason", None) == "SERVICE_DISABLED":
+        return True
+    message = str(error)
+    return (
+        "SERVICE_DISABLED" in message
+        or "has not been used in project" in message
+        or "it is disabled" in message
+    )
+
+
+def _secret_manager_error(
+    error: Exception, project_id: str, full_secret_id: str
+) -> click.ClickException:
+    """Maps a Secret Manager failure to a clean, actionable CLI error."""
+    if isinstance(error, (exceptions.Forbidden, exceptions.PermissionDenied)):
+        if _is_service_disabled_error(error):
+            return click.ClickException(
+                f"The Secret Manager API is not enabled in project '{project_id}'.\n"
+                "Enable it, then re-run 'datacommons admin init':\n"
+                f"  gcloud services enable secretmanager.googleapis.com --project={project_id}\n"
+                f"See {SECRET_MANAGER_ENABLE_DOCS_URL}"
+            )
+        return click.ClickException(
+            f"Permission denied accessing Secret Manager secret '{full_secret_id}'.\n"
+            "Your account needs the Secret Manager Admin role "
+            "(roles/secretmanager.admin) on the project (or Secret Manager "
+            "Secret Accessor on the secret, if you pass --dc-api-key-secret-id "
+            "for a secret that already exists). Ask a project owner to grant it, "
+            "then re-run 'datacommons admin init'.\n"
+            f"See {SECRET_MANAGER_ACCESS_DOCS_URL}"
+        )
+    if isinstance(
+        error,
+        (
+            exceptions.Unauthenticated,
+            exceptions.Unauthorized,
+            google_auth_exceptions.GoogleAuthError,
+        ),
+    ):
+        return click.ClickException(
+            "Could not authenticate to Google Cloud. Run "
+            "'gcloud auth application-default login', then re-run "
+            "'datacommons admin init'."
+        )
+    return click.ClickException(
+        f"Failed to access Secret Manager secret '{full_secret_id}': {error}"
+    )
+
+
+def _create_secret_manager_client(
+    project_id: str, full_secret_id: str
+) -> secretmanager.SecretManagerServiceClient:
+    try:
+        return secretmanager.SecretManagerServiceClient()
+    except google_auth_exceptions.GoogleAuthError as e:
+        raise _secret_manager_error(e, project_id, full_secret_id) from e
+
+
+def _verify_existing_secret(project_id: str, full_secret_id: str) -> None:
+    """Checks that a user-provided (BYO) secret exists and is accessible."""
+    secret_project = _secret_project(full_secret_id, project_id)
+    secret_client = _create_secret_manager_client(secret_project, full_secret_id)
+    try:
+        secret_client.get_secret(request={"name": full_secret_id})
+    except exceptions.NotFound as e:
+        raise click.ClickException(
+            f"Secret '{full_secret_id}' was not found in Secret Manager.\n"
+            "Create it and add the API key as a version, for example:\n"
+            f"  gcloud secrets create {full_secret_id.split('/')[-1]} --project={secret_project}\n"
+            f"  printf '%s' \"$DC_API_KEY\" | gcloud secrets versions add {full_secret_id.split('/')[-1]} --project={secret_project} --data-file=-\n"
+            "Or omit --dc-api-key-secret-id and 'datacommons admin init' will create the secret for you."
+        ) from e
+    except _SECRET_MANAGER_ERRORS as e:
+        raise _secret_manager_error(e, secret_project, full_secret_id) from e
+    click.echo(f"  - {'Status'.ljust(12)}: Found")
+
+
 def _configure_dc_api_key_secret(
     project_id: str,
     instance_name: str,
     dc_api_key_secret_id: str = "",
     dc_api_key: str = "",
 ) -> str:
-    """Configures or provisions the Secret Manager secret for the Data Commons API key."""
+    """Configures or provisions the Secret Manager secret for the Data Commons API key.
+
+    Exits with an actionable error (no traceback) if Secret Manager is not
+    enabled, the caller lacks permissions, or credentials are missing. Call this
+    before creating any other resources so init never stops half way.
+    """
     if dc_api_key_secret_id.strip():
         resolved_secret_id = normalize_secret_id(project_id, dc_api_key_secret_id)
         click.echo("Configuring Secret Manager secret for Data Commons API key:")
         _log_resolved_value("Secret ID", resolved_secret_id, is_default=False)
+        _verify_existing_secret(project_id, resolved_secret_id)
         return resolved_secret_id
 
     secret_name = get_default_dc_api_key_secret_name(instance_name)
@@ -153,13 +263,7 @@ def _configure_dc_api_key_secret(
     )
     _log_resolved_value("Secret ID", full_secret_id, is_default=True)
 
-    try:
-        secret_client = secretmanager.SecretManagerServiceClient()
-    except Exception as e:
-        raise click.ClickException(
-            f"Failed to initialize Google Cloud Secret Manager client for project '{project_id}': {e}. "
-            "Ensure you are authenticated via 'gcloud auth application-default login'."
-        ) from e
+    secret_client = _create_secret_manager_client(project_id, full_secret_id)
 
     try:
         return _ensure_dc_api_key_secret(
@@ -169,32 +273,8 @@ def _configure_dc_api_key_secret(
             full_secret_id=full_secret_id,
             dc_api_key=dc_api_key,
         )
-    except (exceptions.Unauthenticated, exceptions.Unauthorized) as e:
-        raise click.ClickException(
-            f"Authentication failed: {e}\n"
-            "Please ensure you are authenticated. Run 'gcloud auth application-default login' and try again."
-        ) from e
-    except (exceptions.Forbidden, exceptions.PermissionDenied) as e:
-        err_str = str(e)
-        if "SERVICE_DISABLED" in err_str or "secretmanager.googleapis.com" in err_str:
-            raise click.ClickException(
-                f"Secret Manager API is not enabled in project '{project_id}'.\n"
-                "Enable it by running:\n"
-                f"  gcloud services enable secretmanager.googleapis.com --project={project_id}\n"
-                "Then re-run 'datacommons admin init', or pass --dc-api-key-secret-id to configure the secret ID without calling Secret Manager."
-            ) from e
-        raise click.ClickException(
-            f"Permission denied accessing Secret Manager in project '{project_id}': {e}\n"
-            f"Please ensure your account has 'Secret Manager Admin' (roles/secretmanager.admin) or 'Project Editor' permissions in project '{project_id}'."
-        ) from e
     except click.Abort:
         click.echo("")
         sys.exit(1)
-    except Exception as e:
-        click.secho(
-            f"  Error: Failed to access or create secret {full_secret_id}.",
-            fg="red",
-            bold=True,
-        )
-        click.secho(f"  {e}", fg="red")
-        raise click.ClickException("Setup cancelled.") from e
+    except _SECRET_MANAGER_ERRORS as e:
+        raise _secret_manager_error(e, project_id, full_secret_id) from e

@@ -15,6 +15,7 @@
 from pathlib import Path
 from unittest.mock import patch
 
+import click
 import pytest
 from click.testing import CliRunner
 from datacommons_admin import __version__
@@ -257,3 +258,29 @@ def test_init_uses_default_ref_v_prefixed(
     )
     assert result.exit_code == 0
     mock_github_templates.assert_called_once_with(f"v{__version__}")
+
+
+def test_init_stops_before_creating_anything_when_secret_manager_fails(
+    isolated_runner: CliRunner, mock_secret_config
+) -> None:
+    mock_secret_config.side_effect = click.ClickException(
+        "The Secret Manager API is not enabled in project 'test-project'."
+    )
+    with patch(
+        "datacommons_admin.init.init_cli._configure_remote_state"
+    ) as mock_remote_state:
+        result = isolated_runner.invoke(
+            admin,
+            [
+                "init",
+                "--project-id",
+                "test-project",
+                "--instance-name",
+                "test-instance",
+            ],
+        )
+    assert result.exit_code == 1
+    assert "Secret Manager API is not enabled" in result.output
+    assert "Traceback" not in result.output
+    mock_remote_state.assert_not_called()
+    assert not (Path.cwd() / "test-instance" / "terraform.tfvars").exists()

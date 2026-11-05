@@ -114,14 +114,24 @@ def init(
         project_id, instance_name, force
     )
 
-    # 2. Terraform Setup
+    # Refuse to overwrite existing files unless --force is specified
+    _check_existing_files(target_dir, tf_remote_state, force)
+
+    # 2. Secret Manager setup. Runs before anything else is created so a
+    # disabled API or missing permission stops init cleanly, not half way.
+    click.secho("\n[Data Commons API key]", fg="cyan", bold=True)
+    resolved_dc_api_key_secret_id = _configure_dc_api_key_secret(
+        resolved_project_id,
+        resolved_instance_name,
+        dc_api_key_secret_id,
+        dc_api_key,
+    )
+
+    # 3. Terraform Setup
     click.secho("\n[Terraform backend setup]", fg="cyan", bold=True)
     click.secho("Configuring backend for Terraform state...", fg="bright_black")
     if not tf_remote_state:
         click.echo("  Using local backend for Terraform state.")
-
-    # Refuse to overwrite existing files unless --force is specified
-    _check_existing_files(target_dir, tf_remote_state, force)
 
     resolved_bucket_name = (
         _configure_remote_state(
@@ -138,14 +148,8 @@ def init(
         resolved_instance_name
     )
 
-    # 3. Secret Manager Setup & DCP config dir setup
+    # 4. DCP config dir setup
     click.secho("\n[DCP configuration]", fg="cyan", bold=True)
-    resolved_dc_api_key_secret_id = _configure_dc_api_key_secret(
-        resolved_project_id,
-        resolved_instance_name,
-        dc_api_key_secret_id,
-        dc_api_key,
-    )
     click.secho("Setting up configuration files...", fg="bright_black")
     _setup_dcp_config_dir(
         target_dir,
