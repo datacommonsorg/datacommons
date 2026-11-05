@@ -34,11 +34,16 @@ Platform contributors modifying Terraform definitions or testing changes work di
 
 ## Stack Orchestration and Module Topology
 
-DCP uses a hierarchical module architecture. Submodules never reference or depend on each other directly. Instead, `infra/dcp/modules/stack/main.tf` serves as the single orchestration hub that passes outputs between submodules and binds cross-module Identity and Access Management (IAM) policies:
+DCP uses a hierarchical module architecture. External administrators always deploy the unified `modules/stack` module rather than assembling individual submodules independently. Decomposing the stack into submodules serves three engineering goals:
+1. **Self-Contained Workload Contracts**: Each compute submodule (`datacommons_services`, `helper_service`, `postprocessing_job`, `preprocessing_job`, `dataflow`, `workflow`) encapsulates its container or job definition, the exact environment variables its code reads, its dedicated Service Account, and the IAM permissions that Service Account needs.
+2. **Hermetic Unit Testing (`terraform test`)**: Isolating each component behind typed input variables allows fast, offline `.tftest.hcl` unit tests using `mock_provider "google"` to verify conditional logic, environment variable contracts, and least-privilege IAM bindings without deploying to GCP.
+3. **Deployment Readiness Ordering (`depends_on`)**: Encapsulating a workload and its IAM bindings in the same submodule enables intra-module `depends_on` declarations so a Cloud Run service, Cloud Run job, or Cloud Workflow never finishes deploying before its runtime IAM roles are active.
+
+Submodules never reference or depend on sibling modules directly. Instead, `infra/dcp/modules/stack/main.tf` serves as the single orchestration hub that wires outputs along a strict one-way dependency DAG:
 
 * **Top Level (`infra/dcp/main.tf`)**: The root configuration entrypoint, invoking `modules/stack`.
-* **Central Orchestrator Hub (`modules/stack/main.tf`)**: The coordinator that instantiates all component submodules, shares unified environment configurations, and wires outputs across dependencies.
-* **Component Submodules**: Specialized modules dedicated to auth, storage, spanner, redis, ingestion, and serving.
+* **Central Orchestrator Hub (`modules/stack/main.tf`)**: The coordinator that instantiates foundation modules (`network`, `auth`, `storage`, `spanner`, `redis`), constructs effective configuration objects, and passes resource coordinates downstream to workload and orchestrator submodules.
+* **Component Submodules**: Specialized modules dedicated to foundation resources, ingestion workers, workflow orchestration, and serving.
 
 ### Module Responsibilities
 * **`modules/auth`**: Provisions Secret Manager secrets for Data Commons and Google Maps API keys.
@@ -63,22 +68,21 @@ All container images and template paths in DCP resolve through a unified version
   * `ingestion_helper_service_image` (helper service)
   * `ingestion_dataflow_template_gcs_path` (Dataflow Flex Template JSON spec)
 
-### Shared Environment Variables
-To keep environment variables uniform across Cloud Run services and jobs, [infra/dcp/modules/stack/main.tf](../../infra/dcp/modules/stack/main.tf) constructs a shared configuration object: `cloud_run_shared_env_variables`. Instead of manually declaring environment variables per container, this central block injects:
-* **Storage Locations**: Output directory (`OUTPUT_DIR`) and temporary storage (`TEMP_LOCATION`) anchored to the dynamically provisioned artifacts bucket.
-* **Database Identifiers**: Spanner instance and database names (`GCP_SPANNER_INSTANCE_ID`, `GCP_SPANNER_DATABASE_NAME`), populated dynamically from the `spanner` module output, and graph configuration flags.
-* **Regional and Project Routing**: Project ID, compute region, and workflow location metadata.
-* **Cache Coordinates**: MemoryStore Redis host and port coordinates (`REDIS_HOST`, `REDIS_PORT`), populated conditionally when caching is enabled.
-* **Rolling Restart Trigger**: Injects `FORCE_RESTART = timestamp()` whenever `skip_container_restarts = false` to force revision creation and container image re-pulls during deployment.
+### Explicit Submodule Configuration and Environment Contracts
+Rather than injecting a monolithic shared environment block into every container, [infra/dcp/modules/stack/main.tf](../../infra/dcp/modules/stack/main.tf) constructs typed configuration objects (`effective_spanner_config`, `effective_redis_config`) and passes explicit inputs to each workload submodule. Each submodule constructs only the exact environment variables its container reads:
+* **Spanner Coordinates (`spanner_config`)**: Passed to `datacommons_services`, `helper_service`, and `postprocessing_job` so each module sets its required Spanner instance, database, and BigQuery federated connection environment variables.
+* **Cache Coordinates (`redis_config`)**: Passed to `datacommons_services` and `helper_service` when MemoryStore Redis is enabled.
+* **Rolling Restart Trigger (`skip_container_restarts` / `FORCE_RESTART`)**: Cloud Run **Services** (`datacommons_services` and `helper_service`) resolve image tags (such as `:latest`) to a `@sha256` digest when a revision is created at `terraform apply` time. When `skip_container_restarts = false`, those services inject `FORCE_RESTART = timestamp()` to force a new revision and re-pull mutable image tags. In contrast, Cloud Run **Jobs** (`postprocessing_job`) and **Cloud Batch** (`preprocessing_job`) resolve image tags dynamically when an execution starts, so they do not use `FORCE_RESTART`.
 
-Consult [infra/dcp/modules/stack/main.tf](../../infra/dcp/modules/stack/main.tf) for the exact variable mappings and default values.
-
-### Cross-Module IAM Wiring
-Decoupling submodules requires that all cross-service permissions reside centrally in [infra/dcp/modules/stack/main.tf](../../infra/dcp/modules/stack/main.tf):
-1. **GCS Storage Access**: Grants `roles/storage.objectAdmin` on the artifacts bucket to the Dataflow, Workflow, and Preprocessing service accounts.
-2. **Workflow Job Invocation**: Grants the Cloud Workflows service account `roles/batch.jobsEditor` to create the preprocessing Cloud Batch job, and `roles/run.invoker`, `roles/run.viewer`, and `roles/run.developer` on the postprocessing Cloud Run job. It also grants `roles/iam.serviceAccountUser` over both jobs' runtime service accounts.
-3. **Workflow Execution & Dataflow Control**: Grants `roles/workflows.invoker`, `roles/dataflow.developer`, and `roles/run.viewer` to the Cloud Workflows service account.
-4. **Service Rolling Restarts**: Grants `roles/run.developer` and `roles/iam.serviceAccountUser` over `datacommons-services` to the Cloud Workflows service account, allowing the workflow to patch serving labels and trigger rolling container restarts upon successful ingestion.
+### Service Account and IAM Ownership
+DCP follows a **One Service Account = One Module** principle along a strict one-way dependency DAG (`workflow` $\rightarrow$ `workers / services` $\rightarrow$ `foundation`):
+1. **Workload Self-Containment**: Each workload submodule (`datacommons_services`, `helper_service`, `postprocessing_job`, `preprocessing_job`, `dataflow`) creates its own dedicated Service Account and provisions all outbound IAM roles required by that identity (such as Spanner `databaseReader`/`databaseUser`, BigQuery `jobUser`/`connectionUser`, GCS `objectAdmin`, Secret Manager `secretAccessor`, and Vertex AI `aiplatform.user`).
+2. **Orchestrator-to-Worker Permissions**: The Cloud Workflows orchestrator (`workflow_sa`) sits at the top of the ingestion DAG and is granted only the permissions needed to dispatch and monitor downstream stages:
+   * `roles/batch.jobsEditor` and `roles/iam.serviceAccountUser` on the preprocessing service account to submit Cloud Batch preprocessing jobs.
+   * `roles/dataflow.developer` and `roles/iam.serviceAccountUser` on the Dataflow worker service account to launch Flex Template pipelines.
+   * `roles/run.developer` and `roles/iam.serviceAccountUser` on the postprocessing Cloud Run job (`dc_postprocessing_job` and `postprocessing_sa`) to trigger and poll `googleapis.run.v1.namespaces.jobs.run` with `overrides`.
+   * `roles/run.invoker` on `helper_service` (`dc_ingestion_helper`) to call `/lock/*` and `/embeddings/ingest`.
+   * `roles/run.developer` and `roles/iam.serviceAccountUser` on `datacommons_services` (`dc_services` and `services_sa`) to patch serving annotations and trigger a rolling restart after ingestion completes.
 
 ---
 
