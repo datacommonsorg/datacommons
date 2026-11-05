@@ -2,25 +2,17 @@ locals {
   name_prefix               = var.instance_name != "" ? "${var.instance_name}-" : ""
   google_maps_api_key_value = var.google_maps_api_key != null ? var.google_maps_api_key : try(google_apikeys_key.maps_api_key[0].key_string, "")
 
-  # The Data Commons API key lives in Secret Manager in project_id and is never
-  # managed by Terraform. `datacommons-admin init` creates
-  # "<instance_name>-dc-api-key" by default; dc_api_key_secret_id overrides the
-  # secret name.
+  # DC API key secret in project_id (created by `datacommons-admin init`, not by Terraform).
   dc_api_key_secret_name = var.dc_api_key_secret_id != "" ? var.dc_api_key_secret_id : "${local.name_prefix}dc-api-key"
 }
 
-# Fails with a clear "not found" error if the secret is missing, before
-# Cloud Run or the ingestion jobs try to use it.
+# Fails with a clear "not found" error if the secret doesn't exist.
 data "google_secret_manager_secret" "dc_api_key" {
   project   = var.project_id
   secret_id = local.dc_api_key_secret_name
 }
 
-# Releases <= 1.1.7 created the Data Commons API key secret (and a version
-# holding the plaintext key) in Terraform. Stop managing them WITHOUT deleting
-# them: the live secret keeps serving, and the plaintext leaves Terraform state.
-# A `removed` block (rather than count = 0 + deletion_policy) is required so
-# this is safe even on the very first apply of the new release.
+# Stop managing the secret created by releases <= 1.1.7, without deleting it.
 removed {
   from = google_secret_manager_secret.dc_api_key
 
