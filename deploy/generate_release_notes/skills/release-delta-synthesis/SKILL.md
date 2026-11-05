@@ -13,7 +13,6 @@ description: Subagent skill for analyzing raw PR verification files (prs_*.txt) 
 
 ### Input Files
 - **Raw Verification Files**: `deploy/generate_release_notes/output/prs_*.txt` (`prs_services.txt`, `prs_preprocessing.txt`, `prs_dataflow_worker.txt`, `prs_ingestion_helper.txt`, `prs_postprocessing.txt`, `prs_dcp_monorepo.txt`).
-- **Release Tracker Items** (optional): `deploy/generate_release_notes/output/TRACKER_<new_version>.txt`, written by the [Release Tracker Skill](../release-tracker/SKILL.md).
 - **Context Reference**: [`skills/dcp-context/SKILL.md`](../dcp-context/SKILL.md) (User Touchpoint Principles Section 2).
 
 ### Target Output Artifact
@@ -31,11 +30,8 @@ description: Subagent skill for analyzing raw PR verification files (prs_*.txt) 
 > [!IMPORTANT]
 > **Input Verification Guardrail**: If any `prs_*.txt` file is missing or unreadable, halt execution immediately and report the missing component file to the orchestrator agent before proceeding.
 
-### Step 1b: Reconcile Release Tracker Items
-If `TRACKER_<new_version>.txt` exists and does not say `NO TRACKER PROVIDED` or `NO TRACKER SECTION`:
-1. **Flagged PRs are always included.** Every PR in `FLAGGED PRS` must appear in the delta summary, even if a `prs_*.txt` file excluded it as noise or classified it as an intra-release fix. Note the override in the PR's entry (`[tracker: Highlight]` or `[tracker: Mention]`).
-2. **Cross-check facts against PR extraction.** Use the PR title, URL and component from `prs_*.txt`. If a flagged PR is missing from every `prs_*.txt` file (not merged, outside the release window, or in a repo not covered by the registry), list it under `TRACKER ITEMS NOT FOUND IN RELEASE WINDOW` for the developer to resolve. Do not drop it silently.
-3. **Carry tracker-only content through verbatim.** Copy `HIGHLIGHTS`, `USER-FACING TERRAFORM CHANGES`, `BREAKING CHANGES & REQUIRED ACTIONS` and `KNOWN ISSUES` into the `0. RELEASE TRACKER ITEMS` section of the output. These may describe changes that span several PRs or components.
+### Step 1b: Include Release Tracker Items
+If `deploy/generate_release_notes/output/TRACKER_<new_version>.txt` exists, add its contents at the top of the output under `0. RELEASE TRACKER ITEMS`. Flagged PRs are always included in the summary, even if a `prs_*.txt` file excluded them. If a flagged PR isn't in any `prs_*.txt` file, list it as "not found in release window" for the developer.
 
 ### Step 2: Mandated Bug Fix Lineage Tracing (Thinking Phase)
 For EVERY bug fix PR found across all `prs_*.txt` files, open a `<thinking>` block to record your step-by-step investigation:
@@ -90,25 +86,6 @@ Write `deploy/generate_release_notes/output/IMAGE_DELTAS_<new_version>.txt` usin
 DCP RELEASE DELTA SUMMARY: {prev_version} -> {new_version}
 Generated Date: {date}
 ================================================================================
-
---------------------------------------------------------------------------------
-0. RELEASE TRACKER ITEMS (curated by engineers; omit this section if no tracker)
---------------------------------------------------------------------------------
-
-HIGHLIGHTS:
-- Faster Ingestion Writes: Input is reshuffled to parallelize Spanner writes ([import#823](https://github.com/datacommonsorg/import/pull/823)).
-
-USER-FACING TERRAFORM CHANGES:
-- [New variable] example_variable: Advanced, default false. Customer action: none.
-
-BREAKING CHANGES & REQUIRED ACTIONS:
-- config.json keys are now validated strictly; remove retired keys before upgrading ([import#810](https://github.com/datacommonsorg/import/pull/810)).
-
-KNOWN ISSUES:
-- NONE
-
-TRACKER ITEMS NOT FOUND IN RELEASE WINDOW:
-- NONE
 
 --------------------------------------------------------------------------------
 1. COMPONENT: Mixer Serving Engine & SDMX APIs (datacommonsorg/mixer)

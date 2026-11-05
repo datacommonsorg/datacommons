@@ -9,7 +9,7 @@ An agentic, skill-driven tool suite for generating publication-ready, partner-fa
 ### 1. Prompt Your LLM Coding Assistant
 Point your LLM coding assistant to [`SKILL.md`](SKILL.md) and specify the target release boundary:
 
-> **Optional but recommended**: export the release's section of the team's DCP Release Tracker (File → Download → Markdown) to `output/TRACKER_<version>.md`, or include the tracker's Google Docs URL in your prompt. The generator then always includes the PRs, highlights, Terraform changes and breaking changes engineers flagged.
+> **Optional**: export the release's section of the DCP Release Tracker to `output/TRACKER_<version>.md` (or give the doc URL in your prompt). Items engineers flagged there are always included in the notes.
 >
 > **Prompt Example**:
 > *"Please read `deploy/generate_release_notes/SKILL.md` and generate release notes for version `v1.1.0` to `v1.1.1`."*
@@ -25,9 +25,8 @@ To understand *how* and *why* specific notes were selected or omitted:
 
 ---
 
-## How It Works (5 Automated Steps)
+## How It Works (4 Automated Steps)
 
-0. **Release Tracker (optional)**: The agent reads the target release's section of the DCP Release Tracker and normalizes the flagged PRs, highlights, Terraform changes and breaking changes into `output/TRACKER_<version>.txt`. Flagged items are always included in the notes.
 1. **PR Extraction**: The agent spawns dedicated subagents to query merged Pull Requests across all Data Commons repositories for each component layer within the release window (`[prev_version .. new_version]`).
 2. **Developer Verification Checkpoint**: The agent generates human-readable text files per component under `output/prs_*.txt`. You can open and inspect these files to verify extracted PRs, change summaries, DCP impact, and excluded noise.
 3. **Release Delta Synthesis**: An agent analyzes the verified PR lists to distinguish true platform bug fixes present in prior releases from intermediate intra-release fixes, generating `output/IMAGE_DELTAS_<version>.txt`.
@@ -41,7 +40,6 @@ All output artifacts are generated into `deploy/generate_release_notes/output/`:
 
 - `output/RELEASE_NOTES_<version>.md`: Final release notes formatted for external developers and instance operators (initial starting draft).
 - `output/IMAGE_DELTAS_<version>.txt`: Intermediate summary of salient features, configuration updates, and true platform bug fixes per container image (decision walkthrough).
-- `output/TRACKER_<version>.txt`: Release tracker items for this version (flagged PRs, highlights, Terraform changes, breaking changes), or `NO TRACKER PROVIDED`.
 - `output/prs_<component>.txt`: Extracted PRs per component with **Change Summary**, **DCP Impact**, and an **Excluded PRs Audit Log** (with explicit reasons for every ignored PR).
 
 ---
@@ -58,8 +56,6 @@ deploy/generate_release_notes/
 │   │   └── SKILL.md                  <-- 2. PR Extraction Skill (Subagent Extraction)
 │   ├── release-delta-synthesis/
 │   │   └── SKILL.md                  <-- 3. Release Delta Synthesis Skill (Image Delta Analysis)
-│   ├── release-tracker/
-│   │   └── SKILL.md                  <-- Release Tracker Skill (Curated Release Input)
 │   ├── dcp-context/
 │   │   └── SKILL.md                  <-- 4. DCP Domain Context & Architectural Map (Single Source of Truth)
 │   └── release-writer/
@@ -70,7 +66,6 @@ deploy/generate_release_notes/
 ### Skill Breakdown:
 - **Orchestrator (`SKILL.md`)**: Coordinates subagents across component layers and manages the step-by-step workflow.
 - **PR Extraction (`skills/pr-extraction/SKILL.md`)**: Instructions for date-range `gh pr list` queries, Artifact Registry tag resolution (with prompt on missing tags), and noise filtering.
-- **Release Tracker (`skills/release-tracker/SKILL.md`)**: Reads the target release's section of the DCP Release Tracker and writes the flagged items to `output/TRACKER_<version>.txt`. Optional; the pipeline runs without it.
 - **Release Delta Synthesis (`skills/release-delta-synthesis/SKILL.md`)**: Rules for image delta synthesis, separating Mixer, MCP Agent Toolkit, and Website UI into dedicated sections.
 - **DCP Domain Context (`skills/dcp-context/SKILL.md`)**: **Single Source of Truth** for component keys, repository mappings, subdirectory path filters, container image URIs, and persona guidelines.
 - **Release Writer (`skills/release-writer/SKILL.md`)**: Guidelines for authoring publication-ready release notes with dynamic Executive Summary scaling and two-tier feature formatting (**What's New** + **Specific Capabilities** with `[repo#PR](URL)` links).
