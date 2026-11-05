@@ -21,39 +21,66 @@ variables {
   project_id                    = "test-project"
   instance_name                 = "dev"
   dc_api_key_secret_id          = ""
-  dc_api_key                    = ""
   google_maps_api_key           = null
   create_google_maps_key        = false
   google_maps_allowed_referrers = []
 }
 
 # -----------------------------------------------------------------------------
-# Run 1: BYO / CLI-Provisioned Secret Manager ID (Full Resource Path)
+# Run 1: Default secret (what `datacommons-admin init` creates, and what every
+# deployment from <= 1.1.7 already has): "<instance_name>-dc-api-key".
 # -----------------------------------------------------------------------------
-run "external_secret_full_path" {
+run "default_secret" {
   command = plan
 
-  variables {
-    dc_api_key_secret_id = "projects/test-project/secrets/dev-dc-api-key"
-  }
-
-  # When dc_api_key_secret_id is provided, Terraform must NOT create a managed secret or version.
   assert {
-    condition     = length(google_secret_manager_secret.dc_api_key) == 0 && length(google_secret_manager_secret_version.dc_api_key_version) == 0
-    error_message = "Managed Secret Manager resources must be skipped (count = 0) when dc_api_key_secret_id is provided"
-  }
-
-  # Output must pass through the full resource path unchanged.
-  assert {
-    condition     = output.dc_api_key_secret_id == "projects/test-project/secrets/dev-dc-api-key"
-    error_message = "dc_api_key_secret_id output must equal the provided full resource path"
+    condition = (
+      data.google_secret_manager_secret.dc_api_key.project == "test-project" &&
+      data.google_secret_manager_secret.dc_api_key.secret_id == "dev-dc-api-key"
+    )
+    error_message = "With no dc_api_key_secret_id, the module must look up projects/<project_id>/secrets/<instance_name>-dc-api-key"
   }
 }
 
 # -----------------------------------------------------------------------------
-# Run 2: BYO Secret Manager ID (Short Secret Name Normalization)
+# Run 2: Default secret with no instance name -> "dc-api-key".
 # -----------------------------------------------------------------------------
-run "external_secret_short_name" {
+run "default_secret_no_instance_name" {
+  command = plan
+
+  variables {
+    instance_name = ""
+  }
+
+  assert {
+    condition     = data.google_secret_manager_secret.dc_api_key.secret_id == "dc-api-key"
+    error_message = "With no instance_name, the default secret name must be dc-api-key"
+  }
+}
+
+# -----------------------------------------------------------------------------
+# Run 3: BYO secret, full resource path (may live in another project).
+# -----------------------------------------------------------------------------
+run "byo_secret_full_path" {
+  command = plan
+
+  variables {
+    dc_api_key_secret_id = "projects/shared-secrets/secrets/team-dc-api-key"
+  }
+
+  assert {
+    condition = (
+      data.google_secret_manager_secret.dc_api_key.project == "shared-secrets" &&
+      data.google_secret_manager_secret.dc_api_key.secret_id == "team-dc-api-key"
+    )
+    error_message = "A full resource path must be split into its project and secret name"
+  }
+}
+
+# -----------------------------------------------------------------------------
+# Run 4: BYO secret, short name -> resolved in project_id.
+# -----------------------------------------------------------------------------
+run "byo_secret_short_name" {
   command = plan
 
   variables {
@@ -61,44 +88,42 @@ run "external_secret_short_name" {
   }
 
   assert {
-    condition     = length(google_secret_manager_secret.dc_api_key) == 0 && length(google_secret_manager_secret_version.dc_api_key_version) == 0
-    error_message = "Managed Secret Manager resources must be skipped (count = 0) when a short dc_api_key_secret_id is provided"
-  }
-
-  # Short secret names must be normalized to projects/<project_id>/secrets/<name>.
-  assert {
-    condition     = output.dc_api_key_secret_id == "projects/test-project/secrets/custom-dc-api-key"
-    error_message = "Short dc_api_key_secret_id must be normalized to projects/<project_id>/secrets/<secret_name>"
+    condition = (
+      data.google_secret_manager_secret.dc_api_key.project == "test-project" &&
+      data.google_secret_manager_secret.dc_api_key.secret_id == "custom-dc-api-key"
+    )
+    error_message = "A short secret name must be resolved in project_id"
   }
 }
 
 # -----------------------------------------------------------------------------
-# Run 3: Legacy Fallback (dc_api_key Provided, dc_api_key_secret_id Empty)
+# Run 5: The output is the looked-up secret's resource name.
 # -----------------------------------------------------------------------------
-run "legacy_plaintext_dc_api_key" {
+run "output_is_secret_resource_name" {
+  command = plan
+
+  override_data {
+    target = data.google_secret_manager_secret.dc_api_key
+    values = {
+      id = "projects/test-project/secrets/dev-dc-api-key"
+    }
+  }
+
+  assert {
+    condition     = output.dc_api_key_secret_id == "projects/test-project/secrets/dev-dc-api-key"
+    error_message = "dc_api_key_secret_id output must be the secret's full resource name"
+  }
+}
+
+# -----------------------------------------------------------------------------
+# Run 6: Malformed secret IDs are rejected.
+# -----------------------------------------------------------------------------
+run "invalid_secret_id_rejected" {
   command = plan
 
   variables {
-    dc_api_key_secret_id = ""
-    dc_api_key           = "legacy-api-key-value"
+    dc_api_key_secret_id = "projects/test-project/secrets/a/versions/1"
   }
 
-  # When dc_api_key_secret_id is empty, Terraform manages the secret with deletion_policy = "ABANDON".
-  assert {
-    condition = (
-      length(google_secret_manager_secret.dc_api_key) == 1 &&
-      google_secret_manager_secret.dc_api_key[0].secret_id == "dev-dc-api-key" &&
-      google_secret_manager_secret.dc_api_key[0].deletion_policy == "ABANDON"
-    )
-    error_message = "Legacy dc_api_key must provision google_secret_manager_secret.dc_api_key[0] with deletion_policy = ABANDON"
-  }
-
-  assert {
-    condition = (
-      length(google_secret_manager_secret_version.dc_api_key_version) == 1 &&
-      nonsensitive(google_secret_manager_secret_version.dc_api_key_version[0].secret_data) == "legacy-api-key-value" &&
-      google_secret_manager_secret_version.dc_api_key_version[0].deletion_policy == "ABANDON"
-    )
-    error_message = "Legacy dc_api_key must provision google_secret_manager_secret_version.dc_api_key_version[0] with deletion_policy = ABANDON"
-  }
+  expect_failures = [var.dc_api_key_secret_id]
 }

@@ -1,29 +1,45 @@
 locals {
   name_prefix               = var.instance_name != "" ? "${var.instance_name}-" : ""
   google_maps_api_key_value = var.google_maps_api_key != null ? var.google_maps_api_key : try(google_apikeys_key.maps_api_key[0].key_string, "")
-  normalized_dc_api_key_secret_id = (
-    var.dc_api_key_secret_id == "" ? "" :
+
+  # The Data Commons API key lives in Secret Manager and is never managed by
+  # Terraform. `datacommons-admin init` creates "<instance_name>-dc-api-key" by
+  # default; operators can point at any other secret with dc_api_key_secret_id.
+  default_dc_api_key_secret_name = "${local.name_prefix}dc-api-key"
+  dc_api_key_secret_path = (
+    var.dc_api_key_secret_id == "" ? "projects/${var.project_id}/secrets/${local.default_dc_api_key_secret_name}" :
     startswith(var.dc_api_key_secret_id, "projects/") ? var.dc_api_key_secret_id :
     "projects/${var.project_id}/secrets/${var.dc_api_key_secret_id}"
   )
+  dc_api_key_secret_parts = regex("^projects/(?P<project>[^/]+)/secrets/(?P<name>[^/]+)$", local.dc_api_key_secret_path)
 }
 
-resource "google_secret_manager_secret" "dc_api_key" {
-  count = var.dc_api_key_secret_id == "" ? 1 : 0
+# Fails at plan time with a clear "not found" error if the secret is missing,
+# instead of failing later when Cloud Run or the ingestion jobs start.
+data "google_secret_manager_secret" "dc_api_key" {
+  project   = local.dc_api_key_secret_parts.project
+  secret_id = local.dc_api_key_secret_parts.name
+}
 
-  secret_id       = "${local.name_prefix}dc-api-key"
-  deletion_policy = "ABANDON"
-  replication {
-    auto {}
+# Releases <= 1.1.7 created the Data Commons API key secret (and a version
+# holding the plaintext key) in Terraform. Stop managing them WITHOUT deleting
+# them: the live secret keeps serving, and the plaintext leaves Terraform state.
+# A `removed` block (rather than count = 0 + deletion_policy) is required so
+# this is safe even on the very first apply of the new release.
+removed {
+  from = google_secret_manager_secret.dc_api_key
+
+  lifecycle {
+    destroy = false
   }
 }
 
-resource "google_secret_manager_secret_version" "dc_api_key_version" {
-  count = var.dc_api_key_secret_id == "" ? 1 : 0
+removed {
+  from = google_secret_manager_secret_version.dc_api_key_version
 
-  secret          = google_secret_manager_secret.dc_api_key[0].id
-  secret_data     = var.dc_api_key
-  deletion_policy = "ABANDON"
+  lifecycle {
+    destroy = false
+  }
 }
 
 # Random ID suffix to avoid name conflicts when recreating keys in recovery state.

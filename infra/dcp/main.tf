@@ -1,4 +1,7 @@
 terraform {
+  # >= 1.7 is required for the `removed` blocks in modules/auth.
+  required_version = ">= 1.7.0"
+
   required_providers {
     google = {
       source  = "hashicorp/google"

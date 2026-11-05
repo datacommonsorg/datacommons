@@ -7,22 +7,19 @@ variable "instance_name" {
 }
 
 variable "dc_api_key_secret_id" {
-  description = "Secret Manager secret ID or full resource name (projects/<project>/secrets/<secret>) containing the Data Commons API key. When provided, Terraform skips creating a managed secret."
+  description = "Secret Manager secret ID or full resource name (projects/<project>/secrets/<secret>) containing the Data Commons API key. Defaults to \"<instance_name>-dc-api-key\" in project_id (created by `datacommons-admin init`)."
   type        = string
   default     = ""
-}
 
-variable "dc_api_key" {
-  description = "Deprecated: Plaintext Data Commons API key. Prefer dc_api_key_secret_id so the secret value is not stored in Terraform state."
-  type        = string
-  default     = ""
-  sensitive   = true
+  validation {
+    condition     = var.dc_api_key_secret_id == "" || can(regex("^(projects/[^/]+/secrets/)?[A-Za-z0-9_-]+$", var.dc_api_key_secret_id))
+    error_message = "dc_api_key_secret_id must be a secret name (e.g. \"my-dc-api-key\") or a full resource name (\"projects/<project>/secrets/<name>\")."
+  }
 }
 
 variable "google_maps_api_key" {
-  type      = string
-  default   = null
-  sensitive = true
+  type    = string
+  default = null
 }
 
 
