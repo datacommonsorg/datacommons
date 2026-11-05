@@ -122,14 +122,14 @@ def _ensure_dc_api_key_secret(
             f"  Creating secret {full_secret_id} in Secret Manager...",
             fg="bright_black",
         )
-        created_secret = secret_client.create_secret(
+        secret_client.create_secret(
             request={
                 "parent": f"projects/{project_id}",
                 "secret_id": secret_name,
                 "secret": {"replication": {"automatic": {}}},
             }
         )
-        _add_secret_version(secret_client, created_secret.name, api_key)
+        _add_secret_version(secret_client, full_secret_id, api_key)
         return full_secret_id
 
 
