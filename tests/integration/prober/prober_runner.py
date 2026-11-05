@@ -460,27 +460,30 @@ def teardown_infra(
         destroy_success = destroy_res.returncode == 0
         if not destroy_success:
             print("  ⚠️ Warning: Terraform destroy encountered errors during cleanup.")
-
-        if project_id and instance_name:
-            secret_name = f"{instance_name}-dc-api-key"
-            print(
-                f"==> [Phase 3.1b] Deleting ephemeral Secret Manager secret ({secret_name})..."
-            )
-            subprocess.run(
-                [
-                    "gcloud",
-                    "secrets",
-                    "delete",
-                    secret_name,
-                    f"--project={project_id}",
-                    "--quiet",
-                ],
-                capture_output=True,
-                check=False,
-            )
     elif skip_destroy:
         print(
             f"==> [Phase 3.1] Skipping 'terraform destroy' (--skip-destroy set). Workspace kept at: {instance_dir}"
+        )
+
+    # `datacommons admin init` creates the API key secret before Terraform runs,
+    # and Terraform does not manage it. Delete it even if provisioning failed
+    # before instance_dir was returned, so failed runs don't leave it behind.
+    if not skip_destroy and project_id and instance_name:
+        secret_name = f"{instance_name}-dc-api-key"
+        print(
+            f"==> [Phase 3.1b] Deleting ephemeral Secret Manager secret ({secret_name})..."
+        )
+        subprocess.run(
+            [
+                "gcloud",
+                "secrets",
+                "delete",
+                secret_name,
+                f"--project={project_id}",
+                "--quiet",
+            ],
+            capture_output=True,
+            check=False,
         )
 
     if not skip_destroy and workspace_dir.exists():
