@@ -14,7 +14,7 @@ description: Master orchestrator skill for generating publication-ready, partner
 ### Inputs
 - **`prev_version`**: Previous release tag (e.g., `v1.1.0`).
 - **`new_version`**: Target release tag (e.g., `v1.1.1`).
-- **Release tracker** (optional): the team's DCP Release Tracker, as a Markdown export at `deploy/generate_release_notes/output/TRACKER_<new_version>.md` or a Google Docs URL.
+- **Release tracker** (optional): the team's [DCP Release Tracker](https://docs.google.com/document/d/18iGIssC8wxMLaCtEESQek4fpUv5ke95S7Yu2n52dQm4/edit). Read it directly if you can access Google Docs; otherwise use a Markdown export at `deploy/generate_release_notes/output/TRACKER_<new_version>.md`.
 
 ### Target Output Artifacts
 - **Raw PR Verification Files**: `deploy/generate_release_notes/output/prs_*.txt`
@@ -49,7 +49,7 @@ Before executing steps, open a `<thinking>` block to record:
 > The orchestrator MUST NOT query Artifact Registry or inspect image creation timestamps up front. Simply pass the raw version strings (`<prev_version>` and `<new_version>`) to each subagent and let them resolve their assigned image tags concurrently.
 
 ### Step 1b: Read the Release Tracker (Optional)
-If a tracker was provided, read the section for `<new_version>` (ignore any `rc` suffix) and copy its **Highlights**, **User-facing Terraform changes**, **Breaking changes and required actions** and **Flagged PRs** into `deploy/generate_release_notes/output/TRACKER_<new_version>.txt`. Skip empty or `TBD` entries. If no tracker was provided, skip this step.
+Read the [DCP Release Tracker](https://docs.google.com/document/d/18iGIssC8wxMLaCtEESQek4fpUv5ke95S7Yu2n52dQm4/edit) (or its export, if provided). Find the section for `<new_version>` (ignore any `rc` suffix) and copy its **Highlights**, **User-facing Terraform changes**, **Breaking changes and required actions** and **Flagged PRs** into `deploy/generate_release_notes/output/TRACKER_<new_version>.txt`. Skip empty or `TBD` entries. If you can't access the tracker and no export was provided, tell the developer and continue without it.
 
 ### Step 2: Dynamically Spawn PR Extraction Subagents
 1. Read the **Component & Repository Registry** table in [`skills/dcp-context/SKILL.md`](skills/dcp-context/SKILL.md).
