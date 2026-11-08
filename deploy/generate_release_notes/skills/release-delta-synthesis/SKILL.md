@@ -30,6 +30,9 @@ description: Subagent skill for analyzing raw PR verification files (prs_*.txt) 
 > [!IMPORTANT]
 > **Input Verification Guardrail**: If any `prs_*.txt` file is missing or unreadable, halt execution immediately and report the missing component file to the orchestrator agent before proceeding.
 
+### Step 1b: Include Release Tracker Items
+If `deploy/generate_release_notes/output/TRACKER_<new_version>.txt` exists, add its contents at the top of the output under `0. RELEASE TRACKER ITEMS`. Flagged PRs are always included in the summary, even if a `prs_*.txt` file excluded them. If a flagged PR isn't in any `prs_*.txt` file, list it as "not found in release window" for the developer.
+
 ### Step 2: Mandated Bug Fix Lineage Tracing (Thinking Phase)
 For EVERY bug fix PR found across all `prs_*.txt` files, open a `<thinking>` block to record your step-by-step investigation:
 

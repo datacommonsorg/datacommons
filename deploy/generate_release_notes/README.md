@@ -9,6 +9,8 @@ An agentic, skill-driven tool suite for generating publication-ready, partner-fa
 ### 1. Prompt Your LLM Coding Assistant
 Point your LLM coding assistant to [`SKILL.md`](SKILL.md) and specify the target release boundary:
 
+> **Release tracker**: the generator reads the [DCP Release Tracker](https://docs.google.com/document/d/18iGIssC8wxMLaCtEESQek4fpUv5ke95S7Yu2n52dQm4/edit) and always includes the items engineers flagged there. If your agent can't access Google Docs, export the release's section to `output/TRACKER_<version>.md` first.
+>
 > **Prompt Example**:
 > *"Please read `deploy/generate_release_notes/SKILL.md` and generate release notes for version `v1.1.0` to `v1.1.1`."*
 
