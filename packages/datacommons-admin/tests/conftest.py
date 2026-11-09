@@ -66,7 +66,7 @@ def mock_github_templates():
         'variable "test" {}',
         'module "stack" {\n  source = "./modules/stack"\n}',
         'output "test" {}',
-        'project_id = "$$PROJECT_ID$$"\ninstance_name  = "$$INSTANCE_NAME$$"\n# dc_api_key = "$$DC_API_KEY$$"',
+        'project_id = "$$PROJECT_ID$$"\ninstance_name  = "$$INSTANCE_NAME$$"\nauth_dc_api_key_secret_id = "$$DC_API_KEY_SECRET_ID$$"',
     )
     with patch(
         "datacommons_admin.init.utils.scaffold_utils._get_github_templates",
