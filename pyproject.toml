@@ -185,7 +185,10 @@ version = {file = "VERSION"}
 
 [tool.pytest.ini_options]
 pythonpath = [".", "deploy/scripts", "infra/dcp/scripts"]
-testpaths = ["packages", "deploy/scripts/tests"]
+testpaths = ["packages", "deploy/scripts/tests", "tests/integration/unit_tests"]
+# importlib mode lets the repo's several "tests/" directories coexist without
+# module-name collisions (e.g. multiple "tests.conftest" modules).
+addopts = ["--import-mode=importlib"]
 markers = [
     "cloud_only: mark test or class to run only against live GCP cloud targets.",
 ]

@@ -62,7 +62,8 @@ variable "datacommons_services_config" {
 
 variable "auth_config" {
   type = object({
-    google_datacommons_api_key    = string
+    dc_api_key_secret_id          = optional(string, "")
+    google_datacommons_api_key    = optional(string, "")
     google_maps_api_key           = string
     create_google_maps_key        = bool
     google_maps_allowed_referrers = optional(list(string), [])
