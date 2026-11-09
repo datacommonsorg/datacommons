@@ -301,7 +301,7 @@ module "auth" {
 
   project_id                    = var.global.project_id
   instance_name                 = var.global.instance_name
-  dc_api_key                    = var.auth_config.google_datacommons_api_key
+  dc_api_key_secret_id          = var.auth_config.dc_api_key_secret_id
   google_maps_api_key           = var.auth_config.google_maps_api_key
   create_google_maps_key        = var.auth_config.create_google_maps_key
   google_maps_allowed_referrers = var.auth_config.google_maps_allowed_referrers
@@ -366,10 +366,10 @@ check "spanner_instance_id_provided" {
   }
 }
 
-check "datacommons_api_key_provided" {
+check "deprecated_auth_google_datacommons_api_key" {
   assert {
-    condition     = (!var.datacommons_services_config.enable && !var.ingestion_config.enable_ingestion) || var.auth_config.google_datacommons_api_key != ""
-    error_message = "auth_google_datacommons_api_key must be provided when datacommons_services or ingestion are enabled."
+    condition     = var.auth_config.google_datacommons_api_key == ""
+    error_message = "auth_google_datacommons_api_key is deprecated and IGNORED: Terraform now reads the Data Commons API key from Secret Manager (${module.auth.dc_api_key_secret_id}), even if a plaintext key is set. Remove auth_google_datacommons_api_key from terraform.tfvars. To use a different secret, set auth_dc_api_key_secret_id. To rotate the key, add a new secret version (`gcloud secrets versions add`) or re-run `datacommons-admin init`."
   }
 }
 
