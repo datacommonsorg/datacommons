@@ -9,7 +9,8 @@ keywords = []
 authors = []
 urls = {Homepage = "https://github.com/datacommonsorg/datacommons"}
 dependencies = [
-  "fastapi>=0.95.0",
+  "fastapi>=0.133.0",
+  "starlette>=1.0.1",
   "uvicorn[standard]>=0.22.0",
   "sqlalchemy>=2.0.0",
   "pydantic>=2.0.0",
