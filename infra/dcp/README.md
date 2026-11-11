@@ -21,7 +21,7 @@ infra/dcp/
 │   └── check_terraform.py   # Pre-commit runner (fmt, validate, unit tests)
 │
 └── modules/
-    ├── stack/               # Central wiring hub (IAM, shared env vars, cross-module links)
+    ├── stack/               # Central orchestration hub (typed config objects, module wiring)
     ├── auth/                # Secret Manager keys for Data Commons and Maps APIs
     ├── spanner/             # Cloud Spanner instance, databases, and BigQuery connections
     ├── storage/             # GCS artifacts bucket
