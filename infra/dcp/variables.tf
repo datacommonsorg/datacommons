@@ -727,8 +727,7 @@ variable "ingestion_lock_alert_notification_channels" {
 }
 
 variable "ingestion_enable_lock_status_scheduler" {
-  description = "Enable Cloud Scheduler job to periodically ping /database/lock/status for retention SLA monitoring. Requires ingestion_enable_lock_retention_alerts to be set to true.
-  must be to true."
+  description = "Enable Cloud Scheduler job to periodically ping /database/lock status for retention SLA monitoring. Requires ingestion_enable_lock_retention_alerts to be set to true."
   type        = bool
   default     = true
 }
