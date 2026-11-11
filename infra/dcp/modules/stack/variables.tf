@@ -149,7 +149,7 @@ variable "ingestion_config" {
     enable_lock_retention_alert_90pct  = optional(bool, true)
     enable_lock_retention_alert_100pct = optional(bool, true)
     lock_alert_notification_channels   = optional(list(string), [])
-    enable_lock_status_scheduler       = optional(bool, false)
+    enable_lock_status_scheduler       = optional(bool, true)
     lock_status_ping_schedule          = optional(string, "*/10 * * * *")
   })
 }
