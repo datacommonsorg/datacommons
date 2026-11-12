@@ -72,9 +72,9 @@ variable "scheduler_service_account_email" {
 }
 
 variable "enable_lock_status_scheduler" {
-  description = "Enable Cloud Scheduler job to periodically ping /database/lock/status. Default: false."
+  description = "Enable Cloud Scheduler job to periodically ping /database/lock/status. Default: true."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "lock_status_ping_schedule" {
