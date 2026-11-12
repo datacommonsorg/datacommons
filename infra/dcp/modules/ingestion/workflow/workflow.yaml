@@ -308,7 +308,7 @@ main:
                 args:
                   workflow_id: '$${workflow_id}'
                   job_id: '$${if(job_id != null, job_id, "N/A")}'
-                  status: 'RETRY'
+                  status: 'ROLLBACK'
                   import_list: '$${imports_history_list}'
             - capture_error:
                 assign:
