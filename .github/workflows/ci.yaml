@@ -36,10 +36,15 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.11", "3.12"]
+        include:
+          - python-version: "3.12"
+            coverage: true  # Coverage is measured on one leg only.
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false  # Keeps the token out of .git/config; this job uploads an artifact.
 
       - name: Install uv and set the Python version
         uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
@@ -57,9 +62,26 @@ jobs:
       #  run: uv run ruff check
 
       - name: Run tests
+        env:
+          PYTEST_ADDOPTS: ${{ matrix.coverage && '--cov --cov-report=term --cov-report=xml' || '' }}
         run: |
           # Enable parallel test execution
           uv run pytest
+
+      # Report-only: prints the coverage of the lines a pull request changes.
+      - name: Changed-line coverage
+        if: matrix.coverage
+        env:
+          COVERAGE_BASE_BRANCH: ${{ github.event_name == 'pull_request' && github.base_ref || '' }}
+        run: uv run .github/scripts/report_changed_lines.sh coverage.xml
+
+      - name: Upload coverage report
+        if: matrix.coverage
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-report
+          path: coverage.xml
+          retention-days: 7
 
   terraform:
     name: Terraform Format and Validate

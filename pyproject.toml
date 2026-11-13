@@ -31,6 +31,8 @@ lint = [
 ]
 test = [
     "pytest>=9.0.3",
+    "pytest-cov==7.1.0",
+    "diff-cover==11.0.0",
     "datacommons-client>=2.1.6",
     "datacommons-api",
     "datacommons-db",
@@ -63,17 +65,19 @@ members = [
 ]
 
 [tool.coverage.run]
-source = ["datacommons"]
+source_dirs = ["packages"]
+omit = ["*/tests/*"]
 branch = true
+relative_files = true
 
 [tool.coverage.report]
-exclude_lines = [
-    "pragma: no cover",
+# Workspace members have no __init__.py, so this lets coverage find unimported files.
+include_namespace_packages = true
+exclude_also = [
     "def __repr__",
     "if __name__ == .__main__.:",
     "raise NotImplementedError",
     "if TYPE_CHECKING:",
-    "pass",
     "@abstractmethod",
 ]
 
