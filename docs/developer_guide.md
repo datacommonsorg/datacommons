@@ -437,6 +437,21 @@ uv run pytest tests/integration/suites/ \
 
 ---
 
+## Test coverage
+
+CI measures test coverage on every pull request to `main` and every push to `main`, prints it in the build log, and uploads it to [Codacy](https://app.codacy.com/gh/datacommonsorg/datacommons/coverage) (report-only: coverage never fails the build).
+
+To measure coverage locally:
+
+```bash
+uv run pytest --cov --cov-report=term --cov-report=xml
+uv run diff-cover coverage.xml --compare-branch=origin/main
+```
+
+This writes `coverage.xml`. Only code under `packages/` is measured; Terraform and integration tests aren't included.
+
+---
+
 ## Debugging Workflows and Common Gotchas
 
 ### Missing `DC_API_KEY`

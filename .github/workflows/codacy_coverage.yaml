@@ -1,0 +1,64 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Uploads the coverage report of a successful CI run to Codacy (report-only).
+# Runs trusted code from the default branch only: the CI artifact is read as
+# data and never executed or sourced, so fork PRs can't reach the token.
+name: Codacy Coverage
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  upload:
+    # merge_group runs are skipped: the push to main that follows uploads the same code.
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      (github.event.workflow_run.event == 'push' ||
+       github.event.workflow_run.event == 'pull_request')
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read  # Download the artifact from the CI run.
+      contents: read  # Check out the upload script.
+    steps:
+      - name: Check out the upload script from the default branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+
+      - name: Download coverage report
+        continue-on-error: true  # The upload step logs a missing report as a skip.
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: coverage-report
+          path: ${{ runner.temp }}/coverage
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      - name: Upload coverage to Codacy
+        env:
+          COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
+          BRANCH_NAME: ${{ github.event.workflow_run.head_branch }}
+          # CI only runs on PRs against main, and pull_requests[] is empty for
+          # fork PRs, so a PR's base branch comes from the event type.
+          _BASE_BRANCH: ${{ github.event.workflow_run.event == 'pull_request' && 'main' || '' }}
+          CODACY_DEFAULT_BRANCH: main
+          CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
+        run: .github/scripts/upload_coverage.sh "$RUNNER_TEMP/coverage/coverage.xml"
