@@ -83,7 +83,7 @@ The authoritative source of truth for all configuration options, type constraint
   * `project_id`: Target Google Cloud Project ID.
   * `instance_name`: Unique namespace prefix for provisioned GCP resources (such as `dev-alice`). Maximum 16 lowercase alphanumeric characters and hyphens.
   * `region`: Primary GCP compute and storage region.
-  * `auth_google_datacommons_api_key`: Data Commons API Key from [apikeys.datacommons.org](https://apikeys.datacommons.org) for base knowledge graph federation.
+  * `auth_dc_api_key_secret_id`: Name of the Secret Manager secret in `project_id` that holds the Data Commons API Key from [apikeys.datacommons.org](https://apikeys.datacommons.org), used for base knowledge graph federation. Defaults to `<instance_name>-dc-api-key`, which `datacommons admin init` creates. (`auth_google_datacommons_api_key` is deprecated and ignored.)
 * **Release and Image Management**:
   * `dcp_version`: Controls unified container image and template version resolution. Set to `"latest"` for bleeding-edge builds, or pin to a specific release tag (see [variables.tf](variables.tf) for current defaults and [Developer Guide](../../docs/developer_guide.md#running-the-stack-on-latest-main-and-latest-builds) for latest workflows).
   * `datacommons_services_image`, `ingestion_dataflow_template_gcs_path`: Individual container and template overrides when developing or testing custom builds.
@@ -156,20 +156,25 @@ Keep `.tftest.hcl` files fast and readable by grouping assertions into a minimal
 > [!WARNING]
 > **Renaming or moving Terraform resources destroys and recreates live cloud resources unless you add a `moved` block.**
 >
-> Terraform tracks every deployed GCP resource in its state file by its exact code address (for example, `module.spanner[0].google_spanner_database.database`). If you rename a resource, move it between modules, or change whether a module/resource uses `count` or `for_each`, Terraform treats the old address as deleted and the new address as brand new—meaning the next `terraform apply` will **destroy the existing resource and recreate it**.
+> Terraform tracks every deployed GCP resource in its state file by its exact code address (for example, `module.ingestion_helper_service.google_service_account.helper_sa[0]`). If you rename a resource, move it between modules, or change whether a module or resource uses `count` or `for_each`, Terraform treats the old address as deleted and the new address as brand new. The next `terraform apply` will plan to destroy the old address and create the new address.
 >
-> To avoid accumulating state-migration clutter over time, apply this rule when refactoring resource addresses:
-> * **Use `moved` blocks** for **stateful, user-facing, or foundational resources** where a teardown and recreate causes data loss, end-user downtime, or long provisioning delays (such as Cloud Spanner instances/databases, GCS buckets, VPC networking, Redis, or `datacommons-services`).
-> * **Skip `moved` blocks** for **stateless internal resources** that can be torn down and recreated during `terraform apply` without data loss or user impact (such as ingestion Cloud Run jobs/helpers, Cloud Workflows, or monitoring alerts).
+> Always declare a `moved` block in `infra/dcp/modules/stack/moved.tf` whenever a refactor changes the Terraform state address of a resource that still manages the same underlying GCP identity.
 >
-> When migrating a stateful or user-facing resource, declare a `moved` block in `modules/stack/` mapping `from` the old address `to` the new address:
+> Even for stateless resources, service accounts, and IAM bindings, omitting a `moved` block causes critical deployment failures:
+> * **Unordered destroy and create on the same identity**: Terraform creates separate graph nodes for the old and new addresses with no ordering dependency between them.
+> * **Name collisions and service account tombstoning**: Resources with fixed names (like `google_service_account` or `google_cloud_run_v2_service`) can fail if Terraform attempts to create the new resource before deleting the old one. Recreating a service account with the same email also issues a new internal GCP `uniqueId`, which invalidates active IAM permissions.
+> * **Silent IAM permission loss**: If an IAM member binding's address changes without a `moved` block, the new address and old address target the exact same `(resource, role, member)` tuple. If Terraform executes the create step before the destroy step, the subsequent destroy removes the permission from GCP, leaving the service account without access.
+>
+> To preserve existing state addresses across upgrades, map `from` the old address `to` the new address in `modules/stack/moved.tf`:
 > ```hcl
 > moved {
->   from = module.spanner.google_spanner_database.database[0]
->   to   = module.spanner[0].google_spanner_database.database
+>   from = module.ingestion_helper_service.google_service_account.helper_sa[0]
+>   to   = module.ingestion_helper_service[0].google_service_account.helper_sa
 > }
 > ```
-> This tells Terraform to update the state address in-place (`0 to destroy`) without touching the underlying GCP resource.
+> Terraform updates the state address in place (`0 to destroy`) without touching the live GCP resource.
+>
+> When adding moved blocks to `infra/dcp/modules/stack/moved.tf`, group them under a visual banner indicating the release version where the address changed (for example, `# Upgrades from <= 1.1.6 (introduced in 1.1.7)`).
 
 ---
 

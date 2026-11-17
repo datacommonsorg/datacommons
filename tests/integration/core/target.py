@@ -41,6 +41,7 @@ class DCPTarget:
     spanner_instance: str = ""
     spanner_database: str = ""
     workflow_name: str = ""
+    workflow_id: str = ""
     workflow_sa_email: str = ""
     gcs_bucket: str = ""
     artifacts: ArtifactConfig = field(default_factory=ArtifactConfig)

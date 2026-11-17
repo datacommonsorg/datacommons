@@ -43,6 +43,13 @@ import requests
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
+def _redact(cmd: list[str]) -> str:
+    """Joins a command for logging, hiding the value of --dc-api-key."""
+    return " ".join(
+        "--dc-api-key=***" if arg.startswith("--dc-api-key=") else arg for arg in cmd
+    )
+
+
 def run_cmd_with_retry(
     cmd: list[str],
     cwd: Path | None = None,
@@ -51,14 +58,15 @@ def run_cmd_with_retry(
     backoff_factor: float = 2.0,
     max_delay: float | None = None,
     check: bool = True,
+    env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess:
     """Executes a subprocess command with retries and exponential backoff for resilience."""
     delay = initial_delay
     last_proc = None
 
     for attempt in range(1, max_attempts + 1):
-        print(f"==> [{attempt}/{max_attempts}] Executing: {' '.join(cmd)}")
-        proc = subprocess.run(cmd, cwd=str(cwd) if cwd else None, check=False)
+        print(f"==> [{attempt}/{max_attempts}] Executing: {_redact(cmd)}")
+        proc = subprocess.run(cmd, cwd=str(cwd) if cwd else None, check=False, env=env)
         last_proc = proc
 
         if proc.returncode == 0:
@@ -147,10 +155,14 @@ def provision_infra(
         f"--instance-name={instance_name}",
         f"--tf-state-bucket={bucket_name}",
         f"--tf-state-prefix=ephemeral/{instance_name}",
-        f"--dc-api-key={dc_api_key}",
         "--force",
     ]
+    # Pass the key via DC_API_KEY so it never appears on the command line.
+    init_env = {**os.environ, "DC_API_KEY": dc_api_key} if dc_api_key else None
     if not local:
+        # Released CLIs <= 1.1.7 only accept the key as a flag; newer ones read
+        # DC_API_KEY and just warn about the flag. The value is redacted in logs.
+        admin_args.append(f"--dc-api-key={dc_api_key}")
         admin_args.append(f"--tf-git-ref={tf_git_ref}")
 
     init_cmd = (
@@ -163,6 +175,7 @@ def provision_infra(
         init_cmd,
         cwd=workspace_dir,
         max_attempts=2,
+        env=init_env,
     )
 
     if not instance_dir.exists():
@@ -433,6 +446,8 @@ def teardown_infra(
     instance_dir: Path | None,
     workspace_dir: Path,
     skip_destroy: bool,
+    project_id: str = "",
+    instance_name: str = "",
 ) -> bool:
     """Phase 3: Guaranteed teardown and workspace cleanup."""
     print("\n" + "=" * 80)
@@ -459,6 +474,27 @@ def teardown_infra(
     elif skip_destroy:
         print(
             f"==> [Phase 3.1] Skipping 'terraform destroy' (--skip-destroy set). Workspace kept at: {instance_dir}"
+        )
+
+    # `datacommons admin init` creates the API key secret before Terraform runs,
+    # and Terraform does not manage it. Delete it even if provisioning failed
+    # before instance_dir was returned, so failed runs don't leave it behind.
+    if not skip_destroy and project_id and instance_name:
+        secret_name = f"{instance_name}-dc-api-key"
+        print(
+            f"==> [Phase 3.1b] Deleting ephemeral Secret Manager secret ({secret_name})..."
+        )
+        subprocess.run(
+            [
+                "gcloud",
+                "secrets",
+                "delete",
+                secret_name,
+                f"--project={project_id}",
+                "--quiet",
+            ],
+            capture_output=True,
+            check=False,
         )
 
     if not skip_destroy and workspace_dir.exists():
@@ -590,6 +626,8 @@ def main():
             instance_dir=instance_dir,
             workspace_dir=workspace_dir,
             skip_destroy=args.skip_destroy,
+            project_id=args.project,
+            instance_name=instance_name,
         )
 
         overall_passed = deploy_success and (test_exit_code == 0) and destroy_success

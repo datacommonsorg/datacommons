@@ -62,7 +62,8 @@ variable "datacommons_services_config" {
 
 variable "auth_config" {
   type = object({
-    google_datacommons_api_key    = string
+    dc_api_key_secret_id          = optional(string, "")
+    google_datacommons_api_key    = optional(string, "")
     google_maps_api_key           = string
     create_google_maps_key        = bool
     google_maps_allowed_referrers = optional(list(string), [])
@@ -148,7 +149,7 @@ variable "ingestion_config" {
     enable_lock_retention_alert_90pct  = optional(bool, true)
     enable_lock_retention_alert_100pct = optional(bool, true)
     lock_alert_notification_channels   = optional(list(string), [])
-    enable_lock_status_scheduler       = optional(bool, false)
+    enable_lock_status_scheduler       = optional(bool, true)
     lock_status_ping_schedule          = optional(string, "*/10 * * * *")
   })
 }

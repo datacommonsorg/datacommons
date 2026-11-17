@@ -6,8 +6,15 @@ variable "instance_name" {
   type = string
 }
 
-variable "dc_api_key" {
-  type = string
+variable "dc_api_key_secret_id" {
+  description = "Name of the Secret Manager secret in project_id that holds the Data Commons API key. Defaults to \"<instance_name>-dc-api-key\" (created by `datacommons-admin init`)."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.dc_api_key_secret_id == "" || can(regex("^[A-Za-z0-9_-]+$", var.dc_api_key_secret_id))
+    error_message = "dc_api_key_secret_id must be a secret name in project_id (e.g. \"my-dc-api-key\"), not a full resource path."
+  }
 }
 
 variable "google_maps_api_key" {
@@ -26,6 +33,7 @@ variable "google_maps_allowed_referrers" {
   type        = list(string)
   default     = []
 }
+
 
 
 

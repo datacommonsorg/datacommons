@@ -143,28 +143,11 @@ def _setup_dcp_config_dir(
     instance_name: str,
     bucket_name: str,
     tf_state_prefix: str,
-    dc_api_key: str,
+    dc_api_key_secret_name: str,
     ref: str,
     use_remote_state: bool,
 ):
     """Downloads and populates Terraform templates."""
-
-    api_key = dc_api_key.strip()
-    if not api_key:
-        api_key = _prompt(
-            "Data Commons API key (from apikeys.datacommons.org)",
-            type=str,
-            default="",
-            show_default=False,
-        ).strip()
-
-        if not api_key:
-            click.secho(
-                "  [!] Warning: Data Commons API key was skipped. You must add it to terraform.tfvars before running terraform apply.",
-                fg="yellow",
-                bold=True,
-            )
-
     target_dir.mkdir(parents=True, exist_ok=True)
     click.secho(f"Creating directory: {target_dir}", fg="bright_black")
 
@@ -192,8 +175,9 @@ def _setup_dcp_config_dir(
         tfvars_content = tfvars_content.replace(
             '"$$INSTANCE_NAME$$"', f'"{instance_name}"'
         )
-        if api_key:
-            tfvars_content = tfvars_content.replace('"$$DC_API_KEY$$"', f'"{api_key}"')
+        tfvars_content = tfvars_content.replace(
+            '"$$DC_API_KEY_SECRET_ID$$"', f'"{dc_api_key_secret_name}"'
+        )
 
         (target_dir / "terraform.tfvars").write_text(tfvars_content, encoding="utf-8")
 

@@ -28,8 +28,10 @@ import requests
 from datacommons_client import DataCommonsClient
 from google.cloud import storage
 
-# Ensure repository root is in Python sys.path
-REPO_ROOT = Path(__file__).resolve().parents[2]
+# Ensure repository root is in Python sys.path. This must be location-based
+# (tests/integration/suites/conftest.py) because it runs before anything under
+# tests.integration can be imported.
+REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
@@ -472,8 +474,8 @@ def dcp_target(request, test_manifest) -> DCPTarget:
         print("\n❌ [Preflight] Permission Checks Failed:")
         for f in failed:
             print(f"  • {f.name}: {f.details}")
-            if f.fix_command:
-                print(f"    Fix: {f.fix_command}")
+            if f.grant_command:
+                print(f"    Grant access with: {f.grant_command}")
         pytest.exit(
             "Preflight GCP permission checks failed. See instructions above.",
             returncode=1,
@@ -656,7 +658,7 @@ def seeded_testbed(dcp_target, dcp_cli, spanner_client, test_manifest, request):
         return dcp_target
 
     # 1. Upload Test Dataset files to GCS Bucket (per import subdirectory declared in manifest)
-    repo_root = Path(__file__).resolve().parents[2]
+    repo_root = REPO_ROOT
     bucket_raw = (
         dcp_target.gcs_bucket
         or f"dcp-{dcp_target.instance_name}-{dcp_target.project_id}"

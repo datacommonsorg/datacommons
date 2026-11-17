@@ -43,6 +43,14 @@ description: Instructions for authoring publication-ready, partner-facing Data C
 1. Read `skills/dcp-context/SKILL.md` Section 2 to ground your writing in user touchpoint principles.
 2. Read `deploy/generate_release_notes/output/IMAGE_DELTAS_<new_version>.txt`. Verify all PR references contain valid GitHub URLs.
 
+### Step 1b: Use Release Tracker Items
+If `IMAGE_DELTAS_<new_version>.txt` has a `0. RELEASE TRACKER ITEMS` section, engineers curated it, so never drop its items:
+- Tracker highlights lead `## Key Feature Updates` and the Executive Summary.
+- Terraform changes go in `## Improvements & Configuration Updates`.
+- Breaking changes and required actions go in a `## Breaking Changes & Required Actions` section, placed before Improvements. Name any migration steps customers must run.
+- Reword tracker text to match the style rules above.
+- Leave out items marked "not found in release window" (for example, PRs that haven't merged yet) and list them in your summary to the developer.
+
 ### Step 2: Mandated Scale Analysis & Banned-Word Audit (Thinking Phase)
 Open a `<thinking>` block to record your pre-writing analysis:
 1. **Scope Evaluation**: Assess whether this is a Major/Feature-Rich release (e.g., major features spanning multiple services) or a Small/Patch release (e.g., targeted bug fixes, minor flag updates).
@@ -89,6 +97,14 @@ Write the final release notes to `deploy/generate_release_notes/output/RELEASE_N
 
 **Specific Capabilities**:
 - [Actionable Use Case / Input Capability 1] ([repo_short#PR](URL))
+
+---
+
+## Breaking Changes & Required Actions
+
+[Only if the release tracker lists any.]
+
+- **[Change]**: [What changed and what customers must do when upgrading] ([repo_short#PR](URL))
 
 ---
 

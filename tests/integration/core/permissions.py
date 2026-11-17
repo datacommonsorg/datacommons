@@ -12,19 +12,104 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Preflight permission checks that run once before any integration test.
+
+Preflight verifies that every identity the run depends on right after deploy
+has the access it needs. Grants created by the same `terraform apply` can take
+several minutes to propagate, so checks that fail with a retryable error are
+polled until they pass or a shared deadline expires.
+
+Coverage rule:
+  * Caller: valid Application Default Credentials (ADC), plus access to the
+    resources used during setup and ingestion (the artifacts bucket, Spanner,
+    and impersonating each stack service account the harness acts as). Serving
+    endpoints are called much later and are not checked here.
+  * Stack service accounts: each Terraform-created SA whose grants are used
+    within the first minutes after deploy. One probe per SA stands in for that
+    SA's other grants from the same apply.
+  * Not checked: SAs first used later (serving, preprocessing, Dataflow, helper,
+    postprocessing). By then, preflight plus the early ingestion stages have
+    absorbed IAM propagation.
+  * Preflight must never require more access than the tests themselves need.
+
+Granting:
+  Preflight never changes IAM on its own. When the caller's own access is
+  denied and a person is at a terminal, it shows the grant command and asks
+  before running it. This matters most for local prober runs, where the
+  resources being granted on only exist for that run.
+
+All probes use ADC, the same identity the CLI uses.
+"""
+
 import contextlib
+import json
 import logging
 import subprocess
 import sys
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from enum import Enum
+from typing import TYPE_CHECKING
 
+import google.auth
+import requests
+from google.api_core import exceptions as api_exceptions
+from google.auth import exceptions as auth_exceptions
+from google.auth import impersonated_credentials
+from google.auth.credentials import Credentials
+from google.auth.transport.requests import AuthorizedSession, Request
 from google.cloud import spanner, storage
 
 from tests.integration.core.target import DCPTarget
 
+if TYPE_CHECKING:
+    from google.cloud.spanner_v1.database import Database
+
 logger = logging.getLogger(__name__)
+
+CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform"
+TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo"
+WORKFLOW_EXECUTIONS_API = "https://workflowexecutions.googleapis.com/v1"
+ADC_LOGIN_HINT = "Run 'gcloud auth application-default login'."
+
+# Google documents IAM propagation as typically ~2 minutes and occasionally 7+.
+PROPAGATION_TIMEOUT_SEC = 420.0
+POLL_INTERVAL_SEC = 15.0
+REQUEST_TIMEOUT_SEC = 10
+DETAIL_MAX_CHARS = 200
+
+# Statuses where waiting may help: permission still propagating, rate limiting,
+# or a transient server-side error.
+_RETRYABLE_HTTP_STATUSES = frozenset({403, 429, 500, 502, 503, 504})
+
+
+class ProbeOutcome(Enum):
+    OK = "ok"
+    RETRY = "retry"
+    FAIL = "fail"
+
+
+@dataclass
+class ProbeResult:
+    outcome: ProbeOutcome
+    detail: str = ""
+    # True only for permission denials, the one RETRY cause a grant can address.
+    denied: bool = False
+
+
+@dataclass
+class PermissionCheck:
+    """A single 'identity can do X' assertion, proven by a read-only probe."""
+
+    name: str
+    probe: Callable[[], ProbeResult]
+    # Only caller checks carry a grant command. A missing grant on a
+    # Terraform-created service account is a Terraform bug and must never be
+    # patched here.
+    grant_command: str | None = None
+    # Role that should grant this access, shown if the check never passes.
+    required_role: str | None = None
 
 
 @dataclass
@@ -32,122 +117,123 @@ class PermissionCheckResult:
     passed: bool
     name: str
     details: str
-    fix_command: str | None = None
+    grant_command: str | None = None
 
 
-def _poll_until_success(
-    check_fn: Callable[[], bool],
-    timeout_sec: float = 30.0,
-    interval_sec: float = 2.0,
-) -> bool:
-    """Polls check_fn periodically until it returns True or timeout expires."""
-    deadline = time.time() + timeout_sec
-    attempt = 1
-    while time.time() < deadline:
-        try:
-            if check_fn():
-                logger.debug("Verification passed on attempt %d", attempt)
-                return True
-        except Exception:
-            logger.debug(
-                "Verification attempt %d raised exception", attempt, exc_info=True
-            )
-        time.sleep(interval_sec)
-        attempt += 1
-    return False
+@dataclass(frozen=True)
+class StackServiceAccount:
+    """A Terraform-created service account the run uses right after deploy."""
+
+    label: str
+    email: str
+    email_output: str
+    capability: str
+    role: str
+    # Called with the SA's impersonated credentials, so it always runs as the SA.
+    probe: Callable[[Credentials], ProbeResult]
+
+
+def _truncate(text: str) -> str:
+    return text[:DETAIL_MAX_CHARS]
+
+
+def _refresh_error_status(error: auth_exceptions.RefreshError) -> int | None:
+    """Extracts the HTTP status from a RefreshError, if it carries one.
+
+    google-auth raises RefreshError(message, response_body) without a status
+    attribute. IAM Credentials bodies look like {"error": {"code": 403, ...}},
+    while OAuth2 token bodies look like {"error": "invalid_grant", ...}.
+    """
+    for arg in error.args[1:]:
+        body = arg
+        if isinstance(arg, (str, bytes)):
+            try:
+                body = json.loads(arg)
+            except ValueError:
+                continue
+        err = body.get("error") if isinstance(body, dict) else None
+        code = err.get("code") if isinstance(err, dict) else None
+        if isinstance(code, int):
+            return code
+    if "PERMISSION_DENIED" in str(error):
+        return 403
+    return None
+
+
+def classify_http_response(response: requests.Response) -> ProbeResult:
+    """Maps an HTTP probe response to a probe outcome."""
+    if response.status_code == 200:
+        return ProbeResult(ProbeOutcome.OK)
+    detail = f"HTTP {response.status_code}: {_truncate(response.text)}"
+    if response.status_code in _RETRYABLE_HTTP_STATUSES:
+        return ProbeResult(
+            ProbeOutcome.RETRY,
+            detail,
+            denied=response.status_code == 403,
+        )
+    return ProbeResult(ProbeOutcome.FAIL, detail)
+
+
+def classify_exception(error: Exception) -> ProbeResult:
+    """Maps an exception raised by a probe to a probe outcome."""
+    detail = f"{type(error).__name__}: {_truncate(str(error))}"
+    if isinstance(error, auth_exceptions.RefreshError):
+        status = _refresh_error_status(error)
+        # google-auth marks transient token-endpoint failures retryable, and
+        # metadata-server timeouts surface as a RefreshError caused by a
+        # TransportError.
+        retryable = (
+            error.retryable
+            or isinstance(error.__cause__, auth_exceptions.TransportError)
+            or status in _RETRYABLE_HTTP_STATUSES
+        )
+        return ProbeResult(
+            ProbeOutcome.RETRY if retryable else ProbeOutcome.FAIL,
+            detail,
+            denied=status == 403,
+        )
+    if isinstance(error, api_exceptions.Forbidden):
+        return ProbeResult(ProbeOutcome.RETRY, detail, denied=True)
+    # TooManyRequests covers ResourceExhausted, and ServerError covers every
+    # 5xx/DeadlineExceeded.
+    retryable_types = (
+        api_exceptions.TooManyRequests,
+        api_exceptions.ServerError,
+        auth_exceptions.TransportError,
+        requests.exceptions.ConnectionError,
+        requests.exceptions.Timeout,
+    )
+    if isinstance(error, retryable_types):
+        return ProbeResult(ProbeOutcome.RETRY, detail)
+    return ProbeResult(ProbeOutcome.FAIL, detail)
 
 
 class PreflightPermissionChecker:
-    """Verifies all required GCP and IAM permissions before integration tests execute."""
+    """Verifies caller and stack service account access before tests execute."""
 
-    def __init__(self, target: DCPTarget):
-        self.target = target
-        self.current_user = self._get_current_user()
-        self.member_spec = self._compute_member_spec()
-
-    def _get_current_user(self) -> str:
-        try:
-            return (
-                subprocess.check_output(
-                    ["gcloud", "config", "get-value", "account"],
-                    stderr=subprocess.DEVNULL,
-                )
-                .decode()
-                .strip()
-            )
-        except Exception:
-            return ""
-
-    def _compute_member_spec(self) -> str | None:
-        if not self.current_user:
-            return None
-        member_type = (
-            "serviceAccount" if "gserviceaccount.com" in self.current_user else "user"
-        )
-        return f"{member_type}:{self.current_user}"
-
-    def _try_auto_grant(
+    def __init__(
         self,
-        grant_commands: list[list[str]],
-        verify_fn: Callable[[], bool],
-        role_label: str,
-        target_name: str,
-    ) -> bool:
-        """Attempts to auto-grant IAM roles using gcloud and polls until propagation."""
-        if not self.current_user or not self.member_spec:
-            return False
+        target: DCPTarget,
+        timeout_sec: float = PROPAGATION_TIMEOUT_SEC,
+        poll_interval_sec: float = POLL_INTERVAL_SEC,
+        interactive: bool | None = None,
+    ) -> None:
+        self.target = target
+        self.timeout_sec = timeout_sec
+        self.poll_interval_sec = poll_interval_sec
+        self.interactive = sys.stdin.isatty() if interactive is None else interactive
+        self.caller_email = ""
+        self._credentials: Credentials | None = None
+        self._sa_credentials: dict[str, Credentials] = {}
+        self._storage_client: storage.Client | None = None
+        self._spanner_client: spanner.Client | None = None
+        self._spanner_db: Database | None = None
 
-        for cmd in grant_commands:
-            res = subprocess.run(cmd, capture_output=True, text=True, check=False)
-            if res.returncode != 0:
-                return False
-
-        print(f"  ✔ Automatically granted {role_label} on {target_name}")
-        print("  ⏳ Waiting for GCP IAM policy propagation...")
-        if _poll_until_success(verify_fn):
-            print("  ✔ IAM propagation confirmed.")
-            return True
-        return False
-
-    def prompt_and_fix(
-        self, result: PermissionCheckResult, verify_fn: Callable[[], bool]
-    ) -> bool:
-        """Interactively prompts the user to apply the fix command if running in a terminal."""
-        if not result.fix_command:
-            return False
-
-        print(f"\n⚠️  Permission Issue Detected: {result.name}")
-        print(f"   {result.details}")
-        print(f"   Recommended fix command:\n     {result.fix_command}")
-
-        try:
-            choice = (
-                input("\nWould you like to automatically apply this fix now? [Y/n]: ")
-                .strip()
-                .lower()
-            )
-            if choice not in ("", "y", "yes"):
-                return False
-
-            print(f"   Executing: {result.fix_command}...")
-            res = subprocess.run(
-                result.fix_command,
-                shell=True,
-                text=True,
-                check=False,
-            )
-            if res.returncode != 0:
-                print("   ❌ Failed to grant permission automatically.")
-                return False
-
-            print("   ✔ Permission successfully granted!")
-            print("   ⏳ Waiting for GCP IAM policy propagation...")
-            return _poll_until_success(verify_fn)
-        except Exception:
-            return False
-
+    # =========================================================================
+    # Phase orchestration
+    # =========================================================================
     def verify_all(self) -> list[PermissionCheckResult]:
-        """Runs all permission checks and interactively offers fixes for any failures."""
+        """Runs every check against one shared propagation deadline."""
         if self.target.instance_name == "emulated":
             print("\n[Preflight] Running on local emulator (Skipping GCP IAM checks).")
             return [
@@ -155,295 +241,375 @@ class PreflightPermissionChecker:
                     passed=True,
                     name="Emulated Permissions",
                     details="Skipped on local emulator",
-                )
+                ),
             ]
 
-        print(
-            f"\n[Preflight] Running permission checks for user: '{self.current_user}'..."
-        )
+        try:
+            self._credentials, _ = google.auth.default(scopes=[CLOUD_PLATFORM_SCOPE])
+        except auth_exceptions.DefaultCredentialsError as e:
+            return [
+                PermissionCheckResult(
+                    passed=False,
+                    name="Caller: Application Default Credentials",
+                    details=f"{e}. {ADC_LOGIN_HINT}",
+                ),
+            ]
 
-        checks: list[tuple[Callable[[], PermissionCheckResult], Callable[[], bool]]] = [
-            (
-                self.check_service_account_impersonation,
-                self._can_impersonate_workflow_sa,
+        # IAM propagation is measured from the apply, not per check, so every
+        # check shares one deadline.
+        deadline = time.monotonic() + self.timeout_sec
+        print("\n[Preflight] Caller")
+        adc_result = self._run_check(
+            PermissionCheck(
+                name="Caller: can refresh Application Default Credentials",
+                probe=self._probe_adc_refresh,
             ),
-            (self.check_gcs_bucket_access, self._can_write_gcs_bucket),
-            (self.check_spanner_access, self._can_access_spanner),
-        ]
+            deadline,
+        )
+        if not adc_result.passed:
+            return [adc_result]
+        self.caller_email = self._resolve_caller_email()
+        identity = (
+            self.caller_email or "unknown (preflight can't suggest grant commands)"
+        )
+        print(f"  Identity: {identity}")
 
-        results = []
-        for check_fn, verify_fn in checks:
-            res = check_fn()
-            if (
-                not res.passed
-                and sys.stdin.isatty()
-                and self.prompt_and_fix(res, verify_fn)
-            ):
-                res.passed = True
+        results = [
+            adc_result,
+            self._run_check(self._gcs_check(), deadline),
+            self._run_check(self._spanner_check(), deadline),
+        ]
+        stack_sas = self._stack_service_accounts()
+        can_impersonate: dict[str, bool] = {}
+        for sa in stack_sas:
+            res = self._run_check(self._impersonation_check(sa), deadline)
+            can_impersonate[sa.label] = res.passed
             results.append(res)
+
+        for sa in stack_sas:
+            print(f"[Preflight] {sa.label}: {sa.email or 'unresolved'}")
+            check = self._capability_check(sa)
+            if can_impersonate[sa.label]:
+                results.append(self._run_check(check, deadline))
+            else:
+                detail = f"skipped because the caller cannot impersonate {sa.label}"
+                results.append(self._fail(check, detail))
 
         return results
 
-    # =========================================================================
-    # 1. Service Account Impersonation
-    # =========================================================================
-    def _can_impersonate_workflow_sa(self) -> bool:
-        """Helper that attempts to print an access token impersonating the workflow SA."""
-        sa_email = self.target.workflow_sa_email
-        if not sa_email:
-            return False
-        res = subprocess.run(
-            [
-                "gcloud",
-                "auth",
-                "print-access-token",
-                f"--impersonate-service-account={sa_email}",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=10,
-            check=False,
-        )
-        return res.returncode == 0 and bool(res.stdout.strip())
+    def _run_check(
+        self, check: PermissionCheck, deadline: float
+    ) -> PermissionCheckResult:
+        """Probes once, offers a grant if allowed, then polls RETRY until deadline."""
+        start = time.monotonic()
+        result = check.probe()
 
-    def check_service_account_impersonation(self) -> PermissionCheckResult:
-        """Verifies TokenCreator role on the Workflow Service Account."""
-        sa_email = self.target.workflow_sa_email
-        if not sa_email:
-            return PermissionCheckResult(
-                passed=False,
-                name="Service Account Impersonation",
-                details=(
-                    "Workflow Service Account email could not be resolved from "
-                    "Terraform workspace (missing output 'ingestion_workflow_service_account_email')."
-                ),
-            )
+        if self._should_offer_grant(check, result):
+            if not self._offer_grant(check, result):
+                return self._fail(check, result.detail)
+            # The new grant needs its own full propagation window.
+            deadline = max(deadline, time.monotonic() + self.timeout_sec)
+            result = check.probe()
 
-        if self._can_impersonate_workflow_sa():
-            print(f"  ✔ TokenCreator IAM permission verified on {sa_email}")
-            return PermissionCheckResult(
-                passed=True,
-                name="Service Account Impersonation",
-                details=f"Impersonation verified for {sa_email}",
-            )
-
-        # Attempt auto-grant
-        grant_cmd = [
-            "gcloud",
-            "iam",
-            "service-accounts",
-            "add-iam-policy-binding",
-            sa_email,
-            f"--member={self.member_spec}",
-            "--role=roles/iam.serviceAccountTokenCreator",
-            f"--project={self.target.project_id}",
-            "--quiet",
-        ]
-        if self._try_auto_grant(
-            [grant_cmd],
-            self._can_impersonate_workflow_sa,
-            "roles/iam.serviceAccountTokenCreator",
-            sa_email,
-        ):
-            return PermissionCheckResult(
-                passed=True,
-                name="Service Account Impersonation",
-                details=f"Automatically granted TokenCreator role to {self.member_spec}",
-            )
-
-        fix_cmd = (
-            f"gcloud iam service-accounts add-iam-policy-binding '{sa_email}' "
-            f"--member='{self.member_spec}' "
-            f"--role='roles/iam.serviceAccountTokenCreator' "
-            f"--project='{self.target.project_id}'"
-            if self.member_spec
-            else None
-        )
-        return PermissionCheckResult(
-            passed=False,
-            name="Service Account Impersonation",
-            details=f"Identity '{self.member_spec or 'unknown'}' lacks TokenCreator role on '{sa_email}'",
-            fix_command=fix_cmd,
-        )
-
-    # =========================================================================
-    # 2. GCS Bucket Access
-    # =========================================================================
-    def _can_write_gcs_bucket(self) -> bool:
-        """Helper that verifies read/write capability to the artifacts bucket."""
-        bucket_raw = (
-            self.target.gcs_bucket
-            or f"dcp-{self.target.instance_name}-{self.target.project_id}"
-        )
-        bucket_name = bucket_raw.replace("gs://", "").strip().split("/")[0]
-        if not bucket_name:
-            return False
-
-        client = storage.Client(project=self.target.project_id)
-        bucket = client.bucket(bucket_name)
-        probe_blob = bucket.blob(".test_permission_probe")
-        try:
-            probe_blob.upload_from_string("probe", timeout=10)
-            return True
-        except Exception:
-            return False
-        finally:
-            with contextlib.suppress(Exception):
-                probe_blob.delete(timeout=10)
-
-    def check_gcs_bucket_access(self) -> PermissionCheckResult:
-        """Verifies read/write access to the testbed GCS bucket."""
-        bucket_raw = (
-            self.target.gcs_bucket
-            or f"dcp-{self.target.instance_name}-{self.target.project_id}"
-        )
-        bucket_name = bucket_raw.replace("gs://", "").strip().split("/")[0]
-
-        if not bucket_name:
-            return PermissionCheckResult(
-                passed=False,
-                name="GCS Bucket Access",
-                details=(
-                    "Artifacts GCS bucket could not be resolved from Terraform "
-                    "workspace (missing output 'storage_artifacts_bucket_name')."
-                ),
-            )
-
-        try:
-            if self._can_write_gcs_bucket():
-                print(f"  ✔ GCS bucket write access verified on gs://{bucket_name}")
-                return PermissionCheckResult(
-                    passed=True,
-                    name="GCS Bucket Access",
-                    details=f"Write access verified for gs://{bucket_name}",
+        announced = False
+        while result.outcome is ProbeOutcome.RETRY:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            if not announced:
+                print(
+                    f"  ⏳ {check.name}: waiting up to {int(remaining)}s for IAM "
+                    f"propagation ({result.detail})",
                 )
-        except Exception as e:
-            logger.debug("GCS check failed: %s", e)
+                announced = True
+            time.sleep(min(self.poll_interval_sec, remaining))
+            result = check.probe()
 
-        # Attempt auto-grant
-        grant_cmd = [
-            "gcloud",
-            "storage",
-            "buckets",
-            "add-iam-policy-binding",
-            f"gs://{bucket_name}",
-            f"--member={self.member_spec}",
-            "--role=roles/storage.objectAdmin",
-            f"--project={self.target.project_id}",
-            "--quiet",
-        ]
-        if self._try_auto_grant(
-            [grant_cmd],
-            self._can_write_gcs_bucket,
-            "roles/storage.objectAdmin",
-            f"gs://{bucket_name}",
-        ):
+        if result.outcome is ProbeOutcome.OK:
+            elapsed = int(time.monotonic() - start)
+            print(f"  ✔ {check.name} (ready after {elapsed}s)")
             return PermissionCheckResult(
                 passed=True,
-                name="GCS Bucket Access",
-                details=f"Write access verified for gs://{bucket_name}",
+                name=check.name,
+                details=f"Verified after {elapsed}s",
             )
 
-        fix_cmd = (
-            f"gcloud storage buckets add-iam-policy-binding 'gs://{bucket_name}' "
-            f"--member='{self.member_spec}' "
-            f"--role='roles/storage.objectAdmin' "
-            f"--project='{self.target.project_id}'"
-            if self.member_spec
-            else None
-        )
+        detail = result.detail
+        if result.outcome is ProbeOutcome.RETRY:
+            detail = f"still failing when the propagation budget ran out: {detail}"
+            if check.required_role:
+                detail += (
+                    f". Expected grant: {check.required_role}. Either it is "
+                    "missing, or IAM propagation is unusually slow"
+                )
+        return self._fail(check, detail)
+
+    def _fail(self, check: PermissionCheck, detail: str) -> PermissionCheckResult:
+        print(f"  ✘ {check.name}: {detail}")
         return PermissionCheckResult(
             passed=False,
-            name="GCS Bucket Access",
-            details=f"Cannot write to GCS bucket 'gs://{bucket_name}'",
-            fix_command=fix_cmd,
+            name=check.name,
+            details=detail,
+            grant_command=check.grant_command,
         )
 
-    # =========================================================================
-    # 3. Spanner Access
-    # =========================================================================
-    def _can_access_spanner(self) -> bool:
-        """Helper that verifies query and databaseAdmin capability on Spanner."""
-        if not self.target.spanner_instance or not self.target.spanner_database:
+    def _should_offer_grant(self, check: PermissionCheck, result: ProbeResult) -> bool:
+        """Returns True when preflight should ask to grant the caller's missing access.
+
+        It asks only when the caller's own access was denied (not a transient
+        error) and a person is at a terminal. It asks on the first denial instead
+        of waiting, because a local prober run creates resources, like the
+        workflow SA, that only exist for this run. Failing and rerunning would
+        create new resources with the same problem. The prober has no terminal,
+        so it never asks and never changes IAM.
+        """
+        return result.denied and check.grant_command is not None and self.interactive
+
+    def _offer_grant(self, check: PermissionCheck, result: ProbeResult) -> bool:
+        """Prompts to run the grant command. Returns True only if it succeeded."""
+        print(f"\n⚠️  Access denied: {check.name}")
+        print(f"   {result.detail}")
+        print(f"   This command grants the missing access:\n     {check.grant_command}")
+        try:
+            choice = input("\nRun this grant command now? [y/N]: ").strip().lower()
+        except EOFError:
             return False
-        client = spanner.Client(project=self.target.project_id)
-        inst = client.instance(self.target.spanner_instance)
-        db = inst.database(self.target.spanner_database)
-        with db.snapshot() as snapshot:
-            results = snapshot.execute_sql("SELECT 1")
-            list(results)
-        client.database_admin_api.get_database_ddl(database=db.name)
+        if choice not in ("y", "yes"):
+            return False
+        res = subprocess.run(check.grant_command, shell=True, text=True, check=False)
+        if res.returncode != 0:
+            print("   ❌ The grant command failed.")
+            return False
+        print("   ✔ Access granted. Waiting for IAM propagation...")
         return True
 
-    def check_spanner_access(self) -> PermissionCheckResult:
-        """Verifies Spanner database access and schema administration permissions."""
-        if not self.target.spanner_instance or not self.target.spanner_database:
-            return PermissionCheckResult(
-                passed=False,
-                name="Spanner Access",
-                details=(
-                    "Spanner instance or database could not be resolved from "
-                    "Terraform workspace (missing output 'spanner_instance_id' or 'spanner_database_id')."
-                ),
-            )
-
+    # =========================================================================
+    # Identity helpers
+    # =========================================================================
+    def _probe_adc_refresh(self) -> ProbeResult:
+        """Refreshes ADC once so broken credentials fail clearly and early."""
         try:
-            if self._can_access_spanner():
-                print(
-                    "  ✔ Spanner databaseAdmin & databaseUser access verified on "
-                    f"{self.target.spanner_instance}/{self.target.spanner_database}"
-                )
-                return PermissionCheckResult(
-                    passed=True,
-                    name="Spanner Access",
-                    details=f"Verified on {self.target.spanner_instance}",
-                )
-        except Exception as e:
-            logger.debug("Initial Spanner check failed: %s", e)
+            self._credentials.refresh(Request())
+        except Exception as e:  # noqa: BLE001 - classified into RETRY/FAIL
+            result = classify_exception(e)
+            if result.outcome is ProbeOutcome.FAIL:
+                result.detail = f"{result.detail}. {ADC_LOGIN_HINT}"
+            return result
+        return ProbeResult(ProbeOutcome.OK)
 
-        # Attempt auto-grant
-        roles = ("roles/spanner.databaseAdmin", "roles/spanner.databaseUser")
-        grant_cmds = [
-            [
-                "gcloud",
-                "spanner",
-                "instances",
-                "add-iam-policy-binding",
-                self.target.spanner_instance,
-                f"--member={self.member_spec}",
-                f"--role={role}",
-                f"--project={self.target.project_id}",
-                "--quiet",
-            ]
-            for role in roles
-        ]
-        if self._try_auto_grant(
-            grant_cmds,
-            self._can_access_spanner,
-            " & ".join(roles),
-            self.target.spanner_instance,
-        ):
-            return PermissionCheckResult(
-                passed=True,
-                name="Spanner Access",
-                details=f"Verified on {self.target.spanner_instance}",
+    def _resolve_caller_email(self) -> str:
+        """Returns the (already refreshed) ADC identity's email, or "" if unknown."""
+        creds = self._credentials
+        # Service account and Compute/Cloud Run credentials expose the email;
+        # Compute reports "default" until its first refresh.
+        email = getattr(creds, "service_account_email", "")
+        if email and email != "default":
+            return email
+        # User credentials: gcloud's ADC login includes the userinfo.email scope.
+        try:
+            resp = requests.post(
+                TOKENINFO_URL,
+                data={"access_token": creds.token},
+                timeout=REQUEST_TIMEOUT_SEC,
             )
+            if resp.ok:
+                return resp.json().get("email", "")
+        except requests.RequestException:
+            logger.debug("Could not resolve ADC caller email", exc_info=True)
+        return ""
 
-        fix_cmd = (
-            f"gcloud spanner instances add-iam-policy-binding '{self.target.spanner_instance}' "
-            f"--member='{self.member_spec}' "
-            f"--role='roles/spanner.databaseAdmin' "
-            f"--project='{self.target.project_id}' && "
-            f"gcloud spanner instances add-iam-policy-binding '{self.target.spanner_instance}' "
-            f"--member='{self.member_spec}' "
-            f"--role='roles/spanner.databaseUser' "
+    def _member_spec(self) -> str | None:
+        if not self.caller_email:
+            return None
+        member_type = (
+            "serviceAccount"
+            if self.caller_email.endswith("gserviceaccount.com")
+            else "user"
+        )
+        return f"{member_type}:{self.caller_email}"
+
+    def _impersonated(self, sa_email: str) -> Credentials:
+        """Returns cached impersonated credentials; google-auth refreshes them."""
+        if sa_email not in self._sa_credentials:
+            self._sa_credentials[sa_email] = impersonated_credentials.Credentials(
+                source_credentials=self._credentials,
+                target_principal=sa_email,
+                target_scopes=[CLOUD_PLATFORM_SCOPE],
+            )
+        return self._sa_credentials[sa_email]
+
+    # =========================================================================
+    # Caller checks
+    # =========================================================================
+    def _bucket_name(self) -> str:
+        bucket_raw = (
+            self.target.gcs_bucket
+            or f"dcp-{self.target.instance_name}-{self.target.project_id}"
+        )
+        return bucket_raw.replace("gs://", "").strip().split("/")[0]
+
+    def _gcs_check(self) -> PermissionCheck:
+        bucket_name = self._bucket_name()
+        member = self._member_spec()
+        grant = (
+            f"gcloud storage buckets add-iam-policy-binding 'gs://{bucket_name}' "
+            f"--member='{member}' --role='roles/storage.objectAdmin' "
             f"--project='{self.target.project_id}'"
-            if self.member_spec
+            if member
             else None
         )
-        return PermissionCheckResult(
-            passed=False,
-            name="Spanner Access",
-            details=f"Cannot administer or query Spanner instance '{self.target.spanner_instance}'",
-            fix_command=fix_cmd,
+        return PermissionCheck(
+            name=f"Caller: can write to gs://{bucket_name}",
+            probe=self._probe_gcs_write,
+            grant_command=grant,
+            required_role="roles/storage.objectAdmin",
         )
+
+    def _probe_gcs_write(self) -> ProbeResult:
+        try:
+            if self._storage_client is None:
+                self._storage_client = storage.Client(
+                    project=self.target.project_id,
+                    credentials=self._credentials,
+                )
+            bucket = self._storage_client.bucket(self._bucket_name())
+            blob = bucket.blob(".test_permission_probe")
+            blob.upload_from_string("probe", timeout=REQUEST_TIMEOUT_SEC)
+        except Exception as e:  # noqa: BLE001 - classified into RETRY/FAIL
+            return classify_exception(e)
+        # Cleanup is best effort and must not change the write verdict.
+        with contextlib.suppress(Exception):
+            blob.delete(timeout=REQUEST_TIMEOUT_SEC)
+        return ProbeResult(ProbeOutcome.OK)
+
+    def _spanner_check(self) -> PermissionCheck:
+        instance = self.target.spanner_instance
+        member = self._member_spec()
+        grant = (
+            f"gcloud spanner instances add-iam-policy-binding '{instance}' "
+            f"--member='{member}' --role='roles/spanner.databaseAdmin' "
+            f"--project='{self.target.project_id}' && "
+            f"gcloud spanner instances add-iam-policy-binding '{instance}' "
+            f"--member='{member}' --role='roles/spanner.databaseUser' "
+            f"--project='{self.target.project_id}'"
+            if member and instance
+            else None
+        )
+        return PermissionCheck(
+            name=(
+                "Caller: can query and administer Spanner "
+                f"{instance}/{self.target.spanner_database}"
+            ),
+            probe=self._probe_spanner,
+            grant_command=grant,
+            required_role="roles/spanner.databaseAdmin and roles/spanner.databaseUser",
+        )
+
+    def _probe_spanner(self) -> ProbeResult:
+        if not self.target.spanner_instance or not self.target.spanner_database:
+            return ProbeResult(
+                ProbeOutcome.FAIL,
+                "Missing Terraform output 'spanner_instance_id' or 'spanner_database_id'",
+            )
+        try:
+            if self._spanner_db is None:
+                self._spanner_client = spanner.Client(
+                    project=self.target.project_id,
+                    credentials=self._credentials,
+                )
+                self._spanner_db = self._spanner_client.instance(
+                    self.target.spanner_instance,
+                ).database(self.target.spanner_database)
+            db = self._spanner_db
+            # Turn off per-call client retries (which default to up to an hour)
+            # so the run loop owns retrying and each probe is normally bounded
+            # by the request timeout.
+            with db.snapshot() as snapshot:
+                list(
+                    snapshot.execute_sql(
+                        "SELECT 1",
+                        retry=None,
+                        timeout=REQUEST_TIMEOUT_SEC,
+                    ),
+                )
+            self._spanner_client.database_admin_api.get_database_ddl(
+                database=db.name,
+                retry=None,
+                timeout=REQUEST_TIMEOUT_SEC,
+            )
+        except Exception as e:  # noqa: BLE001 - classified into RETRY/FAIL
+            return classify_exception(e)
+        return ProbeResult(ProbeOutcome.OK)
+
+    def _impersonation_check(self, sa: StackServiceAccount) -> PermissionCheck:
+        member = self._member_spec()
+        grant = (
+            f"gcloud iam service-accounts add-iam-policy-binding '{sa.email}' "
+            f"--member='{member}' --role='roles/iam.serviceAccountTokenCreator' "
+            f"--project='{self.target.project_id}'"
+            if member and sa.email
+            else None
+        )
+        return PermissionCheck(
+            name=f"Caller: can impersonate {sa.label}",
+            probe=lambda: self._probe_impersonation(sa),
+            grant_command=grant,
+            required_role="roles/iam.serviceAccountTokenCreator",
+        )
+
+    def _probe_impersonation(self, sa: StackServiceAccount) -> ProbeResult:
+        if not sa.email:
+            return ProbeResult(
+                ProbeOutcome.FAIL,
+                f"Missing Terraform output '{sa.email_output}'",
+            )
+        try:
+            self._impersonated(sa.email).refresh(Request())
+        except Exception as e:  # noqa: BLE001 - classified into RETRY/FAIL
+            return classify_exception(e)
+        return ProbeResult(ProbeOutcome.OK)
+
+    # =========================================================================
+    # Stack service accounts
+    # =========================================================================
+    def _stack_service_accounts(self) -> list[StackServiceAccount]:
+        """Stack SAs the run uses right after deploy (see coverage rule)."""
+        return [
+            StackServiceAccount(
+                label="Workflow SA",
+                email=self.target.workflow_sa_email,
+                email_output="ingestion_workflow_service_account_email",
+                capability="invoke workflows",
+                role="roles/workflows.invoker",
+                probe=self._probe_workflow_invoker,
+            ),
+        ]
+
+    def _capability_check(self, sa: StackServiceAccount) -> PermissionCheck:
+        return PermissionCheck(
+            name=f"{sa.label}: can {sa.capability}",
+            probe=lambda: sa.probe(self._impersonated(sa.email)),
+            required_role=sa.role,
+        )
+
+    def _probe_workflow_invoker(self, sa_credentials: Credentials) -> ProbeResult:
+        """Lists executions as the workflow SA.
+
+        executions.list is granted by the same roles/workflows.invoker binding
+        as the executions.create call that 'datacommons admin ingest start' makes.
+        """
+        if not self.target.workflow_id:
+            return ProbeResult(
+                ProbeOutcome.FAIL,
+                "Missing Terraform output 'ingestion_workflow_id'",
+            )
+        url = f"{WORKFLOW_EXECUTIONS_API}/{self.target.workflow_id}/executions"
+        try:
+            response = AuthorizedSession(sa_credentials).get(
+                url,
+                params={"pageSize": 1},
+                timeout=REQUEST_TIMEOUT_SEC,
+            )
+        except Exception as e:  # noqa: BLE001 - classified into RETRY/FAIL
+            return classify_exception(e)
+        return classify_http_response(response)

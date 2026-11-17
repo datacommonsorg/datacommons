@@ -267,7 +267,7 @@ if [[ "$SKIP_BUILD" == "false" ]]; then
   echo "    Prober Commit SHA: ${PROBER_COMMIT:0:8}"
   gcloud builds submit \
     --config="${DEPLOY_DIR}/cloudbuild.yaml" \
-    --substitutions="_REGISTRY_BASE=${REGISTRY_BASE},_IMAGE_NAME=${IMAGE_NAME},_PROJECT_ID=${PROJECT},_PROBER_NAME=${PROBER_NAME},_REGION=${LOCATION},_COMMIT_SHA=${PROBER_COMMIT},_TAG=${IMAGE_TAG},_UPDATE_JOB=false" \
+    --substitutions="_REGISTRY_BASE=${REGISTRY_BASE},_IMAGE_NAME=${IMAGE_NAME},_PROJECT_ID=${PROJECT},_PROBER_NAME=${PROBER_NAME},_REGION=${LOCATION},_COMMIT_SHA=${PROBER_COMMIT},_TAG=${IMAGE_TAG},_VERSION=${PROBER_COMMIT:0:7},_UPDATE_JOB=false" \
     --project="${REGISTRY_PROJECT}" \
     "${REPO_ROOT}"
 else

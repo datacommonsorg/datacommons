@@ -1,9 +1,4 @@
 {
-  "namespaces": {
-    "dcid": "https://datacommons.org/browser/",
-    "custom": "https://datacommons.custom.org/"
-  },
-  "observationNamespace": "custom",
   "inputFiles": [
     {
       "pattern": "financial_trade.*",

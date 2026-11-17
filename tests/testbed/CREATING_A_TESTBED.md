@@ -18,8 +18,7 @@ cd tests/testbed/workspaces
 
 uv run datacommons admin init \
   --project-id datcom-dcp \
-  --instance-name testbed-3 \
-  --dc-api-key "YOUR_DC_API_KEY"
+  --instance-name testbed-3
 
 # Move into the scaffolded instance workspace:
 cd testbed-3
