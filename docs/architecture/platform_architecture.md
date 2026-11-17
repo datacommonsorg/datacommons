@@ -105,7 +105,7 @@ Batch ingestion loads raw data from Cloud Storage into Cloud Spanner across a 5-
 #### Failure Handling and Lock Release Guarantee
 If Dataflow or postprocessing throws an unhandled exception:
 * Cloud Workflows intercepts the error in its global `try/except` block ([workflow.yaml](../../infra/dcp/modules/ingestion/workflow/workflow.yaml)).
-* It updates `IngestionHistory` with status `FAILURE` and the active stage via `POST /imports/ingestion-history`, and updates `IngestionStatus` with status `RETRY` via `POST /imports/ingestion-status`.
+* It updates `IngestionHistory` with status `FAILURE` and the active stage via `POST /imports/ingestion-history`, and updates `IngestionStatus` with status `ROLLBACK` via `POST /imports/ingestion-status`.
 * The workflow always executes `release_lock_step` (`POST /database/lock/release`) before re-raising the error, ensuring the Spanner lock is never orphaned and subsequent ingestion runs are not blocked.
 
 ---
