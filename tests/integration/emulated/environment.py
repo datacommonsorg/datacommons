@@ -223,7 +223,6 @@ class EmulatedEnvironment:
             "datacommons-data-processor",
             "--input_dir=gs://test-bucket/ingestion/input",
             "--output_dir=gs://test-bucket/output",
-            "--mode=dcpbridge",
             f"--imports={imports_arg}",
         ]
         subprocess.run(proc_cmd, cwd=str(EMULATED_DIR), check=True)

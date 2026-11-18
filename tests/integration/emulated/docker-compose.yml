@@ -52,7 +52,6 @@ services:
     command: >
       --input_dir=gs://test-bucket/ingestion/input
       --output_dir=gs://test-bucket/output
-      --mode=dcpbridge
       --imports=wages
     depends_on:
       - spanner
