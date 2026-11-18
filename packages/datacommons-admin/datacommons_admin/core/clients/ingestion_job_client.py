@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+
 import click
 import google.auth
 from google.auth.transport.requests import AuthorizedSession
@@ -67,34 +68,46 @@ class IngestionJobClient:
 
         self.session = AuthorizedSession(creds)
 
-    def start_workflow(self, imports: str | None = None) -> dict:
-        """Starts an execution of the Cloud Workflow."""
+    def start_workflow(self, imports: str | None = None, mode: str = "INGEST") -> dict:
+        """Starts an execution of the Cloud Workflow in `mode` (INGEST or DRY_RUN)."""
         if not self.full_workflow_name:
             raise click.ClickException(
                 "Workflow name must be provided to start a workflow execution."
             )
 
-        # 1. Parse imports argument
         imports_list = []
         if imports:
             imports_list = [imp.strip() for imp in imports.split(",") if imp.strip()]
 
-        # 2. Construct payload argument (must be a JSON string)
-        argument_dict = {
-            "imports": imports_list,
-        }
-
+        # The workflow takes its argument as a JSON string.
+        argument = json.dumps({"imports": imports_list, "mode": mode})
         url = f"https://workflowexecutions.googleapis.com/v1/{self.full_workflow_name}/executions"
-        json_payload = {"argument": json.dumps(argument_dict)}
+        return self._request("post", url, {"argument": argument})
 
+    def get_execution(self, execution_id: str) -> dict:
+        """Returns a workflow execution, including its `state`."""
+        url = f"https://workflowexecutions.googleapis.com/v1/{self.full_workflow_name}/executions/{execution_id}"
+        return self._request("get", url)
+
+    def supports_dry_run(self) -> bool:
+        """Returns whether the deployed workflow knows the DRY_RUN mode.
+
+        An older workflow ignores `mode` and would ingest for real.
+        """
+        url = f"https://workflows.googleapis.com/v1/{self.full_workflow_name}"
+        return "DRY_RUN" in self._request("get", url).get("sourceContents", "")
+
+    def _request(self, method: str, url: str, json_payload: dict | None = None) -> dict:
+        """Calls a Workflows API and returns its JSON response."""
         try:
-            response = self.session.post(url, json=json_payload, timeout=300)
+            response = getattr(self.session, method)(
+                url, json=json_payload, timeout=300
+            )
         except Exception as e:
             msg = f"Network or authentication error connecting to Workflow Executions API at {url}: {e}"
             if self.service_account_email:
                 msg += f"\nFailed to impersonate {self.service_account_email}. Please ensure your GCP user account has the 'Service Account Token Creator' (roles/iam.serviceAccountTokenCreator) IAM role."
             raise click.ClickException(msg)
-
         if response.status_code == 401:
             raise click.ClickException(
                 f"HTTP 401 Unauthorized when calling Workflow Executions API at {url}.\n"
