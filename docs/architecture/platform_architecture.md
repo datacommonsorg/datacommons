@@ -62,7 +62,7 @@ The web application and serving entrypoint.
 
 ### [datacommonsorg/import](https://github.com/datacommonsorg/import)
 The data transformation and batch ingestion engine.
-* **`simple/`**: Python data preprocessor, packaged into `datacommons-data` by `simple/Dockerfile` and executed via `run.sh`.
+* **`simple/`**: Python data preprocessor, packaged into `datacommons-data` by `simple/Dockerfile`.
 * **`pipeline/ingestion/`**: Apache Beam Java Dataflow pipeline (`GraphIngestionPipeline`) that validates graph entities, computes FarmHash facet IDs, and commits mutations to Cloud Spanner.
 * **`pipeline/workflow/aggregation-helper/`**: Postprocessing Cloud Run job executing BigQuery federated SQL queries to aggregate statistical hierarchies and edge relationships.
 * **`pipeline/workflow/ingestion-helper/`**: FastAPI Cloud Run microservice managing database concurrency locks, ingestion status updates, and Vertex AI text embeddings.
