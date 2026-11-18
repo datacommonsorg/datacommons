@@ -56,6 +56,7 @@ client = SpannerClient(
     project_id="your-gcp-project",
     instance_id="your-spanner-instance",
     database_id="your-spanner-database",
+    region="us-central1",
 )
 ```
 
@@ -132,6 +133,7 @@ client = SpannerClient(
     project_id="your-gcp-project",
     instance_id="your-spanner-instance",
     database_id="your-spanner-database",
+    region="us-central1",
 )
 
 runner = MigrationRunner(client)

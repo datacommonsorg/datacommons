@@ -12,69 +12,50 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from collections.abc import Iterator
-from dataclasses import dataclass, field
-from enum import StrEnum
+from datetime import UTC, datetime
 from typing import Any
 
 from google.auth.credentials import Credentials
 from google.cloud import spanner
 from google.cloud.spanner_v1.transaction import Transaction
 
+from datacommons_db.clients.models import (
+    DdlResult,
+    DmlResult,
+    ExecutionStatus,
+    LockState,
+    QueryResult,
+)
+from datacommons_db.schema.loader import load_baseline_statements
 from datacommons_db.utils.validators import (
     validate_resource_id,
     validate_table_name,
 )
 
-
-class ExecutionStatus(StrEnum):
-    """Status of a Spanner database operation."""
-
-    SUCCESS = "SUCCESS"
-    ERROR = "ERROR"
+DEFAULT_LOCK_TIMEOUT_SECONDS: int = 300
+GLOBAL_INGESTION_LOCK_ID: str = "global_ingestion_lock"
 
 
-@dataclass(frozen=True)
-class DdlResult:
-    """Result of a DDL statement execution.
+def resolve_instance_config(client: spanner.Client) -> str:
+    """Discovers and resolves a supported instance configuration.
 
-    Attributes:
-        status: Execution status enum (SUCCESS or ERROR).
-        error_message: Error message string if execution failed, None otherwise.
+    Checks the instance configurations exposed by Spanner or the emulator, preferring
+    'default' (standard for Spanner Omni) and 'emulator-config' (standard for Google Spanner emulator).
+
+    Args:
+        client: Connected google.cloud.spanner.Client instance.
+
+    Returns:
+        Full instance configuration name string.
     """
-
-    status: ExecutionStatus
-    error_message: str | None = None
-
-
-@dataclass(frozen=True)
-class DmlResult:
-    """Result of a DML statement execution inside a read-write transaction.
-
-    Attributes:
-        status: Execution status enum (SUCCESS or ERROR).
-        rows_affected: Number of rows modified by the DML statement (0 on failure).
-        error_message: Error message string if execution failed, None otherwise.
-    """
-
-    status: ExecutionStatus
-    rows_affected: int = 0
-    error_message: str | None = None
-
-
-@dataclass(frozen=True)
-class QueryResult:
-    """Result of a snapshot read query.
-
-    Attributes:
-        status: Execution status enum (SUCCESS or ERROR).
-        rows: List of rows where each row is a list of column values ([] on failure).
-        error_message: Error message string if execution failed, None otherwise.
-    """
-
-    status: ExecutionStatus
-    rows: list[list[Any]] = field(default_factory=list)
-    error_message: str | None = None
+    configs = [c.name for c in client.list_instance_configs()]
+    for preferred in ("default", "emulator-config"):
+        for name in configs:
+            if preferred in name:
+                return name
+    return configs[0] if configs else f"{client.project_name}/instanceConfigs/default"
 
 
 class SpannerClient:
@@ -87,6 +68,7 @@ class SpannerClient:
         database_id: str,
         credentials: Credentials | None = None,
         *,
+        region: str,
         disable_builtin_metrics: bool = True,
     ) -> None:
         """Initialize the SpannerClient.
@@ -96,6 +78,7 @@ class SpannerClient:
             instance_id: Cloud Spanner instance ID.
             database_id: Cloud Spanner database ID.
             credentials: Optional Google Cloud credentials object.
+            region: GCP region hosting the database and model endpoints.
             disable_builtin_metrics: Whether to disable built-in Cloud Monitoring metrics export.
         """
         validate_resource_id("project_id", project_id)
@@ -105,6 +88,7 @@ class SpannerClient:
         self.project_id = project_id
         self.instance_id = instance_id
         self.database_id = database_id
+        self.region = region
 
         self.client = spanner.Client(
             project=project_id,
@@ -113,6 +97,12 @@ class SpannerClient:
         )
         self.instance = self.client.instance(self.instance_id)
         self.database = self.instance.database(self.database_id)
+
+    @property
+    def is_emulator(self) -> bool:
+        """Indicates whether this client is operating against a Spanner emulator."""
+
+        return bool(os.getenv("SPANNER_EMULATOR_HOST"))
 
     def table_exists(self, table_name: str) -> bool:
         """Check if a table exists in the Cloud Spanner database.
@@ -249,3 +239,131 @@ class SpannerClient:
             return QueryResult(
                 status=ExecutionStatus.ERROR, rows=[], error_message=str(e)
             )
+
+    def initialize_database(self) -> DdlResult:
+        """Initializes the database by executing all base schema DDL statements.
+
+        Resolves template placeholders in the baseline schema file (baseline_schema.sql)
+        via SchemaLoader and applies the DDL statements to Cloud Spanner.
+
+        Returns:
+            DdlResult indicating execution status.
+        """
+        try:
+            statements = load_baseline_statements(
+                project_id=self.project_id,
+                region=self.region,
+            )
+            return self.execute_ddl(statements)
+        except Exception as e:  # noqa: BLE001
+            return DdlResult(
+                status=ExecutionStatus.ERROR,
+                error_message=f"Failed to load or parse baseline schema: {e}",
+            )
+
+    @staticmethod
+    def _is_lock_stale(acquired_at: datetime | None, timeout: int) -> bool:
+        """Determines if a held lock timestamp has exceeded the timeout duration."""
+        if acquired_at is None:
+            return True
+        acquired_dt = (
+            acquired_at if acquired_at.tzinfo else acquired_at.replace(tzinfo=UTC)
+        )
+        return (datetime.now(UTC) - acquired_dt).total_seconds() > timeout
+
+    @staticmethod
+    def _get_lock_state(transaction: Transaction, lock_id: str) -> LockState:
+        """Fetches the current lock row within a transaction."""
+        sql = "SELECT LockOwner, AcquiredTimestamp FROM IngestionLock WHERE LockID = @lockId"
+        rows = transaction.execute_sql(
+            sql,
+            params={"lockId": lock_id},
+            param_types={"lockId": spanner.param_types.STRING},
+        )
+        for row in rows:
+            owner, acquired_at = row[0], row[1]
+            return LockState(exists=True, owner=owner, acquired_at=acquired_at)
+        return LockState(exists=False)
+
+    def acquire_lock(
+        self,
+        workflow_id: str,
+        timeout: int = DEFAULT_LOCK_TIMEOUT_SECONDS,
+    ) -> bool:
+        """Attempts to acquire the global ingestion lock directly in Spanner.
+
+        Args:
+            workflow_id: The ID of the workflow or process attempting to acquire the lock.
+            timeout: Maximum duration in seconds after which a held lock is considered stale.
+                Defaults to DEFAULT_LOCK_TIMEOUT_SECONDS (300s).
+
+        Returns:
+            True if the lock was acquired, False if currently held by an active owner.
+
+        Raises:
+            Exception: If database transaction execution fails.
+        """
+
+        def _acquire(transaction: Transaction) -> bool:
+            lock = self._get_lock_state(transaction, GLOBAL_INGESTION_LOCK_ID)
+            if lock.owner and not self._is_lock_stale(lock.acquired_at, timeout):
+                return False
+
+            sql_statement = (
+                """
+                UPDATE IngestionLock
+                SET LockOwner = @workflowId, AcquiredTimestamp = PENDING_COMMIT_TIMESTAMP()
+                WHERE LockID = @lockId
+                """
+                if lock.exists
+                else """
+                INSERT INTO IngestionLock (LockID, LockOwner, AcquiredTimestamp)
+                VALUES (@lockId, @workflowId, PENDING_COMMIT_TIMESTAMP())
+                """
+            )
+            transaction.execute_update(
+                sql_statement,
+                params={"workflowId": workflow_id, "lockId": GLOBAL_INGESTION_LOCK_ID},
+                param_types={
+                    "workflowId": spanner.param_types.STRING,
+                    "lockId": spanner.param_types.STRING,
+                },
+            )
+            return True
+
+        return self.database.run_in_transaction(_acquire)
+
+    def release_lock(
+        self,
+        workflow_id: str,
+    ) -> bool:
+        """Releases the global lock if currently owned by the specified workflow_id.
+
+        Args:
+            workflow_id: The ID of the workflow or process attempting to release the lock.
+
+        Returns:
+            True if the lock was owned and successfully released, False otherwise.
+
+        Raises:
+            Exception: If database transaction execution fails.
+        """
+
+        def _release(transaction: Transaction) -> bool:
+            lock = self._get_lock_state(transaction, GLOBAL_INGESTION_LOCK_ID)
+            if lock.owner != workflow_id:
+                return False
+
+            sql_update = """
+                UPDATE IngestionLock
+                SET LockOwner = NULL, AcquiredTimestamp = NULL
+                WHERE LockID = @lockId
+            """
+            transaction.execute_update(
+                sql_update,
+                params={"lockId": GLOBAL_INGESTION_LOCK_ID},
+                param_types={"lockId": spanner.param_types.STRING},
+            )
+            return True
+
+        return self.database.run_in_transaction(_release)

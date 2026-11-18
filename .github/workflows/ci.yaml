@@ -5,20 +5,49 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  merge_group:
+
+permissions:
+  contents: read
 
 jobs:
+  fileset-diff:
+    name: Analyze Fileset Diffs
+    runs-on: ubuntu-latest
+    outputs:
+      code_changes: ${{ steps.filter.outputs.code_changes }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          predicate-quantifier: 'every'
+          filters: |
+            code_changes:
+              - '!docs/**'
+              - '!**/*.md'
+              - '!.gitignore'
+              - '!LICENSE'
+              - '!experimental/**'
+              - '!build/**'
+
   test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.11", "3.12"]
+        include:
+          - python-version: "3.12"
+            coverage: true  # Coverage is measured on one leg only.
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false  # Keeps the token out of .git/config; this job uploads an artifact.
 
       - name: Install uv and set the Python version
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -33,18 +62,79 @@ jobs:
       #  run: uv run ruff check
 
       - name: Run tests
+        env:
+          PYTEST_ADDOPTS: ${{ matrix.coverage && '--cov --cov-report=term --cov-report=xml' || '' }}
         run: |
           # Enable parallel test execution
           uv run pytest
 
-  hermetic-integration-test:
+      # Report-only: prints the coverage of the lines a pull request changes.
+      - name: Changed-line coverage
+        if: matrix.coverage
+        env:
+          COVERAGE_BASE_BRANCH: ${{ github.event_name == 'pull_request' && github.base_ref || '' }}
+        run: |
+          s=$(mktemp) && trap 'rm -f "$s"' EXIT
+          curl -fsSL --retry 3 -o "$s" "https://raw.githubusercontent.com/datacommonsorg/.github/main/scripts/report_changed_lines.sh" \
+            || { echo "Changed-line coverage not measured: script download failed"; exit 0; }
+          uv run bash "$s" coverage.xml \
+            || echo "Changed-line coverage not measured: report script failed"
+
+      - name: Upload coverage report
+        if: matrix.coverage
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-report
+          path: coverage.xml
+          retention-days: 7
+
+  terraform:
+    name: Terraform Format and Validate
     runs-on: ubuntu-latest
+    env:
+      TF_PLUGIN_CACHE_DIR: /tmp/terraform-plugin-cache
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_wrapper: false
+
+      - name: Create Terraform plugin cache directory
+        run: mkdir -p "$TF_PLUGIN_CACHE_DIR"
 
       - name: Install uv and set the Python version
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          python-version: "3.12"
+
+      - name: Check, Validate, and Test DCP Terraform
+        if: ${{ !cancelled() }}
+        run: uv run infra/dcp/scripts/check_terraform.py
+
+      - name: Test terraform infra scripts
+        if: ${{ !cancelled() }}
+        run: uv run pytest infra/dcp/scripts/tests
+
+      - name: Check and Validate Prober Terraform
+        if: ${{ !cancelled() }}
+        run: uv run infra/dcp/scripts/check_terraform.py --tf-dir tests/integration/prober/deploy/terraform --fmt --validate
+
+  hermetic-integration-test:
+    needs: fileset-diff
+    if: github.event_name == 'push' || github.event_name == 'merge_group' || needs.fileset-diff.outputs.code_changes == 'true'
+    # Pinned to 24.04: on the ubuntu-26.04 image (ubuntu-latest since Oct 2026)
+    # the fake-gcs-server emulator is unreachable on localhost:9099 and every
+    # ingestion-dependent test fails. Move back to ubuntu-latest once fixed.
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install uv and set the Python version
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
         with:
           python-version: "3.12"
 
@@ -61,8 +151,25 @@ jobs:
       #   HELPER_IMAGE: gcr.io/datcom-ci/datacommons-ingestion-helper:v1.2.3rc1
       #   SERVICES_IMAGE: gcr.io/datcom-ci/datacommons-services:v1.2.3rc1
       - name: Run hermetic integration test
-        run: uv run pytest -s tests/datacommons-integration-tests/run_local_integration_test.py
+        run: uv run python tests/integration/run_e2e_tests.py --instance=emulated --test-config=foobar_wages
 
+  ci-gate:
+    name: All CI Checks Passed
+    runs-on: ubuntu-latest
+    needs:
+      - test
+      - terraform
+      - hermetic-integration-test
+    if: always()
+    steps:
+      - name: Verify all required jobs succeeded
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        env:
+          JOB_RESULTS: ${{ toJson(needs) }}
+        run: |
+          echo "⛔ One or more upstream CI jobs failed or were cancelled."
+          echo "Job results: $JOB_RESULTS"
+          exit 1
 
-
-
+      - name: All checks passed
+        run: echo "✅ All CI checks completed successfully!"

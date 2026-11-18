@@ -1,0 +1,317 @@
+# Copyright 2026 Google LLC.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import json
+import os
+import subprocess
+from pathlib import Path
+from typing import Any
+
+from tests.integration.core.target import ArtifactConfig, DCPTarget
+
+
+def _get_repo_root() -> Path:
+    return Path(__file__).resolve().parents[3]
+
+
+def _read_terraform_outputs(workspace_dir: Path) -> dict[str, Any]:
+    """Reads structured outputs from a Terraform workspace."""
+    if (
+        not (workspace_dir / ".terraform").exists()
+        and not (workspace_dir / "terraform.tfstate").exists()
+    ):
+        return {}
+    try:
+        proc = subprocess.run(
+            ["terraform", "output", "-json"],
+            cwd=str(workspace_dir),
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=True,
+        )
+        data = json.loads(proc.stdout)
+        return {k: v.get("value") for k, v in data.items() if isinstance(v, dict)}
+    except Exception:
+        return {}
+
+
+def _resolve_deployed_artifacts(
+    workspace_dir: Path,
+    artifacts: ArtifactConfig | None = None,
+    tf_outputs: dict[str, Any] | None = None,
+) -> ArtifactConfig:
+    """Extracts deployed container image digests and Dataflow templates directly from Terraform outputs."""
+    artifacts = artifacts or ArtifactConfig()
+    outputs = tf_outputs or _read_terraform_outputs(workspace_dir)
+
+    ingestion_enabled = bool(
+        outputs.get("ingestion_service_url") or outputs.get("ingestion_bucket_url")
+    )
+
+    resolved: dict[str, Any] = {
+        "services_image": outputs.get("datacommons_services_image"),
+    }
+    template_path = None
+
+    if ingestion_enabled:
+        resolved.update(
+            {
+                "helper_image": outputs.get("ingestion_helper_image"),
+                "preprocessing_image": outputs.get("ingestion_preprocessing_image"),
+                "postprocessing_image": outputs.get("ingestion_postprocessing_image"),
+            }
+        )
+        template_path = outputs.get("ingestion_dataflow_template_gcs_path")
+
+    missing = [field for field, val in resolved.items() if not val]
+    if missing or (ingestion_enabled and not template_path):
+        raise RuntimeError(
+            f"❌ Error: Missing required deployed artifacts in Terraform outputs at '{workspace_dir}': "
+            f"missing_images={missing}, missing_template={ingestion_enabled and template_path is None}."
+        )
+
+    raw_artifacts: dict[str, Any] = {
+        **resolved,
+    }
+    if ingestion_enabled:
+        raw_artifacts["dataflow_template_gcs_path"] = template_path
+
+    digests = _resolve_artifact_digests(raw_artifacts)
+
+    return ArtifactConfig(
+        cli_source=artifacts.cli_source,
+        cli_version=artifacts.cli_version,
+        target_tag=artifacts.target_tag or "latest",
+        services_image=digests.get("services_image"),
+        helper_image=digests.get("helper_image"),
+        preprocessing_image=digests.get("preprocessing_image"),
+        postprocessing_image=digests.get("postprocessing_image"),
+        dataflow_template_gcs_path=digests.get("dataflow_template_gcs_path"),
+    )
+
+
+def _resolve_image_digest(uri: str) -> str:
+    if "@sha256:" in uri:
+        return uri
+    cmd = (
+        [
+            "gcloud",
+            "container",
+            "images",
+            "describe",
+            uri,
+            "--format=value(image_summary.digest)",
+        ]
+        if "gcr.io/" in uri
+        else [
+            "gcloud",
+            "artifacts",
+            "docker",
+            "images",
+            "describe",
+            uri,
+            "--format=value(image_summary.digest)",
+        ]
+    )
+    digest = _exec_cmd(cmd)
+    base = uri.split("@")[0]
+    if ":" in base:
+        last_slash = base.rfind("/")
+        last_colon = base.rfind(":")
+        if last_colon > last_slash:
+            base = base[:last_colon]
+    return f"{base}@{digest}" if digest and digest.startswith("sha256:") else uri
+
+
+def _resolve_gcs_generation(uri: str) -> str:
+    if "#" in uri:
+        return uri
+    gen = _exec_cmd(
+        [
+            "gcloud",
+            "storage",
+            "objects",
+            "describe",
+            uri,
+            "--format=value(generation)",
+        ]
+    )
+    return f"{uri}#{gen}" if gen and gen.isdigit() else uri
+
+
+def _resolve_artifact_digests(artifacts: dict[str, str]) -> dict[str, str]:
+    """Resolves container image tags to sha256 digests and GCS paths to generation IDs."""
+    resolved = {}
+    for key, val in artifacts.items():
+        if not isinstance(val, str):
+            resolved[key] = val
+        elif "gcr.io/" in val or "pkg.dev/" in val:
+            resolved[key] = _resolve_image_digest(val)
+        elif val.startswith("gs://"):
+            resolved[key] = _resolve_gcs_generation(val)
+        else:
+            resolved[key] = val
+    return resolved
+
+
+def _exec_cmd(cmd: list[str], timeout: int = 5) -> str:
+    try:
+        return (
+            subprocess.check_output(cmd, stderr=subprocess.DEVNULL, timeout=timeout)
+            .decode()
+            .strip()
+        )
+    except Exception:
+        return ""
+
+
+def resolve_dcp_target(
+    instance: str | None = None,
+    project: str = "datcom-dcp",
+    workspace: str | None = None,
+    artifacts: ArtifactConfig | None = None,
+) -> DCPTarget:
+    """Resolves the active DCP target environment and endpoints."""
+    repo_root = _get_repo_root()
+    artifacts = artifacts or ArtifactConfig()
+
+    # 1. Resolve Emulated vs Cloud Workspace Directory
+    if instance == "emulated":
+        return DCPTarget(
+            project_id="default",
+            instance_name="emulated",
+            workspace_dir=str(repo_root / "tests" / "integration" / "emulated"),
+            serving_url=os.getenv("DCP_SERVING_URL", "http://localhost:8082"),
+            helper_url=os.getenv("DCP_HELPER_URL", "http://localhost:8081"),
+            spanner_instance="default",
+            spanner_database="test-db",
+            workflow_name="local-workflow",
+            workflow_sa_email="local-sa@default.iam.gserviceaccount.com",
+            gcs_bucket="test-bucket",
+            artifacts=artifacts,
+        )
+
+    # 1. Resolve Workspace Directory
+    if workspace:
+        workspace_path = Path(workspace).resolve()
+        instance_name = instance or workspace_path.name
+    elif instance:
+        instance_name = instance
+        workspace_path = repo_root / "tests" / "testbed" / "workspaces" / instance
+    else:
+        curr_dir = Path.cwd().resolve()
+        if "workspaces" in str(curr_dir):
+            workspace_path = curr_dir
+            instance_name = curr_dir.name
+        else:
+            raise ValueError(
+                "❌ Error: Target instance is required.\n"
+                "Please specify --instance=<name> (e.g. --instance=testbed-1) or --workspace=<path>."
+            )
+
+    # Auto-initialize workspace via fetch_terraform_state.sh if missing
+    if not workspace_path.exists() or not (workspace_path / ".terraform").exists():
+        print(
+            f"\n==> [Resolver] Workspace '{workspace_path}' not initialized. Running fetch_terraform_state.sh for '{instance_name}'..."
+        )
+        fetch_script = repo_root / "tests" / "testbed" / "fetch_terraform_state.sh"
+        if fetch_script.exists():
+            subprocess.run(
+                [
+                    str(fetch_script),
+                    "connect",
+                    "--instance",
+                    instance_name,
+                    "--project",
+                    project,
+                ],
+                check=False,
+            )
+
+    # 2. Extract endpoints from Terraform Workspace Outputs
+    tf_outputs = _read_terraform_outputs(workspace_path)
+    serving_url = tf_outputs.get("datacommons_service_url", "")
+    if not serving_url:
+        raise RuntimeError(
+            f"\n❌ Error: Terraform workspace '{workspace_path}' is not connected or missing required output 'datacommons_service_url'.\n"
+            f"Please connect to the target testbed workspace by running:\n"
+            f"  tests/testbed/fetch_terraform_state.sh connect --instance {instance_name} --project {project}\n"
+        )
+
+    if not serving_url.startswith("http"):
+        serving_url = f"https://{serving_url}"
+
+    # If targeting a non-run.app endpoint (such as Load Balancer Anycast IP),
+    # resolve the underlying Cloud Run service URL as the OIDC token audience.
+    if "run.app" not in serving_url and "DCP_AUTH_AUDIENCE" not in os.environ:
+        service_name = tf_outputs.get("datacommons_service_name", "")
+        region = tf_outputs.get("region", "us-central1")
+        if service_name:
+            try:
+                res = subprocess.run(
+                    [
+                        "gcloud",
+                        "run",
+                        "services",
+                        "describe",
+                        service_name,
+                        f"--project={project}",
+                        f"--region={region}",
+                        "--format=value(status.url)",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                    check=False,
+                )
+                if res.returncode == 0 and res.stdout.strip():
+                    os.environ["DCP_AUTH_AUDIENCE"] = res.stdout.strip()
+            except Exception:
+                pass
+
+    helper_url = tf_outputs.get("ingestion_service_url", "")
+    if helper_url and not helper_url.startswith("http"):
+        helper_url = f"https://{helper_url}"
+
+    spanner_instance = tf_outputs.get("spanner_instance_id", "")
+    spanner_database = tf_outputs.get("spanner_database_id", "dcp_db")
+    workflow_name = tf_outputs.get(
+        "ingestion_workflow_name", f"{instance_name}-dc-ingestion-workflow"
+    )
+    # Full "projects/{p}/locations/{r}/workflows/{name}" path. Terraform outputs
+    # are null when ingestion is disabled, so coerce to "" rather than None.
+    workflow_id = tf_outputs.get("ingestion_workflow_id") or ""
+    workflow_sa = tf_outputs.get("ingestion_workflow_service_account_email") or ""
+    gcs_bucket = tf_outputs.get("storage_artifacts_bucket_name", "")
+
+    # Resolve deployed container images and template artifacts
+    resolved_artifacts = _resolve_deployed_artifacts(
+        workspace_path, artifacts, tf_outputs=tf_outputs
+    )
+
+    return DCPTarget(
+        project_id=project,
+        instance_name=instance_name,
+        workspace_dir=str(workspace_path),
+        serving_url=serving_url,
+        helper_url=helper_url,
+        spanner_instance=spanner_instance,
+        spanner_database=spanner_database,
+        workflow_name=workflow_name,
+        workflow_id=workflow_id,
+        workflow_sa_email=workflow_sa,
+        gcs_bucket=gcs_bucket,
+        artifacts=resolved_artifacts,
+    )

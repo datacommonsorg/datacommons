@@ -1,0 +1,4 @@
+SERIES,TIME_PERIOD,OBS_VALUE,SOURCE_COUNTRY,DESTINATION_COUNTRY
+FinancialTrade,2024,100,dcid:country/FRA,dcid:country/USA
+FinancialTrade,2025,101,dcid:country/FRA,dcid:country/USA
+FinancialTrade,2026,102,dcid:country/FRA,dcid:country/USA

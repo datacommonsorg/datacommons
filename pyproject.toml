@@ -22,7 +22,8 @@ dependencies = [
 [dependency-groups]
 dev = [
   {include-group = "lint"},
-  {include-group = "test"}
+  {include-group = "test"},
+  "datacommons-devtools",
 ]
 lint = [
   "pre-commit>=4.5.1",
@@ -30,10 +31,17 @@ lint = [
 ]
 test = [
     "pytest>=9.0.3",
+    "pytest-cov==7.1.0",
+    "diff-cover==11.0.0",
+    "datacommons-client>=2.1.6",
     "datacommons-api",
     "datacommons-db",
     "datacommons-schema",
     "datacommons-admin",
+    "google-cloud-spanner>=3.40.0",
+    "google-cloud-storage>=2.14.0",
+    "pyyaml>=6.0",
+    "requests>=2.31.0",
 ]
 
 
@@ -49,26 +57,30 @@ datacommons-db = { workspace = true }
 datacommons-schema = { workspace = true }
 datacommons-cli = { workspace = true }
 datacommons-admin = { workspace = true }
-datacommons-integration-tests = { workspace = true }
+datacommons-devtools = { workspace = true }
 
 [tool.uv.workspace]
 members = [
     "packages/*",
-    "tests/datacommons-integration-tests",
 ]
 
 [tool.coverage.run]
-source = ["datacommons"]
+# source_dirs (coverage.py >= 7.10) keeps repo-root-relative `packages/...` paths
+# in coverage.xml; `source` strips `packages/`, which breaks Codacy file matching.
+source_dirs = ["packages"]
+omit = ["*/tests/*"]
 branch = true
+relative_files = true
 
 [tool.coverage.report]
-exclude_lines = [
-    "pragma: no cover",
+# [report] option in coverage.py: workspace members have no top-level __init__.py,
+# so this lets coverage find unimported files.
+include_namespace_packages = true
+exclude_also = [
     "def __repr__",
     "if __name__ == .__main__.:",
     "raise NotImplementedError",
     "if TYPE_CHECKING:",
-    "pass",
     "@abstractmethod",
 ]
 
@@ -122,30 +134,45 @@ extend-ignore = [
     "S603",   # Subprocess call check in automation scripts
     "S607",   # Partial executable path in automation scripts
 ]
-"packages/*/tests/**/*.py" = [
-    "S101",   # Allow using `assert` in pytests
-    "ANN001", # Ignore missing type annotations in test files
-    "ANN201", # Ignore missing return types in public test functions
-    "ANN202", # Ignore missing return types in private test functions
-    "PLR2004"
+"infra/dcp/scripts/**/*.py" = [
+    "S603",   # Subprocess call check in automation scripts
+    "S607",   # Partial executable path in automation scripts
 ]
 "packages/*/datacommons_*/migrations/migration_scripts/*.py" = [
     "N999",   # Allow timestamp prefixes (e.g. 20260817000000_*.py) for migration scripts
 ]
-"tests/**/*.py" = [
+"packages/datacommons-devtools/datacommons_devtools/migrations/templates/*.py" = [
+    "ERA001", # Allow example commented-out code in migration template
+    "F401",   # Allow pre-imported modules in migration template
+]
+"**/tests/**/*.py" = [
     "S101",   # Allow using `assert` in pytests
     "S105",   # Allow hardcoded mock passwords/tokens in tests
     "S106",   # Allow hardcoded mock token arguments in tests
+    "S108",   # Probable insecure usage of temp file/dir
+    "S110",   # Allow try-except-pass in data parsing helpers
+    "S602",   # Subprocess call with shell=True for interactive fixes
+    "S603",   # Subprocess call check in test runners
+    "S607",   # Partial executable path in test runners
     "ANN001", # Ignore missing type annotations in test files
     "ANN002", # Ignore missing type annotations for *args in test helpers
     "ANN003", # Ignore missing type annotations for **kwargs in test helpers
     "ANN201", # Ignore missing return types in public test functions
     "ANN202", # Ignore missing return types in private test functions
+    "ANN204", # Ignore missing return types in __init__
+    "ANN401", # Dynamically typed Any in test schemas
     "ARG001", # Allow unused arguments in mock functions
     "ARG002", # Allow unused pytest fixture arguments in test methods
     "ARG005", # Allow unused lambda arguments in mocks
+    "BLE001", # Allow broad exception catching in test resilience
+    "E402",   # Module level import not at top of file (sys.path config)
+    "FBT001", # Boolean-typed positional arguments
     "FBT002", # Allow boolean default positional arguments in test mocks
     "PLR2004",# Allow magic values in test assertions
+    "PLW0602",# Using global for reporter across hooks
+    "PLW0603",# Using global for reporter across hooks
+    "PTH103", # Allow os.makedirs
+    "PTH123", # Allow builtin open() in test loaders
 ]
 
 # Explicitly define PyPI as the default index
@@ -164,4 +191,12 @@ packages = []
 version = {file = "VERSION"}
 
 [tool.pytest.ini_options]
-testpaths = ["packages", "tests/deploy_scripts"]
+pythonpath = [".", "deploy/scripts", "infra/dcp/scripts"]
+testpaths = ["packages", "deploy/scripts/tests", "tests/integration/unit_tests"]
+# importlib mode lets the repo's several "tests/" directories coexist without
+# module-name collisions (e.g. multiple "tests.conftest" modules).
+addopts = ["--import-mode=importlib"]
+markers = [
+    "cloud_only: mark test or class to run only against live GCP cloud targets.",
+]
+

@@ -32,15 +32,18 @@ variable "replica_count" {
 }
 
 variable "vpc_network_id" {
-  type = string
+  type        = string
+  description = "The VPC network ID or self_link to peer the Redis instance to"
 }
 
-variable "vpc_connector_cidr" {
-  type    = string
-  default = ""
+variable "enable_auth" {
+  type        = bool
+  description = "Enable Redis AUTH (password authentication) on the Memorystore instance"
+  default     = true
 }
 
-variable "enable_connector" {
-  type    = bool
-  default = true
+variable "enable_tls" {
+  type        = bool
+  description = "Enable in-transit TLS encryption (SERVER_AUTHENTICATION) on the Memorystore instance"
+  default     = true
 }

@@ -24,3 +24,9 @@ variable "stateful_deletion_protection" {
   description = "Enable deletion protection for stateful resources (GCS) to prevent data loss."
 }
 
+variable "enable_versioning" {
+  type        = bool
+  default     = true
+  description = "Enable object versioning on the artifacts bucket."
+}
+

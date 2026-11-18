@@ -14,8 +14,10 @@ variable "ingestion_bucket_name" {
   type = string
 }
 
-variable "use_spanner" {
-  type    = bool
-  default = true
+variable "spanner_config" {
+  type = object({
+    instance_id = string
+    database_id = string
+  })
+  description = "Spanner database coordinates for dataflow graph loading"
 }
-

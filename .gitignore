@@ -9,6 +9,7 @@ venv
 node_modules
 .ruff_cache
 .coverage
+coverage.xml
 htmlcov/
 
 
@@ -16,6 +17,7 @@ htmlcov/
 .terraform/
 *.tfstate
 *.tfstate.*
+!tests/integration/emulated/terraform.tfstate
 crash.log
 crash.log.*
 *.tfvars

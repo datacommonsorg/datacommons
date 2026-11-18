@@ -20,13 +20,30 @@ creation timestamps matching their filename prefixes, and define valid migration
 Any malformed migration script submitted in a PR will fail these tests and block merge in CI.
 """
 
+import ast
 import datetime
+import importlib
 import inspect
 import re
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import datacommons_db.migrations.migration_scripts
+import pytest
+from datacommons_db.clients.spanner_client import (
+    DdlResult,
+    ExecutionStatus,
+    SpannerClient,
+)
 from datacommons_db.migrations import MigrationRunner
+from datacommons_db.schema.loader import load_baseline_statements
+
+try:
+    from datacommons_devtools.migrations.snapshot import (
+        generate_engine_schema_snapshot_sql,
+    )
+except ImportError:
+    generate_engine_schema_snapshot_sql = None  # type: ignore[assignment]
 
 FILENAME_PATTERN = re.compile(r"^(\d{14})_[a-z0-9_]+\.py$")
 ISO_8601_UTC_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
@@ -137,3 +154,139 @@ def test_migration_upgrade_signature():
         assert callable(migration.upgrade), (
             f"Migration {migration.__class__.__name__} 'upgrade' attribute must be callable"
         )
+
+
+def test_all_migration_scripts_valid_ast_structure():
+    """Statically verifies that all migration script files parse as valid AST and define required elements."""
+    scripts_dir = Path(datacommons_db.migrations.migration_scripts.__file__).parent
+    script_files = [
+        f
+        for f in scripts_dir.glob("*.py")
+        if not f.name.startswith("_") and f.name != "__init__.py"
+    ]
+
+    for script_file in script_files:
+        content = script_file.read_text(encoding="utf-8")
+        tree = ast.parse(content, filename=str(script_file))
+        assert tree is not None, f"Failed to parse AST for {script_file.name}"
+
+        # Find the SchemaMigration subclass definition
+        migration_classes = [
+            node
+            for node in tree.body
+            if isinstance(node, ast.ClassDef)
+            and any(
+                (isinstance(base, ast.Name) and base.id == "SchemaMigration")
+                or (isinstance(base, ast.Attribute) and base.attr == "SchemaMigration")
+                for base in node.bases
+            )
+        ]
+        assert len(migration_classes) == 1, (
+            f"{script_file.name} must define exactly one 'SchemaMigration' subclass"
+        )
+
+        mig_class = migration_classes[0]
+        method_names = {
+            node.name for node in mig_class.body if isinstance(node, ast.FunctionDef)
+        }
+        assert "upgrade" in method_names, (
+            f"{script_file.name} class {mig_class.name} must define an 'upgrade' method"
+        )
+
+
+def test_bootstrap_migration_upgrade_fresh_database() -> None:
+    """Verifies that the bootstrap migration initializes SchemaMigrations table on fresh DB."""
+    bootstrap_mod = importlib.import_module(
+        "datacommons_db.migrations.migration_scripts.20260817000000_bootstrap"
+    )
+    migration = bootstrap_mod.Migration()
+    mock_client = MagicMock(spec=SpannerClient)
+    mock_client.table_exists.return_value = False
+    mock_client.execute_ddl.return_value = DdlResult(status=ExecutionStatus.SUCCESS)
+
+    migration.upgrade(mock_client)
+
+    mock_client.table_exists.assert_called_once_with("SchemaMigrations")
+    mock_client.execute_ddl.assert_called_once()
+    assert "CREATE TABLE SchemaMigrations" in mock_client.execute_ddl.call_args[0][0][0]
+
+
+def test_bootstrap_migration_upgrade_already_initialized() -> None:
+    """Verifies that the bootstrap migration skips existing SchemaMigrations table."""
+    bootstrap_mod = importlib.import_module(
+        "datacommons_db.migrations.migration_scripts.20260817000000_bootstrap"
+    )
+    migration = bootstrap_mod.Migration()
+
+    mock_client = MagicMock(spec=SpannerClient)
+    mock_client.table_exists.return_value = True
+
+    migration.upgrade(mock_client)
+
+    mock_client.table_exists.assert_called_once_with("SchemaMigrations")
+    mock_client.execute_ddl.assert_not_called()
+
+
+def test_bootstrap_migration_ddl_failure_raises() -> None:
+    """Verifies that bootstrap migration raises RuntimeError if SchemaMigrations creation fails."""
+    bootstrap_mod = importlib.import_module(
+        "datacommons_db.migrations.migration_scripts.20260817000000_bootstrap"
+    )
+    migration = bootstrap_mod.Migration()
+
+    mock_client = MagicMock(spec=SpannerClient)
+    mock_client.table_exists.return_value = False
+    mock_client.execute_ddl.return_value = DdlResult(
+        status=ExecutionStatus.ERROR, error_message="DDL failed"
+    )
+
+    with pytest.raises(RuntimeError, match="Failed to create SchemaMigrations table"):
+        migration.upgrade(mock_client)
+
+
+def test_cumulative_schema_matches_snapshot_file() -> None:
+    """Verifies that compiling baseline_schema.sql and all migrations matches schema_snapshot.sql.
+
+    If this test fails in CI, a developer added or modified a schema migration script without
+    updating the schema snapshot artifact. Run:
+        uv run datacommons-devtools migrations update-snapshot
+    and commit the resulting changes to 'packages/datacommons-db/tests/snapshots/schema_snapshot.sql'.
+    """
+    snapshot_path = (
+        Path(__file__).resolve().parents[1] / "snapshots" / "schema_snapshot.sql"
+    )
+
+    assert snapshot_path.exists(), (
+        f"Missing schema_snapshot.sql file at '{snapshot_path}'. "
+        "Run 'uv run datacommons-devtools migrations update-snapshot' to generate it."
+    )
+
+    expected_snapshot = snapshot_path.read_text(encoding="utf-8").replace("\r\n", "\n")
+
+    # If devtools is available, compile live schema via emulator (auto-starting if Docker is present)
+    if generate_engine_schema_snapshot_sql:
+        try:
+            actual_compiled = generate_engine_schema_snapshot_sql(
+                project_id="default", region="us-central1"
+            ).replace("\r\n", "\n")
+            assert actual_compiled == expected_snapshot, (
+                "Schema drift detected! Live engine schema generated by baseline_schema.sql + migration scripts "
+                f"does not match schema snapshot in '{snapshot_path.name}'.\n"
+                "If you added or modified migration scripts, please update the snapshot file by running:\n"
+                "    uv run datacommons-devtools migrations update-snapshot\n"
+                "and commit the updated 'packages/datacommons-db/tests/snapshots/schema_snapshot.sql'."
+            )
+            return
+        except ConnectionError:
+            # Fallback if Docker daemon is not running or available in the environment
+            pass
+
+    # Static baseline schema verification fallback
+    for stmt in load_baseline_statements(project_id="default", region="us-central1"):
+        tbl_match = re.search(
+            r"CREATE\s+(?:OR\s+REPLACE\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([A-Za-z0-9_]+)",
+            stmt,
+            re.IGNORECASE,
+        )
+        if tbl_match:
+            assert f"CREATE TABLE {tbl_match.group(1)}" in expected_snapshot

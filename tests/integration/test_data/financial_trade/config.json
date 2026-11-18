@@ -1,0 +1,15 @@
+{
+  "inputFiles": [
+    {
+      "pattern": "financial_trade.*",
+      "provenance": "dcid:FooBarTrade",
+      "columnMappings": {
+        "dcid:variableMeasured": "SERIES",
+        "dcid:observationDate": "TIME_PERIOD",
+        "dcid:value": "OBS_VALUE",
+        "dcid:sourceCountry": "SOURCE_COUNTRY",
+        "dcid:destinationCountry": "DESTINATION_COUNTRY"
+      }
+    }
+  ]
+}
