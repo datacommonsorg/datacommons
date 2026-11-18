@@ -542,7 +542,7 @@ launch_and_poll_preprocessing_job:
   steps:
     - init_args:
         assign:
-          - container_commands: '$${["bash", "./run.sh", "--mode=dcpbridge", "--imports=" + imports_arg]}'
+          - container_commands: '$${["bash", "./run.sh", "--imports=" + imports_arg]}'
           - batch_job_id: '$${"${clean_instance_name_prefix}prep-" + string(int(sys.now()))}'
     - create_batch_job:
         call: googleapis.batch.v1.projects.locations.jobs.create
