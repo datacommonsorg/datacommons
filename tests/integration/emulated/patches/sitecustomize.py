@@ -36,7 +36,6 @@ def _patched_getaddrinfo(host, port, family=0, *args, **kwargs):
 socket.getaddrinfo = _patched_getaddrinfo
 
 import entity_resolution_patch
-import gcs_patch
 import spanner_patch
 
-__all__ = ["spanner_patch", "gcs_patch", "entity_resolution_patch"]
+__all__ = ["spanner_patch", "entity_resolution_patch"]
