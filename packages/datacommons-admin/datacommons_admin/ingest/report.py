@@ -16,9 +16,14 @@
 import json
 import time
 from collections.abc import Callable
+from datetime import datetime
 
 import click
 from google.cloud import storage
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from rich.tree import Tree
 
 # Workflow execution states after which no report will appear.
 _FAILED_STATES = {"FAILED", "CANCELLED"}
@@ -85,29 +90,90 @@ def wait_for_report(
         time.sleep(interval)
 
 
-def render_report(report: dict) -> str:
-    """Returns a short plain-text summary of the report."""
+# Node types listed per provenance; the rest are summarized as "N more".
+_TOP_NODE_TYPES = 5
+
+
+def print_report(report: dict, console: Console) -> None:
+    """Prints the report: a run header, then a table and a tree per folder."""
     run = report.get("run", {})
-    lines = [
-        f"Run {run.get('workflowExecutionId') or '-'}: "
-        f"{run.get('mode', '-')} {run.get('status', '-')}"
-    ]
+    status = run.get("status") or "UNKNOWN"
+    color = "green" if status == "SUCCESS" else "red"
+    header = Table.grid(padding=(0, 2))
+    header.add_row("Execution", run.get("workflowExecutionId") or "-")
+    header.add_row("Mode", (run.get("mode") or "-").replace("_", " "))
+    header.add_row("Status", f"[bold {color}]{status}[/]")
+    header.add_row("Took", _duration(run.get("startTime"), run.get("endTime")))
+    header.add_row("Folders", ", ".join(run.get("folderNames", [])) or "-")
+    console.print(
+        Panel(header, title="Ingestion report", border_style=color, expand=False)
+    )
+
     for folder in report.get("folders", []):
-        summary = folder.get("summary", {})
-        lines.append(
-            f"Folder {folder.get('folderName')}: "
-            f"{summary.get('files', {}).get('count', 0)} files, "
-            f"{summary.get('provenanceCount', 0)} provenances, "
-            f"{summary.get('observations', 0):,} observations, "
-            f"{summary.get('nodes', {}).get('count', 0):,} nodes"
+        console.print(_folder_table(folder))
+        console.print(_provenance_tree(folder))
+
+
+def _folder_table(folder: dict) -> Table:
+    summary = folder.get("summary", {})
+    files = summary.get("files", {})
+    by_type = ", ".join(f"{n} {t}" for t, n in files.get("byType", {}).items())
+    table = Table(title=f"[bold]{folder.get('folderName')}[/]", title_justify="left")
+    for column in ["Files", "Provenances", "Observations", "Date range", "Nodes"]:
+        table.add_column(column, justify="right")
+    table.add_row(
+        f"{files.get('count', 0):,}" + (f" ({by_type})" if by_type else ""),
+        f"{summary.get('provenanceCount', 0):,}",
+        f"{summary.get('observations', 0):,}",
+        _date_range([p.get("dateRange") for p in folder.get("provenances", [])]),
+        f"{summary.get('nodes', {}).get('count', 0):,}",
+    )
+    return table
+
+
+def _provenance_tree(folder: dict) -> Tree:
+    tree = Tree("[dim]provenances[/]", guide_style="dim")
+    for provenance in folder.get("provenances", []):
+        source = provenance.get("sourceId")
+        branch = tree.add(
+            f"[bold]{provenance.get('id')}[/]"
+            + (f" [dim](source: {source})[/]" if source else "")
         )
-        for provenance in folder.get("provenances", []):
-            dates = provenance.get("dateRange")
-            date_text = f" ({dates['min']} to {dates['max']})" if dates else ""
-            lines.append(
-                f"  Provenance {provenance.get('id')}: "
-                f"{provenance.get('fileCount', 0)} files, "
-                f"{provenance.get('observations', 0):,} observations{date_text}, "
-                f"{provenance.get('nodes', {}).get('count', 0):,} nodes"
-            )
-    return "\n".join(lines)
+        branch.add(
+            f"{provenance.get('fileCount', 0):,} files · "
+            f"{provenance.get('observations', 0):,} observations · "
+            f"{_date_range([provenance.get('dateRange')])}"
+        )
+        nodes = provenance.get("nodes", {})
+        branch.add(
+            f"{nodes.get('count', 0):,} nodes{_top_types(nodes.get('byType', {}))}"
+        )
+    return tree
+
+
+def _top_types(by_type: dict[str, int]) -> str:
+    """Returns ": A 4 · B 2 · …" for the most common types, or ""."""
+    if not by_type:
+        return ""
+    ranked = sorted(by_type.items(), key=lambda item: (-item[1], item[0]))
+    shown = " · ".join(f"{t} {n:,}" for t, n in ranked[:_TOP_NODE_TYPES])
+    more = len(ranked) - _TOP_NODE_TYPES
+    return f": {shown}" + (f" · and {more} more" if more > 0 else "")
+
+
+def _date_range(ranges: list[dict | None]) -> str:
+    """Returns "min – max" over `ranges`, or "-" if none has dates."""
+    dated = [r for r in ranges if r]
+    if not dated:
+        return "-"
+    return f"{min(r['min'] for r in dated)} – {max(r['max'] for r in dated)}"
+
+
+def _duration(start: str | None, end: str | None) -> str:
+    """Returns how long the run took, e.g. "3m 12s", or "-"."""
+    if not start or not end:
+        return "-"
+    seconds = int(
+        (datetime.fromisoformat(end) - datetime.fromisoformat(start)).total_seconds()
+    )
+    return f"{seconds // 60}m {seconds % 60}s" if seconds >= 60 else f"{seconds}s"

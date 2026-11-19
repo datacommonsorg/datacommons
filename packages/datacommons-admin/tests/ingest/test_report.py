@@ -17,6 +17,7 @@ from unittest.mock import patch
 import click
 import pytest
 from datacommons_admin.ingest import report
+from rich.console import Console
 
 _URI = "gs://b/p/datacommons/preprocessor_reports/e/ingestion_report.json"
 
@@ -52,8 +53,61 @@ def test_wait_for_report_times_out() -> None:
         report.wait_for_report(_URI, lambda: "ACTIVE", timeout=0)
 
 
-def test_render_report_without_folders() -> None:
-    rendered = report.render_report(
-        {"run": {"workflowExecutionId": "e", "mode": "INGEST", "status": "SUCCESS"}}
+def _printed(found: dict) -> str:
+    console = Console(record=True, width=120)
+    report.print_report(found, console)
+    return console.export_text()
+
+
+def test_print_report_shows_counts_dates_and_top_node_types() -> None:
+    printed = _printed(
+        {
+            "run": {
+                "workflowExecutionId": "e",
+                "mode": "DRY_RUN",
+                "status": "SUCCESS",
+                "startTime": "2026-11-18T19:40:05Z",
+                "endTime": "2026-11-18T19:43:17Z",
+                "folderNames": ["oecd"],
+            },
+            "folders": [
+                {
+                    "folderName": "oecd",
+                    "summary": {
+                        "files": {"count": 3, "byType": {"csv": 2, "mcf": 1}},
+                        "provenanceCount": 1,
+                        "observations": 4000000,
+                        "nodes": {"count": 28},
+                    },
+                    "provenances": [
+                        {
+                            "id": "oecdProv",
+                            "sourceId": "oecdSource",
+                            "fileCount": 3,
+                            "observations": 4000000,
+                            "dateRange": {"min": "2005", "max": "2021"},
+                            "nodes": {
+                                "count": 28,
+                                "byType": {f"Type{i}": i + 1 for i in range(7)},
+                            },
+                        }
+                    ],
+                }
+            ],
+        }
     )
-    assert rendered == "Run e: INGEST SUCCESS"
+
+    assert "DRY RUN" in printed
+    assert "3m 12s" in printed
+    assert "3 (2 csv, 1 mcf)" in printed
+    assert "4,000,000" in printed
+    assert "2005 – 2021" in printed
+    assert "oecdProv (source: oecdSource)" in printed
+    # The five most common types, then the rest.
+    assert "Type6 7 · Type5 6 · Type4 5 · Type3 4 · Type2 3 · and 2 more" in printed
+
+
+def test_print_report_without_folders() -> None:
+    printed = _printed({"run": {"mode": "INGEST", "status": "FAILURE"}})
+    assert "FAILURE" in printed
+    assert "INGEST" in printed
