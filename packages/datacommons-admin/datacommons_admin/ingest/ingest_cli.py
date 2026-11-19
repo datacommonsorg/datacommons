@@ -16,6 +16,7 @@ import json
 import re
 
 import click
+from rich.console import Console
 
 from datacommons_admin.core.clients import IngestionJobClient
 from datacommons_admin.core.terraform.models import TerraformOutputs
@@ -212,7 +213,7 @@ def _print_report(ctx: click.Context, found: dict, uri: str, *, as_json: bool) -
     if as_json:
         click.echo(json.dumps(found, indent=2))
     else:
-        click.echo(report_lib.render_report(found))
+        report_lib.print_report(found, Console())
         click.secho(f"Full report: {uri}", fg="bright_black")
     if found.get("run", {}).get("status") == "FAILURE":
         ctx.exit(1)

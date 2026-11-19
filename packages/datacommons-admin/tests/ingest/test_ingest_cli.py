@@ -146,8 +146,10 @@ def test_ingest_start_dry_run_waits_and_prints_the_report(
         "mode": "DRY_RUN",
     }
     read.assert_called_with(_REPORT_URI, "mock-proj")
-    assert "Run exec-123: DRY_RUN SUCCESS" in result.output
-    assert "1,200 observations (2005 to 2021), 3 nodes" in result.output
+    assert "DRY RUN" in result.output
+    assert "SUCCESS" in result.output
+    assert "1,200 observations · 2005 – 2021" in result.output
+    assert "3 nodes" in result.output
 
 
 @pytest.mark.usefixtures("mock_terraform_ingest")
@@ -203,4 +205,4 @@ def test_ingest_report_of_a_failed_run_exits_with_an_error(runner: CliRunner) ->
         result = runner.invoke(admin, ["ingest", "report", "exec-123"])
 
     assert result.exit_code == 1
-    assert "DRY_RUN FAILURE" in result.output
+    assert "FAILURE" in result.output
