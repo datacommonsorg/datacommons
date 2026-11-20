@@ -155,7 +155,7 @@ tests/integration/
 │   ├── docker-compose.yml         # Spanner Omni, Fake GCS, Helper & Website services
 │   ├── environment.py             # EmulatedEnvironment lifecycle manager
 │   ├── cloudbuild_emulated_test.yaml # Standalone Cloud Build hermetic CI pipeline
-│   └── patches/                   # Runtime patches (IPv4 resolution, GCS & Spanner mock)
+│   └── patches/                   # Runtime patches (IPv4 resolution, Spanner mock)
 │
 ├── prober/                        # Automated 24/7 GCP Prober & Ephemeral runner
 │   ├── README.md                  # Prober architecture, flow & local debugging
