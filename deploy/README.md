@@ -9,14 +9,13 @@ This directory contains Google Cloud Build configuration files and automation sc
 ## 1. Cloud Build Pipelines
 
 ### Stage 1: Stage a Release Candidate (RC) in TestPyPI
-Submit `deploy/staging.yaml` to bump versions in-container, cross-tag release container images and the Dataflow template, push Git tag `vX.Y.ZrcN`, and publish candidate wheels to TestPyPI:
+Submit `deploy/staging.yaml` to bump versions in-container, cross-tag release container images and the Dataflow template, push Git tag `vX.Y.ZrcN`, and publish candidate wheels to TestPyPI. The build clones the target commit from GitHub, so use `--no-source` to keep your checkout (and any local tfvars) out of the upload:
 
 ```bash
-gcloud builds submit \
+gcloud builds submit --no-source \
   --config deploy/staging.yaml \
   --substitutions=_TARGET_VERSION="1.1.2rc1",_DEFAULT_SOURCE_TAG="1.1.1",_SERVICES_TAG="1574ed3-79627f8-e265a1d" \
-  --project="datcom-ci" \
-  .
+  --project="datcom-ci"
 ```
 
 **Common Substitutions:**
@@ -33,7 +32,7 @@ gcloud builds submit \
 ---
 
 ### Stage 2: Open Automated Version Bump PR
-Once the candidate is verified on TestPyPI, submit `deploy/bump_version.yaml` to promote candidate container tags to production tags and open an automated PR against `main`:
+Once the candidate is verified on TestPyPI, submit `deploy/bump_version.yaml` to promote candidate container tags to production tags and open an automated PR against `main`. This build does need the upload, because step 1 runs `deploy/scripts/tag_release_artifacts.py` from it:
 
 ```bash
 gcloud builds submit \
