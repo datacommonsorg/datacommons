@@ -13,8 +13,7 @@ main:
           - execution_error: null
           # INGEST runs the whole pipeline. DRY_RUN stops after preprocessing,
           # before anything is locked or written to Spanner.
-          # The input is null when the workflow is started without arguments.
-          - mode: '$${text.to_upper(default(map.get(default(input, {}), "mode"), "INGEST"))}'
+          - mode: '$${text.to_upper(default(map.get(input, "mode"), "INGEST"))}'
           - postprocessing_result: null
           - embedding_result: null
           - current_stage: "dataflow"
