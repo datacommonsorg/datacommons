@@ -50,6 +50,50 @@ class TestCLIIngestion:
                 )
 
     @pytest.mark.cloud_only
+    def test_01b_cli_ingest_dry_run(
+        self,
+        request,
+        seeded_testbed,
+        dcp_cli: DatacommonsCLI,
+        dcp_target: DCPTarget,
+        spanner_client: SpannerClient,
+        test_manifest: TestManifest,
+    ):
+        """Validates that 'ingest start --dry-run --wait' prints the report and writes nothing to Spanner."""
+        imports_arg = _imports_arg(request, test_manifest)
+
+        # --wait reads the report from GCS and prints it, so exit code 0 means it exists.
+        res = dcp_cli.run(
+            [
+                "admin",
+                "ingest",
+                "start",
+                "--imports",
+                imports_arg,
+                "--dry-run",
+                "--wait",
+            ]
+        )
+        assert res.exit_code == 0, f"CLI dry run failed: {res.output}"
+        assert "Full report: gs://" in res.output
+        exec_id = res.extract_execution_id()
+        assert exec_id is not None, (
+            f"Could not extract Execution ID from CLI output: {res.output}"
+        )
+
+        completed = dcp_cli.wait_for_workflow(
+            execution_id=exec_id,
+            workflow_name=dcp_target.workflow_name,
+            project_id=dcp_target.project_id,
+        )
+        assert completed, f"Dry-run workflow execution '{exec_id}' failed or timed out."
+
+        # A dry run stops before the lock, so it never records IngestionHistory.
+        assert spanner_client.get_ingestion_history(exec_id) is None, (
+            f"Dry run '{exec_id}' wrote an IngestionHistory record"
+        )
+
+    @pytest.mark.cloud_only
     def test_02_cli_ingest_start(
         self,
         request,
@@ -60,20 +104,7 @@ class TestCLIIngestion:
         test_manifest: TestManifest,
     ):
         """Validates that 'datacommons admin ingest start' triggers and completes Cloud Workflows."""
-        if request.config.getoption("--reuse-data"):
-            pytest.skip("Skipped full workflow run because --reuse-data was specified.")
-
-        if not test_manifest.stages.ingestion:
-            pytest.skip("Ingestion stage disabled in test manifest.")
-
-        import_dirs = test_manifest.ingestion.dataset_dirs
-        if not import_dirs:
-            pytest.skip(
-                "No dataset_dirs defined in test manifest ingestion configuration."
-            )
-
-        import_names = [Path(d).name for d in import_dirs]
-        imports_arg = ",".join(import_names)
+        imports_arg = _imports_arg(request, test_manifest)
 
         # 1. Run the CLI ingestion start command
         res = dcp_cli.run(["admin", "ingest", "start", "--imports", imports_arg])
@@ -193,3 +224,15 @@ class TestSpannerGraph:
             f"Node rows (proxy entities): {proxies[:10]}. Mixer will serve them from "
             "Spanner instead of Base DC."
         )
+
+
+def _imports_arg(request, test_manifest: TestManifest) -> str:
+    """Returns the manifest's imports as a comma-separated list, or skips the test."""
+    if request.config.getoption("--reuse-data"):
+        pytest.skip("Skipped full workflow run because --reuse-data was specified.")
+    if not test_manifest.stages.ingestion:
+        pytest.skip("Ingestion stage disabled in test manifest.")
+    import_dirs = test_manifest.ingestion.dataset_dirs
+    if not import_dirs:
+        pytest.skip("No dataset_dirs defined in test manifest ingestion configuration.")
+    return ",".join(Path(d).name for d in import_dirs)
