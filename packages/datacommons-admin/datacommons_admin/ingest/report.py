@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Finds, waits for and formats the preprocessor's ingestion report."""
+"""Finds and waits for the preprocessor's ingestion report."""
 
 import json
 import time
@@ -21,7 +21,7 @@ import click
 from google.cloud import storage
 
 # Workflow execution states after which no report will appear.
-_FAILED_STATES = {"FAILED", "CANCELLED"}
+_DONE_STATES = {"SUCCEEDED", "FAILED", "CANCELLED"}
 
 # How long `ingest start --wait` waits for the report.
 WAIT_TIMEOUT_SECONDS = 30 * 60
@@ -53,74 +53,32 @@ def wait_for_report(
     uri: str,
     get_state: Callable[[], str],
     *,
-    view_command: str,
     project_id: str | None = None,
     timeout: float = WAIT_TIMEOUT_SECONDS,
     interval: float = 15,
-    state_check_every: int = 4,
 ) -> dict:
     """Polls `uri` until the report appears, and returns it.
 
-    The report appears as soon as preprocessing ends, before the rest of the
-    workflow. Every `state_check_every` polls, `get_state()` (the workflow
-    execution state) is checked too, so a run that ends without writing a
-    report stops the wait. The timeout error suggests `view_command`.
+    `get_state()` returns the workflow execution state. It is read before the
+    report, so a run that ended before the read has already written any report
+    it was going to write.
 
     Raises:
       click.ClickException: If the run ends without a report, or on timeout.
     """
     deadline = time.monotonic() + timeout
-    polls = 0
     while True:
+        state = get_state()
         report = read_report(uri, project_id)
         if report is not None:
             return report
-        polls += 1
-        if polls % state_check_every == 0:
-            state = get_state()
-            if state in _FAILED_STATES:
-                raise click.ClickException(
-                    f"The workflow execution is {state} and wrote no report at {uri}."
-                )
-            if state == "SUCCEEDED":
-                # The report may have been written just before the run ended.
-                report = read_report(uri, project_id)
-                if report is not None:
-                    return report
-                raise click.ClickException(
-                    f"The workflow execution finished without writing a report at {uri}."
-                )
+        if state in _DONE_STATES:
+            raise click.ClickException(
+                f"The workflow execution is {state} and wrote no report at {uri}."
+            )
         if time.monotonic() >= deadline:
             raise click.ClickException(
                 f"Timed out after {timeout / 60:.0f} minutes waiting for the "
-                f"report at {uri}. View it later with: {view_command}"
+                f"report at {uri}."
             )
         time.sleep(interval)
-
-
-def render_report(report: dict) -> str:
-    """Returns a short plain-text summary of the report."""
-    run = report.get("run", {})
-    lines = [
-        f"Run {run.get('workflowExecutionId') or '-'}: "
-        f"{run.get('mode', '-')} {run.get('status', '-')}"
-    ]
-    for folder in report.get("folders", []):
-        summary = folder.get("summary", {})
-        lines.append(
-            f"Folder {folder.get('folderName')}: "
-            f"{summary.get('files', {}).get('count', 0)} files, "
-            f"{summary.get('provenanceCount', 0)} provenances, "
-            f"{summary.get('observations', 0):,} observations, "
-            f"{summary.get('nodes', {}).get('count', 0):,} nodes"
-        )
-        for provenance in folder.get("provenances", []):
-            dates = provenance.get("dateRange")
-            date_text = f" ({dates['min']} to {dates['max']})" if dates else ""
-            lines.append(
-                f"  Provenance {provenance.get('id')}: "
-                f"{provenance.get('fileCount', 0)} files, "
-                f"{provenance.get('observations', 0):,} observations{date_text}, "
-                f"{provenance.get('nodes', {}).get('count', 0):,} nodes"
-            )
-    return "\n".join(lines)

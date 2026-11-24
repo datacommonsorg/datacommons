@@ -177,8 +177,7 @@ def test_ingest_start_dry_run_with_wait_prints_the_report(
 
     assert result.exit_code == 0, result.output
     read.assert_called_with(_REPORT_URI, "mock-proj")
-    assert "Run exec-123: DRY_RUN SUCCESS" in result.output
-    assert "1,200 observations (2005 to 2021), 3 nodes" in result.output
+    assert '"mode": "DRY_RUN"' in result.output
 
 
 @pytest.mark.usefixtures("mock_terraform_ingest", "mock_job_session")
@@ -193,7 +192,7 @@ def test_ingest_start_with_wait_prints_the_report(runner: CliRunner) -> None:
 
     assert result.exit_code == 0, result.output
     read.assert_called_with(_REPORT_URI, "mock-proj")
-    assert "Run exec-123: INGEST SUCCESS" in result.output
+    assert '"mode": "INGEST"' in result.output
 
 
 @pytest.mark.usefixtures("mock_terraform_ingest")
@@ -228,7 +227,7 @@ def test_ingest_view_prints_the_report(runner: CliRunner) -> None:
         result = runner.invoke(admin, ["ingest", "view", "--workflow_id=exec-123"])
 
     assert result.exit_code == 0, result.output
-    assert "Run exec-123: DRY_RUN SUCCESS" in result.output
+    assert '"workflowExecutionId": "exec-123"' in result.output
     assert f"Full report: {_REPORT_URI}" in result.output
 
 
@@ -252,4 +251,4 @@ def test_ingest_view_of_a_failed_run_exits_with_an_error(runner: CliRunner) -> N
         result = runner.invoke(admin, ["ingest", "view", "--workflow_id=exec-123"])
 
     assert result.exit_code == 1
-    assert "DRY_RUN FAILURE" in result.output
+    assert '"status": "FAILURE"' in result.output

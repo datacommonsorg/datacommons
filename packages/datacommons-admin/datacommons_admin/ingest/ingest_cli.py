@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import re
 
 import click
@@ -93,11 +94,11 @@ def start(ctx: click.Context, *, imports: str, dry_run: bool, wait: bool) -> Non
     click.secho("Execution console link: ", fg="cyan", bold=True, nl=False)
     click.secho(execution_url, fg="blue", underline=True)
 
+    click.echo(
+        "The ingestion summary will be ready when preprocessing finishes. "
+        f"View it with: datacommons admin ingest view --workflow_id={exec_id}"
+    )
     if not wait:
-        click.echo(
-            "The ingestion summary will be ready when preprocessing finishes. "
-            f"View it with: {_view_command(exec_id)}"
-        )
         return
 
     uri = _report_uri(tf, exec_id)
@@ -106,7 +107,6 @@ def start(ctx: click.Context, *, imports: str, dry_run: bool, wait: bool) -> Non
         uri,
         lambda: client.get_execution(exec_id).get("state", ""),
         project_id=tf.project_id,
-        view_command=_view_command(exec_id),
     )
     _print_report(ctx, found, uri)
 
@@ -128,10 +128,6 @@ def view(ctx: click.Context, *, workflow_id: str) -> None:
             "workflow ID may be wrong."
         )
     _print_report(ctx, found, uri)
-
-
-def _view_command(workflow_id: str) -> str:
-    return f"datacommons admin ingest view --workflow_id={workflow_id}"
 
 
 def _terraform_outputs(ctx: click.Context) -> TerraformOutputs:
@@ -169,7 +165,7 @@ def _report_uri(tf: TerraformOutputs, execution_id: str) -> str:
 
 def _print_report(ctx: click.Context, found: dict, uri: str) -> None:
     """Prints the report; exits with status 1 if the preprocessor failed."""
-    click.echo(report_lib.render_report(found))
+    click.echo(json.dumps(found, indent=2))
     click.secho(f"Full report: {uri}", fg="bright_black")
     if found.get("run", {}).get("status") == "FAILURE":
         ctx.exit(1)
@@ -180,17 +176,7 @@ def _print_report(ctx: click.Context, found: dict, uri: str) -> None:
 def show_config(ctx: click.Context) -> None:
     """Print the ingestion job configuration from Terraform outputs."""
     click.secho("Datacommons Admin Ingest Show-Config", fg="cyan", bold=True)
-    click.secho(
-        "Fetching ingestion configuration from Terraform outputs...",
-        fg="bright_black",
-    )
-
-    state_params = ctx.obj or {}
-    tf = get_terraform_outputs(
-        project_id=state_params.get("project_id"),
-        instance_name=state_params.get("instance_name"),
-        tf_state_location=state_params.get("tf_state_location"),
-    )
+    tf = _terraform_outputs(ctx)
 
     # Names match the env vars the workflow passes to the preprocessing job.
     config = {

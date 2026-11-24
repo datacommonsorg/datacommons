@@ -82,12 +82,12 @@ class IngestionJobClient:
         # The workflow takes its argument as a JSON string.
         argument = json.dumps({"imports": imports_list, "mode": mode})
         url = f"https://workflowexecutions.googleapis.com/v1/{self.full_workflow_name}/executions"
-        return self._request("post", url, {"argument": argument})
+        return self._request("POST", url, {"argument": argument})
 
     def get_execution(self, execution_id: str) -> dict:
         """Returns a workflow execution, including its `state`."""
         url = f"https://workflowexecutions.googleapis.com/v1/{self.full_workflow_name}/executions/{execution_id}"
-        return self._request("get", url)
+        return self._request("GET", url)
 
     def supports_dry_run(self) -> bool:
         """Returns whether the deployed workflow knows the DRY_RUN mode.
@@ -95,14 +95,12 @@ class IngestionJobClient:
         An older workflow ignores `mode` and would ingest for real.
         """
         url = f"https://workflows.googleapis.com/v1/{self.full_workflow_name}"
-        return "DRY_RUN" in self._request("get", url).get("sourceContents", "")
+        return "DRY_RUN" in self._request("GET", url).get("sourceContents", "")
 
     def _request(self, method: str, url: str, json_payload: dict | None = None) -> dict:
         """Calls a Workflows API and returns its JSON response."""
         try:
-            response = self.session.request(
-                method.upper(), url, json=json_payload, timeout=300
-            )
+            response = self.session.request(method, url, json=json_payload, timeout=300)
         except Exception as e:
             msg = f"Network or authentication error connecting to Workflow Executions API at {url}: {e}"
             if self.service_account_email:
