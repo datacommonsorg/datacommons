@@ -31,9 +31,14 @@ def _no_sleep():
         yield
 
 
+_VIEW = "datacommons admin ingest view --workflow_id=e"
+
+
 def test_wait_for_report_returns_as_soon_as_the_report_exists() -> None:
     with patch.object(report, "read_report", side_effect=[None, None, {"run": {}}]):
-        assert report.wait_for_report(_URI, lambda: "ACTIVE") == {"run": {}}
+        assert report.wait_for_report(_URI, lambda: "ACTIVE", view_command=_VIEW) == {
+            "run": {}
+        }
 
 
 def test_wait_for_report_stops_when_the_run_fails_without_a_report() -> None:
@@ -41,15 +46,29 @@ def test_wait_for_report_stops_when_the_run_fails_without_a_report() -> None:
         patch.object(report, "read_report", return_value=None),
         pytest.raises(click.ClickException, match="FAILED and wrote no report"),
     ):
-        report.wait_for_report(_URI, lambda: "FAILED", state_check_every=2)
+        report.wait_for_report(
+            _URI, lambda: "FAILED", view_command=_VIEW, state_check_every=2
+        )
+
+
+def test_wait_for_report_stops_when_the_run_succeeds_without_a_report() -> None:
+    with (
+        patch.object(report, "read_report", return_value=None) as read,
+        pytest.raises(click.ClickException, match="finished without writing a report"),
+    ):
+        report.wait_for_report(
+            _URI, lambda: "SUCCEEDED", view_command=_VIEW, state_check_every=2
+        )
+    # Two polls, then one last read after the run succeeded.
+    assert read.call_count == 3
 
 
 def test_wait_for_report_times_out() -> None:
     with (
         patch.object(report, "read_report", return_value=None),
-        pytest.raises(click.ClickException, match="Timed out"),
+        pytest.raises(click.ClickException, match=f"Timed out.*{_VIEW}"),
     ):
-        report.wait_for_report(_URI, lambda: "ACTIVE", timeout=0)
+        report.wait_for_report(_URI, lambda: "ACTIVE", view_command=_VIEW, timeout=0)
 
 
 def test_render_report_without_folders() -> None:

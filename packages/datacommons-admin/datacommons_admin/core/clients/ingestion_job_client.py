@@ -100,8 +100,8 @@ class IngestionJobClient:
     def _request(self, method: str, url: str, json_payload: dict | None = None) -> dict:
         """Calls a Workflows API and returns its JSON response."""
         try:
-            response = getattr(self.session, method)(
-                url, json=json_payload, timeout=300
+            response = self.session.request(
+                method.upper(), url, json=json_payload, timeout=300
             )
         except Exception as e:
             msg = f"Network or authentication error connecting to Workflow Executions API at {url}: {e}"

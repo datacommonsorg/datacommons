@@ -48,23 +48,28 @@ _REPORT = {
 }
 
 
-def _workflow_get(source: str = "... DRY_RUN ...", state: str = "ACTIVE"):
-    """A session.get side effect for the Workflows API."""
+def _serve_workflows_api(session, source: str = "... DRY_RUN ...") -> None:
+    """Answers the Workflows API GET calls; POST still starts exec-123."""
+    started = session.request.return_value
 
-    def get(url, **kwargs):
+    def request(method, url, **kwargs):
+        if method == "POST":
+            return started
         resp = MagicMock(ok=True, status_code=200)
-        if "/executions/" in url:
-            resp.json.return_value = {"state": state}
-        else:
-            resp.json.return_value = {"sourceContents": source}
+        resp.json.return_value = {"sourceContents": source}
         return resp
 
-    return get
+    session.request.side_effect = request
+
+
+def _post_calls(session) -> list:
+    return [c for c in session.request.call_args_list if c.args[0] == "POST"]
 
 
 def _started_argument(session) -> dict:
     """The argument the CLI started the workflow with."""
-    return json.loads(session.post.call_args.kwargs["json"]["argument"])
+    (post,) = _post_calls(session)
+    return json.loads(post.kwargs["json"]["argument"])
 
 
 @pytest.mark.usefixtures("mock_terraform_ingest", "mock_job_session")
@@ -121,37 +126,78 @@ def test_ingest_start_with_imports_success(
     }
 
     # Verify the API was called with the correct argument
-    called_args = mock_job_session.post.call_args[1]
-    assert called_args["timeout"] == 300
-    called_payload = called_args["json"]
-    assert "argument" in called_payload
-    assert json.loads(called_payload["argument"]) == expected_arg
+    (post,) = _post_calls(mock_job_session)
+    assert post.kwargs["timeout"] == 300
+    assert _started_argument(mock_job_session) == expected_arg
 
 
 @pytest.mark.usefixtures("mock_terraform_ingest")
-def test_ingest_start_dry_run_waits_and_prints_the_report(
+def test_ingest_start_dry_run_sends_dry_run_mode(
     runner: CliRunner, mock_job_session
 ) -> None:
-    mock_job_session.get.side_effect = _workflow_get()
-    with patch(
-        "datacommons_admin.ingest.report.read_report", return_value=_REPORT
-    ) as read:
-        result = runner.invoke(
-            admin, ["ingest", "start", "--imports", "oecd", "--mode", "dry_run"]
-        )
+    _serve_workflows_api(mock_job_session)
+    result = runner.invoke(admin, ["ingest", "start", "--imports", "oecd", "--dry-run"])
 
     assert result.exit_code == 0, result.output
     assert _started_argument(mock_job_session) == {
         "imports": ["oecd"],
         "mode": "DRY_RUN",
     }
+
+
+@pytest.mark.usefixtures("mock_terraform_ingest")
+def test_ingest_start_dry_run_without_wait_prints_the_view_hint(
+    runner: CliRunner, mock_job_session
+) -> None:
+    _serve_workflows_api(mock_job_session)
+    with patch("datacommons_admin.ingest.report.read_report") as read:
+        result = runner.invoke(
+            admin, ["ingest", "start", "--imports", "oecd", "--dry-run"]
+        )
+
+    assert result.exit_code == 0, result.output
+    assert (
+        "The ingestion summary will be ready when preprocessing finishes. "
+        "View it with: datacommons admin ingest view --workflow_id=exec-123"
+    ) in result.output
+    read.assert_not_called()
+
+
+@pytest.mark.usefixtures("mock_terraform_ingest")
+def test_ingest_start_dry_run_with_wait_prints_the_report(
+    runner: CliRunner, mock_job_session
+) -> None:
+    _serve_workflows_api(mock_job_session)
+    with patch(
+        "datacommons_admin.ingest.report.read_report", return_value=_REPORT
+    ) as read:
+        result = runner.invoke(
+            admin, ["ingest", "start", "--imports", "oecd", "--dry-run", "--wait"]
+        )
+
+    assert result.exit_code == 0, result.output
     read.assert_called_with(_REPORT_URI, "mock-proj")
     assert "Run exec-123: DRY_RUN SUCCESS" in result.output
     assert "1,200 observations (2005 to 2021), 3 nodes" in result.output
 
 
+@pytest.mark.usefixtures("mock_terraform_ingest", "mock_job_session")
+def test_ingest_start_with_wait_prints_the_report(runner: CliRunner) -> None:
+    ingested = {**_REPORT, "run": {**_REPORT["run"], "mode": "INGEST"}}
+    with patch(
+        "datacommons_admin.ingest.report.read_report", return_value=ingested
+    ) as read:
+        result = runner.invoke(
+            admin, ["ingest", "start", "--imports", "oecd", "--wait"]
+        )
+
+    assert result.exit_code == 0, result.output
+    read.assert_called_with(_REPORT_URI, "mock-proj")
+    assert "Run exec-123: INGEST SUCCESS" in result.output
+
+
 @pytest.mark.usefixtures("mock_terraform_ingest")
-def test_ingest_start_ingest_mode_does_not_wait_by_default(
+def test_ingest_start_without_wait_does_not_poll(
     runner: CliRunner, mock_job_session
 ) -> None:
     with patch("datacommons_admin.ingest.report.read_report") as read:
@@ -160,7 +206,7 @@ def test_ingest_start_ingest_mode_does_not_wait_by_default(
     assert result.exit_code == 0, result.output
     assert _started_argument(mock_job_session)["mode"] == "INGEST"
     read.assert_not_called()
-    mock_job_session.get.assert_not_called()
+    assert mock_job_session.request.call_count == 1
 
 
 @pytest.mark.usefixtures("mock_terraform_ingest")
@@ -168,39 +214,42 @@ def test_ingest_start_dry_run_refuses_a_workflow_without_dry_run(
     runner: CliRunner, mock_job_session
 ) -> None:
     """An older workflow would ignore the mode and ingest for real."""
-    mock_job_session.get.side_effect = _workflow_get(source="main: ...")
-    result = runner.invoke(
-        admin, ["ingest", "start", "--imports", "oecd", "--mode", "dry_run"]
-    )
+    _serve_workflows_api(mock_job_session, source="main: ...")
+    result = runner.invoke(admin, ["ingest", "start", "--imports", "oecd", "--dry-run"])
 
     assert result.exit_code != 0
     assert "doesn't support dry runs yet" in result.output
-    mock_job_session.post.assert_not_called()
+    assert _post_calls(mock_job_session) == []
 
 
 @pytest.mark.usefixtures("mock_terraform_ingest", "mock_job_session")
-def test_ingest_report_prints_json(runner: CliRunner) -> None:
+def test_ingest_view_prints_the_report(runner: CliRunner) -> None:
     with patch("datacommons_admin.ingest.report.read_report", return_value=_REPORT):
-        result = runner.invoke(admin, ["ingest", "report", "exec-123", "--json"])
+        result = runner.invoke(admin, ["ingest", "view", "--workflow_id=exec-123"])
 
     assert result.exit_code == 0, result.output
-    assert json.loads(result.output[result.output.index("{") :]) == _REPORT
+    assert "Run exec-123: DRY_RUN SUCCESS" in result.output
+    assert f"Full report: {_REPORT_URI}" in result.output
 
 
 @pytest.mark.usefixtures("mock_terraform_ingest", "mock_job_session")
-def test_ingest_report_without_a_report_yet_fails(runner: CliRunner) -> None:
+def test_ingest_view_without_a_report_fails(runner: CliRunner) -> None:
     with patch("datacommons_admin.ingest.report.read_report", return_value=None):
-        result = runner.invoke(admin, ["ingest", "report", "exec-123"])
+        result = runner.invoke(admin, ["ingest", "view", "--workflow_id=exec-123"])
 
     assert result.exit_code != 0
-    assert f"No ingestion report at {_REPORT_URI} yet" in result.output
+    assert (
+        f"No ingestion report found at {_REPORT_URI}. The run may still be "
+        "preprocessing, may have failed before writing a report, or the "
+        "workflow ID may be wrong."
+    ) in result.output
 
 
 @pytest.mark.usefixtures("mock_terraform_ingest", "mock_job_session")
-def test_ingest_report_of_a_failed_run_exits_with_an_error(runner: CliRunner) -> None:
+def test_ingest_view_of_a_failed_run_exits_with_an_error(runner: CliRunner) -> None:
     failed = {**_REPORT, "run": {**_REPORT["run"], "status": "FAILURE"}}
     with patch("datacommons_admin.ingest.report.read_report", return_value=failed):
-        result = runner.invoke(admin, ["ingest", "report", "exec-123"])
+        result = runner.invoke(admin, ["ingest", "view", "--workflow_id=exec-123"])
 
     assert result.exit_code == 1
     assert "DRY_RUN FAILURE" in result.output

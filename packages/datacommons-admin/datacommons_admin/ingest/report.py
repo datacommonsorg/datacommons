@@ -23,6 +23,9 @@ from google.cloud import storage
 # Workflow execution states after which no report will appear.
 _FAILED_STATES = {"FAILED", "CANCELLED"}
 
+# How long `ingest start --wait` waits for the report.
+WAIT_TIMEOUT_SECONDS = 30 * 60
+
 
 def report_uri(bucket: str, artifacts_path: str, execution_id: str) -> str:
     """Returns where the preprocessor writes the report for `execution_id`.
@@ -50,8 +53,9 @@ def wait_for_report(
     uri: str,
     get_state: Callable[[], str],
     *,
+    view_command: str,
     project_id: str | None = None,
-    timeout: float = 1800,
+    timeout: float = WAIT_TIMEOUT_SECONDS,
     interval: float = 15,
     state_check_every: int = 4,
 ) -> dict:
@@ -59,11 +63,11 @@ def wait_for_report(
 
     The report appears as soon as preprocessing ends, before the rest of the
     workflow. Every `state_check_every` polls, `get_state()` (the workflow
-    execution state) is checked too, so a run that fails without writing a
-    report stops the wait.
+    execution state) is checked too, so a run that ends without writing a
+    report stops the wait. The timeout error suggests `view_command`.
 
     Raises:
-      click.ClickException: If the run fails without a report, or on timeout.
+      click.ClickException: If the run ends without a report, or on timeout.
     """
     deadline = time.monotonic() + timeout
     polls = 0
@@ -78,9 +82,18 @@ def wait_for_report(
                 raise click.ClickException(
                     f"The workflow execution is {state} and wrote no report at {uri}."
                 )
+            if state == "SUCCEEDED":
+                # The report may have been written just before the run ended.
+                report = read_report(uri, project_id)
+                if report is not None:
+                    return report
+                raise click.ClickException(
+                    f"The workflow execution finished without writing a report at {uri}."
+                )
         if time.monotonic() >= deadline:
             raise click.ClickException(
-                f"Timed out after {timeout:.0f}s waiting for the report at {uri}."
+                f"Timed out after {timeout / 60:.0f} minutes waiting for the "
+                f"report at {uri}. View it later with: {view_command}"
             )
         time.sleep(interval)
 

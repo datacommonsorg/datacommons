@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 import re
 
 import click
@@ -24,23 +23,6 @@ from datacommons_admin.ingest import report as report_lib
 
 _EXECUTION_PATTERN = (
     r"projects/([^/]+)/locations/([^/]+)/workflows/([^/]+)/executions/([^/]+)"
-)
-
-_wait_option = click.option(
-    "--wait/--no-wait",
-    default=None,
-    help="Wait for the ingestion report and print it. "
-    "Default: wait for dry runs, don't wait for ingestion.",
-)
-_timeout_option = click.option(
-    "--timeout",
-    type=int,
-    default=1800,
-    show_default=True,
-    help="Seconds to wait for the report.",
-)
-_json_option = click.option(
-    "--json", "as_json", is_flag=True, help="Print the report as raw JSON."
 )
 
 
@@ -57,26 +39,19 @@ def ingest() -> None:
     help="The names of the imports to run (comma-separated).",
 )
 @click.option(
-    "--mode",
-    type=click.Choice(["ingest", "dry_run"], case_sensitive=False),
-    default="ingest",
-    show_default=True,
-    help="dry_run only preprocesses the data and writes the ingestion report; "
-    "nothing is written to Spanner.",
+    "--dry-run",
+    is_flag=True,
+    help="Stop after preprocessing, so nothing is written to Spanner.",
 )
-@_wait_option
-@_timeout_option
-@_json_option
+@click.option(
+    "--wait/--no-wait",
+    default=False,
+    show_default=True,
+    help="--wait waits for the ingestion summary and prints it. A normal "
+    "ingestion keeps loading into Spanner after that.",
+)
 @click.pass_context
-def start(
-    ctx: click.Context,
-    *,
-    imports: str,
-    mode: str,
-    wait: bool | None,
-    timeout: int,
-    as_json: bool,
-) -> None:
+def start(ctx: click.Context, *, imports: str, dry_run: bool, wait: bool) -> None:
     """Start a data ingestion job execution."""
     click.secho("Datacommons Admin Ingest Start", fg="cyan", bold=True)
     tf = _terraform_outputs(ctx)
@@ -90,11 +65,10 @@ def start(
     click.secho(f"Found GCP region: {tf.region}", fg="green")
 
     client = _job_client(tf)
-    dry_run = mode.lower() == "dry_run"
     if dry_run and not client.supports_dry_run():
         raise click.ClickException(
             f"The deployed workflow '{tf.ingestion_workflow_name}' doesn't support "
-            "dry runs yet. Apply the latest Terraform before using --mode=dry_run."
+            "dry runs yet. Apply the latest Terraform before using --dry-run."
         )
 
     click.secho(
@@ -119,39 +93,45 @@ def start(
     click.secho("Execution console link: ", fg="cyan", bold=True, nl=False)
     click.secho(execution_url, fg="blue", underline=True)
 
-    if dry_run if wait is None else wait:
-        _wait_and_print_report(
-            ctx, tf, client, exec_id, timeout=timeout, as_json=as_json
-        )
-
-
-@ingest.command(name="report")
-@click.argument("execution_id")
-@click.option(
-    "--wait/--no-wait",
-    default=False,
-    help="Wait for the report if it isn't written yet.",
-)
-@_timeout_option
-@_json_option
-@click.pass_context
-def report(
-    ctx: click.Context, execution_id: str, *, wait: bool, timeout: int, as_json: bool
-) -> None:
-    """Print the ingestion report of a workflow execution."""
-    tf = _terraform_outputs(ctx)
-    if wait:
-        _wait_and_print_report(
-            ctx, tf, _job_client(tf), execution_id, timeout=timeout, as_json=as_json
+    if not wait:
+        click.echo(
+            "The ingestion summary will be ready when preprocessing finishes. "
+            f"View it with: {_view_command(exec_id)}"
         )
         return
-    uri = _report_uri(tf, execution_id)
+
+    uri = _report_uri(tf, exec_id)
+    click.secho(f"Waiting for the ingestion report at {uri}...", fg="bright_black")
+    found = report_lib.wait_for_report(
+        uri,
+        lambda: client.get_execution(exec_id).get("state", ""),
+        project_id=tf.project_id,
+        view_command=_view_command(exec_id),
+    )
+    _print_report(ctx, found, uri)
+
+
+@ingest.command(name="view")
+@click.option(
+    "--workflow_id", required=True, help="The workflow execution ID of the run."
+)
+@click.pass_context
+def view(ctx: click.Context, *, workflow_id: str) -> None:
+    """Print the ingestion report of a run."""
+    tf = _terraform_outputs(ctx)
+    uri = _report_uri(tf, workflow_id)
     found = report_lib.read_report(uri, tf.project_id)
     if found is None:
         raise click.ClickException(
-            f"No ingestion report at {uri} yet. Use --wait to wait for it."
+            f"No ingestion report found at {uri}. The run may still be "
+            "preprocessing, may have failed before writing a report, or the "
+            "workflow ID may be wrong."
         )
-    _print_report(ctx, found, uri, as_json=as_json)
+    _print_report(ctx, found, uri)
+
+
+def _view_command(workflow_id: str) -> str:
+    return f"datacommons admin ingest view --workflow_id={workflow_id}"
 
 
 def _terraform_outputs(ctx: click.Context) -> TerraformOutputs:
@@ -187,33 +167,10 @@ def _report_uri(tf: TerraformOutputs, execution_id: str) -> str:
     )
 
 
-def _wait_and_print_report(
-    ctx: click.Context,
-    tf: TerraformOutputs,
-    client: IngestionJobClient,
-    execution_id: str,
-    *,
-    timeout: int,
-    as_json: bool,
-) -> None:
-    uri = _report_uri(tf, execution_id)
-    click.secho(f"Waiting for the ingestion report at {uri}...", fg="bright_black")
-    found = report_lib.wait_for_report(
-        uri,
-        lambda: client.get_execution(execution_id).get("state", ""),
-        project_id=tf.project_id,
-        timeout=timeout,
-    )
-    _print_report(ctx, found, uri, as_json=as_json)
-
-
-def _print_report(ctx: click.Context, found: dict, uri: str, *, as_json: bool) -> None:
+def _print_report(ctx: click.Context, found: dict, uri: str) -> None:
     """Prints the report; exits with status 1 if the preprocessor failed."""
-    if as_json:
-        click.echo(json.dumps(found, indent=2))
-    else:
-        click.echo(report_lib.render_report(found))
-        click.secho(f"Full report: {uri}", fg="bright_black")
+    click.echo(report_lib.render_report(found))
+    click.secho(f"Full report: {uri}", fg="bright_black")
     if found.get("run", {}).get("status") == "FAILURE":
         ctx.exit(1)
 

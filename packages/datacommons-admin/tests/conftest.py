@@ -155,7 +155,7 @@ def mock_job_session():
         mock_resp.json.return_value = {
             "name": "projects/mock-proj/locations/us-central1/workflows/mock-workflow/executions/exec-123"
         }
-        mock_session_inst.post.return_value = mock_resp
+        mock_session_inst.request.return_value = mock_resp
         mock_session_cls.return_value = mock_session_inst
         yield mock_session_inst
 
