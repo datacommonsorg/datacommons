@@ -11,6 +11,9 @@ main:
           - workflow_id: '$${sys.get_env("GOOGLE_CLOUD_WORKFLOW_EXECUTION_ID")}'
           - version: '$${"version-" + string(int(sys.now()))}'
           - execution_error: null
+          # INGEST runs the whole pipeline. DRY_RUN stops after preprocessing,
+          # before anything is locked or written to Spanner.
+          - mode: '$${text.to_upper(default(map.get(input, "mode"), "INGEST"))}'
           - postprocessing_result: null
           - embedding_result: null
           - current_stage: "dataflow"
@@ -40,6 +43,10 @@ main:
               stagingLocation: '$${temp_gcs_uri}'
               forceCombineNodes: 'true'
               isBaseDc: 'false'
+    - validate_mode:
+        switch:
+          - condition: '$${not(mode in ["INGEST", "DRY_RUN"])}'
+            raise: '$${"Unsupported mode: " + mode + ". Expected INGEST or DRY_RUN."}'
     - normalize_imports:
         switch:
           - condition: '$${default(map.get(input, "importList"), "") != ""}'
@@ -97,6 +104,7 @@ main:
           workflow_id: '$${workflow_id}'
           temp_gcs_uri: '$${temp_gcs_uri}'
           imports_arg: '$${comma_separated_imports}'
+          mode: '$${mode}'
           region: '$${region}'
           project_id: '${project_id}'
         result: prep_res
@@ -124,6 +132,16 @@ main:
                 assign:
                   - provenances_list: '$${list.concat(provenances_list, item.importName)}'
 
+    # A dry run ends here: no lock, no Dataflow, no metadata updates.
+    - return_if_dry_run:
+        switch:
+          - condition: '$${mode == "DRY_RUN"}'
+            return:
+              mode: '$${mode}'
+              workflowId: '$${workflow_id}'
+              importList: '$${decoded_imports}'
+              generateStatVarGroups: '$${generate_stat_var_groups}'
+              reportUri: '$${"gs://" + bucket_name + "/${ingestion_artifacts_path}/datacommons/preprocessor_reports/" + workflow_id + "/ingestion_report.json"}'
 
     - try_acquire_lock:
         try:
@@ -538,7 +556,7 @@ launch_and_poll_dataflow:
           launch_result: $${launch_result}
 
 launch_and_poll_preprocessing_job:
-  params: [workflow_id, temp_gcs_uri, imports_arg, region, project_id]
+  params: [workflow_id, temp_gcs_uri, imports_arg, mode, region, project_id]
   steps:
     - init_args:
         assign:
@@ -564,6 +582,7 @@ launch_and_poll_preprocessing_job:
                       environment:
                         variables:
                           WORKFLOW_EXECUTION_ID: '$${workflow_id}'
+                          INGESTION_MODE: '$${mode}'
                           TEMP_LOCATION: '$${temp_gcs_uri}'
                           INPUT_DIR: 'gs://${artifacts_bucket_name}/${ingestion_input_path}'
                           OUTPUT_DIR: 'gs://${artifacts_bucket_name}/${ingestion_artifacts_path}'
