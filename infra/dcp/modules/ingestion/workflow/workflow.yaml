@@ -13,7 +13,8 @@ main:
           - execution_error: null
           # INGEST runs the whole pipeline. DRY_RUN stops after preprocessing,
           # before anything is locked or written to Spanner.
-          - mode: '$${text.to_upper(default(map.get(input, "mode"), "INGEST"))}'
+          # The input is null when the workflow is started without arguments.
+          - mode: '$${text.to_upper(default(map.get(default(input, {}), "mode"), "INGEST"))}'
           - postprocessing_result: null
           - embedding_result: null
           - current_stage: "dataflow"
@@ -139,7 +140,7 @@ main:
             return:
               mode: '$${mode}'
               workflowId: '$${workflow_id}'
-              importList: '$${handshake_data.importList}'
+              importList: '$${decoded_imports}'
               generateStatVarGroups: '$${generate_stat_var_groups}'
               reportUri: '$${"gs://" + bucket_name + "/${ingestion_artifacts_path}/datacommons/preprocessor_reports/" + workflow_id + "/ingestion_report.json"}'
 
