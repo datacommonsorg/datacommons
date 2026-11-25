@@ -119,7 +119,7 @@ def start(ctx: click.Context, *, imports: str, dry_run: bool, wait: bool) -> Non
     click.secho(f"Waiting for the ingestion report at {uri}...", fg="bright_black")
     found = report_lib.wait_for_report(
         uri,
-        lambda: client.get_execution(exec_id).get("state", ""),
+        lambda: client.get_workflow_execution_status(exec_id),
         project_id=tf.project_id,
     )
     _print_report(ctx, found, uri)

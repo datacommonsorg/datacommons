@@ -84,10 +84,14 @@ class IngestionJobClient:
         url = f"https://workflowexecutions.googleapis.com/v1/{self.full_workflow_name}/executions"
         return self._request("POST", url, {"argument": argument})
 
-    def get_execution(self, execution_id: str) -> dict:
-        """Returns a workflow execution, including its `state`."""
+    def get_workflow_execution_status(self, execution_id: str) -> str:
+        """Returns the state of a workflow execution.
+
+        One of ACTIVE, QUEUED, SUCCEEDED, FAILED, CANCELLED, UNAVAILABLE or
+        STATE_UNSPECIFIED (the `state` field of the Workflows Execution resource).
+        """
         url = f"https://workflowexecutions.googleapis.com/v1/{self.full_workflow_name}/executions/{execution_id}"
-        return self._request("GET", url)
+        return self._request("GET", url)["state"]
 
     def supports_dry_run(self) -> bool:
         """Returns whether the deployed workflow knows the DRY_RUN mode.

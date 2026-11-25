@@ -49,14 +49,15 @@ _REPORT = {
 
 
 def _serve_workflows_api(session, source: str = "... DRY_RUN ...") -> None:
-    """Answers the Workflows API GET calls; POST still starts exec-123."""
+    """Answers the Workflows API GET calls (workflow source, execution state);
+    POST still starts exec-123."""
     started = session.request.return_value
 
     def request(method, url, **kwargs):
         if method == "POST":
             return started
         resp = MagicMock(ok=True, status_code=200)
-        resp.json.return_value = {"sourceContents": source}
+        resp.json.return_value = {"sourceContents": source, "state": "ACTIVE"}
         return resp
 
     session.request.side_effect = request
@@ -180,8 +181,11 @@ def test_ingest_start_dry_run_with_wait_prints_the_report(
     assert '"mode": "DRY_RUN"' in result.output
 
 
-@pytest.mark.usefixtures("mock_terraform_ingest", "mock_job_session")
-def test_ingest_start_with_wait_prints_the_report(runner: CliRunner) -> None:
+@pytest.mark.usefixtures("mock_terraform_ingest")
+def test_ingest_start_with_wait_prints_the_report(
+    runner: CliRunner, mock_job_session
+) -> None:
+    _serve_workflows_api(mock_job_session)
     ingested = {**_REPORT, "run": {**_REPORT["run"], "mode": "INGEST"}}
     with patch(
         "datacommons_admin.ingest.report.read_report", return_value=ingested
