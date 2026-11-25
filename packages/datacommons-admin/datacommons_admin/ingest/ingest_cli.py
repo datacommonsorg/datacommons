@@ -131,7 +131,7 @@ def start(ctx: click.Context, *, imports: str, dry_run: bool, wait: bool) -> Non
 )
 @click.pass_context
 def view(ctx: click.Context, *, workflow_id: str) -> None:
-    """Print the ingestion report of a run."""
+    """Print the ingestion report of a previous run, without starting a new one."""
     tf = _terraform_outputs(ctx)
     uri = _report_uri(tf, workflow_id)
     found = report_lib.read_report(uri, tf.project_id)
