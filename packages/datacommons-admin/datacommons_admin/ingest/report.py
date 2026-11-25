@@ -27,8 +27,8 @@ _DONE_STATES = {"SUCCEEDED", "FAILED", "CANCELLED"}
 WAIT_TIMEOUT_SECONDS = 30 * 60
 
 
-def report_uri(bucket: str, artifacts_path: str, execution_id: str) -> str:
-    """Returns where the preprocessor writes the report for workflow execution `execution_id`.
+def report_uri(bucket: str, artifacts_path: str, workflow_execution_id: str) -> str:
+    """Returns where the preprocessor writes the report for `workflow_execution_id`.
 
     The workflow runs the preprocessor with OUTPUT_DIR=gs://<bucket>/<artifacts
     path>, and the preprocessor writes its report under
@@ -36,7 +36,7 @@ def report_uri(bucket: str, artifacts_path: str, execution_id: str) -> str:
     """
     return (
         f"gs://{bucket}/{artifacts_path.strip('/')}/datacommons/"
-        f"preprocessor_reports/{execution_id}/ingestion_report.json"
+        f"preprocessor_reports/{workflow_execution_id}/ingestion_report.json"
     )
 
 
