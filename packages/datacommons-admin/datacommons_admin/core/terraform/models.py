@@ -45,6 +45,8 @@ class TerraformOutputs:
     # Never null in HCL, but optional because only show-config reads it. A state
     # without it shouldn't break the other commands.
     storage_artifacts_bucket_name: str | None = None
+    # Optional for the same reason: only the ingestion report commands read it.
+    ingestion_artifacts_path: str | None = None
 
     @classmethod
     def from_state_outputs(cls, raw_outputs: dict[str, Any]) -> "TerraformOutputs":

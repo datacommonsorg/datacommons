@@ -51,6 +51,7 @@ def mock_tf_output_ingest() -> str:
     """Returns a mock JSON string representing Terraform outputs for Ingest commands."""
     return (
         '{"storage_artifacts_bucket_name": {"value": "mock-bucket"}, '
+        '"ingestion_artifacts_path": {"value": "ingestion/internal"}, '
         '"ingestion_workflow_service_account_email": {"value": "mock-orch-sa@mock.com"}, '
         '"ingestion_service_url": {"value": "https://mock-helper"}, '
         '"project_id": {"value": "mock-proj"}, '
@@ -154,7 +155,7 @@ def mock_job_session():
         mock_resp.json.return_value = {
             "name": "projects/mock-proj/locations/us-central1/workflows/mock-workflow/executions/exec-123"
         }
-        mock_session_inst.post.return_value = mock_resp
+        mock_session_inst.request.return_value = mock_resp
         mock_session_cls.return_value = mock_session_inst
         yield mock_session_inst
 
