@@ -24,7 +24,7 @@ from google.cloud import storage
 _DONE_STATES = {"SUCCEEDED", "FAILED", "CANCELLED"}
 
 # How long `ingest start --wait` waits for the report.
-WAIT_TIMEOUT_SECONDS = 30 * 60
+WAIT_TIMEOUT_SECONDS = 10 * 60
 
 
 def report_uri(bucket: str, artifacts_path: str, workflow_execution_id: str) -> str:
