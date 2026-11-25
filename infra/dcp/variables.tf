@@ -17,12 +17,22 @@ variable "instance_name" {
   description = "A unique identifier used as a prefix for resource naming. This prevents naming conflicts when deploying multiple isolated environments (like dev, staging, or feature branches) within the same GCP project."
   type        = string
   default     = ""
+
+  validation {
+    condition     = var.instance_name == "" || (length(var.instance_name) <= 16 && can(regex("^[a-z]([-a-z0-9]*[a-z0-9])?$", var.instance_name)))
+    error_message = "The instance_name must be at most 16 characters long, start with a lowercase letter, end with a lowercase letter or number, and contain only lowercase letters, numbers, and hyphens."
+  }
 }
 
 variable "namespace" {
   description = "Deprecated alias for instance_name. Used to maintain backward-compatibility with existing Terraform configurations."
   type        = string
   default     = ""
+
+  validation {
+    condition     = var.namespace == "" || (length(var.namespace) <= 16 && can(regex("^[a-z]([-a-z0-9]*[a-z0-9])?$", var.namespace)))
+    error_message = "The namespace must be at most 16 characters long, start with a lowercase letter, end with a lowercase letter or number, and contain only lowercase letters, numbers, and hyphens."
+  }
 }
 
 variable "stateful_deletion_protection" {
