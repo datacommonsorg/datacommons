@@ -65,7 +65,12 @@ def start(ctx: click.Context, *, imports: str, dry_run: bool, wait: bool) -> Non
     click.secho(f"Found GCP project ID: {tf.project_id}", fg="green")
     click.secho(f"Found GCP region: {tf.region}", fg="green")
 
-    client = _job_client(tf)
+    client = IngestionJobClient(
+        workflow_name=tf.ingestion_workflow_name,
+        service_account_email=tf.ingestion_workflow_service_account_email,
+        project_id=tf.project_id,
+        location=tf.region,
+    )
     if dry_run and not client.supports_dry_run():
         raise click.ClickException(
             f"The deployed workflow '{tf.ingestion_workflow_name}' doesn't support "
@@ -143,15 +148,6 @@ def _terraform_outputs(ctx: click.Context) -> TerraformOutputs:
     )
 
 
-def _job_client(tf: TerraformOutputs) -> IngestionJobClient:
-    return IngestionJobClient(
-        workflow_name=tf.ingestion_workflow_name,
-        service_account_email=tf.ingestion_workflow_service_account_email,
-        project_id=tf.project_id,
-        location=tf.region,
-    )
-
-
 def _report_uri(tf: TerraformOutputs, execution_id: str) -> str:
     if not tf.storage_artifacts_bucket_name or not tf.ingestion_artifacts_path:
         raise click.ClickException(
@@ -176,7 +172,17 @@ def _print_report(ctx: click.Context, found: dict, uri: str) -> None:
 def show_config(ctx: click.Context) -> None:
     """Print the ingestion job configuration from Terraform outputs."""
     click.secho("Datacommons Admin Ingest Show-Config", fg="cyan", bold=True)
-    tf = _terraform_outputs(ctx)
+    click.secho(
+        "Fetching ingestion configuration from Terraform outputs...",
+        fg="bright_black",
+    )
+
+    state_params = ctx.obj or {}
+    tf = get_terraform_outputs(
+        project_id=state_params.get("project_id"),
+        instance_name=state_params.get("instance_name"),
+        tf_state_location=state_params.get("tf_state_location"),
+    )
 
     # Names match the env vars the workflow passes to the preprocessing job.
     config = {
