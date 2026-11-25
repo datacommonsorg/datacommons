@@ -28,7 +28,7 @@ WAIT_TIMEOUT_SECONDS = 30 * 60
 
 
 def report_uri(bucket: str, artifacts_path: str, execution_id: str) -> str:
-    """Returns where the preprocessor writes the report for `execution_id`.
+    """Returns where the preprocessor writes the report for workflow execution `execution_id`.
 
     The workflow runs the preprocessor with OUTPUT_DIR=gs://<bucket>/<artifacts
     path>, and the preprocessor writes its report under
