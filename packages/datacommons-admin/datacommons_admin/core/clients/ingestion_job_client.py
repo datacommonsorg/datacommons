@@ -93,14 +93,6 @@ class IngestionJobClient:
         url = f"https://workflowexecutions.googleapis.com/v1/{self.full_workflow_name}/executions/{execution_id}"
         return self._request("GET", url)["state"]
 
-    def supports_dry_run(self) -> bool:
-        """Returns whether the deployed workflow knows the DRY_RUN mode.
-
-        An older workflow ignores `mode` and would ingest for real.
-        """
-        url = f"https://workflows.googleapis.com/v1/{self.full_workflow_name}"
-        return "DRY_RUN" in self._request("GET", url).get("sourceContents", "")
-
     def _request(self, method: str, url: str, json_payload: dict | None = None) -> dict:
         """Calls a Workflows API and returns its JSON response."""
         try:

@@ -48,16 +48,15 @@ _REPORT = {
 }
 
 
-def _serve_workflows_api(session, source: str = "... DRY_RUN ...") -> None:
-    """Answers the Workflows API GET calls (workflow source, execution state);
-    POST still starts exec-123."""
+def _serve_workflows_api(session) -> None:
+    """Answers GET calls with an ACTIVE execution; POST still starts exec-123."""
     started = session.request.return_value
 
     def request(method, url, **kwargs):
         if method == "POST":
             return started
         resp = MagicMock(ok=True, status_code=200)
-        resp.json.return_value = {"sourceContents": source, "state": "ACTIVE"}
+        resp.json.return_value = {"state": "ACTIVE"}
         return resp
 
     session.request.side_effect = request
@@ -212,19 +211,6 @@ def test_ingest_start_without_wait_does_not_poll(
     assert "The report will be written to" not in result.output
     read.assert_not_called()
     assert mock_job_session.request.call_count == 1
-
-
-@pytest.mark.usefixtures("mock_terraform_ingest")
-def test_ingest_start_dry_run_refuses_a_workflow_without_dry_run(
-    runner: CliRunner, mock_job_session
-) -> None:
-    """An older workflow would ignore the mode and ingest for real."""
-    _serve_workflows_api(mock_job_session, source="main: ...")
-    result = runner.invoke(admin, ["ingest", "start", "--imports", "oecd", "--dry-run"])
-
-    assert result.exit_code != 0
-    assert "doesn't support dry runs yet" in result.output
-    assert _post_calls(mock_job_session) == []
 
 
 @pytest.mark.usefixtures("mock_terraform_ingest", "mock_job_session")

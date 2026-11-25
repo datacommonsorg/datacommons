@@ -65,19 +65,12 @@ def start(ctx: click.Context, *, imports: str, dry_run: bool, wait: bool) -> Non
     click.secho(f"Found GCP project ID: {tf.project_id}", fg="green")
     click.secho(f"Found GCP region: {tf.region}", fg="green")
 
-    # An older deployed workflow ignores `mode` and would really ingest, so
-    # refuse a dry run before starting anything.
     client = IngestionJobClient(
         workflow_name=tf.ingestion_workflow_name,
         service_account_email=tf.ingestion_workflow_service_account_email,
         project_id=tf.project_id,
         location=tf.region,
     )
-    if dry_run and not client.supports_dry_run():
-        raise click.ClickException(
-            f"The deployed workflow '{tf.ingestion_workflow_name}' doesn't support "
-            "dry runs yet. Apply the latest Terraform before using --dry-run."
-        )
 
     click.secho(
         f"Starting Cloud Workflow '{tf.ingestion_workflow_name}' via Executions API (this may take a few moments)...",
