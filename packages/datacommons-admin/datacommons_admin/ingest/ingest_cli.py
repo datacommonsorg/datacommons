@@ -145,6 +145,7 @@ def view(ctx: click.Context, *, workflow_id: str) -> None:
 
 
 def _terraform_outputs(ctx: click.Context) -> TerraformOutputs:
+    """Returns the deployment's Terraform outputs, using the state options in `ctx`."""
     click.secho(
         "Fetching ingestion configuration from Terraform outputs...",
         fg="bright_black",
@@ -158,6 +159,12 @@ def _terraform_outputs(ctx: click.Context) -> TerraformOutputs:
 
 
 def _report_uri(tf: TerraformOutputs, execution_id: str) -> str:
+    """Returns the GCS URI of the ingestion report for `execution_id`.
+
+    Raises:
+      click.ClickException: If the Terraform outputs lack the bucket or the
+        artifacts path, as in a state from before these outputs existed.
+    """
     if not tf.storage_artifacts_bucket_name or not tf.ingestion_artifacts_path:
         raise click.ClickException(
             "Terraform outputs 'storage_artifacts_bucket_name' and "
