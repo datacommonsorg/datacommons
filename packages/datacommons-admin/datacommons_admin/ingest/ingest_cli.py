@@ -65,6 +65,8 @@ def start(ctx: click.Context, *, imports: str, dry_run: bool, wait: bool) -> Non
     click.secho(f"Found GCP project ID: {tf.project_id}", fg="green")
     click.secho(f"Found GCP region: {tf.region}", fg="green")
 
+    # An older deployed workflow ignores `mode` and would really ingest, so
+    # refuse a dry run before starting anything.
     client = IngestionJobClient(
         workflow_name=tf.ingestion_workflow_name,
         service_account_email=tf.ingestion_workflow_service_account_email,
@@ -81,11 +83,15 @@ def start(ctx: click.Context, *, imports: str, dry_run: bool, wait: bool) -> Non
         f"Starting Cloud Workflow '{tf.ingestion_workflow_name}' via Executions API (this may take a few moments)...",
         fg="bright_black",
     )
+    # Returns the new execution resource right away, not the workflow's result.
     result = client.start_workflow(
         imports=imports, mode="DRY_RUN" if dry_run else "INGEST"
     )
     click.secho("Successfully started ingestion workflow!", fg="green", bold=True)
 
+    # The execution name looks like
+    # projects/<project>/locations/<region>/workflows/<workflow>/executions/<id>.
+    # Its parts make the console link and the ID that names the report.
     res_name = result.get("name") or ""
     exec_match = re.match(_EXECUTION_PATTERN, res_name)
     if not exec_match:
@@ -106,6 +112,9 @@ def start(ctx: click.Context, *, imports: str, dry_run: bool, wait: bool) -> Non
     if not wait:
         return
 
+    # The preprocessor writes the report when preprocessing ends, before a
+    # normal ingestion finishes loading. Poll GCS for it, and use the execution
+    # state to stop early if the run ends without one.
     uri = _report_uri(tf, exec_id)
     click.secho(f"Waiting for the ingestion report at {uri}...", fg="bright_black")
     found = report_lib.wait_for_report(
