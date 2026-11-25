@@ -161,6 +161,7 @@ def test_ingest_start_dry_run_without_wait_prints_the_view_hint(
         "The ingestion summary will be ready when preprocessing finishes. "
         "View it with: datacommons admin ingest view --workflow_id=exec-123"
     ) in result.output
+    assert f"The report will be written to: {_REPORT_URI}" in result.output
     read.assert_not_called()
 
 
@@ -208,6 +209,7 @@ def test_ingest_start_without_wait_does_not_poll(
 
     assert result.exit_code == 0, result.output
     assert _started_argument(mock_job_session)["mode"] == "INGEST"
+    assert "The report will be written to" not in result.output
     read.assert_not_called()
     assert mock_job_session.request.call_count == 1
 

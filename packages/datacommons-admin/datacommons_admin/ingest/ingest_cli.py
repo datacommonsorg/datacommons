@@ -109,14 +109,19 @@ def start(ctx: click.Context, *, imports: str, dry_run: bool, wait: bool) -> Non
         "The ingestion summary will be ready when preprocessing finishes. "
         f"View it with: datacommons admin ingest view --workflow_id={exec_id}"
     )
+    # Dry runs and --wait need a Terraform state with the report outputs; a plain
+    # run doesn't, so it still works with an older state.
+    if not (dry_run or wait):
+        return
+    uri = _report_uri(tf, exec_id)
+    click.echo(f"The report will be written to: {uri}")
     if not wait:
         return
 
     # The preprocessor writes the report when preprocessing ends, before a
     # normal ingestion finishes loading. Poll GCS for it, and use the execution
     # state to stop early if the run ends without one.
-    uri = _report_uri(tf, exec_id)
-    click.secho(f"Waiting for the ingestion report at {uri}...", fg="bright_black")
+    click.secho("Waiting for the ingestion report...", fg="bright_black")
     found = report_lib.wait_for_report(
         uri,
         lambda: client.get_workflow_execution_status(exec_id),
