@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 import re
 
 import click
+from rich.console import Console
 
 from datacommons_admin.core.clients import IngestionJobClient
 from datacommons_admin.core.terraform.models import TerraformOutputs
@@ -175,7 +175,7 @@ def _report_uri(tf: TerraformOutputs, execution_id: str) -> str:
 
 def _print_report(ctx: click.Context, found: dict, uri: str) -> None:
     """Prints the report; exits with status 1 if the preprocessor failed."""
-    click.echo(json.dumps(found, indent=2))
+    report_lib.print_report(found, Console())
     click.secho(f"Full report: {uri}", fg="bright_black")
     if found.get("run", {}).get("status") == "FAILURE":
         ctx.exit(1)

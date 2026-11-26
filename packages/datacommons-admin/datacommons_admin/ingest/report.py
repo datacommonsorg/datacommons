@@ -11,14 +11,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Finds and waits for the preprocessor's ingestion report."""
+"""Finds, waits for and prints the preprocessor's ingestion report."""
 
 import json
 import time
 from collections.abc import Callable
+from datetime import datetime
 
 import click
 from google.cloud import storage
+from rich.console import Console
+from rich.markup import escape
+from rich.panel import Panel
+from rich.table import Table
+from rich.tree import Tree
 
 # Workflow execution states after which no report will appear.
 _DONE_STATES = {"SUCCEEDED", "FAILED", "CANCELLED"}
@@ -82,3 +88,81 @@ def wait_for_report(
                 f"report at {uri}."
             )
         time.sleep(interval)
+
+
+# Node types listed per provenance; the rest are summarized as "N more".
+_TOP_NODE_TYPES = 5
+
+
+def print_report(report: dict, console: Console) -> None:
+    """Prints a run header and run errors, then a tree per folder."""
+    run = report.get("run", {})
+    status = run.get("status") or "UNKNOWN"
+    color = "green" if status == "SUCCESS" else "red"
+    header = Table.grid(padding=(0, 2))
+    header.add_row("Workflow execution ID", run.get("workflowExecutionId") or "-")
+    header.add_row("Mode", (run.get("mode") or "-").replace("_", " "))
+    header.add_row("Status", f"[bold {color}]{status}[/]")
+    header.add_row("Took", _duration(run.get("startTime"), run.get("endTime")))
+    console.print(
+        Panel(header, title="Ingestion report", border_style=color, expand=False)
+    )
+    for error in report.get("errors", []):
+        console.print(_error(error))
+    for folder in report.get("folders", []):
+        console.print(_folder_tree(folder))
+
+
+def _folder_tree(folder: dict) -> Tree:
+    """Returns the folder's totals, with one branch per provenance."""
+    summary = folder.get("summary", {})
+    tree = Tree(
+        f"[bold]{folder.get('folderName')}[/]: "
+        f"{summary.get('files', {}).get('count', 0):,} files · "
+        f"{summary.get('observations', 0):,} observations · "
+        f"{summary.get('nodes', {}).get('count', 0):,} nodes",
+        guide_style="dim",
+    )
+    for provenance in folder.get("provenances", []):
+        dates = provenance.get("dateRange")
+        nodes = provenance.get("nodes", {})
+        branch = tree.add(
+            f"[bold]{provenance.get('id')}[/]: "
+            f"{provenance.get('fileCount', 0):,} files · "
+            f"{provenance.get('observations', 0):,} observations"
+            + (f" · {dates['min']} – {dates['max']}" if dates else "")
+        )
+        branch.add(
+            f"{nodes.get('count', 0):,} nodes{_top_types(nodes.get('byType', {}))}"
+        )
+        for error in provenance.get("errors", []):
+            branch.add(_error(error))
+    return tree
+
+
+def _error(error: dict) -> str:
+    """Returns one report error as "✗ TYPE file: message"."""
+    where = f" {error['file']}:" if error["file"] else ""
+    return (
+        f"[red]✗ {error['errorType']}[/]{escape(where)} {escape(error['errorMessage'])}"
+    )
+
+
+def _top_types(by_type: dict[str, int]) -> str:
+    """Returns ": A 4 · B 2 · …" for the most common types, or ""."""
+    if not by_type:
+        return ""
+    ranked = sorted(by_type.items(), key=lambda item: (-item[1], item[0]))
+    shown = " · ".join(f"{t} {n:,}" for t, n in ranked[:_TOP_NODE_TYPES])
+    more = len(ranked) - _TOP_NODE_TYPES
+    return f": {shown}" + (f" · and {more} more" if more > 0 else "")
+
+
+def _duration(start: str | None, end: str | None) -> str:
+    """Returns how long the run took, e.g. "3m 12s", or "-"."""
+    if not start or not end:
+        return "-"
+    seconds = int(
+        (datetime.fromisoformat(end) - datetime.fromisoformat(start)).total_seconds()
+    )
+    return f"{seconds // 60}m {seconds % 60}s" if seconds >= 60 else f"{seconds}s"

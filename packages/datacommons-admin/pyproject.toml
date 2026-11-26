@@ -14,6 +14,7 @@ dependencies = [
   "google-cloud-secret-manager>=2.16.0",
   "google-cloud-storage>=2.13.0",
   "pyopenssl>=24.0.0",
+  "rich>=13.7.0",
   "datacommons-db==1.1.7",
 ]
 
