@@ -100,7 +100,7 @@ def print_report(report: dict, console: Console) -> None:
     status = run.get("status") or "UNKNOWN"
     color = "green" if status == "SUCCESS" else "red"
     header = Table.grid(padding=(0, 2))
-    header.add_row("Execution", run.get("workflowExecutionId") or "-")
+    header.add_row("Workflow execution ID", run.get("workflowExecutionId") or "-")
     header.add_row("Mode", (run.get("mode") or "-").replace("_", " "))
     header.add_row("Status", f"[bold {color}]{status}[/]")
     header.add_row("Took", _duration(run.get("startTime"), run.get("endTime")))
