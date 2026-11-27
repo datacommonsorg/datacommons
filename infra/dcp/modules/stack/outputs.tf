@@ -72,7 +72,7 @@ output "ingestion_preprocessing_image" {
 
 output "ingestion_postprocessing_image" {
   description = "Container image URI used by the Cloud Run postprocessing job"
-  value       = var.ingestion_config.enable_ingestion ? module.ingestion_postprocessing_job[0].image : null
+  value       = one(module.ingestion_postprocessing_job[*].image)
 }
 
 output "ingestion_dataflow_template_gcs_path" {

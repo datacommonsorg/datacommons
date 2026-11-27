@@ -23,14 +23,10 @@ resource "google_cloud_run_v2_job" "dc_postprocessing_job" {
           }
         }
 
-        dynamic "env" {
-          for_each = var.env_vars
-          content {
-            name  = env.value.name
-            value = env.value.value
-          }
+        env {
+          name  = "PROJECT_ID"
+          value = var.project_id
         }
-
         env {
           name  = "SPANNER_PROJECT_ID"
           value = var.project_id
@@ -44,10 +40,6 @@ resource "google_cloud_run_v2_job" "dc_postprocessing_job" {
           value = var.spanner_config.database_id
         }
         env {
-          name  = "SPANNER_GRAPH_DATABASE_ID"
-          value = var.spanner_config.database_id
-        }
-        env {
           name  = "BQ_SPANNER_CONN_ID"
           value = var.spanner_config.bigquery_connection_id != null ? var.spanner_config.bigquery_connection_id : ""
         }
@@ -57,7 +49,7 @@ resource "google_cloud_run_v2_job" "dc_postprocessing_job" {
         }
         env {
           name  = "ENABLE_EMBEDDINGS"
-          value = var.enable_spanner_embeddings ? "true" : "false"
+          value = var.enable_embeddings_generation ? "true" : "false"
         }
       }
 
@@ -79,14 +71,13 @@ resource "google_cloud_run_v2_job" "dc_postprocessing_job" {
       service_account = google_service_account.postprocessing_sa.email
     }
   }
-}
 
-
-resource "google_project_iam_member" "postprocessing_bq_data_editor" {
-  count   = var.enable_bigquery_postprocessing ? 1 : 0
-  project = var.project_id
-  role    = "roles/bigquery.dataEditor"
-  member  = "serviceAccount:${google_service_account.postprocessing_sa.email}"
+  depends_on = [
+    google_project_iam_member.postprocessing_bq_job_user,
+    google_spanner_database_iam_member.postprocessing_spanner_user,
+    google_spanner_instance_iam_member.postprocessing_spanner_instance_viewer,
+    google_bigquery_connection_iam_member.postprocessing_bq_connection_user,
+  ]
 }
 
 resource "google_project_iam_member" "postprocessing_bq_job_user" {
